@@ -128,7 +128,7 @@ spec = around showLogsOnFailure $ do
           withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              initAndClose tracer 1 hydraScriptsTxId node
+              initAndClose tmpDir tracer 1 hydraScriptsTxId node
 
       it "inits a Head and closes it immediately " $ \tracer ->
         failAfter 60 $
@@ -310,8 +310,8 @@ spec = around showLogsOnFailure $ do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               concurrently_
-                (initAndClose tracer 0 hydraScriptsTxId node)
-                (initAndClose tracer 1 hydraScriptsTxId node)
+                (initAndClose tmpDir tracer 0 hydraScriptsTxId node)
+                (initAndClose tmpDir tracer 1 hydraScriptsTxId node)
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
@@ -484,128 +484,127 @@ waitForLog delay nodeOutput failureMessage predicate = do
         ]
           <> logs
 
-initAndClose :: Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
-initAndClose tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
-  withClusterTempDir "init-and-close" $ \tmpDir -> do
-    aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
-    bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-    carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
+initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
+  aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  bobKeys@(bobCardanoVk, _) <- generate genKeyPair
+  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
 
-    let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
-    let bobSk = generateSigningKey ("bob-" <> show clusterIx)
-    let carolSk = generateSigningKey ("carol-" <> show clusterIx)
+  let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
+  let bobSk = generateSigningKey ("bob-" <> show clusterIx)
+  let carolSk = generateSigningKey ("carol-" <> show clusterIx)
 
-    let alice = deriveParty aliceSk
-    let bob = deriveParty bobSk
-    let carol = deriveParty carolSk
+  let alice = deriveParty aliceSk
+  let bob = deriveParty bobSk
+  let carol = deriveParty carolSk
 
-    let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
-        hydraKeys = [aliceSk, bobSk, carolSk]
+  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+      hydraKeys = [aliceSk, bobSk, carolSk]
 
-    let firstNodeId = clusterIx * 3
-    let contestationPeriod = UnsafeContestationPeriod 2
-    withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-      let [n1, n2, n3] = toList nodes
-      waitForNodesConnected tracer [n1, n2, n3]
+  let firstNodeId = clusterIx * 3
+  let contestationPeriod = UnsafeContestationPeriod 2
+  withHydraCluster tracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+    let [n1, n2, n3] = toList nodes
+    waitForNodesConnected tracer [n1, n2, n3]
 
-      -- Funds to be used as fuel by Hydra protocol transactions
-      seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-      seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-      seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+    -- Funds to be used as fuel by Hydra protocol transactions
+    seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+    seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+    seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
 
-      send n1 $ input "Init" []
-      headId <-
-        waitForAllMatch 10 [n1, n2, n3] $
-          headIsInitializingWith (Set.fromList [alice, bob, carol])
+    send n1 $ input "Init" []
+    headId <-
+      waitForAllMatch 10 [n1, n2, n3] $
+        headIsInitializingWith (Set.fromList [alice, bob, carol])
 
-      -- Get some UTXOs to commit to a head
-      committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-      committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
-      send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-      send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
-      send n3 $ input "Commit" ["utxo" .= Object mempty]
-      waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
+    -- Get some UTXOs to commit to a head
+    committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+    committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
+    send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+    send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
+    send n3 $ input "Commit" ["utxo" .= Object mempty]
+    waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
 
-      -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
-      let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
-      let Right tx =
-            mkSimpleTx
-              firstCommittedUTxO
-              (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
-              aliceCardanoSk
-      send n1 $ input "NewTx" ["transaction" .= tx]
-      waitFor tracer 10 [n1, n2, n3] $
-        output "TxValid" ["transaction" .= tx, "headId" .= headId]
+    -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
+    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+    let Right tx =
+          mkSimpleTx
+            firstCommittedUTxO
+            (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+            aliceCardanoSk
+    send n1 $ input "NewTx" ["transaction" .= tx]
+    waitFor tracer 10 [n1, n2, n3] $
+      output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
-      -- The expected new utxo set is the created payment to bob,
-      -- alice's remaining utxo in head and whatever bot has
-      -- committed to the head
-      let newUTxO =
-            Map.fromList
-              [
-                ( TxIn (txId tx) (toEnum 0)
-                , object
-                    [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
-                    , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
-                    , "datum" .= Null
-                    , "datumhash" .= Null
-                    , "inlineDatum" .= Null
-                    , "referenceScript" .= Null
-                    ]
-                )
-              ,
-                ( TxIn (txId tx) (toEnum 1)
-                , object
-                    [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
-                    , "value" .= object ["lovelace" .= int (aliceCommittedToHead - paymentFromAliceToBob)]
-                    , "datum" .= Null
-                    , "datumhash" .= Null
-                    , "inlineDatum" .= Null
-                    , "referenceScript" .= Null
-                    ]
-                )
-              ]
-              <> fmap toJSON (Map.fromList (UTxO.pairs committedUTxOByBob))
+    -- The expected new utxo set is the created payment to bob,
+    -- alice's remaining utxo in head and whatever bot has
+    -- committed to the head
+    let newUTxO =
+          Map.fromList
+            [
+              ( TxIn (txId tx) (toEnum 0)
+              , object
+                  [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
+                  , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
+                  , "datum" .= Null
+                  , "datumhash" .= Null
+                  , "inlineDatum" .= Null
+                  , "referenceScript" .= Null
+                  ]
+              )
+            ,
+              ( TxIn (txId tx) (toEnum 1)
+              , object
+                  [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
+                  , "value" .= object ["lovelace" .= int (aliceCommittedToHead - paymentFromAliceToBob)]
+                  , "datum" .= Null
+                  , "datumhash" .= Null
+                  , "inlineDatum" .= Null
+                  , "referenceScript" .= Null
+                  ]
+              )
+            ]
+            <> fmap toJSON (Map.fromList (UTxO.pairs committedUTxOByBob))
 
-      let expectedSnapshot =
-            object
-              [ "snapshotNumber" .= int expectedSnapshotNumber
-              , "utxo" .= newUTxO
-              , "confirmedTransactions" .= [tx]
-              ]
-          expectedSnapshotNumber = 1
+    let expectedSnapshot =
+          object
+            [ "snapshotNumber" .= int expectedSnapshotNumber
+            , "utxo" .= newUTxO
+            , "confirmedTransactions" .= [tx]
+            ]
+        expectedSnapshotNumber = 1
 
-      waitMatch 10 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        snapshot <- v ^? key "snapshot"
-        guard $ snapshot == expectedSnapshot
+    waitMatch 10 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      snapshot <- v ^? key "snapshot"
+      guard $ snapshot == expectedSnapshot
 
-      send n1 $ input "GetUTxO" []
-      waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO, "headId" .= headId]
+    send n1 $ input "GetUTxO" []
+    waitFor tracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO, "headId" .= headId]
 
-      send n1 $ input "Close" []
-      deadline <- waitMatch 3 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "HeadIsClosed"
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        snapshotNumber <- v ^? key "snapshotNumber"
-        guard $ snapshotNumber == toJSON expectedSnapshotNumber
-        v ^? key "contestationDeadline" . _JSON
+    send n1 $ input "Close" []
+    deadline <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsClosed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      snapshotNumber <- v ^? key "snapshotNumber"
+      guard $ snapshotNumber == toJSON expectedSnapshotNumber
+      v ^? key "contestationDeadline" . _JSON
 
-      -- Expect to see ReadyToFanout within 3 seconds after deadline
-      remainingTime <- diffUTCTime deadline <$> getCurrentTime
-      waitFor tracer (truncate $ remainingTime + 3) [n1] $
-        output "ReadyToFanout" ["headId" .= headId]
+    -- Expect to see ReadyToFanout within 3 seconds after deadline
+    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+    waitFor tracer (truncate $ remainingTime + 3) [n1] $
+      output "ReadyToFanout" ["headId" .= headId]
 
-      send n1 $ input "Fanout" []
-      waitFor tracer 3 [n1] $
-        output "HeadIsFinalized" ["utxo" .= newUTxO, "headId" .= headId]
+    send n1 $ input "Fanout" []
+    waitFor tracer 3 [n1] $
+      output "HeadIsFinalized" ["utxo" .= newUTxO, "headId" .= headId]
 
-      case fromJSON $ toJSON newUTxO of
-        Error err ->
-          failure $ "newUTxO isn't valid JSON?: " <> err
-        Data.Aeson.Success u ->
-          failAfter 5 $ waitForUTxO networkId nodeSocket u
+    case fromJSON $ toJSON newUTxO of
+      Error err ->
+        failure $ "newUTxO isn't valid JSON?: " <> err
+      Data.Aeson.Success u ->
+        failAfter 5 $ waitForUTxO networkId nodeSocket u
 
 --
 -- Fixtures
