@@ -97,10 +97,6 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
-  -- NOTE: We will add a 'Greetings' message on each API server start. This is
-  -- important to make sure the latest configured 'party' is reaching the
-  -- client.
-  void $ appendToHistory history (Greetings party)
   race_
     (runAPIServer host port party tracer history callback responseChannel)
     . action
@@ -115,18 +111,18 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   appendToHistory history output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
-      seq <- nextSequenceNumber <$> readTVar history
+      seq <- nextSequenceNumber history
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
     append timedOutput
     pure timedOutput
 
-nextSequenceNumber :: [TimedServerOutput tx] -> Natural
+nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
 nextSequenceNumber historyList =
-  case historyList of
-    [] -> 0
-    (TimedServerOutput{seq} : _) -> seq + 1
+  STM.readTVar historyList >>= \case
+    [] -> pure 0
+    (TimedServerOutput{seq} : _) -> pure (seq + 1)
 
 runAPIServer ::
   forall tx.
@@ -156,9 +152,10 @@ runAPIServer host port party tracer history callback responseChannel = do
     traceWith tracer NewAPIConnection
 
     -- api client can decide if they want to see the past history of server outputs
-    if shouldNotServeHistory queryParams
-      then forwardGreetingOnly con
-      else forwardHistory con
+    unless (shouldNotServeHistory queryParams) $
+      forwardHistory con
+
+    forwardGreetingOnly con
 
     -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
     let txDisplay = decideOnTxDisplay queryParams
@@ -169,13 +166,17 @@ runAPIServer host port party tracer history callback responseChannel = do
   httpApp _ respond =
     respond $ responseLBS status400 [] "only WebSocket connections supported"
 
+  -- NOTE: We will add a 'Greetings' message on each API server start. This is
+  -- important to make sure the latest configured 'party' is reaching the
+  -- client.
   forwardGreetingOnly con = do
+    seq <- STM.atomically $ nextSequenceNumber history
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
-          , seq = 0
+          , seq
           , output = Greetings party :: ServerOutput tx
           }
   decideOnTxDisplay qp =
@@ -219,7 +220,7 @@ runAPIServer host port party tracer history callback responseChannel = do
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
         time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber <$> readTVar history
+        seq <- atomically $ nextSequenceNumber history
         let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)

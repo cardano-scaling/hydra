@@ -97,8 +97,8 @@ spec = describe "ServerSpec" $ do
               )
               $ \_ -> do
                 waitForClients semaphore
-                failAfter 1 $ atomically (replicateM 3 (readTQueue queue1)) `shouldReturn` [greeting, arbitraryMsg, greeting]
-                failAfter 1 $ atomically (replicateM 3 (readTQueue queue2)) `shouldReturn` [greeting, arbitraryMsg, greeting]
+                failAfter 1 $ atomically (replicateM 2 (readTQueue queue1)) `shouldReturn` [arbitraryMsg, greeting]
+                failAfter 1 $ atomically (replicateM 2 (readTQueue queue2)) `shouldReturn` [arbitraryMsg, greeting]
                 sendOutput arbitraryMsg
                 failAfter 1 $ atomically (replicateM 1 (readTQueue queue1)) `shouldReturn` [arbitraryMsg]
                 failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
@@ -119,7 +119,7 @@ spec = describe "ServerSpec" $ do
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right timedOutputs -> do
-                  (output <$> timedOutputs) `shouldBe` greeting : outputs
+                  (output <$> timedOutputs) `shouldBe` outputs <> [greeting]
 
   it "does not echo history if client says no" $
     checkCoverage . monadicIO $ do
@@ -153,7 +153,6 @@ spec = describe "ServerSpec" $ do
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right timedOutputs' -> do
                   (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
-              return ()
 
   it "outputs tx as cbor or json depending on the client" $
     monadicIO $ do
@@ -224,6 +223,7 @@ spec = describe "ServerSpec" $ do
             mapM_ sendOutput outputs
             withClient port "/" $ \conn -> do
               received <- replicateM (length outputs + 1) (receiveData conn)
+
               case traverse Aeson.eitherDecode received of
                 Left{} -> failure $ "Failed to decode messages:\n" <> show received
                 Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
