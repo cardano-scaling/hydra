@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## Known issues
+## Known issues & limitations
 
 ### hydra-node
 
@@ -18,6 +18,12 @@
   - [Only sign closable snapshots](https://github.com/input-output-hk/hydra/issues/370)
 
 - Not an issue, but a workaround: The internal wallet of `hydra-node` requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](/docs/getting-started/demo/with-docker/#seeding-the-network).
+
+- You would need to match the hydra-node version with the appropriate scripts published for this release and make sure to choose the correct network.
+
+- There is a hard-coded limit on **mainnet** network where you can only commit up to 100 ADA into the Hydra head which is meant to prevent the users from _shooting themselves in the foot_ until we have more experience running Hydra Heads on the mainnet
+
+- Using reference scripts _inside the head_ will make it uncloseable on-chain as there's no way references can be preserved between off-chain and on-chain
 
 ### hydra-tui
 

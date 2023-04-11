@@ -19,12 +19,16 @@ we've put together, marching towards a production ready solution. It contains a
 connects to other hydra-nodes, interfaces the Cardano blockchain and provides an
 API to clients such as the included example terminal user interface `hydra-tui`.
 
-> :warning: :warning: :warning:
->
-> This is still prototypical and exploratory work shared here for your
-interest.
->
-> It is NOT ready for production (yet).
+<details>
+<summary>:rotating_light: Mainnet Availability :rotating_light:</summary>
+
+Since version 0.10.0, Hydra scripts are available on Cardano mainnet
+and it's therefore possible to run Hydra nodes on mainnet.  Before
+doing so, be sure to read the [relevant section](https://hydra.family/head-protocol/docs/getting-started/troubleshooting) of the
+documentation in order to understand the current limitations and the
+possible consequences.
+
+</details>
 
 ## :rocket: Getting started
 
