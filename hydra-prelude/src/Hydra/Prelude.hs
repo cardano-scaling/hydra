@@ -15,6 +15,10 @@ module Hydra.Prelude (
   module Control.Monad.Class.MonadTimer,
   module Control.Monad.Class.MonadFork,
   module Control.Monad.Class.MonadThrow,
+  module Control.Concurrent.Class.MonadSTM.TBQueue,
+  module Control.Concurrent.Class.MonadSTM.TMVar,
+  module Control.Concurrent.Class.MonadSTM.TQueue,
+  module Control.Concurrent.Class.MonadSTM.TVar,
   StaticMap (..),
   DynamicMap (..),
   keys,
@@ -42,6 +46,10 @@ import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
+import Control.Concurrent.Class.MonadSTM.TBQueue (TBQueue)
+import Control.Concurrent.Class.MonadSTM.TMVar (TMVar)
+import Control.Concurrent.Class.MonadSTM.TQueue (TQueue)
+import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
 import Control.Monad.Class.MonadAsync (
   MonadAsync (concurrently, concurrently_, race, race_, withAsync),
  )
@@ -58,12 +66,7 @@ import Control.Monad.Class.MonadST (
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
   STM,
-  TBQueue,
-  TMVar,
-  TQueue,
-  TVar,
   atomically,
-  readTVar,
  )
 import Control.Monad.Class.MonadThrow (
   MonadCatch (..),
