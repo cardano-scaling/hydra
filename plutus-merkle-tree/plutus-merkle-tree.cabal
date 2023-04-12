@@ -76,9 +76,7 @@ library
     , base
     , base16
     , plutus-core
-    , plutus-ledger-api
     , plutus-tx
-    , plutus-tx-plugin
     , text
 
   if flag(hydra-development)
@@ -90,9 +88,8 @@ test-suite unit
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
   ghc-options:        -threaded -rtsopts
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   build-depends:
-    , array
     , base
     , base16
     , bytestring
@@ -100,11 +97,8 @@ test-suite unit
     , hspec
     , hydra-prelude
     , hydra-test-utils
-    , plutus-core
-    , plutus-ledger-api
     , plutus-merkle-tree
     , plutus-tx
-    , plutus-tx-plugin
     , QuickCheck
 
   other-modules:
@@ -129,9 +123,9 @@ benchmark on-chain-cost
     , directory
     , filepath
     , hydra-prelude
-    , hydra-test-utils
+    , hydra-test-utils       >=0.10.0
     , plutus-core
-    , plutus-ledger-api
+    , plutus-ledger-api      >=1.1.0.0
     , plutus-merkle-tree
     , plutus-tx
     , plutus-tx-plugin

@@ -5,21 +5,18 @@ module Main where
 
 import Hydra.Prelude hiding (catch)
 
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Data.ByteString (hPut)
 import qualified Data.ByteString as BS
 import Data.Fixed (E2, Fixed)
 import Data.Maybe (fromJust)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified PlutusTx.Prelude as Plutus
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
-import Test.Plutus.Validator (ExUnits (ExUnits), evaluateScriptExecutionUnits)
+import Test.Plutus.Validator (ExecutionUnits (..), defaultMaxExecutionUnits, evaluateScriptExecutionUnits)
 import Test.QuickCheck (generate, vectorOf)
 import Validators (merkleTreeBuilderValidator, merkleTreeMemberValidator)
-
--- import Plutus.Orphans ()
 
 newtype MemUnit = MemUnit Natural
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
@@ -79,11 +76,9 @@ costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
           )
           stats
 
-  -- TODO: Avoid re-hard-coding parameters here.
   maxMem, maxCpu :: Fixed E2
-  Ledger.ExUnits
-    (fromIntegral @_ @(Fixed E2) -> maxMem)
-    (fromIntegral @_ @(Fixed E2) -> maxCpu) = Ledger.ExUnits 14_000_000 10_000_000_000
+  maxMem = fromIntegral $ executionMemory defaultMaxExecutionUnits
+  maxCpu = fromIntegral $ executionSteps defaultMaxExecutionUnits
 
 computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
 computeMerkleTreeCost =
@@ -106,8 +101,8 @@ executionCostForMember utxo =
         acc >>= \(curMem, curCpu) ->
           let proof = fromJust $ MT.mkProof e tree
            in case evaluateScriptExecutionUnits merkleTreeMemberValidator (e, MT.rootHash tree, proof) of
-                Right (ExUnits mem cpu) ->
-                  Right (mem + curMem, cpu + curCpu)
+                Right ExecutionUnits{executionMemory, executionSteps} ->
+                  Right (executionMemory + curMem, executionSteps + curCpu)
                 Left err -> Left err
    in foldr accumulateCost (Right (0, 0)) utxo
 
@@ -116,4 +111,4 @@ executionCostForBuilder utxo =
   let tree = MT.fromList utxo
       root = rootHash tree
    in evaluateScriptExecutionUnits merkleTreeBuilderValidator (utxo, root) <&> \case
-        ExUnits mem cpu -> (mem, cpu)
+        ExecutionUnits{executionMemory, executionSteps} -> (executionMemory, executionSteps)
