@@ -7,19 +7,10 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Api.Byron (Address (..))
 import Cardano.Binary (unsafeDeserialize')
 import qualified Cardano.Chain.Common as Ledger
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Test.QuickCheck (frequency, oneof, vector)
 
 -- * Orphans
-
-instance ToJSON (Address ByronAddr) where
-  toJSON = toJSON . AddressInEra (ByronAddressInAnyEra @Era)
-
-instance FromJSON (Address ByronAddr) where
-  parseJSON =
-    Aeson.withText "Address Byron" $
-      maybe mempty pure . deserialiseAddress AsByronAddress
 
 instance Arbitrary (Address ByronAddr) where
   arbitrary = do
