@@ -9,7 +9,7 @@ import qualified PlutusLedgerApi.V2 as Plutus
 -- | Construct a 'ReferenceScript' from any given Plutus script.
 --
 -- NOTE: The script is treated as a 'PlutusScriptV2'
-mkScriptRef :: Plutus.Script -> ReferenceScript Era
+mkScriptRef :: Plutus.SerialisedScript -> ReferenceScript Era
 mkScriptRef =
   ReferenceScript inlineDatumsSupportedInEra
     . toScriptInAnyLang

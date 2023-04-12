@@ -65,6 +65,7 @@ changes.
   + **BREAKING** Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
   + **BREAKING** Changed `toScriptData` and `toLedgerData` to return or require a `HashableScriptData` instead.
   * Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
+  * **BREAKING** Change `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
 
 ## [0.9.0] - 2023-03-02
 
