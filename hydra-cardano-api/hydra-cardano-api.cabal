@@ -97,7 +97,6 @@ library
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptLanguageInEra
-    Hydra.Cardano.Api.ScriptWitnessInCtx
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxId
