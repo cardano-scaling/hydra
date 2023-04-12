@@ -9,8 +9,8 @@ import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
-import PlutusLedgerApi.V2 ( CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import PlutusLedgerApi.V1.Value (flattenValue)
+import PlutusLedgerApi.V2 (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
@@ -69,12 +69,12 @@ txMintAssets =
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.
-fromLedgerValue :: Ledger.Value StandardCrypto -> Value
+fromLedgerValue :: Ledger.MaryValue StandardCrypto -> Value
 fromLedgerValue =
   fromMaryValue
 
 -- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.
-toLedgerValue :: Value -> Ledger.Value StandardCrypto
+toLedgerValue :: Value -> Ledger.MaryValue StandardCrypto
 toLedgerValue =
   toMaryValue
 
