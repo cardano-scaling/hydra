@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-test-utils
-version:       0.9.0
+version:       0.10.0
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG
@@ -33,16 +33,10 @@ library
     Test.Plutus.Validator
 
   build-depends:
-    , array
     , base
     , bytestring
-    , cardano-binary
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
-    , cardano-ledger-babbage
-    , cardano-ledger-core
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , cardano-slotting
     , containers
     , data-default
@@ -62,7 +56,6 @@ library
     , process
     , QuickCheck
     , relude
-    , strict-containers
     , temporary
 
   ghc-options:      -Wall -Werror -Wcompat -Wunused-packages

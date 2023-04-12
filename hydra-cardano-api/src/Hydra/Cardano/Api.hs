@@ -86,6 +86,7 @@ import Cardano.Api.Shelley as X (
   ShelleyLedgerEra,
   SigningKey (..),
   VerificationKey (..),
+  fromAlonzoCostModels,
   fromConsensusPointInMode,
   fromPlutusData,
   toConsensusPointInMode,

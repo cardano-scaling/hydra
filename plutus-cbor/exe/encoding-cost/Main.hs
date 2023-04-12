@@ -65,7 +65,7 @@ relativeCostOf a (ExUnits maxMem maxCpu) mkValidator =
   ExUnits mem cpu = either (error . show) id $ do
     base <- evaluateScriptExecutionUnits (mkValidator BaselineValidator) a
     real <- evaluateScriptExecutionUnits (mkValidator RealValidator) a
-    pure $ distanceExUnits base real
+    pure $ distanceExecutionUnits base real
 
   (relativeMemCost, relativeCpuCost) =
     ( toInteger mem % toInteger maxMem

@@ -71,6 +71,9 @@ changes.
   * **BREAKING** Change `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
   * Added `genTxIn` and `arbitrary` instance for `TxIn`
 
+- Changes to **hydra-test-utils**:
+  + **BREAKING** Greatly simplified the implementation of `evaluateScriptExecutionUnits` using `cardano-api` types now.
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
