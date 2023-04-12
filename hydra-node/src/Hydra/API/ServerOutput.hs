@@ -3,10 +3,10 @@
 module Hydra.API.ServerOutput where
 
 import Cardano.Binary (serialize')
-import Control.Lens ( (.~))
+import Control.Lens ((.~))
 import Data.Aeson (Value (..), encode, withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
@@ -127,19 +127,30 @@ data OutputFormat
   | OutputJSON
   deriving (Eq, Show)
 
--- | Replaces the json encoded tx fields with it's cbor representation.
--- NOTE: we deliberately pattern match on all 'ServerOutput' constructors
--- so that we don't forget to update this function if they change.
+-- | Whether or not to include full UTxO in server outputs.
+data WithUTxO = WithUTxO | WithoutUTxO
+  deriving (Eq, Show)
+
+data ServerOutputConfig = ServerOutputConfig
+  { txOutputFormat :: OutputFormat
+  , utxoInSnapshot :: WithUTxO
+  }
+  deriving (Eq, Show)
+
+-- | Replaces the json encoded tx field with it's cbor representation.
+--
+-- NOTE: we deliberately pattern match on all 'ServerOutput' constructors in
+-- 'handleTxOutput' so that we don't forget to update this function if they
+-- change.
 prepareServerOutput ::
   IsChainState tx =>
   -- | Decide on tx representation
-  OutputFormat ->
+  ServerOutputConfig ->
   -- | Server output
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput OutputJSON response = encode response
-prepareServerOutput OutputCBOR response =
+prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -157,20 +168,29 @@ prepareServerOutput OutputCBOR response =
         Abort -> encodedResponse
         Commit{} -> encodedResponse
         NewTx{Hydra.API.ClientInput.transaction = tx} ->
-          encodedResponse & key "transaction" .~ txToCbor tx
+          handleTxOutput
+            (key "transaction" .~ txToCbor tx)
+            encodedResponse
         GetUTxO -> encodedResponse
         Close -> encodedResponse
         Contest -> encodedResponse
         Fanout -> encodedResponse
     TxValid{Hydra.API.ServerOutput.transaction = tx} ->
-      encodedResponse & key "transaction" .~ txToCbor tx
+      handleTxOutput
+        (key "transaction" .~ txToCbor tx)
+        encodedResponse
     TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
-      encodedResponse & key "transaction" .~ txToCbor tx
+      handleTxOutput
+        (key "transaction" .~ txToCbor tx)
+        encodedResponse
     SnapshotConfirmed{Hydra.API.ServerOutput.snapshot} ->
-      encodedResponse
-        & key "snapshot"
-          . key "confirmedTransactions"
-          .~ toJSON (txToCbor <$> confirmed snapshot)
+      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) $
+        handleTxOutput
+          ( key "snapshot"
+              . key "confirmedTransactions"
+              .~ toJSON (txToCbor <$> confirmed snapshot)
+          )
+          encodedResponse
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
@@ -180,25 +200,39 @@ prepareServerOutput OutputCBOR response =
           case confirmedSnapshot of
             InitialSnapshot{} -> encodedResponse
             ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              encodedResponse
-                & key "postChainTx"
-                  . key "confirmedSnapshot"
-                  . key "snapshot"
-                  . key "confirmedTransactions"
-                  .~ (toJSON $ txToCbor <$> confirmed snapshot)
+              handleTxOutput
+                ( key "postChainTx"
+                    . key "confirmedSnapshot"
+                    . key "snapshot"
+                    . key "confirmedTransactions"
+                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                )
+                encodedResponse
         ContestTx{confirmedSnapshot} ->
           case confirmedSnapshot of
             InitialSnapshot{} -> encodedResponse
             ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              encodedResponse
-                & key "postChainTx"
-                  . key "confirmedSnapshot"
-                  . key "snapshot"
-                  . key "confirmedTransactions"
-                  .~ (toJSON $ txToCbor <$> confirmed snapshot)
+              handleTxOutput
+                ( key "postChainTx"
+                    . key "confirmedSnapshot"
+                    . key "snapshot"
+                    . key "confirmedTransactions"
+                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                )
+                encodedResponse
         _other -> encodedResponse
     RolledBack -> encodedResponse
  where
+  handleUtxoInclusion f bs =
+    case utxoInSnapshot of
+      WithUTxO -> bs
+      WithoutUTxO -> bs & f
+
+  handleTxOutput f bs =
+    case txOutputFormat of
+      OutputJSON -> bs
+      OutputCBOR -> bs & f
+
   encodedResponse = encode response
 
   txToCbor =

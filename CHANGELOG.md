@@ -44,6 +44,7 @@ changes.
 - API clients can decide if they want to:
   + Skip observing history of events before they connected
   + View the transactions in the server output encoded as CBOR
+  + Prevent utxo display in `SnapshotConfirmed` server outputs
 
 - Replaced existing websocket server with production-grade one
 

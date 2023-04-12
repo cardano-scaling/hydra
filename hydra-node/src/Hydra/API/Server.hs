@@ -22,7 +22,9 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
+  ServerOutputConfig (..),
   TimedServerOutput (..),
+  WithUTxO (..),
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -157,11 +159,10 @@ runAPIServer host port party tracer history callback responseChannel = do
 
     forwardGreetingOnly con
 
-    -- api client can decide if they want tx's to be displayed as CBOR instead of plain json
-    let txDisplay = decideOnTxDisplay queryParams
+    let outConfig = mkServerOutputConfig queryParams
 
     withPingThread con 30 (pure ()) $
-      race_ (receiveInputs con) (sendOutputs chan con txDisplay)
+      race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
   httpApp _ respond =
     respond $ responseLBS status400 [] "only WebSocket connections supported"
@@ -179,6 +180,13 @@ runAPIServer host port party tracer history callback responseChannel = do
           , seq
           , output = Greetings party :: ServerOutput tx
           }
+
+  mkServerOutputConfig qp =
+    ServerOutputConfig
+      { txOutputFormat = decideOnTxDisplay qp
+      , utxoInSnapshot = decideOnUTxODisplay qp
+      }
+
   decideOnTxDisplay qp =
     let k = [queryKey|tx-output|]
         v = [queryValue|cbor|]
@@ -186,6 +194,14 @@ runAPIServer host port party tracer history callback responseChannel = do
      in case queryP `elem` qp of
           True -> OutputCBOR
           False -> OutputJSON
+
+  decideOnUTxODisplay qp =
+    let k = [queryKey|snapshot-utxo|]
+        v = [queryValue|no|]
+        queryP = QueryParam k v
+     in case queryP `elem` qp of
+          True -> WithoutUTxO
+          False -> WithUTxO
 
   shouldNotServeHistory qp =
     flip any qp $ \case
@@ -201,10 +217,10 @@ runAPIServer host port party tracer history callback responseChannel = do
         , port
         }
 
-  sendOutputs chan con txDisplay = forever $ do
+  sendOutputs chan con outConfig = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse =
-          prepareServerOutput txDisplay response
+          prepareServerOutput outConfig response
 
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
