@@ -13,6 +13,11 @@ changes.
 > This package is released independently of other `hydra-` packages
 using `plutus-cbor-x.y.z` tags.
 
+## [1.0.1] - UNRELEASED
+
+- Made compatible to latest `plutus-tx` and `cardano-api` changes (via
+  `hydra-cardano-api` and `hydra-test-utils`).
+
 ## [1.0.0] - 2022-02-11
 
 ### Added

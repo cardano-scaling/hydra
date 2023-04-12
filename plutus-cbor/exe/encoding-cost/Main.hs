@@ -12,13 +12,12 @@ import Plutus.Codec.CBOR.Encoding.Validator (
   encodeTxOutValidator,
   encodeTxOutsValidator,
  )
-import Plutus.V1.Ledger.Api (Validator)
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V1 as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Validator (
-  ExUnits (..),
+  ExecutionUnits (..),
   defaultMaxExecutionUnits,
-  distanceExUnits,
+  distanceExecutionUnits,
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (
@@ -56,16 +55,20 @@ main = do
 relativeCostOf ::
   (Plutus.ToData a) =>
   a ->
-  ExUnits ->
-  (ValidatorKind -> Validator) ->
+  ExecutionUnits ->
+  (ValidatorKind -> Plutus.SerialisedScript) ->
   (Rational, Rational)
-relativeCostOf a (ExUnits maxMem maxCpu) mkValidator =
+relativeCostOf a maxUnits mkValidator =
   (relativeMemCost, relativeCpuCost)
  where
-  ExUnits mem cpu = either (error . show) id $ do
-    base <- evaluateScriptExecutionUnits (mkValidator BaselineValidator) a
-    real <- evaluateScriptExecutionUnits (mkValidator RealValidator) a
-    pure $ distanceExecutionUnits base real
+  ExecutionUnits{executionMemory = maxMem, executionSteps = maxCpu} =
+    maxUnits
+
+  ExecutionUnits{executionMemory = mem, executionSteps = cpu} =
+    either (error . show) id $ do
+      base <- evaluateScriptExecutionUnits (mkValidator BaselineValidator) a
+      real <- evaluateScriptExecutionUnits (mkValidator RealValidator) a
+      pure $ distanceExecutionUnits base real
 
   (relativeMemCost, relativeCpuCost) =
     ( toInteger mem % toInteger maxMem
