@@ -22,11 +22,11 @@ API to clients such as the included example terminal user interface `hydra-tui`.
 <details>
 <summary>:rotating_light: Mainnet Availability :rotating_light:</summary>
 
-Since version 0.10.0, Hydra scripts are available on Cardano mainnet
-and it's therefore possible to run Hydra nodes on mainnet.  Before
-doing so, be sure to read the [relevant section](https://hydra.family/head-protocol/docs/getting-started/troubleshooting) of the
-documentation in order to understand the current limitations and the
-possible consequences.
+Hydra Head protocol is compatible with Cardano mainnet since version
+0.10.0 and it's therefore possible to run hydra-node on mainnet.
+Before doing so, be sure to review the [relevant
+section](/docs/known-issues) of the documentation in order to
+understand the current limitations and the possible consequences.
 
 </details>
 
