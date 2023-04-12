@@ -116,7 +116,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
                 remainingTime <- diffUTCTime deadline <$> getCurrentTime
-                waitFor tracer (truncate $ remainingTime + 3) [leader] $
+                waitFor tracer (remainingTime + 3) [leader] $
                   output "ReadyToFanout" ["headId" .= headId]
 
                 putTextLn "Finalizing the Head"
