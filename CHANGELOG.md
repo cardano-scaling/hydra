@@ -69,6 +69,7 @@ changes.
     `HashableScriptData` instead.
   * Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
   * **BREAKING** Change `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
+  * Added `genTxIn` and `arbitrary` instance for `TxIn`
 
 ## [0.9.0] - 2023-03-02
 
