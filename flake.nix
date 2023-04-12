@@ -8,7 +8,7 @@
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
     };
-    cardano-node.url = "github:ch1bo/cardano-node/1.35.7-aarch64";
+    cardano-node.url = "github:input-output-hk/cardano-node/1.35.7";
   };
 
   outputs =
@@ -21,7 +21,8 @@
     flake-utils.lib.eachSystem [
       "x86_64-linux"
       "x86_64-darwin"
-      "aarch64-darwin"
+      # XXX: Disabled until cardano-node releases a verison supporting this
+      # "aarch64-darwin"
     ]
       (system:
       let
