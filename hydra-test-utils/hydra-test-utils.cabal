@@ -13,7 +13,13 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra
 
+flag hydra-development
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
+
 common package-config
+  default-language:   Haskell2010
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
@@ -23,9 +29,16 @@ common package-config
     ScopedTypeVariables
     TypeApplications
 
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+
+  if !flag(hydra-development)
+    ghc-options: -Werror
+
 library
-  import:           package-config
-  hs-source-dirs:   src
+  import:          package-config
+  hs-source-dirs:  src
   exposed-modules:
     Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
@@ -57,9 +70,6 @@ library
     , QuickCheck
     , relude
     , temporary
-
-  ghc-options:      -Wall -Werror -Wcompat -Wunused-packages
-  default-language: Haskell2010
 
 test-suite hydra-test-util-tests
   import:             package-config
