@@ -8,12 +8,14 @@
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    cardano-node.url = "github:input-output-hk/cardano-node/1.35.7";
   };
 
   outputs =
     { self
     , flake-utils
     , nixpkgs
+    , cardano-node
     , ...
     } @ inputs:
     flake-utils.lib.eachSystem [
@@ -39,14 +41,18 @@
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
       in
       rec {
+        inherit hydraProject;
+
         packages =
           hydraPackages //
           prefixAttrs "docker-" hydraImages;
 
         devShells = (import ./nix/hydra/shell.nix {
+          inherit (inputs) cardano-node;
           inherit hydraProject system;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
+            inherit (inputs) cardano-node;
             inherit hydraProject system;
             withoutDevTools = true;
           }).default;
