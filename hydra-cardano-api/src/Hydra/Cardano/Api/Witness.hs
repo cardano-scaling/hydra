@@ -2,7 +2,6 @@
 
 module Hydra.Cardano.Api.Witness where
 
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.ScriptLanguageInEra (HasScriptLanguage (..))
 
@@ -10,7 +9,7 @@ import Hydra.Cardano.Api.ScriptLanguageInEra (HasScriptLanguage (..))
 -- 'PlutusScript'. That witness has no execution budget.
 mkScriptWitness ::
   forall ctx era lang.
-  ( HasPlutusScriptVersion lang
+  ( IsPlutusScriptLanguage lang
   , HasScriptLanguage lang era
   ) =>
   PlutusScript lang ->
@@ -20,7 +19,7 @@ mkScriptWitness ::
 mkScriptWitness script datum redeemer =
   PlutusScriptWitness
     (scriptLanguageInEra @lang @era)
-    (plutusScriptVersion (proxyToAsType (Proxy @lang)))
+    (plutusScriptVersion @lang)
     (PScript script)
     datum
     redeemer
@@ -30,7 +29,7 @@ mkScriptWitness script datum redeemer =
 -- expected to contain the given script (only required to satisfy types).
 mkScriptReference ::
   forall ctx era lang.
-  ( HasPlutusScriptVersion lang
+  ( IsPlutusScriptLanguage lang
   , HasScriptLanguage lang era
   ) =>
   TxIn ->
@@ -41,7 +40,7 @@ mkScriptReference ::
 mkScriptReference txIn _script datum redeemer =
   PlutusScriptWitness
     (scriptLanguageInEra @lang @era)
-    (plutusScriptVersion (proxyToAsType (Proxy @lang)))
+    (plutusScriptVersion @lang)
     (PReferenceScript txIn Nothing)
     datum
     redeemer

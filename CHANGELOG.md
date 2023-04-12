@@ -61,6 +61,9 @@ changes.
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 
+- Changes to **hydra-cardano-api**:
+  + **BREAKING** Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
@@ -7,7 +8,6 @@ import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
 import Data.ByteString.Short (toShort)
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import qualified Plutus.V2.Ledger.Api as Plutus
 
 -- * Type Conversions
@@ -26,11 +26,11 @@ fromLedgerScript = \case
 -- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
 toLedgerScript ::
   forall lang.
-  (HasPlutusScriptVersion lang) =>
+  (IsPlutusScriptLanguage lang) =>
   PlutusScript lang ->
   Ledger.Script (ShelleyLedgerEra Era)
 toLedgerScript (PlutusScriptSerialised bytes) =
-  let lang = case plutusScriptVersion $ proxyToAsType (Proxy @lang) of
+  let lang = case plutusScriptVersion @lang of
         PlutusScriptV1 -> Ledger.PlutusV1
         PlutusScriptV2 -> Ledger.PlutusV2
    in Ledger.PlutusScript lang bytes
@@ -42,7 +42,7 @@ fromPlutusScript =
 
 -- * Orphans
 
--- XXX: IsPlutusScriptLanguage is not exported, we would want to use it here
+-- TODO: Use IsPlutusScriptLanguage here
 
 instance ToJSON (PlutusScript PlutusScriptV2) where
   toJSON = toJSON . serialiseToTextEnvelope Nothing

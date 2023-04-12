@@ -2,7 +2,6 @@
 
 module Hydra.Cardano.Api.AddressInEra where
 
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
@@ -49,7 +48,7 @@ mkVkAddress networkId vk =
 -- no stake rights.
 mkScriptAddress ::
   forall lang era.
-  (IsShelleyBasedEra era, HasPlutusScriptVersion lang) =>
+  (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =>
   NetworkId ->
   PlutusScript lang ->
   AddressInEra era
@@ -59,7 +58,7 @@ mkScriptAddress networkId script =
     (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
     NoStakeAddress
  where
-  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+  version = plutusScriptVersion @lang
 
 -- * Type Conversions
 

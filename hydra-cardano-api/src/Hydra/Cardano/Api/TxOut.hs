@@ -3,7 +3,6 @@
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
@@ -83,14 +82,14 @@ findTxOutByAddress address tx =
 
 findTxOutByScript ::
   forall lang.
-  (HasPlutusScriptVersion lang) =>
+  (IsPlutusScriptLanguage lang) =>
   UTxO ->
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =
   List.find matchScript (UTxO.pairs utxo)
  where
-  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+  version = plutusScriptVersion @lang
   matchScript = \case
     (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _ _) ->
       let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
