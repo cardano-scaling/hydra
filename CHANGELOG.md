@@ -63,6 +63,7 @@ changes.
 
 - Changes to **hydra-cardano-api**:
   + **BREAKING** Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
+  + **Breaking** Changed `toScriptData` and `toLedgerData` to return or require a `HashableScriptData` instead.
 
 ## [0.9.0] - 2023-03-02
 
