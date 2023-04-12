@@ -7,7 +7,7 @@ import qualified Cardano.Ledger.Keys as Ledger
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import qualified Cardano.Ledger.Shelley.Scripts as Ledger
 import qualified Data.ByteString as BS
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash

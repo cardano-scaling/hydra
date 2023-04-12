@@ -12,7 +12,7 @@ import Control.Arrow (left)
 import Data.Aeson (Value (String))
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
 

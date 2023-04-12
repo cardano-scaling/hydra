@@ -9,9 +9,9 @@ import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
-import Plutus.V1.Ledger.Value (flattenValue)
-import Plutus.V2.Ledger.Api (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 ( CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
+import PlutusLedgerApi.V1.Value (flattenValue)
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
 

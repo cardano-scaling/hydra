@@ -19,8 +19,8 @@ import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInl
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
-import Plutus.V2.Ledger.Api (OutputDatum (..), fromBuiltin)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (OutputDatum (..), fromBuiltin)
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
 

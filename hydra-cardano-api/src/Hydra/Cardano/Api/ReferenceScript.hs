@@ -4,7 +4,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
 import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums (..))
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- | Construct a 'ReferenceScript' from any given Plutus script.
 --

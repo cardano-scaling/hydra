@@ -8,7 +8,7 @@ import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
 import Data.ByteString.Short (toShort)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Type Conversions
 
