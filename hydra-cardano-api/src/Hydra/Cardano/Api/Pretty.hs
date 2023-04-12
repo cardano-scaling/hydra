@@ -8,13 +8,10 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
-import qualified Cardano.Ledger.Era as Ledger
-import qualified Cardano.Ledger.Mary.Value as Ledger
+import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
-import Data.Foldable (foldl', toList)
 import Data.Function (on)
 import Data.List (intercalate, sort, sortBy)
 import qualified Data.Map.Strict as Map
@@ -53,17 +50,17 @@ renderTxWithUTxO utxo (Tx body _wits) =
       <> [""]
       <> requiredSignersLines
  where
-  Api.ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
-  outs = Ledger.outputs' lbody
+  Api.ShelleyTxBody _lbody scripts scriptsData _auxData _validity = body
+  outs = txOuts content
   TxBody content = body
 
   inputLines =
-    "== INPUTS (" <> show (length (txIns content)) <> ")" :
-    (("- " <>) . prettyTxIn . fst <$> sortBy (compare `on` fst) (txIns content))
+    "== INPUTS (" <> show (length (txIns content)) <> ")"
+      : (("- " <>) . prettyTxIn . fst <$> sortBy (compare `on` fst) (txIns content))
 
   referenceInputLines =
-    "== REFERENCE INPUTS (" <> show (length referenceInputs) <> ")" :
-    (("- " <>) . prettyTxIn <$> sort referenceInputs)
+    "== REFERENCE INPUTS (" <> show (length referenceInputs) <> ")"
+      : (("- " <>) . prettyTxIn <$> sort referenceInputs)
 
   referenceInputs =
     case txInsReference content of
@@ -80,10 +77,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
 
   outputLines =
-    [ "== OUTPUTS (" <> show (length (txOuts content)) <> ")"
+    [ "== OUTPUTS (" <> show (length outs) <> ")"
     , "Total number of assets: " <> show totalNumberOfAssets
     ]
-      <> (("- " <>) . prettyOut <$> txOuts content)
+      <> (("- " <>) . prettyOut <$> outs)
 
   prettyOut o =
     mconcat
@@ -97,10 +94,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     Api.ByronAddressInEra addr -> show addr
 
   totalNumberOfAssets =
-    sum $
-      [ foldl' (\n inner -> n + Map.size inner) 0 outer
-      | Ledger.TxOut _ (Ledger.Value _ outer) _ _ <- toList outs
-      ]
+    let totalValue = foldMap Api.txOutValue outs
+     in length $ valueToList totalValue
 
   validityLines =
     [ "== VALIDITY"
@@ -154,8 +149,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
   datumLines = case scriptsData of
     Api.TxBodyNoScriptData -> []
     (Api.TxBodyScriptData (Ledger.TxDats dats) _) ->
-      "== DATUMS (" <> show (length dats) <> ")" :
-      (("- " <>) . showDatumAndHash <$> Map.toList dats)
+      "== DATUMS (" <> show (length dats) <> ")"
+        : (("- " <>) . showDatumAndHash <$> Map.toList dats)
 
   showDatumAndHash (k, v) =
     mconcat
@@ -171,8 +166,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     Api.TxBodyNoScriptData -> []
     (Api.TxBodyScriptData _ re) ->
       let rdmrs = Map.toList $ Ledger.unRedeemers re
-       in "== REDEEMERS (" <> show (length rdmrs) <> ")" :
-          (("- " <>) . prettyRedeemer <$> rdmrs)
+       in "== REDEEMERS (" <> show (length rdmrs) <> ")"
+            : (("- " <>) . prettyRedeemer <$> rdmrs)
 
   prettyRedeemer (Ledger.RdmrPtr tag ix, (redeemerData, redeemerBudget)) =
     unwords

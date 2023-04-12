@@ -63,7 +63,10 @@ changes.
 
 - Changes to **hydra-cardano-api**:
   + **BREAKING** Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
-  + **BREAKING** Changed `toScriptData` and `toLedgerData` to return or require a `HashableScriptData` instead.
+  + **BREAKING** Renamed `getScriptData` to `txOutScriptData` to not conflict with the new function in `cardano-api`.
+  + **BREAKING** Changed `toScriptData`, `toLedgerData`, `fromLedgerData`,
+    `txOutScriptData` and `lookupScriptData` to return or require a
+    `HashableScriptData` instead.
   * Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
   * **BREAKING** Change `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
 

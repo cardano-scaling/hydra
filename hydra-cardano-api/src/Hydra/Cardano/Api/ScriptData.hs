@@ -4,7 +4,6 @@ module Hydra.Cardano.Api.ScriptData where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Api as Api
 import Cardano.Api.Byron (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
@@ -28,14 +27,14 @@ toScriptData :: (ToScriptData a) => a -> HashableScriptData
 toScriptData =
   unsafeHashableScriptData . fromPlutusData . Plutus.toData
 
--- | Get the 'ScriptData' associated to the a 'TxOut'. Note that this requires
--- the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
+-- | Get the 'HashableScriptData' associated to the a 'TxOut'. Note that this
+-- requires the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
 -- 'lookupScriptData'.
-getScriptData :: TxOut CtxTx era -> Maybe ScriptData
-getScriptData (TxOut _ _ d _) =
+txOutScriptData :: TxOut CtxTx era -> Maybe HashableScriptData
+txOutScriptData (TxOut _ _ d _) =
   case d of
-    TxOutDatumInTx _ sd -> Just $ Api.getScriptData sd
-    TxOutDatumInline _ sd -> Just $ Api.getScriptData sd
+    TxOutDatumInTx _ sd -> Just sd
+    TxOutDatumInline _ sd -> Just sd
     _ -> Nothing
 
 -- | Lookup included datum of given 'TxOut'.
@@ -46,16 +45,16 @@ lookupScriptData ::
   ) =>
   Tx era ->
   TxOut CtxUTxO era ->
-  Maybe ScriptData
+  Maybe HashableScriptData
 lookupScriptData (Tx ByronTxBody{} _) _ = Nothing
 lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _) =
   case datum of
     TxOutDatumNone ->
       Nothing
     (TxOutDatumHash _ (ScriptDataHash h)) ->
-      fromPlutusData . Ledger.getPlutusData <$> Map.lookup h datums
+      fromLedgerData <$> Map.lookup h datums
     (TxOutDatumInline _ dat) ->
-      Just $ Api.getScriptData dat
+      Just dat
  where
   datums = case scriptsData of
     TxBodyNoScriptData -> mempty
@@ -63,12 +62,10 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _
 
 -- * Type Conversions
 
-
 -- | Convert a cardano-ledger script 'Data' into a cardano-api 'ScriptDatum'.
--- TODO: check whether we should use HashableScriptData instead
-fromLedgerData :: Ledger.Data era -> ScriptData
+fromLedgerData :: Ledger.Data era -> HashableScriptData
 fromLedgerData =
-  Api.getScriptData . fromAlonzoData
+  fromAlonzoData
 
 -- | Convert a cardano-api script data into a cardano-ledger script 'Data'.
 toLedgerData :: HashableScriptData -> Ledger.Data era
