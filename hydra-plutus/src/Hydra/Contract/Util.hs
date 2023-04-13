@@ -4,8 +4,8 @@ module Hydra.Contract.Util where
 
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Prelude (Show)
-import Plutus.V1.Ledger.Value (isZero)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.V1.Value (isZero)
+import PlutusLedgerApi.V2 (
   CurrencySymbol,
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),

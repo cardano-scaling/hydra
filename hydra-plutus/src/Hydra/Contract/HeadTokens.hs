@@ -27,26 +27,24 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), findDatum, ownCurrencySymbol, scriptOutputsAt)
 import Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.V2 (
   Datum (getDatum),
   FromData (fromBuiltinData),
-  MintingPolicy (getMintingPolicy),
   OutputDatum (..),
-  Script,
+  ScriptHash,
+  SerialisedScript,
   TxInInfo (..),
   TxOutRef,
-  ValidatorHash,
   Value (getValue),
-  mkMintingPolicyScript,
+  serialiseCompiledCode,
  )
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
 validate ::
-  -- | Head validator
-  ValidatorHash ->
-  ValidatorHash ->
+  ScriptHash ->
+  ScriptHash ->
   TxOutRef ->
   MintAction ->
   ScriptContext ->
@@ -69,7 +67,7 @@ validate initialValidator headValidator seedInput action context =
 --
 -- * Ensure out-ref and the headId are in the datum of the first output of the
 --   transaction which mints tokens.
-validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
+validateTokensMinting :: ScriptHash -> ScriptHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   seedInputIsConsumed
     && checkNumberOfTokens
@@ -161,9 +159,9 @@ unappliedMintingPolicy =
     `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
-mintingPolicyScript :: TxOutRef -> Script
+mintingPolicyScript :: TxOutRef -> SerialisedScript
 mintingPolicyScript txOutRef =
-  getMintingPolicy . mkMintingPolicyScript $
+  serialiseCompiledCode $
     unappliedMintingPolicy
       `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
 

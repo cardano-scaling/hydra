@@ -32,7 +32,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Plutus.V2.Ledger.Api (fromData, toData)
+import PlutusTx.Builtins (fromData, toData)
 import Test.QuickCheck (oneof, scale, suchThat)
 
 --

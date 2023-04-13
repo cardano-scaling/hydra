@@ -15,9 +15,10 @@ import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Time (fromMilliSeconds)
-import Plutus.V1.Ledger.Value (valueOf)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
+import PlutusLedgerApi.V1.Time (fromMilliSeconds)
+import PlutusLedgerApi.V1.Value (valueOf)
+import PlutusLedgerApi.V2 (
   Address,
   CurrencySymbol,
   Datum (..),
@@ -28,8 +29,8 @@ import Plutus.V2.Ledger.Api (
   OutputDatum (..),
   POSIXTime,
   PubKeyHash (getPubKeyHash),
-  Script,
   ScriptContext (..),
+  ScriptHash,
   ToData (toBuiltinData),
   TokenName (..),
   TxInInfo (..),
@@ -37,14 +38,11 @@ import Plutus.V2.Ledger.Api (
   TxOut (..),
   TxOutRef (..),
   UpperBound (..),
-  Validator (getValidator),
-  ValidatorHash,
   Value (Value, getValue),
   adaSymbol,
   adaToken,
-  mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput)
+import PlutusLedgerApi.V2.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -128,19 +126,19 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
       commits
     TxInInfo{txInInfoResolved = txOut} : rest
       | hasPT headCurrencySymbol txOut ->
-        case commitDatum txInfo txOut of
-          Just commit ->
-            committedUTxO
-              (commit : commits)
-              rest
-          Nothing ->
-            committedUTxO
-              commits
-              rest
+          case commitDatum txInfo txOut of
+            Just commit ->
+              committedUTxO
+                (commit : commits)
+                rest
+            Nothing ->
+              committedUTxO
+                commits
+                rest
       | otherwise ->
-        committedUTxO
-          commits
-          rest
+          committedUTxO
+            commits
+            rest
 
 -- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
@@ -308,11 +306,11 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-      traceIfFalse $(errorCode InvalidSnapshotSignature) $
-        verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
+        traceIfFalse $(errorCode InvalidSnapshotSignature) $
+          verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
     | otherwise =
-      traceIfFalse $(errorCode ClosedWithNonInitialHash) $
-        closedUtxoHash == initialUtxoHash
+        traceIfFalse $(errorCode ClosedWithNonInitialHash) $
+          closedUtxoHash == initialUtxoHash
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
@@ -620,8 +618,8 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
-validatorScript :: Script
-validatorScript = getValidator $ mkValidatorScript compiledValidator
+validatorScript :: SerialisedScript
+validatorScript = serialiseCompiledCode compiledValidator
 
-validatorHash :: ValidatorHash
+validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash validatorScript

@@ -10,7 +10,7 @@ import PlutusTx.Prelude
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
+import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
 import qualified PlutusTx
 import Text.Show (Show)
 

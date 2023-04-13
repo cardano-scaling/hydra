@@ -11,8 +11,8 @@ import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Plutus.V1.Ledger.Time (DiffMilliSeconds, fromMilliSeconds)
-import Plutus.V2.Ledger.Api (POSIXTime (..))
+import PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
+import PlutusLedgerApi.V2 (POSIXTime (..))
 import qualified PlutusTx
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}

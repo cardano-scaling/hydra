@@ -45,7 +45,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genTxIn, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (toBuiltin, toData)
+import PlutusTx.Builtins (toBuiltin, toData)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude

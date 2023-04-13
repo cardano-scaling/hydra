@@ -11,8 +11,9 @@ import Hydra.Cardano.Api (
   hashScript,
   pattern PlutusScript,
  )
-import Plutus.V1.Ledger.Api (Script, UnsafeFromData (unsafeFromBuiltinData), ValidatorHash (ValidatorHash))
-import PlutusTx (BuiltinData)
+import PlutusLedgerApi.Common (SerialisedScript)
+import PlutusLedgerApi.V2 (ScriptHash (..))
+import PlutusTx (BuiltinData, UnsafeFromData (..))
 import PlutusTx.Prelude (check, toBuiltin)
 
 -- * Vendored from plutus-ledger
@@ -53,12 +54,11 @@ wrapMintingPolicy f r c =
 
 -- * Similar utilities as plutus-ledger
 
--- | Compute the 'ValidatorHash' for a given plutus 'Script'.
---
--- NOTE: Implemented using hydra-cardano-api (PlutusScript pattern)
-scriptValidatorHash :: Script -> ValidatorHash
+-- | Compute the on-chain 'ScriptHash' for a given serialised plutus script. Use
+-- this to refer to another validator script.
+scriptValidatorHash :: SerialisedScript -> ScriptHash
 scriptValidatorHash =
-  ValidatorHash
+  ScriptHash
     . toBuiltin
     . serialiseToRawBytes
     . hashScript

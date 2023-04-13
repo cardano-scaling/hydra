@@ -17,15 +17,14 @@ import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
-  Script,
+  ScriptHash,
+  SerialisedScript,
   TxOutRef,
-  Validator (getValidator),
-  ValidatorHash,
-  mkValidatorScript,
+  serialiseCompiledCode,
   txOutValue,
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
@@ -110,10 +109,10 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
-validatorScript :: Script
-validatorScript = getValidator $ mkValidatorScript compiledValidator
+validatorScript :: SerialisedScript
+validatorScript = serialiseCompiledCode compiledValidator
 
-validatorHash :: ValidatorHash
+validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum

@@ -77,7 +77,7 @@ let
       hydra-test-utils
       plutus-cbor
       plutus-merkle-tree
-      # hydra-plutus
+      hydra-plutus
       # hydra-node
       # hydra-cluster
       # hydra-tui

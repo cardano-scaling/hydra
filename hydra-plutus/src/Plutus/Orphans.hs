@@ -10,22 +10,9 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import Plutus.V2.Ledger.Api (
-  CurrencySymbol,
-  POSIXTime (..),
-  TokenName,
-  TxId (..),
-  TxOutRef (TxOutRef),
-  UpperBound (..),
-  Value,
-  fromBuiltin,
-  getPubKeyHash,
-  toBuiltin,
-  upperBound,
- )
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
 import qualified PlutusTx.AssocMap as AssocMap
-import PlutusTx.Prelude (BuiltinByteString)
+import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 import Test.QuickCheck (choose, vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 
@@ -59,14 +46,14 @@ instance FromJSON POSIXTime where
 instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary
 
-instance ToJSON Plutus.PubKeyHash where
+instance ToJSON PubKeyHash where
   toJSON = \kh ->
     object
       [ "tag" .= Aeson.String "PubKeyHash"
       , "keyHash" .= Aeson.String (decodeUtf8 $ Base16.encode $ fromBuiltin $ getPubKeyHash kh)
       ]
 
-instance FromJSON Plutus.PubKeyHash where
+instance FromJSON PubKeyHash where
   parseJSON = withObject "PubKeyHash" $ \o -> do
     tag <- o .: "tag"
     case tag :: Text of
@@ -74,10 +61,10 @@ instance FromJSON Plutus.PubKeyHash where
         hexText :: Text <- o .: "keyHash"
         case Base16.decode $ encodeUtf8 hexText of
           Left e -> fail e
-          Right bs -> pure $ Plutus.PubKeyHash (toBuiltin bs)
+          Right bs -> pure $ PubKeyHash (toBuiltin bs)
       _ -> fail "Expected tag to be PubKeyHash"
 
-instance Arbitrary Plutus.PubKeyHash where
+instance Arbitrary PubKeyHash where
   arbitrary = genericArbitrary
 
 instance Arbitrary TxOutRef where

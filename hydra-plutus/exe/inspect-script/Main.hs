@@ -17,7 +17,7 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Contract.Initial as Initial
-import Plutus.V2.Ledger.Api (Data, Script, toData)
+import PlutusLedgerApi.V2 (Data, Script, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
@@ -47,7 +47,7 @@ main = do
   forM_ datums $ \(aDatum, datumName) ->
     putTextLn $ toText $ datumName <> ": " <> show (hashScriptData $ fromPlutusData aDatum)
  where
-  writeScripts :: [(Plutus.V2.Ledger.Api.Script, String)] -> IO ()
+  writeScripts :: [(PlutusLedgerApi.V2.Script, String)] -> IO ()
   writeScripts plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
