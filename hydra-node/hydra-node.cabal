@@ -167,7 +167,7 @@ library
     , ouroboros-network
     , ouroboros-network-framework     >=0.3.0.0
     , plutus-core
-    , plutus-ledger-api
+    , plutus-ledger-api               >=1.1.1.0
     , prometheus
     , QuickCheck
     , quickcheck-instances

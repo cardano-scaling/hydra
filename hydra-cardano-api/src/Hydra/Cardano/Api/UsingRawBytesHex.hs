@@ -49,6 +49,9 @@ instance (SerialiseAsRawBytes a, Typeable a) => FromJSONKey (UsingRawBytesHex a)
     Aeson.FromJSONKeyTextParser $
       either fail pure . deserialiseFromRawBytesBase16 . encodeUtf8
 
+-- * Internal
+
+-- | Don't use this, use 'deserialiseFromRawBytesHex' instead.
 deserialiseFromRawBytesBase16 ::
   SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
 deserialiseFromRawBytesBase16 str =

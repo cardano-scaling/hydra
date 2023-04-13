@@ -78,6 +78,9 @@ changes.
   - Script hashes changed due to updated `plutus-tx` tool-chain.
   - Changed return type of `validatorScript` functions of script modules to `SerialisedScript`.
 
+- Changes to `hydra-node`:
+  - Needed to disable `prepareTxScripts` utility in `Hydra.Ledger.Cardano.Evaluate` as it's missing a dependency.
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
