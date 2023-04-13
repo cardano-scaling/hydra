@@ -14,18 +14,20 @@ import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
-import Cardano.Ledger.Babbage.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Babbage.Scripts (refScripts)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), getLanguageView, hashData, hashScriptIntegrity, referenceInputs)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts, txwitsVKey)
+import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
+import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
+import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (isNativeScript)
+import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
-import Cardano.Ledger.Era (ValidateScript (..), fromTxSeq)
+import Cardano.Ledger.Era (fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.Mary.Value (gettriples')
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -35,17 +37,12 @@ import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
-import Control.Monad.Class.MonadSTM (
-  check,
-  newTVarIO,
-  readTVarIO,
-  writeTVar,
- )
+import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Data.Array (array)
 import qualified Data.List as List
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
-import Data.Maybe.Strict (StrictMaybe (SNothing))
+import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -61,17 +58,18 @@ import Hydra.Cardano.Api (
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromConsensusPointInMode,
+  fromLedgerTxId,
   fromLedgerUTxO,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
+  toLedgerKeyWitness,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (Block, markerDatum)
-import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Block (blockPoint)
@@ -97,11 +95,11 @@ data TinyWallet m = TinyWallet
   -- ^ Returns the /seed input/
   -- This is the special input needed by `Direct` chain component to initialise
   -- a head
-  , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
+  , sign :: Babbage.AlonzoTx LedgerEra -> Babbage.AlonzoTx LedgerEra
   , coverFee ::
       Map TxIn TxOut ->
-      ValidatedTx LedgerEra ->
-      m (Either ErrCoverFee (ValidatedTx LedgerEra))
+      Babbage.AlonzoTx LedgerEra ->
+      m (Either ErrCoverFee (Babbage.AlonzoTx LedgerEra))
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -112,7 +110,7 @@ data TinyWallet m = TinyWallet
 
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
-  , pparams :: PParams LedgerEra
+  , pparams :: Core.PParams LedgerEra
   , systemStart :: SystemStart
   , epochInfo :: EpochInfo (Either Text)
   , tip :: ChainPoint
@@ -146,7 +144,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
     TinyWallet
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
-      , sign = Util.signWith sk
+      , sign = signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
           -- wrong fee estimation should they change in between.
@@ -182,9 +180,9 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
 
 signWith ::
   Api.SigningKey Api.PaymentKey ->
-  ValidatedTx Api.LedgerEra ->
-  ValidatedTx Api.LedgerEra
-signWith signingKey validatedTx@ValidatedTx{body, wits} =
+  Babbage.AlonzoTx Api.LedgerEra ->
+  Babbage.AlonzoTx Api.LedgerEra
+signWith signingKey validatedTx@Babbage.AlonzoTx{body, wits} =
   validatedTx
     { wits =
         wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
@@ -212,7 +210,7 @@ applyBlock blk isOurs utxo = case blk of
               let outs = toList $ outputs' (body tx)
                   maxIx = fromIntegral $ length outs
                in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
-        forM_ indexedOutputs $ \(ix, out@(Ledger.Babbage.TxOut addr _ _ _)) ->
+        forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
@@ -224,7 +222,7 @@ getTxId ::
       EraIndependentTxBody
       crypto
   ) =>
-  ValidatedTx (era crypto) ->
+  Babbage.AlonzoTx (era crypto) ->
   Ledger.TxId crypto
 getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
@@ -246,14 +244,14 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 --
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
-  PParams LedgerEra ->
+  Core.PParams LedgerEra ->
   SystemStart ->
   EpochInfo (Either Text) ->
   Map TxIn TxOut ->
   Map TxIn TxOut ->
-  ValidatedTx LedgerEra ->
-  Either ErrCoverFee (ValidatedTx LedgerEra)
-coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@ValidatedTx{body, wits} = do
+  Babbage.AlonzoTx LedgerEra ->
+  Either ErrCoverFee (Babbage.AlonzoTx LedgerEra)
+coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
   (input, output) <- findUTxOToPayFees walletUTxO
 
   let inputs' = inputs body <> Set.singleton input
@@ -316,7 +314,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
      in Coin 2_000_000 <> executionCost
 
   getAdaValue :: TxOut -> Coin
-  getAdaValue (Ledger.Babbage.TxOut _ value _ _) =
+  getAdaValue (Babbage.BabbageTxOut _ value _ _) =
     coin value
 
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
@@ -331,7 +329,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     [TxOut] ->
     Coin ->
     Either ChangeError TxOut
-  mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
+  mkChange (Babbage.BabbageTxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
         Left $
@@ -340,7 +338,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
             , outputBalance = totalOut
             }
     | otherwise =
-        Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
+        Right $ Babbage.BabbageTxOut addr (inject changeOut) datum refScript
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
     totalIn = foldMap getAdaValue resolvedInputs
@@ -375,14 +373,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
 findFuelUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
 findFuelUTxO utxo =
   let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo
-      sortingCriteria (_, Ledger.Babbage.TxOut _ v _ _) = fst' (gettriples' v)
+      sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
       sortedByValue = sortOn sortingCriteria utxosWithDatum
    in case sortedByValue of
         [] -> Nothing
         as -> Just (List.last as)
  where
   hasMarkerDatum :: TxOut -> Bool
-  hasMarkerDatum (Ledger.Babbage.TxOut _ _ datum _) = case datum of
+  hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
     NoDatum -> False
     DatumHash dh ->
       dh == hashData (Data @LedgerEra markerDatum)
@@ -395,7 +393,7 @@ findFuelUTxO utxo =
 -- cost a little.
 estimateScriptsCost ::
   -- | Protocol parameters
-  PParams LedgerEra ->
+  Core.PParams LedgerEra ->
   -- | Start of the blockchain, for converting slots to UTC times
   SystemStart ->
   -- | Information about epoch sizes, for converting slots to UTC times
@@ -403,7 +401,7 @@ estimateScriptsCost ::
   -- | A UTXO needed to resolve inputs
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
-  ValidatedTx LedgerEra ->
+  Babbage.AlonzoTx LedgerEra ->
   Either ErrCoverFee (Map RdmrPtr ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of

@@ -20,6 +20,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import Cardano.Ledger.Babbage.PParams (_costmdls, _protocolVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -84,10 +85,6 @@ import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCost
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import qualified UntypedPlutusCore as UPLC
-
--- Global import for HasField instances, which seem to not come into scope
--- otherwise. Used by collectTwoPhaseScriptInputs in prepareTxScripts
-import Cardano.Ledger.Babbage.PParams
 
 -- * Evaluate transactions
 
