@@ -14,7 +14,7 @@ import Network.TypedProtocol.Codec (Codec)
 import Network.TypedProtocol.Codec.CBOR (mkCodecCborLazyBS)
 import Network.TypedProtocol.Core (PeerRole)
 import Network.TypedProtocol.Driver (SomeMessage (SomeMessage))
-import Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
+import Ouroboros.Consensus.Util (ShowProxy (..))
 
 -- | TODO explain Protocol
 --

@@ -165,7 +165,7 @@ library
     , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
-    , ouroboros-network-framework
+    , ouroboros-network-framework     >=0.3.0.0
     , plutus-core
     , plutus-ledger-api
     , prometheus

@@ -95,7 +95,7 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
  )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
-import Ouroboros.Network.Snocket (socketSnocket)
+import Ouroboros.Network.Snocket (makeSocketBearer, socketSnocket)
 import Ouroboros.Network.Socket (
   AcceptConnectionsPolicyTrace,
   ConnectionId (..),
@@ -187,9 +187,11 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
-    handle onIOException $
-      withServerNode
+    handle onIOException
+      $ withServerNode
         (socketSnocket iomgr)
+        makeSocketBearer
+        notConfigureSocket
         networkServerTracers
         networkState
         (AcceptedConnectionsLimit maxBound maxBound 0)
@@ -200,9 +202,11 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         acceptableVersion
         (unversionedProtocol (SomeResponderApplication app))
         nullErrorPolicies
-        $ \_addr serverAsync -> do
-          race_ (wait serverAsync) continuation
+      $ \_addr serverAsync -> do
+        race_ (wait serverAsync) continuation
    where
+    notConfigureSocket _ _ = pure ()
+
     networkServerTracers =
       NetworkServerTracers
         { nstMuxTracer = nullTracer
