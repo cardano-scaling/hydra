@@ -63,7 +63,7 @@ common project-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances
 
   if !flag(hydra-development)
@@ -149,7 +149,7 @@ library
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , io-classes
+    , io-classes                      >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -179,8 +179,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                 ==0.1.0.0
-    , typed-protocols-cborg           ==0.1.0.0
+    , typed-protocols                 >=0.1.0.0
+    , typed-protocols-cborg           >=0.1.0.0
     , unliftio
     , wai
     , wai-websockets
@@ -359,7 +359,7 @@ test-suite tests
     , plutus-tx
     , process
     , QuickCheck
-    , quickcheck-dynamic                ==2.0.0
+    , quickcheck-dynamic                >=2.0.0
     , quickcheck-instances
     , req
     , silently
@@ -367,7 +367,7 @@ test-suite tests
     , temporary
     , text
     , time
-    , typed-protocols-examples          ==0.1.0.0
+    , typed-protocols-examples          >=0.1.0.0
     , versions
     , websockets
     , yaml
