@@ -6,6 +6,7 @@ module Test.Network.Ports where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadSTM (readTVarIO, writeTVar)
 import Data.List (
   isInfixOf,
  )
@@ -19,9 +20,9 @@ import GHC.IO.Exception (
  )
 import Network.Socket (
   Family (AF_INET),
+  PortNumber,
   SockAddr (..),
   SocketType (Stream),
-  PortNumber,
   close',
   connect,
   socket,
@@ -40,17 +41,22 @@ import System.Random.Shuffle (
 -- port returned by 'getRandomPort' before this process does.
 --
 -- Do not use this unless you have no other option.
-getRandomPort :: IO PortNumber
-getRandomPort = do
+getRandomPort :: TVar IO [Int] -> IO PortNumber
+getRandomPort tvar = do
+  usedPorts <- readTVarIO tvar
   (port, sock) <- openFreePort
   liftIO $ close' sock
-  return $ fromIntegral port
+  if port `elem` usedPorts
+    then getRandomPort tvar
+    else do
+      atomically $ writeTVar tvar (port : usedPorts)
+      return $ fromIntegral port
 
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
 -- Should be used only for testing, see 'getRandomPort' for limitations.
-withFreePort :: (PortNumber -> IO ()) -> IO ()
-withFreePort action = getRandomPort >>= action
+withFreePort :: TVar IO [Int] -> (PortNumber -> IO ()) -> IO ()
+withFreePort tvar action = getRandomPort tvar >>= action
 
 -- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
 -- returns `eCONNREFUSED`.
@@ -83,11 +89,15 @@ simpleSockAddr addr port = SockAddrInet (fromIntegral port) (tupleToHostAddress 
 -- Note that this method of allocating ports is subject to race
 -- conditions. Production code should use better methods such as passing a
 -- listening socket to the child process.
-randomUnusedTCPPorts :: Int -> IO [Int]
-randomUnusedTCPPorts count = do
+randomUnusedTCPPorts :: TVar IO [Int] -> Int -> IO [Int]
+randomUnusedTCPPorts tvar count = do
+  usedPorts <- readTVarIO tvar
   usablePorts <- shuffleM [1024 .. 49151]
-  -- FIXME:  we should select count ports after checking they are free, not before
-  sort <$> filterM unused (take count usablePorts)
+  unusedPorts' <- filterM unused usablePorts
+  let unusedPorts = filter (\p -> p `notElem` usedPorts) unusedPorts'
+  let portsToUse = take count unusedPorts
+  atomically $ writeTVar tvar (portsToUse <> usedPorts)
+  pure $ sort portsToUse
  where
   unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
 

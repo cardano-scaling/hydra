@@ -5,6 +5,7 @@ module Hydra.Logging.MonitoringSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Monad.Class.MonadSTM (newTVarIO)
 import qualified Data.Text as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.BehaviorSpec (testHeadId)
@@ -25,10 +26,10 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
-spec =
-  it "provides prometheus metrics from traces" $ do
+spec = beforeAll (newTVarIO []) $
+  it "provides prometheus metrics from traces" $ \tvar ->
     failAfter 3 $ do
-      [p] <- randomUnusedTCPPorts 1
+      [p] <- randomUnusedTCPPorts tvar 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))

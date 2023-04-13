@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
@@ -25,28 +25,29 @@ import Test.QuickCheck.Instances.ByteString ()
 spec :: Spec
 spec = do
   let lo = "127.0.0.1"
+  parallel $
+    beforeAll (newTVarIO []) $
+      describe "Ouroboros Network" $ do
+        it "broadcasts messages to single connected peer" $ \tvar -> do
+          received <- atomically newTQueue
+          showLogsOnFailure $ \tracer -> failAfter 30 $ do
+            [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts tvar 2
+            withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
+              withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
+                withNodeBroadcastingForever hn1 1 $
+                  atomically (readTQueue received) `shouldReturn` 1
 
-  describe "Ouroboros Network" $ do
-    it "broadcasts messages to single connected peer" $ do
-      received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-        withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
-            withNodeBroadcastingForever hn1 1 $
-              atomically (readTQueue received) `shouldReturn` 1
-
-    it "broadcasts messages between 3 connected peers" $ do
-      node1received <- atomically newTQueue
-      node2received <- atomically newTQueue
-      node3received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
-          withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
-            withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
-              withNodesBroadcastingForever [(hn1, 1), (hn2, 2), (hn3, 3)] $
-                assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
+        it "broadcasts messages between 3 connected peers" $ \tvar -> do
+          node1received <- atomically newTQueue
+          node2received <- atomically newTQueue
+          node3received <- atomically newTQueue
+          showLogsOnFailure $ \tracer -> failAfter 30 $ do
+            [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts tvar 3
+            withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
+              withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
+                withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
+                  withNodesBroadcastingForever [(hn1, 1), (hn2, 2), (hn3, 3)] $
+                    assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
 
   describe "Serialisation" $ do
     it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)

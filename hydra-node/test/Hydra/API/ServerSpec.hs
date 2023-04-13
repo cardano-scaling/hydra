@@ -39,218 +39,218 @@ import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
--- NOTE: It is important to not run these tests using 'parallel' since we will
--- end up with _flaky_ tests because in the threaded environment we can't easily
--- guess which port is opened.
 spec :: Spec
-spec = describe "ServerSpec" $ do
-  it "greets" $ do
-    failAfter 5 $
-      withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_ -> do
-          withClient port "/" $ \conn -> do
-            received <- receiveData conn
-            case Aeson.eitherDecode received of
-              Left{} -> failure $ "Failed to decode greeting " <> show received
-              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
+spec = beforeAll (newTVarIO []) $
+  parallel $
+    describe "ServerSpec" $ do
+      it "greets" $ \tvar ->
+        failAfter 5 $
+          withFreePort tvar $ \port ->
+            withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_ -> do
+              _ <- readTVarIO tvar
+              withClient port "/" $ \conn -> do
+                received <- receiveData conn
+                case Aeson.eitherDecode received of
+                  Left{} -> failure $ "Failed to decode greeting " <> show received
+                  Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
 
-  it "sends sendOutput to all connected clients" $ do
-    queue <- atomically newTQueue
-    showLogsOnFailure $ \tracer -> failAfter 5 $
-      withFreePort $ \port -> do
-        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
-          semaphore <- newTVarIO 0
-          withAsync
-            ( concurrently_
-                (withClient port "/" $ testClient queue semaphore)
-                (withClient port "/" $ testClient queue semaphore)
-            )
-            $ \_ -> do
-              waitForClients semaphore
-              failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [greeting, greeting]
-              arbitraryMsg <- generate arbitrary
-              sendOutput arbitraryMsg
-              failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
-              failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
+      it "sends sendOutput to all connected clients" $ \tvar -> do
+        queue <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 5 $
+          withFreePort tvar $ \port ->
+            withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+              semaphore <- newTVarIO 0
+              withAsync
+                ( concurrently_
+                    (withClient port "/" $ testClient queue semaphore)
+                    (withClient port "/" $ testClient queue semaphore)
+                )
+                $ \_ -> do
+                  waitForClients semaphore
+                  failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [greeting, greeting]
+                  arbitraryMsg <- generate arbitrary
+                  sendOutput arbitraryMsg
+                  failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
+                  failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
-  it "sends all sendOutput history to all connected clients after a restart" $ do
-    showLogsOnFailure $ \tracer -> failAfter 5 $
-      withTempDir "ServerSpec" $ \tmpDir -> do
-        let persistentFile = tmpDir <> "/history"
-        arbitraryMsg <- generate arbitrary
+      it "sends all sendOutput history to all connected clients after a restart" $ \tvar ->
+        showLogsOnFailure $ \tracer -> failAfter 5 $
+          withTempDir "ServerSpec" $ \tmpDir -> do
+            let persistentFile = tmpDir <> "/history"
+            arbitraryMsg <- generate arbitrary
 
-        persistence <- createPersistenceIncremental persistentFile
-        withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
-            sendOutput arbitraryMsg
-
-        queue1 <- atomically newTQueue
-        queue2 <- atomically newTQueue
-        persistence' <- createPersistenceIncremental persistentFile
-        withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
-            semaphore <- newTVarIO 0
-            withAsync
-              ( concurrently_
-                  (withClient port "/" $ testClient queue1 semaphore)
-                  (withClient port "/" $ testClient queue2 semaphore)
-              )
-              $ \_ -> do
-                waitForClients semaphore
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue1)) `shouldReturn` [arbitraryMsg, greeting]
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue2)) `shouldReturn` [arbitraryMsg, greeting]
+            persistence <- createPersistenceIncremental persistentFile
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
                 sendOutput arbitraryMsg
-                failAfter 1 $ atomically (replicateM 1 (readTQueue queue1)) `shouldReturn` [arbitraryMsg]
-                failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
-                failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
 
-  it "echoes history (past outputs) to client upon reconnection" $
-    checkCoverage . monadicIO $ do
-      outputs <- pick arbitrary
-      monitor $ cover 0.1 (null outputs) "no message when reconnecting"
-      monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
-      monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
-      run . failAfter 5 $ do
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            mapM_ sendOutput outputs
-            withClient port "/" $ \conn -> do
-              received <- replicateM (length outputs + 1) (receiveData conn)
-              case traverse Aeson.eitherDecode received of
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                Right timedOutputs -> do
-                  (output <$> timedOutputs) `shouldBe` outputs <> [greeting]
+            queue1 <- atomically newTQueue
+            queue2 <- atomically newTQueue
+            persistence' <- createPersistenceIncremental persistentFile
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
+                semaphore <- newTVarIO 0
+                withAsync
+                  ( concurrently_
+                      (withClient port "/" $ testClient queue1 semaphore)
+                      (withClient port "/" $ testClient queue2 semaphore)
+                  )
+                  $ \_ -> do
+                    waitForClients semaphore
+                    failAfter 1 $ atomically (replicateM 2 (readTQueue queue1)) `shouldReturn` [arbitraryMsg, greeting]
+                    failAfter 1 $ atomically (replicateM 2 (readTQueue queue2)) `shouldReturn` [arbitraryMsg, greeting]
+                    sendOutput arbitraryMsg
+                    failAfter 1 $ atomically (replicateM 1 (readTQueue queue1)) `shouldReturn` [arbitraryMsg]
+                    failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
+                    failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
 
-  it "does not echo history if client says no" $
-    checkCoverage . monadicIO $ do
-      history :: [ServerOutput SimpleTx] <- pick arbitrary
-      monitor $ cover 0.1 (null history) "no message when reconnecting"
-      monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
-      monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
-      run $ do
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            let sendFromApiServer = sendOutput
-            mapM_ sendFromApiServer history
-            -- start client that doesn't want to see the history
-            withClient port "/?history=no" $ \conn -> do
-              -- wait on the greeting message
-              waitMatch 5 conn $ \v ->
-                case Aeson.fromJSON v of
-                  Aeson.Success timedOutput ->
-                    guard $ output timedOutput == greeting
-                  _other -> Nothing
+      it "echoes history (past outputs) to client upon reconnection" $ \tvar ->
+        checkCoverage . monadicIO $ do
+          outputs <- pick arbitrary
+          monitor $ cover 0.1 (null outputs) "no message when reconnecting"
+          monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
+          monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
+          run . failAfter 5 $
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+                mapM_ sendOutput outputs
+                withClient port "/" $ \conn -> do
+                  received <- replicateM (length outputs + 1) (receiveData conn)
+                  case traverse Aeson.eitherDecode received of
+                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                    Right timedOutputs -> do
+                      (output <$> timedOutputs) `shouldBe` outputs <> [greeting]
 
-              notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
-              sendFromApiServer notHistoryMessage
-
-              -- Receive one more message. The messages we sent
-              -- before client connected are ignored as expected and client can
-              -- see only this last sent message.
-              received <- replicateM 1 (receiveData conn)
-
-              case traverse Aeson.eitherDecode received of
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                Right timedOutputs' -> do
-                  (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
-
-  it "outputs tx as cbor or json depending on the client" $
-    monadicIO $ do
-      tx :: SimpleTx <- pick arbitrary
-      generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
-      run $ do
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
-            let sn = generatedSnapshot{confirmed = [tx]}
-            let snapShotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot = sn, Hydra.API.ServerOutput.signatures = mempty}
-            let postTxFailedMessage =
-                  PostTxOnChainFailed
-                    { postChainTx =
-                        CloseTx
-                          { confirmedSnapshot =
-                              ConfirmedSnapshot
-                                { Hydra.Snapshot.snapshot = sn
-                                , Hydra.Snapshot.signatures = mempty
-                                }
-                          }
-                    , postTxError = NoSeedInput
-                    }
-                guardForValue v expected =
-                  case v of
-                    Aeson.Object km ->
-                      guard . (expected ==) =<< KeyMap.lookup "transaction" km
-                    _other -> Nothing
-
-            -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
-
-              sendOutput snapShotConfirmedMessage
-
-              waitMatch 5 conn $ \v ->
-                let expected =
-                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result =
-                      Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expected
-
-              sendOutput postTxFailedMessage
-
-              waitMatch 5 conn $ \v ->
-                let expected =
-                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result =
-                      Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expected
-
-            -- spawn another client but this one wants to see txs in json format
-            withClient port "/?history=no" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v (toJSON tx)
-
-  it "removes UTXO from snapshot when clients request it" $
-    monadicIO $ do
-      run $ do
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            snapshot <- generate arbitrary
-            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
-
-            withClient port "/?snapshot-utxo=no" $ \conn -> do
-              sendOutput snapshotConfirmedMessage
-
-              waitMatch 5 conn $ \v ->
-                case v of
-                  Aeson.Object km -> do
-                    case KeyMap.lookup "snapshot" km of
-                      Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
+      it "does not echo history if client says no" $ \tvar ->
+        checkCoverage . monadicIO $ do
+          history :: [ServerOutput SimpleTx] <- pick arbitrary
+          monitor $ cover 0.1 (null history) "no message when reconnecting"
+          monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
+          monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
+          run $
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+                let sendFromApiServer = sendOutput
+                mapM_ sendFromApiServer history
+                -- start client that doesn't want to see the history
+                withClient port "/?history=no" $ \conn -> do
+                  -- wait on the greeting message
+                  waitMatch 5 conn $ \v ->
+                    case Aeson.fromJSON v of
+                      Aeson.Success timedOutput ->
+                        guard $ output timedOutput == greeting
                       _other -> Nothing
-                  _other -> Nothing
 
-  it "sequence numbers are continuous and strictly monotonically increasing" $
-    monadicIO $ do
-      outputs :: [ServerOutput SimpleTx] <- pick arbitrary
-      run . failAfter 5 $ do
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
-            mapM_ sendOutput outputs
-            withClient port "/" $ \conn -> do
-              received <- replicateM (length outputs + 1) (receiveData conn)
+                  notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
+                  sendFromApiServer notHistoryMessage
 
-              case traverse Aeson.eitherDecode received of
-                Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
-                  seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
+                  -- Receive one more message. The messages we sent
+                  -- before client connected are ignored as expected and client can
+                  -- see only this last sent message.
+                  received <- replicateM 1 (receiveData conn)
 
-  it "sends an error when input cannot be decoded" $
-    failAfter 5 $
-      withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
+                  case traverse Aeson.eitherDecode received of
+                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                    Right timedOutputs' -> do
+                      (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
+
+      it "outputs tx as cbor or json depending on the client" $ \tvar ->
+        monadicIO $ do
+          tx :: SimpleTx <- pick arbitrary
+          generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
+          run $
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+                let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+                let sn = generatedSnapshot{confirmed = [tx]}
+                let snapShotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot = sn, Hydra.API.ServerOutput.signatures = mempty}
+                let postTxFailedMessage =
+                      PostTxOnChainFailed
+                        { postChainTx =
+                            CloseTx
+                              { confirmedSnapshot =
+                                  ConfirmedSnapshot
+                                    { Hydra.Snapshot.snapshot = sn
+                                    , Hydra.Snapshot.signatures = mempty
+                                    }
+                              }
+                        , postTxError = NoSeedInput
+                        }
+                    guardForValue v expected =
+                      case v of
+                        Aeson.Object km ->
+                          guard . (expected ==) =<< KeyMap.lookup "transaction" km
+                        _other -> Nothing
+
+                -- client is able to specify they want tx output to be encoded as CBOR
+                withClient port "/?history=no&tx-output=cbor" $ \conn -> do
+                  sendOutput txValidMessage
+
+                  waitMatch 5 conn $ \v ->
+                    guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
+
+                  sendOutput snapShotConfirmedMessage
+
+                  waitMatch 5 conn $ \v ->
+                    let expected =
+                          Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
+                        result =
+                          Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
+                     in guard $ result == Just expected
+
+                  sendOutput postTxFailedMessage
+
+                  waitMatch 5 conn $ \v ->
+                    let expected =
+                          Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
+                        result =
+                          Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
+                     in guard $ result == Just expected
+
+                -- spawn another client but this one wants to see txs in json format
+                withClient port "/?history=no" $ \conn -> do
+                  sendOutput txValidMessage
+
+                  waitMatch 5 conn $ \v ->
+                    guardForValue v (toJSON tx)
+
+      it "removes UTXO from snapshot when clients request it" $ \tvar ->
+        monadicIO $
+          run $
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+                snapshot <- generate arbitrary
+                let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
+
+                withClient port "/?snapshot-utxo=no" $ \conn -> do
+                  sendOutput snapshotConfirmedMessage
+
+                  waitMatch 5 conn $ \v ->
+                    case v of
+                      Aeson.Object km -> do
+                        case KeyMap.lookup "snapshot" km of
+                          Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
+                          _other -> Nothing
+                      _other -> Nothing
+
+      it "sequence numbers are continuous and strictly monotonically increasing" $ \tvar ->
+        monadicIO $ do
+          outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+          run . failAfter 5 $
+            withFreePort tvar $ \port ->
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \Server{sendOutput} -> do
+                mapM_ sendOutput outputs
+                withClient port "/" $ \conn -> do
+                  received <- replicateM (length outputs + 1) (receiveData conn)
+
+                  case traverse Aeson.eitherDecode received of
+                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                    Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
+                      seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
+
+      it "sends an error when input cannot be decoded" $ \tvar ->
+        failAfter 5 $
+          withFreePort tvar $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
 strictlyMonotonic :: [Natural] -> Bool
 strictlyMonotonic = \case
