@@ -179,7 +179,7 @@ chainSyncHandler ::
   ChainContext ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer modifyChainState callback getTimeHandle ctx =
+chainSyncHandler tracer modifyChainState pushEvent getTimeHandle ctx =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -188,7 +188,7 @@ chainSyncHandler tracer modifyChainState callback getTimeHandle ctx =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    atomically $ callback (Rollback $ chainSlotFromPoint point)
+    atomically $ pushEvent (Rollback $ chainSlotFromPoint point)
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -207,7 +207,7 @@ chainSyncHandler tracer modifyChainState callback getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            atomically $ callback (Tick utcTime)
+            atomically $ pushEvent (Tick utcTime)
 
     forM_ receivedTxs $ \tx -> do
       modifyChainState $ \cs@ChainStateAt{chainState} ->
@@ -219,7 +219,7 @@ chainSyncHandler tracer modifyChainState callback getTimeHandle ctx =
                     { chainState = cs'
                     , recordedAt = Just point
                     }
-            callback Observation{observedTx, newChainState}
+            pushEvent Observation{observedTx, newChainState}
             pure newChainState
 
 prepareTxToPost ::

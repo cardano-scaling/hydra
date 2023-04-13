@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -127,14 +128,17 @@ import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
-  Action (ObserveConfirmedTx, Wait),
+  Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   RunMonad,
   RunState (..),
   WorldState (..),
+  genCommit',
+  genInit,
   genPayment,
+  genSeed,
   runMonad,
  )
 import qualified Hydra.Model as Model
@@ -147,6 +151,7 @@ import Test.QuickCheck.DynamicLogic (
   anyActions_,
   forAllDL,
   forAllNonVariableQ,
+  forAllQ,
   getModelStateDL,
   withGenQ,
  )
@@ -170,6 +175,29 @@ spec = do
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
+  prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
+
+prop_checkHeadOpensIfAllPartiesCommit :: Property
+prop_checkHeadOpensIfAllPartiesCommit =
+  within 50000000 $
+    forAllDL headOpensIfAllPartiesCommit prop_HydraModel
+
+headOpensIfAllPartiesCommit :: DL WorldState ()
+headOpensIfAllPartiesCommit = do
+  seedTheWorld
+  initHead
+  everybodyCommit
+  void $ eventually ObserveHeadIsOpen
+ where
+  eventually a = action (Wait 1000) >> action a
+  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  initHead = do
+    WorldState{hydraParties} <- getModelStateDL
+    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+  everybodyCommit = do
+    WorldState{hydraParties} <- getModelStateDL
+    forM_ hydraParties $ \party ->
+      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
