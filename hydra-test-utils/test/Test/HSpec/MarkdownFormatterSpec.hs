@@ -5,18 +5,27 @@ import Test.Hspec.MarkdownFormatter
 import Test.Hydra.Prelude
 
 import Data.List (isInfixOf)
-import System.Directory (createDirectoryIfMissing)
-import System.FilePath (splitFileName, (</>))
-import Test.Hspec.Core.Format (Event (..), Format, FormatConfig)
+import System.FilePath ((</>))
 import Test.Hspec.Core.Runner (
   Config (..),
-  Summary (..),
   defaultConfig,
-  hspecWith,
   hspecWithResult,
  )
-import Test.QuickCheck (Positive (..), Small (..), counterexample, forAll, frequency, property, vectorOf)
-import Test.QuickCheck.Monadic (assert, forAllM, monadic, monadicIO, monitor, pick, run)
+import Test.QuickCheck (
+  Positive (..),
+  Small (..),
+  counterexample,
+  frequency,
+  property,
+  vectorOf,
+ )
+import Test.QuickCheck.Monadic (
+  assert,
+  monadicIO,
+  monitor,
+  pick,
+  run,
+ )
 
 spec :: Spec
 spec =
