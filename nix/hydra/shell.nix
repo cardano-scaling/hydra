@@ -69,15 +69,16 @@ let
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
     # Make sure these are consistent with the packages in cabal.project.
     packages = ps: with ps; [
-      hydra-cluster
-      hydra-node
-      hydra-plutus
       hydra-prelude
-      hydra-test-utils
-      hydra-tui
       hydra-cardano-api
+      hydra-test-utils
       plutus-cbor
       plutus-merkle-tree
+      # hydra-plutus
+      # hydra-node
+      # hydra-cluster
+      # hydra-tui
+      # hydraw
     ];
 
     tools = buildTools // devTools;
