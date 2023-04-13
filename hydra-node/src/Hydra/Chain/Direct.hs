@@ -12,12 +12,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
-import Cardano.Ledger.Alonzo.Rules.Utxos (FailureDescription (PlutusFailure), TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
-import Cardano.Ledger.Alonzo.Rules.Utxow (UtxowPredicateFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus)
-import Cardano.Ledger.Babbage.Rules.Utxo (BabbageUtxoPred (FromAlonzoUtxoFail))
-import Cardano.Ledger.Babbage.Rules.Utxow (BabbageUtxowPred (FromAlonzoUtxowFail))
 import Cardano.Ledger.Babbage.Tx (ValidatedTx)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
 import qualified Cardano.Ledger.Shelley.API as Ledger
@@ -82,7 +77,6 @@ import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
   Block,
   defaultCodecs,
-  nullConnectTracers,
   readKeyPair,
   readVerificationKey,
   versions,
@@ -234,13 +228,10 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
       ( handle onIOException $ do
           let handler = chainSyncHandler tracer callback getTimeHandle ctx
           let intersection = toConsensusPointInMode CardanoMode chainPoint
-          let client = ouroborosApplication tracer intersection queue handler wallet
-          withIOManager $ \iocp ->
-            connectTo
-              (localSnocket iocp)
-              nullConnectTracers
-              (versions networkId client)
-              nodeSocket
+          let client = ouroborosApplication
+          connectToLocalNode
+            connectInfo
+            (clientProtocols tracer intersection queue handler wallet)
       )
       (action chainHandle)
   case res of
@@ -248,6 +239,16 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
     Right a -> pure a
  where
   DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
+
+  connectInfo =
+    LocalNodeConnectInfo
+      { -- REVIEW: This was 432000 before, but all usages in the
+        -- cardano-node repository are using this value. This is only
+        -- relevant for the Byron era.
+        localConsensusModeParams = CardanoModeParams (EpochSlots 21600)
+      , localNodeNetworkId = networkId
+      , localNodeSocketPath = nodeSocket
+      }
 
   submitTx queue vtx = do
     response <- atomically $ do
@@ -287,46 +288,62 @@ newtype IntersectionNotFoundException = IntersectionNotFound
 
 instance Exception IntersectionNotFoundException
 
-ouroborosApplication ::
+clientProtocols ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Point Block ->
   TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
   ChainSyncHandler m ->
   TinyWallet m ->
-  NodeToClientVersion ->
-  OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-ouroborosApplication tracer point queue handler wallet nodeToClientV =
-  nodeToClientProtocols
-    ( const $
-        pure $
-          NodeToClientProtocols
-            { localChainSyncProtocol =
-                InitiatorProtocolOnly $
-                  let peer = chainSyncClient handler wallet point
-                   in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
-            , localTxSubmissionProtocol =
-                InitiatorProtocolOnly $
-                  let peer = txSubmissionClient tracer queue
-                   in MuxPeer nullTracer cTxSubmissionCodec (localTxSubmissionClientPeer peer)
-            , localStateQueryProtocol =
-                InitiatorProtocolOnly $
-                  let peer = localStateQueryPeerNull
-                   in MuxPeer nullTracer cStateQueryCodec peer
-            , localTxMonitorProtocol =
-                InitiatorProtocolOnly $
-                  let peer = localTxMonitorPeerNull
-                   in MuxPeer nullTracer cTxMonitorCodec peer
-            }
-    )
-    nodeToClientV
- where
-  Codecs
-    { cChainSyncCodec
-    , cTxSubmissionCodec
-    , cStateQueryCodec
-    , cTxMonitorCodec
-    } = defaultCodecs nodeToClientV
+  LocalNodeClientProtocols
+clientProtocols tracer point queue handler wallet =
+  LocalNodeClientProtocols
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet point
+    , localTxSubmissionClient = Just . LocalTxSubmissionClient $ txSubmissionClient tracer queue
+    , localStateQueryClient = Nothing
+    , localTxMonitoringClient = Nothing
+    }
+
+-- ouroborosApplication ::
+--   (MonadST m, MonadTimer m, MonadThrow m) =>
+--   Tracer m DirectChainLog ->
+--   Point Block ->
+--   TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
+--   ChainSyncHandler m ->
+--   TinyWallet m ->
+--   NodeToClientVersion ->
+--   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
+-- ouroborosApplication tracer point queue handler wallet nodeToClientV =
+--   nodeToClientProtocols
+--     ( const $
+--         pure $
+--           NodeToClientProtocols
+--             { localChainSyncProtocol =
+--                 InitiatorProtocolOnly $
+--                   let peer = chainSyncClient handler wallet point
+--                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
+--             , localTxSubmissionProtocol =
+--                 InitiatorProtocolOnly $
+--                   let peer = txSubmissionClient tracer queue
+--                    in MuxPeer nullTracer cTxSubmissionCodec (localTxSubmissionClientPeer peer)
+--             , localStateQueryProtocol =
+--                 InitiatorProtocolOnly $
+--                   let peer = localStateQueryPeerNull
+--                    in MuxPeer nullTracer cStateQueryCodec peer
+--             , localTxMonitorProtocol =
+--                 InitiatorProtocolOnly $
+--                   let peer = localTxMonitorPeerNull
+--                    in MuxPeer nullTracer cTxMonitorCodec peer
+--             }
+--     )
+--     nodeToClientV
+--  where
+--   Codecs
+--     { cChainSyncCodec
+--     , cTxSubmissionCodec
+--     , cStateQueryCodec
+--     , cTxMonitorCodec
+--     } = defaultCodecs nodeToClientV
 
 chainSyncClient ::
   forall m.
@@ -413,7 +430,7 @@ txSubmissionClient tracer queue =
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure LedgerEra -> Maybe (PostTxError Tx)
+  unwrapPlutus :: ShelleyLedgerPredFailure LedgerEra -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
     UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
       let plutusDebugInfo =

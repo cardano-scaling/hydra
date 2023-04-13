@@ -162,10 +162,13 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-byron
     , ouroboros-consensus-cardano
+    , ouroboros-consensus-diffusion   >=0.3.0.0
     , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
+    , ouroboros-network-api           >=0.1.0.0
     , ouroboros-network-framework     >=0.3.0.0
+    , ouroboros-network-protocols     >=0.3.0.0
     , plutus-core
     , plutus-ledger-api               >=1.1.1.0
     , prometheus

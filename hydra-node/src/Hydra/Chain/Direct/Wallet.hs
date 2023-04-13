@@ -91,23 +91,23 @@ type TxOut = Ledger.TxOut LedgerEra
 -- The wallet is connecting to the node initially and when asked to 'reset'.
 -- Otherwise it can be fed blocks via 'update' as the chain rolls forward.
 data TinyWallet m = TinyWallet
-  { -- | Return all known UTxO addressed to this wallet.
-    getUTxO :: STM m (Map TxIn TxOut)
-  , -- | Returns the /seed input/
-    -- This is the special input needed by `Direct` chain component to initialise
-    -- a head
-    getSeedInput :: STM m (Maybe Api.TxIn)
+  { getUTxO :: STM m (Map TxIn TxOut)
+  -- ^ Return all known UTxO addressed to this wallet.
+  , getSeedInput :: STM m (Maybe Api.TxIn)
+  -- ^ Returns the /seed input/
+  -- This is the special input needed by `Direct` chain component to initialise
+  -- a head
   , sign :: ValidatedTx LedgerEra -> ValidatedTx LedgerEra
   , coverFee ::
       Map TxIn TxOut ->
       ValidatedTx LedgerEra ->
       m (Either ErrCoverFee (ValidatedTx LedgerEra))
-  , -- | Re-initializ wallet against the latest tip of the node and start to
-    -- ignore 'update' calls until reaching that tip.
-    reset :: m ()
-  , -- | Update the wallet state given some 'Block'. May be ignored if wallet is
-    -- still initializing.
-    update :: Block -> m ()
+  , reset :: m ()
+  -- ^ Re-initializ wallet against the latest tip of the node and start to
+  -- ignore 'update' calls until reaching that tip.
+  , update :: Block -> m ()
+  -- ^ Update the wallet state given some 'Block'. May be ignored if wallet is
+  -- still initializing.
   }
 
 data WalletInfoOnChain = WalletInfoOnChain
@@ -115,8 +115,8 @@ data WalletInfoOnChain = WalletInfoOnChain
   , pparams :: PParams LedgerEra
   , systemStart :: SystemStart
   , epochInfo :: EpochInfo (Either Text)
-  , -- | Latest point on chain the wallet knows of.
-    tip :: ChainPoint
+  , tip :: ChainPoint
+  -- ^ Latest point on chain the wallet knows of.
   }
 
 type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
@@ -179,6 +179,22 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
   ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
+
+signWith ::
+  Api.SigningKey Api.PaymentKey ->
+  ValidatedTx Api.LedgerEra ->
+  ValidatedTx Api.LedgerEra
+signWith signingKey validatedTx@ValidatedTx{body, wits} =
+  validatedTx
+    { wits =
+        wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
+    }
+ where
+  txid =
+    Ledger.TxId (SafeHash.hashAnnotated body)
+  sig =
+    toLedgerKeyWitness
+      [Api.signWith @Api.Era (fromLedgerTxId txid) signingKey]
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.
@@ -318,13 +334,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
   mkChange (Ledger.Babbage.TxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-      Left $
-        ChangeError
-          { inputBalance = totalIn
-          , outputBalance = totalOut
-          }
+        Left $
+          ChangeError
+            { inputBalance = totalIn
+            , outputBalance = totalOut
+            }
     | otherwise =
-      Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
+        Right $ Ledger.Babbage.TxOut addr (inject changeOut) datum refScript
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
     totalIn = foldMap getAdaValue resolvedInputs
@@ -343,7 +359,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
       case ptr of
         RdmrPtr Spend idx
           | fromIntegral idx `elem` differences ->
-            (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
+              (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 
