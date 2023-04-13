@@ -14,6 +14,14 @@ let
 
   cardano-node-pkgs = cardano-node.packages.${system};
 
+  cabal = pkgs.haskell-nix.cabal-install.${compiler};
+
+  haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
+    src = pkgs.haskell-nix.sources."hls-1.10";
+    cabalProject = builtins.readFile (src + "/cabal.project");
+    sha256map."https://github.com/pepeiborra/ekg-json"."7a0af7a8fd38045fd15fb13445bdcc7085325460" = "sha256-fVwKxGgM0S4Kv/4egVAAiAjV7QB5PBqMVMCfsv7otIQ=";
+  };
+
   libs = [
     pkgs.glibcLocales
     pkgs.libsodium-vrf # from iohk-nix overlay
@@ -25,8 +33,10 @@ let
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
   buildInputs = [
+    # Build essentials
     pkgs.git
     pkgs.pkgconfig
+    cabal
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.cabal-plan
     # For validating JSON instances against a pre-defined schema
@@ -38,12 +48,15 @@ let
   ];
 
   devInputs = if withoutDevTools then [ ] else [
+    # Automagically format .hs and .cabal files
+    pkgs.haskellPackages.fourmolu
+    pkgs.haskellPackages.cabal-fmt
+    # Essenetial for a good IDE
+    haskell-language-server
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
     # Generate a graph of the module dependencies in the "dot" format
     pkgs.haskellPackages.graphmod
-    # Automagically format .cabal files
-    pkgs.haskellPackages.cabal-fmt
     # Handy to interact with the hydra-node via websockets
     pkgs.websocat
     # Like 'jq' to manipulate JSON, but work for YAML
@@ -54,16 +67,6 @@ let
     # To interact with cardano-node and testing out things
     cardano-node-pkgs.cardano-cli
   ];
-
-  # Haskell.nix managed tools (via hackage)
-  buildTools = {
-    cabal = "3.4.0.0";
-  };
-
-  devTools = if withoutDevTools then { } else {
-    fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
-    haskell-language-server = "1.8.0.0";
-  };
 
   haskellNixShell = hsPkgs.shellFor {
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
@@ -80,8 +83,6 @@ let
       # hydra-tui
       # hydraw
     ];
-
-    tools = buildTools // devTools;
 
     buildInputs = libs ++ buildInputs ++ devInputs;
 
