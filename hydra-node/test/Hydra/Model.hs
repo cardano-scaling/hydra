@@ -128,6 +128,10 @@ isInitialState :: GlobalState -> Bool
 isInitialState Initial{} = True
 isInitialState _ = False
 
+isOpenState :: GlobalState -> Bool
+isOpenState Open{} = True
+isOpenState _ = False
+
 isFinalState :: GlobalState -> Bool
 isFinalState Final{} = True
 isFinalState _ = False
@@ -168,6 +172,8 @@ instance StateModel WorldState where
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
+    -- Check that all parties have observed the head as open
+    ObserveHeadIsOpen :: Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -179,23 +185,16 @@ instance StateModel WorldState where
   arbitraryAction :: WorldState -> Gen (Any (Action WorldState))
   arbitraryAction st@WorldState{hydraParties, hydraState} =
     case hydraState of
-      Start -> genSeed
-      Idle{} -> genInit
+      Start -> fmap Some genSeed
+      Idle{} -> fmap Some $ genInit hydraParties
       Initial{pendingCommits} ->
         frequency
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
       Open{} -> genNewTx
-      _ -> genSeed
+      _ -> fmap Some genSeed
    where
-    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
-
-    genInit = do
-      key <- fst <$> elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Init party
-
     genCommit pending = do
       party <- elements $ toList pending
       let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
@@ -210,10 +209,6 @@ instance StateModel WorldState where
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
-    genContestationPeriod = do
-      n <- choose (1, 200)
-      pure $ UnsafeContestationPeriod $ wordToNatural n
-
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -227,6 +222,8 @@ instance StateModel WorldState where
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
+  precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition _ StopTheWorld =
     True
@@ -309,12 +306,37 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       Wait _ -> s
       ObserveConfirmedTx _ -> s
+      ObserveHeadIsOpen -> s
       StopTheWorld -> s
 
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
 -- ** Generator Helper
+
+genSeed :: Gen (Action WorldState ())
+genSeed = Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+
+genContestationPeriod :: Gen ContestationPeriod
+genContestationPeriod = do
+  n <- choose (1, 200)
+  pure $ UnsafeContestationPeriod $ wordToNatural n
+
+genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
+genInit hydraParties = do
+  key <- fst <$> elements hydraParties
+  let party = deriveParty key
+  pure $ Init party
+
+genCommit' ::
+  [(SigningKey HydraKey, CardanoSigningKey)] ->
+  (SigningKey HydraKey, CardanoSigningKey) ->
+  Gen (Action WorldState [(CardanoSigningKey, Value)])
+genCommit' hydraParties hydraParty = do
+  let (_, sk) = fromJust $ find (== hydraParty) hydraParties
+  value <- genAdaValue
+  let utxo = [(sk, value)]
+  pure $ Commit (deriveParty . fst $ hydraParty) utxo
 
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
@@ -445,10 +467,21 @@ instance
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
-            Left u -> throwIO $ TransactionNotObserved tx u
+            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
             Right _ -> pure ()
+      ObserveHeadIsOpen -> do
+        nodes' <- Map.toList <$> gets nodes
+        forM_ nodes' $ \(_, node) -> do
+          outputs <- lift $ serverOutputs node
+          case find headIsOpen outputs of
+            Just _ -> pure ()
+            Nothing -> error $ "The head is not open for node " -- <> show node
       StopTheWorld ->
         stopTheWorld
+   where
+    headIsOpen = \case
+      Output.HeadIsOpen{} -> True
+      _otherwise -> False
 
 -- ** Performing actions
 
@@ -491,10 +524,10 @@ seedWorld seedKeys seedCP = do
     pure (res, tickThread)
 
   modify $ \n ->
-        n
-          { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
-          , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
-          }
+    n
+      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
+      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
+      }
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
@@ -505,7 +538,7 @@ performCommit ::
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
-    Nothing -> throwIO $ UnexpectedParty party
+    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
       lift $ waitForHeadIsInitializing party nodes
       let realUTxO =
@@ -533,7 +566,7 @@ performCommit parties party paymentUTxO = do
   findSigningKey :: (AddressInEra, Value) -> (CardanoSigningKey, Value)
   findSigningKey (addr, value) =
     case List.lookup addr knownAddresses of
-      Nothing -> error $ show $ UnknownAddress addr knownAddresses
+      Nothing -> error $ "cannot invert address:  " <> show addr
       Just sk -> (sk, value)
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
@@ -547,9 +580,11 @@ performNewTx ::
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
+  let thisNode = nodes ! party
 
   let waitForOpen = do
-        outs <- lift $ serverOutputs (nodes ! party)
+        outs <- lift $ serverOutputs thisNode
+        -- TODO refactor with headIsOpen
         let matchHeadIsOpen = \case
               Output.HeadIsOpen{} -> True
               _ -> False
@@ -559,8 +594,8 @@ performNewTx party tx = do
   waitForOpen
 
   (i, o) <-
-    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
-      Left u -> throwIO $ CannotFindSpendableUTxO tx u
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
+      Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
   let realTx =
@@ -571,7 +606,7 @@ performNewTx party tx = do
 
   party `sendsInput` Input.NewTx realTx
   lift $
-    waitUntilMatch [nodes ! party] $ \case
+    waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{Output.snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
       err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
@@ -612,6 +647,7 @@ showFromAction k = \case
   Wait{} -> k
   ObserveConfirmedTx{} -> k
   StopTheWorld -> k
+  ObserveHeadIsOpen -> k
 
 checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
 checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
