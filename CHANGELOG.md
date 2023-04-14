@@ -70,7 +70,8 @@ changes.
   - Added `fromScriptData` generic conversion function.
   - Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
   - Changed `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
-  - Added `genTxIn` and `arbitrary` instance for `TxIn`
+  - Added `genTxIn` and `arbitrary` instance for `TxIn`.
+  - Added `getChainPoint`.
 
 - **BREAKING** Changes to `hydra-test-utils`:
   - Greatly simplified the implementation of `evaluateScriptExecutionUnits` using `cardano-api` types now.
