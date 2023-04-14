@@ -12,16 +12,10 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.TxInfo (PlutusDebugInfo (..), debugPlutus)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx)
-import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError))
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
-import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
-import Control.Exception (IOException)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
   putTMVar,
@@ -29,19 +23,30 @@ import Control.Monad.Class.MonadSTM (
   takeTMVar,
   writeTQueue,
  )
+import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
-import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
+  BlockInMode (..),
   CardanoMode,
   ChainPoint,
-  ConsensusMode (CardanoMode),
+  ChainTip,
+  ConsensusModeParams (..),
+  EpochSlots (..),
   EraHistory (EraHistory),
-  LedgerEra,
+  EraInMode (BabbageEraInCardanoMode),
+  LocalChainSyncClient (..),
+  LocalNodeClientProtocols (..),
+  LocalNodeConnectInfo (..),
   NetworkId,
   Tx,
   TxId,
+  TxInMode (..),
+  TxValidationErrorInMode,
+  chainTipToChainPoint,
+  connectToLocalNode,
+  getTxBody,
+  getTxId,
   shelleyBasedEra,
-  toConsensusPointInMode,
   toLedgerPParams,
   toLedgerUTxO,
  )
@@ -75,46 +80,20 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
-  Block,
-  defaultCodecs,
   readKeyPair,
   readVerificationKey,
-  versions,
  )
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
-  getTxId,
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig (..))
 import Hydra.Party (Party)
-import Ouroboros.Consensus.Cardano.Block (
-  GenTx (..),
-  HardForkApplyTxErr (ApplyTxErrBabbage),
- )
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
-import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
-import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
-import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip, getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
-import Ouroboros.Network.Mux (
-  MuxMode (..),
-  MuxPeer (MuxPeer),
-  OuroborosApplication (..),
-  RunMiniProtocol (..),
- )
 import Ouroboros.Network.NodeToClient (
-  LocalAddress,
-  NodeToClientProtocols (..),
-  NodeToClientVersion,
-  connectTo,
-  localSnocket,
-  localStateQueryPeerNull,
-  localTxMonitorPeerNull,
-  nodeToClientProtocols,
   withIOManager,
  )
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -122,13 +101,11 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStIntersect (..),
   ClientStNext (..),
-  chainSyncClientPeer,
  )
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
   SubmitResult (..),
-  localTxSubmissionClientPeer,
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -215,6 +192,7 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
     (min <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
+
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   let chainHandle =
         mkChain
@@ -227,11 +205,9 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
     race
       ( handle onIOException $ do
           let handler = chainSyncHandler tracer callback getTimeHandle ctx
-          let intersection = toConsensusPointInMode CardanoMode chainPoint
-          let client = ouroborosApplication
           connectToLocalNode
             connectInfo
-            (clientProtocols tracer intersection queue handler wallet)
+            (clientProtocols chainPoint queue handler)
       )
       (action chainHandle)
   case res of
@@ -250,10 +226,18 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
       , localNodeSocketPath = nodeSocket
       }
 
-  submitTx queue vtx = do
+  clientProtocols point queue handler =
+    LocalNodeClientProtocols
+      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet point
+      , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
+      , localStateQueryClient = Nothing
+      , localTxMonitoringClient = Nothing
+      }
+
+  submitTx queue tx = do
     response <- atomically $ do
       response <- newEmptyTMVar
-      writeTQueue queue (vtx, response)
+      writeTQueue queue (tx, response)
       return response
     atomically (takeTMVar response)
       >>= maybe (pure ()) throwIO
@@ -282,76 +266,22 @@ instance Exception ConnectException
 -- the node back on, that point may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
 newtype IntersectionNotFoundException = IntersectionNotFound
-  { requestedPoint :: Point Block
+  { requestedPoint :: ChainPoint
   }
   deriving (Show)
 
 instance Exception IntersectionNotFoundException
 
-clientProtocols ::
-  (MonadST m, MonadTimer m, MonadThrow m) =>
-  Tracer m DirectChainLog ->
-  Point Block ->
-  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
-  ChainSyncHandler m ->
-  TinyWallet m ->
-  LocalNodeClientProtocols
-clientProtocols tracer point queue handler wallet =
-  LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet point
-    , localTxSubmissionClient = Just . LocalTxSubmissionClient $ txSubmissionClient tracer queue
-    , localStateQueryClient = Nothing
-    , localTxMonitoringClient = Nothing
-    }
-
--- ouroborosApplication ::
---   (MonadST m, MonadTimer m, MonadThrow m) =>
---   Tracer m DirectChainLog ->
---   Point Block ->
---   TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
---   ChainSyncHandler m ->
---   TinyWallet m ->
---   NodeToClientVersion ->
---   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
--- ouroborosApplication tracer point queue handler wallet nodeToClientV =
---   nodeToClientProtocols
---     ( const $
---         pure $
---           NodeToClientProtocols
---             { localChainSyncProtocol =
---                 InitiatorProtocolOnly $
---                   let peer = chainSyncClient handler wallet point
---                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
---             , localTxSubmissionProtocol =
---                 InitiatorProtocolOnly $
---                   let peer = txSubmissionClient tracer queue
---                    in MuxPeer nullTracer cTxSubmissionCodec (localTxSubmissionClientPeer peer)
---             , localStateQueryProtocol =
---                 InitiatorProtocolOnly $
---                   let peer = localStateQueryPeerNull
---                    in MuxPeer nullTracer cStateQueryCodec peer
---             , localTxMonitorProtocol =
---                 InitiatorProtocolOnly $
---                   let peer = localTxMonitorPeerNull
---                    in MuxPeer nullTracer cTxMonitorCodec peer
---             }
---     )
---     nodeToClientV
---  where
---   Codecs
---     { cChainSyncCodec
---     , cTxSubmissionCodec
---     , cStateQueryCodec
---     , cTxMonitorCodec
---     } = defaultCodecs nodeToClientV
+-- | The block type used in the node-to-client protocols.
+type Block = BlockInMode CardanoMode
 
 chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
   TinyWallet m ->
-  Point Block ->
-  ChainSyncClient Block (Point Block) (Tip Block) m ()
+  ChainPoint ->
+  ChainSyncClient Block ChainPoint ChainTip m ()
 chainSyncClient handler wallet startingPoint =
   ChainSyncClient $
     pure $
@@ -362,28 +292,33 @@ chainSyncClient handler wallet startingPoint =
         )
  where
   clientStIntersect ::
-    (Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())) ->
-    ClientStIntersect Block (Point Block) (Tip Block) m ()
+    (ChainPoint -> m (ClientStIdle Block ChainPoint ChainTip m ())) ->
+    ClientStIntersect Block ChainPoint ChainTip m ()
   clientStIntersect onIntersectionNotFound =
     ClientStIntersect
       { recvMsgIntersectFound = \_ _ ->
           ChainSyncClient (pure clientStIdle)
-      , recvMsgIntersectNotFound = \(getTipPoint -> tip) ->
-          ChainSyncClient $ onIntersectionNotFound tip
+      , recvMsgIntersectNotFound = \tip ->
+          ChainSyncClient $ onIntersectionNotFound $ chainTipToChainPoint tip
       }
 
-  clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
+  clientStIdle :: ClientStIdle Block ChainPoint ChainTip m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
 
-  clientStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
+  clientStNext :: ClientStNext Block ChainPoint ChainTip m ()
   clientStNext =
     ClientStNext
-      { recvMsgRollForward = \block _tip -> ChainSyncClient $ do
-          -- Update the tiny wallet
-          update wallet block
-          -- Observe Hydra transactions
-          onRollForward handler block
-          pure clientStIdle
+      { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
+          case blockInMode of
+            BlockInMode block BabbageEraInCardanoMode -> do
+              -- Update the tiny wallet
+              update wallet block
+              -- Observe Hydra transactions
+              onRollForward handler block
+              pure clientStIdle
+            _ ->
+              -- TODO: Replicate previous behavior of different era blocks
+              pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
           reset wallet
@@ -396,55 +331,29 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx LedgerEra, TMVar m (Maybe (PostTxError Tx))) ->
-  LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
+  TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
+  LocalTxSubmissionClient (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
  where
-  clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
+  clientStIdle :: m (LocalTxClientStIdle (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) m ())
   clientStIdle = do
     (tx, response) <- atomically $ readTQueue queue
-    traceWith tracer (PostingTx (getTxId tx))
+    let txId = getTxId $ getTxBody tx
+    traceWith tracer PostingTx{txId}
     pure $
       SendMsgSubmitTx
-        (GenTxBabbage . mkShelleyTx $ tx)
+        (TxInMode tx BabbageEraInCardanoMode)
         ( \case
             SubmitSuccess -> do
-              traceWith tracer (PostedTx (getTxId tx))
+              traceWith tracer PostedTx{txId}
               atomically (putTMVar response Nothing)
               clientStIdle
             SubmitFail err -> do
-              let postTxError = onFail err
+              -- XXX: Very complicated / opaque show instance and no unpacking
+              -- possible because of missing data constructors from cardano-api
+              let postTxError = FailedToPostTx{failureReason = show err}
               traceWith tracer PostingFailed{tx, postTxError}
               atomically (putTMVar response (Just postTxError))
               clientStIdle
         )
-
-  -- XXX(SN): patch-work error pretty printing on single plutus script failures
-  onFail err =
-    case err of
-      ApplyTxErrBabbage (ApplyTxError [failure]) ->
-        fromMaybe failedToPostTx (unwrapPlutus failure)
-      _ ->
-        failedToPostTx
-   where
-    failedToPostTx = FailedToPostTx{failureReason = show err}
-
-  unwrapPlutus :: ShelleyLedgerPredFailure LedgerEra -> Maybe (PostTxError Tx)
-  unwrapPlutus = \case
-    UtxowFailure (FromAlonzoUtxowFail (WrappedShelleyEraFailure (UtxoFailure (FromAlonzoUtxoFail (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure plutusFailure debug :| _)))))))) ->
-      let plutusDebugInfo =
-            case debugPlutus (decodeUtf8 debug) of
-              DebugSuccess budget -> "DebugSuccess: " <> show budget
-              DebugCannotDecode err -> "DebugCannotDecode: " <> fromString err
-              DebugInfo logs err _debug ->
-                unlines
-                  [ "DebugInfo:"
-                  , "  Error: " <> show err
-                  , "  Logs:"
-                  ]
-                  <> unlines (fmap ("    " <>) logs)
-              DebugBadHex err -> "DebugBadHex: " <> fromString err
-       in Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo}
-    _ ->
-      Nothing

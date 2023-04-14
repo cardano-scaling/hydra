@@ -21,13 +21,11 @@ import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
-import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (isNativeScript)
 import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
-import Cardano.Ledger.Era (fromTxSeq)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.Mary.Value (gettriples')
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -47,8 +45,9 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  Block (..),
   ChainPoint,
-  ConsensusMode (CardanoMode),
+  Era,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -57,24 +56,22 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
-  fromConsensusPointInMode,
   fromLedgerTxId,
   fromLedgerUTxO,
+  getChainPoint,
   makeShelleyAddress,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerKeyWitness,
+  toLedgerTx,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Util (Block, markerDatum)
+import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Block (blockPoint)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
-import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..))
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 type Address = Ledger.Addr StandardCrypto
@@ -103,7 +100,7 @@ data TinyWallet m = TinyWallet
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
-  , update :: Block -> m ()
+  , update :: Block Era -> m ()
   -- ^ Update the wallet state given some 'Block'. May be ignored if wallet is
   -- still initializing.
   }
@@ -152,8 +149,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
-      , update = \block -> do
-          let point = fromConsensusPointInMode CardanoMode $ blockPoint block
+      , update = \block@(Block header _) -> do
+          let point = getChainPoint header
           walletTip <- atomically $ readTVar walletInfoVar <&> \WalletInfoOnChain{tip} -> tip
           if point < walletTip
             then traceWith tracer $ SkipUpdate{point}
@@ -199,21 +196,21 @@ signWith signingKey validatedTx@Babbage.AlonzoTx{body, wits} =
 --
 -- To determine whether a produced output is ours, we apply the given function
 -- checking the output's address.
-applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
-applyBlock blk isOurs utxo = case blk of
-  BlockBabbage (ShelleyBlock block _) ->
-    flip execState utxo $ do
-      forM_ (fromTxSeq $ bbody block) $ \tx -> do
-        let txId = getTxId tx
-        modify (`Map.withoutKeys` inputs (body tx))
-        let indexedOutputs =
-              let outs = toList $ outputs' (body tx)
-                  maxIx = fromIntegral $ length outs
-               in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
-        forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
-          when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
-  _ ->
-    utxo
+-- TODO: Make this 'applyTxs' and take [Tx]
+applyBlock :: Block Era -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
+applyBlock (Block _ txs) isOurs utxo =
+  flip execState utxo $ do
+    forM_ txs $ \apiTx -> do
+      -- XXX: Use cardano-api types instead here
+      let tx = toLedgerTx apiTx
+      let txId = getTxId tx
+      modify (`Map.withoutKeys` inputs (body tx))
+      let indexedOutputs =
+            let outs = toList $ outputs' (body tx)
+                maxIx = fromIntegral $ length outs
+             in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
+      forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
+        when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
 
 getTxId ::
   ( HashAlgorithm (HASH crypto)

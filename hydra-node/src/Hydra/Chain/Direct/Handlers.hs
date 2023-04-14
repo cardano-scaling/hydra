@@ -11,21 +11,20 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import qualified Cardano.Ledger.Block as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
+  Block (..),
   ChainPoint (..),
-  ConsensusMode (CardanoMode),
+  Era,
   LedgerEra,
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromConsensusPointInMode,
   fromLedgerTx,
+  getChainPoint,
   getTxBody,
   getTxId,
   toLedgerTx,
@@ -55,7 +54,6 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -63,9 +61,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
-import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
-import Ouroboros.Network.Block (Point (..), blockPoint)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -73,7 +68,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- * Posting Transactions
 
 -- | A callback used to actually submit a transaction to the chain.
-type SubmitTx m = Ledger.Tx LedgerEra -> m ()
+type SubmitTx m = Tx -> m ()
 
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
@@ -114,7 +109,8 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
           -- keep the static keys in context.
           atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState . toLedgerTx
-        submitTx vtx
+        -- XXX: fromLedgerTx . toLedgerTx = identity
+        submitTx $ fromLedgerTx vtx
     }
 
 -- | Balance and sign the given partial transaction.
@@ -156,8 +152,8 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: Block -> m ()
-  , onRollBackward :: Point Block -> m ()
+  { onRollForward :: Block Era -> m ()
+  , onRollBackward :: ChainPoint -> m ()
   }
 
 -- | Conversion of a slot number to a time failed. This can be usually be
@@ -197,16 +193,14 @@ chainSyncHandler tracer callback getTimeHandle ctx =
     , onRollForward
     }
  where
-  onRollBackward :: Point Block -> m ()
-  onRollBackward rollbackPoint = do
-    let point = fromConsensusPointInMode CardanoMode rollbackPoint
+  onRollBackward :: ChainPoint -> m ()
+  onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
-  onRollForward :: Block -> m ()
-  onRollForward blk = do
-    let point = fromConsensusPointInMode CardanoMode $ blockPoint blk
-    let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blk
+  onRollForward :: Block Era -> m ()
+  onRollForward (Block header receivedTxs) = do
+    let point = getChainPoint header
     traceWith tracer $
       RolledForward
         { point
@@ -300,19 +294,6 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 -- epoch length result in a short horizon, this is problematic.
 maxGraceTime :: NominalDiffTime
 maxGraceTime = 200
-
---
--- Helpers
---
-
--- | This extract __Babbage__ transactions from a block. If the block wasn't
--- produced in the Babbage era, it returns an empty sequence.
-getBabbageTxs :: Block -> StrictSeq (Ledger.Tx LedgerEra)
-getBabbageTxs = \case
-  BlockBabbage (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
-    Ledger.fromTxSeq txsSeq
-  _ ->
-    mempty
 
 --
 -- Tracing
