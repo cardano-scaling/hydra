@@ -449,8 +449,8 @@ instance
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-  perform st command _ = do
-    case command of
+  perform st action _ = do
+    case action of
       Seed{seedKeys, seedContestationPeriod} ->
         seedWorld seedKeys seedContestationPeriod
       Commit party utxo ->
