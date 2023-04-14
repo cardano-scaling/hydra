@@ -8,18 +8,21 @@
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    cardano-node.url = "github:input-output-hk/cardano-node/1.35.7";
   };
 
   outputs =
     { self
     , flake-utils
     , nixpkgs
+    , cardano-node
     , ...
     } @ inputs:
     flake-utils.lib.eachSystem [
       "x86_64-linux"
       "x86_64-darwin"
-      "aarch64-darwin"
+      # XXX: Disabled until cardano-node releases a verison supporting this
+      # "aarch64-darwin"
     ]
       (system:
       let
@@ -39,14 +42,18 @@
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
       in
       rec {
+        inherit hydraProject;
+
         packages =
           hydraPackages //
           prefixAttrs "docker-" hydraImages;
 
         devShells = (import ./nix/hydra/shell.nix {
+          inherit (inputs) cardano-node;
           inherit hydraProject system;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
+            inherit (inputs) cardano-node;
             inherit hydraProject system;
             withoutDevTools = true;
           }).default;
@@ -55,8 +62,7 @@
         # Build selected derivations in CI for caching
         hydraJobs = {
           packages = { inherit (packages) hydra-node hydra-tui hydraw; };
-          # devShells will not build for aarch64-darwin as the cardano-node
-          # version we use is not supporting it
+          devShells = { inherit (devShells) default ci; };
         };
       });
 

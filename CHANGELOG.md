@@ -50,6 +50,9 @@ changes.
 
 - Removed `Greetings` messages from hydra-node history
 
+- Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
+  also available.
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
