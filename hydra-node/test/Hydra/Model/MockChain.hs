@@ -141,28 +141,16 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   blockTime :: Integer
   blockTime = 20 -- seconds
   simulateTicks queue chain = forever $ do
+    rollForward chain queue
+    rollForward chain queue
+    rollForward chain queue
+    rollForward chain queue
+    sendRollBackward chain 2
+  rollForward chain queue = do
     threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []
     addNewBlockToChain chain transactions
     sendRollForward chain
-
-    threadDelay $ fromIntegral blockTime
-    transactions' <- flushQueue queue []
-    addNewBlockToChain chain transactions'
-    sendRollForward chain
-
-    threadDelay $ fromIntegral blockTime
-    transactions'' <- flushQueue queue []
-    addNewBlockToChain chain transactions''
-    sendRollForward chain
-
-    threadDelay $ fromIntegral blockTime
-    transactions''' <- flushQueue queue []
-    addNewBlockToChain chain transactions'''
-    sendRollForward chain
-
-    sendRollBackward chain 2
-
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
