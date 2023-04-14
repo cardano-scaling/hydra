@@ -185,7 +185,6 @@ chainSyncHandler ::
   (MonadSTM m, MonadThrow m) =>
   -- | Tracer for logging
   Tracer m DirectChainLog ->
-  ((ChainStateAt -> STM m ChainStateAt) -> m ()) ->
   ChainCallback Tx m ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -193,17 +192,16 @@ chainSyncHandler ::
   ChainContext ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer modifyChainState pushEvent getTimeHandle ctx =
+chainSyncHandler tracer callback getTimeHandle ctx =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
-  onRollBackward :: Point Block -> m ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
     traceWith tracer $ RolledBackward{point}
-    atomically $ pushEvent (Rollback $ chainSlotFromPoint point)
+    callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
@@ -223,20 +221,22 @@ chainSyncHandler tracer modifyChainState pushEvent getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            atomically $ pushEvent (Tick utcTime)
+            callback (const . Just $ Tick utcTime)
 
-    forM_ receivedTxs $ \tx -> do
-      modifyChainState $ \cs@ChainStateAt{chainState} ->
-        case observeSomeTx ctx chainState tx of
-          Nothing -> pure cs
-          Just (observedTx, cs') -> do
-            let newChainState =
-                  ChainStateAt
-                    { chainState = cs'
-                    , recordedAt = Just point
-                    }
-            pushEvent Observation{observedTx, newChainState}
-            pure newChainState
+    forM_ receivedTxs $ \tx ->
+      callback $ \ChainStateAt{chainState = cs} ->
+        case observeSomeTx ctx cs tx of
+          Nothing -> Nothing
+          Just (observedTx, cs') ->
+            Just $
+              Observation
+                { observedTx
+                , newChainState =
+                    ChainStateAt
+                      { chainState = cs'
+                      , recordedAt = Just point
+                      }
+                }
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

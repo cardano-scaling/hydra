@@ -54,7 +54,6 @@ import Hydra.Node (
   HydraNode (..),
   chainCallback,
   createNodeState,
-  modifyChainState,
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
@@ -120,8 +119,8 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         let seedInput = genTxIn `generateWith` 42
         nodeState <- createNodeState $ Idle IdleState{chainState}
         let HydraNode{eq} = node
-        let callback = chainCallback eq
-        let chainHandler = chainSyncHandler tr (modifyChainState nodeState) callback getTimeHandle ctx
+        let callback = chainCallback nodeState eq
+        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx
         let node' =
               node
                 { hn =

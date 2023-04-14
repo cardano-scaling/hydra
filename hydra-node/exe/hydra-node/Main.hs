@@ -44,7 +44,6 @@ import Hydra.Node (
   createEventQueue,
   createNodeState,
   initEnvironment,
-  modifyChainState,
   runHydraNode,
  )
 import Hydra.Options (
@@ -104,7 +103,7 @@ main = do
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         let ChainStateAt{recordedAt} = getChainState hs
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (modifyChainState nodeState) (chainCallback eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (chainCallback nodeState eq) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
