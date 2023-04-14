@@ -8,6 +8,7 @@ import Hydra.Prelude hiding (Any, label)
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
+  MonadSTM (newTVarIO, writeTVar),
   labelTQueueIO,
   modifyTVar,
   newTQueueIO,
@@ -17,12 +18,16 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, async, link)
+import Control.Monad.Class.MonadAsync (Async, async)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Hydra.BehaviorSpec (ConnectToChain (..))
+import Data.Sequence (Seq (Empty, (:|>)))
+import qualified Data.Sequence as Seq
+import Hydra.BehaviorSpec (
+  ConnectToChain (..),
+ )
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollBackward, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
@@ -57,7 +62,6 @@ mockChainAndNetwork ::
   ( MonadSTM m
   , MonadTimer m
   , MonadAsync m
-  , MonadFork m
   , MonadMask m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -70,13 +74,8 @@ mockChainAndNetwork ::
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
-  slotTVar <- newTVarIO 0
-  let bumpSlot = atomically $ do
-        slot <- readTVar slotTVar
-        writeTVar slotTVar $ slot + 1
-        pure slot
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue bumpSlot)
-  link tickThread
+  chain <- newTVarIO (0, 0, Empty)
+  tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
@@ -132,20 +131,52 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       rollbackAndForward = error "Not implemented, should never be called"
   return (ConnectToChain{..}, tickThread)
  where
-  -- in seconds
-  blockTime = 20
-
-  simulateTicks queue bumpSlot = forever $ do
-    threadDelay blockTime
+  blockTime :: Integer
+  blockTime = 20 -- seconds
+  simulateTicks queue chain = forever $ do
+    rollForward chain queue
+    rollForward chain queue
+    rollForward chain queue
+    rollForward chain queue
+    sendRollBackward chain 2
+  rollForward chain queue = do
+    threadDelay $ fromIntegral blockTime
+    transactions <- flushQueue queue []
+    addNewBlockToChain chain transactions
+    sendRollForward chain
+  flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        slotNo <- bumpSlot
-        let header = genBlockHeaderAt slotNo `generateWith` 42
+        flushQueue queue (tx : transactions)
+      Nothing -> pure transactions
+  appendToChain block (slotNum, cursor, blocks) =
+    (slotNum, cursor, blocks :|> block)
+  sendRollForward chain = do
+    (slotNum, position, blocks) <- readTVarIO chain
+    case Seq.lookup position blocks of
+      Just (header, txs) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers $ \ChainSyncHandler{onRollForward} ->
-          onRollForward header [tx]
-      Nothing -> pure ()
+        forM_ allHandlers (\h -> onRollForward h header txs)
+        atomically $ writeTVar chain (slotNum, position + 1, blocks)
+      Nothing ->
+        pure ()
+  sendRollBackward chain nbBlocks =
+    if False --inhibiting the rollback until we can support it in the code
+      then do
+        (slotNum, position, blocks) <- readTVarIO chain
+        case Seq.lookup (position - nbBlocks) blocks of
+          Just (header, _) -> do
+            allHandlers <- fmap chainHandler <$> readTVarIO nodes
+            let point = getChainPoint header
+            forM_ allHandlers (`onRollBackward` point)
+            atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
+          Nothing ->
+            pure ()
+      else pure ()
+
+  addNewBlockToChain chain transactions =
+    atomically $ modifyTVar chain $ \(slotNum, position, blocks) -> appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime)) (slotNum + blockTime, position, blocks)
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
@@ -154,6 +185,11 @@ findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (Ver
 findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
   csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
+
+mkBlock :: [Tx] -> SlotNo -> (BlockHeader, [Tx])
+mkBlock transactions slotNum =
+  let header = genBlockHeaderAt slotNum `generateWith` 42
+   in (header, transactions)
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
