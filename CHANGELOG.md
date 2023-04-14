@@ -67,6 +67,7 @@ changes.
   - Changed `toScriptData`, `toLedgerData`, `fromLedgerData`,
     `txOutScriptData` and `lookupScriptData` to return or require a
     `HashableScriptData` instead.
+  - Added `fromScriptData` generic conversion function.
   - Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
   - Changed `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
   - Added `genTxIn` and `arbitrary` instance for `TxIn`

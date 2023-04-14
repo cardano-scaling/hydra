@@ -23,9 +23,15 @@ type ToScriptData a = Plutus.ToData a
 type FromScriptData a = Plutus.FromData a
 
 -- | Serialise some type into a generic script data.
-toScriptData :: (ToScriptData a) => a -> HashableScriptData
+toScriptData :: ToScriptData a => a -> HashableScriptData
 toScriptData =
+  -- NOTE: Safe to use here as the data was not available in serialized form.
   unsafeHashableScriptData . fromPlutusData . Plutus.toData
+
+-- | Deserialise some generic script data into some type.
+fromScriptData :: FromScriptData a => HashableScriptData -> Maybe a
+fromScriptData =
+  Plutus.fromData . toPlutusData . getScriptData
 
 -- | Get the 'HashableScriptData' associated to the a 'TxOut'. Note that this
 -- requires the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
@@ -89,3 +95,14 @@ instance FromJSON ScriptData where
     either fail (pure . fromPlutusData) $ do
       bytes <- Base16.decode (encodeUtf8 text)
       left show $ deserialiseOrFail $ fromStrict bytes
+
+-- NOTE: We are okay with storing the data and re-serializing + hasing it into
+-- 'HashableScriptData' in these ToJSON/FromJSON instances as the serialization
+-- ambiguity addressed by 'HashableScriptData' is long overboard if we are
+-- dealing with JSON.
+
+instance ToJSON HashableScriptData where
+  toJSON = toJSON . getScriptData
+
+instance FromJSON HashableScriptData where
+  parseJSON = fmap unsafeHashableScriptData . parseJSON
