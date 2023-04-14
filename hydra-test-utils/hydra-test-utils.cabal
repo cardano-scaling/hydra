@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name:          hydra-test-utils
 version:       0.10.0
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
@@ -63,7 +63,7 @@ library
     , hydra-prelude
     , io-classes
     , network
-    , plutus-ledger-api
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
     , port-utils
     , process

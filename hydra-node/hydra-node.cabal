@@ -150,7 +150,7 @@ library
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , io-classes                      >=0.3.0.0
+    , io-classes                                                        >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -163,15 +163,15 @@ library
     , ouroboros-consensus
     , ouroboros-consensus-byron
     , ouroboros-consensus-cardano
-    , ouroboros-consensus-diffusion   >=0.3.0.0
+    , ouroboros-consensus-diffusion                                     >=0.3.0.0
     , ouroboros-consensus-protocol
     , ouroboros-consensus-shelley
     , ouroboros-network
-    , ouroboros-network-api           >=0.1.0.0
-    , ouroboros-network-framework     >=0.3.0.0
-    , ouroboros-network-protocols     >=0.3.0.0
+    , ouroboros-network-api                                             >=0.1.0.0
+    , ouroboros-network-framework                                       >=0.3.0.0
+    , ouroboros-network-protocols                                       >=0.3.0.0
     , plutus-core
-    , plutus-ledger-api               >=1.1.1.0
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , prometheus
     , QuickCheck
     , quickcheck-instances
@@ -182,8 +182,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                 >=0.1.0.0
-    , typed-protocols-cborg           >=0.1.0.0
+    , typed-protocols                                                   >=0.1.0.0
+    , typed-protocols-cborg                                             >=0.1.0.0
     , unliftio
     , wai
     , wai-websockets

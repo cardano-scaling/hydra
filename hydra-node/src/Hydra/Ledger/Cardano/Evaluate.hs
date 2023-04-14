@@ -18,7 +18,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel, txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Babbage.PParams (_costmdls, _protocolVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
@@ -81,7 +81,7 @@ import Ouroboros.Consensus.HardFork.History (
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import qualified PlutusCore as PLC
 import qualified PlutusLedgerApi.Common as Plutus
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
+import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import qualified UntypedPlutusCore as UPLC
@@ -255,6 +255,8 @@ prepareTxScripts tx utxo = do
 -- | Current (2023-04-12) mainchain protocol parameters.
 -- XXX: Avoid specifiying not required parameters here (e.g. max block units
 -- should not matter).
+-- XXX: Load and use mainnet parameters from a file which we can easily review
+-- to be in sync with mainnet.
 pparams :: ProtocolParameters
 pparams =
   (fromLedgerPParams (shelleyBasedEra @Era) def)
@@ -262,8 +264,8 @@ pparams =
         fromAlonzoCostModels
           . CostModels
           $ Map.fromList
-            [ (PlutusV1, testingCostModelV1)
-            , (PlutusV2, testingCostModelV2)
+            [ (PlutusV1, testCostModel PlutusV1)
+            , (PlutusV2, testCostModel PlutusV2)
             ]
     , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
     , protocolParamMaxBlockExUnits =
@@ -284,12 +286,17 @@ pparams =
             , priceExecutionMemory = 577 % 10000
             }
     }
+ where
+  testCostModel pv =
+    case mkCostModel pv costModelParamsForTesting of
+      Left e -> error $ "testCostModel failed: " <> show e
+      Right cm -> cm
 
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
 maxTxSize = 16384
 
--- | Max transaction execution unit budget of the current 'params'.
+-- | Max transaction execution unit budget of the current 'pparams'.
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
   ExecutionUnits

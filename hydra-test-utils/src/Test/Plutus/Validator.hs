@@ -22,18 +22,18 @@ import Hydra.Cardano.Api
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels))
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
 import Data.Default (def)
 import qualified Data.Map as Map
 import PlutusLedgerApi.Common (SerialisedScript)
+import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import PlutusLedgerApi.V2 (ScriptContext)
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import qualified PlutusTx as Plutus
 import PlutusTx.Prelude (check)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import qualified Prelude
 
 -- TODO: DRY with hydra-plutus
@@ -87,7 +87,7 @@ evaluateScriptExecutionUnits validatorScript redeemer =
 
   systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
 
--- | Current mainchain protocol parameters.
+-- | Current (2023-04-12) mainchain parameters.
 pparams :: ProtocolParameters
 pparams =
   (fromLedgerPParams (shelleyBasedEra @Era) def)
@@ -95,13 +95,19 @@ pparams =
         fromAlonzoCostModels
           . CostModels
           $ Map.fromList
-            [ (PlutusV1, testingCostModelV1)
-            , (PlutusV2, testingCostModelV2)
+            [ (PlutusV1, testCostModel PlutusV1)
+            , (PlutusV2, testCostModel PlutusV2)
             ]
     , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
+    , protocolParamProtocolVersion = (7, 0)
     }
+ where
+  testCostModel pv =
+    case mkCostModel pv costModelParamsForTesting of
+      Left e -> error $ "testCostModel failed: " <> show e
+      Right cm -> cm
 
--- | Current (2023-04-12) mainchain parameters.
+-- | Max transaction execution unit budget of the current 'pparams'.
 defaultMaxExecutionUnits :: ExecutionUnits
 defaultMaxExecutionUnits =
   ExecutionUnits
