@@ -13,6 +13,7 @@ import Control.Monad.Class.MonadAsync (Async, async)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
+  MonadSTM (newTVarIO, writeTVar),
   labelTQueueIO,
   modifyTVar,
   newTQueueIO,
@@ -20,13 +21,15 @@ import Control.Monad.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
+import Data.Sequence (Seq (Empty, (:|>)))
+import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.BehaviorSpec (
   ConnectToChain (..),
  )
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollBackward, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
@@ -55,7 +58,9 @@ import Hydra.Node (
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
+import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
+import Ouroboros.Consensus.Protocol.Praos.Header (HeaderBody (..))
 import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
@@ -78,7 +83,8 @@ mockChainAndNetwork ::
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
+  chain <- newTVarIO (0, 0, Empty)
+  tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
@@ -132,16 +138,61 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       rollbackAndForward = error "Not implemented, should never be called"
   return (ConnectToChain{..}, tickThread)
  where
+  blockTime :: Integer
   blockTime = 20 -- seconds
-  simulateTicks queue = forever $ do
-    threadDelay blockTime
+  simulateTicks queue chain = forever $ do
+    threadDelay $ fromIntegral blockTime
+    transactions <- flushQueue queue []
+    addNewBlockToChain chain transactions
+    sendRollForward chain
+
+    threadDelay $ fromIntegral blockTime
+    transactions' <- flushQueue queue []
+    addNewBlockToChain chain transactions'
+    sendRollForward chain
+
+    threadDelay $ fromIntegral blockTime
+    transactions'' <- flushQueue queue []
+    addNewBlockToChain chain transactions''
+    sendRollForward chain
+
+    threadDelay $ fromIntegral blockTime
+    transactions''' <- flushQueue queue []
+    addNewBlockToChain chain transactions'''
+    sendRollForward chain
+
+    sendRollBackward chain 2
+
+  flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        let block = mkBlock tx
+        flushQueue queue (tx : transactions)
+      Nothing -> pure transactions
+  appendToChain block (slotNum, cursor, blocks) =
+    (slotNum, cursor, blocks :|> block)
+  sendRollForward chain = do
+    (slotNum, position, blocks) <- atomically $ readTVar chain
+    case Seq.lookup position blocks of
+      Just block -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (`onRollForward` block)
-      Nothing -> pure ()
+        atomically $ writeTVar chain (slotNum, position + 1, blocks)
+      Nothing ->
+        pure ()
+  sendRollBackward chain nbBlocks = do
+    (slotNum, position, blocks) <- atomically $ readTVar chain
+    case Seq.lookup (position - nbBlocks) blocks of
+      Just block -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        let point = blockPoint block
+        forM_ allHandlers (`onRollBackward` point)
+        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
+      Nothing ->
+        pure ()
+
+  addNewBlockToChain chain transactions =
+    atomically $ modifyTVar chain $ \(slotNum, position, blocks) -> appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime) (fromIntegral position)) (slotNum + blockTime, position, blocks)
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
@@ -151,10 +202,11 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
 
-mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
-mkBlock ledgerTx =
-  let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
-      body = TxSeq . StrictSeq.fromList $ [ledgerTx]
+mkBlock :: [Ledger.ValidatedTx LedgerEra] -> SlotNo -> BlockNo -> Util.Block
+mkBlock transactions slotNum blockNum =
+  let Praos.Header{headerBody, headerSig} = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` fromIntegral (unSlotNo slotNum)
+      header = Praos.Header{headerBody = headerBody{hbBlockNo = blockNum, hbSlotNo = slotNum}, headerSig}
+      body = TxSeq . StrictSeq.fromList $ transactions
    in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
 
 -- TODO: unify with BehaviorSpec's ?
