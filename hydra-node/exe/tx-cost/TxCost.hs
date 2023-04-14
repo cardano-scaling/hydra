@@ -11,6 +11,7 @@ import Hydra.Cardano.Api (
   Lovelace,
   Tx,
   UTxO,
+  genTxIn,
  )
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
@@ -40,7 +41,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Ledger.Cardano (
   genOutput,
-  genTxIn,
   genUTxOAdaOnlyOfSize,
  )
 import Hydra.Ledger.Cardano.Evaluate (
@@ -54,7 +54,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Snapshot (genConfirmedSnapshot)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (toBuiltinData)
+import PlutusLedgerApi.V2 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate)
 
