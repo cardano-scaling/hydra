@@ -25,6 +25,7 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
+import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), findDatum, ownCurrencySymbol, scriptOutputsAt)
 import Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
 import Plutus.V2.Ledger.Api (
   Datum (getDatum),
@@ -32,15 +33,12 @@ import Plutus.V2.Ledger.Api (
   MintingPolicy (getMintingPolicy),
   OutputDatum (..),
   Script,
-  ScriptContext (ScriptContext, scriptContextTxInfo),
   TxInInfo (..),
-  TxInfo (..),
   TxOutRef,
   ValidatorHash,
   Value (getValue),
   mkMintingPolicyScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, ownCurrencySymbol, scriptOutputsAt)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
