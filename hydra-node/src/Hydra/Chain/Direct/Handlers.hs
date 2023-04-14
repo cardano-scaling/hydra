@@ -11,10 +11,9 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Babbage.Tx (ValidatedTx)
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import qualified Cardano.Ledger.Block as Ledger
+import qualified Cardano.Ledger.Core as Ledger
+import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Sequence.Strict (StrictSeq)
@@ -74,7 +73,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- * Posting Transactions
 
 -- | A callback used to actually submit a transaction to the chain.
-type SubmitTx m = ValidatedTx LedgerEra -> m ()
+type SubmitTx m = Ledger.Tx LedgerEra -> m ()
 
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
@@ -124,11 +123,11 @@ finalizeTx ::
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
-  ValidatedTx LedgerEra ->
-  m (ValidatedTx LedgerEra)
+  Ledger.Tx LedgerEra ->
+  m (Ledger.Tx LedgerEra)
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
-  coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
+  coverFee (unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
@@ -308,10 +307,10 @@ maxGraceTime = 200
 
 -- | This extract __Babbage__ transactions from a block. If the block wasn't
 -- produced in the Babbage era, it returns an empty sequence.
-getBabbageTxs :: Block -> StrictSeq (ValidatedTx LedgerEra)
+getBabbageTxs :: Block -> StrictSeq (Ledger.Tx LedgerEra)
 getBabbageTxs = \case
   BlockBabbage (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
-    fromTxSeq txsSeq
+    Ledger.fromTxSeq txsSeq
   _ ->
     mempty
 
@@ -321,9 +320,9 @@ getBabbageTxs = \case
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {txId :: Ledger.TxId StandardCrypto}
-  | PostedTx {txId :: Ledger.TxId StandardCrypto}
-  | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
+  | PostingTx {txId :: TxId}
+  | PostedTx {txId :: TxId}
+  | PostingFailed {tx :: Tx, postTxError :: PostTxError Tx}
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
