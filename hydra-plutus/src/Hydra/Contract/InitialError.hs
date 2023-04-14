@@ -21,6 +21,7 @@ data InitialError
   | ExpectedCommitDatumTypeGotSomethingElse
   | ExpectedSingleCommitOutput
   | WrongHeadIdInCommitDatum
+  | MintingOrBurningIsForbidden
   deriving (Show)
 
 instance ToErrorCode InitialError where
@@ -39,3 +40,4 @@ instance ToErrorCode InitialError where
     ExpectedCommitDatumTypeGotSomethingElse -> "I12"
     ExpectedSingleCommitOutput -> "I13"
     WrongHeadIdInCommitDatum -> "I14"
+    MintingOrBurningIsForbidden -> "I15"

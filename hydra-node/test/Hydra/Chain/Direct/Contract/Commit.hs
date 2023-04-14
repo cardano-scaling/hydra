@@ -25,7 +25,6 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.InitialError (InitialError (..))
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,

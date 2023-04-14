@@ -15,14 +15,13 @@ import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
+import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
   Script,
-  ScriptContext (scriptContextTxInfo),
-  TxInfo (txInfoMint, txInfoOutputs),
   TxOutRef,
   Validator (getValidator),
   ValidatorHash,
