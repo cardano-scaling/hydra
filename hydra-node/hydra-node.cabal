@@ -249,7 +249,6 @@ benchmark tx-cost
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck
-    , strict-containers
     , text
 
   ghc-options:    -threaded -rtsopts
@@ -327,6 +326,7 @@ test-suite tests
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-test
     , cardano-slotting
+    , cardano-strict-containers
     , cborg
     , containers
     , contra-tracer
@@ -366,7 +366,6 @@ test-suite tests
     , quickcheck-instances
     , req
     , silently
-    , strict-containers
     , temporary
     , text
     , time

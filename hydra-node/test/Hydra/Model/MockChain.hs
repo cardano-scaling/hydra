@@ -176,7 +176,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput =
           , sign = id
           , coverFee = \_ tx -> pure (Right tx)
           , reset = pure ()
-          , update = const $ pure ()
+          , update = \_ _ -> pure ()
           }
    in mkChain tracer timeHandle wallet ctx submitTx
 

@@ -45,9 +45,8 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  Block (..),
+  BlockHeader,
   ChainPoint,
-  Era,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
@@ -100,9 +99,9 @@ data TinyWallet m = TinyWallet
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
-  , update :: Block Era -> m ()
-  -- ^ Update the wallet state given some 'Block'. May be ignored if wallet is
-  -- still initializing.
+  , update :: BlockHeader -> [Api.Tx] -> m ()
+  -- ^ Update the wallet state given a block and list of txs. May be ignored if
+  -- wallet is still initializing.
   }
 
 data WalletInfoOnChain = WalletInfoOnChain
@@ -149,7 +148,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
-      , update = \block@(Block header _) -> do
+      , update = \header txs -> do
           let point = getChainPoint header
           walletTip <- atomically $ readTVar walletInfoVar <&> \WalletInfoOnChain{tip} -> tip
           if point < walletTip
@@ -158,7 +157,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
               traceWith tracer $ BeginUpdate{point}
               utxo' <- atomically $ do
                 walletInfo@WalletInfoOnChain{walletUTxO} <- readTVar walletInfoVar
-                let utxo' = applyBlock block (== ledgerAddress) walletUTxO
+                let utxo' = applyTxs txs (== ledgerAddress) walletUTxO
                 writeTVar walletInfoVar $ walletInfo{walletUTxO = utxo', tip = point}
                 pure utxo'
               traceWith tracer $ EndUpdate (fromLedgerUTxO (Ledger.UTxO utxo'))
@@ -196,9 +195,8 @@ signWith signingKey validatedTx@Babbage.AlonzoTx{body, wits} =
 --
 -- To determine whether a produced output is ours, we apply the given function
 -- checking the output's address.
--- TODO: Make this 'applyTxs' and take [Tx]
-applyBlock :: Block Era -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
-applyBlock (Block _ txs) isOurs utxo =
+applyTxs :: [Api.Tx] -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
+applyTxs txs isOurs utxo =
   flip execState utxo $ do
     forM_ txs $ \apiTx -> do
       -- XXX: Use cardano-api types instead here
