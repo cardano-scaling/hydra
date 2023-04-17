@@ -15,6 +15,8 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (choose)
+import Test.QuickCheck.StateModel (HasVariables)
+import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import qualified Prelude
 
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
@@ -51,7 +53,8 @@ instance Show Payment where
   -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
   -- tests failures or errors.
   show Payment{from, to, value} =
-    "Payment { from = " <> show from
+    "Payment { from = "
+      <> show from
       <> ", to = "
       <> show to
       <> ", value = "
@@ -66,6 +69,9 @@ instance ToCBOR Payment where
 
 instance FromCBOR Payment where
   fromCBOR = error "don't use"
+
+instance HasVariables Payment where
+  getAllVariables _ = mempty
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
