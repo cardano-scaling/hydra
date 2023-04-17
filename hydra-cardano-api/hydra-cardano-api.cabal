@@ -76,6 +76,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
@@ -145,7 +146,3 @@ library
     , strict-containers               >=0.1.0.0
     , text
     , time
-
--- , bech32-th
--- , cardano-slotting                ==0.1.0.0
--- , ouroboros-network               ==0.1.0.1
