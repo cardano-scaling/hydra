@@ -26,6 +26,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
+  Block (..),
   BlockInMode (..),
   CardanoMode,
   ChainPoint,
@@ -273,7 +274,7 @@ newtype IntersectionNotFoundException = IntersectionNotFound
 instance Exception IntersectionNotFoundException
 
 -- | The block type used in the node-to-client protocols.
-type Block = BlockInMode CardanoMode
+type BlockType = BlockInMode CardanoMode
 
 chainSyncClient ::
   forall m.
@@ -281,7 +282,7 @@ chainSyncClient ::
   ChainSyncHandler m ->
   TinyWallet m ->
   ChainPoint ->
-  ChainSyncClient Block ChainPoint ChainTip m ()
+  ChainSyncClient BlockType ChainPoint ChainTip m ()
 chainSyncClient handler wallet startingPoint =
   ChainSyncClient $
     pure $
@@ -292,8 +293,8 @@ chainSyncClient handler wallet startingPoint =
         )
  where
   clientStIntersect ::
-    (ChainPoint -> m (ClientStIdle Block ChainPoint ChainTip m ())) ->
-    ClientStIntersect Block ChainPoint ChainTip m ()
+    (ChainPoint -> m (ClientStIdle BlockType ChainPoint ChainTip m ())) ->
+    ClientStIntersect BlockType ChainPoint ChainTip m ()
   clientStIntersect onIntersectionNotFound =
     ClientStIntersect
       { recvMsgIntersectFound = \_ _ ->
@@ -302,19 +303,21 @@ chainSyncClient handler wallet startingPoint =
           ChainSyncClient $ onIntersectionNotFound $ chainTipToChainPoint tip
       }
 
-  clientStIdle :: ClientStIdle Block ChainPoint ChainTip m ()
+  clientStIdle :: ClientStIdle BlockType ChainPoint ChainTip m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
 
-  clientStNext :: ClientStNext Block ChainPoint ChainTip m ()
+  clientStNext :: ClientStNext BlockType ChainPoint ChainTip m ()
   clientStNext =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode block BabbageEraInCardanoMode -> do
               -- Update the tiny wallet
+              -- TODO: Move to Header + txs signature
               update wallet block
               -- Observe Hydra transactions
-              onRollForward handler block
+              let (Block header txs) = block
+              onRollForward handler header txs
               pure clientStIdle
             _ ->
               -- TODO: Replicate previous behavior of different era blocks

@@ -16,9 +16,8 @@ import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
-  Block (..),
+  BlockHeader,
   ChainPoint (..),
-  Era,
   LedgerEra,
   Tx,
   TxId,
@@ -152,7 +151,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: Block Era -> m ()
+  { onRollForward :: BlockHeader -> [Tx] -> m ()
   , onRollBackward :: ChainPoint -> m ()
   }
 
@@ -198,8 +197,8 @@ chainSyncHandler tracer callback getTimeHandle ctx =
     traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
-  onRollForward :: Block Era -> m ()
-  onRollForward (Block header receivedTxs) = do
+  onRollForward :: BlockHeader -> [Tx] -> m ()
+  onRollForward header receivedTxs = do
     let point = getChainPoint header
     traceWith tracer $
       RolledForward

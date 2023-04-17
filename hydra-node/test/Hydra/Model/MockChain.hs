@@ -6,11 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Binary (serialize', unsafeDeserialize')
-import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import Control.Monad.Class.MonadAsync (Async, async)
-import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTQueueIO,
@@ -20,18 +15,16 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
-import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.BehaviorSpec (
-  ConnectToChain (..),
- )
+import Control.Monad.Class.MonadAsync (Async, async)
+import Control.Monad.Class.MonadFork (labelThisThread)
+import Hydra.BehaviorSpec (ConnectToChain (..))
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler, DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
+import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
-import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -42,7 +35,6 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -54,9 +46,6 @@ import Hydra.Node (
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
-import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
-import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
 
 -- | Provide the logic to connect a list of `MockHydraNode` through a dummy chain.
@@ -137,9 +126,10 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        let block = mkBlock tx
+        let header = genBlockHeader `generateWith` 42
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers (`onRollForward` block)
+        forM_ allHandlers $ \ChainSyncHandler{onRollForward} ->
+          onRollForward header [tx]
       Nothing -> pure ()
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
@@ -149,12 +139,6 @@ findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (Ver
 findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
   csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
-
-mkBlock :: Ledger.ValidatedTx LedgerEra -> Util.Block
-mkBlock ledgerTx =
-  let header = (arbitrary :: Gen (Praos.Header StandardCrypto)) `generateWith` 42
-      body = TxSeq . StrictSeq.fromList $ [ledgerTx]
-   in BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
