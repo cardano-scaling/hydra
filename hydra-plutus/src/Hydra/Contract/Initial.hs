@@ -60,7 +60,7 @@ type RedeemerType = InitialRedeemer
 
 -- | The v_initial validator verifies that:
 --
---   * FIXME: spent in a transaction also consuming a v_head output
+--   * spent in a transaction also consuming a v_head output
 --
 --   * ensures the committed value is recorded correctly in the output datum
 --

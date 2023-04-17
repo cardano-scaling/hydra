@@ -48,7 +48,7 @@ data TxInfo = TxInfo
   -- ^ Digests of certificates included in this transaction
   , txInfoWdrl :: BuiltinData
   -- ^ Withdrawals
-  , -- FIXME: using POSIXTimeRange adds ~300 bytes, needed for Head
+  , -- XXX: using POSIXTimeRange adds ~300 bytes, needed for Head
     txInfoValidRange :: BuiltinData
   -- ^ The valid range for the transaction.
   , txInfoSignatories :: [PubKeyHash]
