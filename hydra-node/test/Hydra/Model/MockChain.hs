@@ -153,7 +153,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     rollForward chain queue
     rollForward chain queue
     rollForward chain queue
-  -- sendRollBackward chain 2
+    sendRollBackward chain 2
   rollForward chain queue = do
     threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []

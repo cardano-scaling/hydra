@@ -23,7 +23,6 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
-import Control.Exception (throw)
 import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
@@ -44,7 +43,7 @@ import qualified Data.Set as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
-import Hydra.API.ServerOutput (ServerOutput (CommandFailed, Committed, GetUTxOResponse, SnapshotConfirmed))
+import Hydra.API.ServerOutput (ServerOutput (CommandFailed, Committed, GetUTxOResponse, InvalidCommand, SnapshotConfirmed))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),
@@ -82,7 +81,6 @@ import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
-import Test.Util (traceDebug)
 import qualified Prelude
 
 -- * The Model
@@ -551,16 +549,14 @@ performCommit parties party paymentUTxO = do
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
       party `sendsInput` Input.Commit{Input.utxo = realUTxO}
-      observedUTxO <-
-        trace "Waiting for commit" $
-          lift $
-            waitMatch actorNode $ \case
-              Committed{party = cp, utxo = committedUTxO}
-                | cp == party -> Just committedUTxO
-              err@CommandFailed{} -> error $ show err
-              other -> trace (show other) $ Nothing
-      trace "Observed commit" $
-        pure $ fromUtxo observedUTxO
+      observedUTxO <- lift $
+        waitMatch actorNode $ \case
+          Committed{party = cp, utxo = committedUTxO}
+            | cp == party -> Just committedUTxO
+          err@CommandFailed{} -> error $ "Waiting for commit from party " <> show party <> "\nbut got error: " <> show err
+          err@InvalidCommand{} -> error $ "Waiting for commit from party " <> show party <> "\nbut got error: " <> show err
+          other -> trace (show other) Nothing
+      pure $ fromUtxo observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
   fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo

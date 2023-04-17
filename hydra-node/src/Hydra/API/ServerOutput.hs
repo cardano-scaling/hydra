@@ -63,6 +63,7 @@ data ServerOutput tx
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | CommandFailed {clientInput :: ClientInput tx}
+  | InvalidCommand {state :: Text, clientInput :: ClientInput tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transaction :: tx}
@@ -112,6 +113,7 @@ instance
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i -> CommandFailed <$> shrink i
+    InvalidCommand s i -> InvalidCommand <$> shrink s <*> shrink i
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
@@ -163,6 +165,19 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     CommandFailed{clientInput} ->
+      case clientInput of
+        Init -> encodedResponse
+        Abort -> encodedResponse
+        Commit{} -> encodedResponse
+        NewTx{Hydra.API.ClientInput.transaction = tx} ->
+          handleTxOutput
+            (key "transaction" .~ txToCbor tx)
+            encodedResponse
+        GetUTxO -> encodedResponse
+        Close -> encodedResponse
+        Contest -> encodedResponse
+        Fanout -> encodedResponse
+    InvalidCommand{clientInput} ->
       case clientInput of
         Init -> encodedResponse
         Abort -> encodedResponse
