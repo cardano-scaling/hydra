@@ -29,6 +29,7 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
+  newTVarIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -38,7 +39,6 @@ import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   CardanoMode,
-  ChainPoint,
   ConsensusMode (CardanoMode),
   EraHistory (EraHistory),
   LedgerEra,
@@ -210,11 +210,14 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   ChainContext ->
-  -- | Last known point on chain as loaded from persistence.
-  Maybe ChainPoint ->
   TinyWallet IO ->
+  ChainStateAt ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet callback action = do
+withDirectChain tracer config ctx wallet chainStateAt callback action = do
+  -- Last known point on chain as loaded from persistence.
+  let persistedPoint = recordedAt chainStateAt
+  -- TODO we should use NonEmptyList here instead
+  chainStateTVar <- newTVarIO $ [chainStateAt]
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -228,11 +231,12 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
           getTimeHandle
           wallet
           ctx
+          chainStateTVar
           (submitTx queue)
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar
           let intersection = toConsensusPointInMode CardanoMode chainPoint
           let client = ouroborosApplication tracer intersection queue handler wallet
           withIOManager $ \iocp ->

@@ -975,6 +975,7 @@ onCurrentChainRollback ::
 onCurrentChainRollback currentState slot =
   NewState (rollback slot currentState) [ClientEffect RolledBack]
  where
+  -- TODO use slot instead of local rollbackSlot argument
   rollback rollbackSlot hs
     | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =

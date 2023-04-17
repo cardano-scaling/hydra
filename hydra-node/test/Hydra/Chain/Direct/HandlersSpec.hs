@@ -16,7 +16,6 @@ import Hydra.Cardano.Api (
   toLedgerTx,
  )
 import Hydra.Chain (
-  ChainCallback,
   ChainEvent (..),
   ChainSlot (..),
   HeadParameters,
@@ -110,10 +109,11 @@ spec = do
     monadicIO $ do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
       blk <- pickBlind $ genBlockAt slot []
-
       chainContext <- pickBlind arbitrary
+      chainState <- pickBlind arbitrary
+      chainStateVar <- run $ newTVarIO chainState
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext chainStateVar
 
       run $
         onRollForward handler blk
@@ -122,48 +122,39 @@ spec = do
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
-    let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
     blk <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
-
+    let cs =
+          ChainStateAt
+            { chainState = st
+            , recordedAt = Nothing
+            }
+    chainStatesVar <- run $ newTVarIO [cs]
     timeHandle <- pickBlind arbitrary
-    let callback cont =
-          -- Give chain state in which we expect the 'tx' to yield an 'Observation'.
-          case cont chainState of
-            Nothing ->
-              -- XXX: We need this to debug as 'failure' (via 'run') does not
-              -- yield counter examples.
-              failure . toString $
-                unlines
-                  [ "expected continuation to yield an event"
-                  , "transition: " <> show transition
-                  , "chainState: " <> show st
-                  ]
-            Just Rollback{} ->
-              failure "rolled back but expected roll forward."
-            Just Tick{} -> pure ()
-            Just Observation{observedTx} ->
-              fst <$> observeSomeTx ctx st tx `shouldBe` Just observedTx
+    let callback = \case
+          Rollback{} ->
+            failure "rolled back but expected roll forward."
+          Tick{} -> pure ()
+          Observation{observedTx} ->
+            if (fst <$> observeSomeTx ctx st tx) /= Just observedTx
+              then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
+              else pure ()
 
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx chainStatesVar
     run $ onRollForward handler blk
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
-    (chainContext, chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
+    (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
     (rollbackSlot, rollbackPoint) <- pick $ genRollbackPoint blocks
     monitor $ label ("Rollback to: " <> show rollbackSlot <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
-    stateVar <- run $ newTVarIO chainState
+    chainStateAtVar <- run $ newTVarIO [chainStateAt]
     rolledBackTo <- run newEmptyTMVarIO
-    let callback cont = do
-          cs <- readTVarIO stateVar
-          case cont cs of
-            Nothing -> do
-              failure "expected continuation to yield observation"
-            Just Tick{} -> pure ()
-            Just (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
-            Just Observation{newChainState} -> atomically $ writeTVar stateVar newChainState
+    let callback = \case
+          Tick{} -> pure ()
+          (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
+          _ -> pure ()
 
     let handler =
           chainSyncHandler
@@ -171,6 +162,7 @@ spec = do
             callback
             (pure timeHandle)
             chainContext
+            chainStateAtVar
     -- Simulate some chain following
     run $ mapM_ (onRollForward handler) blocks
     -- Inject the rollback to somewhere between any of the previous state
@@ -188,16 +180,14 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx _cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx
+  chainStateVar <- newTVarIO [_cs]
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx chainStateVar
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
 
-  recordEvents :: TVar IO [ChainEvent Tx] -> ChainCallback Tx IO
-  recordEvents var cont = do
-    case cont _cs of
-      Nothing -> pure ()
-      Just e -> atomically $ modifyTVar var (e :)
+  recordEvents var event = do
+    atomically $ modifyTVar var (event :)
 
 withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do

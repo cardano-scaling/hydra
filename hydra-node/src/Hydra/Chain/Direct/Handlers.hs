@@ -16,7 +16,7 @@ import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Monad.Class.MonadSTM (throwSTM)
+import Control.Monad.Class.MonadSTM (throwSTM, writeTVar)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -55,6 +55,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
+import qualified Hydra.Chain.Direct.State as ChainState
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
@@ -95,27 +96,34 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
+  -- TVar containing the local ChainState
+  TVar m [ChainStateAt] ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx submitTx =
+mkChain tracer queryTimeHandle wallet ctx chainStateTVar submitTx =
   Chain
-    { postTx = \chainState tx -> do
-        traceWith tracer $ ToPost{toPost = tx}
-        timeHandle <- queryTimeHandle
-        vtx <-
-          -- FIXME (MB): cardano keys should really not be here (as this
-          -- point they are in the 'chainState' stored in the 'ChainContext')
-          -- . They are only required for the init transaction and ought to
-          -- come from the _client_ and be part of the init request
-          -- altogether. This goes in the direction of 'dynamic heads' where
-          -- participants aren't known upfront but provided via the API.
-          -- Ultimately, an init request from a client would contain all the
-          -- details needed to establish connection to the other peers and
-          -- to bootstrap the init transaction. For now, we bear with it and
-          -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-            >>= finalizeTx wallet ctx chainState . toLedgerTx
-        submitTx vtx
+    { postTx = \_chainState tx -> do
+        cs <- atomically $ readTVar chainStateTVar
+        case cs of
+          -- FIXME we should use NonEmptyList
+          [] -> error "Illegal State"
+          (chainState : _) -> do
+            traceWith tracer $ ToPost{toPost = tx}
+            timeHandle <- queryTimeHandle
+            vtx <-
+              -- FIXME (MB): cardano keys should really not be here (as this
+              -- point they are in the 'chainState' stored in the 'ChainContext')
+              -- . They are only required for the init transaction and ought to
+              -- come from the _client_ and be part of the init request
+              -- altogether. This goes in the direction of 'dynamic heads' where
+              -- participants aren't known upfront but provided via the API.
+              -- Ultimately, an init request from a client would contain all the
+              -- details needed to establish connection to the other peers and
+              -- to bootstrap the init transaction. For now, we bear with it and
+              -- keep the static keys in context.
+              atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
+                >>= finalizeTx wallet ctx chainState . toLedgerTx
+            submitTx vtx
     }
 
 -- | Balance and sign the given partial transaction.
@@ -190,18 +198,36 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
+  -- TVar containing the local ChainState
+  TVar m [ChainStateAt] ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx =
+chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
+  onRollBackward :: Point Block -> m ()
   onRollBackward rollbackPoint = do
     let point = fromConsensusPointInMode CardanoMode rollbackPoint
     traceWith tracer $ RolledBackward{point}
-    callback (const . Just $ Rollback $ chainSlotFromPoint point)
+    -- rollback the tvar to the chainSlotFromPoint
+    chainStates <- atomically $ readTVar chainStateTVar
+    let chainStates' = rollback point chainStates
+    atomically $ writeTVar chainStateTVar chainStates'
+    callback (Rollback $ chainSlotFromPoint point)
+   where
+    rollback rollbackChainPoint chainStates =
+      case chainStates of
+        [] ->
+          [ ChainStateAt
+              { chainState = Idle
+              , recordedAt = Nothing
+              }
+          ]
+        (cs@ChainStateAt{recordedAt = (Just point)} : rest) | point <= rollbackChainPoint -> cs : rest
+        (_ : rest) -> rollback rollbackChainPoint rest
 
   onRollForward :: Block -> m ()
   onRollForward blk = do
@@ -221,22 +247,25 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            callback (const . Just $ Tick utcTime)
+            callback (Tick utcTime)
 
-    forM_ receivedTxs $ \tx ->
-      callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx ctx cs tx of
-          Nothing -> Nothing
-          Just (observedTx, cs') ->
-            Just $
-              Observation
-                { observedTx
-                , newChainState =
+    forM_ receivedTxs $ \tx -> do
+      -- TODO: refactor to use modifyTVar instead of read and then write
+      cs <- atomically $ readTVar chainStateTVar
+      case cs of
+        -- FIXME we should use NonEmptyList
+        [] -> error "Illegal State"
+        (currentChainState : previousChainStates) ->
+          case observeSomeTx ctx (ChainState.chainState currentChainState) tx of
+            Nothing -> pure ()
+            Just (observedTx, cs') -> do
+              let newChainState =
                     ChainStateAt
                       { chainState = cs'
                       , recordedAt = Just point
                       }
-                }
+              atomically $ writeTVar chainStateTVar (newChainState : currentChainState : previousChainStates)
+              callback Observation{observedTx, newChainState}
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
