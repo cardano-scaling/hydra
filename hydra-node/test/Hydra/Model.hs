@@ -25,7 +25,7 @@ import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
   modifyTVar,

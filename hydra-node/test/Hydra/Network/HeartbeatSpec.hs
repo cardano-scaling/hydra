@@ -3,7 +3,7 @@ module Hydra.Network.HeartbeatSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)

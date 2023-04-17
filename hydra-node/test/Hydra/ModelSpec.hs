@@ -152,7 +152,7 @@ import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter, pattern Actions)
 import Test.Util (printTrace, traceInIOSim)
-import Control.Monad.Class.MonadSTM (newTVarIO)
+import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Hydra.Logging.Messages (HydraLog)
 
 spec :: Spec

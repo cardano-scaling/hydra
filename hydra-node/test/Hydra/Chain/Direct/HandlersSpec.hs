@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import qualified Cardano.Ledger.Block as Ledger
 import Cardano.Ledger.Era (toTxSeq)
 import Cardano.Slotting.Slot (WithOrigin (..))
-import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq

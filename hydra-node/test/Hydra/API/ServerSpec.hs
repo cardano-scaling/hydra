@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Control.Lens ((^?))
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
   newTQueue,

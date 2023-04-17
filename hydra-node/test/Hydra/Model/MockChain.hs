@@ -11,7 +11,7 @@ import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Monad.Class.MonadAsync (Async, async)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTQueueIO,
   modifyTVar,

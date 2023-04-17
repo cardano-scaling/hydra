@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
