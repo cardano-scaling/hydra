@@ -83,7 +83,7 @@ healthyAbortTx =
 
   -- XXX: We loose type information by dealing with 'TxOut CtxTx' where datums
   -- are optional
-  unsafeGetDatum = fromJust . getScriptData
+  unsafeGetDatum = fromJust . txOutScriptData
 
   tripleToPair (a, b, c) = (a, (b, c))
 
@@ -98,7 +98,7 @@ healthyHeadParameters =
     }
 
 healthyInitials :: [UTxOWithScript]
-healthyCommits :: [(TxIn, TxOut CtxUTxO, ScriptData, UTxO)]
+healthyCommits :: [(TxIn, TxOut CtxUTxO, HashableScriptData, UTxO)]
 (healthyInitials, healthyCommits) =
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit

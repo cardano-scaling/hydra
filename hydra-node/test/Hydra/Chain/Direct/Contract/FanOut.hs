@@ -29,7 +29,7 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (toBuiltin, toData)
+import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
@@ -69,7 +69,7 @@ healthyFanoutTx =
         )
         parties
 
-  headDatum = fromPlutusData $ toData healthyFanoutDatum
+  headDatum = toScriptData healthyFanoutDatum
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =

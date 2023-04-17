@@ -13,7 +13,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Babbage.PParams (PParams)
+import Cardano.Ledger.Babbage.PParams (BabbagePParams)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -41,7 +41,6 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
-import Plutus.V2.Ledger.Api (toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -151,7 +150,7 @@ spec =
                     & counterexample (renderTx tx)
                     & counterexample (show e)
 
-ledgerPParams :: PParams LedgerEra
+ledgerPParams :: BabbagePParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
 
 withinTxExecutionBudget :: EvaluationReport -> Property
@@ -182,7 +181,7 @@ withinTxExecutionBudget report =
 -- NOTE: Uses 'testPolicyId' for the datum.
 -- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData, UTxO))
+generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, HashableScriptData, UTxO))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
@@ -195,7 +194,7 @@ generateCommitUTxOs parties = do
           uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData, UTxO)
+  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, HashableScriptData, UTxO)
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
@@ -203,7 +202,7 @@ generateCommitUTxOs parties = do
           commitValue
           (mkTxOutDatum commitDatum)
           ReferenceScriptNone
-    , fromPlutusData (toData commitDatum)
+    , toScriptData commitDatum
     , maybe mempty (UTxO.fromPairs . pure) utxo
     )
    where
@@ -230,7 +229,7 @@ prettyEvaluationReport (Map.toList -> xs) =
     either (T.replace "\n" " " . show) show
 
 -- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [(TxIn, TxOut CtxUTxO, ScriptData, UTxO)])
+genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [(TxIn, TxOut CtxUTxO, HashableScriptData, UTxO)])
 genAbortableOutputs parties =
   go
  where
@@ -250,7 +249,7 @@ genAbortableOutputs parties =
   mkInitial vk txin =
     ( txin
     , initialTxOut vk
-    , fromPlutusData (toData initialDatum)
+    , toScriptData initialDatum
     )
 
   initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO

@@ -42,10 +42,10 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genTxIn, genVerificationKey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
-import PlutusTx.Builtins (toBuiltin, toData)
+import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
@@ -77,7 +77,7 @@ healthyCollectComTx =
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
 
-  headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
+  headDatum = toScriptData healthyCollectComInitialDatum
 
   initialThreadOutput =
     InitialThreadOutput
@@ -138,7 +138,7 @@ genCommittableTxOut =
 data HealthyCommit = HealthyCommit
   { cardanoKey :: VerificationKey PaymentKey
   , txOut :: TxOut CtxUTxO
-  , scriptData :: ScriptData
+  , scriptData :: HashableScriptData
   }
   deriving (Show)
 
@@ -151,7 +151,7 @@ healthyCommitOutput party committed =
   , HealthyCommit
       { cardanoKey
       , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
-      , scriptData = fromPlutusData (toData commitDatum)
+      , scriptData = toScriptData commitDatum
       }
   )
  where

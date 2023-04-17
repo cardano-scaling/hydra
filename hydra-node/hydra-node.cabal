@@ -358,18 +358,18 @@ test-suite tests
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
-    , plutus-ledger-api
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
     , process
     , QuickCheck
-    , quickcheck-dynamic                >=2.0.0
+    , quickcheck-dynamic                                                >=2.0.0
     , quickcheck-instances
     , req
     , silently
     , temporary
     , text
     , time
-    , typed-protocols-examples          >=0.1.0.0
+    , typed-protocols-examples                                          >=0.1.0.0
     , versions
     , websockets
     , yaml

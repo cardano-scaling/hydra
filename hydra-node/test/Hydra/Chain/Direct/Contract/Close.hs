@@ -45,8 +45,8 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Time (DiffMilliSeconds (..), fromMilliSeconds)
-import Plutus.V2.Ledger.Api (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin, toData)
+import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
+import PlutusLedgerApi.V2 (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin, toData)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -73,7 +73,7 @@ healthyCloseTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = fromPlutusData $ toData healthyOpenHeadDatum
+  headDatum = toScriptData healthyOpenHeadDatum
 
   openThreadOutput =
     OpenThreadOutput
@@ -113,7 +113,7 @@ healthyCloseInitialTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = fromPlutusData $ toData healthyOpenHeadDatum
+  headDatum = toScriptData healthyOpenHeadDatum
 
   openThreadOutput =
     OpenThreadOutput

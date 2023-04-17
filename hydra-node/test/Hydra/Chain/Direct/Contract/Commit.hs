@@ -32,7 +32,6 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import PlutusTx.Builtins (fromData, toData)
 import Test.QuickCheck (oneof, scale, suchThat)
 
 --
@@ -115,9 +114,9 @@ genCommitMutation (tx, _utxo) =
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
         let mutateHeadId = modifyTxOutDatum $ \case
               TxOutDatumInTx sd ->
-                case fromData $ toPlutusData sd of
+                case fromScriptData sd of
                   Just ((party, mCommit, _headId) :: Commit.DatumType) ->
-                    TxOutDatumInTx $ fromPlutusData $ toData (party, mCommit, toPlutusCurrencySymbol otherHeadId)
+                    TxOutDatumInTx $ toScriptData (party, mCommit, toPlutusCurrencySymbol otherHeadId)
                   Nothing -> error "Not a commit datum"
               _ -> error "expected datum in tx"
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
