@@ -1,5 +1,4 @@
--- | A concise interface for building transactions, built on top of the
--- cardano-api.
+-- | Utilities to building transactions on top of the cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
 import Hydra.Cardano.Api
@@ -7,10 +6,6 @@ import Hydra.Prelude
 
 import Data.Default (def)
 import qualified Data.Map as Map
-
--- * Types
-
-type TxBuilder = TxBodyContent BuildTx
 
 -- * Executing
 
@@ -21,19 +16,19 @@ type TxBuilder = TxBodyContent BuildTx
 --
 -- We use the builder only internally for on-chain transaction crafted in the
 -- context of Hydra.
-unsafeBuildTransaction :: HasCallStack => TxBuilder -> Tx
+unsafeBuildTransaction :: HasCallStack => TxBodyContent BuildTx -> Tx
 unsafeBuildTransaction builder =
   either
     (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
     (`Tx` mempty)
-    . makeTransactionBody
+    . createAndValidateTransactionBody
     $ builder
 
 -- | A runtime exception to capture (programmer) failures when building
 -- transactions. This should never happened in practice (famous last words...)!
 data InvalidTransactionException = InvalidTransactionException
   { txBodyError :: TxBodyError
-  , builder :: TxBuilder
+  , builder :: TxBodyContent BuildTx
   }
   deriving (Show)
 
@@ -47,7 +42,7 @@ instance Exception InvalidTransactionException
 -- FIXME: 'makeTransactionBody' throws when one tries to build a transaction
 -- with scripts but no collaterals. This is unfortunate because collaterals are
 -- currently added after by out integrated wallet... We may want to revisit our
--- flow to avoid this exception and have the wallet work from a TxBuilder instead
+-- flow to avoid this exception and have the wallet work from a TxBodyContent BuildTx  instead
 -- of fiddling with a sealed 'CardanoTx'.
 --
 -- Similarly, 'makeTransactionBody' throws when building a transaction
@@ -57,7 +52,7 @@ instance Exception InvalidTransactionException
 --
 -- So we currently bypass this by having default but seemingly innofensive
 -- values for collaterals and protocol params in the 'empty' value
-emptyTxBody :: TxBuilder
+emptyTxBody :: TxBodyContent BuildTx
 emptyTxBody =
   TxBodyContent
     mempty -- inputs
@@ -79,11 +74,11 @@ emptyTxBody =
     TxScriptValidityNone
 
 -- | Add new inputs to an ongoing builder.
-addInputs :: TxIns BuildTx -> TxBuilder -> TxBuilder
+addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addInputs ins tx =
   tx{txIns = txIns tx <> ins}
 
-addReferenceInputs :: [TxIn] -> TxBuilder -> TxBuilder
+addReferenceInputs :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addReferenceInputs refs' tx =
   tx
     { txInsReference = case txInsReference tx of
@@ -94,17 +89,17 @@ addReferenceInputs refs' tx =
     }
 
 -- | Like 'addInputs' but only for vk inputs which requires no additional data.
-addVkInputs :: [TxIn] -> TxBuilder -> TxBuilder
+addVkInputs :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addVkInputs ins =
   addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
 
 -- | Append new outputs to an ongoing builder.
-addOutputs :: [TxOut CtxTx] -> TxBuilder -> TxBuilder
+addOutputs :: [TxOut CtxTx] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addOutputs outputs tx =
   tx{txOuts = txOuts tx <> outputs}
 
 -- | Add extra required key witnesses to a transaction.
-addExtraRequiredSigners :: [Hash PaymentKey] -> TxBuilder -> TxBuilder
+addExtraRequiredSigners :: [Hash PaymentKey] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addExtraRequiredSigners vks tx =
   tx{txExtraKeyWits = txExtraKeyWits'}
  where
@@ -116,7 +111,7 @@ addExtraRequiredSigners vks tx =
         TxExtraKeyWitnesses (vks' <> vks)
 
 -- | Mint tokens with given plutus minting script and redeemer.
-mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBuilder -> TxBuilder
+mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 mintTokens script redeemer assets tx =
   tx{txMintValue = TxMintValue mintedTokens' mintedWitnesses'}
  where
@@ -141,19 +136,19 @@ mintTokens script redeemer assets tx =
 
 -- | Burn tokens with given plutus minting script and redeemer.
 -- This is really just `mintTokens` with negated 'Quantity'.
-burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBuilder -> TxBuilder
+burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 burnTokens script redeemer assets =
   mintTokens script redeemer (fmap (second negate) assets)
 
 -- | Set the upper validity bound for this transaction to some 'SlotNo'.
-setValidityUpperBound :: SlotNo -> TxBuilder -> TxBuilder
+setValidityUpperBound :: SlotNo -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 setValidityUpperBound slotNo tx =
   tx{txValidityRange = (lower, TxValidityUpperBound slotNo)}
  where
   (lower, _upper) = txValidityRange tx
 
 -- | Set the lower validity bound for this transaction to some 'SlotNo'.
-setValidityLowerBound :: SlotNo -> TxBuilder -> TxBuilder
+setValidityLowerBound :: SlotNo -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 setValidityLowerBound slotNo tx =
   tx{txValidityRange = (TxValidityLowerBound slotNo, upper)}
  where

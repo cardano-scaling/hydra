@@ -139,7 +139,7 @@ mkSimpleTx ::
   SigningKey PaymentKey ->
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
-  body <- makeTransactionBody bodyContent
+  body <- createAndValidateTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
