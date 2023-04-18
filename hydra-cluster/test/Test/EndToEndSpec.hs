@@ -181,7 +181,7 @@ spec = around showLogsOnFailure $ do
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
                 remainingTime <- diffUTCTime deadline <$> getCurrentTime
-                waitFor tracer (truncate $ remainingTime + 3) [n1] $
+                waitFor tracer (remainingTime + 3) [n1] $
                   output "ReadyToFanout" ["headId" .= headId]
 
                 send n1 $ input "Fanout" []
@@ -593,7 +593,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
     -- Expect to see ReadyToFanout within 3 seconds after deadline
     remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor tracer (truncate $ remainingTime + 3) [n1] $
+    waitFor tracer (remainingTime + 3) [n1] $
       output "ReadyToFanout" ["headId" .= headId]
 
     send n1 $ input "Fanout" []
