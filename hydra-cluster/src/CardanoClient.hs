@@ -34,28 +34,11 @@ buildScriptAddress script networkId =
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
 buildRaw ins outs fee =
-  makeTransactionBody bodyContent
- where
-  noProtocolParameters = Nothing
-  bodyContent =
-    TxBodyContent
-      (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
-      TxInsCollateralNone
-      TxInsReferenceNone
-      outs
-      TxTotalCollateralNone
-      TxReturnCollateralNone
-      (TxFeeExplicit fee)
-      (TxValidityNoLowerBound, TxValidityNoUpperBound)
-      TxMetadataNone
-      TxAuxScriptsNone
-      TxExtraKeyWitnessesNone
-      (BuildTxWith noProtocolParameters)
-      TxWithdrawalsNone
-      TxCertificatesNone
-      TxUpdateProposalNone
-      TxMintValueNone
-      TxScriptValidityNone
+  createAndValidateTransactionBody $
+    defaultTxBodyContent
+      & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
+      & setTxOuts outs
+      & setTxFee (TxFeeExplicit fee)
 
 calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Lovelace
 calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
