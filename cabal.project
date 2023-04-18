@@ -35,33 +35,18 @@ packages:
 package *
   ghc-options: -j8
 
-tests: False
-
-package hydra-cluster
-  tests: True
-  benchmarks: True
-
-package hydra-node
-  tests: True
-  benchmarks: True
+-- Always build tests and benchmarks
+tests: True
+benchmarks: True
 
 package hydra-plutus
-  tests: True
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
-package hydra-tui
-  tests: True
-
 package plutus-cbor
-  tests: True
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
 package plutus-merkle-tree
-  tests: True
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
-
-package hydra-test-utils
-  tests: True
 
 -- Always show detailed output for tests
 test-show-details: direct
