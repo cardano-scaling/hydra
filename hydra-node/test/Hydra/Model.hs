@@ -30,7 +30,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   readTVarIO,
  )
-import Control.Monad.Class.MonadAsync (Async, async, cancel)
+import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
@@ -42,7 +42,7 @@ import qualified Data.Set as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
-import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),

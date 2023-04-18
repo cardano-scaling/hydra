@@ -11,9 +11,11 @@ import Control.Concurrent.Class.MonadSTM (
   labelTQueueIO,
   modifyTVar,
   newTQueueIO,
+  newTVarIO,
   readTVarIO,
   tryReadTQueue,
   writeTQueue,
+  writeTVar,
  )
 import Control.Monad.Class.MonadAsync (Async, async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
@@ -68,7 +70,12 @@ mockChainAndNetwork ::
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
+  slotTVar <- newTVarIO 0
+  let bumpSlot = atomically $ do
+        slot <- readTVar slotTVar
+        writeTVar slotTVar $ slot + 1
+        pure slot
+  tickThread <- async (labelThisThread "chain" >> simulateTicks queue bumpSlot)
   link tickThread
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
@@ -101,6 +108,8 @@ mockChainAndNetwork tr seedKeys nodes cp = do
                 { chainState = S.Idle
                 , recordedAt = Nothing
                 }
+        -- XXX: The time handle needs to be "far enough" to be able to convert
+        -- slots to time in long simulations, but it's horizon is arbitrary.
         let getTimeHandle = pure $ arbitrary `generateWith` 42
         let seedInput = genTxIn `generateWith` 42
         nodeState <- createNodeState $ Idle IdleState{chainState}
@@ -123,13 +132,16 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       rollbackAndForward = error "Not implemented, should never be called"
   return (ConnectToChain{..}, tickThread)
  where
-  blockTime = 20 -- seconds
-  simulateTicks queue = forever $ do
+  -- in seconds
+  blockTime = 20
+
+  simulateTicks queue bumpSlot = forever $ do
     threadDelay blockTime
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
-        let header = genBlockHeader `generateWith` 42
+        slotNo <- bumpSlot
+        let header = genBlockHeaderAt slotNo `generateWith` 42
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers $ \ChainSyncHandler{onRollForward} ->
           onRollForward header [tx]

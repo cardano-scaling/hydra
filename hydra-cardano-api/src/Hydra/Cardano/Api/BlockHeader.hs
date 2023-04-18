@@ -24,6 +24,12 @@ unsafeBlockHeaderHashFromBytes bytes =
 genBlockHeader :: Gen BlockHeader
 genBlockHeader = do
   slotNo <- SlotNo <$> arbitrary
+  genBlockHeaderAt slotNo
+
+-- | Generate a random block header with completely random hash, but at a
+-- certain slot.
+genBlockHeaderAt :: SlotNo -> Gen BlockHeader
+genBlockHeaderAt slotNo = do
   headerHash <- unsafeBlockHeaderHashFromBytes . BS.pack <$> vectorOf 32 arbitrary
   blockNo <- BlockNo <$> arbitrary
   pure $ BlockHeader slotNo headerHash blockNo
