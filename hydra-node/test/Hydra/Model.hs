@@ -409,11 +409,9 @@ instance Exception RunException
 type instance Realized (RunMonad m) a = a
 
 instance
-  ( MonadDelay m
-  , MonadAsync m
+  ( MonadAsync m
   , MonadFork m
   , MonadMask m
-  , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -469,7 +467,6 @@ seedWorld ::
   , MonadAsync m
   , MonadFork m
   , MonadMask m
-  , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m

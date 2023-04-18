@@ -47,7 +47,7 @@ import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin, toData)
+import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import qualified PlutusLedgerApi.V2 as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)

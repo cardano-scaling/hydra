@@ -119,7 +119,6 @@ library
     , base
     , base16-bytestring
     , bech32
-    , bech32-th
     , bytestring
     , cardano-binary
     , cardano-crypto-class
@@ -131,9 +130,6 @@ library
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
-    , cardano-ledger-shelley-ma-test
-    , cardano-ledger-shelley-test
-    , cardano-ledger-test
     , cardano-prelude
     , cardano-slotting
     , cardano-strict-containers
@@ -145,7 +141,6 @@ library
     , filepath
     , flat
     , formatting
-    , hedgehog-quickcheck
     , http-types
     , hydra-cardano-api
     , hydra-plutus
@@ -155,17 +150,12 @@ library
     , iproute
     , lens
     , lens-aeson
-    , memory
     , modern-uri
     , network
     , network-mux
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-consensus-byron
     , ouroboros-consensus-cardano
-    , ouroboros-consensus-diffusion                                     >=0.3.0.0
-    , ouroboros-consensus-protocol
-    , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-api                                             >=0.1.0.0
     , ouroboros-network-framework                                       >=0.3.0.0
@@ -175,9 +165,7 @@ library
     , prometheus
     , QuickCheck
     , quickcheck-instances
-    , req
     , serialise
-    , small-steps
     , stm
     , text
     , time
@@ -210,7 +198,6 @@ executable hydra-tools
   main-is:        Main.hs
   build-depends:
     , base
-    , bytestring
     , cryptonite
     , filepath
     , hydra-cardano-api
@@ -230,24 +217,15 @@ benchmark tx-cost
     , base
     , bytestring
     , cardano-binary
-    , cardano-crypto-class
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
-    , containers
     , directory
-    , exceptions
     , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , mtl
     , optparse-applicative
     , plutus-ledger-api
     , plutus-tx
-    , plutus-tx-plugin
     , QuickCheck
     , text
 
@@ -311,7 +289,6 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , aeson
-    , array
     , base
     , base16-bytestring
     , bytestring
@@ -324,16 +301,12 @@ test-suite tests
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
-    , cardano-ledger-test
     , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
     , contra-tracer
-    , cryptonite
-    , data-default
     , directory
-    , exceptions
     , filepath
     , hspec
     , hspec-core
@@ -346,18 +319,10 @@ test-suite tests
     , hydra-test-utils
     , io-classes
     , io-sim
-    , iproute
     , lens
     , lens-aeson
-    , memory
     , network
-    , ouroboros-consensus
-    , ouroboros-consensus-cardano
     , ouroboros-consensus-cardano-test
-    , ouroboros-consensus-protocol
-    , ouroboros-consensus-shelley
-    , ouroboros-network
-    , ouroboros-network-framework
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
     , process
@@ -366,7 +331,6 @@ test-suite tests
     , quickcheck-instances
     , req
     , silently
-    , temporary
     , text
     , time
     , typed-protocols-examples                                          >=0.1.0.0

@@ -55,7 +55,6 @@ mockChainAndNetwork ::
   forall m.
   ( MonadSTM m
   , MonadTimer m
-  , MonadThrow m
   , MonadAsync m
   , MonadFork m
   , MonadMask m
