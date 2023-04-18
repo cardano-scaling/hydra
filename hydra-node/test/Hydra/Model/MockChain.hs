@@ -15,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
-import Control.Monad.Class.MonadAsync (Async, async)
+import Control.Monad.Class.MonadAsync (Async, async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Hydra.BehaviorSpec (ConnectToChain (..))
 import Hydra.Chain (Chain (..))
@@ -55,6 +55,8 @@ mockChainAndNetwork ::
   , MonadTimer m
   , MonadThrow m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   ) =>
@@ -67,6 +69,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue)
+  link tickThread
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys

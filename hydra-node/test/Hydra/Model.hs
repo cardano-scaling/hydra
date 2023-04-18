@@ -411,6 +411,8 @@ type instance Realized (RunMonad m) a = a
 instance
   ( MonadDelay m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
@@ -465,6 +467,8 @@ instance
 seedWorld ::
   ( MonadDelay m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
@@ -497,6 +501,7 @@ seedWorld seedKeys seedCP = do
       node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
+      link nodeThread
       pure (party, testNode, nodeThread)
     pure (res, tickThread)
 
