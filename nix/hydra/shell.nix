@@ -79,9 +79,9 @@ let
       plutus-merkle-tree
       hydra-plutus
       hydra-node
-      # hydra-cluster
-      # hydra-tui
-      # hydraw
+      hydra-cluster
+      hydra-tui
+      hydraw
     ];
 
     buildInputs = libs ++ buildInputs ++ devInputs;

@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Async (link)
 import Control.Exception (Handler (Handler), IOException, catches)
-import Control.Monad.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
+import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ServerOutput)

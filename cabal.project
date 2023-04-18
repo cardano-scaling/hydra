@@ -27,9 +27,9 @@ packages:
   plutus-merkle-tree
   hydra-plutus
   hydra-node
-  -- hydra-cluster
-  -- hydra-tui
-  -- hydraw
+  hydra-cluster
+  hydra-tui
+  hydraw
 
 -- Compile more things in parallel
 package *

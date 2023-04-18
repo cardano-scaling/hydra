@@ -10,9 +10,9 @@ import Hydra.Prelude hiding (delete)
 import Cardano.BM.Tracing (ToObject)
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (forConcurrently)
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
@@ -114,7 +114,8 @@ waitForAllMatch delay nodes match = do
     [] -> failure $ "empty results, but " <> (show $ length nodes) <> " clients"
     (r : rs) -> do
       unless (all (== r) rs) $
-        failure $ "inconsistent results: " <> show results
+        failure $
+          "inconsistent results: " <> show results
       pure r
 
 -- | Wait some time for a list of outputs from each of given nodes.

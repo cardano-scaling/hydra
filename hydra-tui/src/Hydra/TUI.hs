@@ -228,33 +228,33 @@ handleEvent client cardanoClient s = \case
       EvKey (KChar c) _ ->
         if
             | c `elem` ['<'] ->
-              scroll s Up *> continue s
+                scroll s Up *> continue s
             | c `elem` ['>'] ->
-              scroll s Down *> continue s
+                scroll s Down *> continue s
             | c `elem` ['h', 'H'] ->
-              continue $ s & feedbackStateL .~ Full
+                continue $ s & feedbackStateL .~ Full
             | c `elem` ['s', 'S'] ->
-              continue $ s & feedbackStateL .~ Short
+                continue $ s & feedbackStateL .~ Short
             | c `elem` ['q', 'Q'] ->
-              halt s
+                halt s
             | c `elem` ['i', 'I'] ->
-              sendInputAndTransition client s Init
+                sendInputAndTransition client s Init
             | c `elem` ['a', 'A'] ->
-              sendInputAndTransition client s Abort
+                sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->
-              sendInputAndTransition client s Fanout
+                sendInputAndTransition client s Fanout
             | c `elem` ['c', 'C'] ->
-              case s ^? headStateL of
-                Just Initializing{} ->
-                  showCommitDialog client cardanoClient s
-                Just Open{} ->
-                  sendInputAndTransition client s Close
-                _ ->
-                  continue s
+                case s ^? headStateL of
+                  Just Initializing{} ->
+                    showCommitDialog client cardanoClient s
+                  Just Open{} ->
+                    sendInputAndTransition client s Close
+                  _ ->
+                    continue s
             | c `elem` ['n', 'N'] ->
-              handleNewTxEvent client cardanoClient s
+                handleNewTxEvent client cardanoClient s
             | otherwise ->
-              continue s
+                continue s
       _ -> continue s
     -- Not connected
     Nothing -> case e of
@@ -306,38 +306,46 @@ handleAppEvent s = \case
   Update (PeerDisconnected p) ->
     s & peersL %~ \cp -> cp \\ [p]
   Update CommandFailed{clientInput} -> do
-    s & report Error ("Invalid command: " <> show clientInput)
+    s
+      & report Error ("Invalid command: " <> show clientInput)
       & stopPending
   Update HeadIsInitializing{parties, headId} ->
     let utxo = mempty
         ps = toList parties
-     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo, headId = headId}
+     in s
+          & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo, headId = headId}
           & stopPending
           & info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
-    s & headStateL %~ partyCommitted [party] utxo
+    s
+      & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
       & if Just (Just party) == s ^? meL
         then stopPending
         else id
   Update HeadIsOpen{utxo} ->
-    s & headStateL %~ headIsOpen utxo
+    s
+      & headStateL %~ headIsOpen utxo
       & info "Head is now open!"
   Update HeadIsClosed{headId, snapshotNumber, contestationDeadline} ->
-    s & headStateL .~ Closed{headId, contestationDeadline}
+    s
+      & headStateL .~ Closed{headId, contestationDeadline}
       & info ("Head closed with snapshot number " <> show snapshotNumber)
       & stopPending
   Update HeadIsContested{headId, snapshotNumber} ->
     s & info ("Head " <> show headId <> " contested with snapshot number " <> show snapshotNumber)
   Update ReadyToFanout{headId} ->
-    s & headStateL .~ FanoutPossible{headId}
+    s
+      & headStateL .~ FanoutPossible{headId}
       & info "Contestation period passed, ready for fanout."
   Update HeadIsAborted{} ->
-    s & headStateL .~ Idle
+    s
+      & headStateL .~ Idle
       & info "Head aborted, back to square one."
       & stopPending
   Update HeadIsFinalized{utxo} ->
-    s & headStateL .~ Final{utxo}
+    s
+      & headStateL .~ Final{utxo}
       & info "Head finalized."
       & stopPending
   Update TxValid{} ->
@@ -353,21 +361,26 @@ handleAppEvent s = \case
   Update PostTxOnChainFailed{postTxError} ->
     case postTxError of
       NotEnoughFuel ->
-        s & warn "Not enough Fuel. Please provide more to the internal wallet and try again."
+        s
+          & warn "Not enough Fuel. Please provide more to the internal wallet and try again."
           & stopPending
       MoreThanOneUTxOCommitted ->
-        s & warn "Can only commit one UTxO. Please try again."
+        s
+          & warn "Can only commit one UTxO. Please try again."
           & stopPending
       InternalWalletError{reason} ->
-        s & warn reason
+        s
+          & warn reason
           & stopPending
       _ ->
-        s & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+        s
+          & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
           & stopPending
   Update RolledBack ->
     -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
     -- head is. Even worse, we have no way to find out!
-    s & info "Chain rolled back! You might need to re-submit Head transactions manually now."
+    s
+      & info "Chain rolled back! You might need to re-submit Head transactions manually now."
       & stopPending
   Tick now ->
     s & nowL .~ now
@@ -389,7 +402,8 @@ handleAppEvent s = \case
   snapshotConfirmed Snapshot{utxo, number} =
     case s ^? headStateL of
       Just Open{} ->
-        s & headStateL . utxoL .~ utxo
+        s
+          & headStateL . utxoL .~ utxo
           & info ("Snapshot #" <> show number <> " confirmed.")
       _ ->
         s & warn "Snapshot confirmed but head is not open?"
@@ -416,13 +430,13 @@ handleDialogEvent (title, form, submit) s = \case
       fs -> continue $ s & warn ("Invalid fields: " <> Text.intercalate ", " fs)
   EvKey (KChar c) _
     | c `elem` ['<'] ->
-      scroll s Up *> continue s
+        scroll s Up *> continue s
     | c `elem` ['>'] ->
-      scroll s Down *> continue s
+        scroll s Down *> continue s
     | c `elem` ['h', 'H'] ->
-      continue $ s & feedbackStateL .~ Full
+        continue $ s & feedbackStateL .~ Full
     | c `elem` ['s', 'S'] ->
-      continue $ s & feedbackStateL .~ Short
+        continue $ s & feedbackStateL .~ Short
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
@@ -739,9 +753,9 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawAddress addr
     | mkVkAddress networkId vk == addr =
-      withAttr own widget
+        withAttr own widget
     | otherwise =
-      widget
+        widget
    where
     widget = txt $ ellipsize 40 $ serialiseAddress addr
 
@@ -801,11 +815,6 @@ renderTime :: (Ord t, Num t, FormatTime t) => t -> String
 renderTime r
   | r < 0 = "-" <> renderTime (negate r)
   | otherwise = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
-
--- HACK(SN): This might be too expensive for a general case and we should move
--- this somehwere.
-instance Ord AddressInEra where
-  a <= b = show @Text a <= show @Text b
 
 --
 -- Forms additional widgets

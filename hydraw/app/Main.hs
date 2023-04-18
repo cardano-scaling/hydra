@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient)
