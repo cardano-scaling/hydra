@@ -55,6 +55,7 @@ spec :: Spec
 spec = do
   parallel $ do
     describe "Types" $ do
+      roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
       roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
       roundtripAndGoldenSpecs (Proxy @(HeadState SimpleTx))
 
