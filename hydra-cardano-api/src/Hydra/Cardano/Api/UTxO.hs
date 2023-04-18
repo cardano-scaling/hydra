@@ -10,10 +10,10 @@ import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
+import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.String (IsString (..))
 import qualified Data.Text as Text
-import Data.Foldable (toList)
 
 -- | Get a human-readable pretty text representation of a UTxO.
 renderUTxO :: IsString str => UTxO -> str
@@ -41,7 +41,7 @@ toLedgerUTxO =
   fn ::
     TxIn ->
     TxOut CtxUTxO Era ->
-    Map (Ledger.TxIn StandardCrypto) (Ledger.TxOut LedgerEra)
+    Map (Ledger.TxIn StandardCrypto) (Ledger.BabbageTxOut LedgerEra)
   fn i o =
     Map.singleton (toLedgerTxIn i) (toLedgerTxOut o)
 
@@ -51,7 +51,7 @@ fromLedgerUTxO =
  where
   fn ::
     Ledger.TxIn StandardCrypto ->
-    Ledger.TxOut LedgerEra ->
+    Ledger.BabbageTxOut LedgerEra ->
     Map TxIn (TxOut CtxUTxO Era)
   fn i o =
     Map.singleton (fromLedgerTxIn i) (fromLedgerTxOut o)
