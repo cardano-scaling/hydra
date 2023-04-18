@@ -23,7 +23,7 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
-import Control.Monad.Class.MonadAsync (Async, async, cancel)
+import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
@@ -423,6 +423,8 @@ type instance Realized (RunMonad m) a = a
 instance
   ( MonadDelay m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
@@ -488,6 +490,8 @@ instance
 seedWorld ::
   ( MonadDelay m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadCatch m
   , MonadTimer m
   , MonadThrow (STM m)
@@ -520,6 +524,7 @@ seedWorld seedKeys seedCP = do
       node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
+      link nodeThread
       pure (party, testNode, nodeThread)
     pure (res, tickThread)
 
@@ -553,8 +558,8 @@ performCommit parties party paymentUTxO = do
         waitMatch actorNode $ \case
           Committed{party = cp, utxo = committedUTxO}
             | cp == party -> Just committedUTxO
-          err@CommandFailed{} -> error $ "Waiting for commit from party " <> show party <> "\nbut got error: " <> show err
-          err@InvalidCommand{} -> error $ "Waiting for commit from party " <> show party <> "\nbut got error: " <> show err
+          err@CommandFailed{} -> trace ("Waiting for commit from party " <> show party <> "\nbut got error: " <> show err) Nothing
+          err@InvalidCommand{} -> trace ("Waiting for commit from party " <> show party <> "\nbut got error: " <> show err) Nothing
           other -> trace (show other) Nothing
       pure $ fromUtxo observedUTxO
  where

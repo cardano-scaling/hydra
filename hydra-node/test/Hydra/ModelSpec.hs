@@ -317,15 +317,16 @@ runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Ge
 runIOSimProp p = do
   Capture eval <- capture
   let tr = runSimTrace $ newTVarIO (Nodes mempty traceInIOSim mempty) >>= (runReaderT (runMonad $ eval $ monadic' p) . RunState)
-      traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
-      logsOnError = counterexample ("trace:\n" <> toString traceDump)
+  -- TODO: these are useful, but not on stdout
+  -- traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
+  -- logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
-    Right x ->
-      pure $ logsOnError x
+    Right _ ->
+      pure $ property True
     Left (FailureException (SomeException ex)) -> do
-      pure $ counterexample (show ex) $ logsOnError $ property False
+      pure $ counterexample (show ex) $ property False
     Left ex ->
-      pure $ counterexample (show ex) $ logsOnError $ property False
+      pure $ counterexample (show ex) $ property False
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case

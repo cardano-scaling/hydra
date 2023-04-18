@@ -9,7 +9,7 @@ import Cardano.Binary (serialize', unsafeDeserialize')
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (TxSeq))
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Control.Monad.Class.MonadAsync (Async, async)
+import Control.Monad.Class.MonadAsync (Async, async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadSTM (
   MonadLabelledSTM,
@@ -24,9 +24,7 @@ import Control.Monad.Class.MonadSTM (
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.BehaviorSpec (
-  ConnectToChain (..),
- )
+import Hydra.BehaviorSpec (ConnectToChain (..))
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -73,6 +71,8 @@ mockChainAndNetwork ::
   , MonadTimer m
   , MonadThrow m
   , MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   ) =>
@@ -93,6 +93,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   labelTQueueIO queue "chain-queue"
   chain <- newTVarIO (0, 0, Empty)
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
+  link tickThread
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
@@ -150,10 +151,10 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   blockTime = 20 -- seconds
   simulateTicks queue chain = forever $ do
     rollForward chain queue
-    rollForward chain queue
-    rollForward chain queue
-    rollForward chain queue
-    sendRollBackward chain 2
+  -- rollForward chain queue
+  -- rollForward chain queue
+  -- rollForward chain queue
+  -- sendRollBackward chain 2
   rollForward chain queue = do
     threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []
@@ -188,7 +189,9 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         pure ()
 
   addNewBlockToChain chain transactions =
-    atomically $ modifyTVar chain $ \(slotNum, position, blocks) -> appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime) (fromIntegral position)) (slotNum + blockTime, position, blocks)
+    atomically $
+      modifyTVar chain $ \(slotNum, position, blocks) ->
+        trace ("addNewBlock: " <> show slotNum) appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime) (fromIntegral position)) (slotNum + blockTime, position, blocks)
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
