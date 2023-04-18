@@ -14,7 +14,7 @@ import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts, txwitsVKey)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
@@ -30,6 +30,7 @@ import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.Mary.Value (gettriples')
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Serialization (mkSized)
+import Cardano.Ledger.Shelley.API (unUTxO)
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -52,17 +53,21 @@ import Hydra.Cardano.Api (
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
+  ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   StakeAddressReference (NoStakeAddress),
+  UTxO,
   VerificationKey,
-  fromLedgerTxId,
+  fromLedgerTx,
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
+  makeShelleyKeyWitness,
+  makeSignedTransaction,
   shelleyAddressInEra,
   toLedgerAddr,
-  toLedgerKeyWitness,
   toLedgerTx,
+  toLedgerUTxO,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
@@ -91,11 +96,11 @@ data TinyWallet m = TinyWallet
   -- ^ Returns the /seed input/
   -- This is the special input needed by `Direct` chain component to initialise
   -- a head
-  , sign :: Babbage.AlonzoTx LedgerEra -> Babbage.AlonzoTx LedgerEra
+  , sign :: Api.Tx -> Api.Tx
   , coverFee ::
-      Map TxIn TxOut ->
-      Babbage.AlonzoTx LedgerEra ->
-      m (Either ErrCoverFee (Babbage.AlonzoTx LedgerEra))
+      UTxO ->
+      Api.Tx ->
+      m (Either ErrCoverFee Api.Tx)
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -146,7 +151,9 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           -- wrong fee estimation should they change in between.
           epochInfo <- queryEpochInfo
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
-          pure $ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx
+          pure $
+            fromLedgerTx
+              <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -176,19 +183,12 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
 
 signWith ::
   Api.SigningKey Api.PaymentKey ->
-  Babbage.AlonzoTx Api.LedgerEra ->
-  Babbage.AlonzoTx Api.LedgerEra
-signWith signingKey validatedTx@Babbage.AlonzoTx{body, wits} =
-  validatedTx
-    { wits =
-        wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
-    }
+  Api.Tx ->
+  Api.Tx
+signWith signingKey (Api.Tx body wits) =
+  makeSignedTransaction (witness : wits) body
  where
-  txid =
-    Ledger.TxId (SafeHash.hashAnnotated body)
-  sig =
-    toLedgerKeyWitness
-      [Api.signWith @Api.Era (fromLedgerTxId txid) signingKey]
+  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.

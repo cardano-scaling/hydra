@@ -11,23 +11,17 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import qualified Cardano.Ledger.Core as Ledger
-import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
-  LedgerEra,
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromLedgerTx,
   getChainPoint,
   getTxBody,
   getTxId,
-  toLedgerTx,
-  toLedgerUTxO,
  )
 import Hydra.Chain (
   Chain (..),
@@ -95,21 +89,19 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
     { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        vtx <-
-          -- FIXME (MB): cardano keys should really not be here (as this
-          -- point they are in the 'chainState' stored in the 'ChainContext')
-          -- . They are only required for the init transaction and ought to
-          -- come from the _client_ and be part of the init request
-          -- altogether. This goes in the direction of 'dynamic heads' where
-          -- participants aren't known upfront but provided via the API.
-          -- Ultimately, an init request from a client would contain all the
-          -- details needed to establish connection to the other peers and
-          -- to bootstrap the init transaction. For now, we bear with it and
-          -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-            >>= finalizeTx wallet ctx chainState . toLedgerTx
-        -- XXX: fromLedgerTx . toLedgerTx = identity
-        submitTx $ fromLedgerTx vtx
+        -- FIXME (MB): cardano keys should really not be here (as this
+        -- point they are in the 'chainState' stored in the 'ChainContext')
+        -- . They are only required for the init transaction and ought to
+        -- come from the _client_ and be part of the init request
+        -- altogether. This goes in the direction of 'dynamic heads' where
+        -- participants aren't known upfront but provided via the API.
+        -- Ultimately, an init request from a client would contain all the
+        -- details needed to establish connection to the other peers and
+        -- to bootstrap the init transaction. For now, we bear with it and
+        -- keep the static keys in context.
+        atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
+          >>= finalizeTx wallet ctx chainState
+          >>= submitTx
     }
 
 -- | Balance and sign the given partial transaction.
@@ -118,11 +110,11 @@ finalizeTx ::
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
-  Ledger.Tx LedgerEra ->
-  m (Ledger.Tx LedgerEra)
+  Tx ->
+  m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
-  coverFee (unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
+  coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
@@ -140,12 +132,12 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
         ( InternalWalletError
             { headUTxO
             , reason = show e
-            , tx = fromLedgerTx partialTx
+            , tx = partialTx
             } ::
             PostTxError Tx
         )
-    Right validatedTx -> do
-      pure $ sign validatedTx
+    Right balancedTx -> do
+      pure $ sign balancedTx
 
 -- * Following the Chain
 
