@@ -498,11 +498,11 @@ instance
 seedWorld ::
   ( MonadDelay m
   , MonadAsync m
-  , MonadFork m
-  , MonadMask m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
+  , MonadFork m
+  , MonadMask m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->

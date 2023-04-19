@@ -18,7 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, async)
+import Control.Monad.Class.MonadAsync (Async, async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
@@ -65,6 +65,7 @@ mockChainAndNetwork ::
   , MonadMask m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
+  , MonadFork m
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -76,6 +77,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   labelTQueueIO queue "chain-queue"
   chain <- newTVarIO (0, 0, Empty)
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
+  link tickThread
   let chainComponent = \node -> do
         let Environment{party = ownParty, otherParties} = env node
         let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
