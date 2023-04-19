@@ -14,10 +14,11 @@ export default function AsyncApi() {
   const { siteConfig } = useDocusaurusContext();
 
   useEffect(() => {
-    const lib = document.createElement('script');
-    lib.src = "https://unpkg.com/@asyncapi/react-component@1.0.0-next.34/browser/standalone/index.js"
+    const lib = document.createElement("script");
+    lib.src =
+      "https://unpkg.com/@asyncapi/react-component@1.0.0-next.47/browser/standalone/index.js";
 
-    const scriptTag = document.createElement('script');
+    const scriptTag = document.createElement("script");
     scriptTag.innerHTML = `(() => {
       AsyncApiStandalone.render({
         schema: {
@@ -25,28 +26,35 @@ export default function AsyncApi() {
         },
         config: {
           show: {
+            sidebar: true,
             messages: false,
           },
         },
       }, document.getElementById('asyncapi'));
     })();`;
 
-    lib.addEventListener('load', () => {
-      document.body.appendChild(scriptTag)
+    lib.addEventListener("load", () => {
+      document.body.appendChild(scriptTag);
       setTimeout(() => {
-        document.querySelector('div.loader').style.display = "none";
-      } , 250);
+        document.querySelector("div.loader").style.display = "none";
+      }, 250);
     });
     document.body.appendChild(lib);
 
-    return () => { document.body.removeChild(lib); document.body.removeChild(scriptTag); }
+    return () => {
+      document.body.removeChild(lib);
+      document.body.removeChild(scriptTag);
+    };
   }, []);
 
   return (
     <Layout title={`${siteConfig.title}`}>
       <main>
         <div id="asyncapi"></div>
-        <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.34/styles/default.min.css" />
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.47/styles/default.min.css"
+        />
         <style>{darkThemeSupport()}</style>
         <div className="loader"></div>
       </main>
@@ -116,5 +124,5 @@ function darkThemeSupport() {
     .examples .text-gray-600 {
       color: var(--ifm-color-primary-contrast-background) !important;
     }
-  `
+  `;
 }
