@@ -26,6 +26,11 @@
   background-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Ensure footer is drawn over api reference side bar. */
+.footer {
+  z-index: 20;
+}
+
 .loader,
 .loader:before,
 .loader:after {

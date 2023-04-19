@@ -93,10 +93,6 @@ function darkThemeSupport() {
       background: var(--ifm-card-background-color) !important;
     }
 
-    .bg-gray-800 {
-      background: var(--ifm-color-primary-dark) !important;
-    }
-
     .prose {
       color: var(--ifm-font-color-base) !important;
     }
@@ -119,10 +115,6 @@ function darkThemeSupport() {
 
     .text-gray-600, .text-gray-700 {
       color: var(--ifm-font-color-secondary) !important;
-    }
-
-    .examples .text-gray-600 {
-      color: var(--ifm-color-primary-contrast-background) !important;
     }
   `;
 }
