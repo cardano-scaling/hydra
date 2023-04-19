@@ -87,12 +87,12 @@ import qualified Prelude
 
 -- | State maintained by the model.
 data WorldState = WorldState
-  { hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
-  -- ^ List of parties identified by both signing keys required to run protocol.
-  -- This list must not contain any duplicated key.
-  , hydraState :: GlobalState
-  -- ^ Expected consensus state
-  -- All nodes should be in the same state.
+  { -- | List of parties identified by both signing keys required to run protocol.
+    -- This list must not contain any duplicated key.
+    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
+  , -- | Expected consensus state
+    -- All nodes should be in the same state.
+    hydraState :: GlobalState
   }
   deriving (Eq, Show)
 
@@ -378,17 +378,17 @@ partyKeys =
 -- | Concrete state needed to run actions against the implementation.
 -- This state is used and might be updated when actually `perform`ing actions generated from the `StateModel`.
 data Nodes m = Nodes
-  { nodes :: Map.Map Party (TestHydraNode Tx m)
-  -- ^ Map from party identifiers to a /handle/ for interacting with a node.
-  , logger :: Tracer m (HydraLog Tx ())
-  -- ^ Logger used by each node.
-  -- The reason we put this here is because the concrete value needs to be
-  -- instantiated upon the test run initialisation, outiside of the model.
-  , threads :: [Async m ()]
-  -- ^ List of threads spawned when executing `RunMonad`
-  -- FIXME: Remove it? It's not actually useful when running inside io-sim as
-  -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
-  -- to keep it?
+  { -- | Map from party identifiers to a /handle/ for interacting with a node.
+    nodes :: Map.Map Party (TestHydraNode Tx m)
+  , -- | Logger used by each node.
+    -- The reason we put this here is because the concrete value needs to be
+    -- instantiated upon the test run initialisation, outiside of the model.
+    logger :: Tracer m (HydraLog Tx ())
+  , -- | List of threads spawned when executing `RunMonad`
+    -- FIXME: Remove it? It's not actually useful when running inside io-sim as
+    -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
+    -- to keep it?
+    threads :: [Async m ()]
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -450,10 +450,10 @@ instance
     decoratePostconditionFailure
       | checkOutcome s action result = id
       | otherwise =
-          counterexample "postcondition failed"
-            . counterexample ("Action: " <> show action)
-            . counterexample ("State: " <> show s)
-            . counterexample ("Result: " <> showFromAction (show result) action)
+        counterexample "postcondition failed"
+          . counterexample ("Action: " <> show action)
+          . counterexample ("State: " <> show s)
+          . counterexample ("Result: " <> showFromAction (show result) action)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
@@ -566,7 +566,9 @@ performCommit parties party paymentUTxO = do
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
               | cp == party -> Just committedUTxO
+            err@CommandFailed{} -> error $ show err
             _ -> Nothing
+
       pure $ fromUtxo observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
@@ -711,10 +713,10 @@ waitForUTxOToSpend utxo key value node = go 100
       timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse _ u)
           | u /= mempty ->
-              maybe
-                (go (n - 1))
-                (pure . Right)
-                (find matchPayment (UTxO.pairs u))
+            maybe
+              (go (n - 1))
+              (pure . Right)
+              (find matchPayment (UTxO.pairs u))
         _ -> go (n - 1)
 
   matchPayment p@(_, txOut) =

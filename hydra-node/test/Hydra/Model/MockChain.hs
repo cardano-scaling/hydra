@@ -26,6 +26,7 @@ import Hydra.BehaviorSpec (
   ConnectToChain (..),
  )
 import Hydra.Chain (Chain (..))
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollBackward, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -50,7 +51,6 @@ import Hydra.Node (
   HydraNode (..),
   chainCallback,
   createNodeState,
-  modifyChainState,
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
@@ -114,13 +114,13 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         nodeState <- createNodeState $ Idle IdleState{chainState}
         let HydraNode{eq} = node
         let callback = chainCallback eq
-        let chainHandler = chainSyncHandler tr (modifyChainState nodeState) callback getTimeHandle ctx
+        chainStateTVar <- newTVarIO [initialChainState]
+        let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput chainStateTVar
+        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx chainStateTVar
         let node' =
               node
-                { hn =
-                    createMockNetwork node nodes
-                , oc =
-                    createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput
+                { hn = createMockNetwork node nodes
+                , oc = chainHandle
                 , nodeState
                 }
         let mockNode = MockHydraNode{node = node', chainHandler}
@@ -217,8 +217,9 @@ createMockChain ::
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
+  TVar m [ChainStateAt] ->
   Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput =
+createMockChain tracer ctx submitTx timeHandle seedInput chainStateTVar =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
@@ -229,7 +230,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput =
           , reset = pure ()
           , update = \_ _ -> pure ()
           }
-   in mkChain tracer timeHandle wallet ctx submitTx
+   in mkChain tracer timeHandle wallet ctx chainStateTVar submitTx
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
 mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)

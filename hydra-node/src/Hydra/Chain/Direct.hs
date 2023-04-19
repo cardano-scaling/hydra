@@ -18,6 +18,7 @@ import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
+  newTVarIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -182,12 +183,14 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   ChainContext ->
-  -- | Last known point on chain as loaded from persistence.
-  Maybe ChainPoint ->
   TinyWallet IO ->
-  ((ChainStateAt -> STM IO ChainStateAt) -> IO ()) ->
+  ChainStateAt ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet modifyChainState callback action = do
+withDirectChain tracer config ctx wallet chainStateAt callback action = do
+  -- Last known point on chain as loaded from persistence.
+  let persistedPoint = recordedAt chainStateAt
+  -- TODO we should use NonEmptyList here instead
+  chainStateTVar <- newTVarIO $ [chainStateAt]
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -202,11 +205,12 @@ withDirectChain tracer config ctx persistedPoint wallet modifyChainState callbac
           getTimeHandle
           wallet
           ctx
+          chainStateTVar
           (submitTx queue)
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer modifyChainState callback getTimeHandle ctx
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar
           connectToLocalNode
             connectInfo
             (clientProtocols chainPoint queue handler)

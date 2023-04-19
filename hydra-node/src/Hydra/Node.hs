@@ -48,8 +48,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   Outcome (..),
   defaultTTL,
-  getChainState,
-  setChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -205,7 +203,6 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
-  , putEventSTM :: e -> STM m ()
   , putEventAfter :: NominalDiffTime -> e -> m ()
   , nextEvent :: m e
   , isEmpty :: m Bool
@@ -227,8 +224,6 @@ createEventQueue = do
     EventQueue
       { putEvent =
           atomically . writeTQueue q
-      , putEventSTM =
-          writeTQueue q
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do
@@ -268,24 +263,4 @@ chainCallback ::
   EventQueue m (Event tx) ->
   ChainCallback tx m
 chainCallback eventQueue chainEvent = do
-  -- Provide chain state to continuation and update it when we get a newState
-  -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
-  -- this is required as multiple transactions may be observed and the chain
-  -- state shall accumulate the state changes coming with those observations.
-  putEventSTM eventQueue $ OnChainEvent{chainEvent}
-
-modifyChainState ::
-  MonadSTM m =>
-  NodeState tx m ->
-  (ChainStateType tx -> STM m (ChainStateType tx)) ->
-  m ()
-modifyChainState NodeState{queryHeadState, modifyHeadState} cont = do
-  -- Provide chain state to continuation and update it when we get a newState
-  -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
-  -- this is required as multiple transactions may be observed and the chain
-  -- state shall accumulate the state changes coming with those observations.
-  atomically $ do
-    hs <- queryHeadState
-    cs' <- cont $ getChainState hs
-    modifyHeadState $ \hs' -> do
-      ((), setChainState cs' hs')
+  putEvent eventQueue $ OnChainEvent{chainEvent}

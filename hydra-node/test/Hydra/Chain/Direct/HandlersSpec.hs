@@ -13,7 +13,6 @@ import Hydra.Cardano.Api (
   ChainPoint,
   SlotNo (..),
   Tx,
-  chainPointToSlotNo,
   genTxIn,
   getChainPoint,
  )
@@ -106,9 +105,10 @@ spec = do
       TestBlock header txs <- pickBlind $ genBlockAt slot []
 
       chainContext <- pickBlind arbitrary
+      chainState <- pickBlind arbitrary
+      chainStateVar <- run $ newTVarIO chainState
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          modifyChainState = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer modifyChainState chainSyncCallback (pure timeHandle) chainContext
+          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext chainStateVar
 
       run $
         onRollForward handler header txs
@@ -120,7 +120,12 @@ spec = do
     -- let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
     TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
-
+    let cs =
+          ChainStateAt
+            { chainState = st
+            , recordedAt = Nothing
+            }
+    chainStatesVar <- run $ newTVarIO [cs]
     timeHandle <- pickBlind arbitrary
     let callback = \case
           Rollback{} ->
@@ -131,34 +136,29 @@ spec = do
               then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
               else pure ()
 
-        modifyChainState _ = pure ()
-
-    let handler = chainSyncHandler nullTracer modifyChainState callback (pure timeHandle) ctx
+    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx chainStatesVar
     run $ onRollForward handler header txs
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
-    (chainContext, chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
+    (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
     rollbackPoint <- pick $ genRollbackPoint blocks
-    monitor $ label ("Rollback to: " <> show (chainPointToSlotNo rollbackPoint) <> " / " <> show (length blocks))
+    monitor $ label ("Rollback to: " <> show rollbackPoint <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
-    stateVar <- run $ newTVarIO chainState
+    chainStateAtVar <- run $ newTVarIO [chainStateAt]
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
-          (Rollback slot) -> putTMVar rolledBackTo slot
+          Tick{} -> pure ()
+          (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
           _ -> pure ()
-    let modifyChainState cont = atomically $ do
-          cs <- readTVar stateVar
-          newChainState <- cont cs
-          writeTVar stateVar newChainState
 
     let handler =
           chainSyncHandler
             nullTracer
-            modifyChainState
             callback
             (pure timeHandle)
             chainContext
+            chainStateAtVar
     -- Simulate some chain following
     run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
     -- Inject the rollback to somewhere between any of the previous state
@@ -176,14 +176,14 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx _cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  let modifyChainState _ = pure ()
-  let handler = chainSyncHandler nullTracer modifyChainState (recordEvents eventsVar) getTimeHandle ctx
+  chainStateVar <- newTVarIO [_cs]
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx chainStateVar
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
 
   recordEvents var event = do
-    modifyTVar var (event :)
+    atomically $ modifyTVar var (event :)
 
 -- | A block used for testing. This is a simpler version of the cardano-api
 -- 'Block' and can be de-/constructed easily.
