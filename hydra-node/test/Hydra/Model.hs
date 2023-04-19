@@ -674,24 +674,20 @@ waitForHeadIsInitializing ::
   Party ->
   Map Party (TestHydraNode tx m) ->
   m ()
-waitForHeadIsInitializing party nodes = go 100
- where
+waitForHeadIsInitializing party nodes = do
   -- The reason why we repeatedly query the server is because we could
   -- miss some outputs _before_ we even call that function which will
   -- lead to random failures.
-  go :: Int -> m ()
-  go = \case
-    0 -> pure ()
-    n -> do
-      outs <- serverOutputs (nodes ! party)
-      let matchHeadIsInitializing = \case
-            Output.HeadIsInitializing{} -> True
-            _ -> False
-      case find matchHeadIsInitializing outs of
-        Nothing ->
-          threadDelay 10 >> go (n - 1)
-        Just{} ->
-          pure ()
+  outs <- serverOutputs (nodes ! party)
+  case find matchHeadIsInitializing outs of
+    Nothing ->
+      threadDelay 10 >> waitForHeadIsInitializing party nodes
+    Just{} ->
+      pure ()
+ where
+  matchHeadIsInitializing = \case
+    Output.HeadIsInitializing{} -> True
+    _ -> False
 
 waitForUTxOToSpend ::
   forall m.
