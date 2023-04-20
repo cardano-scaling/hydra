@@ -78,61 +78,64 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   chain <- newTVarIO (0, 0, Empty)
   tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
   link tickThread
-  let chainComponent = \node -> do
-        let Environment{party = ownParty, otherParties} = env node
-        let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
-        let ctx =
-              S.ChainContext
-                { networkId = testNetworkId
-                , peerVerificationKeys = vkeys
-                , ownVerificationKey = vkey
-                , ownParty
-                , otherParties
-                , scriptRegistry =
-                    -- TODO: we probably want different _scripts_ as initial and commit one
-                    let txIn = mkMockTxIn vkey 0
-                        txOut =
-                          TxOut
-                            (mkVkAddress testNetworkId vkey)
-                            (lovelaceToValue 10_000_000)
-                            TxOutDatumNone
-                            ReferenceScriptNone
-                     in ScriptRegistry
-                          { initialReference = (txIn, txOut)
-                          , commitReference = (txIn, txOut)
-                          , headReference = (txIn, txOut)
-                          }
-                , contestationPeriod = cp
-                }
-            chainState =
-              S.ChainStateAt
-                { chainState = S.Idle
-                , recordedAt = Nothing
-                }
-        -- XXX: The time handle needs to be "far enough" to be able to convert
-        -- slots to time in long simulations, but it's horizon is arbitrary.
-        let getTimeHandle = pure $ arbitrary `generateWith` 42
-        let seedInput = genTxIn `generateWith` 42
-        nodeState <- createNodeState $ Idle IdleState{chainState}
-        let HydraNode{eq} = node
-        let callback = chainCallback eq
-        chainStateTVar <- newTVarIO [initialChainState]
-        let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput chainStateTVar
-        let chainHandler = chainSyncHandler tr callback getTimeHandle ctx chainStateTVar
-        let node' =
-              node
-                { hn = createMockNetwork node nodes
-                , oc = chainHandle
-                , nodeState
-                }
-        let mockNode = MockHydraNode{node = node', chainHandler}
-        atomically $ modifyTVar nodes (mockNode :)
-        pure node'
-      -- NOTE: this is not used (yet) but could be used to trigger arbitrary rollbacks
-      -- in the run model
-      rollbackAndForward = error "Not implemented, should never be called"
-  return (ConnectToChain{..}, tickThread)
+  return
+    ( ConnectToChain
+        { rollbackAndForward = error "Not implemented, should never be called"
+        , tickThread
+        , chainComponent = chainComponent queue
+        }
+    , tickThread
+    )
  where
+  chainComponent queue node = do
+    let Environment{party = ownParty, otherParties} = env node
+    let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
+    let ctx =
+          S.ChainContext
+            { networkId = testNetworkId
+            , peerVerificationKeys = vkeys
+            , ownVerificationKey = vkey
+            , ownParty
+            , otherParties
+            , scriptRegistry =
+                -- TODO: we probably want different _scripts_ as initial and commit one
+                let txIn = mkMockTxIn vkey 0
+                    txOut =
+                      TxOut
+                        (mkVkAddress testNetworkId vkey)
+                        (lovelaceToValue 10_000_000)
+                        TxOutDatumNone
+                        ReferenceScriptNone
+                 in ScriptRegistry
+                      { initialReference = (txIn, txOut)
+                      , commitReference = (txIn, txOut)
+                      , headReference = (txIn, txOut)
+                      }
+            , contestationPeriod = cp
+            }
+        chainState =
+          S.ChainStateAt
+            { chainState = S.Idle
+            , recordedAt = Nothing
+            }
+    let getTimeHandle = pure $ arbitrary `generateWith` 42
+    let seedInput = genTxIn `generateWith` 42
+    nodeState <- createNodeState $ Idle IdleState{chainState}
+    let HydraNode{eq} = node
+    let callback = chainCallback eq
+    chainStateTVar <- newTVarIO [initialChainState]
+    let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput chainStateTVar
+    let chainHandler = chainSyncHandler tr callback getTimeHandle ctx chainStateTVar
+    let node' =
+          node
+            { hn = createMockNetwork node nodes
+            , oc = chainHandle
+            , nodeState
+            }
+    let mockNode = MockHydraNode{node = node', chainHandler}
+    atomically $ modifyTVar nodes (mockNode :)
+    pure node'
+
   blockTime :: Integer
   blockTime = 20 -- seconds
   simulateTicks queue chain = forever $ do
