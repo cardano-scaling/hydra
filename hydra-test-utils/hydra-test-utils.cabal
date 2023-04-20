@@ -60,7 +60,6 @@ library
     , plutus-tx
     , process
     , QuickCheck
-    , random-shuffle
     , relude
     , strict-containers
     , temporary
@@ -91,5 +90,5 @@ test-suite hydra-test-util-tests
     , temporary
     , text
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts

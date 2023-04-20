@@ -6,32 +6,12 @@ module Test.Network.Ports where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (readTVarIO, writeTVar)
-import Data.List (
-  isInfixOf,
- )
-import qualified Data.List as List
-import Foreign.C.Error (
-  Errno (..),
-  eCONNREFUSED,
- )
-import GHC.IO.Exception (
-  IOException (..),
- )
+import Control.Monad.Class.MonadSTM (writeTVar)
 import Network.Socket (
-  Family (AF_INET),
   PortNumber,
-  SockAddr (..),
-  SocketType (Stream),
   close',
-  connect,
-  socket,
-  tupleToHostAddress,
  )
 import Network.Wai.Handler.Warp (openFreePort)
-import System.Random.Shuffle (
-  shuffleM,
- )
 
 -- | Find a TCPv4 port which is likely to be free for listening on
 -- @localhost@. This binds a socket, receives an OS-assigned port, then closes
@@ -43,68 +23,33 @@ import System.Random.Shuffle (
 -- Do not use this unless you have no other option.
 getRandomPort :: TVar IO [Int] -> IO PortNumber
 getRandomPort tvar = do
-  usedPorts <- readTVarIO tvar
   (port, sock) <- openFreePort
   liftIO $ close' sock
-  if port `elem` usedPorts
-    then getRandomPort tvar
-    else do
-      atomically $ writeTVar tvar (port : usedPorts)
-      return $ fromIntegral port
+  mport <- atomically $ acquirePort tvar port
+  case mport of
+    Nothing -> getRandomPort tvar
+    Just p -> return $ fromIntegral p
 
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
--- Should be used only for testing, see 'getRandomPort' for limitations.
-withFreePort :: TVar IO [Int] -> (PortNumber -> IO ()) -> IO ()
+-- NOTE: Should be used only for testing, see 'getRandomPort' for limitations.
+withFreePort :: TVar IO [Int] -> (PortNumber -> IO a) -> IO a
 withFreePort tvar action = getRandomPort tvar >>= action
 
--- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
--- returns `eCONNREFUSED`.
+-- | Find the specified number of free ports.
 --
--- Rethrows connection exceptions in all other cases (e.g. when the host
--- is unroutable).
---
--- Code courtesy of nh2: https://stackoverflow.com/a/57022572
-isPortOpen :: SockAddr -> IO Bool
-isPortOpen sockAddr = do
-  bracket (socket AF_INET Stream 6 {- TCP -}) close' $ \sock -> do
-    res <- try $ connect sock sockAddr
-    case res of
-      Right () -> return True
-      Left e
-        | (Errno <$> ioe_errno e) == Just eCONNREFUSED -> pure False
-        | "WSAECONNREFUSED" `isInfixOf` show e -> pure False
-        | otherwise -> throwIO e
-
--- | Creates a `SockAttr` from host IP and port number.
---
--- Example:
--- > simpleSockAddr (127,0,0,1) 8000
-simpleSockAddr :: (Word8, Word8, Word8, Word8) -> PortNumber -> SockAddr
-simpleSockAddr addr port = SockAddrInet (fromIntegral port) (tupleToHostAddress addr)
-
--- | Get a list of random TCPv4 ports that currently do not have any servers
--- listening on them. It may return less than the requested number of ports.
---
--- Note that this method of allocating ports is subject to race
--- conditions. Production code should use better methods such as passing a
--- listening socket to the child process.
+-- NOTE: Should be used only for testing, see 'getRandomPort' for limitations.
 randomUnusedTCPPorts :: TVar IO [Int] -> Int -> IO [Int]
-randomUnusedTCPPorts tvar count = do
-  usedPorts <- readTVarIO tvar
-  usablePorts <- shuffleM [1024 .. 49151]
-  unusedPorts' <- filterM unused usablePorts
-  let unusedPorts = filter (\p -> p `notElem` usedPorts) unusedPorts'
-  let portsToUse = take count unusedPorts
-  atomically $ writeTVar tvar (portsToUse <> usedPorts)
-  pure $ sort portsToUse
- where
-  unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
+randomUnusedTCPPorts tvar count =
+  fmap fromIntegral
+    <$> replicateM count (withFreePort tvar (\port -> return port))
 
--- | Get a single unused random TCPv4 port.
-randomUnusedTCPPort :: IO Int
-randomUnusedTCPPort = do
-  usablePorts <- shuffleM [1024 .. 49151]
-  List.head <$> filterM unused (take 10 usablePorts)
- where
-  unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
+-- | Internal function to maybe obtain the free port.
+acquirePort :: TVar IO [Int] -> Int -> STM IO (Maybe Int)
+acquirePort tvar port = do
+  usedPorts <- readTVar tvar
+  if port `elem` usedPorts
+    then return Nothing
+    else do
+      writeTVar tvar (port : usedPorts)
+      return $ Just port
