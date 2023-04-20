@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.Port.MonitoringSpec (spec) where
+module Hydra.Logging.MonitoringSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
@@ -24,11 +24,11 @@ import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
-spec :: SpecWith (TVar IO [Int])
+spec :: Spec
 spec =
-  it "provides prometheus metrics from traces" $ \tvar ->
-    failAfter 5 $ do
-      [p] <- randomUnusedTCPPorts tvar 1
+  it "provides prometheus metrics from traces" $ do
+    failAfter 3 $ do
+      [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
         traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))

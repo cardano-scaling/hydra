@@ -262,6 +262,7 @@ test-suite tests
   other-modules:
     Hydra.API.ClientInputSpec
     Hydra.API.ServerOutputSpec
+    Hydra.API.ServerSpec
     Hydra.BehaviorSpec
     Hydra.Chain.Direct.Contract.Abort
     Hydra.Chain.Direct.Contract.Close
@@ -286,20 +287,18 @@ test-suite tests
     Hydra.JSONSchema
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
+    Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
     Hydra.Model
     Hydra.Model.MockChain
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.HeartbeatSpec
+    Hydra.NetworkSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
-    Hydra.Port.MonitoringSpec
-    Hydra.Port.NetworkSpec
-    Hydra.Port.ServerSpec
-    Hydra.Port.SpecHook
     Hydra.SnapshotStrategySpec
     Paths_hydra_node
     Spec
