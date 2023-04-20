@@ -43,7 +43,6 @@ import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
-import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),
   createHydraNode,
@@ -468,7 +467,7 @@ instance
       NewTx party transaction ->
         performNewTx party transaction
       Init party ->
-        party `sendsInput` Input.Init
+        performInit party
       Abort party -> do
         performAbort party
       Wait delay ->
@@ -490,7 +489,7 @@ instance
         stopTheWorld
    where
     headIsOpen = \case
-      Output.HeadIsOpen{} -> True
+      HeadIsOpen{} -> True
       _otherwise -> False
 
 -- ** Performing actions
@@ -552,7 +551,6 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
     Just actorNode -> do
-      lift $ waitForHeadIsInitializing party nodes
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -600,7 +598,7 @@ performNewTx party tx = do
         outs <- lift $ serverOutputs thisNode
         -- TODO refactor with headIsOpen
         let matchHeadIsOpen = \case
-              Output.HeadIsOpen{} -> True
+              HeadIsOpen{} -> True
               _ -> False
         case find matchHeadIsOpen outs of
           Nothing -> lift (threadDelay 0.1) >> waitForOpen
@@ -621,9 +619,10 @@ performNewTx party tx = do
   party `sendsInput` Input.NewTx realTx
   lift $
     waitUntilMatch [thisNode] $ \case
-      SnapshotConfirmed{Output.snapshot = snapshot} ->
+      SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+      RolledBack{} -> error ("rolled back while in open state!")
+      err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
@@ -633,11 +632,27 @@ sendsInput party command = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> lift $ actorNode `send` command
 
-performAbort :: (MonadDelay m, MonadSTM m, MonadThrow m) => Party -> RunMonad m ()
-performAbort party = do
+performInit :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performInit party = do
+  party `sendsInput` Input.Init
+
   nodes <- gets nodes
-  lift $ waitForHeadIsInitializing party nodes
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsInitializing{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
+
+performAbort :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performAbort party = do
   party `sendsInput` Input.Abort
+
+  nodes <- gets nodes
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsAborted{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
@@ -686,7 +701,7 @@ waitForHeadIsInitializing party nodes = do
       pure ()
  where
   matchHeadIsInitializing = \case
-    Output.HeadIsInitializing{} -> True
+    HeadIsInitializing{} -> True
     _ -> False
 
 waitForUTxOToSpend ::
