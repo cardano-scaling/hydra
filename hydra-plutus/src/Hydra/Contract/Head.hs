@@ -146,33 +146,26 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
 --
 --   * All participants have committed (even empty commits)
 --
---   * All commits are properly collected and locked into the contract as a hash
+--   * All commits are properly collected and locked into η as a hash
 --     of serialized tx outputs in the same sequence as commit inputs!
 --
 --   * The transaction is performed (i.e. signed) by one of the head participants
 --
 --   * State token (ST) is present in the output
---
--- It must also initialize the on-chain state η* with a snapshot number and a
--- hash of committed outputs.
---
--- (*) In principle, η contains not a hash but a full UTXO set as well as a set
--- of dangling transactions. However, in the coordinated version of the
--- protocol, there can't be any dangling transactions and thus, it is no longer
--- required to check applicability of those transactions to the UTXO set. It
--- suffices to store a hash of the resulting outputs of that UTXO instead.
 checkCollectCom ::
   -- | Script execution context
   ScriptContext ->
   (ContestationPeriod, [Party], CurrencySymbol) ->
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustNotMintOrBurn txInfo
-    && mustCollectUtxoHash
+  mustCollectUtxoHash
     && mustNotChangeParameters
+    && mustCollectAllValue
+    -- XXX: Is this really needed? If yes, why not check on the output?
+    && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
     && everyoneHasCommitted
     && mustBeSignedByParticipant ctx headId
-    && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
+    && mustNotMintOrBurn txInfo
  where
   mustCollectUtxoHash =
     traceIfFalse $(errorCode IncorrectUtxoHash) $
@@ -183,6 +176,14 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       parties' == parties
         && contestationPeriod' == contestationPeriod
         && headId' == headId
+
+  mustCollectAllValue =
+    traceIfFalse $(errorCode NotAllValueCollected) $
+      -- NOTE: Instead of checking the head output val' against all collected
+      -- value, we do ensure the output value is all non collected value - fees.
+      -- This makes the script not scale badly with number of participants as it
+      -- would commonly only be a small number of inputs/outputs to pay fees.
+      otherValueOut == notCollectedValueIn - txInfoFee txInfo
 
   (parties', utxoHash, contestationPeriod', headId') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -197,32 +198,39 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
           (p, h, cp, hId)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
-  headAddress = mkHeadAddress ctx
-
-  val =
-    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+  headAddress = getHeadAddress ctx
 
   everyoneHasCommitted =
     traceIfFalse $(errorCode MissingCommits) $
       nTotalCommits == length parties
 
-  (collectedCommits, nTotalCommits) =
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  otherValueOut =
+    case txInfoOutputs txInfo of
+      -- NOTE: First output must be head output
+      (_ : rest) -> foldMap txOutValue rest
+      _ -> mempty
+
+  -- NOTE: We do keep track of the value we do not want to collect as this is
+  -- typically less, ideally only a single other input with only ADA in it.
+  (collectedCommits, nTotalCommits, notCollectedValueIn) =
     foldr
       extractAndCountCommits
-      ([], 0)
+      ([], 0, mempty)
       (txInfoInputs txInfo)
 
-  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits)
+  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits, notCollected)
     | isHeadOutput txInInfoResolved =
-      (commits, nCommits)
+      (commits, nCommits, notCollected)
     | hasPT headId txInInfoResolved =
       case commitDatum txInfo txInInfoResolved of
         Just commit@Commit{} ->
-          (commit : commits, succ nCommits)
+          (commit : commits, succ nCommits, notCollected)
         Nothing ->
-          (commits, succ nCommits)
+          (commits, succ nCommits, notCollected)
     | otherwise =
-      (commits, nCommits)
+      (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}
@@ -269,8 +277,6 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
     && mustInitializeContesters
-    -- XXX: missing to trace for this error code
-    && hasST headPolicyId val
     && mustPreserveValue
     && mustNotChangeParameters
  where
@@ -378,11 +384,6 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && checkSignedParticipantContestOnlyOnce
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
-    -- XXX: This check is redundant and can be removed,
-    -- because is enough to check that the value is preserved.
-    -- Remember we are comming from a valid Closed state,
-    -- having already checked that the ST is present.
-    && hasST headId val
     && mustPushDeadline
     && mustNotChangeParameters
     && mustPreserveValue
@@ -503,14 +504,14 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
-mkHeadAddress :: ScriptContext -> Address
-mkHeadAddress ctx =
+getHeadAddress :: ScriptContext -> Address
+getHeadAddress ctx =
   let headInput =
         fromMaybe
           (traceError $(errorCode ScriptNotSpendingAHeadInput))
           (findOwnInput ctx)
    in txOutAddress (txInInfoResolved headInput)
-{-# INLINEABLE mkHeadAddress #-}
+{-# INLINEABLE getHeadAddress #-}
 
 -- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
@@ -545,8 +546,13 @@ findParticipationTokens headCurrency (Value val) =
 
 headOutputDatum :: ScriptContext -> Datum
 headOutputDatum ctx =
-  findTxOutDatum txInfo (head $ txInfoOutputs txInfo)
+  case txInfoOutputs txInfo of
+    (o : _)
+      | txOutAddress o == headAddress -> findTxOutDatum txInfo o
+    _ -> traceError $(errorCode NotPayingToHead)
  where
+  headAddress = getHeadAddress ctx
+
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 

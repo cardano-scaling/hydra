@@ -11,8 +11,18 @@ import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
-import Hydra.Contract.Util (mustBurnST, mustNotMintOrBurn)
+import Hydra.Contract.Util (mustBurnST)
+import Hydra.ScriptContext (
+  ScriptContext (..),
+  TxInfo (txInfoMint, txInfoSignatories),
+  findDatum,
+  findOwnInput,
+  findTxInByTxOutRef,
+  scriptOutputsAt,
+  valueLockedBy,
+ )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
   CurrencySymbol,
   Datum (..),
@@ -21,11 +31,9 @@ import Plutus.V2.Ledger.Api (
   PubKeyHash (getPubKeyHash),
   Redeemer (Redeemer),
   Script,
-  ScriptContext (ScriptContext, scriptContextTxInfo),
   ToData (toBuiltinData),
   TokenName (unTokenName),
   TxInInfo (txInInfoResolved),
-  TxInfo (txInfoMint, txInfoSignatories),
   TxOut (txOutValue),
   TxOutRef,
   Validator (getValidator),
@@ -33,7 +41,6 @@ import Plutus.V2.Ledger.Api (
   Value (getValue),
   mkValidatorScript,
  )
-import Plutus.V2.Ledger.Contexts (findDatum, findOwnInput, findTxInByTxOutRef, scriptOutputsAt, valueLockedBy)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
@@ -42,8 +49,8 @@ import qualified PlutusTx.Builtins as Builtins
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
-      { -- | Points to the committed Utxo.
-        committedRef :: Maybe TxOutRef
+      { committedRef :: Maybe TxOutRef
+      -- ^ Points to the committed Utxo.
       }
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
@@ -53,7 +60,7 @@ type RedeemerType = InitialRedeemer
 
 -- | The v_initial validator verifies that:
 --
---   * FIXME: spent in a transaction also consuming a v_head output
+--   * spent in a transaction also consuming a v_head output
 --
 --   * ensures the committed value is recorded correctly in the output datum
 --
@@ -89,8 +96,9 @@ checkCommit ::
 checkCommit commitValidator headId committedRef context =
   checkCommittedValue
     && checkLockedCommit
+    && checkHeadId
     && mustBeSignedByParticipant
-    && mustNotMintOrBurn txInfo
+    && mustNotMintOrBurn
  where
   checkCommittedValue =
     traceIfFalse $(errorCode LockedValueDoesNotMatch) $
@@ -109,9 +117,18 @@ checkCommit commitValidator headId committedRef context =
           Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
             && ref == input
 
+  checkHeadId =
+    traceIfFalse $(errorCode WrongHeadIdInCommitDatum) $
+      headId' == headId
+
   mustBeSignedByParticipant =
     traceIfFalse $(errorCode MissingOrInvalidCommitAuthor) $
       unTokenName ourParticipationTokenName `elem` (getPubKeyHash <$> txInfoSignatories txInfo)
+
+  mustNotMintOrBurn =
+    traceIfFalse $(errorCode MintingOrBurningIsForbidden) $
+      isZero $
+        txInfoMint txInfo
 
   ourParticipationTokenName =
     case AssocMap.lookup headId (getValue initialValue) of
@@ -133,7 +150,7 @@ checkCommit commitValidator headId committedRef context =
 
   lockedValue = valueLockedBy txInfo commitValidator
 
-  lockedCommit =
+  (lockedCommit, headId') =
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
@@ -145,8 +162,8 @@ checkCommit commitValidator headId committedRef context =
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
-                  Just (_party, mCommit, _headId) ->
-                    mCommit
+                  Just (_party, mCommit, hid) ->
+                    (mCommit, hid)
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context

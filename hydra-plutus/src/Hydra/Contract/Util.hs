@@ -2,6 +2,7 @@
 
 module Hydra.Contract.Util where
 
+import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Prelude (Show)
 import Plutus.V1.Ledger.Value (isZero)
 import Plutus.V2.Ledger.Api (
@@ -14,7 +15,6 @@ import Plutus.V2.Ledger.Api (
 import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
-import Hydra.Contract.Error (ToErrorCode (..))
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
