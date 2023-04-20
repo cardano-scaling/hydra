@@ -683,27 +683,6 @@ checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
   expectedCommitted == actualCommitted
 checkOutcome _ _ _ = True
 
-waitForHeadIsInitializing ::
-  forall m tx.
-  MonadDelay m =>
-  Party ->
-  Map Party (TestHydraNode tx m) ->
-  m ()
-waitForHeadIsInitializing party nodes = do
-  -- The reason why we repeatedly query the server is because we could
-  -- miss some outputs _before_ we even call that function which will
-  -- lead to random failures.
-  outs <- serverOutputs (nodes ! party)
-  case find matchHeadIsInitializing outs of
-    Nothing ->
-      threadDelay 10 >> waitForHeadIsInitializing party nodes
-    Just{} ->
-      pure ()
- where
-  matchHeadIsInitializing = \case
-    HeadIsInitializing{} -> True
-    _ -> False
-
 waitForUTxOToSpend ::
   forall m.
   (MonadDelay m, MonadTimer m) =>
