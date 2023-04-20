@@ -25,7 +25,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (HeadStatus (Idle), ServerOutput (..), TimedServerOutput (..), input)
 import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
@@ -252,6 +252,16 @@ spec = describe "ServerSpec" $ do
     failAfter 5 $
       withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
+  it "displays the current hydra state in Greeting message" $
+    failAfter 5 $
+      withFreePort $ \port -> do
+        withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence nullTracer noop $ \_ -> do
+          withClient port "/" $ \conn -> do
+            received <- receiveData conn
+            case Aeson.eitherDecode received of
+              Left{} -> failure $ "Failed to decode greeting " <> show received
+              Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
+
 strictlyMonotonic :: [Natural] -> Bool
 strictlyMonotonic = \case
   [] -> True
@@ -275,7 +285,7 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     _ -> False
 
 greeting :: ServerOutput SimpleTx
-greeting = Greetings alice
+greeting = Greetings alice (error "xxx")
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)

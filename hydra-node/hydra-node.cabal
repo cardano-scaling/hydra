@@ -74,6 +74,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Hydra.API.ClientInput
+    Hydra.API.Resource
     Hydra.API.Server
     Hydra.API.ServerOutput
     Hydra.Chain

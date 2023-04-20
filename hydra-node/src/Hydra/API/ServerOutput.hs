@@ -81,7 +81,7 @@ data ServerOutput tx
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one).
-    Greetings {me :: Party}
+    Greetings {me :: Party, headState :: HeadStatus}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
   deriving (Generic)
@@ -117,7 +117,7 @@ instance
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me -> Greetings <$> shrink me
+    Greetings me hydraStatus -> Greetings <$> shrink me <*> shrink hydraStatus
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
 
@@ -136,6 +136,28 @@ data ServerOutputConfig = ServerOutputConfig
   , utxoInSnapshot :: WithUTxO
   }
   deriving (Eq, Show)
+
+data HeadStatus
+  = Idle
+  | Initializing
+  | Open
+  | Closed
+  | ReadyForFanout
+  | Final
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary HeadStatus where
+  arbitrary = genericArbitrary
+
+-- | Helper function needed to update the state based on 'ServerOutput'
+serverOutputToHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
+serverOutputToHeadStatus oldStatus = \case
+  HeadIsInitializing{} -> Initializing
+  HeadIsOpen{} -> Open
+  HeadIsClosed{} -> Closed
+  ReadyToFanout{} -> ReadyForFanout
+  HeadIsFinalized{} -> Final
+  _ -> oldStatus
 
 -- | Replaces the json encoded tx field with it's cbor representation.
 --

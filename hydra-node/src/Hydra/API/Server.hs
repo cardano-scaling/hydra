@@ -19,13 +19,16 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Resource (Resource, getResource, newResource, updateResource)
 import Hydra.API.ServerOutput (
+  HeadStatus (Idle),
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
   prepareServerOutput,
+  serverOutputToHeadStatus,
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
@@ -95,12 +98,14 @@ withAPIServer ::
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   h <- loadAll
+
+  resource <- STM.atomically $ newResource Idle
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
 
   race_
-    (runAPIServer host port party tracer history callback responseChannel)
+    (runAPIServer host port party tracer history callback responseChannel resource)
     . action
     $ Server
       { sendOutput = \output -> do
@@ -128,7 +133,7 @@ nextSequenceNumber historyList =
 
 runAPIServer ::
   forall tx.
-  (IsChainState tx) =>
+  IsChainState tx =>
   IP ->
   PortNumber ->
   Party ->
@@ -136,8 +141,9 @@ runAPIServer ::
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (TimedServerOutput tx) ->
+  Resource HeadStatus ->
   IO ()
-runAPIServer host port party tracer history callback responseChannel = do
+runAPIServer host port party tracer history callback responseChannel resource = do
   traceWith tracer (APIServerStarted port)
   handle onIOException $
     let serverSettings =
@@ -157,7 +163,7 @@ runAPIServer host port party tracer history callback responseChannel = do
     unless (shouldNotServeHistory queryParams) $
       forwardHistory con
 
-    forwardGreetingOnly con
+    forwardGreetingOnly con resource
 
     let outConfig = mkServerOutputConfig queryParams
 
@@ -170,15 +176,21 @@ runAPIServer host port party tracer history callback responseChannel = do
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
-  forwardGreetingOnly con = do
-    seq <- STM.atomically $ nextSequenceNumber history
+  forwardGreetingOnly con res = do
+    (newState, seq) <- atomically $ do
+      r <- getResource res
+      hist <- readTVar history
+      let ns = foldl' (\a b -> serverOutputToHeadStatus a b) r (output <$> reverse hist)
+      updateResource res ns
+      seqNo <- nextSequenceNumber history
+      pure (ns, seqNo)
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
           , seq
-          , output = Greetings party :: ServerOutput tx
+          , output = Greetings party newState :: ServerOutput tx
           }
 
   mkServerOutputConfig qp =
