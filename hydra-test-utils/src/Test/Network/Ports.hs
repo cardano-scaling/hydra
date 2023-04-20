@@ -6,7 +6,8 @@ module Test.Network.Ports where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (writeTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar, writeTVar)
+import qualified Data.List as List
 import Network.Socket (
   PortNumber,
   close',
@@ -27,14 +28,18 @@ getRandomPort tvar = do
   liftIO $ close' sock
   mport <- atomically $ acquirePort tvar port
   case mport of
-    Nothing -> getRandomPort tvar
+    Nothing -> threadDelay 1 >> getRandomPort tvar
     Just p -> return $ fromIntegral p
 
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
 -- NOTE: Should be used only for testing, see 'getRandomPort' for limitations.
 withFreePort :: TVar IO [Int] -> (PortNumber -> IO a) -> IO a
-withFreePort tvar action = getRandomPort tvar >>= action
+withFreePort tvar action = getRandomPort tvar >>= (\port -> action port >>= freePort tvar port)
+ where
+  freePort tv port a = do
+    atomically $ modifyTVar tv (\up -> List.filter (\p -> p /= fromIntegral port) up)
+    return a
 
 -- | Find the specified number of free ports.
 --
