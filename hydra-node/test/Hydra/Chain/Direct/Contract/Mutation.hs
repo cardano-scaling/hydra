@@ -268,7 +268,7 @@ data Mutation
   | -- | Adds given output as first transaction output.
     PrependOutput (TxOut CtxTx)
   | -- | Adds given output as last transaction output.
-    AddOutput (TxOut CtxTx)
+    AppendOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
     RemoveOutput Word
   | -- | Drops the given input from the transaction's inputs
@@ -351,7 +351,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxOuts (txOut :) tx
     , utxo
     )
-  AddOutput txOut ->
+  AppendOutput txOut ->
     ( alterTxOuts (<> [txOut]) tx
     , utxo
     )

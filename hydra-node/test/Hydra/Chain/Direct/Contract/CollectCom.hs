@@ -218,7 +218,7 @@ genCollectComMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
-            , AddOutput extractionTxOut
+            , AppendOutput extractionTxOut
             ]
     , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do

@@ -670,7 +670,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait U̅ ◦ Tres = ⊥ combined with Û ← Ū̅ ◦ T
+      -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
       waitApplyTxs $ \u -> do
         -- NOTE: confSn == seenSn == sn here
         let nextSnapshot = Snapshot (confSn + 1) u requestedTxs
