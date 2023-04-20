@@ -6,8 +6,7 @@ module Test.Network.Ports where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar, writeTVar)
-import qualified Data.List as List
+import Control.Monad.Class.MonadSTM (writeTVar)
 import Network.Socket (
   PortNumber,
   close',
@@ -26,7 +25,7 @@ getRandomPort :: TVar IO [Int] -> IO PortNumber
 getRandomPort tvar = do
   (port, sock) <- openFreePort
   liftIO $ close' sock
-  mport <- atomically $ acquirePort tvar port
+  mport <- atomically $ recordFreePort tvar port
   case mport of
     Nothing -> threadDelay 1 >> getRandomPort tvar
     Just p -> return $ fromIntegral p
@@ -35,11 +34,7 @@ getRandomPort tvar = do
 --
 -- NOTE: Should be used only for testing, see 'getRandomPort' for limitations.
 withFreePort :: TVar IO [Int] -> (PortNumber -> IO a) -> IO a
-withFreePort tvar action = getRandomPort tvar >>= (\port -> action port >>= freePort tvar port)
- where
-  freePort tv port a = do
-    atomically $ modifyTVar tv (\up -> List.filter (\p -> p /= fromIntegral port) up)
-    return a
+withFreePort tvar action = getRandomPort tvar >>= action
 
 -- | Find the specified number of free ports.
 --
@@ -50,11 +45,11 @@ randomUnusedTCPPorts tvar count =
     <$> replicateM count (withFreePort tvar (\port -> return port))
 
 -- | Internal function to maybe obtain the free port.
-acquirePort :: TVar IO [Int] -> Int -> STM IO (Maybe Int)
-acquirePort tvar port = do
-  usedPorts <- readTVar tvar
-  if port `elem` usedPorts
+recordFreePort :: TVar IO [Int] -> Int -> STM IO (Maybe Int)
+recordFreePort tvar port = do
+  freePorts <- readTVar tvar
+  if port `elem` freePorts
     then return Nothing
     else do
-      writeTVar tvar (port : usedPorts)
+      writeTVar tvar (port : freePorts)
       return $ Just port
