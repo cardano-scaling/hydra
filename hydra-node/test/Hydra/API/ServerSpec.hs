@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.API.ServerSpec where
@@ -167,65 +168,70 @@ spec = describe "ServerSpec" $
                       (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
 
     it "outputs tx as cbor or json depending on the client" $
-      monadicIO $ do
-        tx :: SimpleTx <- pick arbitrary
-        generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
-        run $
-          showLogsOnFailure $ \tracer ->
-            withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
-                let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
-                let sn = generatedSnapshot{confirmed = [tx]}
-                let snapShotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot = sn, Hydra.API.ServerOutput.signatures = mempty}
-                let postTxFailedMessage =
-                      PostTxOnChainFailed
-                        { postChainTx =
-                            CloseTx
-                              { confirmedSnapshot =
-                                  ConfirmedSnapshot
-                                    { Hydra.Snapshot.snapshot = sn
-                                    , Hydra.Snapshot.signatures = mempty
-                                    }
-                              }
-                        , postTxError = NoSeedInput
-                        }
-                    guardForValue v expected =
-                      case v of
-                        Aeson.Object km ->
-                          guard . (expected ==) =<< KeyMap.lookup "transaction" km
-                        _other -> Nothing
+      showLogsOnFailure $ \tracer ->
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            tx :: SimpleTx <- generate arbitrary
+            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
 
-                -- client is able to specify they want tx output to be encoded as CBOR
-                withClient port "/?history=no&tx-output=cbor" $ \conn -> do
-                  sendOutput txValidMessage
+            -- The three server output message types which contain transactions
+            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+            let sn = generatedSnapshot{confirmed = [tx]}
+            let snapShotConfirmedMessage =
+                  SnapshotConfirmed
+                    { headId = HeadId "some-head-id"
+                    , snapshot = sn
+                    , signatures = mempty
+                    }
+            let postTxFailedMessage =
+                  PostTxOnChainFailed
+                    { postChainTx =
+                        CloseTx
+                          { confirmedSnapshot =
+                              ConfirmedSnapshot
+                                { Hydra.Snapshot.snapshot = sn
+                                , Hydra.Snapshot.signatures = mempty
+                                }
+                          }
+                    , postTxError = NoSeedInput
+                    }
+                guardForValue v expected =
+                  case v of
+                    Aeson.Object km ->
+                      guard . (expected ==) =<< KeyMap.lookup "transaction" km
+                    _other -> Nothing
 
-                  waitMatch 5 conn $ \v ->
-                    guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
+            -- client is able to specify they want tx output to be encoded as CBOR
+            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
+              sendOutput txValidMessage
 
-                  sendOutput snapShotConfirmedMessage
+              waitMatch 5 conn $ \v ->
+                guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
 
-                  waitMatch 5 conn $ \v ->
-                    let expected =
-                          Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                        result =
-                          Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                     in guard $ result == Just expected
+              sendOutput snapShotConfirmedMessage
 
-                  sendOutput postTxFailedMessage
+              waitMatch 5 conn $ \v ->
+                let expected =
+                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
+                    result =
+                      Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
+                 in guard $ result == Just expected
 
-                  waitMatch 5 conn $ \v ->
-                    let expected =
-                          Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                        result =
-                          Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                     in guard $ result == Just expected
+              sendOutput postTxFailedMessage
 
-                -- spawn another client but this one wants to see txs in json format
-                withClient port "/?history=no" $ \conn -> do
-                  sendOutput txValidMessage
+              waitMatch 5 conn $ \v ->
+                let expected =
+                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
+                    result =
+                      Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
+                 in guard $ result == Just expected
 
-                  waitMatch 5 conn $ \v ->
-                    guardForValue v (toJSON tx)
+            -- spawn another client but this one wants to see txs in json format
+            withClient port "/?history=no" $ \conn -> do
+              sendOutput txValidMessage
+
+              waitMatch 5 conn $ \v ->
+                guardForValue v (toJSON tx)
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure $ \tracer -> failAfter 5 $
