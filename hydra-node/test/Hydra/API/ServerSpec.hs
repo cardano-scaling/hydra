@@ -24,7 +24,7 @@ import Data.Aeson.Lens (key, nonNull)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
-import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
 import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -33,6 +33,7 @@ import Hydra.Network (PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
+import System.IO.Error (isAlreadyInUseError)
 import System.Timeout (timeout)
 import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
@@ -42,6 +43,17 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 spec :: Spec
 spec = describe "ServerSpec" $
   parallel $ do
+    it "should fail on port in use" $ do
+      showLogsOnFailure $ \tracer -> failAfter 5 $ do
+        let withServerOnPort p = withAPIServer @SimpleTx "127.0.0.1" p alice mockPersistence tracer noop
+        withFreePort $ \port -> do
+          -- We should not be able to start the server on the same port twice
+          withServerOnPort port $ \_ ->
+            withServerOnPort port (\_ -> threadDelay 10 >> failure "should have been shutdown")
+              `shouldThrow` \case
+                RunServerException{port = errorPort, ioException} ->
+                  errorPort == port && isAlreadyInUseError ioException
+
     it "greets" $ do
       failAfter 5 $
         showLogsOnFailure $ \tracer ->

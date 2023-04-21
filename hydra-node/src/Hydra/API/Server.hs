@@ -2,13 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.API.Server (
-  Server (..),
-  ServerCallback,
-  ServerComponent,
-  withAPIServer,
-  APIServerLog,
-) where
+module Hydra.API.Server where
 
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
@@ -139,13 +133,17 @@ runAPIServer ::
   IO ()
 runAPIServer host port party tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
+  -- catch and rethrow with more context
   handle onIOException $
-    let serverSettings =
-          setHost (fromString $ show host) $
-            setPort (fromIntegral port) $
-              setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e}) defaultSettings
-     in runSettings serverSettings $ websocketsOr defaultConnectionOptions wsApp httpApp
+    runSettings serverSettings $
+      websocketsOr defaultConnectionOptions wsApp httpApp
  where
+  serverSettings =
+    defaultSettings
+      & setHost (fromString $ show host)
+      & setPort (fromIntegral port)
+      & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+
   wsApp pending = do
     let path = requestPath $ pendingRequest pending
     queryParams <- uriQuery <$> mkURIBs path
