@@ -191,7 +191,12 @@ instance StateModel WorldState where
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{} -> genNewTx
+      Open{} -> do
+        -- FIXME: Generation of arbitrary NewTx disabled as we don't control
+        -- rollbacks in the MockChain and the hydra-node purges L2 state when
+        -- rolling back "past open".
+        void genNewTx
+        pure $ error "NewTx disabled because of rollbacks past open"
       _ -> fmap Some genSeed
    where
     genCommit pending = do
@@ -594,16 +599,7 @@ performNewTx party tx = do
   nodes <- gets nodes
   let thisNode = nodes ! party
 
-  let waitForOpen = do
-        outs <- lift $ serverOutputs thisNode
-        -- TODO refactor with headIsOpen
-        let matchHeadIsOpen = \case
-              HeadIsOpen{} -> True
-              _ -> False
-        case find matchHeadIsOpen outs of
-          Nothing -> lift (threadDelay 0.1) >> waitForOpen
-          Just{} -> pure ()
-  waitForOpen
+  waitForOpen thisNode
 
   (i, o) <-
     lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
@@ -624,6 +620,31 @@ performNewTx party tx = do
       RolledBack{} -> error ("rolled back while in open state!")
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
+
+-- | Wait for the head to be open. Search from the beginning of history and make
+-- sure there is no RolledBack after the last HeadIsOpen. Wait and retry forever
+-- otherwise.
+waitForOpen :: MonadDelay m => TestHydraNode tx m -> RunMonad m ()
+waitForOpen node = do
+  outs <- lift $ serverOutputs node
+  go outs
+ where
+  go = \case
+    [] -> waitAndRetry
+    (x : xs) -> case x of
+      HeadIsOpen{}
+        | not $ containsRolledBack xs -> found
+      _ -> go xs
+
+  containsRolledBack = any matchRolledBack
+
+  found = pure ()
+
+  waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
+
+  matchRolledBack = \case
+    RolledBack{} -> True
+    _ -> False
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
