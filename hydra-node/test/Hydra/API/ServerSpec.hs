@@ -49,7 +49,7 @@ spec = describe "ServerSpec" $
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
-            withServerOnPort port (\_ -> threadDelay 10 >> failure "should have been shutdown")
+            withServerOnPort port (\_ -> failure "should have not started")
               `shouldThrow` \case
                 RunServerException{port = errorPort, ioException} ->
                   errorPort == port && isAlreadyInUseError ioException

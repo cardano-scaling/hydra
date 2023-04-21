@@ -6,6 +6,7 @@ module Hydra.API.Server where
 
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
@@ -28,7 +29,14 @@ import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (status400)
 import Network.Wai (responseLBS)
-import Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setOnException, setPort)
+import Network.Wai.Handler.Warp (
+  defaultSettings,
+  runSettings,
+  setBeforeMainLoop,
+  setHost,
+  setOnException,
+  setPort,
+ )
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -92,16 +100,19 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
   history <- newTVarIO (reverse h)
-
+  (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback responseChannel)
-    . action
-    $ Server
-      { sendOutput = \output -> do
-          timedOutput <- appendToHistory history output
-          atomically $
-            writeTChan responseChannel timedOutput
-      }
+    (runAPIServer host port party tracer history callback responseChannel notifyServerRunning)
+    ( do
+        waitForServerRunning
+        action $
+          Server
+            { sendOutput = \output -> do
+                timedOutput <- appendToHistory history output
+                atomically $
+                  writeTChan responseChannel timedOutput
+            }
+    )
  where
   appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
   appendToHistory history output = do
@@ -120,6 +131,17 @@ nextSequenceNumber historyList =
     [] -> pure 0
     (TimedServerOutput{seq} : _) -> pure (seq + 1)
 
+type NotifyServerRunning = IO ()
+
+type WaitForServer = IO ()
+
+-- | Setup notification and waiter to ensure that something only runs after the
+-- server is actually listening.
+setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
+setupServerNotification = do
+  mv <- newEmptyMVar
+  pure (putMVar mv (), takeMVar mv)
+
 runAPIServer ::
   forall tx.
   (IsChainState tx) =>
@@ -130,8 +152,10 @@ runAPIServer ::
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (TimedServerOutput tx) ->
+  -- | Called when the server is listening before entering the main loop.
+  NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback responseChannel = do
+runAPIServer host port party tracer history callback responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
@@ -143,6 +167,7 @@ runAPIServer host port party tracer history callback responseChannel = do
       & setHost (fromString $ show host)
       & setPort (fromIntegral port)
       & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+      & setBeforeMainLoop notifyServerRunning
 
   wsApp pending = do
     let path = requestPath $ pendingRequest pending
