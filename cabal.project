@@ -57,6 +57,15 @@ source-repository-package
   subdir:
     cardano-api
 
+-- XXX: Needed to export mkTermToEvaluate on plutus 1.1.1.0
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/plutus.git
+  tag: 50684b9c983b859ca9a4168a662d52e8bf02a6ab
+  --sha256: 1jhvb7jq75rr45k7mgjvbrf1n8lam80d1crci0x1sx63r7q9zv45
+  subdir:
+    plutus-ledger-api
+
 constraints:
   -- For ouroboros-consensus-0.3.0.0
   unix-bytestring < 0.4

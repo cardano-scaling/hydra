@@ -26,6 +26,7 @@ import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
+import Control.Arrow (left)
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
@@ -80,6 +81,7 @@ import Ouroboros.Consensus.HardFork.History (
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import qualified PlutusCore as PLC
+import PlutusLedgerApi.Common (mkTermToEvaluate)
 import qualified PlutusLedgerApi.Common as Plutus
 import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
@@ -211,7 +213,6 @@ estimateMinFee tx evaluationReport =
 -- to gather profiling information.
 --
 -- NOTE: This assumes we use 'Babbage' and only 'PlutusV2' scripts are used.
-{-# DEPRECATED prepareTxScripts "This function is currently broken due to missing dependencies" #-}
 prepareTxScripts ::
   Tx ->
   UTxO ->
@@ -226,7 +227,7 @@ prepareTxScripts tx utxo = do
   -- Fully applied UPLC programs which we could run using the cekMachine
   programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
     let pArgs = Ledger.getPlutusData <$> arguments
-    appliedTerm <- mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
     pure $ UPLC.Program () (PLC.defaultVersion ()) appliedTerm
 
   pure $ flat <$> programs
@@ -245,10 +246,6 @@ prepareTxScripts tx utxo = do
           { Plutus.pvMajor = fromIntegral major
           , Plutus.pvMinor = fromIntegral minor
           }
-
-  mkTermToEvaluate :: a -> b -> c -> d -> m (UPLC.Term UPLC.NamedDeBruijn UPLC.DefaultUni UPLC.DefaultFun ())
-  mkTermToEvaluate =
-    error "mkTermToEvaluate not yet exported, need to wait for plutus-ledger-api 1.2.0.0 support in cardano-api"
 
 -- * Fixtures
 
