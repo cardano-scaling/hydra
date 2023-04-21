@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -147,7 +146,7 @@ import Test.QuickCheck.DynamicLogic (
   action,
   anyActions_,
   forAllDL,
-  forAllQ,
+  forAllNonVariableQ,
   getModelStateDL,
   withGenQ,
  )
@@ -156,7 +155,6 @@ import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (
   Actions,
   Annotated (..),
-  HasVariables (..),
   Step ((:=)),
   runActions,
   stateAfter,
@@ -184,11 +182,6 @@ prop_HydraModel actions = property $
     _ <- runActions actions
     assert True
 
--- TODO: Required because forAllQ using genPayment would try to instantiate
--- HasVariables using the default implementation on the returned values.
-instance HasVariables Party where
-  getAllVariables _ = mempty
-
 -- • Conflict-Free Liveness (Head):
 --
 -- In presence of a network adversary, a conflict-free execution satisfies the following condition:
@@ -200,7 +193,7 @@ conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{}} -> do
-      (party, payment) <- forAllQ (nonConflictingTx st)
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       action_ $ Model.NewTx party payment
       eventually (ObserveConfirmedTx payment)
     _ -> pure ()
