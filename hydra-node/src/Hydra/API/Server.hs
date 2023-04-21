@@ -170,11 +170,15 @@ runAPIServer host port party tracer history callback responseChannel notifyServe
       & setBeforeMainLoop notifyServerRunning
 
   wsApp pending = do
+    -- XXX: Moving this here improved on flakyness of tests (which would see a
+    -- 'HandshakeException'). This indicates that there might be a race
+    -- condition between notifyingServerRunning and clients starting and
+    -- handshaking on connections still?
+    traceWith tracer NewAPIConnection
     let path = requestPath $ pendingRequest pending
     queryParams <- uriQuery <$> mkURIBs path
     con <- acceptRequest pending
     chan <- STM.atomically $ dupTChan responseChannel
-    traceWith tracer NewAPIConnection
 
     -- api client can decide if they want to see the past history of server outputs
     unless (shouldNotServeHistory queryParams) $
