@@ -6,7 +6,6 @@ import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
-import Control.Exception (IOException)
 import Control.Lens ((^?))
 import Control.Monad.Class.MonadSTM (
   check,
@@ -122,12 +121,12 @@ spec = describe "ServerSpec" $
         monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
         monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
         run $
-          showLogsOnFailure $ \tracer -> failAfter 5 $
+          showLogsOnFailure $ \tracer ->
             withFreePort $ \port ->
               withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
-                  received <- replicateM (length outputs + 1) (receiveData conn)
+                  received <- failAfter 5 $ replicateM (length outputs + 1) (receiveData conn)
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
@@ -140,7 +139,7 @@ spec = describe "ServerSpec" $
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
-          showLogsOnFailure $ \tracer -> failAfter 5 $
+          showLogsOnFailure $ \tracer ->
             withFreePort $ \port ->
               withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
@@ -172,7 +171,7 @@ spec = describe "ServerSpec" $
         tx :: SimpleTx <- pick arbitrary
         generatedSnapshot :: Snapshot SimpleTx <- pick arbitrary
         run $
-          showLogsOnFailure $ \tracer -> failAfter 5 $
+          showLogsOnFailure $ \tracer ->
             withFreePort $ \port ->
               withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
                 let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
@@ -229,24 +228,22 @@ spec = describe "ServerSpec" $
                     guardForValue v (toJSON tx)
 
     it "removes UTXO from snapshot when clients request it" $
-      monadicIO $ do
-        run $
-          showLogsOnFailure $ \tracer -> failAfter 5 $
-            withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
-                snapshot <- generate arbitrary
-                let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
+      showLogsOnFailure $ \tracer -> failAfter 5 $
+        withFreePort $ \port ->
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            snapshot <- generate arbitrary
+            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
 
-                withClient port "/?snapshot-utxo=no" $ \conn -> do
-                  sendOutput snapshotConfirmedMessage
+            withClient port "/?snapshot-utxo=no" $ \conn -> do
+              sendOutput snapshotConfirmedMessage
 
-                  waitMatch 5 conn $ \v ->
-                    case v of
-                      Aeson.Object km -> do
-                        case KeyMap.lookup "snapshot" km of
-                          Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
-                          _other -> Nothing
+              waitMatch 5 conn $ \v ->
+                case v of
+                  Aeson.Object km -> do
+                    case KeyMap.lookup "snapshot" km of
+                      Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
                       _other -> Nothing
+                  _other -> Nothing
 
     it "sequence numbers are continuous and strictly monotonically increasing" $
       monadicIO $ do
@@ -312,11 +309,9 @@ testClient queue semaphore cnx = do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-withClient :: HasCallStack => PortNumber -> String -> (Connection -> IO ()) -> IO ()
+withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
 withClient port path action = do
-  failAfter 5 retry
- where
-  retry = runClient "127.0.0.1" (fromIntegral port) path action `catch` \(_ :: IOException) -> retry
+  runClient "127.0.0.1" (fromIntegral port) path action
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m
