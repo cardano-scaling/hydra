@@ -327,7 +327,7 @@ test-suite tests
     , plutus-tx
     , process
     , QuickCheck
-    , quickcheck-dynamic                                                >=2.0.0
+    , quickcheck-dynamic                                                >=3.0.3
     , quickcheck-instances
     , req
     , silently

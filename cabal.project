@@ -12,11 +12,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 
--- NOTE: We need to have the hackage index-state twice because of
--- cabal/haskell.nix oddities. That is, cabal ignores this one
-index-state: 2023-03-18T05:24:58Z
 index-state:
-  , hackage.haskell.org 2023-03-18T05:24:58Z
+  , hackage.haskell.org 2023-04-21T02:04:45Z
   , cardano-haskell-packages 2023-03-22T09:20:07Z
 
 packages:
@@ -59,6 +56,10 @@ source-repository-package
   --sha256: 10k4nk7mmy62fw2y095rrbxzsaxvj3jb822a1fmhh8z2zqa1hvhj
   subdir:
     cardano-api
+
+constraints:
+  -- For ouroboros-consensus-0.3.0.0
+  unix-bytestring < 0.4
 
 -- Constraints / allow-newer from cardano-node
 allow-newer:
