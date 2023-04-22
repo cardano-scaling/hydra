@@ -17,7 +17,7 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Contract.Initial as Initial
-import PlutusLedgerApi.V2 (Data, Script, toData)
+import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
@@ -45,9 +45,13 @@ main = do
 
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
-    putTextLn $ toText $ datumName <> ": " <> show (hashScriptData $ fromPlutusData aDatum)
+    putTextLn $
+      toText $
+        datumName
+          <> ": "
+          <> show (hashScriptDataBytes . unsafeHashableScriptData $ fromPlutusData aDatum)
  where
-  writeScripts :: [(PlutusLedgerApi.V2.Script, String)] -> IO ()
+  writeScripts :: [(SerialisedScript, String)] -> IO ()
   writeScripts plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
@@ -70,7 +74,11 @@ main = do
   writeData plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".data"
-          serialised = Aeson.encode $ scriptDataToJson ScriptDataJsonDetailedSchema $ fromPlutusData item
+          serialised =
+            Aeson.encode
+              . scriptDataToJson ScriptDataJsonDetailedSchema
+              . unsafeHashableScriptData
+              $ fromPlutusData item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
 
