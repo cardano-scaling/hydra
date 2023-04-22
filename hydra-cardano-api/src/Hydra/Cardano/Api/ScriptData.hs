@@ -96,7 +96,7 @@ instance FromJSON ScriptData where
       bytes <- Base16.decode (encodeUtf8 text)
       left show $ deserialiseOrFail $ fromStrict bytes
 
--- NOTE: We are okay with storing the data and re-serializing + hasing it into
+-- NOTE: We are okay with storing the data and re-serializing + hashing it into
 -- 'HashableScriptData' in these ToJSON/FromJSON instances as the serialization
 -- ambiguity addressed by 'HashableScriptData' is long overboard if we are
 -- dealing with JSON.
