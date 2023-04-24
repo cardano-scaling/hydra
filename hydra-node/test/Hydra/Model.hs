@@ -627,24 +627,16 @@ performNewTx party tx = do
 waitForOpen :: MonadDelay m => TestHydraNode tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
-  go outs
+  if isOpen False outs
+    then pure ()
+    else waitAndRetry
  where
-  go = \case
-    [] -> waitAndRetry
-    (x : xs) -> case x of
-      HeadIsOpen{}
-        | not $ containsRolledBack xs -> found
-      _ -> go xs
-
-  containsRolledBack = any matchRolledBack
-
-  found = pure ()
+  isOpen status [] = status
+  isOpen _ (HeadIsOpen{} : rest) = isOpen True rest
+  isOpen _ (RolledBack{} : rest) = isOpen False rest
+  isOpen status (_ : rest) = isOpen status rest
 
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
-
-  matchRolledBack = \case
-    RolledBack{} -> True
-    _ -> False
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
