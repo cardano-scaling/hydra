@@ -17,14 +17,16 @@ newProjection ::
   -- | Projection function
   (model -> event -> model) ->
   m (Projection (STM m) event model)
-newProjection startingModel events project = do
-  tv <- atomically $ do
-    newTVar startingModel
-  -- TODO: mapM_ (project projection projectHeadStatus) events
-  pure
-    Projection
-      { getLatest = readTVar tv
-      , update = \event ->
-          modifyTVar' tv $ \m ->
-            project m event
-      }
+newProjection startingModel events project =
+  atomically $ do
+    tv <- newTVar startingModel
+    mapM_ (update tv) events
+    pure
+      Projection
+        { getLatest = readTVar tv
+        , update = update tv
+        }
+ where
+  update tv event =
+    modifyTVar' tv $ \m ->
+      project m event

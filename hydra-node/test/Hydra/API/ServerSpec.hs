@@ -299,6 +299,24 @@ spec = describe "ServerSpec" $
               status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
               status `shouldBe` Aeson.String "ClosedAfterDeadline"
 
+    it "greets with correct head status after restart" $
+      showLogsOnFailure $ \tracer ->
+        withTempDir "api-server-head-status" $ \persistenceDir ->
+          withFreePort $ \port -> do
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
+              headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
+              sendOutput headIsInitializing
+              withClient port "/?history=no" $ \conn -> do
+                status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
+                status `shouldBe` Aeson.String "Initializing"
+
+            -- expect the api server to load events from apiPersistence and project headStatus correctly
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
+              withClient port "/?history=no" $ \conn -> do
+                status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
+                status `shouldBe` Aeson.String "Initializing"
+
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
         withFreePort $
