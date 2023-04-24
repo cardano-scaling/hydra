@@ -15,11 +15,14 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (
+  HeadStatus (Idle),
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
+  headStatus,
+  me,
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -205,7 +208,7 @@ runAPIServer host port party tracer history callback responseChannel notifyServe
         TimedServerOutput
           { time
           , seq
-          , output = Greetings party :: ServerOutput tx
+          , output = Greetings{me = party, headStatus = Idle} :: ServerOutput tx
           }
 
   mkServerOutputConfig qp =

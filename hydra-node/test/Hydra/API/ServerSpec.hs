@@ -60,10 +60,8 @@ spec = describe "ServerSpec" $
           withFreePort $ \port ->
             withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
               withClient port "/" $ \conn -> do
-                received <- receiveData conn
-                case Aeson.eitherDecode received of
-                  Left{} -> failure $ "Failed to decode greeting " <> show received
-                  Right TimedServerOutput{output = msg} -> msg `shouldBe` greeting
+                waitMatch 5 conn $ \v ->
+                  guard $ v ^? key "tag" == Just (Aeson.String "Greetings")
 
     it "sends sendOutput to all connected clients" $ do
       queue <- atomically newTQueue
@@ -316,7 +314,7 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     _ -> False
 
 greeting :: ServerOutput SimpleTx
-greeting = Greetings alice
+greeting = Greetings alice undefined
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)

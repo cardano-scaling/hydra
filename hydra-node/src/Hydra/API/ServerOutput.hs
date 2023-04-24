@@ -81,7 +81,7 @@ data ServerOutput tx
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one).
-    Greetings {me :: Party}
+    Greetings {me :: Party, headStatus :: HeadStatus}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
   deriving (Generic)
@@ -117,7 +117,7 @@ instance
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me -> Greetings <$> shrink me
+    Greetings me headStatus -> Greetings <$> shrink me <*> shrink headStatus
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
 
@@ -237,3 +237,16 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
 
   txToCbor =
     String . decodeUtf8 . Base16.encode . serialize'
+
+-- | All posible Hydra states displayed in the API server outputs.
+data HeadStatus
+  = Idle
+  | Initializing
+  | Open
+  | Closed
+  | ReadyForFanout
+  | Final
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary HeadStatus where
+  arbitrary = genericArbitrary
