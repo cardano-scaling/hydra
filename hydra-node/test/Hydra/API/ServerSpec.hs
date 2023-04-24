@@ -22,6 +22,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Lens (key, nonNull)
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
@@ -60,8 +61,7 @@ spec = describe "ServerSpec" $
           withFreePort $ \port ->
             withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
               withClient port "/" $ \conn -> do
-                waitMatch 5 conn $ \v ->
-                  guard $ v ^? key "tag" == Just (Aeson.String "Greetings")
+                waitMatch 5 conn $ guard . matchGreetings
 
     it "sends sendOutput to all connected clients" $ do
       queue <- atomically newTQueue
@@ -76,7 +76,10 @@ spec = describe "ServerSpec" $
               )
               $ \_ -> do
                 waitForClients semaphore
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [greeting, greeting]
+                failAfter 1 $
+                  atomically (replicateM 2 (readTQueue queue))
+                    >>= (`shouldSatisfyAll` [isGreetings, isGreetings])
+
                 arbitraryMsg <- generate arbitrary
                 sendOutput arbitraryMsg
                 failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
@@ -106,12 +109,23 @@ spec = describe "ServerSpec" $
                 )
                 $ \_ -> do
                   waitForClients semaphore
-                  failAfter 1 $ atomically (replicateM 2 (readTQueue queue1)) `shouldReturn` [arbitraryMsg, greeting]
-                  failAfter 1 $ atomically (replicateM 2 (readTQueue queue2)) `shouldReturn` [arbitraryMsg, greeting]
+                  failAfter 1 $
+                    atomically (replicateM 2 (readTQueue queue1))
+                      >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
+                  failAfter 1 $
+                    atomically (replicateM 2 (readTQueue queue2))
+                      >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
+
                   sendOutput arbitraryMsg
-                  failAfter 1 $ atomically (replicateM 1 (readTQueue queue1)) `shouldReturn` [arbitraryMsg]
-                  failAfter 1 $ atomically (replicateM 1 (readTQueue queue2)) `shouldReturn` [arbitraryMsg]
-                  failAfter 1 $ atomically (tryReadTQueue queue1) `shouldReturn` Nothing
+                  failAfter 1 $
+                    atomically (replicateM 1 (readTQueue queue1))
+                      `shouldReturn` [arbitraryMsg]
+                  failAfter 1 $
+                    atomically (replicateM 1 (readTQueue queue2))
+                      `shouldReturn` [arbitraryMsg]
+                  failAfter 1 $
+                    atomically (tryReadTQueue queue1)
+                      `shouldReturn` Nothing
 
     it "echoes history (past outputs) to client upon reconnection" $
       checkCoverage . monadicIO $ do
@@ -129,7 +143,9 @@ spec = describe "ServerSpec" $
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
-                      (output <$> timedOutputs) `shouldBe` outputs <> [greeting]
+                      let actualOutputs = output <$> timedOutputs
+                      List.init actualOutputs `shouldBe` outputs
+                      List.last actualOutputs `shouldSatisfy` isGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
@@ -146,11 +162,7 @@ spec = describe "ServerSpec" $
                 -- start client that doesn't want to see the history
                 withClient port "/?history=no" $ \conn -> do
                   -- wait on the greeting message
-                  waitMatch 5 conn $ \v ->
-                    case Aeson.fromJSON v of
-                      Aeson.Success timedOutput ->
-                        guard $ output timedOutput == greeting
-                      _other -> Nothing
+                  waitMatch 5 conn $ guard . matchGreetings
 
                   notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
                   sendFromApiServer notHistoryMessage
@@ -313,8 +325,14 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     InvalidInput{input} -> input == invalidInput
     _ -> False
 
-greeting :: ServerOutput SimpleTx
-greeting = Greetings alice undefined
+matchGreetings :: Aeson.Value -> Bool
+matchGreetings v =
+  v ^? key "tag" == Just (Aeson.String "Greetings")
+
+isGreetings :: ServerOutput tx -> Bool
+isGreetings = \case
+  Greetings{} -> True
+  _ -> False
 
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)
@@ -375,3 +393,14 @@ waitMatch delay con match = do
     case Aeson.eitherDecode' bytes of
       Left err -> failure $ "WaitNext failed to decode msg: " <> err
       Right value -> pure value
+
+shouldSatisfyAll :: Show a => [a] -> [a -> Bool] -> Expectation
+shouldSatisfyAll values predicates =
+  go values predicates
+ where
+  go [] [] = pure ()
+  go [] _ = failure "shouldSatisfyAll: ran out of values"
+  go _ [] = failure "shouldSatisfyAll: ran out of predicates"
+  go (v : vs) (p : ps) = do
+    v `shouldSatisfy` p
+    go vs ps
