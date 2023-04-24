@@ -286,6 +286,9 @@ spec = around showLogsOnFailure $ do
               -- initial snapshot
               removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
 
+              -- HACK: We do re-use network ports and for some reason Hydra
+              -- network port is not available right away.
+              threadDelay 1
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsOpen"
