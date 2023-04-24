@@ -60,7 +60,6 @@ import Hydra.Cardano.Api (
   getTxBody,
   shelleyBasedEra,
   toAlonzoPrices,
-  toLedgerEpochInfo,
   toLedgerExUnits,
   toLedgerPParams,
   toLedgerTx,
@@ -71,7 +70,7 @@ import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
-  EraEnd (EraEnd, EraUnbounded),
+  EraEnd (EraEnd),
   EraParams (..),
   EraSummary (..),
   SafeZone (..),
@@ -120,7 +119,7 @@ evaluateTx' maxUnits tx utxo =
   result =
     evaluateTransactionExecutionUnits
       systemStart
-      (toLedgerEpochInfo eraHistory)
+      (LedgerEpochInfo epochInfo)
       (bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits})
       (UTxO.toApi utxo)
       (getTxBody tx)
@@ -220,7 +219,7 @@ prepareTxScripts ::
 prepareTxScripts tx utxo = do
   -- Tuples with scripts and their arguments collected from the tx
   results <-
-    case Ledger.collectTwoPhaseScriptInputs ei systemStart pp ltx lutxo of
+    case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pp ltx lutxo of
       Left e -> Left $ show e
       Right x -> pure x
 
@@ -237,8 +236,6 @@ prepareTxScripts tx utxo = do
   ltx = toLedgerTx tx
 
   lutxo = toLedgerUTxO utxo
-
-  LedgerEpochInfo ei = toLedgerEpochInfo eraHistory
 
   protocolVersion =
     let (major, minor) = protocolParamProtocolVersion pparams
@@ -306,29 +303,10 @@ maxMem, maxCpu :: Natural
 maxCpu = executionSteps maxTxExecutionUnits
 maxMem = executionMemory maxTxExecutionUnits
 
--- | An artifical era history comprised by a single never ending (forking) era,
+-- | An artifical 'EpochInfo' comprised by a single never ending (forking) era,
 -- with fixed 'epochSize' and 'slotLength'.
--- TODO: can we remove 'EraHistory' fixtures in exchange for 'LedgerEpochInfo' versions?
-eraHistory :: EraHistory CardanoMode
-eraHistory =
-  EraHistory CardanoMode (mkInterpreter summary)
- where
-  -- NOTE: Inlined / similar to --
-  -- Ouroboros.Consensus.HardFork.History.Summary.neverForksSummary, but without
-  -- a fixed '[x] type so we can use the CardanoMode eras
-  summary :: Summary (CardanoEras StandardCrypto)
-  summary =
-    Summary . NonEmptyOne $
-      EraSummary
-        { eraStart = initBound
-        , eraEnd = EraUnbounded
-        , eraParams =
-            EraParams
-              { eraEpochSize = epochSize
-              , eraSlotLength = slotLength
-              , eraSafeZone = UnsafeIndefiniteSafeZone
-              }
-        }
+epochInfo :: Monad m => EpochInfo m
+epochInfo = fixedEpochInfo epochSize slotLength
 
 -- | An era history with a single era which will end at some point.
 --
@@ -366,9 +344,6 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
       }
-
-epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo epochSize slotLength
 
 epochSize :: EpochSize
 epochSize = EpochSize 100
