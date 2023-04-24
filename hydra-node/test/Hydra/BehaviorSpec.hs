@@ -455,7 +455,7 @@ spec = parallel $ do
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
-  describe "rolling back & forward" $ do
+  describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -464,8 +464,9 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
-            waitUntil [n1] RolledBack
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            -- We expect the node to still work and let us commit
+            send n1 (Commit (utxoRef 1))
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
@@ -479,9 +480,9 @@ spec = parallel $ do
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
-            waitUntil [n1] RolledBack
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
+            -- We expect the node to still work and let us post L2 transactions
+            send n1 (NewTx (aValidTx 42))
+            waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
@@ -543,7 +544,8 @@ data TestHydraNode tx m = TestHydraNode
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
-  , rollbackAndForward :: Natural -> m ()
+  , -- TODO remove the following if we really don't use it anymore
+    rollbackAndForward :: Natural -> m ()
   }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'

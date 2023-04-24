@@ -48,8 +48,6 @@ import Hydra.Party (Party (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
-import Test.QuickCheck (forAll)
-import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = do
@@ -285,12 +283,6 @@ spec = do
             stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
             s2 = update bobEnv ledger s1 stepTimePastDeadline
         s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
-
-      it "notify user on rollback" $
-        forAll arbitrary $ \s -> monadicIO $ do
-          let rollback = OnChainEvent (Rollback $ ChainSlot 2)
-          let s' = update bobEnv ledger s rollback
-          void $ run $ s' `hasEffect` ClientEffect RolledBack
 
       it "contests when detecting close with old snapshot" $ do
         let snapshot = Snapshot 2 mempty []

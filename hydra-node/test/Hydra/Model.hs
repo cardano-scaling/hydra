@@ -192,11 +192,7 @@ instance StateModel WorldState where
           , (1, genAbort)
           ]
       Open{} -> do
-        -- FIXME: Generation of arbitrary NewTx disabled as we don't control
-        -- rollbacks in the MockChain and the hydra-node purges L2 state when
-        -- rolling back "past open".
-        void genNewTx
-        pure $ error "NewTx disabled because of rollbacks past open"
+        genNewTx
       _ -> fmap Some genSeed
    where
     genCommit pending = do
