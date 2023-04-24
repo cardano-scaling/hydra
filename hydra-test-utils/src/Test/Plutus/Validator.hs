@@ -49,8 +49,6 @@ wrapValidator ::
 wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
 {-# INLINEABLE wrapValidator #-}
 
--- TODO: DRY with hydra-node Hydra.Ledger.Cardano.Evaluate
-
 distanceExecutionUnits :: ExecutionUnits -> ExecutionUnits -> ExecutionUnits
 distanceExecutionUnits (ExecutionUnits c0 m0) (ExecutionUnits c1 m1) =
   ExecutionUnits

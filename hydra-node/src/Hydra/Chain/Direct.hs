@@ -299,8 +299,8 @@ chainSyncClient handler wallet startingPoint =
     ClientStIntersect
       { recvMsgIntersectFound = \_ _ ->
           ChainSyncClient (pure clientStIdle)
-      , recvMsgIntersectNotFound = \tip ->
-          ChainSyncClient $ onIntersectionNotFound $ chainTipToChainPoint tip
+      , recvMsgIntersectNotFound =
+          ChainSyncClient . onIntersectionNotFound . chainTipToChainPoint
       }
 
   clientStIdle :: ClientStIdle BlockType ChainPoint ChainTip m ()
@@ -318,7 +318,9 @@ chainSyncClient handler wallet startingPoint =
               onRollForward handler header txs
               pure clientStIdle
             _ ->
-              -- TODO: Replicate previous behavior of different era blocks
+              -- NOTE: We are just ignoring different era blocks. It's not
+              -- entirely clear if we would reach this point on a "next-era"
+              -- network (e.g. Conway) or just have a handshake problem before.
               pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
