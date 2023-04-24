@@ -14,6 +14,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Projection (Projection (..), newProjection)
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -21,8 +22,6 @@ import Hydra.API.ServerOutput (
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
-  headStatus,
-  me,
   prepareServerOutput,
  )
 import Hydra.Chain (IsChainState)
@@ -99,25 +98,29 @@ withAPIServer ::
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  h <- loadAll
+  timedOutputEvents <- reverse <$> loadAll
+
+  -- Intialize our read model from stored events
+  headStatusP <- newProjection Idle (output <$> timedOutputEvents) (\m _ -> m)
+
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
-  history <- newTVarIO (reverse h)
+  history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history callback headStatusP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
           Server
             { sendOutput = \output -> do
                 timedOutput <- appendToHistory history output
-                atomically $
+                atomically $ do
+                  update headStatusP output
                   writeTChan responseChannel timedOutput
             }
     )
  where
-  appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
   appendToHistory history output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
@@ -154,11 +157,13 @@ runAPIServer ::
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
+  -- | Read model to enhance 'Greetings' messages.
+  Projection STM.STM (ServerOutput tx) HeadStatus ->
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history callback headStatusP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
@@ -201,15 +206,18 @@ runAPIServer host port party tracer history callback responseChannel notifyServe
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly con = do
-    seq <- STM.atomically $ nextSequenceNumber history
+    seq <- atomically $ nextSequenceNumber history
+    headStatus <- atomically $ getLatestHeadStatus
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
           , seq
-          , output = Greetings{me = party, headStatus = Idle} :: ServerOutput tx
+          , output = Greetings party headStatus :: ServerOutput tx
           }
+
+  Projection{getLatest = getLatestHeadStatus} = headStatusP
 
   mkServerOutputConfig qp =
     ServerOutputConfig
