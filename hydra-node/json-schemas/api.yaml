@@ -234,6 +234,7 @@ components:
         required:
           - tag
           - me
+          - headStatus
           - seq
           - timestamp
         properties:
@@ -242,8 +243,8 @@ components:
             enum: ["Greetings"]
           me:
             $ref: "#/components/schemas/Party"
-          seq:
-            $ref: "#/components/schemas/SequenceNumber"
+          headStatus:
+            $ref: "#/components/schemas/HeadStatus"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
@@ -807,6 +808,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Party"
+
+    HeadStatus:
+      type: string
+      enum:
+        - Idle
+        - Initializing
+        - Open
+        - Closed
+        - ClosedAfterDeadline
+        - Final
 
     MultiSignature:
       type: object
