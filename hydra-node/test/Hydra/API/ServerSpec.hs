@@ -267,9 +267,30 @@ spec = describe "ServerSpec" $
                     Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
                       seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
 
+    it "displays correctly headStatus in a Greeting message" $
+      showLogsOnFailure $ \tracer ->
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            withClient port "/?history=no" $ \conn -> do
+              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
+              status `shouldBe` Aeson.String "Idle"
+
+            -- TODO: do test commit outputs as well? (or just unit/property test the projection for details)
+
+            headIsOpen <- HeadIsOpen @SimpleTx <$> generate arbitrary <*> generate arbitrary
+            withClient port "/?history=no" $ \conn -> do
+              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
+              status `shouldBe` Aeson.String "Open"
+
+            sendOutput . ReadyToFanout $ headId headIsOpen
+            withClient port "/?history=no" $ \conn -> do
+              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
+              status `shouldBe` Aeson.String "ClosedAfterDeadline"
+
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
-        withFreePort $ \port -> sendsAnErrorWhenInputCannotBeDecoded port
+        withFreePort $
+          \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
 strictlyMonotonic :: [Natural] -> Bool
 strictlyMonotonic = \case
