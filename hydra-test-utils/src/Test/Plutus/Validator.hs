@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -15,10 +16,7 @@ module Test.Plutus.Validator (
   ExecutionUnits (..),
 ) where
 
-import Hydra.Prelude hiding (label)
-
--- TODO: make explicit
-import Hydra.Cardano.Api
+import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
@@ -28,6 +26,42 @@ import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
 import Data.Default (def)
 import qualified Data.Map as Map
+import Hydra.Cardano.Api (
+  BuildTxWith (BuildTxWith),
+  CardanoEra (BabbageEra),
+  Era,
+  ExecutionUnits (..),
+  IsScriptWitnessInCtx (scriptWitnessInCtx),
+  IsShelleyBasedEra (shelleyBasedEra),
+  LedgerEpochInfo (LedgerEpochInfo),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PlutusScriptV2,
+  ProtocolParameters (..),
+  SystemStart (SystemStart),
+  ToScriptData,
+  TxBody,
+  UTxO,
+  addTxIn,
+  bundleProtocolParams,
+  createAndValidateTransactionBody,
+  defaultTxBodyContent,
+  evaluateTransactionExecutionUnits,
+  fromAlonzoCostModels,
+  fromLedgerPParams,
+  fromPlutusScript,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatumHash,
+  setTxInsCollateral,
+  setTxProtocolParams,
+  toScriptData,
+  pattern ReferenceScriptNone,
+  pattern ScriptWitness,
+  pattern TxInsCollateral,
+  pattern TxOut,
+ )
 import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import PlutusLedgerApi.V2 (ScriptContext)
