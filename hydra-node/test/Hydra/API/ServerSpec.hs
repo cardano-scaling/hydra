@@ -288,6 +288,8 @@ spec = describe "ServerSpec" $
             -- TODO: do test commit outputs as well? (or just unit/property test the projection for details)
 
             headIsOpen <- HeadIsOpen @SimpleTx <$> generate arbitrary <*> generate arbitrary
+
+            sendOutput headIsOpen
             withClient port "/?history=no" $ \conn -> do
               status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
               status `shouldBe` Aeson.String "Open"

@@ -238,15 +238,24 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
   txToCbor =
     String . decodeUtf8 . Base16.encode . serialize'
 
--- | All posible Hydra states displayed in the API server outputs.
+-- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
   | Initializing
   | Open
   | Closed
-  | ReadyForFanout
+  | ClosedAfterDeadline
   | Final
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
+
+projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
+projectHeadStatus headStatus = \case
+  HeadIsInitializing{} -> Initializing
+  HeadIsOpen{} -> Open
+  HeadIsClosed{} -> Closed
+  ReadyToFanout{} -> ClosedAfterDeadline
+  HeadIsFinalized{} -> Final
+  _other -> headStatus

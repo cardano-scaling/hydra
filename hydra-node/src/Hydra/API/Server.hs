@@ -23,6 +23,7 @@ import Hydra.API.ServerOutput (
   TimedServerOutput (..),
   WithUTxO (..),
   prepareServerOutput,
+  projectHeadStatus,
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
@@ -101,7 +102,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   timedOutputEvents <- reverse <$> loadAll
 
   -- Intialize our read model from stored events
-  headStatusP <- newProjection Idle (output <$> timedOutputEvents) (\m _ -> m)
+  headStatusP <- newProjection Idle (output <$> timedOutputEvents) projectHeadStatus
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
