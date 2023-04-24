@@ -55,7 +55,8 @@ changes.
 
 - Replaced existing websocket server with production-grade one
 
-- Removed `Greetings` messages from hydra-node history
+- Removed `Greetings` messages from hydra-node history and changed `hydra-tui`
+  to not wipe connected peers based on this message.
 
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
