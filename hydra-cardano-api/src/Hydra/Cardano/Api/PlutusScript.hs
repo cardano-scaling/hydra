@@ -40,14 +40,12 @@ fromPlutusScript =
 
 -- * Orphans
 
--- TODO: Use IsPlutusScriptLanguage here
-
-instance ToJSON (PlutusScript PlutusScriptV2) where
+instance IsPlutusScriptLanguage lang => ToJSON (PlutusScript lang) where
   toJSON = toJSON . serialiseToTextEnvelope Nothing
 
-instance FromJSON (PlutusScript PlutusScriptV2) where
+instance IsPlutusScriptLanguage lang => FromJSON (PlutusScript lang) where
   parseJSON v = do
     env <- parseJSON v
-    case deserialiseFromTextEnvelope (AsPlutusScript AsPlutusScriptV2) env of
+    case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
       Left e -> fail $ show e
       Right a -> pure a
