@@ -1,5 +1,6 @@
 ---
 sidebar_position: 6
+custom_edit_url: https://github.com/input-output-hk/hydra/tree/master/spec
 ---
 
 # Specification
