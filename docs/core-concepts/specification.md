@@ -4,7 +4,9 @@ sidebar_position: 6
 
 # Specification
 
-The specification is currently written in LaTeX and is shown below or can be [downloaded here](/hydra-spec.pdf).
+The specification is currently written in LaTeX and can be
+[edited](https://github.com/input-output-hk/hydra/tree/master/spec) in the
+Hydra repository. A rendered version is shown below or can be downloaded or viewed in fullscreen here: [Download](/hydra-spec.pdf)
 
 import HydraSpecUrl from '@site/static/hydra-spec.pdf';
 
