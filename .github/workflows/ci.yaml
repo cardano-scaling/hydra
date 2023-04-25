@@ -349,6 +349,12 @@ jobs:
         name: test-results
         path: docs/benchmarks/tests
 
+    - name: 📥 Download specification PDF
+      uses: actions/download-artifact@v3
+      with:
+        name: hydra-spec
+        path: docs/static/
+
     - name: 📚 Documentation
       working-directory: docs
       run: |
