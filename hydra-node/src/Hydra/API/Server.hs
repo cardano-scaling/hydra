@@ -26,9 +26,11 @@ import Hydra.API.ServerOutput (
   me,
   prepareServerOutput,
   projectHeadStatus,
+  projectSnapshotUtxo,
   snapshotUtxo,
  )
 import Hydra.Chain (IsChainState)
+import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -106,13 +108,14 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
 
   -- Intialize our read model from stored events
   headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
+  snapshotUtxoP <- mkProjection mempty (output <$> timedOutputEvents) projectSnapshotUtxo
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback headStatusP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -121,6 +124,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
                 timedOutput <- appendToHistory history output
                 atomically $ do
                   update headStatusP output
+                  update snapshotUtxoP output
                   writeTChan responseChannel timedOutput
             }
     )
@@ -161,13 +165,15 @@ runAPIServer ::
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
-  -- | Read model to enhance 'Greetings' messages.
+  -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
+  -- | Read model to enhance 'Greetings' messages with snapshot UTxO's.
+  Projection STM.STM (ServerOutput tx) (UTxOType tx) ->
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback headStatusP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
@@ -211,7 +217,8 @@ runAPIServer host port party tracer history callback headStatusP responseChannel
   -- client.
   forwardGreetingOnly con = do
     seq <- atomically $ nextSequenceNumber history
-    headStatus <- atomically $ getLatestHeadStatus
+    headStatus <- atomically getLatestHeadStatus
+    snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
@@ -222,12 +229,13 @@ runAPIServer host port party tracer history callback headStatusP responseChannel
               Greetings
                 { me = party
                 , headStatus
-                , snapshotUtxo = mempty
+                , snapshotUtxo
                 } ::
                 ServerOutput tx
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
+  Projection{getLatest = getLatestSnapshotUtxo} = snapshotUtxoP
 
   mkServerOutputConfig qp =
     ServerOutputConfig
