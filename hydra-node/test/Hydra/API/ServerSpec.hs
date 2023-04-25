@@ -317,6 +317,14 @@ spec = describe "ServerSpec" $
                 status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
                 status `shouldBe` Aeson.String "Initializing"
 
+    it "displays correctly snapshotUtxo in a Greeting message" $
+      showLogsOnFailure $ \tracer ->
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
+            withClient port "/?history=no" $ \conn -> do
+              status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
+              status `shouldBe` Aeson.Array (fromList [])
+
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
         withFreePort $
