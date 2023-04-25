@@ -235,6 +235,7 @@ components:
           - tag
           - me
           - headStatus
+          - snapshotUtxo
           - seq
           - timestamp
         properties:
@@ -245,6 +246,8 @@ components:
             $ref: "#/components/schemas/Party"
           headStatus:
             $ref: "#/components/schemas/HeadStatus"
+          snapshotUtxo:
+            $ref: "#/components/schemas/UTxO"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
