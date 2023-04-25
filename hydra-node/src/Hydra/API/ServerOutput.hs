@@ -265,4 +265,5 @@ projectHeadStatus headStatus = \case
 projectSnapshotUtxo :: UTxOType tx -> ServerOutput tx -> UTxOType tx
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Hydra.Snapshot.utxo snapshot
+  HeadIsOpen _ utxos -> utxos
   _other -> snapshotUtxo

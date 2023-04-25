@@ -336,17 +336,13 @@ spec = describe "ServerSpec" $
               status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
               status `shouldBe` expectedUtxos
 
-            -- send another output changing the snapshot utxo to the empty map
-            let snapshotConfirmedEmptyUtxo =
-                  SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
-                    , snapshot = generatedSnapshot{utxo = mempty}
-                    , signatures = mempty
-                    }
-            sendOutput snapshotConfirmedEmptyUtxo
+            -- send another output related to changing the utxo set
+            headIsOpen <- HeadIsOpen @SimpleTx <$> generate arbitrary <*> generate arbitrary
+            let expectedUtxos' = toJSON $ Hydra.API.ServerOutput.utxo headIsOpen
+            sendOutput headIsOpen
             withClient port "/?history=no" $ \conn -> do
               status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-              status `shouldBe` Aeson.Array (fromList [])
+              status `shouldBe` expectedUtxos'
 
     it "greets with correct snapshot utxo after a restart" $
       showLogsOnFailure $ \tracer ->
