@@ -16,7 +16,7 @@ import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, SnapshotNumber, confirmed)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (utxo), SnapshotNumber, confirmed)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -81,7 +81,7 @@ data ServerOutput tx
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one).
-    Greetings {me :: Party, headStatus :: HeadStatus}
+    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: UTxOType tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
   deriving (Generic)
@@ -117,7 +117,7 @@ instance
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me headStatus -> Greetings <$> shrink me <*> shrink headStatus
+    Greetings me headStatus snapshotUtxo -> Greetings <$> shrink me <*> shrink headStatus <*> shrink snapshotUtxo
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
 
@@ -251,6 +251,7 @@ data HeadStatus
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
+-- | Projection function related to 'headStatus' field in 'Greetings' message.
 projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
 projectHeadStatus headStatus = \case
   HeadIsInitializing{} -> Initializing
@@ -259,3 +260,9 @@ projectHeadStatus headStatus = \case
   ReadyToFanout{} -> ClosedAfterDeadline
   HeadIsFinalized{} -> Final
   _other -> headStatus
+
+-- | Projection function related to 'snapshotUtxo' field in 'Greetings' message.
+projectSnapshotUtxo :: UTxOType tx -> ServerOutput tx -> UTxOType tx
+projectSnapshotUtxo snapshotUtxo = \case
+  SnapshotConfirmed _ snapshot _ -> Hydra.Snapshot.utxo snapshot
+  _other -> snapshotUtxo

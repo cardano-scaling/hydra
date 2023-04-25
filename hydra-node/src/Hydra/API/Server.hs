@@ -22,8 +22,11 @@ import Hydra.API.ServerOutput (
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
+  headStatus,
+  me,
   prepareServerOutput,
   projectHeadStatus,
+  snapshotUtxo,
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Logging (Tracer, traceWith)
@@ -215,7 +218,13 @@ runAPIServer host port party tracer history callback headStatusP responseChannel
         TimedServerOutput
           { time
           , seq
-          , output = Greetings party headStatus :: ServerOutput tx
+          , output =
+              Greetings
+                { me = party
+                , headStatus
+                , snapshotUtxo = mempty
+                } ::
+                ServerOutput tx
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
