@@ -14,7 +14,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.Projection (Projection (..), newProjection)
+import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -102,7 +102,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   timedOutputEvents <- reverse <$> loadAll
 
   -- Intialize our read model from stored events
-  headStatusP <- newProjection Idle (output <$> timedOutputEvents) projectHeadStatus
+  headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
