@@ -313,7 +313,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks,build-test]
+    needs: [haddock-benchmarks,build-test,build-specification]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
