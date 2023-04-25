@@ -14,9 +14,10 @@ import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeAnnotator, serialize', unsafeDeserialize')
+import Cardano.Binary (decodeAnnotator, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
@@ -24,7 +25,6 @@ import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
@@ -33,13 +33,12 @@ import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import qualified Hydra.Contract.Head as Head
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
-import Plutus.V2.Ledger.Api (fromBuiltin)
+import PlutusLedgerApi.V2 (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 import Test.QuickCheck (
   choose,
@@ -127,7 +126,7 @@ instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
-    withoutProtocolUpdates tx@(Ledger.ValidatedTx body _ _ _) =
+    withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
       let body' = body{Ledger.txUpdates = SNothing}
        in tx{Ledger.body = body'}
 
@@ -140,7 +139,7 @@ mkSimpleTx ::
   SigningKey PaymentKey ->
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
-  body <- makeTransactionBody bodyContent
+  body <- createAndValidateTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
@@ -152,14 +151,14 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
-      [ TxOut @CtxTx
-        owner
-        (valueIn <> negateValue valueOut)
-        (toTxContext datum)
-        refScript
-      | valueOut /= valueIn
-      ]
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+      : [ TxOut @CtxTx
+          owner
+          (valueIn <> negateValue valueOut)
+          (toTxContext datum)
+          refScript
+        | valueOut /= valueIn
+        ]
 
   fee = Lovelace 0
 
@@ -217,14 +216,6 @@ generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
           pure (utxoFromTx tx, recipient, tx : txs)
     _ ->
       error "Couldn't generate transaction sequence: need exactly one UTXO."
-
--- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
-genTxIn :: Gen TxIn
-genTxIn =
-  fmap fromLedgerTxIn . Ledger.TxIn
-    -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
-    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
-    <*> fmap Ledger.TxIx (choose (0, 99))
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
@@ -386,9 +377,6 @@ shrinkValue =
 
 instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
-
-instance Arbitrary TxIn where
-  arbitrary = genTxIn
 
 instance Arbitrary TxId where
   arbitrary = onlyTxId <$> arbitrary

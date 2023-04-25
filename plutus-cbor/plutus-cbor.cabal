@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          plutus-cbor
-version:       1.0.0
+version:       1.0.1
 synopsis:      On-chain CBOR encoders/decoders
 author:        IOG
 copyright:     2022 IOG
@@ -85,7 +85,7 @@ test-suite unit
   hs-source-dirs:     test
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base
     , base16
@@ -95,9 +95,9 @@ test-suite unit
     , containers
     , hspec
     , hydra-prelude
-    , hydra-test-utils
+    , hydra-test-utils   >=0.10.0
     , plutus-cbor
-    , plutus-ledger-api
+    , plutus-ledger-api  >=1.1.0.0
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck
@@ -112,7 +112,7 @@ benchmark bench
   hs-source-dirs:     bench
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base
     , bytestring
@@ -121,7 +121,7 @@ benchmark bench
     , hydra-prelude
     , plutus-cbor
     , plutus-core
-    , plutus-ledger-api
+    , plutus-ledger-api  >=1.1.0.0
     , plutus-tx
     , QuickCheck
     , serialise
@@ -140,9 +140,9 @@ executable encoding-cost
     , containers
     , hspec
     , hydra-prelude
-    , hydra-test-utils
+    , hydra-test-utils       >=0.10.0
     , plutus-cbor
-    , plutus-ledger-api
+    , plutus-ledger-api      >=1.1.0.0
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck

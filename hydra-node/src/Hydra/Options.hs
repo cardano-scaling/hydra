@@ -22,9 +22,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (..),
   SlotNo (..),
   TxId (..),
-  UsingRawBytesHex (..),
   deserialiseFromRawBytes,
-  deserialiseFromRawBytesBase16,
   deserialiseFromRawBytesHex,
   proxyToAsType,
   serialiseToRawBytesHexText,
@@ -266,16 +264,16 @@ cardanoLedgerProtocolParametersParser =
     )
 
 data ChainConfig = DirectChainConfig
-  { -- | Network identifer to which we expect to connect.
-    networkId :: NetworkId
-  , -- | Path to a domain socket used to connect to the server.
-    nodeSocket :: FilePath
-  , -- | Path to the cardano signing key of the internal wallet.
-    cardanoSigningKey :: FilePath
-  , -- | Paths to other node's verification keys.
-    cardanoVerificationKeys :: [FilePath]
-  , -- | Point at which to start following the chain.
-    startChainFrom :: Maybe ChainPoint
+  { networkId :: NetworkId
+  -- ^ Network identifer to which we expect to connect.
+  , nodeSocket :: FilePath
+  -- ^ Path to a domain socket used to connect to the server.
+  , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , cardanoVerificationKeys :: [FilePath]
+  -- ^ Paths to other node's verification keys.
+  , startChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -525,11 +523,9 @@ startChainFromParser =
       case T.splitOn "." (toText chainPointStr) of
         [slotNoTxt, headerHashTxt] -> do
           slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
-          UsingRawBytesHex headerHash <-
-            either
-              (const Nothing)
-              Just
-              (deserialiseFromRawBytesBase16 (encodeUtf8 headerHashTxt))
+          headerHash <-
+            either (const Nothing) Just $
+              deserialiseFromRawBytesHex (proxyToAsType Proxy) (encodeUtf8 headerHashTxt)
           pure $ ChainPoint slotNo headerHash
         _emptyOrSingularList ->
           Nothing
@@ -630,7 +626,7 @@ validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
   | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
   | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
-    Left CardanoAndHydraKeysMissmatch
+      Left CardanoAndHydraKeysMissmatch
   | otherwise = Right ()
  where
   -- let's take the higher number of loaded cardano/hydra keys
@@ -766,5 +762,5 @@ genChainPoint = ChainPoint <$> (SlotNo <$> arbitrary) <*> someHeaderHash
  where
   someHeaderHash = do
     bytes <- vectorOf 32 arbitrary
-    let hash = fromMaybe (error "invalid bytes") $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
+    let hash = either (error "invalid bytes") id $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
     pure hash

@@ -6,8 +6,7 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
-import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
   modifyTVar,
@@ -19,6 +18,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
+import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
@@ -78,7 +78,9 @@ spec = parallel $ do
   describe "Sanity tests of test suite" $ do
     it "does not delay for real" $
       -- If it works, it simulates a lot of time passing within 1 second
-      failAfter 1 $ shouldRunInSim $ threadDelay 600
+      failAfter 1 $
+        shouldRunInSim $
+          threadDelay 600
 
   describe "Single participant Head" $ do
     it "accepts Init command" $

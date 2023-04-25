@@ -16,19 +16,19 @@ import Plutus.Codec.CBOR.Encoding (
   encodeMaybe,
   encodingToBuiltinByteString,
  )
-import Plutus.V1.Ledger.Api (
+import PlutusLedgerApi.V1 (
   Address (..),
   Credential (..),
   CurrencySymbol (..),
   DatumHash (..),
   PubKeyHash (..),
+  ScriptHash (..),
   TokenName (..),
   TxOut (..),
-  Validator,
-  ValidatorHash (..),
   Value (..),
-  mkValidatorScript,
  )
+
+import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import qualified PlutusTx as Plutus
 import Test.Plutus.Validator (wrapValidator)
 
@@ -40,12 +40,12 @@ data ValidatorKind = BaselineValidator | RealValidator
 
 Plutus.unstableMakeIsData ''ValidatorKind
 
-encodeIntegerValidator :: ValidatorKind -> Validator
+encodeIntegerValidator :: ValidatorKind -> SerialisedScript
 encodeIntegerValidator = \case
   BaselineValidator ->
-    mkValidatorScript $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) _ctx -> True||])
+    serialiseCompiledCode $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) _ctx -> True||])
   RealValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$( Plutus.compile
             [||
             wrapValidator $ \() a _ctx ->
@@ -54,13 +54,13 @@ encodeIntegerValidator = \case
             ||]
         )
 
-encodeByteStringValidator :: ValidatorKind -> Validator
+encodeByteStringValidator :: ValidatorKind -> SerialisedScript
 encodeByteStringValidator = \case
   BaselineValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$(Plutus.compile [||wrapValidator $ \() (_ :: BuiltinByteString) _ctx -> True||])
   RealValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$( Plutus.compile
             [||
             wrapValidator $ \() a _ctx ->
@@ -69,13 +69,13 @@ encodeByteStringValidator = \case
             ||]
         )
 
-encodeListValidator :: ValidatorKind -> Validator
+encodeListValidator :: ValidatorKind -> SerialisedScript
 encodeListValidator = \case
   BaselineValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$(Plutus.compile [||wrapValidator $ \() (_ :: [BuiltinByteString]) _ctx -> True||])
   RealValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$( Plutus.compile
             [||
             wrapValidator $ \() xs _ctx ->
@@ -86,13 +86,13 @@ encodeListValidator = \case
             ||]
         )
 
-encodeTxOutValidator :: ValidatorKind -> Validator
+encodeTxOutValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutValidator = \case
   BaselineValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$(Plutus.compile [||wrapValidator $ \() (_ :: TxOut) _ctx -> True||])
   RealValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$( Plutus.compile
             [||
             wrapValidator $ \() o _ctx ->
@@ -101,13 +101,13 @@ encodeTxOutValidator = \case
             ||]
         )
 
-encodeTxOutsValidator :: ValidatorKind -> Validator
+encodeTxOutsValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutsValidator = \case
   BaselineValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$(Plutus.compile [||wrapValidator $ \() (_ :: [TxOut]) _ctx -> True||])
   RealValidator ->
-    mkValidatorScript
+    serialiseCompiledCode
       $$( Plutus.compile
             [||
             wrapValidator $ \() xs _ctx ->
@@ -136,7 +136,7 @@ encodeAddress Address{addressCredential} =
  where
   credentialToBytes = \case
     PubKeyCredential (PubKeyHash h) -> h
-    ScriptCredential (ValidatorHash h) -> h
+    ScriptCredential (ScriptHash h) -> h
 {-# INLINEABLE encodeAddress #-}
 
 encodeValue :: Value -> Encoding

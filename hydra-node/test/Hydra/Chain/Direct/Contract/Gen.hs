@@ -11,7 +11,7 @@ import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Crypto (Hash (HydraKeyHash))
 import Hydra.Party (Party (..))
 import Hydra.Prelude
-import Plutus.V2.Ledger.Api (fromBuiltin)
+import PlutusTx.Builtins (fromBuiltin)
 import Test.QuickCheck (oneof, suchThat, vector)
 
 -- * Party / key utilities

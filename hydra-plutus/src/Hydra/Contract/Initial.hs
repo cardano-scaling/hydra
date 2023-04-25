@@ -22,24 +22,22 @@ import Hydra.ScriptContext (
   valueLockedBy,
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V1.Ledger.Value (isZero)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
+import PlutusLedgerApi.V1.Value (isZero)
+import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),
   OutputDatum (..),
   PubKeyHash (getPubKeyHash),
   Redeemer (Redeemer),
-  Script,
+  ScriptHash,
   ToData (toBuiltinData),
   TokenName (unTokenName),
   TxInInfo (txInInfoResolved),
   TxOut (txOutValue),
   TxOutRef,
-  Validator (getValidator),
-  ValidatorHash,
   Value (getValue),
-  mkValidatorScript,
  )
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
@@ -49,8 +47,8 @@ import qualified PlutusTx.Builtins as Builtins
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
-      { committedRef :: Maybe TxOutRef
-      -- ^ Points to the committed Utxo.
+      { -- | Points to the committed Utxo.
+        committedRef :: Maybe TxOutRef
       }
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
@@ -70,8 +68,8 @@ type RedeemerType = InitialRedeemer
 -- NOTE: It does not need to ensure that the participation token is of some
 -- specific Head currency.
 validator ::
-  -- | Commit validator
-  ValidatorHash ->
+  -- | Hash of the commit validator
+  ScriptHash ->
   DatumType ->
   RedeemerType ->
   ScriptContext ->
@@ -86,8 +84,8 @@ validator commitValidator headId red context =
       checkCommit commitValidator headId committedRef context
 
 checkCommit ::
-  -- | Commit validator
-  ValidatorHash ->
+  -- | Hash of the commit validator
+  ScriptHash ->
   -- | Head id
   CurrencySymbol ->
   Maybe TxOutRef ->
@@ -175,10 +173,10 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
-validatorScript :: Script
-validatorScript = getValidator $ mkValidatorScript compiledValidator
+validatorScript :: SerialisedScript
+validatorScript = serialiseCompiledCode compiledValidator
 
-validatorHash :: ValidatorHash
+validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum

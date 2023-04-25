@@ -47,8 +47,8 @@ import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (BuiltinByteString, toBuiltin, toData)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+import qualified PlutusLedgerApi.V2 as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
 import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
@@ -81,7 +81,7 @@ healthyContestTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = fromPlutusData $ toData healthyClosedState
+  headDatum = toScriptData healthyClosedState
 
   closedThreadOutput =
     ClosedThreadOutput

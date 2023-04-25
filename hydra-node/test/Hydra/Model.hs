@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -23,9 +22,7 @@ import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
-import Control.Monad.Class.MonadAsync (Async, async, cancel)
-import Control.Monad.Class.MonadFork (labelThisThread)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
   modifyTVar,
@@ -33,6 +30,8 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   readTVarIO,
  )
+import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
+import Control.Monad.Class.MonadFork (labelThisThread)
 import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
 import qualified Data.List as List
@@ -43,7 +42,7 @@ import qualified Data.Set as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
-import Hydra.API.ServerOutput (ServerOutput (Committed, GetUTxOResponse, SnapshotConfirmed))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
   TestHydraNode (..),
@@ -80,19 +79,20 @@ import qualified Hydra.Snapshot as Snapshot
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), Realized, RunModel (..), StateModel (..))
+import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
+import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import qualified Prelude
 
 -- * The Model
 
 -- | State maintained by the model.
 data WorldState = WorldState
-  { -- | List of parties identified by both signing keys required to run protocol.
-    -- This list must not contain any duplicated key.
-    hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
-  , -- | Expected consensus state
-    -- All nodes should be in the same state.
-    hydraState :: GlobalState
+  { hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
+  -- ^ List of parties identified by both signing keys required to run protocol.
+  -- This list must not contain any duplicated key.
+  , hydraState :: GlobalState
+  -- ^ Expected consensus state
+  -- All nodes should be in the same state.
   }
   deriving (Eq, Show)
 
@@ -176,8 +176,8 @@ instance StateModel WorldState where
       , hydraState = Start
       }
 
-  arbitraryAction :: WorldState -> Gen (Any (Action WorldState))
-  arbitraryAction st@WorldState{hydraParties, hydraState} =
+  arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
+  arbitraryAction _ st@WorldState{hydraParties, hydraState} =
     case hydraState of
       Start -> genSeed
       Idle{} -> genInit
@@ -311,6 +311,16 @@ instance StateModel WorldState where
       ObserveConfirmedTx _ -> s
       StopTheWorld -> s
 
+instance HasVariables WorldState where
+  getAllVariables _ = mempty
+
+-- XXX: This is a bit annoying and non-obviously needed. It's coming from the
+-- default implementation of HasVariables on the associated Action type. The
+-- default implementation required 'Generic', which is not available if we use
+-- GADTs for actions (as in the examples).
+instance HasVariables (Action WorldState a) where
+  getAllVariables _ = mempty
+
 deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
@@ -346,17 +356,17 @@ partyKeys =
 -- | Concrete state needed to run actions against the implementation.
 -- This state is used and might be updated when actually `perform`ing actions generated from the `StateModel`.
 data Nodes m = Nodes
-  { -- | Map from party identifiers to a /handle/ for interacting with a node.
-    nodes :: Map.Map Party (TestHydraNode Tx m)
-  , -- | Logger used by each node.
-    -- The reason we put this here is because the concrete value needs to be
-    -- instantiated upon the test run initialisation, outiside of the model.
-    logger :: Tracer m (HydraLog Tx ())
-  , -- | List of threads spawned when executing `RunMonad`
-    -- FIXME: Remove it? It's not actually useful when running inside io-sim as
-    -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
-    -- to keep it?
-    threads :: [Async m ()]
+  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  -- ^ Map from party identifiers to a /handle/ for interacting with a node.
+  , logger :: Tracer m (HydraLog Tx ())
+  -- ^ Logger used by each node.
+  -- The reason we put this here is because the concrete value needs to be
+  -- instantiated upon the test run initialisation, outiside of the model.
+  , threads :: [Async m ()]
+  -- ^ List of threads spawned when executing `RunMonad`
+  -- FIXME: Remove it? It's not actually useful when running inside io-sim as
+  -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
+  -- to keep it?
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -399,9 +409,9 @@ instance Exception RunException
 type instance Realized (RunMonad m) a = a
 
 instance
-  ( MonadDelay m
-  , MonadAsync m
-  , MonadCatch m
+  ( MonadAsync m
+  , MonadFork m
+  , MonadMask m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -418,10 +428,10 @@ instance
     decoratePostconditionFailure
       | checkOutcome s action result = id
       | otherwise =
-        counterexample "postcondition failed"
-          . counterexample ("Action: " <> show action)
-          . counterexample ("State: " <> show s)
-          . counterexample ("Result: " <> showFromAction (show result) action)
+          counterexample "postcondition failed"
+            . counterexample ("Action: " <> show action)
+            . counterexample ("State: " <> show s)
+            . counterexample ("Result: " <> showFromAction (show result) action)
 
     decorateTransitions =
       case (hydraState s, hydraState s') of
@@ -455,7 +465,8 @@ instance
 seedWorld ::
   ( MonadDelay m
   , MonadAsync m
-  , MonadCatch m
+  , MonadFork m
+  , MonadMask m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -487,14 +498,15 @@ seedWorld seedKeys seedCP = do
       node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
+      link nodeThread
       pure (party, testNode, nodeThread)
     pure (res, tickThread)
 
   modify $ \n ->
-        n
-          { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
-          , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
-          }
+    n
+      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
+      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
+      }
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
@@ -663,10 +675,10 @@ waitForUTxOToSpend utxo key value node = go 100
       timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse _ u)
           | u /= mempty ->
-            maybe
-              (go (n - 1))
-              (pure . Right)
-              (find matchPayment (UTxO.pairs u))
+              maybe
+                (go (n - 1))
+                (pure . Right)
+                (find matchPayment (UTxO.pairs u))
         _ -> go (n - 1)
 
   matchPayment p@(_, txOut) =

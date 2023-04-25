@@ -16,7 +16,7 @@ module Plutus.MerkleTree where
 import PlutusPrelude hiding (toList)
 
 import qualified PlutusTx
-import PlutusTx.Builtins (divideInteger, subtractInteger)
+import PlutusTx.Builtins (divideInteger)
 import qualified PlutusTx.List as List
 import PlutusTx.Prelude hiding (toList)
 
@@ -165,17 +165,6 @@ hash = Hash . sha2_256
 combineHash :: Hash -> Hash -> Hash
 combineHash (Hash h) (Hash h') = hash (appendByteString h h')
 {-# INLINEABLE combineHash #-}
-
--- Internal
-
--- Plutus Tx version of 'Data.List.drop'.
---
--- TODO: move into plutus
-drop :: Integer -> [a] -> [a]
-drop n rs | n <= 0 = rs
-drop n (_ : xs) = drop (subtractInteger n 1) xs
-drop _ [] = []
-{-# INLINEABLE drop #-}
 
 -- Template Haskell
 

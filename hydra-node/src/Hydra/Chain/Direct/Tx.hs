@@ -51,11 +51,11 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (CurrencySymbol (CurrencySymbol), fromBuiltin, fromData, toBuiltin)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- | Needed on-chain data to create Head transactions.
-type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
+type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
 
 newtype UTxOHash = UTxOHash ByteString
   deriving (Eq, Show, Generic)
@@ -117,8 +117,8 @@ initTx networkId cardanoKeys parameters seedTxIn =
     emptyTxBody
       & addVkInputs [seedTxIn]
       & addOutputs
-        ( mkHeadOutputInitial networkId seedTxIn parameters :
-          map (mkInitialOutput networkId seedTxIn) cardanoKeys
+        ( mkHeadOutputInitial networkId seedTxIn parameters
+            : map (mkInitialOutput networkId seedTxIn) cardanoKeys
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
@@ -188,7 +188,7 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
  where
   initialWitness =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
@@ -234,7 +234,7 @@ collectComTx ::
   InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
-  Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   -- | Head id
   HeadId ->
   Tx
@@ -254,7 +254,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
     } = initialThreadOutput
   headWitness =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headScriptRef = fst (headReference scriptRegistry)
@@ -275,7 +275,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
         }
 
   extractCommit d =
-    case fromData $ toPlutusData d of
+    case fromScriptData d of
       Nothing -> error "SNAFU"
       Just ((_, Just o, _) :: Commit.DatumType) -> Just o
       _ -> Nothing
@@ -289,7 +289,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
     )
   mkCommitWitness (ScriptDatumForTxIn -> commitDatum) =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
@@ -350,7 +350,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
 
   headWitness =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
 
   headScriptRef =
@@ -435,7 +435,7 @@ contestTx
    where
     headWitness =
       BuildTxWith $
-        ScriptWitness scriptWitnessCtx $
+        ScriptWitness scriptWitnessInCtx $
           mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
     headScriptRef =
       fst (headReference scriptRegistry)
@@ -497,7 +497,7 @@ fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headD
  where
   headWitness =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -525,32 +525,32 @@ abortTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, ScriptData) ->
+  (TxIn, TxOut CtxUTxO, HashableScriptData) ->
   -- | Script for monetary policy to burn tokens
   PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
-  Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
-  Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   Either AbortTxError Tx
 abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
-    Left OverlappingInputs
+      Left OverlappingInputs
   | otherwise =
-    Right $
-      unsafeBuildTransaction $
-        emptyTxBody
-          & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
-          & addOutputs reimbursedOutputs
-          & burnTokens headTokenScript Burn headTokens
-          & addExtraRequiredSigners [verificationKeyHash vk]
+      Right $
+        unsafeBuildTransaction $
+          emptyTxBody
+            & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
+            & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
+            & addOutputs reimbursedOutputs
+            & burnTokens headTokenScript Burn headTokens
+            & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -580,7 +580,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 
   mkAbortInitialWitness initialDatum =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
   initialScriptRef =
     fst (initialReference scriptRegistry)
@@ -594,7 +594,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 
   mkAbortCommitWitness commitDatum =
     BuildTxWith $
-      ScriptWitness scriptWitnessCtx $
+      ScriptWitness scriptWitnessInCtx $
         mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
@@ -608,12 +608,12 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 -- * Observe Hydra Head transactions
 
 data InitObservation = InitObservation
-  { -- | The state machine UTxO produced by the Init transaction
-    -- This output should always be present and 'threaded' across all
-    -- transactions.
-    -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-    -- XXX(SN): Data and [OnChain.Party] are overlapping
-    threadOutput :: InitialThreadOutput
+  { threadOutput :: InitialThreadOutput
+  -- ^ The state machine UTxO produced by the Init transaction
+  -- This output should always be present and 'threaded' across all
+  -- transactions.
+  -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
+  -- XXX(SN): Data and [OnChain.Party] are overlapping
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
@@ -717,7 +717,7 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   headOutput = \case
     (ix, out@(TxOut addr _ (TxOutDatumInTx d) _)) -> do
       guard $ addr == headAddress
-      (ix,out,d,) <$> fromData (toPlutusData d)
+      (ix,out,d,) <$> fromScriptData d
     _ -> Nothing
 
   headAddress =
@@ -731,7 +731,7 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
   initials =
     mapMaybe
       ( \(i, o) -> do
-          dat <- getScriptData o
+          dat <- txOutScriptData o
           pure (mkTxIn tx i, toCtxUTxOTxOut o, dat)
       )
       initialOutputs
@@ -777,8 +777,8 @@ observeCommitTx networkId initials tx = do
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
-  dat <- getScriptData commitOut
-  (onChainParty, onChainCommit, _headId) <- fromData @Commit.DatumType $ toPlutusData dat
+  dat <- txOutScriptData commitOut
+  (onChainParty, onChainCommit, _headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
 
   committed <-
@@ -832,7 +832,7 @@ observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
-  datum <- fromData $ toPlutusData oldHeadDatum
+  datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
@@ -858,7 +858,7 @@ observeCollectComTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
   decodeUtxoHash datum =
-    case fromData $ toPlutusData datum of
+    case fromScriptData datum of
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
 
@@ -880,13 +880,13 @@ observeCloseTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
-  datum <- fromData $ toPlutusData oldHeadDatum
+  datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- lookupScriptData tx newHeadOutput
-      (closeContestationDeadline, onChainSnapshotNumber) <- case fromData (toPlutusData newHeadDatum) of
+      (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
         Just Head.Closed{contestationDeadline, snapshotNumber} -> pure (contestationDeadline, snapshotNumber)
         _ -> Nothing
       pure
@@ -910,7 +910,7 @@ observeCloseTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
 data ContestObservation = ContestObservation
-  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData)
+  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, HashableScriptData)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contesters :: [Plutus.PubKeyHash]
@@ -928,7 +928,7 @@ observeContestTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
-  datum <- fromData $ toPlutusData oldHeadDatum
+  datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed{contesters}, Head.Contest{}) -> do
@@ -951,7 +951,7 @@ observeContestTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
   closedSnapshotNumber headDatum =
-    case fromData $ toPlutusData headDatum of
+    case fromScriptData headDatum of
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
@@ -1021,7 +1021,7 @@ findHeadAssetId txOut =
   flip findFirst (valueToList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
       | aname == hydraHeadV1AssetName && q == 1 ->
-        Just (pid, aname)
+          Just (pid, aname)
     _ ->
       Nothing
 

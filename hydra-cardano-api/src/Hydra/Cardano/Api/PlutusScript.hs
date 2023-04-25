@@ -1,14 +1,12 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import Codec.Serialise (serialise)
-import Data.ByteString.Short (toShort)
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.Common as Plutus
 
 -- * Type Conversions
 
@@ -18,7 +16,7 @@ import qualified Plutus.V2.Ledger.Api as Plutus
 --
 -- (a) If the given script is a timelock script, it throws an impure exception;
 -- (b) If the given script is in a wrong language, it silently coerces it.
-fromLedgerScript :: HasCallStack => Ledger.Script era -> PlutusScript lang
+fromLedgerScript :: HasCallStack => Ledger.AlonzoScript era -> PlutusScript lang
 fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
   Ledger.PlutusScript _ bytes -> PlutusScriptSerialised bytes
@@ -26,30 +24,28 @@ fromLedgerScript = \case
 -- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
 toLedgerScript ::
   forall lang.
-  (HasPlutusScriptVersion lang) =>
+  (IsPlutusScriptLanguage lang) =>
   PlutusScript lang ->
-  Ledger.Script (ShelleyLedgerEra Era)
+  Ledger.AlonzoScript (ShelleyLedgerEra Era)
 toLedgerScript (PlutusScriptSerialised bytes) =
-  let lang = case plutusScriptVersion $ proxyToAsType (Proxy @lang) of
+  let lang = case plutusScriptVersion @lang of
         PlutusScriptV1 -> Ledger.PlutusV1
         PlutusScriptV2 -> Ledger.PlutusV2
    in Ledger.PlutusScript lang bytes
 
--- | Convert a plutus 'Script' into a cardano-api 'PlutusScript'
-fromPlutusScript :: Plutus.Script -> PlutusScript lang
+-- | Convert a serialized plutus script into a cardano-api 'PlutusScript'.
+fromPlutusScript :: Plutus.SerialisedScript -> PlutusScript lang
 fromPlutusScript =
-  PlutusScriptSerialised . toShort . toStrict . serialise
+  PlutusScriptSerialised
 
 -- * Orphans
 
--- XXX: IsPlutusScriptLanguage is not exported, we would want to use it here
-
-instance ToJSON (PlutusScript PlutusScriptV2) where
+instance IsPlutusScriptLanguage lang => ToJSON (PlutusScript lang) where
   toJSON = toJSON . serialiseToTextEnvelope Nothing
 
-instance FromJSON (PlutusScript PlutusScriptV2) where
+instance IsPlutusScriptLanguage lang => FromJSON (PlutusScript lang) where
   parseJSON v = do
     env <- parseJSON v
-    case deserialiseFromTextEnvelope (AsPlutusScript AsPlutusScriptV2) env of
+    case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
       Left e -> fail $ show e
       Right a -> pure a

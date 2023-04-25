@@ -12,7 +12,7 @@ import Control.Arrow (left)
 import Data.Aeson (Value (String))
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
 
@@ -22,16 +22,22 @@ type ToScriptData a = Plutus.ToData a
 -- | Data-types that can be unmarshalled from a generic 'ScriptData' structure.
 type FromScriptData a = Plutus.FromData a
 
--- | Serialise some type into a generic 'ScriptData' structure.
-toScriptData :: (ToScriptData a) => a -> ScriptData
+-- | Serialise some type into a generic script data.
+toScriptData :: ToScriptData a => a -> HashableScriptData
 toScriptData =
-  fromPlutusData . Plutus.toData
+  -- NOTE: Safe to use here as the data was not available in serialized form.
+  unsafeHashableScriptData . fromPlutusData . Plutus.toData
 
--- | Get the 'ScriptData' associated to the a 'TxOut'. Note that this requires
--- the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
+-- | Deserialise some generic script data into some type.
+fromScriptData :: FromScriptData a => HashableScriptData -> Maybe a
+fromScriptData =
+  Plutus.fromData . toPlutusData . getScriptData
+
+-- | Get the 'HashableScriptData' associated to the a 'TxOut'. Note that this
+-- requires the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
 -- 'lookupScriptData'.
-getScriptData :: TxOut CtxTx era -> Maybe ScriptData
-getScriptData (TxOut _ _ d _) =
+txOutScriptData :: TxOut CtxTx era -> Maybe HashableScriptData
+txOutScriptData (TxOut _ _ d _) =
   case d of
     TxOutDatumInTx _ sd -> Just sd
     TxOutDatumInline _ sd -> Just sd
@@ -45,14 +51,14 @@ lookupScriptData ::
   ) =>
   Tx era ->
   TxOut CtxUTxO era ->
-  Maybe ScriptData
+  Maybe HashableScriptData
 lookupScriptData (Tx ByronTxBody{} _) _ = Nothing
 lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _) =
   case datum of
     TxOutDatumNone ->
       Nothing
     (TxOutDatumHash _ (ScriptDataHash h)) ->
-      fromPlutusData . Ledger.getPlutusData <$> Map.lookup h datums
+      fromLedgerData <$> Map.lookup h datums
     (TxOutDatumInline _ dat) ->
       Just dat
  where
@@ -63,12 +69,12 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _
 -- * Type Conversions
 
 -- | Convert a cardano-ledger script 'Data' into a cardano-api 'ScriptDatum'.
-fromLedgerData :: Ledger.Data era -> ScriptData
+fromLedgerData :: Ledger.Data era -> HashableScriptData
 fromLedgerData =
   fromAlonzoData
 
--- | Convert a cardano-api 'ScriptData' into a cardano-ledger script 'Data'.
-toLedgerData :: ScriptData -> Ledger.Data era
+-- | Convert a cardano-api script data into a cardano-ledger script 'Data'.
+toLedgerData :: HashableScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData
 
@@ -89,3 +95,14 @@ instance FromJSON ScriptData where
     either fail (pure . fromPlutusData) $ do
       bytes <- Base16.decode (encodeUtf8 text)
       left show $ deserialiseOrFail $ fromStrict bytes
+
+-- NOTE: We are okay with storing the data and re-serializing + hashing it into
+-- 'HashableScriptData' in these ToJSON/FromJSON instances as the serialization
+-- ambiguity addressed by 'HashableScriptData' is long overboard if we are
+-- dealing with JSON.
+
+instance ToJSON HashableScriptData where
+  toJSON = toJSON . getScriptData
+
+instance FromJSON HashableScriptData where
+  parseJSON = fmap unsafeHashableScriptData . parseJSON

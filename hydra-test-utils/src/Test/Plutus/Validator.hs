@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -12,69 +13,61 @@
 -- data encoders).
 module Test.Plutus.Validator (
   module Test.Plutus.Validator,
-  ExUnits (..),
+  ExecutionUnits (..),
 ) where
 
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude
 
-import Cardano.Binary (unsafeDeserialize')
-import Cardano.Ledger.Address (Addr (..))
-import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.Scripts (
-  ExUnits (..),
-  Script (..),
-  Tag (..),
- )
-import Cardano.Ledger.Alonzo.Tools (evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.TxWitness (
-  RdmrPtr (..),
-  Redeemers (..),
-  TxDats (..),
-  TxWitness (..),
- )
-import Cardano.Ledger.Babbage (BabbageEra)
-import Cardano.Ledger.Babbage.PParams (PParams' (..))
-import Cardano.Ledger.Babbage.Tx (
-  IsValid (..),
-  ValidatedTx (..),
- )
-import Cardano.Ledger.Babbage.TxBody (
-  TxBody (..),
-  TxOut (..),
- )
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import Cardano.Ledger.BaseTypes (Network (..), TxIx (TxIx))
-import Cardano.Ledger.Credential (
-  Credential (..),
-  StakeReference (..),
- )
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (ValidateScript (hashScript))
-import Cardano.Ledger.Hashes (ScriptHash (..))
-import Cardano.Ledger.Shelley.TxBody (Wdrl (..))
-import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
-import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (
-  SystemStart (SystemStart),
-  mkSlotLength,
- )
-import Data.Array (array)
-import qualified Data.ByteString as BS
+import Cardano.Slotting.Time (mkSlotLength)
 import Data.Default (def)
 import qualified Data.Map as Map
-import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Set as Set
-import Hydra.Cardano.Api (PlutusScriptV2, fromPlutusScript)
-import Hydra.Cardano.Api.PlutusScript (toLedgerScript)
-import Plutus.V1.Ledger.Api (ScriptContext, Validator, getValidator)
+import Hydra.Cardano.Api (
+  BuildTxWith (BuildTxWith),
+  CardanoEra (BabbageEra),
+  Era,
+  ExecutionUnits (..),
+  IsScriptWitnessInCtx (scriptWitnessInCtx),
+  IsShelleyBasedEra (shelleyBasedEra),
+  LedgerEpochInfo (LedgerEpochInfo),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PlutusScriptV2,
+  ProtocolParameters (..),
+  SystemStart (SystemStart),
+  ToScriptData,
+  TxBody,
+  UTxO,
+  addTxIn,
+  bundleProtocolParams,
+  createAndValidateTransactionBody,
+  defaultTxBodyContent,
+  evaluateTransactionExecutionUnits,
+  fromAlonzoCostModels,
+  fromLedgerPParams,
+  fromPlutusScript,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatumHash,
+  setTxInsCollateral,
+  setTxProtocolParams,
+  toScriptData,
+  pattern ReferenceScriptNone,
+  pattern ScriptWitness,
+  pattern TxInsCollateral,
+  pattern TxOut,
+ )
+import PlutusLedgerApi.Common (SerialisedScript)
+import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
+import PlutusLedgerApi.V2 (ScriptContext)
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import qualified PlutusTx as Plutus
 import PlutusTx.Prelude (check)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
 import qualified Prelude
 
 -- TODO: DRY with hydra-plutus
@@ -90,32 +83,21 @@ wrapValidator ::
 wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
 {-# INLINEABLE wrapValidator #-}
 
---
--- Compare scripts to baselines
---
-
--- | Current (2022-04-01) mainchain parameters.
-defaultMaxExecutionUnits :: ExUnits
-defaultMaxExecutionUnits =
-  ExUnits
-    { exUnitsMem = 10_000_000
-    , exUnitsSteps = 10_000_000_000
-    }
-
-distanceExUnits :: ExUnits -> ExUnits -> ExUnits
-distanceExUnits (ExUnits m0 s0) (ExUnits m1 s1) =
-  ExUnits
+distanceExecutionUnits :: ExecutionUnits -> ExecutionUnits -> ExecutionUnits
+distanceExecutionUnits (ExecutionUnits c0 m0) (ExecutionUnits c1 m1) =
+  ExecutionUnits
+    (if c0 > c1 then c0 - c1 else c1 - c0)
     (if m0 > m1 then m0 - m1 else m1 - m0)
-    (if s0 > s1 then s0 - s1 else s1 - s0)
 
 -- TODO: DRY with Hydra.Ledger.Cardano.Evaluate
+
 evaluateScriptExecutionUnits ::
   Plutus.ToData a =>
-  Validator ->
+  SerialisedScript ->
   a ->
-  Either Text ExUnits
-evaluateScriptExecutionUnits validator redeemer =
-  case evaluateTransactionExecutionUnits pparams tx utxo epoch start costModels of
+  Either Text ExecutionUnits
+evaluateScriptExecutionUnits validatorScript redeemer =
+  case result of
     Right (toList -> [units]) ->
       first (("unexpected script failure: " <>) . show) units
     Right{} ->
@@ -123,92 +105,88 @@ evaluateScriptExecutionUnits validator redeemer =
     Left e ->
       Left ("unexpected failure: " <> show e)
  where
-  (tx, utxo) = transactionFromScript validator redeemer
-  costModels = array (PlutusV1, PlutusV2) [(PlutusV1, testingCostModelV1), (PlutusV2, testingCostModelV2)]
-  epoch = fixedEpochInfo (EpochSize 432000) (mkSlotLength 1)
-  start = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
-  pparams = def{_maxTxExUnits = ExUnits 9999999999 9999999999}
+  result =
+    evaluateTransactionExecutionUnits
+      systemStart
+      (LedgerEpochInfo epochInfo)
+      (bundleProtocolParams BabbageEra pparams)
+      (UTxO.toApi utxo)
+      body
 
-transactionFromScript ::
-  Plutus.ToData a =>
-  Validator ->
-  a ->
-  (ValidatedTx (BabbageEra StandardCrypto), Ledger.UTxO (BabbageEra StandardCrypto))
-transactionFromScript validator redeemer =
-  ( ValidatedTx
-      { body = defaultTxBody
-      , wits = defaultTxWits
-      , isValid = IsValid True
-      , auxiliaryData = SNothing
-      }
-  , Ledger.UTxO (fromList [(defaultTxIn, txOutFromScript)])
-  )
+  (body, utxo) = transactionBodyFromScript validatorScript redeemer
+
+  epochInfo = fixedEpochInfo (EpochSize 432000) (mkSlotLength 1)
+
+  systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
+
+-- | Current (2023-04-12) mainchain parameters.
+pparams :: ProtocolParameters
+pparams =
+  (fromLedgerPParams (shelleyBasedEra @Era) def)
+    { protocolParamCostModels =
+        fromAlonzoCostModels
+          . CostModels
+          $ Map.fromList
+            [ (PlutusV1, testCostModel PlutusV1)
+            , (PlutusV2, testCostModel PlutusV2)
+            ]
+    , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
+    , protocolParamProtocolVersion = (7, 0)
+    }
  where
-  script :: Script (BabbageEra StandardCrypto)
-  script =
-    toLedgerScript $ fromPlutusScript @PlutusScriptV2 $ getValidator validator
+  testCostModel pv =
+    case mkCostModel pv costModelParamsForTesting of
+      Left e -> error $ "testCostModel failed: " <> show e
+      Right cm -> cm
 
-  scriptHash :: ScriptHash StandardCrypto
-  scriptHash =
-    hashScript @(BabbageEra StandardCrypto) script
+-- | Max transaction execution unit budget of the current 'pparams'.
+defaultMaxExecutionUnits :: ExecutionUnits
+defaultMaxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = 14_000_000
+    , executionSteps = 10_000_000_000
+    }
 
-  txOutFromScript :: TxOut (BabbageEra StandardCrypto)
+-- * Generate a transaction body
+
+-- | Create an artifical transaction body which only spends the given script
+-- with given redeemer and a 'defaultDatum'.
+transactionBodyFromScript ::
+  ToScriptData a =>
+  SerialisedScript ->
+  a ->
+  (TxBody, UTxO)
+transactionBodyFromScript validatorScript redeemer =
+  (body, utxo)
+ where
+  body =
+    either (error . show) id $
+      createAndValidateTransactionBody $
+        defaultTxBodyContent
+          & addTxIn (defaultTxIn, scriptWitness)
+          & setTxInsCollateral (TxInsCollateral mempty)
+          & setTxProtocolParams (BuildTxWith $ Just pparams)
+
+  utxo = UTxO.singleton (defaultTxIn, txOutFromScript)
+
+  defaultTxIn = arbitrary `generateWith` 42
+
+  scriptWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptWitness script (mkScriptDatum defaultDatum) (toScriptData redeemer)
+
+  script = fromPlutusScript @PlutusScriptV2 validatorScript
+
   txOutFromScript =
     TxOut
-      (Addr Testnet (ScriptHashObj scriptHash) StakeRefNull)
+      (mkScriptAddress @PlutusScriptV2 networkId script)
       mempty
-      (Babbage.DatumHash $ hashData defaultDatum)
-      SNothing
+      (mkTxOutDatumHash defaultDatum)
+      ReferenceScriptNone
 
-  defaultTxWits :: TxWitness (BabbageEra StandardCrypto)
-  defaultTxWits =
-    TxWitness
-      mempty
-      mempty
-      (Map.fromList [(scriptHash, script)])
-      ( TxDats $
-          Map.fromList
-            [
-              ( hashData defaultDatum
-              , defaultDatum
-              )
-            ]
-      )
-      ( Redeemers $
-          Map.fromList
-            [
-              ( RdmrPtr Spend 0
-              , (Data $ Plutus.toData redeemer, defaultExUnits)
-              )
-            ]
-      )
+  networkId = Testnet (NetworkMagic 42)
 
-  defaultDatum :: Data (BabbageEra StandardCrypto)
-  defaultDatum = Data (Plutus.toData ())
-
-  defaultExUnits :: ExUnits
-  defaultExUnits = ExUnits 0 0
-
-  defaultTxBody :: TxBody (BabbageEra StandardCrypto)
-  defaultTxBody =
-    TxBody
-      { inputs = Set.singleton defaultTxIn
-      , collateral = mempty
-      , referenceInputs = mempty
-      , outputs = mempty
-      , collateralReturn = SNothing
-      , totalCollateral = SNothing
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = mempty
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
-
-  defaultTxIn :: TxIn StandardCrypto
-  defaultTxIn = TxIn (unsafeDeserialize' $ BS.pack [88, 32] <> BS.replicate 32 0) (TxIx 0)
+-- | The default datum used in 'transactionBodyFromScript'.
+defaultDatum :: ()
+defaultDatum = ()

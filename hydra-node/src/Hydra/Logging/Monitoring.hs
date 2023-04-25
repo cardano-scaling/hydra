@@ -14,7 +14,7 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.API.ServerOutput (ServerOutput (..))

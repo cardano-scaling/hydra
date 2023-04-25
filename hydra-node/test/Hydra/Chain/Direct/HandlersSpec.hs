@@ -6,22 +6,21 @@ module Hydra.Chain.Direct.HandlersSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Ledger.Block as Ledger
-import Cardano.Ledger.Era (toTxSeq)
-import Cardano.Slotting.Slot (WithOrigin (..))
-import Control.Monad.Class.MonadSTM (MonadSTM (..), newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
-import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Cardano.Api (
+  BlockHeader (..),
+  ChainPoint,
   SlotNo (..),
   Tx,
-  toLedgerTx,
+  chainPointToSlotNo,
+  genTxIn,
+  getChainPoint,
  )
 import Hydra.Chain (
   ChainCallback,
   ChainEvent (..),
-  ChainSlot (..),
   HeadParameters,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -36,6 +35,7 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
   HydraContext,
   InitialState (..),
+  chainSlotFromPoint,
   ctxHeadParameters,
   deriveChainContexts,
   genChainStateWithTx,
@@ -48,13 +48,7 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Chain.Direct.Util (Block)
-import Hydra.Ledger.Cardano (genTxIn)
 import Hydra.Options (maximumNumberOfParties)
-import Ouroboros.Consensus.Block (Point (BlockPoint, GenesisPoint), blockPoint, pointSlot)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
-import qualified Ouroboros.Consensus.Protocol.Praos.Header as Praos
-import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   counterexample,
@@ -89,14 +83,14 @@ spec = do
   prop "roll forward results in Tick events" $
     monadicIO $ do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
-      blk <- pickBlind $ genBlockAt slot []
+      TestBlock header txs <- pickBlind $ genBlockAt slot []
 
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
 
       (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
 
-      run $ onRollForward handler blk
+      run $ onRollForward handler header txs
 
       events <- run getEvents
       monitor $ counterexample ("events: " <> show events)
@@ -110,21 +104,21 @@ spec = do
   prop "roll forward fails with outdated TimeHandle" $
     monadicIO $ do
       (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
-      blk <- pickBlind $ genBlockAt slot []
+      TestBlock header txs <- pickBlind $ genBlockAt slot []
 
       chainContext <- pickBlind arbitrary
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
           handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext
 
       run $
-        onRollForward handler blk
+        onRollForward handler header txs
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
     let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
-    blk <- pickBlind $ genBlockAt 1 [tx]
+    TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
 
     timeHandle <- pickBlind arbitrary
@@ -147,12 +141,12 @@ spec = do
               fst <$> observeSomeTx ctx st tx `shouldBe` Just observedTx
 
     let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx
-    run $ onRollForward handler blk
+    run $ onRollForward handler header txs
 
   prop "yields rollback events onRollBackward" . monadicIO $ do
     (chainContext, chainState, blocks) <- pickBlind genSequenceOfObservableBlocks
-    (rollbackSlot, rollbackPoint) <- pick $ genRollbackPoint blocks
-    monitor $ label ("Rollback to: " <> show rollbackSlot <> " / " <> show (length blocks))
+    rollbackPoint <- pick $ genRollbackPoint blocks
+    monitor $ label ("Rollback to: " <> show (chainPointToSlotNo rollbackPoint) <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
     stateVar <- run $ newTVarIO chainState
@@ -173,7 +167,7 @@ spec = do
             (pure timeHandle)
             chainContext
     -- Simulate some chain following
-    run $ mapM_ (onRollForward handler) blocks
+    run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
     -- Inject the rollback to somewhere between any of the previous state
     result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
     monitor . counterexample $ "try onRollBackward: " <> show result
@@ -181,7 +175,7 @@ spec = do
 
     mSlot <- run . atomically $ tryReadTMVar rolledBackTo
     monitor . counterexample $ "rolledBackTo: " <> show mSlot
-    assert $ mSlot == Just rollbackSlot
+    assert $ mSlot == Just (chainSlotFromPoint rollbackPoint)
 
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
@@ -200,8 +194,12 @@ recordEventsHandler ctx cs getTimeHandle = do
       Nothing -> pure ()
       Just e -> atomically $ modifyTVar var (e :)
 
-withCounterExample :: [Block] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
-withCounterExample blks headState step = do
+-- | A block used for testing. This is a simpler version of the cardano-api
+-- 'Block' and can be de-/constructed easily.
+data TestBlock = TestBlock BlockHeader [Tx]
+
+withCounterExample :: [TestBlock] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
+withCounterExample blocks headState step = do
   stBefore <- run $ readTVarIO headState
   a <- run step
   stAfter <- run $ readTVarIO headState
@@ -216,30 +214,24 @@ withCounterExample blks headState step = do
                 <> unlines
                   ( fmap
                       ("    " <>)
-                      [show (blockPoint blk) | blk <- blks]
+                      [show (getChainPoint header) | TestBlock header _ <- blocks]
                   )
             ]
 
-genBlockAt :: SlotNo -> [Tx] -> Gen Block
+-- | Thin wrapper which generates a 'TestBlock' at some specific slot.
+genBlockAt :: SlotNo -> [Tx] -> Gen TestBlock
 genBlockAt sl txs = do
   header <- adjustSlot <$> arbitrary
-  let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
-  pure $ BlockBabbage $ mkShelleyBlock $ Ledger.Block header body
+  pure $ TestBlock header txs
  where
-  adjustSlot (Praos.Header body sig) =
-    let body' = body{Praos.hbSlotNo = sl}
-     in Praos.Header body' sig
+  adjustSlot (BlockHeader _ hash blockNo) =
+    BlockHeader sl hash blockNo
 
--- | Pick a block point in a list of blocks and return it along with the
--- corresponding 'ChainSlot'.
-genRollbackPoint :: [Block] -> Gen (ChainSlot, Point Block)
+-- | Pick a block point in a list of blocks.
+genRollbackPoint :: [TestBlock] -> Gen ChainPoint
 genRollbackPoint blocks = do
-  block <- elements blocks
-  let rollbackPoint = blockPoint block
-  let slot = case rollbackPoint of
-        GenesisPoint -> ChainSlot 0
-        BlockPoint (SlotNo s) _ -> ChainSlot $ fromIntegral s
-  pure (slot, rollbackPoint)
+  TestBlock header _ <- elements blocks
+  pure $ getChainPoint header
 
 -- | Generate a non-sparse sequence of blocks each containing an observable
 -- transaction, starting from the returned on-chain head state.
@@ -247,7 +239,7 @@ genRollbackPoint blocks = do
 -- Note that this does not generate the entire spectrum of observable
 -- transactions in Hydra, but only init and commits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
-genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [Block])
+genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext maximumNumberOfParties
   -- NOTE: commits must be generated from each participant POV, and thus, we
@@ -266,18 +258,15 @@ genSequenceOfObservableBlocks = do
           }
   pure (cctx, chainState, reverse blks)
  where
-  nextSlot :: Monad m => StateT [Block] m SlotNo
+  nextSlot :: Monad m => StateT [TestBlock] m SlotNo
   nextSlot = do
     get <&> \case
       [] -> 1
-      x : _ -> SlotNo . succ . unSlotNo . blockSlotNo $ x
+      block : _ -> 1 + blockSlotNo block
 
-  blockSlotNo pt =
-    case pointSlot (blockPoint pt) of
-      Origin -> 0
-      At sl -> sl
+  blockSlotNo (TestBlock (BlockHeader slotNo _ _) _) = slotNo
 
-  putNextBlock :: Tx -> StateT [Block] Gen ()
+  putNextBlock :: Tx -> StateT [TestBlock] Gen ()
   putNextBlock tx = do
     sl <- nextSlot
     blk <- lift $ genBlockAt sl [tx]
@@ -286,7 +275,7 @@ genSequenceOfObservableBlocks = do
   stepInit ::
     ChainContext ->
     HeadParameters ->
-    StateT [Block] Gen Tx
+    StateT [TestBlock] Gen Tx
   stepInit ctx params = do
     initTx <- lift $ initialize ctx params <$> genTxIn
     initTx <$ putNextBlock initTx
@@ -295,7 +284,7 @@ genSequenceOfObservableBlocks = do
     HydraContext ->
     Tx ->
     [ChainContext] ->
-    StateT [Block] Gen [InitialState]
+    StateT [TestBlock] Gen [InitialState]
   stepCommits hydraCtx initTx = \case
     [] ->
       pure []
@@ -306,7 +295,7 @@ genSequenceOfObservableBlocks = do
   stepCommit ::
     ChainContext ->
     Tx ->
-    StateT [Block] Gen InitialState
+    StateT [TestBlock] Gen InitialState
   stepCommit ctx initTx = do
     let stInitial = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
@@ -314,7 +303,7 @@ genSequenceOfObservableBlocks = do
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 
-showRollbackInfo :: (Word, Point Block) -> String
+showRollbackInfo :: (Word, ChainPoint) -> String
 showRollbackInfo (rollbackDepth, rollbackPoint) =
   toString $
     unlines

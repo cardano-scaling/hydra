@@ -29,8 +29,8 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Version (gitDescribe)
-import Plutus.V2.Ledger.Api (fromCompiledCode)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (serialiseCompiledCode)
+import qualified PlutusLedgerApi.V2 as Plutus
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
@@ -42,11 +42,11 @@ spec = do
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
-    goldenScript "mHead" (fromCompiledCode HeadTokens.unappliedMintingPolicy)
+    goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
-goldenScript :: String -> Plutus.Script -> Golden Script
+goldenScript :: String -> Plutus.SerialisedScript -> Golden Script
 goldenScript name plutusScript =
   Golden
     { output = PlutusScript $ fromPlutusScript plutusScript

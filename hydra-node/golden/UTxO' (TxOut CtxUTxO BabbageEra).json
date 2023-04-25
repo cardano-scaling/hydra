@@ -10,9 +10,9 @@
                     "script": {
                         "cborHex": "8202818303008282041976658200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
@@ -172,9 +172,9 @@
                     "script": {
                         "cborHex": "8204199653",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -234,9 +234,9 @@
                     "script": {
                         "cborHex": "83030285820419e0df83030080820519bd768204194e0f8204199f4c",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
@@ -349,9 +349,9 @@
                     "script": {
                         "cborHex": "82041a000125a1",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0fb2c57096165367d49491db222d5fc66d38f59be2c1cb467f002ac2": {
@@ -619,9 +619,9 @@
                     "script": {
                         "cborHex": "82028582051a00014b268202848201858200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541820419ef018200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88205190b1d8200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -789,9 +789,9 @@
                     "script": {
                         "cborHex": "820419a113",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
@@ -882,9 +882,9 @@
                     "script": {
                         "cborHex": "82018382041974038200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
@@ -964,9 +964,9 @@
                     "script": {
                         "cborHex": "8202838200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e82018282041a0001700982051a00016e9b82051901e9",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0b11b1f3d6d5b9fc521c4dd0f9c3dc8d1b156b5fd99b13669cacbdf2": {
@@ -1125,9 +1125,9 @@
                     "script": {
                         "cborHex": "82041a0001079a",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -1201,9 +1201,9 @@
                     "script": {
                         "cborHex": "820519237b",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
@@ -1573,9 +1573,9 @@
                     "script": {
                         "cborHex": "820283830300838202808200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56820180820184830300848200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2830300818200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54830300838200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8830300818200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e782051a00017b84",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -1637,9 +1637,9 @@
                     "script": {
                         "cborHex": "820419f1ef",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -1788,9 +1788,9 @@
                     "script": {
                         "cborHex": "82041a00013609",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
@@ -1903,9 +1903,9 @@
                     "script": {
                         "cborHex": "820419262b",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "076828b4691bbe32f6c2cc886c65ffb5acdd849db3a8ad794376f36e": {
@@ -2504,9 +2504,9 @@
                     "script": {
                         "cborHex": "8204197d80",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
@@ -2583,9 +2583,9 @@
                     "script": {
                         "cborHex": "82041a00013c7d",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "076828b4691bbe32f6c2cc886c65ffb5acdd849db3a8ad794376f36e": {
@@ -2650,9 +2650,9 @@
                     "script": {
                         "cborHex": "8200581c148215155affc38689d1fea3dd81dae3b5bb746639220c02ec8c544a",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "076828b4691bbe32f6c2cc886c65ffb5acdd849db3a8ad794376f36e": {
@@ -3452,9 +3452,9 @@
                     "script": {
                         "cborHex": "820180",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "04937d5d17935add51d3c7c2fd75e9256f5e9dda071b8b85646655df": {
@@ -3545,9 +3545,9 @@
                     "script": {
                         "cborHex": "820419311b",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "143987ce3cfc19b354f9a35bbea806c91f8559c8cf5e52a8a0c86a59": {
@@ -3657,9 +3657,9 @@
                     "script": {
                         "cborHex": "8205194bfe",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
@@ -4025,9 +4025,9 @@
                     "script": {
                         "cborHex": "8201818200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0fb2c57096165367d49491db222d5fc66d38f59be2c1cb467f002ac2": {
@@ -4134,9 +4134,9 @@
                     "script": {
                         "cborHex": "820519622d",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
@@ -4425,9 +4425,9 @@
                     "script": {
                         "cborHex": "82051977c2",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "1a7d5e232ad01edfcd4d8d651b616364c11cdc041bb5b92a4a01575e": {
@@ -4835,9 +4835,9 @@
                     "script": {
                         "cborHex": "83030080",
                         "description": "",
-                        "type": "SimpleScriptV2"
+                        "type": "SimpleScript"
                     },
-                    "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+                    "scriptLanguage": "SimpleScriptLanguage"
                 },
                 "value": {
                     "0b11b1f3d6d5b9fc521c4dd0f9c3dc8d1b156b5fd99b13669cacbdf2": {

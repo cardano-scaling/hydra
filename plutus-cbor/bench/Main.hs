@@ -8,21 +8,21 @@ import Codec.Serialise (serialise)
 import Criterion.Main (bench, bgroup, defaultMain, whnf)
 import qualified Data.ByteString as BS
 import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
-import Plutus.V1.Ledger.Api (
+import PlutusLedgerApi.V1 (
   Address (..),
   BuiltinByteString,
   Credential (PubKeyCredential, ScriptCredential),
   CurrencySymbol (CurrencySymbol),
   DatumHash (DatumHash),
   PubKeyHash (PubKeyHash),
+  ScriptHash (ScriptHash),
   TokenName (TokenName),
   TxOut (TxOut),
-  ValidatorHash (ValidatorHash),
   Value (getValue),
   toBuiltin,
   toData,
  )
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V1 as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import PlutusTx.Semigroup ((<>))
 import Test.QuickCheck (choose, oneof, vector, vectorOf)
@@ -88,7 +88,7 @@ encodeAddress Address{addressCredential} =
  where
   credentialToBytes = \case
     PubKeyCredential (PubKeyHash h) -> h
-    ScriptCredential (ValidatorHash h) -> h
+    ScriptCredential (ScriptHash h) -> h
 {-# INLINEABLE encodeAddress #-}
 
 encodeValue :: Value -> Encoding

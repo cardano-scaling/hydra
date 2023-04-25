@@ -5,7 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadLabelledSTM)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))

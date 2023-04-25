@@ -7,16 +7,15 @@
 -- | A custom ScriptContext and TxInfo which only "decodes" the fields we need.
 module Hydra.ScriptContext where
 
-import Plutus.V2.Ledger.Contexts hiding (
+import PlutusLedgerApi.V2.Contexts hiding (
   ScriptContext,
   TxInfo (..),
   scriptContextPurpose,
   scriptContextTxInfo,
-  scriptOutputsAt,
  )
 import PlutusTx.Prelude
 
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.V2 (
   Address (..),
   Credential (..),
   CurrencySymbol,
@@ -25,7 +24,7 @@ import Plutus.V2.Ledger.Api (
   Map,
   OutputDatum,
   PubKeyHash,
-  ValidatorHash,
+  ScriptHash,
   Value,
  )
 import PlutusTx (makeIsDataIndexed)
@@ -37,7 +36,7 @@ data TxInfo = TxInfo
   { txInfoInputs :: [TxInInfo]
   -- ^ Transaction inputs; cannot be an empty list
   , txInfoReferenceInputs :: BuiltinData
-  -- ^ /Added in V2:/ Transaction reference inputs
+  -- ^ Transaction reference inputs
   , txInfoOutputs :: [TxOut]
   -- ^ Transaction outputs
   , txInfoFee :: Value
@@ -79,7 +78,7 @@ makeIsDataIndexed ''ScriptContext [('ScriptContext, 0)]
 
 -- | Get the list of 'TxOut' outputs of the pending transaction at
 -- a given script address.
-scriptOutputsAt :: ValidatorHash -> TxInfo -> [(OutputDatum, Value)]
+scriptOutputsAt :: ScriptHash -> TxInfo -> [(OutputDatum, Value)]
 scriptOutputsAt h p =
   let flt TxOut{txOutDatum = d, txOutAddress = Address (ScriptCredential s) _, txOutValue} | s == h = Just (d, txOutValue)
       flt _ = Nothing
@@ -87,7 +86,7 @@ scriptOutputsAt h p =
 {-# INLINEABLE scriptOutputsAt #-}
 
 -- | Get the total value locked by the given validator in this transaction.
-valueLockedBy :: TxInfo -> ValidatorHash -> Value
+valueLockedBy :: TxInfo -> ScriptHash -> Value
 valueLockedBy ptx h =
   let outputs = map snd (scriptOutputsAt h ptx)
    in mconcat outputs

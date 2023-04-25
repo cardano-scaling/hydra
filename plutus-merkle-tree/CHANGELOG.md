@@ -16,6 +16,9 @@ changes.
 
 - Added `on-chain-cost` benchmark executable.
 
+- Made compatible to latest `plutus-tx` and `cardano-api` changes (via
+  `hydra-cardano-api` and `hydra-test-utils`).
+
 ## [1.0.0] - 2022-02-11
 
 ### Added

@@ -23,8 +23,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   isEmptyTQueue,
   labelTQueueIO,
@@ -36,6 +35,7 @@ import Control.Monad.Class.MonadSTM (
   stateTVar,
   writeTQueue,
  )
+import Control.Monad.Class.MonadAsync (async)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, IsChainState, PostTxError)

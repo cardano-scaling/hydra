@@ -136,7 +136,7 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
-import qualified Cardano.Ledger.Era as Ledger
+import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import Cardano.Ledger.Serialization (mkSized)
 import qualified Data.Map as Map
@@ -156,8 +156,8 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (CurrencySymbol, POSIXTime, fromData, toData)
-import qualified Plutus.V2.Ledger.Api as Plutus
+import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
+import qualified PlutusLedgerApi.V2 as Plutus
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -274,7 +274,7 @@ data Mutation
   | -- | Drops the given input from the transaction's inputs
     RemoveInput TxIn
   | -- | Adds given UTxO to the transaction's inputs and UTxO context.
-    AddInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
+    AddInput TxIn (TxOut CtxUTxO) (Maybe HashableScriptData)
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input matches the new redeemer, otherwise
@@ -285,7 +285,7 @@ data Mutation
     -- script.
     --
     -- XXX: This is likely incomplete as it can not add the datum for given txout.
-    ChangeInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
+    ChangeInput TxIn (TxOut CtxUTxO) (Maybe HashableScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
   | -- | Change the transaction's minted values if it is actually minting
@@ -339,9 +339,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         -- change the lookup UTXO
         fn o@(TxOut addr value _ refScript)
           | isHeadOutput o =
-            TxOut addr value datumHash refScript
+              TxOut addr value datumHash refScript
           | otherwise =
-            o
+              o
         -- change the datums in the tx
         ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         newDatums = addDatum datum scriptData
@@ -521,7 +521,7 @@ changeHeadOutputDatum fn txOut =
     (TxOutDatumInline _sd) ->
       error "Unexpected inlined datum"
     (TxOutDatumInTx sd) ->
-      case fromData $ toPlutusData sd of
+      case fromScriptData sd of
         Just st ->
           txOut{txOutDatum = mkTxOutDatum $ fn st}
         Nothing ->
@@ -566,7 +566,7 @@ alterRedeemers fn = \case
 -- value of 'Nothing' for the redeemr means that this is not a script input.
 -- NOTE: This will reset all the execution budgets to 0.
 alterTxIns ::
-  ([(TxIn, Maybe ScriptData)] -> [(TxIn, Maybe ScriptData)]) ->
+  ([(TxIn, Maybe HashableScriptData)] -> [(TxIn, Maybe HashableScriptData)]) ->
   Tx ->
   Tx
 alterTxIns fn tx =
@@ -593,14 +593,14 @@ alterTxIns fn tx =
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
   newSortedInputs =
-    sortOn fst $
-      fn
+    sortOn fst
+      $ fn
         . resolveRedeemers
         . fmap fromLedgerTxIn
         . toList
-        $ Ledger.inputs ledgerBody
+      $ Ledger.inputs ledgerBody
 
-  resolveRedeemers :: [TxIn] -> [(TxIn, Maybe ScriptData)]
+  resolveRedeemers :: [TxIn] -> [(TxIn, Maybe HashableScriptData)]
   resolveRedeemers txInputs =
     zip txInputs [0 ..] <&> \(txIn, i) ->
       case Map.lookup (Ledger.RdmrPtr Ledger.Spend i) redeemersMap of

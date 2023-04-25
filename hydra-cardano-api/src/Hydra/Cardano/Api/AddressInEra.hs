@@ -2,7 +2,6 @@
 
 module Hydra.Cardano.Api.AddressInEra where
 
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
@@ -12,15 +11,15 @@ import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import Hydra.Cardano.Api.Network (Network)
-import qualified Plutus.V1.Ledger.Address as Plutus
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.V2 (
   Address (..),
   Credential (..),
   PubKeyHash (PubKeyHash),
+  ScriptHash (ScriptHash),
   StakingCredential (StakingHash, StakingPtr),
-  ValidatorHash (ValidatorHash),
   fromBuiltin,
  )
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- * Extras
 
@@ -49,7 +48,7 @@ mkVkAddress networkId vk =
 -- no stake rights.
 mkScriptAddress ::
   forall lang era.
-  (IsShelleyBasedEra era, HasPlutusScriptVersion lang) =>
+  (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =>
   NetworkId ->
   PlutusScript lang ->
   AddressInEra era
@@ -59,7 +58,7 @@ mkScriptAddress networkId script =
     (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
     NoStakeAddress
  where
-  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+  version = plutusScriptVersion @lang
 
 -- * Type Conversions
 
@@ -96,7 +95,7 @@ fromPlutusAddress network plutusAddress =
   unsafeCredential = \case
     PubKeyCredential (PubKeyHash h) ->
       Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h
-    ScriptCredential (ValidatorHash h) ->
+    ScriptCredential (ScriptHash h) ->
       Ledger.ScriptHashObj . Ledger.ScriptHash . unsafeHashFromBytes $ fromBuiltin h
 
   Plutus.Address{addressCredential, addressStakingCredential} = plutusAddress

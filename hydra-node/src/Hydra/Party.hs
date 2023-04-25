@@ -3,7 +3,7 @@
 -- Hydra protocol.
 module Hydra.Party where
 
-import Hydra.Prelude hiding (show)
+import Hydra.Prelude
 
 import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
@@ -48,6 +48,6 @@ partyToChain Party{vkey} =
 -- for an explanation why this is a distinct type.
 partyFromChain :: MonadFail m => OnChain.Party -> m Party
 partyFromChain =
-  maybe (fail "partyFromChain got Nothing") (pure . Party)
+  either (\e -> fail $ "partyFromChain failed: " <> show e) (pure . Party)
     . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
     . OnChain.partyToVerficationKeyBytes

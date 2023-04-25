@@ -18,12 +18,9 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (..), Prices (..), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel, txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
-import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
-import Cardano.Ledger.Babbage.PParams (PParams' (..))
-import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
+import Cardano.Ledger.Babbage.PParams (_costmdls, _protocolVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -33,21 +30,21 @@ import Control.Arrow (left)
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Flat (flat)
 import Hydra.Cardano.Api (
+  CardanoEra (BabbageEra),
   CardanoMode,
   ConsensusMode (CardanoMode),
   Era,
   EraHistory (EraHistory),
-  EraInMode (BabbageEraInCardanoMode),
+  ExecutionUnitPrices (..),
   ExecutionUnits (..),
   IsShelleyBasedEra (shelleyBasedEra),
-  LedgerEra,
+  LedgerEpochInfo (..),
   Lovelace,
-  ProtocolParameters (protocolParamMaxTxExUnits, protocolParamMaxTxSize),
+  ProtocolParameters (..),
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
@@ -55,12 +52,14 @@ import Hydra.Cardano.Api (
   TransactionValidityError,
   Tx,
   UTxO,
+  bundleProtocolParams,
   evaluateTransactionExecutionUnits,
+  fromAlonzoCostModels,
   fromLedgerCoin,
   fromLedgerPParams,
   getTxBody,
   shelleyBasedEra,
-  toLedgerEpochInfo,
+  toAlonzoPrices,
   toLedgerExUnits,
   toLedgerPParams,
   toLedgerTx,
@@ -71,7 +70,7 @@ import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
-  EraEnd (EraEnd, EraUnbounded),
+  EraEnd (EraEnd),
   EraParams (..),
   EraSummary (..),
   SafeZone (..),
@@ -80,10 +79,10 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
-import Plutus.ApiCommon (mkTermToEvaluate)
-import qualified Plutus.ApiCommon as Plutus
 import qualified PlutusCore as PLC
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (testingCostModelV1, testingCostModelV2)
+import PlutusLedgerApi.Common (mkTermToEvaluate)
+import qualified PlutusLedgerApi.Common as Plutus
+import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import qualified UntypedPlutusCore as UPLC
@@ -119,10 +118,9 @@ evaluateTx' maxUnits tx utxo =
  where
   result =
     evaluateTransactionExecutionUnits
-      BabbageEraInCardanoMode
       systemStart
-      eraHistory
-      pparams{protocolParamMaxTxExUnits = Just maxUnits}
+      (LedgerEpochInfo epochInfo)
+      (bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits})
       (UTxO.toApi utxo)
       (getTxBody tx)
 
@@ -184,9 +182,9 @@ usedExecutionUnits report =
   budgets = rights $ toList report
 
 -- | Estimate minimum fee for given transaction and evaluated redeemers. Instead
--- of using the budgets from the transaction (which might are usually set to 0
--- until balancing), this directly computes the fee from transaction size and
--- the units of the 'EvaluationReport'. Note that this function only provides a
+-- of using the budgets from the transaction (which are usually set to 0 until
+-- balancing), this directly computes the fee from transaction size and the
+-- units of the 'EvaluationReport'. Note that this function only provides a
 -- rough estimate using this modules' 'pparams' and likely under-estimates cost
 -- as we have no witnesses on this 'Tx'.
 estimateMinFee ::
@@ -196,12 +194,14 @@ estimateMinFee ::
 estimateMinFee tx evaluationReport =
   fromLedgerCoin $
     (txSize <×> a <+> b)
-      <+> txscriptfee (_prices pp) allExunits
+      <+> txscriptfee prices allExunits
  where
   txSize = BS.length $ serialiseToCBOR tx
-  a = Coin . fromIntegral $ _minfeeA pp
-  b = Coin . fromIntegral $ _minfeeB pp
-  pp = toLedgerPParams (shelleyBasedEra @Era) pparams
+  a = Coin . fromIntegral $ protocolParamTxFeePerByte pparams
+  b = Coin . fromIntegral $ protocolParamTxFeeFixed pparams
+  prices =
+    fromMaybe (error "no prices in protocol param fixture") $
+      toAlonzoPrices =<< protocolParamPrices pparams
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
 
 -- * Profile transactions
@@ -219,87 +219,94 @@ prepareTxScripts ::
 prepareTxScripts tx utxo = do
   -- Tuples with scripts and their arguments collected from the tx
   results <-
-    case Ledger.collectTwoPhaseScriptInputs ei systemStart pp ltx lutxo of
+    case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pp ltx lutxo of
       Left e -> Left $ show e
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
   programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
-    let pv = Ledger.transProtocolVersion (_protocolVersion pp)
-        pArgs = Ledger.getPlutusData <$> arguments
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 pv script pArgs
+    let pArgs = Ledger.getPlutusData <$> arguments
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
     pure $ UPLC.Program () (PLC.defaultVersion ()) appliedTerm
 
   pure $ flat <$> programs
  where
   pp = toLedgerPParams (shelleyBasedEra @Era) pparams
-  ltx = toLedgerTx tx :: Babbage.ValidatedTx LedgerEra
+
+  ltx = toLedgerTx tx
+
   lutxo = toLedgerUTxO utxo
-  ei = toLedgerEpochInfo eraHistory
+
+  protocolVersion =
+    let (major, minor) = protocolParamProtocolVersion pparams
+     in Plutus.ProtocolVersion
+          { Plutus.pvMajor = fromIntegral major
+          , Plutus.pvMinor = fromIntegral minor
+          }
 
 -- * Fixtures
 
--- | Current mainchain protocol parameters.
+-- | Current (2023-04-12) mainchain protocol parameters.
+-- XXX: Avoid specifiying not required parameters here (e.g. max block units
+-- should not matter).
+-- XXX: Load and use mainnet parameters from a file which we can easily review
+-- to be in sync with mainnet.
 pparams :: ProtocolParameters
 pparams =
-  fromLedgerPParams (shelleyBasedEra @Era) $
-    def
-      { _costmdls =
-          CostModels $
-            Map.fromList
-              [ (PlutusV1, testingCostModelV1)
-              , (PlutusV2, testingCostModelV2)
-              ]
-      , _maxValSize = 1000000000
-      , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
-      , _maxBlockExUnits = ExUnits 62_000_000 40_000_000_000
-      , _protocolVersion = ProtVer 7 0
-      , _maxTxSize = 16384
-      , _minfeeA = 44
-      , _minfeeB = 155381
-      , _prices =
-          Prices
-            { prSteps = fromJust $ boundRational $ 721 % 10000000
-            , prMem = fromJust $ boundRational $ 577 % 10000
+  (fromLedgerPParams (shelleyBasedEra @Era) def)
+    { protocolParamCostModels =
+        fromAlonzoCostModels
+          . CostModels
+          $ Map.fromList
+            [ (PlutusV1, testCostModel PlutusV1)
+            , (PlutusV2, testCostModel PlutusV2)
+            ]
+    , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
+    , protocolParamMaxBlockExUnits =
+        Just
+          ExecutionUnits
+            { executionMemory = 62_000_000
+            , executionSteps = 40_000_000_000
             }
-      }
+    , protocolParamProtocolVersion = (7, 0)
+    , protocolParamMaxTxSize = maxTxSize
+    , protocolParamMaxValueSize = Just 1000000000
+    , protocolParamTxFeePerByte = 44 -- a
+    , protocolParamTxFeeFixed = 155381 -- b
+    , protocolParamPrices =
+        Just
+          ExecutionUnitPrices
+            { priceExecutionSteps = 721 % 10000000
+            , priceExecutionMemory = 577 % 10000
+            }
+    }
+ where
+  testCostModel pv =
+    case mkCostModel pv costModelParamsForTesting of
+      Left e -> error $ "testCostModel failed: " <> show e
+      Right cm -> cm
 
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
-maxTxSize = protocolParamMaxTxSize pparams
+maxTxSize = 16384
 
--- | Max transaction execution unit budget of the current 'params'.
+-- | Max transaction execution unit budget of the current 'pparams'.
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
-  fromJust $ protocolParamMaxTxExUnits pparams
+  ExecutionUnits
+    { executionMemory = 14_000_000
+    , executionSteps = 10_000_000_000
+    }
 
 -- | Max memory and cpu units of the current 'pparams'.
 maxMem, maxCpu :: Natural
 maxCpu = executionSteps maxTxExecutionUnits
 maxMem = executionMemory maxTxExecutionUnits
 
--- | An artifical era history comprised by a single never ending (forking) era,
+-- | An artifical 'EpochInfo' comprised by a single never ending (forking) era,
 -- with fixed 'epochSize' and 'slotLength'.
-eraHistory :: EraHistory CardanoMode
-eraHistory =
-  EraHistory CardanoMode (mkInterpreter summary)
- where
-  -- NOTE: Inlined / similar to --
-  -- Ouroboros.Consensus.HardFork.History.Summary.neverForksSummary, but without
-  -- a fixed '[x] type so we can use the CardanoMode eras
-  summary :: Summary (CardanoEras StandardCrypto)
-  summary =
-    Summary . NonEmptyOne $
-      EraSummary
-        { eraStart = initBound
-        , eraEnd = EraUnbounded
-        , eraParams =
-            EraParams
-              { eraEpochSize = epochSize
-              , eraSlotLength = slotLength
-              , eraSafeZone = UnsafeIndefiniteSafeZone
-              }
-        }
+epochInfo :: Monad m => EpochInfo m
+epochInfo = fixedEpochInfo epochSize slotLength
 
 -- | An era history with a single era which will end at some point.
 --
@@ -337,9 +344,6 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
       }
-
-epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo epochSize slotLength
 
 epochSize :: EpochSize
 epochSize = EpochSize 100

@@ -99,13 +99,10 @@ library
     , base
     , base16-bytestring
     , bytestring
-    , cardano-crypto-class
     , containers
     , directory
     , hydra-cardano-api
     , hydra-prelude
-    , lens
-    , openapi3
     , plutus-core
     , plutus-ledger-api
     , plutus-tx

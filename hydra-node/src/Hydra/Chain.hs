@@ -80,7 +80,7 @@ newtype HeadId = HeadId ByteString
 
 instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (HeadId bytes) = bytes
-  deserialiseFromRawBytes _ = Just . HeadId
+  deserialiseFromRawBytes _ = Right . HeadId
 
 instance HasTypeProxy HeadId where
   data AsType HeadId = AsHeadId
@@ -189,14 +189,14 @@ instance Arbitrary ChainSlot where
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
-  { -- | Construct and send a transaction to the main chain corresponding to the
-    -- given 'PostChainTx' description and the current 'ChainState'. This
-    -- function is not expected to block, so it is only responsible for
-    -- submitting, but it should validate the created transaction against a
-    -- reasonable local view of the chain and throw an exception when invalid.
-    --
-    -- Does at least throw 'PostTxError'.
-    postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
+  { postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
+  -- ^ Construct and send a transaction to the main chain corresponding to the
+  -- given 'PostChainTx' description and the current 'ChainState'. This
+  -- function is not expected to block, so it is only responsible for
+  -- submitting, but it should validate the created transaction against a
+  -- reasonable local view of the chain and throw an exception when invalid.
+  --
+  -- Does at least throw 'PostTxError'.
   }
 
 data ChainEvent tx

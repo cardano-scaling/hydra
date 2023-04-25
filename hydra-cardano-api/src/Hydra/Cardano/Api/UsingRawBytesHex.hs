@@ -1,6 +1,8 @@
 -- | Shamelessly stolen from cardan-api 'Cardano.Api.SerialiseUsing' module.
 --
 -- With some minor modifications of also using encodeUtf8 in 'IsString' instance.
+--
+-- XXX: Expose / contribute upstream
 module Hydra.Cardano.Api.UsingRawBytesHex where
 
 import Hydra.Cardano.Api.Prelude
@@ -47,13 +49,18 @@ instance (SerialiseAsRawBytes a, Typeable a) => FromJSONKey (UsingRawBytesHex a)
     Aeson.FromJSONKeyTextParser $
       either fail pure . deserialiseFromRawBytesBase16 . encodeUtf8
 
+-- * Internal
+
+-- | Don't use this, use 'deserialiseFromRawBytesHex' instead.
 deserialiseFromRawBytesBase16 ::
   SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
 deserialiseFromRawBytesBase16 str =
   case Base16.decode str of
     Right raw -> case deserialiseFromRawBytes ttoken raw of
-      Just x -> Right (UsingRawBytesHex x)
-      Nothing -> Left ("cannot deserialise " ++ show str)
+      Right x -> Right (UsingRawBytesHex x)
+      -- XXX: cannot user inner value because SerialiseAsRawBytesError data
+      -- constructor not exposed
+      Left e -> Left ("cannot deserialise " ++ show str ++ ".  The error was: " <> show e)
     Left msg -> Left ("invalid hex " ++ show str ++ ", " ++ msg)
  where
   ttoken = proxyToAsType (Proxy :: Proxy a)

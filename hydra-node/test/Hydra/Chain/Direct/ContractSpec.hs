@@ -48,7 +48,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
-import Plutus.V2.Ledger.Api (fromBuiltin, toBuiltin)
+import PlutusLedgerApi.V2 (fromBuiltin, toBuiltin)
 import Test.QuickCheck (
   Property,
   conjoin,

@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
-import Control.Monad.Class.MonadSTM (
+import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
   lengthTBQueue,

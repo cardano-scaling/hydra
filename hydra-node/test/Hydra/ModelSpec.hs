@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -116,6 +115,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
 import Data.Map ((!))
@@ -125,15 +125,17 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraNode (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (ObserveConfirmedTx, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
   OffChainState (..),
   RunMonad,
+  RunState (..),
   WorldState (..),
   genPayment,
-  runMonad, RunState (..)
+  runMonad,
  )
 import qualified Hydra.Model as Model
 import qualified Hydra.Model.Payment as Payment
@@ -143,17 +145,22 @@ import Test.QuickCheck.DynamicLogic (
   DL,
   action,
   anyActions_,
-  forAllDL_,
-  forAllQ,
+  forAllDL,
+  forAllNonVariableQ,
   getModelStateDL,
   withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
-import Test.QuickCheck.StateModel (Actions, Step ((:=)), runActions, stateAfter, pattern Actions)
+import Test.QuickCheck.StateModel (
+  Actions,
+  Annotated (..),
+  Step ((:=)),
+  runActions,
+  stateAfter,
+  pattern Actions,
+ )
 import Test.Util (printTrace, traceInIOSim)
-import Control.Monad.Class.MonadSTM (newTVarIO)
-import Hydra.Logging.Messages (HydraLog)
 
 spec :: Spec
 spec = do
@@ -167,7 +174,7 @@ spec = do
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
   within 50000000 $
-    forAllDL_ conflictFreeLiveness prop_HydraModel
+    forAllDL conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
 prop_HydraModel actions = property $
@@ -186,18 +193,21 @@ conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{}} -> do
-      (party, payment) <- forAllQ (nonConflictingTx st)
-      action $ Model.NewTx party payment
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+      action_ $ Model.NewTx party payment
       eventually (ObserveConfirmedTx payment)
-    _ -> pass
-  action Model.StopTheWorld
+    _ -> pure ()
+  action_ Model.StopTheWorld
  where
   nonConflictingTx st = withGenQ (genPayment st) (const [])
-  eventually a = action (Wait 10) >> action a
+
+  eventually a = action_ (Wait 10) >> action_ a
+
+  action_ = void . action
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
-  let st = stateAfter actions
+  let Metadata _vars st = stateAfter actions
    in case actions of
         Actions [] -> property True
         Actions _ ->
@@ -220,7 +230,8 @@ prop_checkModel actions =
   within 20000000 $
     property $
       runIOSimProp $ do
-        (WorldState{hydraParties, hydraState}, _symEnv) <- runActions actions
+        (metadata, _symEnv) <- runActions actions
+        let WorldState{hydraParties, hydraState} = underlyingState metadata
         -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
         -- the underlying simulated chain which produces a block every 20s. It
         -- should be enough to ensure all nodes' threads terminate their actions

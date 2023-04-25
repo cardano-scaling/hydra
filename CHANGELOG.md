@@ -61,6 +61,29 @@ changes.
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 
+- **BREAKING** Changes to `hydra-cardano-api`:
+  - Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
+  - Renamed `getScriptData` to `txOutScriptData` to not conflict with the new function in `cardano-api`.
+  - Changed `toScriptData`, `toLedgerData`, `fromLedgerData`,
+    `txOutScriptData` and `lookupScriptData` to return or require a
+    `HashableScriptData` instead.
+  - Added `fromScriptData` generic conversion function.
+  - Changed signature of `totalExecutionCost` to be more clearly `Babbage` era specific.
+  - Changed `fromPlutusScript` to take new `SerialisedScript` type (it's just an alias now).
+  - Added `genTxIn` and `arbitrary` instance for `TxIn`.
+  - Added `getChainPoint`.
+
+- **BREAKING** Changes to `hydra-test-utils`:
+  - Greatly simplified the implementation of `evaluateScriptExecutionUnits` using `cardano-api` types now.
+
+- **BREAKING** Changes to `hydra-plutus`:
+  - Script hashes changed due to updated `plutus-tx` tool-chain.
+  - Changed return type of `validatorScript` functions of script modules to `SerialisedScript`.
+
+- **BREAKING** Changes to `hydra-node`:
+  - Reference scripts in the API are not decodable when using `SimpleScriptV2`
+    envelope anymore (just use `SimpleScript`).
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!

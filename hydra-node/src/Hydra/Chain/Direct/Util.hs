@@ -6,123 +6,17 @@ module Hydra.Chain.Direct.Util where
 import Hydra.Prelude
 
 import qualified Cardano.Crypto.DSIGN as Crypto
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Crypto (DSIGN)
-import qualified Cardano.Ledger.SafeHash as SafeHash
-import qualified Cardano.Ledger.TxIn as Ledger
-import Control.Tracer (nullTracer)
-import Data.Map.Strict ((!))
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import Hydra.Cardano.Api hiding (Block, SigningKey, VerificationKey)
-import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Shelley
-import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
-import Ouroboros.Consensus.Cardano.Block (
-  CodecConfig (..),
- )
-import Ouroboros.Consensus.Network.NodeToClient (
-  ClientCodecs,
-  clientCodecs,
- )
-import Ouroboros.Consensus.Node.NetworkProtocolVersion (
-  SupportedNetworkProtocolVersion (..),
- )
-import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
-import Ouroboros.Network.NodeToClient (
-  LocalAddress (..),
-  NetworkConnectTracers (..),
-  NetworkServerTracers (..),
-  NodeToClientVersionData (..),
-  combineVersions,
-  simpleSingletonVersions,
- )
-import Ouroboros.Network.Protocol.Handshake.Version (Versions)
-import Plutus.V2.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
+import PlutusCore.Data (Data)
+import PlutusLedgerApi.V2 (BuiltinByteString, builtinDataToData, toBuiltinData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-
---
--- Types
---
 
 type Block = CardanoBlock StandardCrypto
 type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
 type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
-
---
--- Tracers
---
-
-nullConnectTracers :: NetworkConnectTracers LocalAddress NodeToClientVersion
-nullConnectTracers =
-  NetworkConnectTracers
-    { nctMuxTracer = nullTracer
-    , nctHandshakeTracer = nullTracer
-    }
-
-nullServerTracers :: NetworkServerTracers LocalAddress NodeToClientVersion
-nullServerTracers =
-  NetworkServerTracers
-    { nstMuxTracer = nullTracer
-    , nstHandshakeTracer = nullTracer
-    , nstErrorPolicyTracer = nullTracer
-    , nstAcceptPolicyTracer = nullTracer
-    }
-
---
---  Versions
---
-
-nodeToClientVLatest :: NodeToClientVersion
-nodeToClientVLatest =
-  fst $ Map.findMax $ supportedNodeToClientVersions proxy
- where
-  proxy = Proxy @(CardanoBlock StandardCrypto)
-
-versions ::
-  NetworkId ->
-  (NodeToClientVersion -> app) ->
-  Versions NodeToClientVersion NodeToClientVersionData app
-versions networkId app =
-  combineVersions
-    [ simpleSingletonVersions v (NodeToClientVersionData magic) (app v)
-    | v <- [nodeToClientVLatest, pred nodeToClientVLatest]
-    ]
- where
-  magic = case networkId of
-    Testnet n -> n
-    Mainnet -> NetworkMagic 764824073
-
---
--- Codecs
---
-
-defaultCodecs ::
-  MonadST m =>
-  NodeToClientVersion ->
-  ClientCodecs Block m
-defaultCodecs nodeToClientV =
-  clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
- where
-  supportedVersions = supportedNodeToClientVersions (Proxy @Block)
-  cfg = CardanoCodecConfig byron shelley allegra mary alonzo babbage
-   where
-    byron = ByronCodecConfig epochSlots
-    shelley = ShelleyCodecConfig
-    allegra = ShelleyCodecConfig
-    mary = ShelleyCodecConfig
-    alonzo = ShelleyCodecConfig
-    babbage = ShelleyCodecConfig
-
-  -- Fixed epoch slots used in the ByronCodecConfig.
-  --
-  -- TODO(SN): ^^^ This will make codecs fail on non-standard testnets and we
-  -- should check with networking whether we can opt-out / ignore blocks from
-  -- Byron instead of configuring this everywhere
-  epochSlots :: EpochSlots
-  epochSlots = EpochSlots 432000
 
 readKeyPair :: FilePath -> IO (Shelley.VerificationKey PaymentKey, Shelley.SigningKey PaymentKey)
 readKeyPair keyPath = do
@@ -140,10 +34,6 @@ readFileTextEnvelopeThrow asType =
 readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
 readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
 
---
--- Helpers
---
-
 -- | A simple retrying function with a constant delay. Retries only if the given
 -- predicate evaluates to 'True'.
 --
@@ -160,30 +50,14 @@ retry predicate action =
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
 
-signWith ::
-  Api.SigningKey Api.PaymentKey ->
-  ValidatedTx Api.LedgerEra ->
-  ValidatedTx Api.LedgerEra
-signWith signingKey validatedTx@ValidatedTx{body, wits} =
-  validatedTx
-    { wits =
-        wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
-    }
- where
-  txid =
-    Ledger.TxId (SafeHash.hashAnnotated body)
-  sig =
-    toLedgerKeyWitness
-      [Api.signWith @Api.Era (fromLedgerTxId txid) signingKey]
-
 -- | Marker datum used to identify payment UTXO
 markerDatum :: Data
-markerDatum = toData $ toBuiltinData ("Hydra Head Payment" :: BuiltinByteString)
+markerDatum = builtinDataToData $ toBuiltinData ("Hydra Head Payment" :: BuiltinByteString)
 
 -- | Hash of the markerDatum
 markerDatumHash :: Hash ScriptData
 markerDatumHash =
-  hashScriptData $ Shelley.fromPlutusData markerDatum
+  hashScriptDataBytes . unsafeHashableScriptData $ fromPlutusData markerDatum
 
 -- | Determine whether a 'TxOut' is marked to be used for paying Hydra Head transactions
 isMarkedOutput :: TxOut CtxUTxO -> Bool

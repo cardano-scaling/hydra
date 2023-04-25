@@ -76,6 +76,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
@@ -87,7 +88,6 @@ library
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.NetworkId
     Hydra.Cardano.Api.PlutusScript
-    Hydra.Cardano.Api.PlutusScriptVersion
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.Pretty
@@ -98,7 +98,6 @@ library
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptLanguageInEra
-    Hydra.Cardano.Api.ScriptWitnessInCtx
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxId
@@ -122,11 +121,10 @@ library
     , base
     , base16-bytestring
     , bech32
-    , bech32-th
     , bytestring
-    , cardano-api                     >=1.35.4
-    , cardano-binary                  ==1.5.0
-    , cardano-crypto-class            ==2.0.0
+    , cardano-api                     >=1.36.0
+    , cardano-binary                  >=1.5.0
+    , cardano-crypto-class            >=2.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
@@ -138,15 +136,13 @@ library
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-shelley-test
     , cardano-prelude
-    , cardano-slotting                ==0.1.0.0
     , cborg
     , containers
     , data-default
-    , ouroboros-network               ==0.1.0.1
-    , plutus-ledger-api               ==1.0.0.0
+    , plutus-ledger-api               >=1.1.0.0
     , QuickCheck
     , serialise
     , stm
-    , strict-containers               ==0.1.0.0
+    , strict-containers               >=0.1.0.0
     , text
     , time

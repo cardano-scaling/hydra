@@ -1,6 +1,6 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name:          hydra-test-utils
-version:       0.9.0
+version:       0.10.0
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG
@@ -13,7 +13,13 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra
 
+flag hydra-development
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
+
 common package-config
+  default-language:   Haskell2010
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
@@ -23,9 +29,16 @@ common package-config
     ScopedTypeVariables
     TypeApplications
 
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+
+  if !flag(hydra-development)
+    ghc-options: -Werror
+
 library
-  import:           package-config
-  hs-source-dirs:   src
+  import:          package-config
+  hs-source-dirs:  src
   exposed-modules:
     Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
@@ -33,16 +46,10 @@ library
     Test.Plutus.Validator
 
   build-depends:
-    , array
     , base
     , bytestring
-    , cardano-binary
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
-    , cardano-ledger-babbage
-    , cardano-ledger-core
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , cardano-slotting
     , containers
     , data-default
@@ -56,17 +63,13 @@ library
     , hydra-prelude
     , io-classes
     , network
-    , plutus-ledger-api
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
     , port-utils
     , process
     , QuickCheck
     , relude
-    , strict-containers
     , temporary
-
-  ghc-options:      -Wall -Werror -Wcompat -Wunused-packages
-  default-language: Haskell2010
 
 test-suite hydra-test-util-tests
   import:             package-config

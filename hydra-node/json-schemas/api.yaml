@@ -1248,8 +1248,7 @@ components:
             type:
               type: string
               enum:
-                - SimpleScriptV2
-                - SimpleScriptV1
+                - SimpleScript
                 - PlutusScriptV1
                 - PlutusScriptV2
       example:
@@ -1257,9 +1256,9 @@ components:
           "script": {
               "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
               "description": "",
-              "type": "SimpleScriptV2"
+              "type": "SimpleScript"
           },
-          "scriptLanguage": "SimpleScriptLanguage SimpleScriptV2"
+          "scriptLanguage": "SimpleScriptLanguage"
         }
 
     TextEnvelopeTransaction:

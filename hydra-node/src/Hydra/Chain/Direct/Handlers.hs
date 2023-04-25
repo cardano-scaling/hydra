@@ -11,26 +11,17 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Babbage.Tx (ValidatedTx)
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (SupportsSegWit (fromTxSeq))
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
+  BlockHeader,
   ChainPoint (..),
-  ConsensusMode (CardanoMode),
-  LedgerEra,
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromConsensusPointInMode,
-  fromLedgerTx,
+  getChainPoint,
   getTxBody,
   getTxId,
-  toLedgerTx,
-  toLedgerUTxO,
  )
 import Hydra.Chain (
   Chain (..),
@@ -56,7 +47,6 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Util (Block)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -64,9 +54,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Logging (Tracer, traceWith)
-import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockBabbage))
-import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
-import Ouroboros.Network.Block (Point (..), blockPoint)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -74,7 +61,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- * Posting Transactions
 
 -- | A callback used to actually submit a transaction to the chain.
-type SubmitTx m = ValidatedTx LedgerEra -> m ()
+type SubmitTx m = Tx -> m ()
 
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
@@ -102,20 +89,19 @@ mkChain tracer queryTimeHandle wallet ctx submitTx =
     { postTx = \chainState tx -> do
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        vtx <-
-          -- FIXME (MB): cardano keys should really not be here (as this
-          -- point they are in the 'chainState' stored in the 'ChainContext')
-          -- . They are only required for the init transaction and ought to
-          -- come from the _client_ and be part of the init request
-          -- altogether. This goes in the direction of 'dynamic heads' where
-          -- participants aren't known upfront but provided via the API.
-          -- Ultimately, an init request from a client would contain all the
-          -- details needed to establish connection to the other peers and
-          -- to bootstrap the init transaction. For now, we bear with it and
-          -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-            >>= finalizeTx wallet ctx chainState . toLedgerTx
-        submitTx vtx
+        -- FIXME (MB): cardano keys should really not be here (as this
+        -- point they are in the 'chainState' stored in the 'ChainContext')
+        -- . They are only required for the init transaction and ought to
+        -- come from the _client_ and be part of the init request
+        -- altogether. This goes in the direction of 'dynamic heads' where
+        -- participants aren't known upfront but provided via the API.
+        -- Ultimately, an init request from a client would contain all the
+        -- details needed to establish connection to the other peers and
+        -- to bootstrap the init transaction. For now, we bear with it and
+        -- keep the static keys in context.
+        atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
+          >>= finalizeTx wallet ctx chainState
+          >>= submitTx
     }
 
 -- | Balance and sign the given partial transaction.
@@ -124,11 +110,11 @@ finalizeTx ::
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
-  ValidatedTx LedgerEra ->
-  m (ValidatedTx LedgerEra)
+  Tx ->
+  m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
-  coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
+  coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
@@ -146,19 +132,19 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
         ( InternalWalletError
             { headUTxO
             , reason = show e
-            , tx = fromLedgerTx partialTx
+            , tx = partialTx
             } ::
             PostTxError Tx
         )
-    Right validatedTx -> do
-      pure $ sign validatedTx
+    Right balancedTx -> do
+      pure $ sign balancedTx
 
 -- * Following the Chain
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: Block -> m ()
-  , onRollBackward :: Point Block -> m ()
+  { onRollForward :: BlockHeader -> [Tx] -> m ()
+  , onRollBackward :: ChainPoint -> m ()
   }
 
 -- | Conversion of a slot number to a time failed. This can be usually be
@@ -198,16 +184,14 @@ chainSyncHandler tracer callback getTimeHandle ctx =
     , onRollForward
     }
  where
-  onRollBackward :: Point Block -> m ()
-  onRollBackward rollbackPoint = do
-    let point = fromConsensusPointInMode CardanoMode rollbackPoint
+  onRollBackward :: ChainPoint -> m ()
+  onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
     callback (const . Just $ Rollback $ chainSlotFromPoint point)
 
-  onRollForward :: Block -> m ()
-  onRollForward blk = do
-    let point = fromConsensusPointInMode CardanoMode $ blockPoint blk
-    let receivedTxs = map fromLedgerTx . toList $ getBabbageTxs blk
+  onRollForward :: BlockHeader -> [Tx] -> m ()
+  onRollForward header receivedTxs = do
+    let point = getChainPoint header
     traceWith tracer $
       RolledForward
         { point
@@ -303,27 +287,14 @@ maxGraceTime :: NominalDiffTime
 maxGraceTime = 200
 
 --
--- Helpers
---
-
--- | This extract __Babbage__ transactions from a block. If the block wasn't
--- produced in the Babbage era, it returns an empty sequence.
-getBabbageTxs :: Block -> StrictSeq (ValidatedTx LedgerEra)
-getBabbageTxs = \case
-  BlockBabbage (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
-    fromTxSeq txsSeq
-  _ ->
-    mempty
-
---
 -- Tracing
 --
 
 data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
-  | PostingTx {txId :: Ledger.TxId StandardCrypto}
-  | PostedTx {txId :: Ledger.TxId StandardCrypto}
-  | PostingFailed {tx :: ValidatedTx LedgerEra, postTxError :: PostTxError Tx}
+  | PostingTx {txId :: TxId}
+  | PostedTx {txId :: TxId}
+  | PostingFailed {tx :: Tx, postTxError :: PostTxError Tx}
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog

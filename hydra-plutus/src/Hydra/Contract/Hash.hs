@@ -11,14 +11,12 @@ import PlutusTx.Prelude
 import qualified Hydra.Prelude as Haskell
 
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Plutus.V2.Ledger.Api (
+import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
+import PlutusLedgerApi.V2 (
   Datum (Datum),
   Redeemer (Redeemer),
-  Script,
   ScriptContext,
-  ValidatorHash,
-  getValidator,
-  mkValidatorScript,
+  ScriptHash,
  )
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
@@ -54,10 +52,10 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
-validatorScript :: Script
-validatorScript = getValidator $ mkValidatorScript compiledValidator
+validatorScript :: SerialisedScript
+validatorScript = serialiseCompiledCode compiledValidator
 
-validatorHash :: ValidatorHash
+validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash validatorScript
 
 datum :: DatumType -> Datum

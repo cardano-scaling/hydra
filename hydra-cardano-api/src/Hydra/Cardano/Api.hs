@@ -53,6 +53,7 @@ import Cardano.Api as X hiding (
   TxBodyScriptData (..),
   TxExtraKeyWitnesses (..),
   TxFee (..),
+  TxIns,
   TxInsCollateral (..),
   TxInsReference (..),
   TxMetadataInEra (..),
@@ -85,8 +86,11 @@ import Cardano.Api.Shelley as X (
   ShelleyLedgerEra,
   SigningKey (..),
   VerificationKey (..),
+  fromAlonzoCostModels,
+  fromAlonzoPrices,
   fromConsensusPointInMode,
   fromPlutusData,
+  toAlonzoPrices,
   toConsensusPointInMode,
   toPlutusData,
  )
@@ -103,7 +107,8 @@ import Hydra.Cardano.Api.Prelude (
 
 import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
-import Hydra.Cardano.Api.ChainPoint ()
+import Hydra.Cardano.Api.BlockHeader as Extras
+import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
 import Hydra.Cardano.Api.CtxUTxO as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras
@@ -113,7 +118,6 @@ import Hydra.Cardano.Api.Lovelace as Extras
 import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
 import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.PlutusScript as Extras
-import Hydra.Cardano.Api.PlutusScriptVersion as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
@@ -121,7 +125,6 @@ import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
 import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
-import Hydra.Cardano.Api.ScriptWitnessInCtx as Extras
 import Hydra.Cardano.Api.Tx as Extras
 import Hydra.Cardano.Api.TxBody as Extras
 import Hydra.Cardano.Api.TxId as Extras
@@ -139,12 +142,10 @@ import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
+import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
 import Data.ByteString.Short (ShortByteString)
 import Prelude
@@ -192,9 +193,9 @@ pattern ShelleyAddressInAnyEra <-
 type BalancedTxBody = Cardano.Api.BalancedTxBody Era
 {-# COMPLETE BalancedTxBody #-}
 
-pattern BalancedTxBody :: TxBody -> TxOut CtxTx -> Lovelace -> BalancedTxBody
-pattern BalancedTxBody{balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
-  Cardano.Api.BalancedTxBody balancedTxBody balancedTxChangeOutput balancedTxFee
+pattern BalancedTxBody :: TxBodyContent BuildTx -> TxBody -> TxOut CtxTx -> Lovelace -> BalancedTxBody
+pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
+  Cardano.Api.BalancedTxBody balancedTxBodyContent balancedTxBody balancedTxChangeOutput balancedTxFee
   where
     BalancedTxBody =
       Cardano.Api.BalancedTxBody
@@ -617,14 +618,14 @@ pattern TxOutDatumHash{txOutDatumHash} <-
     TxOutDatumHash =
       Cardano.Api.TxOutDatumHash ScriptDataInBabbageEra
 
-pattern TxOutDatumInTx :: ScriptData -> TxOutDatum CtxTx
+pattern TxOutDatumInTx :: HashableScriptData -> TxOutDatum CtxTx
 pattern TxOutDatumInTx{txOutDatumScriptData} <-
   Cardano.Api.TxOutDatumInTx _ txOutDatumScriptData
   where
     TxOutDatumInTx =
       Cardano.Api.TxOutDatumInTx ScriptDataInBabbageEra
 
-pattern TxOutDatumInline :: ScriptData -> TxOutDatum ctx
+pattern TxOutDatumInline :: HashableScriptData -> TxOutDatum ctx
 pattern TxOutDatumInline{txOutDatumInlineScriptData} <-
   Cardano.Api.TxOutDatumInline _ txOutDatumInlineScriptData
   where

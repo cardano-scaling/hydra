@@ -60,7 +60,7 @@ mkPaintTx ::
   Pixel ->
   Either TxBodyError Tx
 mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, blue} = do
-  body <- makeTransactionBody bodyContent
+  body <- createAndValidateTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
@@ -79,9 +79,9 @@ mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, b
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
-      [ toTxContext $ txOutBefore{txOutValue = valueIn <> negateValue valueOut}
-      | valueOut /= valueIn
-      ]
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+      : [ toTxContext $ txOutBefore{txOutValue = valueIn <> negateValue valueOut}
+        | valueOut /= valueIn
+        ]
 
   fee = Lovelace 0

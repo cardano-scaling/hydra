@@ -36,6 +36,7 @@ import Hydra.Cardano.Api (
   UTxO' (UTxO),
   Value,
   chainPointToSlotNo,
+  genTxIn,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -101,7 +102,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Options (maximumNumberOfParties)
@@ -360,7 +361,8 @@ commit ctx st utxo = do
   rejectMoreThanMainnetLimit :: NetworkId -> TxOut CtxUTxO -> Either (PostTxError Tx) ()
   rejectMoreThanMainnetLimit network output =
     when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
-      Left $ CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
+      Left $
+        CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
    where
     lovelaceAmt = selectLovelace (txOutValue output)
 

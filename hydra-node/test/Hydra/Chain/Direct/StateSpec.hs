@@ -18,6 +18,7 @@ import Hydra.Cardano.Api (
   NetworkId (Mainnet),
   Tx,
   UTxO,
+  genTxIn,
   hashScript,
   lovelaceToValue,
   modifyTxOutValue,
@@ -83,7 +84,6 @@ import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitRe
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger.Cardano (
   genOutput,
-  genTxIn,
   genTxOut,
   genTxOutAdaOnly,
   genTxOutByron,
@@ -99,8 +99,8 @@ import Hydra.Ledger.Cardano.Evaluate (
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
-import qualified Plutus.V1.Ledger.Examples as Plutus
-import qualified Plutus.V2.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.Test.Examples as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
@@ -249,7 +249,7 @@ spec = parallel $ do
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
-        utxo <- pickBlind $ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
+        utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
         pure $
           case commit mainnetChainContext stInitial utxo of

@@ -7,7 +7,7 @@ import qualified Cardano.Ledger.Keys as Ledger
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import qualified Cardano.Ledger.Shelley.Scripts as Ledger
 import qualified Data.ByteString as BS
-import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified PlutusLedgerApi.V2 as Plutus
 
 -- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
@@ -28,9 +28,9 @@ unsafePaymentKeyHashFromBytes ::
   Hash PaymentKey
 unsafePaymentKeyHashFromBytes bytes
   | BS.length bytes /= 28 =
-    error $ "unsafePaymentKeyHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+      error $ "unsafePaymentKeyHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
   | otherwise =
-    PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
+      PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
 
 -- | Unsafe wrap some bytes as a 'ScriptHash', relying on the fact that Plutus
 -- is using Blake2b_224 for hashing data (according to 'cardano-ledger').
@@ -42,11 +42,11 @@ unsafeScriptHashFromBytes ::
   ScriptHash
 unsafeScriptHashFromBytes bytes
   | BS.length bytes /= 28 =
-    error $ "unsafeScriptHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+      error $ "unsafeScriptHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
   | otherwise =
-    fromShelleyScriptHash
-      . Ledger.ScriptHash
-      $ unsafeHashFromBytes bytes
+      fromShelleyScriptHash
+        . Ledger.ScriptHash
+        $ unsafeHashFromBytes bytes
 
 -- | Unsafe wrap some bytes as a 'Hash ScriptData', relying on the fact that
 -- Plutus is using Blake2b_256 for hashing data (according to 'cardano-ledger').
@@ -58,11 +58,11 @@ unsafeScriptDataHashFromBytes ::
   Hash ScriptData
 unsafeScriptDataHashFromBytes bytes
   | BS.length bytes /= 32 =
-    error $ "unsafeScriptDataHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+      error $ "unsafeScriptDataHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
   | otherwise =
-    ScriptDataHash
-      . unsafeMakeSafeHash
-      $ unsafeHashFromBytes bytes
+      ScriptDataHash
+        . unsafeMakeSafeHash
+        $ unsafeHashFromBytes bytes
 
 -- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although
 -- there's a 'CastHash' type-class, there are not instances for everything, so

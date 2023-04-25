@@ -19,21 +19,21 @@ module Hydra.Network.Heartbeat where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
 import Hydra.Network.Message (Message (Connected, Disconnected))
 
 data HeartbeatState = HeartbeatState
-  { -- | The map of known 'Connected' parties with the last time they've been "seen".
-    -- This is updated when we see a message from another node
-    alive :: Map NodeId Time
-  , -- | The set of known parties which might be 'Disconnected'
-    -- This is updated after some time no message has been received from a node.
-    suspected :: Set NodeId
-  , -- | The timestamp of the last sent message.
-    lastSent :: Maybe Time
+  { alive :: Map NodeId Time
+  -- ^ The map of known 'Connected' parties with the last time they've been "seen".
+  -- This is updated when we see a message from another node
+  , suspected :: Set NodeId
+  -- ^ The set of known parties which might be 'Disconnected'
+  -- This is updated after some time no message has been received from a node.
+  , lastSent :: Maybe Time
+  -- ^ The timestamp of the last sent message.
   }
   deriving (Eq)
 

@@ -12,7 +12,7 @@ import Hydra.Cardano.Api (SigningKey)
 import qualified Hydra.Contract.HeadState as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Ledger (IsTx (..))
-import Plutus.V2.Ledger.Api (toBuiltin, toData)
+import PlutusLedgerApi.V2 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 
@@ -24,8 +24,8 @@ newtype SnapshotNumber
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
   , utxo :: UTxOType tx
-  , -- | The set of transactions that lead to 'utxo'
-    confirmed :: [tx]
+  , confirmed :: [tx]
+  -- ^ The set of transactions that lead to 'utxo'
   }
   deriving (Generic)
 
@@ -127,10 +127,10 @@ genConfirmedSnapshot ::
 genConfirmedSnapshot minSn utxo sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
-    frequency
-      [ (1, initialSnapshot)
-      , (9, confirmedSnapshot)
-      ]
+      frequency
+        [ (1, initialSnapshot)
+        , (9, confirmedSnapshot)
+        ]
  where
   initialSnapshot =
     pure $ InitialSnapshot utxo
