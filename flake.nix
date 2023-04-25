@@ -63,7 +63,7 @@
 
         # Build selected derivations in CI for caching
         hydraJobs = {
-          packages = { inherit (packages) hydra-node hydra-tui hydraw; };
+          packages = { inherit (packages) hydra-node hydra-tui hydraw spec; };
           devShells = { inherit (devShells) default ci; };
         };
       });
