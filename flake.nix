@@ -46,7 +46,9 @@
 
         packages =
           hydraPackages //
-          prefixAttrs "docker-" hydraImages;
+          prefixAttrs "docker-" hydraImages // {
+            spec = import ./spec { inherit pkgs; };
+          };
 
         devShells = (import ./nix/hydra/shell.nix {
           inherit (inputs) cardano-node;
