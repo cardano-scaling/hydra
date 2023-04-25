@@ -2,7 +2,7 @@ module Hydra.API.Projection where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVar)
 
 -- | 'Hydra.API.Projection' module exposes the handle which is our implementation of
 --    projections from the CQRS terminology.
