@@ -167,7 +167,7 @@ runAPIServer ::
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
-  -- | Read model to enhance 'Greetings' messages with snapshot UTxO's.
+  -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (ServerOutput tx) (UTxOType tx) ->
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.

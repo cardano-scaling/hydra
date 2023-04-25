@@ -336,6 +336,46 @@ spec = describe "ServerSpec" $
               status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
               status `shouldBe` expectedUtxos
 
+            -- send another output changing the snapshot utxo to the empty map
+            let snapshotConfirmedEmptyUtxo =
+                  SnapshotConfirmed
+                    { headId = HeadId "some-head-id"
+                    , snapshot = generatedSnapshot{utxo = mempty}
+                    , signatures = mempty
+                    }
+            sendOutput snapshotConfirmedEmptyUtxo
+            withClient port "/?history=no" $ \conn -> do
+              status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
+              status `shouldBe` Aeson.Array (fromList [])
+
+    it "greets with correct snapshot utxo after a restart" $
+      showLogsOnFailure $ \tracer ->
+        withTempDir "api-server-snapshot-utxo" $ \persistenceDir ->
+          withFreePort $ \port -> do
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
+            let snapShotConfirmedMessage =
+                  SnapshotConfirmed
+                    { headId = HeadId "some-head-id"
+                    , snapshot = generatedSnapshot
+                    , signatures = mempty
+                    }
+            let expectedUtxos =
+                  toJSON (Hydra.Snapshot.utxo $ Hydra.API.ServerOutput.snapshot snapShotConfirmedMessage)
+
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
+              sendOutput snapShotConfirmedMessage
+
+              withClient port "/?history=no" $ \conn -> do
+                status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
+                status `shouldBe` expectedUtxos
+
+            -- expect the api server to load events from apiPersistence and project headStatus correctly
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
+              withClient port "/?history=no" $ \conn -> do
+                status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
+                status `shouldBe` expectedUtxos
+
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
         withFreePort $
