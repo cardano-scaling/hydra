@@ -205,7 +205,16 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback ChainSlot
-  | Tick UTCTime
+  | 
+  -- XXX: it's not guaranteed that UTCTime and ChainSlot of a Tick are consistent 
+  -- the alternative would be to have the mans to do the conversion.
+  -- For Cardano, this would be a systemStart and eraHistory..
+  -- which is annoying and if it's kept in the chain layer, 
+  -- it would mean another round trip / state to keep there.
+  Tick {
+    chainTime :: UTCTime,
+    chainSlot :: ChainSlot
+  }
   deriving (Generic)
 
 deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)

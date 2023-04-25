@@ -1101,13 +1101,16 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contents
+          - chainTime
+          - chainSlot
         properties:
           tag:
             type: string
             enum: ["Tick"]
-          contents:
+          chainTime:
             $ref: "api.yaml#/components/schemas/UTCTime"
+          chainSlot:
+            $ref: "api.yaml#/components/schemas/ChainSlot"
 
   OnChainTx:
     description: >-

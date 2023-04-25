@@ -206,7 +206,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            callback (const . Just $ Tick utcTime)
+            callback (const . Just $ Tick utcTime (chainSlotFromPoint point))
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->

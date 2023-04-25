@@ -266,7 +266,7 @@ spec = around showLogsOnFailure $ do
             delayUntil deadline
 
             waitMatch aliceChain $ \case
-              Tick t | t > deadline -> Just ()
+              Tick t _ | t > deadline -> Just ()
               _ -> Nothing
             postTx $
               FanoutTx

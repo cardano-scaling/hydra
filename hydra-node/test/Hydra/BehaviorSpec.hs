@@ -587,7 +587,7 @@ simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
   chainStateVar <- newTVarIO initialChainState
-  tickThread <- async $ simulateTicks nodes
+  tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     ConnectToChain
       { chainComponent = \node -> do
@@ -602,10 +602,11 @@ simulatedChainAndNetwork initialChainState = do
       }
  where
   blockTime = 20 -- seconds
-  simulateTicks nodes = forever $ do
+  simulateTicks nodes chainStateVar = forever $ do
+    cs <- readTVarIO chainStateVar
     threadDelay blockTime
     now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now (chainStateSlot cs)) ns
 
   postTx nodes history chainStateVar tx = do
     now <- getCurrentTime

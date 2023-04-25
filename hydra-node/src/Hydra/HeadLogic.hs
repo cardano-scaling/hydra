@@ -1036,7 +1036,7 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
-  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
+  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime _))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
         (Closed cst{readyToFanoutSent = True})

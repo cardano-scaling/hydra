@@ -282,7 +282,7 @@ spec = do
           _ -> False
         s1 <- assertNewState outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
+            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline (ChainSlot 1)
             s2 = update bobEnv ledger s1 stepTimePastDeadline
         s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
