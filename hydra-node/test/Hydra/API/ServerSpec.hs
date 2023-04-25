@@ -32,7 +32,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, confirmed)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import System.Timeout (timeout)
@@ -320,10 +320,21 @@ spec = describe "ServerSpec" $
     it "displays correctly snapshotUtxo in a Greeting message" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
+
+            let snapShotConfirmedMessage =
+                  SnapshotConfirmed
+                    { headId = HeadId "some-head-id"
+                    , snapshot = generatedSnapshot
+                    , signatures = mempty
+                    }
+            let expectedUtxos =
+                  toJSON (Hydra.Snapshot.utxo $ Hydra.API.ServerOutput.snapshot snapShotConfirmedMessage)
+            sendOutput snapShotConfirmedMessage
             withClient port "/?history=no" $ \conn -> do
               status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-              status `shouldBe` Aeson.Array (fromList [])
+              status `shouldBe` expectedUtxos
 
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
