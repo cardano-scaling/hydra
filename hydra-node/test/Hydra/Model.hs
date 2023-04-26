@@ -613,7 +613,6 @@ performNewTx party tx = do
     waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      RolledBack{} -> error ("rolled back while in open state!")
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
@@ -629,7 +628,9 @@ waitForOpen node = do
  where
   isOpen status [] = status
   isOpen _ (HeadIsOpen{} : rest) = isOpen True rest
-  isOpen _ (RolledBack{} : rest) = isOpen False rest
+  -- Remember, if we introduce rollback again, we'll have to
+  -- take them into account here
+  -- isOpen _ (RolledBack{} : rest) = isOpen False rest
   isOpen status (_ : rest) = isOpen status rest
 
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node

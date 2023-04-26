@@ -664,10 +664,20 @@
             "tag": "CommandFailed"
         },
         {
-            "tag": "RolledBack"
+            "peer": "rn",
+            "tag": "PeerDisconnected"
         },
         {
-            "tag": "RolledBack"
+            "headId": "06040007020508070103010806040808",
+            "party": {
+                "vkey": "484c0959c0907df99d9ddea176c5937b7ac74991e88849ab29c96f9e2e6e4dd7"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -5,
+                1,
+                2
+            ]
         },
         {
             "postChainTx": {
@@ -777,7 +787,9 @@
             "tag": "PeerConnected"
         },
         {
-            "tag": "RolledBack"
+            "headId": "01000303020504050007000800040504",
+            "tag": "HeadIsOpen",
+            "utxo": []
         },
         {
             "headId": "07070305000703080403080502020805",
@@ -787,7 +799,8 @@
             ]
         },
         {
-            "tag": "RolledBack"
+            "peer": "daqzxy",
+            "tag": "PeerConnected"
         },
         {
             "headId": "03080500000701030701060506000104",
@@ -1481,7 +1494,8 @@
             "tag": "Greetings"
         },
         {
-            "tag": "RolledBack"
+            "peer": "a",
+            "tag": "PeerDisconnected"
         },
         {
             "clientInput": {
@@ -1764,7 +1778,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "tag": "RolledBack"
+            "headId": "02080403020801040707080408030204",
+            "tag": "ReadyToFanout"
         },
         {
             "clientInput": {
@@ -1882,7 +1897,10 @@
             ]
         },
         {
-            "tag": "RolledBack"
+            "clientInput": {
+                "tag": "Fanout"
+            },
+            "tag": "CommandFailed"
         },
         {
             "headId": "05030100040100080704040105070804",
@@ -2051,7 +2069,11 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "tag": "RolledBack"
+            "headId": "01030200010308040206010801040305",
+            "tag": "HeadIsAborted",
+            "utxo": [
+                1
+            ]
         },
         {
             "headStatus": "Open",
@@ -2125,7 +2147,8 @@
             "tag": "ReadyToFanout"
         },
         {
-            "tag": "RolledBack"
+            "peer": "nnr",
+            "tag": "PeerDisconnected"
         },
         {
             "headId": "08020100010303070307010707070703",
@@ -2199,7 +2222,23 @@
             "tag": "ReadyToFanout"
         },
         {
-            "tag": "RolledBack"
+            "headId": "03000205070601040601080400060004",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -4,
+                "inputs": [
+                    -6,
+                    -4,
+                    -2
+                ],
+                "outputs": []
+            },
+            "utxo": [
+                -4
+            ],
+            "validationError": {
+                "reason": ""
+            }
         },
         {
             "peer": "d",
@@ -2210,7 +2249,8 @@
             "tag": "ReadyToFanout"
         },
         {
-            "tag": "RolledBack"
+            "headId": "01050506000707080503060108060705",
+            "tag": "ReadyToFanout"
         },
         {
             "contestationDeadline": "1864-05-10T03:16:05.047855044727Z",

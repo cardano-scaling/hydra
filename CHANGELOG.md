@@ -10,8 +10,8 @@ changes.
 
 ## [0.10.0] - UNRELEASED
 
-- **LOG BREAKING** internally, the Rollback event has been changed to carry the
-  chain state which changes a bit the format of some logs.
+- **BREAKING** Rollback has been removed from the API
+  + internally, the Rollback event has been changed to carry the chain state which changes a bit the format of some logs.
 
 - **BREAKING** Changed `hydra-node` and `hydra-tui` arguments:
   + Instead of `--network-id` flag they now use `--testnet-magic` and we support

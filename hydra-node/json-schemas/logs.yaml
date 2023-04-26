@@ -725,7 +725,6 @@ definitions:
       - parameters
       - pendingCommits
       - committed
-      - previousRecoverableState
       - chainState
       - headId
     properties:
@@ -739,8 +738,6 @@ definitions:
         type: array
         items:
           $ref: "api.yaml#/components/schemas/Party"
-      previousRecoverableState:
-        $ref: "#/definitions/HeadState"
       chainState:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
@@ -752,7 +749,6 @@ definitions:
     required:
       - parameters
       - coordinatedHeadState
-      - previousRecoverableState
       - chainState
       - headId
     properties:
@@ -760,8 +756,6 @@ definitions:
         $ref: "api.yaml#/components/schemas/HeadParameters"
       coordinatedHeadState:
         $ref: "#/definitions/CoordinatedHeadState"
-      previousRecoverableState:
-        $ref: "#/definitions/HeadState"
       chainState:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
@@ -772,7 +766,6 @@ definitions:
     additionalProperties: false
     required:
       - parameters
-      - previousRecoverableState
       - confirmedSnapshot
       - contestationDeadline
       - readyToFanoutSent
@@ -781,8 +774,6 @@ definitions:
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
-      previousRecoverableState:
-        $ref: "#/definitions/HeadState"
       confirmedSnapshot:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       contestationDeadline:
@@ -1085,15 +1076,16 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contents
+          - slot
+          - newChainState
         properties:
           tag:
             type: string
             enum: ["Rollback"]
-          contents:
+          slot:
             type: integer
-            minimum: 0
-
+          newChainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
       - title: Tick
         description: |
           Time has progressed on the chain.

@@ -6,12 +6,10 @@
             },
             "event": {
                 "chainEvent": {
-                    "contents": [
-                        16,
-                        {
-                            "slot": 0
-                        }
-                    ],
+                    "newChainState": {
+                        "slot": 0
+                    },
+                    "slot": 16,
                     "tag": "Rollback"
                 },
                 "tag": "OnChainEvent"

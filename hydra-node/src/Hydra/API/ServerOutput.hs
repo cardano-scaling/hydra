@@ -84,7 +84,6 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | RolledBack
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
@@ -132,7 +131,6 @@ instance
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me headStatus snapshotUtxo -> Greetings <$> shrink me <*> shrink headStatus <*> shrink snapshotUtxo
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
-    RolledBack -> []
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -234,7 +232,6 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                 )
                 encodedResponse
         _other -> encodedResponse
-    RolledBack -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

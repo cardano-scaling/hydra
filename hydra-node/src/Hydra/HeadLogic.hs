@@ -967,8 +967,7 @@ onClosedChainFanoutTx closedState newChainState =
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
--- | Observe a chain rollback and transition to corresponding previous
--- recoverable state.
+-- | Observe a chain rollback
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback ::

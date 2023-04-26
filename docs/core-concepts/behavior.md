@@ -14,15 +14,13 @@ The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_mach
 
 Not pictured is the `CommandFailed` output, which is implicit emitted whenever an input is used when no transition below applies. Also non-state-changing or life-cycle relevant inputs like `GetUTxO` are not mentioned, as well as outputs like `Greetings`, `InvalidInput`, `PeerConnected`, `PeerDisconnected` and `GetUTxOResponse`.
 
-A special case is the `RolledBack` output. This means that the chain rolled back, and it includes timestamp and a counter (same as other API client messages) so it is easier to construct the timeline.
-
 #### API configuration
 
 There are some options for API clients to control the server outputs. Server outputs are controlled using the following query parameters:
 
-  + `history=no` -> Prevents historical outputs display. All server outputs are recorded and when a client re-connects these outputs are replayed unless `history=no` query param is used.
-  + `tx-output=cbor` -> Outputs transaction fields encoded as CBOR instead of default JSON.
-  + `snapshot-utxo=no` -> In case of a `SnapshotConfirmed` message the `utxo` field in the inner `Snapshot` will be omitted.
++ `history=no` -> Prevents historical outputs display. All server outputs are recorded and when a client re-connects these outputs are replayed unless `history=no` query param is used.
++ `tx-output=cbor` -> Outputs transaction fields encoded as CBOR instead of default JSON.
++ `snapshot-utxo=no` -> In case of a `SnapshotConfirmed` message the `utxo` field in the inner `Snapshot` will be omitted.
 
 ## Replay of past server outputs
 

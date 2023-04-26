@@ -79,7 +79,6 @@ channels:
           - $ref: "#/components/messages/TxInvalid"
           - $ref: "#/components/messages/SnapshotConfirmed"
           - $ref: "#/components/messages/GetUTxOResponse"
-          - $ref: "#/components/messages/RolledBack"
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
