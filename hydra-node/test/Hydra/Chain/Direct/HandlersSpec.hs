@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainCallback,
   ChainEvent (..),
+  ChainSlot(..),
   HeadParameters,
  )
 import Hydra.Chain.Direct.Handlers (

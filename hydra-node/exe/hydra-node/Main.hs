@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (HeadParameters (..), chainStateSlot)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -86,7 +86,7 @@ main = do
           load persistence >>= \case
             Nothing -> do
               traceWith tracer CreatedState
-              pure $ Idle IdleState{chainState = initialChainState}
+              pure $ Idle IdleState{chainState = initialChainState, chainSlot = chainStateSlot initialChainState}
             Just headState -> do
               traceWith tracer LoadedState
               let paramsMismatch = checkParamsAgainstExistingState headState env

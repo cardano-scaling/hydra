@@ -396,14 +396,17 @@ inInitialState parties =
       , pendingCommits = Set.fromList parties
       , committed = mempty
       , previousRecoverableState = Idle idleState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
-
+  
+  chainSlot = ChainSlot 0
+  
   idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+    IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
 
 inOpenState ::
   [Party] ->
@@ -425,8 +428,9 @@ inOpenState' parties coordinatedHeadState =
       { parameters
       , coordinatedHeadState
       , previousRecoverableState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
@@ -438,12 +442,15 @@ inOpenState' parties coordinatedHeadState =
         , pendingCommits = mempty
         , committed = mempty
         , previousRecoverableState = Idle idleState
-        , chainState = SimpleChainState{slot = ChainSlot 0}
+        , chainState = SimpleChainState{slot = chainSlot}
         , headId = testHeadId
+        , chainSlot
         }
-
+  
+  chainSlot = ChainSlot 0
+  
   idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+    IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -460,12 +467,15 @@ inClosedState' parties confirmedSnapshot =
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
-
+  
+  chainSlot = ChainSlot 0
+  
   contestationDeadline = arbitrary `generateWith` 42
 
   previousRecoverableState = inOpenState parties simpleLedger

@@ -20,7 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (Async, async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Hydra.BehaviorSpec (ConnectToChain (..))
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), chainStateSlot)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollForward)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -111,7 +111,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         -- slots to time in long simulations, but it's horizon is arbitrary.
         let getTimeHandle = pure $ arbitrary `generateWith` 42
         let seedInput = genTxIn `generateWith` 42
-        nodeState <- createNodeState $ Idle IdleState{chainState}
+        nodeState <- createNodeState $ Idle IdleState{chainState, chainSlot = chainStateSlot chainState}
         let HydraNode{eq} = node
         let callback = chainCallback nodeState eq
         let chainHandler = chainSyncHandler tr callback getTimeHandle ctx
