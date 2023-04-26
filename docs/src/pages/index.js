@@ -43,7 +43,10 @@ export default function Home() {
   return (
     <Layout
       title={""}
-      description={`${translate({ id: "homepage.tagline" })}`}>
+      description={`${translate({ 
+        id: "homepage.tagline", 
+        message: "User manual, core concepts, API reference"
+      })}`}>
       <HomepageHeader />
       <main>
         <HomepageFeatures />
