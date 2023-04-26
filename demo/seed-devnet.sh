@@ -90,7 +90,7 @@ function seedFaucet() {
 }
 
 function publishReferenceScripts() {
-  echo >&2 "Publishing reference scripts ('νInitial' & 'νCommit')..."
+  echo >&2 "Publishing reference scripts..."
   hnode publish-scripts \
     --testnet-magic ${NETWORK_ID} \
     --node-socket ${DEVNET_DIR}/node.socket \
