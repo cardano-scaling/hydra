@@ -60,7 +60,7 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyHeadFullLifeCycle,
+  singlePartyHeadFullLifeCycle
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -121,7 +121,12 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
-
+      fit "can submmit a timed tx" $ \tracer -> do
+        withClusterTempDir "timmed-tx" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= timedTx tmpDir tracer node
+         
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
@@ -486,6 +491,48 @@ waitForLog delay nodeOutput failureMessage predicate = do
         , "seen logs:"
         ]
           <> logs
+
+timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId  = do
+  aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  let aliceSk = generateSigningKey "alice-timed"
+  let alice = deriveParty aliceSk
+  let cardanoKeys = [aliceKeys]
+      hydraKeys = [aliceSk]
+  let contestationPeriod = UnsafeContestationPeriod 2
+  withHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+    let [n1] = toList nodes
+    waitForNodesConnected tracer [n1]
+    
+    -- Funds to be used as fuel by Hydra protocol transactions
+    seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+    send n1 $ input "Init" []
+    headId <-
+      waitForAllMatch 10 [n1] $
+        headIsInitializingWith (Set.fromList [alice])
+
+    -- Get some UTXOs to commit to a head
+    committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+    send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+    waitFor tracer 10 [n1] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice), "headId" .= headId]
+
+    -- Create an arbitrary transaction using some input.
+    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+    (faucetVk, _) <- keysFor Faucet
+    let Right tx =
+          mkSimpleTx
+            firstCommittedUTxO
+            (inHeadAddress faucetVk, lovelaceToValue 1_000_000)
+            aliceCardanoSk
+    send n1 $ input "NewTx" ["transaction" .= tx]
+    waitFor tracer 10 [n1] $
+        output "TxValid" ["transaction" .= tx, "headId" .= headId]
+
+    waitMatch 10 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      -- snapshot <- v ^? key "snapshot"
+      -- guard $ snapshot == expectedSnapshot
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

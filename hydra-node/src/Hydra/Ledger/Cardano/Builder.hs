@@ -54,24 +54,25 @@ instance Exception InvalidTransactionException
 -- values for collaterals and protocol params in the 'empty' value
 emptyTxBody :: TxBodyContent BuildTx
 emptyTxBody =
-  TxBodyContent
-    mempty -- inputs
-    (TxInsCollateral mempty) -- FIXME
-    TxInsReferenceNone
-    mempty -- outputs
-    TxTotalCollateralNone
-    TxReturnCollateralNone
-    (TxFeeExplicit 0)
-    (TxValidityNoLowerBound, TxValidityNoUpperBound)
-    TxMetadataNone
-    TxAuxScriptsNone
-    TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
-    TxWithdrawalsNone
-    TxCertificatesNone
-    TxUpdateProposalNone
-    TxMintValueNone
-    TxScriptValidityNone
+  TxBodyContent {
+    txIns = mempty -- inputs
+    , txInsCollateral = (TxInsCollateral mempty) -- FIXME
+    , txInsReference = TxInsReferenceNone
+    , txOuts = mempty -- outputs
+    , txTotalCollateral = TxTotalCollateralNone
+    , txReturnCollateral = TxReturnCollateralNone
+    , txFee = (TxFeeExplicit 0)
+    , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound)
+    , txMetadata = TxMetadataNone
+    , txAuxScripts = TxAuxScriptsNone
+    , txExtraKeyWits = TxExtraKeyWitnessesNone
+    , txProtocolParams = (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
+    , txWithdrawals = TxWithdrawalsNone
+    , txCertificates = TxCertificatesNone
+    , txUpdateProposal = TxUpdateProposalNone
+    , txMintValue = TxMintValueNone
+    , txScriptValidity = TxScriptValidityNone
+  }
 
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
