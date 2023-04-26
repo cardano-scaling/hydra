@@ -235,7 +235,6 @@ components:
           - tag
           - me
           - headStatus
-          - snapshotUtxo
           - seq
           - timestamp
         properties:
@@ -819,7 +818,7 @@ components:
         - Initializing
         - Open
         - Closed
-        - ClosedAfterDeadline
+        - FanoutPossible
         - Final
 
     MultiSignature:

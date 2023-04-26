@@ -4,7 +4,7 @@ module Hydra.API.ServerOutput where
 
 import Cardano.Binary (serialize')
 import Control.Lens ((.~))
-import Data.Aeson (Value (..), encode, withObject, (.:))
+import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
@@ -80,16 +80,29 @@ data ServerOutput tx
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
-    -- only knows one).
-    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: UTxOType tx}
+    -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
+    -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
+    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
 deriving instance (IsTx tx, IsChainState tx) => Show (ServerOutput tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (ServerOutput tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput tx)
+
+instance (IsTx tx, IsChainState tx) => ToJSON (ServerOutput tx) where
+  toJSON =
+    genericToJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
+
+instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput tx) where
+  parseJSON =
+    genericParseJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
 
 instance
   ( IsTx tx
@@ -244,7 +257,7 @@ data HeadStatus
   | Initializing
   | Open
   | Closed
-  | ClosedAfterDeadline
+  | FanoutPossible
   | Final
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -257,13 +270,13 @@ projectHeadStatus headStatus = \case
   HeadIsInitializing{} -> Initializing
   HeadIsOpen{} -> Open
   HeadIsClosed{} -> Closed
-  ReadyToFanout{} -> ClosedAfterDeadline
+  ReadyToFanout{} -> FanoutPossible
   HeadIsFinalized{} -> Final
   _other -> headStatus
 
 -- | Projection function related to 'snapshotUtxo' field in 'Greetings' message.
-projectSnapshotUtxo :: UTxOType tx -> ServerOutput tx -> UTxOType tx
+projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
-  SnapshotConfirmed _ snapshot _ -> Hydra.Snapshot.utxo snapshot
-  HeadIsOpen _ utxos -> utxos
+  SnapshotConfirmed _ snapshot _ -> Just $ Hydra.Snapshot.utxo snapshot
+  HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo

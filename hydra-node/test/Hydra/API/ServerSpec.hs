@@ -7,7 +7,6 @@ import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
-import Control.Lens ((^?))
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
@@ -18,8 +17,8 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
+import Control.Lens ((^?))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Lens (key, nonNull)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
@@ -32,7 +31,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (utxo), confirmed)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import System.Timeout (timeout)
@@ -206,10 +205,7 @@ spec = describe "ServerSpec" $
                     , postTxError = NoSeedInput
                     }
                 guardForValue v expected =
-                  case v of
-                    Aeson.Object km ->
-                      guard . (expected ==) =<< KeyMap.lookup "transaction" km
-                    _other -> Nothing
+                  guard $ v ^? key "transaction" == Just expected
 
             -- client is able to specify they want tx output to be encoded as CBOR
             withClient port "/?history=no&tx-output=cbor" $ \conn -> do
@@ -248,18 +244,18 @@ spec = describe "ServerSpec" $
         withFreePort $ \port ->
           withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
-            let snapshotConfirmedMessage = SnapshotConfirmed{headId = HeadId "some-head-id", Hydra.API.ServerOutput.snapshot, Hydra.API.ServerOutput.signatures = mempty}
+            let snapshotConfirmedMessage =
+                  SnapshotConfirmed
+                    { headId = HeadId "some-head-id"
+                    , Hydra.API.ServerOutput.snapshot
+                    , Hydra.API.ServerOutput.signatures = mempty
+                    }
 
             withClient port "/?snapshot-utxo=no" $ \conn -> do
               sendOutput snapshotConfirmedMessage
 
               waitMatch 5 conn $ \v ->
-                case v of
-                  Aeson.Object km -> do
-                    case KeyMap.lookup "snapshot" km of
-                      Just (Aeson.Object km') -> guard $ isNothing $ KeyMap.lookup "utxo" km'
-                      _other -> Nothing
-                  _other -> Nothing
+                guard $ isNothing $ v ^? key "utxo"
 
     it "sequence numbers are continuous and strictly monotonically increasing" $
       monadicIO $ do
@@ -277,100 +273,62 @@ spec = describe "ServerSpec" $
                     Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
                       seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
 
-    it "displays correctly headStatus in a Greeting message" $
+    it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port -> do
           withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
-            withClient port "/?history=no" $ \conn -> do
-              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
-              status `shouldBe` Aeson.String "Idle"
+            let generateSnapshot =
+                  generate $
+                    SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
-            -- TODO: do test commit outputs as well? (or just unit/property test the projection for details)
+            waitForValue port $ \v -> do
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Idle")
+              -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
+              guard $ isNothing (v ^? key "snapshotUtxo")
 
-            headIsOpen <- HeadIsOpen @SimpleTx <$> generate arbitrary <*> generate arbitrary
+            headIsOpenMsg <- generate $ HeadIsOpen <$> arbitrary <*> arbitrary
+            snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
+              generateSnapshot
 
-            sendOutput headIsOpen
-            withClient port "/?history=no" $ \conn -> do
-              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
-              status `shouldBe` Aeson.String "Open"
+            mapM_ sendOutput [headIsOpenMsg, snapShotConfirmedMsg]
+            waitForValue port $ \v -> do
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo)
 
-            sendOutput . ReadyToFanout $ headId headIsOpen
-            withClient port "/?history=no" $ \conn -> do
-              status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
-              status `shouldBe` Aeson.String "ClosedAfterDeadline"
+            snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
+              generateSnapshot
+            let readyToFanoutMsg = ReadyToFanout $ headId headIsOpenMsg
 
-    it "greets with correct head status after restart" $
+            mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
+            waitForValue port $ \v -> do
+              guard $ v ^? key "headStatus" == Just (Aeson.String "FanoutPossible")
+              guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo')
+
+    it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure $ \tracer ->
         withTempDir "api-server-head-status" $ \persistenceDir ->
           withFreePort $ \port -> do
+            let generateSnapshot =
+                  generate $
+                    SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
+              generateSnapshot
+            let expectedUtxos = toJSON utxo
+
             withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
               headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
-              sendOutput headIsInitializing
-              withClient port "/?history=no" $ \conn -> do
-                status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
-                status `shouldBe` Aeson.String "Initializing"
+
+              mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
+              waitForValue port $ \v -> do
+                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+                guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
             -- expect the api server to load events from apiPersistence and project headStatus correctly
             withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
-              withClient port "/?history=no" $ \conn -> do
-                status <- waitMatch 5 conn $ \v -> v ^? key "headStatus"
-                status `shouldBe` Aeson.String "Initializing"
-
-    it "displays correctly snapshotUtxo in a Greeting message" $
-      showLogsOnFailure $ \tracer ->
-        withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
-            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
-
-            let snapShotConfirmedMessage =
-                  SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
-                    , snapshot = generatedSnapshot
-                    , signatures = mempty
-                    }
-            let expectedUtxos =
-                  toJSON (Hydra.Snapshot.utxo $ Hydra.API.ServerOutput.snapshot snapShotConfirmedMessage)
-            sendOutput snapShotConfirmedMessage
-            withClient port "/?history=no" $ \conn -> do
-              status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-              status `shouldBe` expectedUtxos
-
-            -- send another output related to changing the utxo set
-            headIsOpen <- HeadIsOpen @SimpleTx <$> generate arbitrary <*> generate arbitrary
-            let expectedUtxos' = toJSON $ Hydra.API.ServerOutput.utxo headIsOpen
-            sendOutput headIsOpen
-            withClient port "/?history=no" $ \conn -> do
-              status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-              status `shouldBe` expectedUtxos'
-
-    it "greets with correct snapshot utxo after a restart" $
-      showLogsOnFailure $ \tracer ->
-        withTempDir "api-server-snapshot-utxo" $ \persistenceDir ->
-          withFreePort $ \port -> do
-            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
-            let snapShotConfirmedMessage =
-                  SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
-                    , snapshot = generatedSnapshot
-                    , signatures = mempty
-                    }
-            let expectedUtxos =
-                  toJSON (Hydra.Snapshot.utxo $ Hydra.API.ServerOutput.snapshot snapShotConfirmedMessage)
-
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
-              sendOutput snapShotConfirmedMessage
-
-              withClient port "/?history=no" $ \conn -> do
-                status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-                status `shouldBe` expectedUtxos
-
-            -- expect the api server to load events from apiPersistence and project headStatus correctly
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
-              withClient port "/?history=no" $ \conn -> do
-                status <- waitMatch 5 conn $ \v -> v ^? key "snapshotUtxo"
-                status `shouldBe` expectedUtxos
+              waitForValue port $ \v -> do
+                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
+                guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
@@ -438,6 +396,11 @@ mockPersistence =
     { append = \_ -> pure ()
     , loadAll = pure []
     }
+
+waitForValue :: PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
+waitForValue port f =
+  withClient port "/?history=no" $ \conn ->
+    waitMatch 5 conn f
 
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => Natural -> Connection -> (Aeson.Value -> Maybe a) -> IO a

@@ -108,7 +108,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
 
   -- Intialize our read model from stored events
   headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-  snapshotUtxoP <- mkProjection mempty (output <$> timedOutputEvents) projectSnapshotUtxo
+  snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
@@ -168,7 +168,7 @@ runAPIServer ::
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (ServerOutput tx) (UTxOType tx) ->
+  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->

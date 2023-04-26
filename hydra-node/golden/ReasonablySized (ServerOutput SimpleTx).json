@@ -359,15 +359,12 @@
             }
         },
         {
-            "headStatus": "ClosedAfterDeadline",
+            "headStatus": "FanoutPossible",
             "me": {
                 "vkey": "d19e99ff33b6e0edd3e016ae4cc1609cdbad0ce8be7230b0a41a764edf0946ad"
             },
             "snapshotUtxo": [
-                -6,
-                -4,
-                1,
-                2
+                3
             ],
             "tag": "Greetings"
         },
@@ -461,10 +458,10 @@
                 "vkey": "b8a018adea080d555d00596ca4463eec91c052225b4dc8a7d64bb03e940319d9"
             },
             "snapshotUtxo": [
+                -6,
                 -5,
-                -2,
-                2,
-                3,
+                -3,
+                1,
                 4
             ],
             "tag": "Greetings"
@@ -728,11 +725,7 @@
             "me": {
                 "vkey": "da3d972212102321e7f507bfca3b3df7fd966140e895324e3ae3fa78c1ce2e3e"
             },
-            "snapshotUtxo": [
-                -2,
-                1,
-                5
-            ],
+            "snapshotUtxo": [],
             "tag": "Greetings"
         },
         {
@@ -961,12 +954,15 @@
             "utxo": []
         },
         {
-            "headStatus": "ClosedAfterDeadline",
+            "headStatus": "FanoutPossible",
             "me": {
                 "vkey": "c27a88414f511ff6ba163b7752e07471061cafd6b6058222908ab4f24d37ceb1"
             },
             "snapshotUtxo": [
-                0
+                -3,
+                1,
+                4,
+                5
             ],
             "tag": "Greetings"
         },
@@ -982,7 +978,9 @@
                 "vkey": "46502698b112436994128b4a625ca97bdd0977b3adb9e9f22ee30e87f36c3765"
             },
             "snapshotUtxo": [
-                3
+                -5,
+                -2,
+                6
             ],
             "tag": "Greetings"
         },
@@ -992,7 +990,9 @@
                 "vkey": "a0a98a42d85d75eb2e8f20200bcb735029459992b88a2c8bd57aa6e747b88378"
             },
             "snapshotUtxo": [
-                -2
+                -5,
+                2,
+                5
             ],
             "tag": "Greetings"
         },
@@ -1002,9 +1002,11 @@
                 "vkey": "36126f79755a0650778002bec0a01e76b190fc06ec8d96c103733692928f2a21"
             },
             "snapshotUtxo": [
-                -6,
                 -3,
-                6
+                0,
+                1,
+                2,
+                3
             ],
             "tag": "Greetings"
         },
@@ -1221,10 +1223,8 @@
             },
             "snapshotUtxo": [
                 -6,
-                -4,
-                1,
-                3,
-                6
+                -1,
+                2
             ],
             "tag": "Greetings"
         },
@@ -1276,8 +1276,9 @@
                 "vkey": "5c250fb6e60227d262f1636541cc8e8b8b112aea3be4b121e2f3650bc905f8d2"
             },
             "snapshotUtxo": [
+                -5,
                 -4,
-                -3,
+                -1,
                 2
             ],
             "tag": "Greetings"
@@ -1474,7 +1475,7 @@
                 "vkey": "7160358c6ddc86648420d43b1a5dcfa4511b017bef814ba22081fb0590f8e32e"
             },
             "snapshotUtxo": [
-                -6,
+                5,
                 6
             ],
             "tag": "Greetings"
@@ -1555,10 +1556,7 @@
             },
             "snapshotUtxo": [
                 -5,
-                -4,
-                -3,
-                -2,
-                0
+                6
             ],
             "tag": "Greetings"
         },
@@ -1865,11 +1863,12 @@
                 "vkey": "62946e1d323c5acacd6f3bdeed6e00ae8756cef7db275f6bb7d6b075d1621f9c"
             },
             "snapshotUtxo": [
+                -6,
                 -3,
-                -1,
-                0,
+                -2,
+                1,
                 2,
-                3
+                6
             ],
             "tag": "Greetings"
         },
@@ -2060,10 +2059,7 @@
                 "vkey": "0989dbf152080e744074c849bcbf44a309e5368480d4c08cc283435ffd8bd293"
             },
             "snapshotUtxo": [
-                -5,
-                1,
-                3,
-                5
+                -4
             ],
             "tag": "Greetings"
         },
@@ -2275,7 +2271,6 @@
             "me": {
                 "vkey": "05446c191ec3f312872da337aa59c92325b28de4ae150419838673f5e8396838"
             },
-            "snapshotUtxo": [],
             "tag": "Greetings"
         },
         {

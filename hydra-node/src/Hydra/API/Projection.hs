@@ -1,10 +1,4 @@
-module Hydra.API.Projection where
-
-import Hydra.Prelude
-
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVar)
-
--- | 'Hydra.API.Projection' module exposes the handle which is our implementation of
+-- |  'Hydra.API.Projection' module exposes the handle which is our implementation of
 --    projections from the CQRS terminology.
 --
 --    Projections allow us to easily tailor the needs of different API clients
@@ -19,6 +13,11 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVar)
 --
 --    'Projection's always need to use a function in form of `(model -> event -> model)` where
 --    depending on event we are currently dealing with we might want to alter our existing model.
+module Hydra.API.Projection where
+
+import Hydra.Prelude
+
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVar)
 
 -- | 'Projection' type used to alter/project the API output to suit the client needs.
 data Projection stm event model = Projection
