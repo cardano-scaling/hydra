@@ -1,0 +1,74 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsfonts,amsmath,amssymb,amsthm}
+\usepackage[normalem]{ulem} % temporary for strikeout math
+\usepackage{enumerate}
+\usepackage[shortlabels,inline]{enumitem}
+\usepackage{wrapfig}
+
+\usepackage[lined,noend]{algorithm2e}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\usepackage{adjustbox}
+\DontPrintSemicolon
+
+\PassOptionsToPackage{hyphens}{url}
+\usepackage{fullpage}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{xifthen}
+% Keep figures in same section
+\usepackage[section]{placeins}
+\usepackage{pifont}
+\usepackage{multirow}
+\usepackage{tikz}
+\usetikzlibrary{automata, arrows}
+\usepackage{pgfplots}
+\usepackage[framemethod=tikz]{mdframed} % and thus tikz
+\usepackage[font=small]{caption}
+\usepackage[many]{tcolorbox}    	% for COLORED BOXES 
+
+\usepackage{authblk}
+
+% footnotes in table and tabular
+\usepackage{footnote}
+\makesavenoteenv{tabular}
+\makesavenoteenv{table}
+\makesavenoteenv{figure}
+
+\usepackage{stmaryrd} % fancy double square brackets
+\usepackage{todonotes}
+
+\setcounter{tocdepth}{2} % Override LLNCS
+
+% Fix display of - in numbers
+\DeclareUnicodeCharacter{2212}{\textendash}
+
+\include{macros}
+
+\begin{document}
+
+\title{\Large \textbf{Hydra HeadV1 Specification: Coordinated Head protocol}\\[2ex] DRAFT}
+\author{Sebastian Nagel sebastian.nagel@iohk.io}
+% NOTE: add yourself
+
+\maketitle
+
+\input{intro}
+\input{overview}
+
+\input{prel}
+\input{setup}
+\input{onchain}
+\clearpage
+\input{offchain}
+
+% NOTE: Provided by researchers (keep up-to-date)
+\clearpage
+\input{security}
+
+\clearpage
+\bibliographystyle{plain}
+\bibliography{short}
+
+\end{document}

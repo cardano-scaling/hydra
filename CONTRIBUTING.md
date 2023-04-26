@@ -94,6 +94,7 @@ From there you can:
 - Build the `hydra-node` using nix: `nix build .#hydra-node`
 - Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
 - Build the `hydra-node` docker image: `nix build .#docker-hydra-node`
+- Build the specification as pdf: `nix build .#spec`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically

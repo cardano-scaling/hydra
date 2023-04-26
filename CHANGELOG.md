@@ -84,6 +84,11 @@ changes.
   - Reference scripts in the API are not decodable when using `SimpleScriptV2`
     envelope anymore (just use `SimpleScript`).
 
+- Add the
+  [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
+  the repository and
+  [website](https://hydra.family/head-protocol/core-concepts/specification).
+
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!

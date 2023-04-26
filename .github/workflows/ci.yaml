@@ -279,9 +279,41 @@ jobs:
         body: ${{ steps.comment-body.outputs.body }}
         reactions: rocket
 
+  build-specification:
+    name: "Build specification using nix"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: ❄ Build specification PDF
+      run: |
+        nix build .#spec && cp result/*.pdf spec/
+
+    - name: 💾 Upload specification
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-spec
+        path: |
+          ./spec/*.pdf
+
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks,build-test]
+    needs: [haddock-benchmarks,build-test,build-specification]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -316,6 +348,12 @@ jobs:
       with:
         name: test-results
         path: docs/benchmarks/tests
+
+    - name: 📥 Download specification PDF
+      uses: actions/download-artifact@v3
+      with:
+        name: hydra-spec
+        path: docs/static/
 
     - name: 📚 Documentation
       working-directory: docs

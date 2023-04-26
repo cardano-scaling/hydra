@@ -46,7 +46,9 @@
 
         packages =
           hydraPackages //
-          prefixAttrs "docker-" hydraImages;
+          prefixAttrs "docker-" hydraImages // {
+            spec = import ./spec { inherit pkgs; };
+          };
 
         devShells = (import ./nix/hydra/shell.nix {
           inherit (inputs) cardano-node;
@@ -61,7 +63,7 @@
 
         # Build selected derivations in CI for caching
         hydraJobs = {
-          packages = { inherit (packages) hydra-node hydra-tui hydraw; };
+          packages = { inherit (packages) hydra-node hydra-tui hydraw spec; };
           devShells = { inherit (devShells) default ci; };
         };
       });
