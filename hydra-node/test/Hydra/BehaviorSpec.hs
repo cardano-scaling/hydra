@@ -642,7 +642,7 @@ simulatedChainAndNetwork initialChainState = do
     atomically $ writeTVar chainStateVar rolledBackChainState
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n (Rollback $ chainStateSlot rolledBackChainState)
+    forM_ ns $ \n -> handleChainEvent n (Rollback (chainStateSlot rolledBackChainState) rolledBackChainState)
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev

@@ -204,7 +204,7 @@ data ChainEvent tx
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | Rollback ChainSlot
+  | Rollback ChainSlot (ChainStateType tx)
   | Tick UTCTime
   deriving (Generic)
 

@@ -29,7 +29,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  IdleState (..),
   InitialState (..),
   LogicError (..),
   OpenState (..),
@@ -387,15 +386,11 @@ inInitialState parties =
       { parameters
       , pendingCommits = Set.fromList parties
       , committed = mempty
-      , previousRecoverableState = Idle idleState
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where
   parameters = HeadParameters cperiod parties
-
-  idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inOpenState ::
   [Party] ->
@@ -416,26 +411,11 @@ inOpenState' parties coordinatedHeadState =
     OpenState
       { parameters
       , coordinatedHeadState
-      , previousRecoverableState
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where
   parameters = HeadParameters cperiod parties
-
-  previousRecoverableState =
-    Initial
-      InitialState
-        { parameters
-        , pendingCommits = mempty
-        , committed = mempty
-        , previousRecoverableState = Idle idleState
-        , chainState = SimpleChainState{slot = ChainSlot 0}
-        , headId = testHeadId
-        }
-
-  idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -448,7 +428,6 @@ inClosedState' parties confirmedSnapshot =
   Closed
     ClosedState
       { parameters
-      , previousRecoverableState
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
@@ -459,8 +438,6 @@ inClosedState' parties confirmedSnapshot =
   parameters = HeadParameters cperiod parties
 
   contestationDeadline = arbitrary `generateWith` 42
-
-  previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case

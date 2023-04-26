@@ -149,7 +149,7 @@ spec = do
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
           Tick{} -> pure ()
-          (Rollback slot) -> atomically $ putTMVar rolledBackTo slot
+          (Rollback slot _chainState) -> atomically $ putTMVar rolledBackTo slot
           _ -> pure ()
 
     let handler =

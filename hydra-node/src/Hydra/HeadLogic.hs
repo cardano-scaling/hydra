@@ -23,11 +23,10 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot,
   ChainStateType,
   HeadId,
   HeadParameters (..),
-  IsChainState (chainStateSlot),
+  IsChainState,
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -51,7 +50,6 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.QuickCheck (oneof)
 
 -- * Types
 
@@ -185,7 +183,6 @@ data InitialState tx = InitialState
   , committed :: Committed tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -202,10 +199,32 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> oneof
-        [ Idle <$> arbitrary
-        , Initial <$> arbitrary
-        ]
+
+-- Expected type: HeadParameters
+--                  -> PendingCommits
+--                  -> Map Party (UTxOType tx)
+--                  -> ChainStateType tx
+--                  -> HeadState tx4
+--                  -> InitialState tx
+--     Actual type: HeadParameters
+--                  -> PendingCommits
+--                  -> Committed tx
+--                  -> ChainStateType tx
+--                  -> HeadId
+--                  -> InitialState tx
+
+--   Expected type: HeadParameters
+--              -> PendingCommits
+--              -> Map Party (UTxOType tx)
+--              -> ChainStateType tx
+--              -> HeadState tx4
+--              -> InitialState tx
+-- Actual type: HeadParameters
+--              -> PendingCommits
+--              -> Committed tx
+--              -> ChainStateType tx
+--              -> HeadId
+--              -> InitialState tx
 
 type PendingCommits = Set Party
 
@@ -220,7 +239,6 @@ data OpenState tx = OpenState
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -236,7 +254,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> (Initial <$> arbitrary)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -309,7 +326,6 @@ data ClosedState tx = ClosedState
     readyToFanoutSent :: Bool
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -327,10 +343,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> oneof
-        [ Open <$> arbitrary
-        , Closed <$> arbitrary
-        ]
 
 -- ** Other types
 
@@ -425,21 +437,19 @@ onIdleClientInit env st =
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
-  IdleState tx ->
   -- | New chain state.
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
   HeadId ->
   Outcome tx
-onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
+onIdleChainInitTx newChainState parties contestationPeriod headId =
   NewState
     ( Initial
         InitialState
           { parameters = HeadParameters{contestationPeriod, parties}
           , pendingCommits = Set.fromList parties
           , committed = mempty
-          , previousRecoverableState = Idle idleState
           , chainState = newChainState
           , headId
           }
@@ -496,7 +506,6 @@ onInitialChainCommitTx st newChainState pt utxo =
         { parameters
         , pendingCommits = remainingParties
         , committed = newCommitted
-        , previousRecoverableState = Initial st
         , chainState = newChainState
         , headId
         }
@@ -564,7 +573,6 @@ onInitialChainCollectTx st newChainState =
           { parameters
           , coordinatedHeadState =
               CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
-          , previousRecoverableState = Initial st
           , chainState = newChainState
           , headId
           }
@@ -881,7 +889,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
         , confirmedSnapshot
         , contestationDeadline
         , readyToFanoutSent = False
-        , previousRecoverableState = Open openState
         , chainState = newChainState
         , headId
         }
@@ -965,34 +972,12 @@ onClosedChainFanoutTx closedState newChainState =
 --
 -- __Transition__: 'OpenState' → 'HeadState'
 onCurrentChainRollback ::
-  (IsChainState tx) =>
   HeadState tx ->
-  ChainSlot ->
+  ChainStateType tx ->
   Outcome tx
-onCurrentChainRollback currentState slot =
-  let atTheTimeState = rollback slot currentState
-   in case atTheTimeState of
-        Idle IdleState{chainState} ->
-          NewState (updateChainState chainState currentState) []
-        Initial InitialState{chainState} ->
-          NewState (updateChainState chainState currentState) []
-        Open OpenState{chainState} ->
-          NewState (updateChainState chainState currentState) []
-        Closed ClosedState{chainState} ->
-          NewState (updateChainState chainState currentState) []
+onCurrentChainRollback currentState newChainState =
+  NewState (updateChainState newChainState currentState) []
  where
-  -- TODO use slot instead of local rollbackSlot argument
-  rollback rollbackSlot hs
-    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
-    | otherwise =
-      case hs of
-        Idle{} -> hs
-        Initial InitialState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
-        Open OpenState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
-        Closed ClosedState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
   updateChainState chainState = \case
     Idle s@IdleState{} -> Idle s{chainState}
     Initial s@InitialState{} ->
@@ -1015,8 +1000,8 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle idleState, ClientEvent Init) ->
     onIdleClientInit env idleState
-  (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
-    onIdleChainInitTx idleState newChainState parties contestationPeriod headId
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
+    onIdleChainInitTx newChainState parties contestationPeriod headId
   -- Initial
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
@@ -1064,8 +1049,8 @@ update env ledger st ev = case (st, ev) of
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx closedState newChainState
   -- General
-  (currentState, OnChainEvent (Rollback slot)) ->
-    onCurrentChainRollback currentState slot
+  (currentState, OnChainEvent (Rollback _slot chainState)) ->
+    onCurrentChainRollback currentState chainState
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1130,7 +1115,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId}) effects ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1146,7 +1131,6 @@ emitSnapshot env@Environment{party} outcome =
                               , requested = sn
                               }
                         }
-                  , previousRecoverableState
                   , chainState
                   , headId
                   }

@@ -201,19 +201,27 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
     traceWith tracer $ RolledBackward{point}
     -- rollback the tvar to the chainSlotFromPoint
     chainStates <- readTVarIO chainStateTVar
-    let chainStates' = rollback point chainStates
+    let (chainState, chainStates') = rollback point chainStates
     atomically $ writeTVar chainStateTVar chainStates'
-    callback (Rollback $ chainSlotFromPoint point)
+    callback (Rollback (chainSlotFromPoint point) chainState)
    where
     rollback rollbackChainPoint chainStates =
       case chainStates of
         [] ->
-          [ ChainStateAt
-              { chainState = Idle
-              , recordedAt = Nothing
-              }
-          ]
-        (cs@ChainStateAt{recordedAt = Just recordPoint} : rest) | recordPoint <= rollbackChainPoint -> cs : rest
+          let chainState =
+                ChainStateAt
+                  { chainState = Idle
+                  , recordedAt = Nothing
+                  }
+           in ( chainState
+              ,
+                [ ChainStateAt
+                    { chainState = Idle
+                    , recordedAt = Nothing
+                    }
+                ]
+              )
+        (cs@ChainStateAt{recordedAt = (Just recordPoint)} : rest) | recordPoint <= rollbackChainPoint -> (cs, cs : rest)
         (_ : rest) -> rollback rollbackChainPoint rest
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
