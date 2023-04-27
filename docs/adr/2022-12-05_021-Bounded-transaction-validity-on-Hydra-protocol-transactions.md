@@ -2,7 +2,7 @@
 slug: 21
 title: |
   21. Bounded transaction validity on Hydra protocol transactions
-authors: [ch1bo, Pascal, Franco, Arnaud, v0d1ch]
+authors: [ch1bo, pgrange, ffakenz, abailly, v0d1ch]
 tags: [Accepted]
 ---
 

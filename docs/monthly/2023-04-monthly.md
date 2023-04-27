@@ -1,7 +1,7 @@
 ---
 title: April 2023
 slug: 2023-04
-authors: [ch1bo]
+authors: [ch1bo, abailly, v0d1ch, pgrange]
 tags: [monthly]
 ---
 
@@ -52,21 +52,21 @@ This month, the team worked on the following:
   - dedicated github action runner
   - managed cardano signing key funded with real money
 
-- **Configurable API.** ...
+- **Configurable API.** ... @v0d1ch
 
   - history, snapshot-utxo, tx-format, status/utxo in greeting
   - dirt road, workarounds
   - filter by address and paginated responses requested?
   - `GetUTxO` and `GetUTxOResponse` became a crutch and not suitable
 
-- **Fixed scripts + updating dependencies.** ...
+- **Fixed scripts + updating dependencies.** ... @ch1bo
 
   - explain the oddysey
   - plutonomy results and why we didn't go for it (yet)
   - fix scripts https://github.com/input-output-hk/hydra/pull/777
   - update dependencies https://github.com/input-output-hk/hydra/pull/826
 
-- **Rollback bug hunt.** ...
+- **Rollback bug hunt.** ... @pgrange
 
 - **Versioned docs.** ...
 
@@ -86,14 +86,14 @@ This month, the team worked on the following:
   - Summarize situation on catalyst and allude to summit voting
   - maybe quickly mention tool stack, scenario and their challenges
 
-- **Hydra for Acutions.** ...
+- **Hydra for Auctions.** ...
 
   - New demo recording https://www.loom.com/share/7ed84e37d65748d994d8a0be147f7ecb
   - bidding in L1 and L2 and transfer of auction L1 -> L2 works
 
-- **Kupo x Hydra.** ...
+- **Kupo x Hydra.** ... @ch1bo
 
-- **CBIA meetings.** ...
+- **CBIA meetings.** ... @abailly
 
 - **Twitter spaces.** ...
 
