@@ -63,12 +63,22 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-- **Configurable API.** ... @v0d1ch
+- **Configurable API.** Our API evolved a bit driven by the issues our users
+  reported [#823](https://github.com/input-output-hk/hydra/issues/823)
+  [#813](https://github.com/input-output-hk/hydra/issues/813)
+  [#800](https://github.com/input-output-hk/hydra/issues/800)
+  [#789](https://github.com/input-output-hk/hydra/issues/789).
+  Related changes were added to our API server so now our clients can:
+  - Control the historical messages output. History messages can be displayed
+  uppon re/connection or not depending on client needs.
+  - Snapshot UTxO's can optionally be disabled.
+  - Transactions can be displayed in cbor of json format.
 
-  - history, snapshot-utxo, tx-format, status/utxo in greeting
-  - dirt road, workarounds
-  - filter by address and paginated responses requested?
-  - `GetUTxO` and `GetUTxOResponse` became a crutch and not suitable
+  Our clients can also have a nice insight into current Hydra node state and Head utxos
+  that are now displayed as part of a `Greetings` message.
+
+  Next steps on the API level are to further fulfill user needs by grooming and
+  implementing needed changes related to filtering, pagination etc.
 
 - **Versioned docs and specification.** Over the [last couple
   months](./2023-02#development) the Hydra specification became an important
