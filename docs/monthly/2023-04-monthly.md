@@ -135,7 +135,62 @@ This month, the team worked on the following:
   `cardano-node` master. It did not help on the script sizes, but is a great
   preparation for upcoming hard-forks.
 
-- **Rollback bug hunt.** ... @pgrange
+- **Rollback bug hunt.**
+
+Opening our first head on mainnet failed. We didn't loose any funds, except some
+fees, but the head just did not open. Exploring the logs we figured out that a
+rollback happened while opening the head and we had a bug.
+
+This is our test pyramid. It already contained some tests about rollback but
+we decided to enrich our model based tests to make it simulate rollbacks
+(before that, it used to run on a _perfect_ blockchain). You can find more about
+our model based test strategy in
+[Model-Based Testing with QuickCheck](https://engineering.iog.io/2022-09-28-introduce-q-d/).
+
+![test pyramid](./img/2023-04-test-pyramide.png)
+
+The new property
+[headOpensIfAllPartiesCommit](https://github.com/input-output-hk/hydra/blob/commit_vs_rollback/hydra-node/test/Hydra/ModelSpec.hs#L185)
+helped prove the issue. At the end of the day, the problem came from a concurrency
+issue introduced while implementing [ADR 18](./adr/18)
+
+In the following picture, the DirectChain processes a new block, updating the
+chainState stored inside the headState. This also leads to an event being
+published to some event queue. Later, the HeadLogic (called _Node_ in the picture)
+will process this event, updating the headState.
+
+At the end of the process, we can see that the new headState points to a
+previousRecoverableState which contains the same chainState, `chainState 1`
+instead of `chainState 0`. If a rollback then happens, the headState will be
+reverted to this previousRecoverableState and the fact that it contains
+`chainState 1` instead of `chainState 0` makes some on-chain observations impossible.
+
+![race condition](./img/2023-04-race-condition.jpeg)
+
+This explains the issue we had when opening our head:
+
+1. a commit A is observed on chain;
+2. a rollback happens so that the headState _forgets_ about this commit but not
+   the chainState (remember, it's the wrong chainState);
+3. the commit is observed again on chain but ignored by the chainState (because
+   it has already seen it, it just ignores it);
+4. the headState will never hear about this commit again and so will never open
+   the head, waiting forever for the missing commit.
+
+We decided to implement the following solution:
+
+- A local chain state is re-introduced in the chain component, not shared with
+  the head logic.
+- A copy of the chain state is kept in the head state to keep the benefits of
+  [ADR 18](./adr/18) regarding persistency.
+- The rollback event is removed from the API until [#185](https://github.com/input-output-hk/hydra/issues/185).
+
+![possible solution](./img/2023-04-possible-solution.jpeg)
+
+Rollback management is quite a tricky business. It might be the case that we've
+tried to be a bit too smart. So we're doing a rollback in our way of handling
+rollbacks until we focus on this topic again when dealing with this roadmap item:
+[Handle rollbacks II](https://github.com/input-output-hk/hydra/issues/185).
 
 ## Community
 
