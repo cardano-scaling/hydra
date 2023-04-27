@@ -128,26 +128,51 @@ This month, the team worked on the following:
 
 ## Community
 
-- **Hydra for Voting.** ...
+- **Hydra for Voting.** The project is advancing and a basic vote tallying
+  scenario in the Catalyst use case was demonstrated in the review meeting. The
+  project is driving the API discussions as it is not using any Haskell tooling,
+  but an application in Java with Aiken as the validator scripting language.
+  Besides the catalyst use case, other scenarios like the ballot voting for the
+  summit are also explored now.
 
-  - Demo in the review meeting
-  - Summarize situation on catalyst and allude to summit voting
-  - maybe quickly mention tool stack, scenario and their challenges
+- **Hydra for Auctions.** A new demo was recorded in the wake of an upcoming
+  twitter space discussing auctions and NFT marketplaces with the community. The
+  feature set currently includes starting the auction on L1, bidding on L1 or
+  (and this is the novel thing!) transferring the auction from L1 to L2, such
+  that it can be bid on L2.
 
-- **Hydra for Auctions.** ...
+  <div style={{position: "relative", paddingBottom: "56.25%", height: 0}}>
+    <iframe src="https://www.loom.com/embed/7ed84e37d65748d994d8a0be147f7ecb"
+    frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen
+    style={{position: "absolute", top: 0, left: 0, width: "100%", height:
+    "100%"}}></iframe>
+  </div>
 
-  - New demo recording https://www.loom.com/share/7ed84e37d65748d994d8a0be147f7ecb
-  - bidding in L1 and L2 and transfer of auction L1 -> L2 works
-
-- **Kupo x Hydra.** ... @ch1bo
+- **Kupo x Hydra.** In a good old pairing session between IOG and CF engineers,
+  the integration of Kupo with Hydra was explored. This seems to be promising
+  and work started [here
+  kupo#117](https://github.com/CardanoSolutions/kupo/pull/117). This will make
+  it possible to run `kupo` natively connected to a `hydra-node`, very much it
+  would run with `cardano-node` or `ogmios`. Kupo is a light-weight indexer of
+  chain data like unspent transaction outputs and allows its clients to query
+  information on-demand. 🐹
 
 - **CBIA meetings.** ... @abailly
 
-- **Twitter spaces.** ...
+- **Twitter space on Scaling Cardano.** This month we took part in a Twitter
+  space about scaling Cardano and how Hydra can contribute to this. Thanks for
+  conducting this [@thepizzaknight\_](https://twitter.com/thepizzaknight_) 🙏
+
+  <a href="https://twitter.com/i/spaces/1vOxwMVDaXLGB">
+
+  ![](./img/2023-04-twitter-space.png)
+
+  </a>
 
 ## Conclusion
 
-The monthly review meeting for March was conducted on 2023-04-26 via Google
-Meet -
-[slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/)/recording
-TODO.
+The monthly review meeting for April was held on 2023-04-26 via Google Meet with
+these
+[slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/)
+and here is the
+[recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing).
