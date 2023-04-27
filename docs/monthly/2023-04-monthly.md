@@ -20,22 +20,38 @@ only slightly updated.
 
 #### Notable roadmap updates
 
-- Still many idea items on it. However not on the current and next planned release columns
+- As you can see, there are still many 💭 **idea** items on the roadmap.
+  However, not on the current and next planned release columns. The process is
+  to clarify & groom each idea item into a 💬 **feature** before starting work
+  on it, while equally considering new user feature 💭 **idea**s and requests.
 
-  - Want to clarify each idea item into a feature before starting work on it
+- Moved [Hydra heads explorer
+  #696](https://github.com/input-output-hk/hydra/issues/696) item further out
+  for now until concretized. There are no blockers really and this just needs
+  more detailing as we are in talks with existing Cardano explorer platforms.
 
-- Moved hydra heads explorer further out until concretized (for now, no blockers)
+- Converted the [aggregated multi-signature
+  #193](https://github.com/input-output-hk/hydra/issues/193) from the concrete
+  roadmap into an [idea discussion
+  #787](https://github.com/input-output-hk/hydra/discussions/787) as we got more
+  input from the community and it's better to discuss there.
 
-- “Dropped” aggregated multi-signature from board into discussion - Got more input from the community
+- Main focus for 0.10.0 is mainnet compatibility, which is mostly done and only
+  some docs and disclaimers are missing now.
 
-- Still focus on mainnet compatibility - mostly docs and disclaimers missing now
-
-- Completed configurable API
-
-  - Gave rise to new ideas, which we started work on right away to validate /
-    deliver a usable increment on the API side
+- Meanwhile the [configurable API
+  #380](https://github.com/input-output-hk/hydra/issues/380) was completed. Work
+  on this gave rise to new ideas and follow-up feature requests from users. One
+  of them ([Add HeadState/Snapshot to Greetings
+  #823](https://github.com/input-output-hk/hydra/issues/823)) was fairly
+  straight-forward and necessary to deliver a consistent usable increment on the
+  API with the upcoming release.
 
 - About to release 0.10.0, which will be the first mainnet compatible version
+
+- Prioritized [Support timed transactions
+  #196](https://github.com/input-output-hk/hydra/issues/196) higher as yet
+  another use case would benefit from this.
 
 ![](./img/2023-04-roadmap-ex-ideas.png) <small><center>The roadmap without idea items.</center></small>
 
@@ -46,12 +62,6 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-- **Making Hydra mainnet compatible.** ...
-
-  - smoke tests on mainnet
-  - dedicated github action runner
-  - managed cardano signing key funded with real money
-
 - **Configurable API.** ... @v0d1ch
 
   - history, snapshot-utxo, tx-format, status/utxo in greeting
@@ -59,24 +69,62 @@ This month, the team worked on the following:
   - filter by address and paginated responses requested?
   - `GetUTxO` and `GetUTxOResponse` became a crutch and not suitable
 
-- **Fixed scripts + updating dependencies.** ... @ch1bo
+- **Versioned docs and specification.** Over the [last couple
+  months](./2023-02#development) the Hydra specification became an important
+  artifact to use in discussion, review and potential audit of the Head protocol
+  implementation. The document was now moved from overleaf into the Hydra
+  repository, where it is properly versioned and built on each CI run. Changes
+  can be proposed using our normal pull request worfklow and the final PDF is
+  built and [published to the
+  website](https://hydra.family/head-protocol/unstable/core-concepts/specification)
+  automatically.
 
-  - explain the oddysey
-  - plutonomy results and why we didn't go for it (yet)
-  - fix scripts https://github.com/input-output-hk/hydra/pull/777
-  - update dependencies https://github.com/input-output-hk/hydra/pull/826
+  Note that the above link points to the new `/unstable` version of the
+  documentation, which holds the bleeding edge user manual, specification and
+  api reference (which got a new sidebar) built directly from `master`. The
+  normal, non-unstable version of the website is always referring to the [last
+  released version](https://github.com/input-output-hk/hydra/releases).
+
+![](./img/2023-04-specification.png) <small><center>Specification on Hydra website</center></small>
+
+- **Fixed scripts, plutonomy and custom script contexts.** As we made the
+  specification use a more direct way to represent transactions (instead of the
+  constraint emitting machine formalism), we realised that our scripts are not
+  correctly ensuring _script continuity_. We identified these "gaps" as red
+  sections (see above) in the specification and worked on fixing them.
+
+  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)
+  was fairly straight forward and could easily be covered by our mutation-based
+  contract tests, the script size increased and we could not publish all three
+  Hydra scripts in a single publish transaction (which allows for a single
+  `--hydra-scripts-tx-id` parameter on the `hydra-node`).
+
+  To mitigate, we looked into the UPLC optimizer
+  [plutonomy](https://github.com/well-typed/plutonomy/tree/master/src/Plutonomy).
+  Applying it was fairly simple, our tests did also pass, script sizes _and
+  costs_ also became lower. But, script size does not matter so much as we are
+  using reference scripts and using a (not really maintained?) optimizer which
+  introduces yet another question mark after compilation from `plutus-tx` to
+  `uplc` was not our cup of tea.. right now at least (and we might pull this out
+  of the drawer later).
+
+  There is an alternative: decoding `ScriptContext` involves quite some code,
+  but we don't need it everything in all validators. So we introduced a custom
+  script context which only decodes the fields we need.
+
+  | scripts  | @0.9.0 | fixes | fixes + plutonomy | fixes + custom ScriptContext |
+  | -------- | ------ | ----- | ----------------- | ---------------------------- |
+  | νInitial | 4621   | 4727  | 3672              | 4300                         |
+  | νCommit  | 2422   | 2513  | 1816              | 2068                         |
+  | νHead    | 8954   | 9492  | 7579              | 9456 (no custom SC)          |
+  | μHead    | 4458   | 4537  | 3468              | 4104                         |
+
+  In the process of this, we also [updated dependencies
+  #826](https://github.com/input-output-hk/hydra/pull/826) to latest
+  `cardano-node` master. It did not help on the script sizes, but is a great
+  preparation for upcoming hard-forks.
 
 - **Rollback bug hunt.** ... @pgrange
-
-- **Versioned docs.** ...
-
-- **Specification** in repository and on website ...
-
-- **Miscellaneous.** ...
-
-  - Hydra node crashed after fork?
-  - Production grade web server?
-  - Red bin item: upload failing cluster logs? fixed port handling in tests?
 
 ## Community
 
