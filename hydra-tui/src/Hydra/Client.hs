@@ -5,11 +5,11 @@ module Hydra.Client where
 import Hydra.Prelude
 
 import Control.Concurrent.Async (link)
-import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
+import Control.Exception (Handler (Handler), IOException, catches)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ServerOutput)
+import Hydra.API.ServerOutput (TimedServerOutput)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
@@ -23,17 +23,17 @@ import Network.WebSockets (ConnectionException, receiveData, runClient, sendBina
 data HydraEvent tx
   = ClientConnected
   | ClientDisconnected
-  | Update (ServerOutput tx)
+  | Update (TimedServerOutput tx)
   | Tick UTCTime
   deriving (Generic)
 
-deriving instance (Eq (ServerOutput tx)) => Eq (HydraEvent tx)
-deriving instance (Show (ServerOutput tx)) => Show (HydraEvent tx)
+deriving instance (Eq (TimedServerOutput tx)) => Eq (HydraEvent tx)
+deriving instance (Show (TimedServerOutput tx)) => Show (HydraEvent tx)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
-  { -- | Send some input to the server.
-    sendInput :: ClientInput tx -> m ()
+  { sendInput :: ClientInput tx -> m ()
+  -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
   }
 
@@ -45,7 +45,7 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Provide a component to interact with Hydra node.
 withClient ::
-  (ToJSON (ClientInput tx), FromJSON (ServerOutput tx)) =>
+  (ToJSON (ClientInput tx), FromJSON (TimedServerOutput tx)) =>
   Options ->
   ClientComponent tx IO a
 withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} callback action = do

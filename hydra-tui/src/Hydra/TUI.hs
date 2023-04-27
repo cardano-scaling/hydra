@@ -51,7 +51,7 @@ import Graphics.Vty (
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
 import Hydra.Chain (HeadId, PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
@@ -189,14 +189,24 @@ own = "own"
 info :: Text -> State -> State
 info = report Info
 
+info' :: UTCTime -> Text -> State -> State
+info' time = report' time Info
+
 warn :: Text -> State -> State
 warn = report Error
 
+warn' :: UTCTime -> Text -> State -> State
+warn' time = report' time Error
+
 report :: Severity -> Text -> State -> State
 report typ msg s =
+  report' (s ^. nowL) typ msg s
+
+report' :: UTCTime -> Severity -> Text -> State -> State
+report' time typ msg s =
   s & feedbackL %~ (userFeedback :)
  where
-  userFeedback = UserFeedback typ msg (s ^. nowL)
+  userFeedback = UserFeedback typ msg time
 
 stopPending :: State -> State
 stopPending = pendingL .~ NotPending
@@ -299,88 +309,88 @@ handleAppEvent s = \case
       { nodeHost = s ^. nodeHostL
       , now = s ^. nowL
       }
-  Update Greetings{me} ->
+  Update TimedServerOutput{output = Greetings{me}} ->
     s & meL ?~ me
-  Update (PeerConnected p) ->
+  Update TimedServerOutput{output = PeerConnected p} ->
     s & peersL %~ \cp -> nub $ cp <> [p]
-  Update (PeerDisconnected p) ->
+  Update TimedServerOutput{output = (PeerDisconnected p)} ->
     s & peersL %~ \cp -> cp \\ [p]
-  Update CommandFailed{clientInput} -> do
+  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
     s
-      & report Error ("Invalid command: " <> show clientInput)
+      & warn' time ("Invalid command: " <> show clientInput)
       & stopPending
-  Update HeadIsInitializing{parties, headId} ->
+  Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
     let utxo = mempty
         ps = toList parties
      in s
           & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo, headId = headId}
           & stopPending
-          & info "Head initialized, ready for commit(s)."
-  Update Committed{party, utxo} ->
+          & info' time "Head initialized, ready for commit(s)."
+  Update TimedServerOutput{output = Committed{party, utxo}} ->
     s
       & headStateL %~ partyCommitted [party] utxo
       & info (show party <> " committed " <> renderValue (balance @Tx utxo))
       & if Just (Just party) == s ^? meL
         then stopPending
         else id
-  Update HeadIsOpen{utxo} ->
+  Update TimedServerOutput{time, output = HeadIsOpen{utxo}} ->
     s
       & headStateL %~ headIsOpen utxo
-      & info "Head is now open!"
-  Update HeadIsClosed{headId, snapshotNumber, contestationDeadline} ->
+      & info' time "Head is now open!"
+  Update TimedServerOutput{time, output = HeadIsClosed{headId, snapshotNumber, contestationDeadline}} ->
     s
       & headStateL .~ Closed{headId, contestationDeadline}
-      & info ("Head closed with snapshot number " <> show snapshotNumber)
+      & info' time ("Head closed with snapshot number " <> show snapshotNumber)
       & stopPending
-  Update HeadIsContested{headId, snapshotNumber} ->
+  Update TimedServerOutput{output = HeadIsContested{headId, snapshotNumber}} ->
     s & info ("Head " <> show headId <> " contested with snapshot number " <> show snapshotNumber)
-  Update ReadyToFanout{headId} ->
+  Update TimedServerOutput{time, output = ReadyToFanout{headId}} ->
     s
       & headStateL .~ FanoutPossible{headId}
-      & info "Contestation period passed, ready for fanout."
-  Update HeadIsAborted{} ->
+      & info' time "Contestation period passed, ready for fanout."
+  Update TimedServerOutput{time, output = HeadIsAborted{}} ->
     s
       & headStateL .~ Idle
-      & info "Head aborted, back to square one."
+      & info' time "Head aborted, back to square one."
       & stopPending
-  Update HeadIsFinalized{utxo} ->
+  Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} ->
     s
       & headStateL .~ Final{utxo}
-      & info "Head finalized."
+      & info' time "Head finalized."
       & stopPending
-  Update TxValid{} ->
-    s & report Success "Transaction submitted successfully!"
-  Update TxInvalid{transaction, validationError} ->
-    s & warn ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
-  Update SnapshotConfirmed{snapshot} ->
+  Update TimedServerOutput{time, output = TxValid{}} ->
+    s & report' time Success "Transaction submitted successfully!"
+  Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
+    s & warn' time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
+  Update TimedServerOutput{output = SnapshotConfirmed{snapshot}} ->
     snapshotConfirmed snapshot
-  Update GetUTxOResponse{} ->
+  Update TimedServerOutput{output = GetUTxOResponse{}} ->
     s -- TUI is currently not requesting UTxO itself, ignore it
-  Update InvalidInput{reason} ->
-    s & warn ("Invalid input error: " <> toText reason)
-  Update PostTxOnChainFailed{postTxError} ->
+  Update TimedServerOutput{time, output = InvalidInput{reason}} ->
+    s & warn' time ("Invalid input error: " <> toText reason)
+  Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
     case postTxError of
       NotEnoughFuel ->
         s
-          & warn "Not enough Fuel. Please provide more to the internal wallet and try again."
+          & warn' time "Not enough Fuel. Please provide more to the internal wallet and try again."
           & stopPending
       MoreThanOneUTxOCommitted ->
         s
-          & warn "Can only commit one UTxO. Please try again."
+          & warn' time "Can only commit one UTxO. Please try again."
           & stopPending
       InternalWalletError{reason} ->
         s
-          & warn reason
+          & warn' time reason
           & stopPending
       _ ->
         s
-          & warn ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+          & warn' time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
           & stopPending
-  Update RolledBack ->
+  Update TimedServerOutput{time, output = RolledBack} ->
     -- XXX: This is a bit of a mess as we do NOT know in which state the Hydra
     -- head is. Even worse, we have no way to find out!
     s
-      & info "Chain rolled back! You might need to re-submit Head transactions manually now."
+      & info' time "Chain rolled back! You might need to re-submit Head transactions manually now."
       & stopPending
   Tick now ->
     s & nowL .~ now
@@ -505,7 +515,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
     form =
       let field =
             radioField
-              (lens id seq)
+              (lens id const)
               [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
           addresses = getRecipientAddress <$> Map.elems utxo
           getRecipientAddress TxOut{txOutAddress = addr} = addr
@@ -523,7 +533,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 
     form =
       -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
-      let field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
+      let field = editShowableFieldWithValidate (lens id const) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
 
     submit s' amount = do
@@ -852,7 +862,7 @@ utxoRadioField ::
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
-      (lens id seq)
+      (lens id const)
       [ (i, show i, UTxO.render i)
       | i <- Map.toList u
       ]

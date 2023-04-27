@@ -62,6 +62,8 @@ changes.
 - Removed `Greetings` messages from hydra-node history and changed `hydra-tui`
   to not wipe connected peers based on this message.
 
+- Use the server-provided `timestamp` of messages in the `hydra-tui`.
+
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 
