@@ -670,26 +670,6 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    RolledBack:
-      title: RolledBack
-      description: |
-        The node has adopted a different chain fork and we had to rollback the application state.
-      payload:
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["RolledBack"]
-          seq:
-            $ref: "#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "#/components/schemas/UTCTime"
-
     CommandFailed:
       title: CommandFailed
       description: |
