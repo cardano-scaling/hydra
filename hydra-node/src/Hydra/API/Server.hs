@@ -14,15 +14,23 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
+  HeadStatus (Idle),
   OutputFormat (..),
   ServerOutput (Greetings, InvalidInput),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
+  headStatus,
+  me,
   prepareServerOutput,
+  projectHeadStatus,
+  projectSnapshotUtxo,
+  snapshotUtxo,
  )
 import Hydra.Chain (IsChainState)
+import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -96,25 +104,31 @@ withAPIServer ::
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
   responseChannel <- newBroadcastTChanIO
-  h <- loadAll
+  timedOutputEvents <- reverse <$> loadAll
+
+  -- Intialize our read model from stored events
+  headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
+  snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
+
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
-  history <- newTVarIO (reverse h)
+  history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
           Server
             { sendOutput = \output -> do
                 timedOutput <- appendToHistory history output
-                atomically $
+                atomically $ do
+                  update headStatusP output
+                  update snapshotUtxoP output
                   writeTChan responseChannel timedOutput
             }
     )
  where
-  appendToHistory :: TVar [TimedServerOutput tx] -> ServerOutput tx -> IO (TimedServerOutput tx)
   appendToHistory history output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
@@ -151,11 +165,15 @@ runAPIServer ::
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
+  -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
+  Projection STM.STM (ServerOutput tx) HeadStatus ->
+  -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
+  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
@@ -198,15 +216,26 @@ runAPIServer host port party tracer history callback responseChannel notifyServe
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly con = do
-    seq <- STM.atomically $ nextSequenceNumber history
+    seq <- atomically $ nextSequenceNumber history
+    headStatus <- atomically getLatestHeadStatus
+    snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
     sendTextData con $
       Aeson.encode
         TimedServerOutput
           { time
           , seq
-          , output = Greetings party :: ServerOutput tx
+          , output =
+              Greetings
+                { me = party
+                , headStatus
+                , snapshotUtxo
+                } ::
+                ServerOutput tx
           }
+
+  Projection{getLatest = getLatestHeadStatus} = headStatusP
+  Projection{getLatest = getLatestSnapshotUtxo} = snapshotUtxoP
 
   mkServerOutputConfig qp =
     ServerOutputConfig

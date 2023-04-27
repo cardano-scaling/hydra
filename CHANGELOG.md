@@ -46,6 +46,10 @@ changes.
   + View the transactions in the server output encoded as CBOR
   + Prevent utxo display in `SnapshotConfirmed` server outputs
 
+- `Greetings` API server output changed and now there are two more fields:
+  + `headStatus` - representing current hydra head status
+  + `snapshotUtxo` - containing UTxOs and updating on each `SnapshotConfirmed` message
+
 - **BREAKING** Changed the `hydra-plutus` scripts to address short-comings:
   + Check contract continuity of state machine, i.e. that the output with the
     state datum and ST is actually owned by vHead.
