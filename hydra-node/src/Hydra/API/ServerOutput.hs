@@ -10,7 +10,7 @@ import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainSlot, ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
@@ -85,6 +85,10 @@ data ServerOutput tx
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
+  | HeadTick
+      { chainTime :: UTCTime
+      , chainSlot :: ChainSlot
+      }
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
@@ -133,6 +137,7 @@ instance
     Greetings me headStatus snapshotUtxo -> Greetings <$> shrink me <*> shrink headStatus <*> shrink snapshotUtxo
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
+    HeadTick ct cs -> HeadTick <$> shrink ct <*> shrink cs
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -218,7 +223,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                     . key "confirmedSnapshot"
                     . key "snapshot"
                     . key "confirmedTransactions"
-                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                    .~ toJSON (txToCbor <$> confirmed snapshot)
                 )
                 encodedResponse
         ContestTx{confirmedSnapshot} ->
@@ -230,11 +235,12 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                     . key "confirmedSnapshot"
                     . key "snapshot"
                     . key "confirmedTransactions"
-                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                    .~ toJSON (txToCbor <$> confirmed snapshot)
                 )
                 encodedResponse
         _other -> encodedResponse
     RolledBack -> encodedResponse
+    HeadTick{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

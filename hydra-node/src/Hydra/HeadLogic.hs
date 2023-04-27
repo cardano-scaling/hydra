@@ -1051,7 +1051,7 @@ update env ledger st ev = case (st, ev) of
     | chainTime > contestationDeadline && not readyToFanoutSent ->
       NewState
         (Closed cst{readyToFanoutSent = True, chainSlot})
-        [ClientEffect $ ReadyToFanout headId]
+        [ClientEffect $ ReadyToFanout headId, ClientEffect $ HeadTick chainTime chainSlot]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
@@ -1059,8 +1059,8 @@ update env ledger st ev = case (st, ev) of
   -- General
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
-  (currentState, OnChainEvent Tick{chainSlot}) ->
-    NewState (setChainSlot chainSlot currentState) []
+  (currentState, OnChainEvent Tick{chainTime, chainSlot}) ->
+    NewState (setChainSlot chainSlot currentState) [ClientEffect $ HeadTick chainTime chainSlot]
   (_, NetworkEvent _ (Connected nodeId)) ->
     OnlyEffects [ClientEffect $ PeerConnected{peer = nodeId}]
   (_, NetworkEvent _ (Disconnected nodeId)) ->
@@ -1078,8 +1078,6 @@ setChainSlot chainSlot = \case
   Initial st -> Initial st{chainSlot}
   Open st -> Open st{chainSlot}
   Closed st -> Closed st{chainSlot}
-
-
 -- * Snapshot helper functions
 
 data SnapshotOutcome tx

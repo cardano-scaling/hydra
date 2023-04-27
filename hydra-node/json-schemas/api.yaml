@@ -83,6 +83,7 @@ channels:
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
+          - $ref: "#/components/messages/HeadTick"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -267,6 +268,31 @@ components:
             enum: ["PeerConnected"]
           peer:
             $ref: "#/components/schemas/NodeId"
+          seq:
+            $ref: "#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "#/components/schemas/UTCTime"
+
+    HeadTick:
+      title: HeadTick
+      description: |
+        Time passessed inside the head.
+      payload:
+        type: object
+        required:
+          - tag
+          - chainTime
+          - chainSlot
+          - seq
+          - timestamp
+        properties:
+          tag:
+            type: string
+            enum: ["PeerConnected"]
+          chainTime:
+            $ref: "#/components/schemas/UTCTime"
+          chainSlot:
+            $ref: "#/components/schemas/ChainSlot"
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
