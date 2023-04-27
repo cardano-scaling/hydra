@@ -162,6 +162,40 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
 
   fee = Lovelace 0
 
+
+-- | Create a zero-fee, payment cardano transaction with validity range.
+mkRangedTx ::
+  (TxIn, TxOut CtxUTxO) ->
+  -- | Recipient address and amount.
+  (AddressInEra, Value) ->
+  -- | Sender's signing key.
+  SigningKey PaymentKey ->
+  (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) ->
+  Either TxBodyError Tx
+mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk (validityLowerBound, validityUpperBound) = do
+  body <- createAndValidateTransactionBody bodyContent
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  pure $ makeSignedTransaction witnesses body
+ where
+  bodyContent =
+    emptyTxBody
+      { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
+      , txOuts = 
+          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+            : [ TxOut @CtxTx
+                owner
+                (valueIn <> negateValue valueOut)
+                (toTxContext datum)
+                refScript
+              | valueOut /= valueIn
+              ]
+      , txFee = TxFeeExplicit $ Lovelace 0
+      , txValidityRange = (
+          fromMaybe TxValidityNoLowerBound validityLowerBound, 
+          fromMaybe TxValidityNoUpperBound validityUpperBound
+        )
+      }
+
 -- * Generators
 
 genSigningKey :: Gen (SigningKey PaymentKey)

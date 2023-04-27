@@ -56,17 +56,17 @@ emptyTxBody :: TxBodyContent BuildTx
 emptyTxBody =
   TxBodyContent {
     txIns = mempty -- inputs
-    , txInsCollateral = (TxInsCollateral mempty) -- FIXME
+    , txInsCollateral = TxInsCollateral mempty -- FIXME
     , txInsReference = TxInsReferenceNone
     , txOuts = mempty -- outputs
     , txTotalCollateral = TxTotalCollateralNone
     , txReturnCollateral = TxReturnCollateralNone
-    , txFee = (TxFeeExplicit 0)
+    , txFee = TxFeeExplicit 0
     , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound)
     , txMetadata = TxMetadataNone
     , txAuxScripts = TxAuxScriptsNone
     , txExtraKeyWits = TxExtraKeyWitnessesNone
-    , txProtocolParams = (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
+    , txProtocolParams = BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def -- FIXME
     , txWithdrawals = TxWithdrawalsNone
     , txCertificates = TxCertificatesNone
     , txUpdateProposal = TxUpdateProposalNone

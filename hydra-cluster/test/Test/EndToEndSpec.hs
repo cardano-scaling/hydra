@@ -60,14 +60,14 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyHeadFullLifeCycle
+  singlePartyHeadFullLifeCycle,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
@@ -121,12 +121,12 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
-      fit "can submmit a timed tx" $ \tracer -> do
+      it "can submmit a timed tx" $ \tracer -> do
         withClusterTempDir "timmed-tx" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
-         
+
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
@@ -493,7 +493,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
           <> logs
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId  = do
+timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
   let aliceSk = generateSigningKey "alice-timed"
   let alice = deriveParty aliceSk
@@ -503,7 +503,7 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId  = do
   withHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [n1] = toList nodes
     waitForNodesConnected tracer [n1]
-    
+
     -- Funds to be used as fuel by Hydra protocol transactions
     seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
     send n1 $ input "Init" []
@@ -520,19 +520,21 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId  = do
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
     (faucetVk, _) <- keysFor Faucet
     let Right tx =
-          mkSimpleTx
+          mkRangedTx
             firstCommittedUTxO
             (inHeadAddress faucetVk, lovelaceToValue 1_000_000)
             aliceCardanoSk
+            (Nothing, Nothing)
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor tracer 10 [n1] $
-        output "TxValid" ["transaction" .= tx, "headId" .= headId]
+      output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
     waitMatch 10 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
-      -- snapshot <- v ^? key "snapshot"
-      -- guard $ snapshot == expectedSnapshot
+
+-- snapshot <- v ^? key "snapshot"
+-- guard $ snapshot == expectedSnapshot
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
