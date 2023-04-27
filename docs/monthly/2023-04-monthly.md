@@ -7,9 +7,10 @@ tags: [monthly]
 
 This report summarizes the work on Hydra since March 2023. It serves as
 preparation for the monthly review meeting
-([slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/)/recording
-(TODO)) , where the team updates major project stakeholders on recent
-developments to gather their feedback on proposed plans.
+([slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/) &
+[recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing)),
+where the team updates major project stakeholders on recent developments to
+gather their feedback on proposed plans.
 
 ## Roadmap
 
@@ -176,3 +177,20 @@ these
 [slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/)
 and here is the
 [recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing).
+
+Although it has been a busy month we could not cut a release unfortunately.
+
+Multiple set backs on the commits vs. rollbacks bug and too big script sizes
+were slowing us down. The back and forth on the API with sometimes very "dirt
+road" solutions and follow-up requests is of course time intensive as well, but
+this is **very** valuable feedback and will make `hydra-node` easier to use and
+more capable step-by-step.
+
+Associated projects in the greater Hydra community are moving ahead nicely
+because of the collaborative approach and tight loops of interaction between the
+individual teams.
+
+All things considered, the project can be considered on-track. We are very close
+to cut our first mainnet compatible release and the rising number of user
+requests and interested developers are a good indicator that adoption of Hydra
+is increasing.
