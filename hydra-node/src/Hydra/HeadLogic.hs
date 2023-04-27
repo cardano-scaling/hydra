@@ -162,6 +162,14 @@ setChainState chainState = \case
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
+-- | Update the chain slot in any 'HeadState'.
+setChainSlot :: ChainSlot -> HeadState tx -> HeadState tx
+setChainSlot chainSlot = \case
+  Idle st -> Idle st{chainSlot}
+  Initial st -> Initial st{chainSlot}
+  Open st -> Open st{chainSlot}
+  Closed st -> Closed st{chainSlot}
+
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
@@ -988,12 +996,12 @@ onCurrentChainRollback currentState slot =
     | otherwise =
       case hs of
         Idle{} -> hs
-        Initial InitialState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
-        Open OpenState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
-        Closed ClosedState{previousRecoverableState} ->
-          rollback rollbackSlot previousRecoverableState
+        Initial InitialState{previousRecoverableState, chainSlot} ->
+          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+        Open OpenState{previousRecoverableState, chainSlot} ->
+          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+        Closed ClosedState{previousRecoverableState, chainSlot} ->
+          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
@@ -1072,12 +1080,6 @@ update env ledger st ev = case (st, ev) of
   _ ->
     Error $ InvalidEvent ev st
 
-setChainSlot :: ChainSlot -> HeadState tx -> HeadState tx
-setChainSlot chainSlot = \case
-  Idle st -> Idle st{chainSlot}
-  Initial st -> Initial st{chainSlot}
-  Open st -> Open st{chainSlot}
-  Closed st -> Closed st{chainSlot}
 -- * Snapshot helper functions
 
 data SnapshotOutcome tx
