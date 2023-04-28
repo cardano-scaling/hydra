@@ -34,9 +34,9 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
-  writeFileTextEnvelope,
+  writeFileTextEnvelope, SlotNo (..), buildTxValidityLowerBound,
  )
-import Hydra.Chain (HeadParameters (contestationPeriod, parties))
+import Hydra.Chain (ChainSlot(..), HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -514,27 +514,34 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     -- Get some UTXOs to commit to a head
     committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
     send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-    waitFor tracer 10 [n1] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice), "headId" .= headId]
+    waitFor tracer 10 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Create an arbitrary transaction using some input.
+    let paymentFromAliceToFaucet :: Num a => a
+        paymentFromAliceToFaucet = 1_000_000
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
     (faucetVk, _) <- keysFor Faucet
+
+    chainSlot <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadTick"
+      v ^? key "chainSlot" . _JSON
+
+    let (ChainSlot slotNumber) = chainSlot
+        slotNo = SlotNo $ fromIntegral slotNumber
     let Right tx =
           mkRangedTx
             firstCommittedUTxO
-            (inHeadAddress faucetVk, lovelaceToValue 1_000_000)
+            (inHeadAddress faucetVk, lovelaceToValue paymentFromAliceToFaucet)
             aliceCardanoSk
-            (Nothing, Nothing)
+            (Just $ buildTxValidityLowerBound (slotNo + 10), Nothing) -- validity range
+    
+    waitFor tracer 10 [n1] $
+      output "HeadTick" ["chainSlot" .= (slotNo + 1)]
+
     send n1 $ input "NewTx" ["transaction" .= tx]
+
     waitFor tracer 10 [n1] $
       output "TxValid" ["transaction" .= tx, "headId" .= headId]
-
-    waitMatch 10 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-      guard $ v ^? key "headId" == Just (toJSON headId)
-
--- snapshot <- v ^? key "snapshot"
--- guard $ snapshot == expectedSnapshot
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

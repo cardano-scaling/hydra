@@ -151,17 +151,16 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-      : [ TxOut @CtxTx
-          owner
-          (valueIn <> negateValue valueOut)
-          (toTxContext datum)
-          refScript
-        | valueOut /= valueIn
-        ]
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
+      [ TxOut @CtxTx
+        owner
+        (valueIn <> negateValue valueOut)
+        (toTxContext datum)
+        refScript
+      | valueOut /= valueIn
+      ]
 
   fee = Lovelace 0
-
 
 -- | Create a zero-fee, payment cardano transaction with validity range.
 mkRangedTx ::
@@ -180,20 +179,20 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   bodyContent =
     emptyTxBody
       { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
-      , txOuts = 
-          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-            : [ TxOut @CtxTx
-                owner
-                (valueIn <> negateValue valueOut)
-                (toTxContext datum)
-                refScript
-              | valueOut /= valueIn
-              ]
+      , txOuts =
+          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
+            [ TxOut @CtxTx
+              owner
+              (valueIn <> negateValue valueOut)
+              (toTxContext datum)
+              refScript
+            | valueOut /= valueIn
+            ]
       , txFee = TxFeeExplicit $ Lovelace 0
-      , txValidityRange = (
-          fromMaybe TxValidityNoLowerBound validityLowerBound, 
-          fromMaybe TxValidityNoUpperBound validityUpperBound
-        )
+      , txValidityRange =
+          ( fromMaybe TxValidityNoLowerBound validityLowerBound
+          , fromMaybe TxValidityNoUpperBound validityUpperBound
+          )
       }
 
 -- * Generators

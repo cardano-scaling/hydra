@@ -656,6 +656,10 @@ pattern TxScriptValidity{txScriptValidity'} <-
 type TxValidityLowerBound = Cardano.Api.TxValidityLowerBound Era
 {-# COMPLETE TxValidityNoLowerBound, TxValidityLowerBound #-}
 
+-- TODO review why do we need to do this if we have the constructor ??
+buildTxValidityLowerBound :: SlotNo -> TxValidityLowerBound
+buildTxValidityLowerBound = TxValidityLowerBound
+
 pattern TxValidityNoLowerBound :: TxValidityLowerBound
 pattern TxValidityNoLowerBound <-
   Cardano.Api.TxValidityNoLowerBound
@@ -674,6 +678,10 @@ pattern TxValidityLowerBound{txValidityLowerBound} <-
 
 type TxValidityUpperBound = Cardano.Api.TxValidityUpperBound Era
 {-# COMPLETE TxValidityNoUpperBound, TxValidityUpperBound #-}
+
+-- TODO review why do we need to do this if we have the constructor ??
+buildTxValidityUpperBound :: SlotNo -> TxValidityUpperBound
+buildTxValidityUpperBound = TxValidityUpperBound
 
 pattern TxValidityNoUpperBound :: TxValidityUpperBound
 pattern TxValidityNoUpperBound <-

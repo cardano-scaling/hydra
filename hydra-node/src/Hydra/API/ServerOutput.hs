@@ -85,6 +85,7 @@ data ServerOutput tx
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
+  -- REVIEW: it contains same information as seq and timestamp which every server output has
   | HeadTick
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
