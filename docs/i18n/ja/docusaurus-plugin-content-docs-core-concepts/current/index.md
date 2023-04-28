@@ -18,7 +18,7 @@ Hydra Headは、オンラインで応答性の高い参加者のグループに�
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
-import {useDocsSidebar} from '@docusaurus/theme-common';
+import {useDocsSidebar} from '@docusaurus/theme-common/internal';
 
 <DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
 ```
