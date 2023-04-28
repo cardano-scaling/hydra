@@ -146,8 +146,8 @@ $\redeemerInitial{} = \txOutRef_{\mathsf{committed}}^{?}$ ensures that:
 \begin{menumerate}
 	\item Committed value is in the output
 	$\valCommit{i} = \valInitial{i} \cup \val_{\mathsf{committed}}$
-	\item \textcolor{red}{Currency id and committed output are recorded in the
-		output datum} $\datumCommit{} = (\cid, C_{i})$ where
+	\item Currency id and committed output are recorded in the
+		output datum $\datumCommit{} = (\cid, C_{i})$ where
 	$C_{i} = (\txOutRef_{\mathsf{committed}},\bytes(o_{\mathsf{committed}}))$ if
 	$\txOutRef_{\mathsf{committed}}$ was given, or $C_{i} = (\Diamond, \emptyset)$
 	if nothing committed.
@@ -183,7 +183,9 @@ all the committed UTxOs to the same head. It has
 \noindent The state-machine validator $\nuHead$ is spent with
 $\redeemerHead = \mathsf{collect}$ and checks:
 \begin{menumerate}
-	\item \textcolor{red}{State is advanced from $\datumHead \sim \stInitial$ to $\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay unchanged and the new state is governed again by $\nuHead$:}
+	\item State is advanced from $\datumHead \sim \stInitial$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
+	unchanged and the new state is governed again by $\nuHead$:
 	\[
 		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta)
 	\]
@@ -204,8 +206,8 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 	result\footnote{Sorting is required to ensure a canonical representation
 		which can also be reproduced from the UTxO set later in the fanout.}.
 
-	\item \textcolor{red}{All committed value captured and no value is extracted}
-	$\valHead' = \mathsf{ST} \cup (\bigcup_{i=1}^{n} \valCommit{i})$.
+	\item All committed value captured and no value is extracted
+	$\valHead' = \valHead \cup (\bigcup_{i=1}^{n} \valCommit{i})$.
 	\item Every participant had the chance to commit, by checking all tokens are
 	present in output\footnote{This is sufficient as a Head participant would
 		check off-chain whether a Head is initialized correctly with the right
@@ -320,12 +322,14 @@ In order to close a head, a head member may post the \mtxClose{} transaction
 	$\redeemerHead = (\mathsf{close}, \xi)$, where $\xi$ is a multi-signature of
 	the to be closed snapshot, and checks:
 	\begin{menumerate}
-		\item \textcolor{red}{State is advanced from $\datumHead \sim \stOpen$ to $\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay unchanged and the new state is governed again by $\nuHead$:}
+		\item State is advanced from $\datumHead \sim \stOpen$ to
+		$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+		stay unchanged and the new state is governed again by $\nuHead$:
 		\[
 			(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta) \xrightarrow[\xi]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta_0,\eta',\contesters,\Tfinal)
 		\]
 		\item Records the initial snapshot state $\eta_0 = \eta$. \\
-		This is makes off-chain signatures rollback and replay resistant,
+		This makes off-chain signatures rollback and replay resistant,
 		see~\ref{sec:rollbacks} for details.
 		\item New snapshot state is the initial $\eta_{0}$
 		or correctly signed by all participants in $\xi$. \\
@@ -346,7 +350,7 @@ In order to close a head, a head member may post the \mtxClose{} transaction
 		used to delegate head closing.
 
 		\item Correct contestation deadline is set $\Tfinal = \txValidityMax + T$.
-		\item Tranasction validity range is bounded by
+		\item Transaction validity range is bounded by
 		$\txValidityMax - \txValidityMin \leq T$. \\
 		This ensures the contestation deadline $\Tfinal$ is at most $2*T$ in the future.
 		\item Value in the head is preserved $\valHead' = \valHead$.
@@ -377,9 +381,9 @@ transaction has
 	$\redeemerHead = (\mathsf{contest}, \xi)$, where $\xi$ is a multi-signature of
 	the contest snapshot, and checks:
 	\begin{menumerate}
-		\item \textcolor{red}{State stays $stClosed$ in both $\datumHead$ and
-			$\datumHead'$, parameters $\cid,\hydraKeysAgg,\nop,\cPer, \eta_{0}$
-			stay unchanged and the new state is governed again by $\nuHead$:}
+		\item State stays $\stClosed$ in both $\datumHead$ and $\datumHead'$,
+		parameters $\cid,\hydraKeysAgg,\nop,\cPer, \textcolor{red}{\eta_{0}}$ stay
+		unchanged and the new state is governed again by $\nuHead$:
 		\[
 			(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta_0,\eta,\contesters,\Tfinal) \xrightarrow[\xi]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta_0,\eta',\contesters',\Tfinal')
 		\]
