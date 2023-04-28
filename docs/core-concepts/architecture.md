@@ -4,7 +4,23 @@ sidebar_position: 2
 
 # Hydra Node Architecture
 
-This document describes inner workings of a `hydra-node`.
+This document describes the architecture of the current implementation of a `hydra-node`.
+
+```mermaid
+C4Component
+title Container diagram for Hydra
+
+Container(cardano_node, "Cardano Node", "Local cadano-node")
+
+Container_Boundary(hydra_node, "Hydra Node") {
+   Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk")
+   Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events")
+   Component(api_server, "API Server", "", "Dispatch client commands & queries and serves outputs")
+
+   BiRel(api_server, head_logic, "Input & Output", "JSON/websocket")
+   Rel(head_logic, persistence, "")
+}
+```
 
 !["Hydra Architecture"](https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/images/hydra-architecture-direct.jpg "Hydra architecture")
 
