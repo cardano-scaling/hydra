@@ -8,18 +8,34 @@ This document describes the architecture of the current implementation of a `hyd
 
 ```mermaid
 C4Component
-title Container diagram for Hydra
+ title Container diagram for Hydra
 
+ Container_Boundary(hydra_node, "Hydra Node") {
+    Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk")
+    Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events")
+    Component(api_server, "API Server", "", "Dispatch client commands & queries and serves outputs")
+    Component(chain, "Chain", "", "Connection to Cardano\nObserve txs on-chain and post tx to chain")
+    Component(wallet, "Tiny Wallet", "", "Embedded Wallet to sign transactions and pay fees")
+    Component(network, "Network", "", "Manages connections to peers")
+    Component(logging, "Logging", "", "Dump JSON to stdout")
+    Component(monitoring, "Monitoring", "", "Exposes Prometheus metrics")
+
+    BiRel(api_server, head_logic, "Input & Output", "")
+    Rel(head_logic, persistence, "")
+    Rel(head_logic, network, "")
+    BiRel(head_logic, chain, "Observation & OnChainTx", "")
+ }
+
+Container(hydra_node_peer, "Hydra Node (peer)", "Local cadano-node")
 Container(cardano_node, "Cardano Node", "Local cadano-node")
+Container(cardano_node_peer, "Cardano Node (peer)", "Local cadano-node")
+Container(hydra_client, "Hydra Client", "")
+BiRel(chain, cardano_node, "", "N2C protocol")
+BiRel(cardano_node, cardano_node_peer, "", "N2N protocol")
+BiRel(hydra_node_peer, cardano_node_peer, "", "N2C protocol")
+BiRel(network, hydra_node_peer, "", "N2C protocol")
+BiRel(hydra_client, api_server, "", "JSON/Websocket")
 
-Container_Boundary(hydra_node, "Hydra Node") {
-   Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk")
-   Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events")
-   Component(api_server, "API Server", "", "Dispatch client commands & queries and serves outputs")
-
-   BiRel(api_server, head_logic, "Input & Output", "JSON/websocket")
-   Rel(head_logic, persistence, "")
-}
 ```
 
 !["Hydra Architecture"](https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/images/hydra-architecture-direct.jpg "Hydra architecture")
