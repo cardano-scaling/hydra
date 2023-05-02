@@ -166,8 +166,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  let chainSlot = ChainSlot 0
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   pure $
     HydraNode
       { eq

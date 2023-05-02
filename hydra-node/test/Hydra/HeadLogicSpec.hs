@@ -397,7 +397,6 @@ inInitialState parties =
       , previousRecoverableState = Idle idleState
       , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
-      , chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
@@ -405,7 +404,7 @@ inInitialState parties =
   chainSlot = ChainSlot 0
 
   idleState =
-    IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
+    IdleState{chainState = SimpleChainState{slot = chainSlot}}
 
 inOpenState ::
   [Party] ->
@@ -443,13 +442,12 @@ inOpenState' parties coordinatedHeadState =
         , previousRecoverableState = Idle idleState
         , chainState = SimpleChainState{slot = chainSlot}
         , headId = testHeadId
-        , chainSlot
         }
 
   chainSlot = ChainSlot 0
 
   idleState =
-    IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
+    IdleState{chainState = SimpleChainState{slot = chainSlot}}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -468,7 +466,6 @@ inClosedState' parties confirmedSnapshot =
       , readyToFanoutSent = False
       , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
-      , chainSlot
       }
  where
   parameters = HeadParameters cperiod parties

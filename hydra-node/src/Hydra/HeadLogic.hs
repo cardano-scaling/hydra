@@ -165,19 +165,15 @@ setChainState chainState = \case
 -- | Update the chain slot in any 'HeadState'.
 setChainSlot :: ChainSlot -> HeadState tx -> HeadState tx
 setChainSlot chainSlot = \case
-  Idle st -> Idle st{chainSlot}
-  Initial st -> Initial st{chainSlot}
+  Idle st -> Idle st
+  Initial st -> Initial st
   Open st -> Open st{chainSlot}
-  Closed st -> Closed st{chainSlot}
+  Closed st -> Closed st
 
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
-data IdleState tx = IdleState
-  { chainState :: ChainStateType tx
-  , -- TODO: remove this
-    chainSlot :: ChainSlot
-  }
+newtype IdleState tx = IdleState {chainState :: ChainStateType tx}
   deriving (Generic)
 
 deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
@@ -198,8 +194,6 @@ data InitialState tx = InitialState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
-  , -- TODO: remove this
-    chainSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -220,7 +214,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
         [ Idle <$> arbitrary
         , Initial <$> arbitrary
         ]
-      <*> arbitrary
 
 type PendingCommits = Set Party
 
@@ -258,15 +251,15 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUTxO :: UTxOType tx
-  -- ^ The latest UTxO resulting from applying 'seenTxs' to
-  -- 'confirmedSnapshot'. Spec: L̂
-  , seenTxs :: [tx]
-  -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
-  , confirmedSnapshot :: ConfirmedSnapshot tx
-  -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
-  , seenSnapshot :: SeenSnapshot tx
-  -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
+  { -- | The latest UTxO resulting from applying 'seenTxs' to
+    -- 'confirmedSnapshot'. Spec: L̂
+    seenUTxO :: UTxOType tx
+  , -- | List of seen transactions pending inclusion in a snapshot. Spec: T̂
+    seenTxs :: [tx]
+  , -- | The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
+    confirmedSnapshot :: ConfirmedSnapshot tx
+  , -- | Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
+    seenSnapshot :: SeenSnapshot tx
   }
   deriving stock (Generic)
 
@@ -293,8 +286,8 @@ data SeenSnapshot tx
   | -- | ReqSn for given snapshot was received.
     SeenSnapshot
       { snapshot :: Snapshot tx
-      , signatories :: Map Party (Signature (Snapshot tx))
-      -- ^ Collected signatures and so far.
+      , -- | Collected signatures and so far.
+        signatories :: Map Party (Signature (Snapshot tx))
       }
   deriving stock (Generic)
 
@@ -322,14 +315,12 @@ data ClosedState tx = ClosedState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
   , contestationDeadline :: UTCTime
-  , readyToFanoutSent :: Bool
-  -- ^ Tracks whether we have informed clients already about being
-  -- 'ReadyToFanout'.
+  , -- | Tracks whether we have informed clients already about being
+    -- 'ReadyToFanout'.
+    readyToFanoutSent :: Bool
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
-  , -- TODO: remove this
-    chainSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -351,7 +342,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
         [ Open <$> arbitrary
         , Closed <$> arbitrary
         ]
-      <*> arbitrary
 
 -- ** Other types
 
@@ -407,8 +397,8 @@ instance Arbitrary WaitReason where
   arbitrary = genericArbitrary
 
 data Environment = Environment
-  { party :: Party
-  -- ^ This is the p_i from the paper
+  { -- | This is the p_i from the paper
+    party :: Party
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
@@ -453,7 +443,7 @@ onIdleChainInitTx ::
   ContestationPeriod ->
   HeadId ->
   Outcome tx
-onIdleChainInitTx idleState@IdleState{chainSlot} newChainState parties contestationPeriod headId =
+onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
   NewState
     ( Initial
         InitialState
@@ -463,7 +453,6 @@ onIdleChainInitTx idleState@IdleState{chainSlot} newChainState parties contestat
           , previousRecoverableState = Idle idleState
           , chainState = newChainState
           , headId
-          , chainSlot
           }
     )
     [ClientEffect $ HeadIsInitializing headId (fromList parties)]
@@ -509,8 +498,8 @@ onInitialChainCommitTx ::
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
   NewState newState $
-    notifyClient
-      : [postCollectCom | canCollectCom]
+    notifyClient :
+      [postCollectCom | canCollectCom]
  where
   newState =
     Initial
@@ -521,7 +510,6 @@ onInitialChainCommitTx st newChainState pt utxo =
         , previousRecoverableState = Initial st
         , chainState = newChainState
         , headId
-        , chainSlot
         }
 
   newCommitted = Map.insert pt utxo committed
@@ -538,7 +526,7 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   remainingParties = Set.delete pt pendingCommits
 
-  InitialState{parameters, pendingCommits, committed, headId, chainSlot} = st
+  InitialState{parameters, pendingCommits, committed, headId} = st
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
@@ -563,11 +551,10 @@ onInitialChainAbortTx ::
   ChainStateType tx ->
   Committed tx ->
   HeadId ->
-  ChainSlot ->
   Outcome tx
-onInitialChainAbortTx newChainState committed headId chainSlot =
+onInitialChainAbortTx newChainState committed headId =
   NewState
-    (Idle IdleState{chainState = newChainState, chainSlot})
+    (Idle IdleState{chainState = newChainState})
     [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -576,7 +563,7 @@ onInitialChainAbortTx newChainState committed headId chainSlot =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (Monoid (UTxOType tx)) =>
+  IsChainState tx =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -591,7 +578,7 @@ onInitialChainCollectTx st newChainState =
           , previousRecoverableState = Initial st
           , chainState = newChainState
           , headId
-          , chainSlot
+          , chainSlot = chainStateSlot newChainState
           }
     )
     [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
@@ -603,7 +590,7 @@ onInitialChainCollectTx st newChainState =
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
   -- untrue?
-  InitialState{parameters, committed, headId, chainSlot} = st
+  InitialState{parameters, committed, headId} = st
 
 -- ** Off-chain protocol
 
@@ -641,7 +628,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
   case applyTransactions chainSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
-          OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+        OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
       NewState
@@ -892,14 +879,14 @@ onOpenChainCloseTx ::
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
   NewState closedState $
-    notifyClient
-      : [ OnChainEffect
-          { -- REVIEW: Was using "old" chainState before
-            chainState = newChainState
-          , postChainTx = ContestTx{confirmedSnapshot}
-          }
-        | doContest
-        ]
+    notifyClient :
+      [ OnChainEffect
+        { -- REVIEW: Was using "old" chainState before
+          chainState = newChainState
+        , postChainTx = ContestTx{confirmedSnapshot}
+        }
+      | doContest
+      ]
  where
   doContest =
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -914,7 +901,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
         , previousRecoverableState = Open openState
         , chainState = newChainState
         , headId
-        , chainSlot
         }
 
   notifyClient =
@@ -927,7 +913,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{parameters, headId, coordinatedHeadState, chainSlot} = openState
+  OpenState{parameters, headId, coordinatedHeadState} = openState
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -939,16 +925,16 @@ onClosedChainContestTx ::
   Outcome tx
 onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
-      OnlyEffects
-        [ ClientEffect HeadIsContested{snapshotNumber, headId}
-        , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
-        ]
+    OnlyEffects
+      [ ClientEffect HeadIsContested{snapshotNumber, headId}
+      , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
+      ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
-      -- TODO: A more recent snapshot number was succesfully contested, we will
-      -- not be able to fanout! We might want to communicate that to the client!
-      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+    -- TODO: A more recent snapshot number was succesfully contested, we will
+    -- not be able to fanout! We might want to communicate that to the client!
+    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
   | otherwise =
-      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
  where
   ClosedState{chainState, confirmedSnapshot, headId} = closedState
 
@@ -983,13 +969,13 @@ onClosedChainFanoutTx ::
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   NewState
-    (Idle IdleState{chainState = newChainState, chainSlot})
+    (Idle IdleState{chainState = newChainState})
     [ ClientEffect $ HeadIsFinalized{headId, utxo}
     ]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
 
-  ClosedState{confirmedSnapshot, headId, chainSlot} = closedState
+  ClosedState{confirmedSnapshot, headId} = closedState
 
 -- | Observe a chain rollback and transition to corresponding previous
 -- recoverable state.
@@ -1006,14 +992,14 @@ onCurrentChainRollback currentState slot =
   rollback rollbackSlot hs
     | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =
-        case hs of
-          Idle{} -> hs
-          Initial InitialState{previousRecoverableState, chainSlot} ->
-            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
-          Open OpenState{previousRecoverableState, chainSlot} ->
-            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
-          Closed ClosedState{previousRecoverableState, chainSlot} ->
-            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+      case hs of
+        Idle{} -> hs
+        Initial InitialState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
+        Open OpenState{previousRecoverableState, chainSlot} ->
+          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+        Closed ClosedState{previousRecoverableState} ->
+          rollback rollbackSlot previousRecoverableState
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
@@ -1039,8 +1025,8 @@ update env ledger st ev = case (st, ev) of
     onInitialClientAbort initialState
   (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
     onInitialChainCollectTx initialState newChainState
-  (Initial InitialState{headId, committed, chainSlot}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
-    onInitialChainAbortTx newChainState committed headId chainSlot
+  (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
+    onInitialChainAbortTx newChainState committed headId
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     OnlyEffects [ClientEffect . GetUTxOResponse headId $ fold committed]
   -- Open
@@ -1067,11 +1053,11 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
-  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime chainSlot))
+  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime _))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        NewState
-          (Closed cst{readyToFanoutSent = True, chainSlot})
-          [ClientEffect $ ReadyToFanout headId, ClientEffect $ HeadTick chainTime chainSlot]
+      NewState
+        (Closed cst{readyToFanoutSent = True})
+        [ClientEffect $ ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
@@ -1116,17 +1102,17 @@ newSn :: Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOut
 newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
   if
       | not (isLeader parameters party nextSn) ->
-          ShouldNotSnapshot $ NotLeader nextSn
+        ShouldNotSnapshot $ NotLeader nextSn
       | -- NOTE: This is different than in the spec. If we use seenSn /=
         -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
         -- may be an acceptable invariant, but we have property tests which are
         -- more strict right now. Anyhow, we can be more expressive.
         snapshotInFlight ->
-          ShouldNotSnapshot $ SnapshotInFlight nextSn
+        ShouldNotSnapshot $ SnapshotInFlight nextSn
       | null seenTxs ->
-          ShouldNotSnapshot NoTransactionsToSnapshot
+        ShouldNotSnapshot NoTransactionsToSnapshot
       | otherwise ->
-          ShouldSnapshot nextSn seenTxs
+        ShouldSnapshot nextSn seenTxs
  where
   nextSn = confirmedSn + 1
 

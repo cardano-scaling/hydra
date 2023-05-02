@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE MultiWayIf #-}
 
 module Main where
 
@@ -7,7 +6,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain (HeadParameters (..), chainStateSlot)
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -58,7 +57,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
 
-data ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
+newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
 instance Exception ParamMismatchError
 
@@ -86,11 +85,11 @@ main = do
           load persistence >>= \case
             Nothing -> do
               traceWith tracer CreatedState
-              pure $ Idle IdleState{chainState = initialChainState, chainSlot = chainStateSlot initialChainState}
+              pure $ Idle IdleState{chainState = initialChainState}
             Just headState -> do
               traceWith tracer LoadedState
               let paramsMismatch = checkParamsAgainstExistingState headState env
-              when (not $ null paramsMismatch) $ do
+              unless (null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
                 throwIO $
                   ParamMismatchError $

@@ -711,7 +711,7 @@ withHydraNode signingKey otherParties connectToChain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let chainSlot = ChainSlot 0
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = chainSlot}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraNode outputs outputHistory node)
