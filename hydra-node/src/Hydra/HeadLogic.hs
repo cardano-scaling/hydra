@@ -730,7 +730,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- be applicable already. This is a bit of a precursor for only submitting
   -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
-    case applyTransactions ledger (ChainSlot 16) confirmedUTxO requestedTxs of
+    case applyTransactions ledger chainSlot confirmedUTxO requestedTxs of
       Left (_, err) ->
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
@@ -755,7 +755,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState} = st
+  OpenState{parameters, coordinatedHeadState, chainSlot} = st
 
   Environment{party, signingKey} = env
 

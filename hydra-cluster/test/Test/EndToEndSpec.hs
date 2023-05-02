@@ -13,10 +13,10 @@ import CardanoClient (queryTip, waitForUTxO)
 import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
-import Control.Lens ((^?))
+import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _JSON)
+import Data.Aeson.Lens (key, values, _JSON)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
@@ -569,9 +569,8 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
 
     confirmedTransactions <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-      v ^? key "transactions" . _JSON
-
-    confirmedTransactions `shouldBe` ([] :: [Aeson.Object])
+      v ^? key "snapshot" . key "confirmedTransactions"
+    confirmedTransactions ^.. values . key "id" `shouldBe` [toJSON $ txId tx]
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
