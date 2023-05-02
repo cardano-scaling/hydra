@@ -23,7 +23,7 @@ only slightly updated.
 
 - As you can see, there are still many 💭 **idea** items on the roadmap.
   However, not on the current and next planned release columns. The process is
-  to clarify & groom each idea item into a 💬 **feature** before starting work
+  to clarify and groom each idea item into a 💬 **feature** before starting work
   on it, while equally considering new user feature 💭 **idea**s and requests.
 
 - Moved [Hydra heads explorer
@@ -34,21 +34,20 @@ only slightly updated.
 - Converted the [aggregated multi-signature
   #193](https://github.com/input-output-hk/hydra/issues/193) from the concrete
   roadmap into an [idea discussion
-  #787](https://github.com/input-output-hk/hydra/discussions/787) as we got more
+  #787](https://github.com/input-output-hk/hydra/discussions/787) as we get more
   input from the community and it's better to discuss there.
 
-- Main focus for 0.10.0 is mainnet compatibility, which is mostly done and only
+- The main focus for 0.10.0 is mainnet compatibility, which is mostly done and only
   some docs and disclaimers are missing now.
 
-- Meanwhile the [configurable API
+- Meanwhile, the [configurable API
   #380](https://github.com/input-output-hk/hydra/issues/380) was completed. Work
   on this gave rise to new ideas and follow-up feature requests from users. One
   of them ([Add HeadState/Snapshot to Greetings
-  #823](https://github.com/input-output-hk/hydra/issues/823)) was fairly
-  straight-forward and necessary to deliver a consistent usable increment on the
+  #823](https://github.com/input-output-hk/hydra/issues/823)) was fairly straightforward and necessary to deliver a consistent, usable increment on the
   API with the upcoming release.
 
-- About to release 0.10.0, which will be the first mainnet compatible version
+- About to release 0.10.0, which will be the first mainnet-compatible version
 
 - Prioritized [Support timed transactions
   #196](https://github.com/input-output-hk/hydra/issues/196) higher as yet
@@ -63,24 +62,23 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-- **Configurable API.** Our API evolved a bit driven by the issues our users
+- **Configurable API.** Our API evolved a bit, driven by the issues our users
   reported [#823](https://github.com/input-output-hk/hydra/issues/823)
   [#813](https://github.com/input-output-hk/hydra/issues/813)
   [#800](https://github.com/input-output-hk/hydra/issues/800)
   [#789](https://github.com/input-output-hk/hydra/issues/789).
   Related changes were added to our API server so now our clients can:
-  - Control the historical messages output. History messages can be displayed
-  uppon re/connection or not depending on client needs.
-  - Snapshot UTxO's can optionally be disabled.
-  - Transactions can be displayed in cbor of json format.
+  - Control the historical messages output. History messages can be displayed upon re/connection or not depending on client needs.
+  - Snapshot UTXOs can optionally be disabled.
+  - Transactions can be displayed in CBOR or JSON format.
 
-  Our clients can also have a nice insight into current Hydra node state and Head utxos
+  Our clients can also have a nice insight into the current Hydra node state and Head UTXOs
   that are now displayed as part of a `Greetings` message.
 
   Next steps on the API level are to further fulfill user needs by grooming and
   implementing needed changes related to filtering, pagination etc.
 
-- **Versioned docs and specification.** Over the [last couple
+- **Versioned docs and specification.** Over the [last couple of
   months](./2023-02#development) the Hydra specification became an important
   artifact to use in discussion, review and potential audit of the Head protocol
   implementation. The document was now moved from overleaf into the Hydra
@@ -92,7 +90,7 @@ This month, the team worked on the following:
 
   Note that the above link points to the new `/unstable` version of the
   documentation, which holds the bleeding edge user manual, specification and
-  api reference (which got a new sidebar) built directly from `master`. The
+  API reference (which got a new sidebar) built directly from `master`. The
   normal, non-unstable version of the website is always referring to the [last
   released version](https://github.com/input-output-hk/hydra/releases).
 
@@ -100,28 +98,26 @@ This month, the team worked on the following:
 
 - **Fixed scripts, plutonomy and custom script contexts.** As we made the
   specification use a more direct way to represent transactions (instead of the
-  constraint emitting machine formalism), we realised that our scripts are not
+  constraint emitting machine formalism), we realized that our scripts are not
   correctly ensuring _script continuity_. We identified these "gaps" as red
   sections (see above) in the specification and worked on fixing them.
 
-  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)
-  was fairly straight forward and could easily be covered by our mutation-based
+  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)was fairly straightforward and could easily be covered by our mutation-based
   contract tests, the script size increased and we could not publish all three
   Hydra scripts in a single publish transaction (which allows for a single
-  `--hydra-scripts-tx-id` parameter on the `hydra-node`).
-
-  To mitigate, we looked into the UPLC optimizer
+  `--hydra-scripts-tx-id` parameter on the `hydra-node`).   
+  
+  To mitigate this, we looked into the UPLC optimizer
   [plutonomy](https://github.com/well-typed/plutonomy/tree/master/src/Plutonomy).
   Applying it was fairly simple, our tests did also pass, script sizes _and
   costs_ also became lower. But, script size does not matter so much as we are
   using reference scripts and using a (not really maintained?) optimizer which
   introduces yet another question mark after compilation from `plutus-tx` to
-  `uplc` was not our cup of tea.. right now at least (and we might pull this out
+  `uplc` was not our cup of tea right now at least (and we might pull this out
   of the drawer later).
 
   There is an alternative: decoding `ScriptContext` involves quite some code,
-  but we don't need it everything in all validators. So we introduced a custom
-  script context which only decodes the fields we need.
+  but we don't need everything in all validators. So we introduced a customscript context that only decodes the fields we need.
 
   | scripts  | @0.9.0 | fixes | fixes + plutonomy | fixes + custom ScriptContext |
   | -------- | ------ | ----- | ----------------- | ---------------------------- |
@@ -131,20 +127,17 @@ This month, the team worked on the following:
   | μHead    | 4458   | 4537  | 3468              | 4104                         |
 
   In the process of this, we also [updated dependencies
-  #826](https://github.com/input-output-hk/hydra/pull/826) to latest
-  `cardano-node` master. It did not help on the script sizes, but is a great
+  #[826](https://github.com/input-output-hk/hydra/pull/826) to the latest `cardano-node` master. It did not help on the script sizes, but is a great
   preparation for upcoming hard-forks.
 
 - **Rollback bug hunt.**
 
-Opening our first head on mainnet failed. We didn't loose any funds, except some
-fees, but the head just did not open. Exploring the logs we figured out that a
+Opening our first head on mainnet failed. We didn't lose any funds, except for some fees, but the head just did not open. Exploring the logs we figured out that a
 rollback happened while opening the head and we had a bug.
 
 This is our test pyramid. It already contained some tests about rollback but
-we decided to enrich our model based tests to make it simulate rollbacks
-(before that, it used to run on a _perfect_ blockchain). You can find more about
-our model based test strategy in
+we decided to enrich our model-based tests to make it simulate rollbacks
+(before that, it used to run on a _perfect_ blockchain). You can find more about our model-based test strategy in
 [Model-Based Testing with QuickCheck](https://engineering.iog.io/2022-09-28-introduce-q-d/).
 
 ![test pyramid](./img/2023-04-test-pyramide.png)
@@ -182,7 +175,7 @@ We decided to implement the following solution:
 - A local chain state is re-introduced in the chain component, not shared with
   the head logic.
 - A copy of the chain state is kept in the head state to keep the benefits of
-  [ADR 18](./adr/18) regarding persistency.
+  [ADR [18](./adr/18) regarding persistence.
 - The rollback event is removed from the API until [#185](https://github.com/input-output-hk/hydra/issues/185).
 
 ![possible solution](./img/2023-04-possible-solution.jpeg)
@@ -219,7 +212,7 @@ rollbacks until we focus on this topic again when dealing with this roadmap item
   and work started [here
   kupo#117](https://github.com/CardanoSolutions/kupo/pull/117). This will make
   it possible to run `kupo` natively connected to a `hydra-node`, very much it
-  would run with `cardano-node` or `ogmios`. Kupo is a light-weight indexer of
+  would run with `cardano-node` or `ogmios`. Kupo is a lightweight indexer of
   chain data like unspent transaction outputs and allows its clients to query
   information on-demand. 🐹
 
@@ -243,9 +236,9 @@ these
 and here is the
 [recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing).
 
-Although it has been a busy month we could not cut a release unfortunately.
+Although it has been a busy month we could not cut a release, unfortunately.  
 
-Multiple set backs on the commits vs. rollbacks bug and too big script sizes
+Multiple setbacks on the commits vs. rollbacks bug and too big script sizes
 were slowing us down. The back and forth on the API with sometimes very "dirt
 road" solutions and follow-up requests is of course time intensive as well, but
 this is **very** valuable feedback and will make `hydra-node` easier to use and
@@ -255,7 +248,6 @@ Associated projects in the greater Hydra community are moving ahead nicely
 because of the collaborative approach and tight loops of interaction between the
 individual teams.
 
-All things considered, the project can be considered on-track. We are very close
-to cut our first mainnet compatible release and the rising number of user
-requests and interested developers are a good indicator that adoption of Hydra
+All things considered, the project can be considered on track. We are very close to cutting our first mainnet-compatible release and the rising number of user
+requests and interested developers are good indicators that adoption of Hydra
 is increasing.
