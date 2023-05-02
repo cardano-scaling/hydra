@@ -221,8 +221,7 @@ data OpenState tx = OpenState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
-  , -- TODO: rename to currentSlot
-    chainSlot :: ChainSlot
+  , currentSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -570,7 +569,7 @@ onInitialChainCollectTx st newChainState =
           , previousRecoverableState = Initial st
           , chainState = newChainState
           , headId
-          , chainSlot = chainStateSlot newChainState
+          , currentSlot = chainStateSlot newChainState
           }
     )
     [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
@@ -617,7 +616,7 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions chainSlot seenUTxO [tx] of
+  case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
         OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
@@ -640,7 +639,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   CoordinatedHeadState{seenTxs, seenUTxO} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, headId, chainSlot} = st
+  OpenState{coordinatedHeadState, headId, currentSlot} = st
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -709,7 +708,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- be applicable already. This is a bit of a precursor for only submitting
   -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
-    case applyTransactions ledger chainSlot confirmedUTxO requestedTxs of
+    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
       Left (_, err) ->
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
@@ -739,7 +738,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, chainSlot} = st
+  OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
   Environment{party, signingKey} = env
 
@@ -988,10 +987,10 @@ onCurrentChainRollback currentState slot =
         Idle{} -> hs
         Initial InitialState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
-        Open OpenState{previousRecoverableState, chainSlot} ->
+        Open OpenState{previousRecoverableState, currentSlot} ->
           case previousRecoverableState of
             Open ost ->
-              rollback rollbackSlot (Open ost{chainSlot})
+              rollback rollbackSlot (Open ost{currentSlot})
             _ ->
               rollback rollbackSlot previousRecoverableState
         Closed ClosedState{previousRecoverableState} ->
@@ -1062,7 +1061,7 @@ update env ledger st ev = case (st, ev) of
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
   (Open ost@OpenState{}, OnChainEvent Tick{chainTime, chainSlot}) ->
-    NewState (Open ost{chainSlot}) [ClientEffect $ HeadTick chainTime chainSlot]
+    NewState (Open ost{currentSlot = chainSlot}) [ClientEffect $ HeadTick chainTime chainSlot]
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1127,7 +1126,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId, chainSlot}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId, currentSlot}) effects ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1146,7 +1145,7 @@ emitSnapshot env@Environment{party} outcome =
                   , previousRecoverableState
                   , chainState
                   , headId
-                  , chainSlot
+                  , currentSlot
                   }
             )
             $ NetworkEffect (ReqSn party sn txs) : effects

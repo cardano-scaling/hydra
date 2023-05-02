@@ -428,7 +428,7 @@ inOpenState' parties coordinatedHeadState =
       , previousRecoverableState
       , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
-      , chainSlot
+      , currentSlot = chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
