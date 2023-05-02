@@ -53,13 +53,14 @@ prepare_release() {
   update_api_version   "$version"
   update_preview_txid "$version" "$preview_txid"
   update_preprod_txid "$version" "$preprod_txid"
+  update_demo_version "$version"
 
   find . -name '*-e' -exec rm '{}' \; # cleanup BSD sed mess
   
   git add .
   
   git commit -m "Prepare release $version"
- 
+
   git tag -as "$version" -F <(changelog "$version")
 }
 
@@ -151,6 +152,14 @@ update_txid() {
   rm "testnets/${network}/hydra-scripts.txid"
   echo "$txid" > "testnets/${network}/hydra-scripts-${version}.txid"
   ln -s "hydra-scripts-${version}.txid" testnets/${network}/hydra-scripts.txid
+}
+
+update_demo_version() {
+  local version="$1"
+  (
+    cd demo
+    sed -i -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," *
+  )
 }
 
 changelog() {
