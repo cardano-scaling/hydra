@@ -155,7 +155,6 @@ getChainState = \case
   Closed ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
--- TODO: derive it from the chainState
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
@@ -174,7 +173,11 @@ setChainSlot chainSlot = \case
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
-data IdleState tx = IdleState {chainState :: ChainStateType tx, chainSlot :: ChainSlot}
+data IdleState tx = IdleState {
+    chainState :: ChainStateType tx,
+    -- TODO: remove this
+    chainSlot :: ChainSlot
+  }
   deriving (Generic)
 
 deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
@@ -195,6 +198,7 @@ data InitialState tx = InitialState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
+  -- TODO: remove this
   , chainSlot :: ChainSlot
   }
   deriving (Generic)
@@ -232,6 +236,7 @@ data OpenState tx = OpenState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
+  -- TODO: rename to currentSlot
   , chainSlot :: ChainSlot
   }
   deriving (Generic)
@@ -323,6 +328,7 @@ data ClosedState tx = ClosedState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
+  -- TODO: remove this
   , chainSlot :: ChainSlot
   }
   deriving (Generic)
