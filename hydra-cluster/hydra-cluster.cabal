@@ -247,6 +247,7 @@ test-suite integration
     , strict-containers
     , temporary
     , text
+    , time
 
   build-tool-depends: hspec-discover:hspec-discover, hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

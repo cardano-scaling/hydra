@@ -522,21 +522,36 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
     (faucetVk, _) <- keysFor Faucet
 
-    chainSlot <- waitMatch 3 n1 $ \v -> do
+    (chainSlot, chainTime) <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadTick"
-      v ^? key "chainSlot" . _JSON
+      chainSlot <- v ^? key "chainSlot" . _JSON
+      chainTime <- v ^? key "chainTime" . _JSON
+      pure (chainSlot, chainTime)
 
     let (ChainSlot slotNumber) = chainSlot
         slotNo = SlotNo $ fromIntegral slotNumber
-    let Right tx =
+        -- TODO use `slotLength` from ledger Config
+        slotLength = 0.1
+        secondsToAwait = 5
+        slotsToAwait :: SlotNo = SlotNo . truncate $ secondsToAwait / slotLength
+
+        futureChainTime = addUTCTime secondsToAwait chainTime
+        futureChainSlot = slotNo + slotsToAwait
+
+        Right tx =
           mkRangedTx
             firstCommittedUTxO
             (inHeadAddress faucetVk, lovelaceToValue paymentFromAliceToFaucet)
             aliceCardanoSk
-            (Just $ buildTxValidityLowerBound (slotNo + 10), Nothing) -- validity range
-    
+            (Just $ buildTxValidityLowerBound futureChainSlot, Nothing)
+
+    send n1 $ input "NewTx" ["transaction" .= tx]
+
+    waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "TxInvalid"
+
     waitFor tracer 10 [n1] $
-      output "HeadTick" ["chainSlot" .= (slotNo + 1)]
+      output "HeadTick" ["chainSlot" .= futureChainSlot, "chainTime" .= futureChainTime]
 
     send n1 $ input "NewTx" ["transaction" .= tx]
 
