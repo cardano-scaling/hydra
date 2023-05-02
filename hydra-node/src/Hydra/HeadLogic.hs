@@ -162,14 +162,6 @@ setChainState chainState = \case
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
--- | Update the chain slot in any 'HeadState'.
-setChainSlot :: ChainSlot -> HeadState tx -> HeadState tx
-setChainSlot chainSlot = \case
-  Idle st -> Idle st
-  Initial st -> Initial st
-  Open st -> Open st{chainSlot}
-  Closed st -> Closed st
-
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
@@ -997,7 +989,11 @@ onCurrentChainRollback currentState slot =
         Initial InitialState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
         Open OpenState{previousRecoverableState, chainSlot} ->
-          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+          case previousRecoverableState of
+            Open ost ->
+              rollback rollbackSlot (Open ost{chainSlot})
+            _ ->
+              rollback rollbackSlot previousRecoverableState
         Closed ClosedState{previousRecoverableState} ->
           rollback rollbackSlot previousRecoverableState
 
@@ -1065,8 +1061,10 @@ update env ledger st ev = case (st, ev) of
   -- General
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
-  (currentState, OnChainEvent Tick{chainTime, chainSlot}) ->
-    NewState (setChainSlot chainSlot currentState) [ClientEffect $ HeadTick chainTime chainSlot]
+  (Open ost@OpenState{}, OnChainEvent Tick{chainTime, chainSlot}) ->
+    NewState (Open ost{chainSlot}) [ClientEffect $ HeadTick chainTime chainSlot]
+  (_, OnChainEvent Tick{}) ->
+    OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
     OnlyEffects [ClientEffect $ PeerConnected{peer = nodeId}]
   (_, NetworkEvent _ (Disconnected nodeId)) ->
