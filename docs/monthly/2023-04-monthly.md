@@ -212,7 +212,7 @@ rollbacks until we focus on this topic again when dealing with this roadmap item
   [Cardano Blockchain Infrastructure Alliance](https://www.cbia.io/)
   meetings which happen more or less on a monthly basis. Hydra was
   featured during the meetup that happened while the team was in
-  [workshop in Feldkirch](./2023-03-monthly) and through this
+  [workshop in Feldkirch](./2023-03) and through this
   participation we hope to contribute to growth of the Cardano
   eco-system and position Hydra as a key infrastructure for builders.
 
