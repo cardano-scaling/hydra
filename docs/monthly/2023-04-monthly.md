@@ -96,8 +96,8 @@ This month, the team worked on the following:
   While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777) was fairly straightforward and could easily be covered by our mutation-based
   contract tests, the script size increased and we could not publish all three
   Hydra scripts in a single publish transaction (which allows for a single
-  `--hydra-scripts-tx-id` parameter on the `hydra-node`).   
-  
+  `--hydra-scripts-tx-id` parameter on the `hydra-node`).
+
   To mitigate this, we looked into the UPLC optimizer
   [Plutonomy](https://github.com/well-typed/plutonomy/tree/master/src/Plutonomy).
   Applying it was fairly simple, our tests did also pass, script sizes _and
@@ -117,7 +117,7 @@ This month, the team worked on the following:
   | νHead    | 8954   | 9492  | 7579              | 9456 (no custom SC)          |
   | μHead    | 4458   | 4537  | 3468              | 4104                         |
 
-  
+
 As part of this process, we also updated dependencies
   #[826](https://github.com/input-output-hk/hydra/pull/826) to the latest `cardano-node` master. Although it didn't have an impact on script sizes, it's a crucial step towards preparing for upcoming hard-forks.
 
@@ -208,7 +208,13 @@ rollbacks until we focus on this topic again when dealing with this roadmap item
   chain data like unspent transaction outputs and allows its clients to query
   information on-demand. 🐹
 
-- **CBIA meetings.** ... @abailly
+- **CBIA meetings.** Hydra Team is now a regular participant to
+  [Cardano Blockchain Infrastructure Alliance](https://www.cbia.io/)
+  meetings which happen more or less on a monthly basis. Hydra was
+  featured during the meetup that happened while the team was in
+  [workshop in Feldkirch](./2023-03-monthly) and through this
+  participation we hope to contribute to growth of the Cardano
+  eco-system and position Hydra as a key infrastructure for builders.
 
 - **Twitter space on scaling Cardano.** This month we took part in a Twitter
   space about scaling Cardano and how Hydra can contribute to this. Thanks for
@@ -228,7 +234,7 @@ these
 and here is the
 [recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing).
 
-Although it has been a busy month we could not cut a release, unfortunately.  
+Although it has been a busy month we could not cut a release, unfortunately.
 
 We've experienced several setbacks due to the commits vs. rollbacks bug and oversized script sizes, which have slowed down our progress. Additionally, the back and forth on the API, which at times required creative and unconventional solutions, has also been time-intensive. However, we view this feedback as **incredibly** valuable, as it will ultimately make hydra-node more user-friendly and capable, albeit through a step-by-step process.
 
