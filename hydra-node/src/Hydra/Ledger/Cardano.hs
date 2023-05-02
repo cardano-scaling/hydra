@@ -35,7 +35,7 @@ import Data.Maybe (fromJust)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import qualified Hydra.Contract.Head as Head
-import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
@@ -78,14 +78,16 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx slot utxo tx =
-    case Ledger.applyTx globals ledgerEnv memPoolState (toLedgerTx tx) of
+  applyTx (ChainSlot slot) utxo tx =
+    case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
       Left err ->
         Left (tx, toValidationError err)
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
         Right . fromLedgerUTxO $ Ledger._utxo us
    where
     toValidationError = ValidationError . show
+
+    env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
 
     memPoolState =
       Ledger.LedgerState
