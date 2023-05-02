@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   UsingRawBytesHex (..),
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Ledger (IsTx, TxIdType, UTxOType)
+import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
@@ -174,19 +174,6 @@ class
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
--- | A generic description for a chain slot all implementions need to use.
-newtype ChainSlot = ChainSlot Natural
-  deriving (Ord, Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
-
--- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
--- instances to 'ChainSlot'.
-nextChainSlot :: ChainSlot -> ChainSlot
-nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
-
-instance Arbitrary ChainSlot where
-  arbitrary = genericArbitrary
-
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
   { postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
@@ -205,16 +192,15 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback ChainSlot
-  | 
-  -- XXX: it's not guaranteed that UTCTime and ChainSlot of a Tick are consistent 
-  -- the alternative would be to have the mans to do the conversion.
-  -- For Cardano, this would be a systemStart and eraHistory..
-  -- which is annoying and if it's kept in the chain layer, 
-  -- it would mean another round trip / state to keep there.
-  Tick {
-    chainTime :: UTCTime,
-    chainSlot :: ChainSlot
-  }
+  | -- XXX: it's not guaranteed that UTCTime and ChainSlot of a Tick are consistent
+    -- the alternative would be to have the mans to do the conversion.
+    -- For Cardano, this would be a systemStart and eraHistory..
+    -- which is annoying and if it's kept in the chain layer,
+    -- it would mean another round trip / state to keep there.
+    Tick
+      { chainTime :: UTCTime
+      , chainSlot :: ChainSlot
+      }
   deriving (Generic)
 
 deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)

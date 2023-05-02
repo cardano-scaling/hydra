@@ -20,7 +20,7 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
-import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Chain (ChainStateType, IsChainState (..))
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
 
@@ -111,7 +111,7 @@ instance FromCBOR SimpleTxIn where
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
-    { applyTransactions =
+    { applyTransactions = \slot ->
         foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs

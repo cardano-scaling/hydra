@@ -4,6 +4,7 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
+import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 
 class
@@ -48,25 +49,39 @@ class
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
 data Ledger tx = Ledger
-  { -- | Apply a set of transaction to a given UTXO set. Returns the new UTXO or
-    -- validation failures returned from the ledger.
-    -- TODO: 'ValidationError' should also include the UTxO, which is not
-    -- necessarily the same as the given UTxO after some transactions
-    applyTransactions ::
+  { applyTransactions ::
+      ChainSlot ->
       UTxOType tx ->
       [tx] ->
       Either (tx, ValidationError) (UTxOType tx)
-  , -- | Generates an initial UTXO set. This is only temporary as it does not
-    -- allow to initialize the UTXO.
-    --
-    -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
-    -- coming with `IsTx`. We probably want to dry this out.
-    initUTxO :: UTxOType tx
+  -- ^ Apply a set of transaction to a given UTXO set. Returns the new UTXO or
+  -- validation failures returned from the ledger.
+  -- TODO: 'ValidationError' should also include the UTxO, which is not
+  -- necessarily the same as the given UTxO after some transactions
+  , initUTxO :: UTxOType tx
+  -- ^ Generates an initial UTXO set. This is only temporary as it does not
+  -- allow to initialize the UTXO.
+  --
+  -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
+  -- coming with `IsTx`. We probably want to dry this out.
   }
 
-canApply :: Ledger tx -> UTxOType tx -> tx -> ValidationResult
-canApply ledger utxo tx =
-  either (Invalid . snd) (const Valid) $ applyTransactions ledger utxo (pure tx)
+-- | A generic description for a chain slot all implementions need to use.
+newtype ChainSlot = ChainSlot Natural
+  deriving (Ord, Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+-- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
+-- instances to 'ChainSlot'.
+nextChainSlot :: ChainSlot -> ChainSlot
+nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
+
+instance Arbitrary ChainSlot where
+  arbitrary = genericArbitrary
+
+canApply :: Ledger tx -> ChainSlot -> UTxOType tx -> tx -> ValidationResult
+canApply ledger slot utxo tx =
+  either (Invalid . snd) (const Valid) $ applyTransactions ledger slot utxo (pure tx)
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult

@@ -51,7 +51,6 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
-  ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (..),
   HeadParameters (..),
@@ -101,7 +100,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
-import Hydra.Ledger (IsTx (hashUTxO))
+import Hydra.Ledger (ChainSlot (..), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()

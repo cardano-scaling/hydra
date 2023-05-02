@@ -564,7 +564,7 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
 
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]
-    waitFor tracer 10 [n1] $
+    waitFor tracer 3 [n1] $
       output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()

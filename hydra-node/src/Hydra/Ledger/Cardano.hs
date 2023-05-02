@@ -57,17 +57,17 @@ import Test.QuickCheck (
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
   Ledger
-    { applyTransactions = applyAll
+    { applyTransactions
     , initUTxO = mempty
     }
  where
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
-  applyAll utxo = \case
+  applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) -> do
       utxo' <- left (first fromLedgerTx) $ fromLedgerUTxO <$> applyTx ledgerEnv (toLedgerUTxO utxo) (toLedgerTx tx)
-      applyAll utxo' txs
+      applyTransactions slot utxo' txs
 
   -- TODO(SN): Pre-validate transactions to get less confusing errors on
   -- transactions which are not expected to work on a layer-2
@@ -151,14 +151,14 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
-      [ TxOut @CtxTx
-        owner
-        (valueIn <> negateValue valueOut)
-        (toTxContext datum)
-        refScript
-      | valueOut /= valueIn
-      ]
+    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+      : [ TxOut @CtxTx
+          owner
+          (valueIn <> negateValue valueOut)
+          (toTxContext datum)
+          refScript
+        | valueOut /= valueIn
+        ]
 
   fee = Lovelace 0
 
@@ -180,14 +180,14 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
     emptyTxBody
       { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
       , txOuts =
-          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone :
-            [ TxOut @CtxTx
-              owner
-              (valueIn <> negateValue valueOut)
-              (toTxContext datum)
-              refScript
-            | valueOut /= valueIn
-            ]
+          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+            : [ TxOut @CtxTx
+                owner
+                (valueIn <> negateValue valueOut)
+                (toTxContext datum)
+                refScript
+              | valueOut /= valueIn
+              ]
       , txFee = TxFeeExplicit $ Lovelace 0
       , txValidityRange =
           ( fromMaybe TxValidityNoLowerBound validityLowerBound

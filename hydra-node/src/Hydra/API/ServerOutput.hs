@@ -10,9 +10,9 @@ import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainSlot, ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
-import Hydra.Ledger (IsTx, UTxOType, ValidationError)
+import Hydra.Ledger (ChainSlot, IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
@@ -51,12 +51,12 @@ data ServerOutput tx
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
-      , -- | Nominal deadline until which contest can be submitted and after
-        -- which fanout is possible. NOTE: Use this only for informational
-        -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
-        -- as the ledger of our cardano-node might not have progressed
-        -- sufficiently in time yet and we do not re-submit transactions (yet).
-        contestationDeadline :: UTCTime
+      , contestationDeadline :: UTCTime
+      -- ^ Nominal deadline until which contest can be submitted and after
+      -- which fanout is possible. NOTE: Use this only for informational
+      -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
+      -- as the ledger of our cardano-node might not have progressed
+      -- sufficiently in time yet and we do not re-submit transactions (yet).
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout {headId :: HeadId}
@@ -85,8 +85,8 @@ data ServerOutput tx
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
-  -- REVIEW: it contains same information as seq and timestamp which every server output has
-  | HeadTick
+  | -- REVIEW: it contains same information as seq and timestamp which every server output has
+    HeadTick
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
       }

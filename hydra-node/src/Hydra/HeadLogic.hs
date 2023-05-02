@@ -23,7 +23,6 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot,
   ChainStateType,
   HeadId,
   HeadParameters (..),
@@ -42,6 +41,7 @@ import Hydra.Crypto (
   verifyMultiSignature,
  )
 import Hydra.Ledger (
+  ChainSlot (ChainSlot),
   IsTx,
   Ledger (..),
   UTxOType,
@@ -155,6 +155,7 @@ getChainState = \case
   Closed ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
+-- TODO: derive it from the chainState
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
@@ -252,15 +253,15 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { -- | The latest UTxO resulting from applying 'seenTxs' to
-    -- 'confirmedSnapshot'. Spec: L̂
-    seenUTxO :: UTxOType tx
-  , -- | List of seen transactions pending inclusion in a snapshot. Spec: T̂
-    seenTxs :: [tx]
-  , -- | The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
-    confirmedSnapshot :: ConfirmedSnapshot tx
-  , -- | Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-    seenSnapshot :: SeenSnapshot tx
+  { seenUTxO :: UTxOType tx
+  -- ^ The latest UTxO resulting from applying 'seenTxs' to
+  -- 'confirmedSnapshot'. Spec: L̂
+  , seenTxs :: [tx]
+  -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
+  , confirmedSnapshot :: ConfirmedSnapshot tx
+  -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
+  , seenSnapshot :: SeenSnapshot tx
+  -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
   }
   deriving stock (Generic)
 
@@ -287,8 +288,8 @@ data SeenSnapshot tx
   | -- | ReqSn for given snapshot was received.
     SeenSnapshot
       { snapshot :: Snapshot tx
-      , -- | Collected signatures and so far.
-        signatories :: Map Party (Signature (Snapshot tx))
+      , signatories :: Map Party (Signature (Snapshot tx))
+      -- ^ Collected signatures and so far.
       }
   deriving stock (Generic)
 
@@ -316,9 +317,9 @@ data ClosedState tx = ClosedState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
   , contestationDeadline :: UTCTime
-  , -- | Tracks whether we have informed clients already about being
-    -- 'ReadyToFanout'.
-    readyToFanoutSent :: Bool
+  , readyToFanoutSent :: Bool
+  -- ^ Tracks whether we have informed clients already about being
+  -- 'ReadyToFanout'.
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , previousRecoverableState :: HeadState tx
@@ -400,8 +401,8 @@ instance Arbitrary WaitReason where
   arbitrary = genericArbitrary
 
 data Environment = Environment
-  { -- | This is the p_i from the paper
-    party :: Party
+  { party :: Party
+  -- ^ This is the p_i from the paper
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
@@ -502,8 +503,8 @@ onInitialChainCommitTx ::
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
   NewState newState $
-    notifyClient :
-      [postCollectCom | canCollectCom]
+    notifyClient
+      : [postCollectCom | canCollectCom]
  where
   newState =
     Initial
@@ -631,10 +632,10 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions seenUTxO [tx] of
+  case applyTransactions (ChainSlot 15) seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
-        OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+          OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
       NewState
@@ -723,7 +724,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- be applicable already. This is a bit of a precursor for only submitting
   -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
-    case applyTransactions ledger confirmedUTxO requestedTxs of
+    case applyTransactions ledger (ChainSlot 16) confirmedUTxO requestedTxs of
       Left (_, err) ->
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
@@ -732,7 +733,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
     foldr go ([], utxo) seenTxs
    where
     go tx (txs, u) =
-      case applyTransactions ledger u [tx] of
+      case applyTransactions ledger (ChainSlot 17) u [tx] of
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
 
@@ -880,14 +881,14 @@ onOpenChainCloseTx ::
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
   NewState closedState $
-    notifyClient :
-      [ OnChainEffect
-        { -- REVIEW: Was using "old" chainState before
-          chainState = newChainState
-        , postChainTx = ContestTx{confirmedSnapshot}
-        }
-      | doContest
-      ]
+    notifyClient
+      : [ OnChainEffect
+          { -- REVIEW: Was using "old" chainState before
+            chainState = newChainState
+          , postChainTx = ContestTx{confirmedSnapshot}
+          }
+        | doContest
+        ]
  where
   doContest =
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -927,16 +928,16 @@ onClosedChainContestTx ::
   Outcome tx
 onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
-    OnlyEffects
-      [ ClientEffect HeadIsContested{snapshotNumber, headId}
-      , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
-      ]
+      OnlyEffects
+        [ ClientEffect HeadIsContested{snapshotNumber, headId}
+        , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
+        ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
-    -- TODO: A more recent snapshot number was succesfully contested, we will
-    -- not be able to fanout! We might want to communicate that to the client!
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+      -- TODO: A more recent snapshot number was succesfully contested, we will
+      -- not be able to fanout! We might want to communicate that to the client!
+      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
   | otherwise =
-    OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
  where
   ClosedState{chainState, confirmedSnapshot, headId} = closedState
 
@@ -994,14 +995,14 @@ onCurrentChainRollback currentState slot =
   rollback rollbackSlot hs
     | chainStateSlot (getChainState hs) <= rollbackSlot = hs
     | otherwise =
-      case hs of
-        Idle{} -> hs
-        Initial InitialState{previousRecoverableState, chainSlot} ->
-          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
-        Open OpenState{previousRecoverableState, chainSlot} ->
-          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
-        Closed ClosedState{previousRecoverableState, chainSlot} ->
-          rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+        case hs of
+          Idle{} -> hs
+          Initial InitialState{previousRecoverableState, chainSlot} ->
+            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+          Open OpenState{previousRecoverableState, chainSlot} ->
+            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
+          Closed ClosedState{previousRecoverableState, chainSlot} ->
+            rollback rollbackSlot (setChainSlot chainSlot previousRecoverableState)
 
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
@@ -1057,9 +1058,9 @@ update env ledger st ev = case (st, ev) of
     onClosedChainContestTx closedState snapshotNumber
   (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime chainSlot))
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-      NewState
-        (Closed cst{readyToFanoutSent = True, chainSlot})
-        [ClientEffect $ ReadyToFanout headId, ClientEffect $ HeadTick chainTime chainSlot]
+        NewState
+          (Closed cst{readyToFanoutSent = True, chainSlot})
+          [ClientEffect $ ReadyToFanout headId, ClientEffect $ HeadTick chainTime chainSlot]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
@@ -1104,17 +1105,17 @@ newSn :: Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOut
 newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
   if
       | not (isLeader parameters party nextSn) ->
-        ShouldNotSnapshot $ NotLeader nextSn
+          ShouldNotSnapshot $ NotLeader nextSn
       | -- NOTE: This is different than in the spec. If we use seenSn /=
         -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
         -- may be an acceptable invariant, but we have property tests which are
         -- more strict right now. Anyhow, we can be more expressive.
         snapshotInFlight ->
-        ShouldNotSnapshot $ SnapshotInFlight nextSn
+          ShouldNotSnapshot $ SnapshotInFlight nextSn
       | null seenTxs ->
-        ShouldNotSnapshot NoTransactionsToSnapshot
+          ShouldNotSnapshot NoTransactionsToSnapshot
       | otherwise ->
-        ShouldSnapshot nextSn seenTxs
+          ShouldSnapshot nextSn seenTxs
  where
   nextSn = confirmedSn + 1
 
