@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -27,6 +28,7 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
+  SlotNo (..),
   Tx,
   TxId,
   TxIn (..),
@@ -34,9 +36,10 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
-  writeFileTextEnvelope, SlotNo (..), buildTxValidityLowerBound,
+  writeFileTextEnvelope,
+  pattern TxValidityLowerBound,
  )
-import Hydra.Chain (ChainSlot(..), HeadParameters (contestationPeriod, parties))
+import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -500,6 +503,7 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   let cardanoKeys = [aliceKeys]
       hydraKeys = [aliceSk]
   let contestationPeriod = UnsafeContestationPeriod 2
+  -- TODO: use withHydraNode
   withHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [n1] = toList nodes
     waitForNodesConnected tracer [n1]
@@ -522,39 +526,44 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
     (faucetVk, _) <- keysFor Faucet
 
-    (chainSlot, chainTime) <- waitMatch 3 n1 $ \v -> do
+    -- Acquire a current point in time
+    -- TODO: maybe not send both, but only slots?
+    (currentSlot, chainTime) <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadTick"
       chainSlot <- v ^? key "chainSlot" . _JSON
       chainTime <- v ^? key "chainTime" . _JSON
       pure (chainSlot, chainTime)
 
-    let (ChainSlot slotNumber) = chainSlot
-        slotNo = SlotNo $ fromIntegral slotNumber
-        -- TODO use `slotLength` from ledger Config
-        slotLength = 0.1
-        secondsToAwait = 5
-        slotsToAwait :: SlotNo = SlotNo . truncate $ secondsToAwait / slotLength
+    -- Create a transaction which is only valid in 5 seconds
+    let
+      -- TODO use `slotLength` from ledger Config
+      slotLength = 0.1
+      secondsToAwait = 5
+      slotsToAwait = SlotNo . truncate $ secondsToAwait / slotLength
 
-        futureChainTime = addUTCTime secondsToAwait chainTime
-        futureChainSlot = slotNo + slotsToAwait
+      futureUTCTime = addUTCTime secondsToAwait chainTime
+      futureSlot = currentSlot + slotsToAwait
 
-        Right tx =
-          mkRangedTx
-            firstCommittedUTxO
-            (inHeadAddress faucetVk, lovelaceToValue paymentFromAliceToFaucet)
-            aliceCardanoSk
-            (Just $ buildTxValidityLowerBound futureChainSlot, Nothing)
+      -- TODO (later) use time in a script (as it is using POSIXTime)
+      Right tx =
+        mkRangedTx
+          firstCommittedUTxO
+          (inHeadAddress faucetVk, lovelaceToValue paymentFromAliceToFaucet)
+          aliceCardanoSk
+          (Just $ TxValidityLowerBound futureSlot, Nothing)
 
+    -- First submission: invalid
     send n1 $ input "NewTx" ["transaction" .= tx]
-
     waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "TxInvalid"
 
+    -- Wait for the future chain slot and time
+    -- TODO: wait for utc time directly?
     waitFor tracer 10 [n1] $
-      output "HeadTick" ["chainSlot" .= futureChainSlot, "chainTime" .= futureChainTime]
+      output "HeadTick" ["chainSlot" .= futureSlot, "chainTime" .= futureUTCTime]
 
+    -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]
-
     waitFor tracer 10 [n1] $
       output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
