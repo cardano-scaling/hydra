@@ -632,7 +632,7 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions (ChainSlot 15) seenUTxO [tx] of
+  case applyTransactions chainSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
           OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
@@ -655,7 +655,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   CoordinatedHeadState{seenTxs, seenUTxO} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, headId} = st
+  OpenState{coordinatedHeadState, headId, chainSlot} = st
 
 -- | Process a snapshot request ('ReqSn') from party.
 --

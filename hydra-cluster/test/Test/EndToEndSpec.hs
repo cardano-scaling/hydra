@@ -567,6 +567,12 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     waitFor tracer 3 [n1] $
       output "TxValid" ["transaction" .= tx, "headId" .= headId]
 
+    confirmedTransactions <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      v ^? key "transactions" . _JSON
+
+    confirmedTransactions `shouldBe` ([] :: [Aeson.Object])
+
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
   aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
