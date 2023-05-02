@@ -14,7 +14,6 @@ import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot (..),
   HeadId (..),
   HeadParameters (..),
   IsChainState,
@@ -39,7 +38,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
@@ -402,9 +401,9 @@ inInitialState parties =
       }
  where
   parameters = HeadParameters cperiod parties
-  
+
   chainSlot = ChainSlot 0
-  
+
   idleState =
     IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
 
@@ -446,9 +445,9 @@ inOpenState' parties coordinatedHeadState =
         , headId = testHeadId
         , chainSlot
         }
-  
+
   chainSlot = ChainSlot 0
-  
+
   idleState =
     IdleState{chainState = SimpleChainState{slot = chainSlot}, chainSlot}
 
@@ -473,9 +472,9 @@ inClosedState' parties confirmedSnapshot =
       }
  where
   parameters = HeadParameters cperiod parties
-  
+
   chainSlot = ChainSlot 0
-  
+
   contestationDeadline = arbitrary `generateWith` 42
 
   previousRecoverableState = inOpenState parties simpleLedger

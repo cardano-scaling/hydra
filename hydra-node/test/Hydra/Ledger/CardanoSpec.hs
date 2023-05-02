@@ -15,7 +15,7 @@ import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
-import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger (ChainSlot (..), applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
@@ -117,7 +117,7 @@ roundtripCBOR a =
 appliesValidTransaction :: Property
 appliesValidTransaction =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-    let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
+    let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo txs
      in case result of
           Right _ -> property True
           Left (tx, err) ->
@@ -131,7 +131,9 @@ appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let encoded = encode txs
-        result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
+        result =
+          eitherDecode encoded
+            >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo
      in isRight result
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
