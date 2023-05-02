@@ -45,6 +45,9 @@ package plutus-cbor
 package plutus-merkle-tree
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
+package strict-containers
+  ghc-options: "-Wno-noncanonical-monad-instances"
+
 -- Always show detailed output for tests
 test-show-details: direct
 

@@ -162,7 +162,6 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , ouroboros-network
     , ouroboros-network-api                                             >=0.1.0.0
     , ouroboros-network-framework                                       >=0.3.0.0
     , ouroboros-network-protocols                                       >=0.3.0.0
@@ -191,7 +190,6 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
-    , base
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -203,7 +201,6 @@ executable hydra-tools
   hs-source-dirs: exe/hydra-tools
   main-is:        Main.hs
   build-depends:
-    , base
     , cryptonite
     , filepath
     , hydra-cardano-api
@@ -233,7 +230,6 @@ benchmark tx-cost
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck
-    , text
 
   ghc-options:    -threaded -rtsopts
 
@@ -345,7 +341,6 @@ test-suite tests
     , io-sim
     , lens
     , lens-aeson
-    , network
     , ouroboros-consensus-cardano-test
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx

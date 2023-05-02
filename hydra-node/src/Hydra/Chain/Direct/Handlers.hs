@@ -125,7 +125,7 @@ type GetTimeHandle m = m TimeHandle
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
+  (MonadSTM m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->

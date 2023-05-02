@@ -493,8 +493,7 @@ instance
 -- ** Performing actions
 
 seedWorld ::
-  ( MonadDelay m
-  , MonadAsync m
+  ( MonadAsync m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
@@ -636,7 +635,7 @@ sendsInput party command = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> lift $ actorNode `send` command
 
-performInit :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performInit :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
 performInit party = do
   party `sendsInput` Input.Init
 
@@ -647,7 +646,7 @@ performInit party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
-performAbort :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
 performAbort party = do
   party `sendsInput` Input.Abort
 
@@ -689,7 +688,7 @@ checkOutcome _ _ _ = True
 
 waitForUTxOToSpend ::
   forall m.
-  (MonadDelay m, MonadTimer m) =>
+  (MonadTimer m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->

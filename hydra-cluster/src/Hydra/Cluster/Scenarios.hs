@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.Cluster.Scenarios where
 

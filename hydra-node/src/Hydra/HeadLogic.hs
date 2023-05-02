@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
@@ -79,10 +80,10 @@ data Event tx
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Event tx)
+deriving instance (IsChainState tx) => Eq (Event tx)
+deriving instance (IsChainState tx) => Show (Event tx)
+deriving instance (IsChainState tx) => ToJSON (Event tx)
+deriving instance (IsChainState tx) => FromJSON (Event tx)
 
 instance
   ( IsTx tx
@@ -104,10 +105,10 @@ data Effect tx
     OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Effect tx)
+deriving instance (IsChainState tx) => Eq (Effect tx)
+deriving instance (IsChainState tx) => Show (Effect tx)
+deriving instance (IsChainState tx) => ToJSON (Effect tx)
+deriving instance (IsChainState tx) => FromJSON (Effect tx)
 
 instance
   ( IsTx tx
@@ -374,10 +375,10 @@ data Outcome tx
   | Combined {left :: Outcome tx, right :: Outcome tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Outcome tx)
+deriving instance (IsChainState tx) => Eq (Outcome tx)
+deriving instance (IsChainState tx) => Show (Outcome tx)
+deriving instance (IsChainState tx) => ToJSON (Outcome tx)
+deriving instance (IsChainState tx) => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
@@ -1026,7 +1027,7 @@ onClosedChainFanoutTx closedState newChainState =
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
 update ::
-  (IsTx tx, IsChainState tx) =>
+  (IsChainState tx) =>
   Environment ->
   Ledger tx ->
   HeadState tx ->

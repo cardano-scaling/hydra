@@ -549,7 +549,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
 -- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
 -- initial chain state to play back to our test nodes.
 withSimulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
+  (MonadTime m, MonadDelay m, MonadAsync m) =>
   (SimulatedChainNetwork SimpleTx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
@@ -579,7 +579,7 @@ instance IsChainStateTest Tx where
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
 -- possible.
 simulatedChainAndNetwork ::
-  (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
+  (MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
   ChainStateType tx ->
   m (SimulatedChainNetwork tx m)
 simulatedChainAndNetwork initialChainState = do

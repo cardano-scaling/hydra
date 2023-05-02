@@ -71,17 +71,16 @@ data HydraNodeLog tx
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (HydraNodeLog tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (HydraNodeLog tx)
+deriving instance (IsChainState tx) => Eq (HydraNodeLog tx)
+deriving instance (IsChainState tx) => Show (HydraNodeLog tx)
+deriving instance (IsChainState tx) => ToJSON (HydraNodeLog tx)
+deriving instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 runHydraNode ::
-  ( MonadThrow m
-  , MonadCatch m
+  ( MonadCatch m
   , MonadAsync m
   , IsChainState tx
   ) =>
@@ -94,8 +93,7 @@ runHydraNode tracer node =
   forever $ stepHydraNode tracer node
 
 stepHydraNode ::
-  ( MonadThrow m
-  , MonadCatch m
+  ( MonadCatch m
   , MonadAsync m
   , IsChainState tx
   ) =>
@@ -192,7 +190,7 @@ data NodeState tx m = NodeState
   }
 
 -- | Initialize a new 'NodeState'.
-createNodeState :: (MonadSTM m, MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
+createNodeState :: (MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
 createNodeState initialState = do
   tv <- newTVarIO initialState
   labelTVarIO tv "node-state"
