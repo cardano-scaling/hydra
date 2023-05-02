@@ -71,7 +71,7 @@ output :: Text -> [Pair] -> Aeson.Value
 output tag pairs = object $ ("tag" .= tag) : pairs
 
 -- | Wait some time for a single API server output from each of given nodes.
--- This function waits for @delay@ seconds for message @expected@  to be seen by all
+-- This function waits for @delay@ seconds for message @expected@ to be seen by all
 -- given @nodes@.
 waitFor :: HasCallStack => Tracer IO EndToEndLog -> NominalDiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
@@ -111,7 +111,7 @@ waitForAllMatch delay nodes match = do
     failure "no clients to wait for"
   results <- forConcurrently nodes $ \n -> waitMatch delay n match
   case results of
-    [] -> failure $ "empty results, but " <> (show $ length nodes) <> " clients"
+    [] -> failure $ "empty results, but " <> show (length nodes) <> " clients"
     (r : rs) -> do
       unless (all (== r) rs) $
         failure $
