@@ -27,7 +27,6 @@ import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
-import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Data.ByteString as BS
 import Data.Default (def)
@@ -66,7 +65,7 @@ cardanoLedger globals ledgerEnv =
   applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) -> do
-      utxo' <- left (first fromLedgerTx) $ fromLedgerUTxO <$> applyTx ledgerEnv (toLedgerUTxO utxo) (toLedgerTx tx)
+      utxo' <- applyTx slot utxo tx
       applyTransactions slot utxo' txs
 
   -- TODO(SN): Pre-validate transactions to get less confusing errors on
@@ -79,18 +78,18 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx env utxo tx =
-    case Ledger.applyTx globals env memPoolState tx of
+  applyTx slot utxo tx =
+    case Ledger.applyTx globals ledgerEnv memPoolState (toLedgerTx tx) of
       Left err ->
         Left (tx, toValidationError err)
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-        Right $ Ledger._utxo us
+        Right . fromLedgerUTxO $ Ledger._utxo us
    where
     toValidationError = ValidationError . show
 
     memPoolState =
       Ledger.LedgerState
-        { Ledger.lsUTxOState = def{Ledger._utxo = utxo}
+        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxo}
         , Ledger.lsDPState = def
         }
 
