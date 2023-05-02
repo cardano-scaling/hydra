@@ -755,6 +755,7 @@ definitions:
       - previousRecoverableState
       - chainState
       - headId
+      - currentSlot
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -766,6 +767,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
         $ref: "api.yaml#/components/schemas/HeadId"
+      currentSlot:
+        $ref: "api.yaml#/components/schemas/ChainSlot"
 
   ClosedState:
     type: object

@@ -2,7 +2,6 @@
     "samples": [
         {
             "contents": {
-                "chainSlot": 3,
                 "chainState": {
                     "slot": 15
                 },
@@ -566,6 +565,7 @@
                         24
                     ]
                 },
+                "currentSlot": 3,
                 "headId": "26bd9802edcf53d36e1ade02909f3141",
                 "parameters": {
                     "contestationPeriod": 80405,
@@ -1162,7 +1162,6 @@
         },
         {
             "contents": {
-                "chainSlot": 13,
                 "chainState": {
                     "slot": 6
                 },
@@ -1673,6 +1672,7 @@
                         28
                     ]
                 },
+                "currentSlot": 13,
                 "headId": "17ccfac2b17c8d105f20706fab24b1d7",
                 "parameters": {
                     "contestationPeriod": 604800,
@@ -2447,7 +2447,6 @@
                                         },
                                         "previousRecoverableState": {
                                             "contents": {
-                                                "chainSlot": 17,
                                                 "chainState": {
                                                     "slot": 7
                                                 },
@@ -2698,6 +2697,7 @@
                                                         30
                                                     ]
                                                 },
+                                                "currentSlot": 17,
                                                 "headId": "e72d825c39027735092fb94fec294b52",
                                                 "parameters": {
                                                     "contestationPeriod": 61590,
@@ -3293,7 +3293,6 @@
                         },
                         "previousRecoverableState": {
                             "contents": {
-                                "chainSlot": 23,
                                 "chainState": {
                                     "slot": 3
                                 },
@@ -3931,6 +3930,7 @@
                                         30
                                     ]
                                 },
+                                "currentSlot": 23,
                                 "headId": "f944c426959739d838b55ec4c5853768",
                                 "parameters": {
                                     "contestationPeriod": 43200,
