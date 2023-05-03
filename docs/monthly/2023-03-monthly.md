@@ -1,7 +1,7 @@
 ---
 title: March 2023
 slug: 2023-03
-authors: [Franco, v0d1ch, ch1bo]
+authors: [ffakenz, v0d1ch, ch1bo]
 tags: [monthly]
 ---
 
