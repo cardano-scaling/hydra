@@ -100,7 +100,7 @@ This month, the team worked on the following:
   normal, non-unstable version of the website is always referring to the [last
   released version](https://github.com/input-output-hk/hydra/releases).
 
-![](./img/2023-04-specification.png) <small><center>Figure 3. Specification on the Hydra website</center></small>
+![](./img/2023-04-specification.png) <small><center>Specification on the Hydra website</center></small>
 
 - **Fixed scripts, Plutonomy and custom script contexts.** As we made the
   specification use a more direct way to represent transactions (instead of the
@@ -189,8 +189,7 @@ We decided to implement the following solution:
   ADR [18](./adr/18) regarding persistence.
 - The rollback event is removed from the API until [#185](https://github.com/input-output-hk/hydra/issues/185).
 
-![possible solution](./img/2023-04-possible-solution.jpeg)
-Figure 5. The proposed solution
+![possible solution](./img/2023-04-possible-solution.png) <small><center>Possible solution</center></small>
 
 Rollback management is quite a tricky business. It might be the case that we've
 tried to be a bit too smart. So we're doing a rollback in our way of handling
