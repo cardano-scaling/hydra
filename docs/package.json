@@ -25,11 +25,17 @@
     "@docusaurus/preset-classic": "^2.4.0",
     "@docusaurus/theme-mermaid": "^2.4.0",
     "@mdx-js/react": "^1.6.22",
-    "asyncapi-validator": "^3.1.1",
+    "@asyncapi/specs": "4.2.1",
+    "asyncapi-validator": "3.1.1",
     "clsx": "^1.1.1",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
+  },
+  "overrides": {
+    "asyncapi-validator@3.1.1": {
+      "@asyncapi/specs": "4.2.1"
+    }
   },
   "browserslist": {
     "production": [
