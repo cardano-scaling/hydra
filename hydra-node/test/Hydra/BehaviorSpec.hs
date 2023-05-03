@@ -544,8 +544,7 @@ data TestHydraNode tx m = TestHydraNode
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
-  , -- TODO remove the following if we really don't use it anymore
-    rollbackAndForward :: Natural -> m ()
+  , rollbackAndForward :: Natural -> m ()
   }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
