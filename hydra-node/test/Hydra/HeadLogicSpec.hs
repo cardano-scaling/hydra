@@ -10,8 +10,10 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue)
 import Hydra.Chain (
   ChainEvent (..),
   HeadId (..),
@@ -41,7 +43,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
@@ -51,7 +53,7 @@ import qualified Hydra.Prelude as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
-import Test.QuickCheck (forAll)
+import Test.QuickCheck (forAll, generate)
 import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
@@ -327,6 +329,19 @@ spec = do
 
     describe "Coordinated Head Protocol using real Tx" $
       it "pruning transactions on ReqSn discards tx out of validity range" $ do
+        (utxo, expiringTransaction) <- generate $ do
+          (vk, sk) <- genKeyPair
+          txOut <- genOutput vk
+          utxo <- (,txOut) <$> genTxIn
+          mkRangedTx
+            utxo
+            (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
+            sk
+            (Nothing, Nothing)
+            & \case
+              Left _ -> Prelude.error "cannot generate expired tx"
+              Right tx -> pure (utxo, tx)
+
         let parties = [alice, bob, carol]
             s0 =
               Open
@@ -334,10 +349,8 @@ spec = do
                   { parameters = HeadParameters cperiod parties
                   , coordinatedHeadState =
                       CoordinatedHeadState
-                        { seenUTxO = mempty
-                        , -- TODO we need seenTxs to contain a tx for which
-                          -- its validity range should become outdated when we do the update
-                          seenTxs = mempty
+                        { seenUTxO = UTxO.singleton utxo
+                        , seenTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot mempty
                         , seenSnapshot = NoSeenSnapshot
                         }
@@ -357,9 +370,11 @@ spec = do
         let event = NetworkEvent defaultTTL $ ReqSn alice 1 []
         s1 <- assertNewState $ update env ledger s0 event
         s1 `shouldSatisfy` \case
-          -- TODO our goal here is to assert that seenTxs in
-          -- new CoordinatedHeadState is empty now
-          Open OpenState{} -> True
+          Open
+            OpenState
+              { coordinatedHeadState =
+                CoordinatedHeadState{seenTxs}
+              } -> seenTxs == [expiringTransaction] -- FIXME expect null
           _ -> False
 
 --
