@@ -1,0 +1,40 @@
+@startuml hydra-components.png
+title "Hydra Components"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+AddElementTag("external", $bgColor="#23aa12")
+
+Container_Boundary(hydra_node, "Hydra Node") {
+   Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Persistence.hs")
+   Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/HeadLogic.hs")
+   Component(api_server, "API Server", "", "Dispatch client commands & queries and serves outputs", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/API/Server.hs")
+   Component(chain, "Direct Chain", "", "Connection to Cardano\nObserve txs on-chain and post tx to chain", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Chain/Direct.hs")
+   Component(wallet, "Tiny Wallet", "", "Embedded Wallet to sign transactions and pay fees", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Chain/Direct/Wallet.hs")
+   Component(network, "Network", "", "Manages connections to peers", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Network/Ouroboros.hs")
+   Component(logging, "Logging", "", "Dump JSON to stdout", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Logging.hs")
+   Component(monitoring, "Monitoring", "", "Exposes Prometheus metrics", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Logging/Monitoring.hs")
+   Component(ledger, "Cardano Ledger", "", "Maintains Layer 2 State", $tags="external")
+
+   BiRel_L(head_logic, network, "Hydra Protocol Messages", "")
+   BiRel_R(head_logic, api_server, "Input & Output", "")
+   Rel_U(head_logic, persistence, "")
+   BiRel_D(head_logic, chain, "Observation & OnChainTx", "")
+   Rel_D(head_logic, ledger, "Apply Tx")
+
+   Rel_L(chain, wallet, "Sign transactions", "")
+}
+
+Container(hydra_node_peer, "Hydra Node (peer)", "Local cadano-node")
+Container(cardano_node, "Cardano Node", "Local cadano-node")
+Container(cardano_node_peer, "Cardano Node (peer)", "Local cadano-node")
+Container(hydra_client, "Hydra Client", "")
+Component(smart_contracts, "Hydra Smart Contracts", "Plutus", "On-chain smart contracts controlling the behaviour of the protocol on-chain", $link="https://github.com/input-output-hk/hydra/tree/master/hydra-plutus")
+Rel(chain, smart_contracts, "References", "")
+BiRel_D(chain, cardano_node, "", "N2C protocol")
+BiRel_L(cardano_node, cardano_node_peer, "", "N2N protocol")
+BiRel(hydra_node_peer, cardano_node_peer, "", "N2C protocol")
+BiRel_L(network, hydra_node_peer, "", "N2C protocol")
+BiRel_R(api_server, hydra_client, "", "JSON/Websocket")
+
+
+@enduml
