@@ -497,15 +497,12 @@ waitForLog delay nodeOutput failureMessage predicate = do
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
-  aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   let aliceSk = generateSigningKey "alice-timed"
   let alice = deriveParty aliceSk
-  let cardanoKeys = [aliceKeys]
-      hydraKeys = [aliceSk]
   let contestationPeriod = UnsafeContestationPeriod 2
-  -- TODO: use withHydraNode
-  withHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
-    let [n1] = toList nodes
+  aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
+  withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     waitForNodesConnected tracer [n1]
 
     -- Funds to be used as fuel by Hydra protocol transactions
