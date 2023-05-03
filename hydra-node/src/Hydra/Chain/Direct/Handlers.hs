@@ -204,11 +204,11 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
       writeTVar chainStateTVar chainStates'
       pure chainState
     callback (Rollback (chainSlotFromPoint point) chainState)
-   where
-    rollback rollbackChainPoint chainStates =
-      case chainStates of
-        (cs@ChainStateAt{recordedAt = (Just recordPoint)} :| rest) | recordPoint <= rollbackChainPoint -> (cs, cs :| rest)
-        (_ :| rest) -> rollback rollbackChainPoint (fromList rest)
+
+  rollback rollbackChainPoint chainStates =
+    case chainStates of
+      (cs@ChainStateAt{recordedAt = (Just recordPoint)} :| rest) | recordPoint <= rollbackChainPoint -> (cs, cs :| rest)
+      (_ :| rest) -> rollback rollbackChainPoint (fromList rest)
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
