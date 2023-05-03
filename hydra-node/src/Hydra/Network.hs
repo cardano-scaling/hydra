@@ -44,8 +44,8 @@ deriving instance FromJSON IP
 
 -- | Handle to interface with the hydra network and send messages "off chain".
 newtype Network m msg = Network
-  { -- | Send a `msg` to the whole hydra network.
-    broadcast :: msg -> m ()
+  { broadcast :: msg -> m ()
+  -- ^ Send a `msg` to the whole hydra network.
   }
 
 instance Contravariant (Network m) where
@@ -143,12 +143,14 @@ readPort s =
     Just n
       | n >= minPort && n <= maxPort -> pure $ fromInteger n
       | otherwise ->
-        fail $
-          "readPort: " <> show n <> " not within valid port range: ("
-            <> show minPort
-            <> ", "
-            <> show maxPort
-            <> ")"
+          fail $
+            "readPort: "
+              <> show n
+              <> " not within valid port range: ("
+              <> show minPort
+              <> ", "
+              <> show maxPort
+              <> ")"
  where
   maxPort = fromIntegral (maxBound :: Word16)
   minPort = fromIntegral (minBound :: Word16)

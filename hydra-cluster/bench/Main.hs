@@ -55,29 +55,29 @@ benchOptionsParser =
                 \   populated with new transactions and UTxO set."
           )
       )
-      <*> option
-        auto
-        ( long "scaling-factor"
-            <> value 100
-            <> metavar "INT"
-            <> help "The scaling factor to apply to transactions generator (default: 100)"
-        )
-      <*> option
-        auto
-        ( long "timeout"
-            <> value 600.0
-            <> metavar "SECONDS"
-            <> help
-              "The timeout for the run, in seconds (default: '600s')"
-        )
-      <*> option
-        auto
-        ( long "cluster-size"
-            <> value 3
-            <> metavar "INT"
-            <> help
-              "The number of Hydra nodes to start and connect (default: 3)"
-        )
+    <*> option
+      auto
+      ( long "scaling-factor"
+          <> value 100
+          <> metavar "INT"
+          <> help "The scaling factor to apply to transactions generator (default: 100)"
+      )
+    <*> option
+      auto
+      ( long "timeout"
+          <> value 600.0
+          <> metavar "SECONDS"
+          <> help
+            "The timeout for the run, in seconds (default: '600s')"
+      )
+    <*> option
+      auto
+      ( long "cluster-size"
+          <> value 3
+          <> metavar "INT"
+          <> help
+            "The number of Hydra nodes to start and connect (default: 3)"
+      )
 
 benchOptions :: ParserInfo Options
 benchOptions =

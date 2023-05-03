@@ -8,8 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
-import Control.Lens (to, (^?))
-import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
@@ -20,6 +18,8 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTBQueue,
   writeTBQueue,
  )
+import Control.Lens (to, (^?))
+import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _JSON, _Number, _String)
 import qualified Data.List as List
@@ -363,18 +363,18 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
  where
   go remainingIds
     | Set.null remainingIds = do
-      putStrLn "All transactions confirmed. Sweet!"
+        putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
-      waitForSnapshotConfirmation >>= \case
-        TxValid{transaction} -> do
-          validTx processedTxs (txId transaction)
-          go remainingIds
-        TxInvalid{transaction} -> do
-          atomically $ writeTBQueue submissionQ transaction
-          go remainingIds
-        SnapshotConfirmed{transactions} -> do
-          confirmedIds <- mapM (confirmTx processedTxs) transactions
-          go $ remainingIds \\ Set.fromList confirmedIds
+        waitForSnapshotConfirmation >>= \case
+          TxValid{transaction} -> do
+            validTx processedTxs (txId transaction)
+            go remainingIds
+          TxInvalid{transaction} -> do
+            atomically $ writeTBQueue submissionQ transaction
+            go remainingIds
+          SnapshotConfirmed{transactions} -> do
+            confirmedIds <- mapM (confirmTx processedTxs) transactions
+            go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v

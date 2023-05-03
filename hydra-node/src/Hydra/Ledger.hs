@@ -48,20 +48,20 @@ class
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
 data Ledger tx = Ledger
-  { -- | Apply a set of transaction to a given UTXO set. Returns the new UTXO or
-    -- validation failures returned from the ledger.
-    -- TODO: 'ValidationError' should also include the UTxO, which is not
-    -- necessarily the same as the given UTxO after some transactions
-    applyTransactions ::
+  { applyTransactions ::
       UTxOType tx ->
       [tx] ->
       Either (tx, ValidationError) (UTxOType tx)
-  , -- | Generates an initial UTXO set. This is only temporary as it does not
-    -- allow to initialize the UTXO.
-    --
-    -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
-    -- coming with `IsTx`. We probably want to dry this out.
-    initUTxO :: UTxOType tx
+  -- ^ Apply a set of transaction to a given UTXO set. Returns the new UTXO or
+  -- validation failures returned from the ledger.
+  -- TODO: 'ValidationError' should also include the UTxO, which is not
+  -- necessarily the same as the given UTxO after some transactions
+  , initUTxO :: UTxOType tx
+  -- ^ Generates an initial UTXO set. This is only temporary as it does not
+  -- allow to initialize the UTXO.
+  --
+  -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
+  -- coming with `IsTx`. We probably want to dry this out.
   }
 
 canApply :: Ledger tx -> UTxOType tx -> tx -> ValidationResult

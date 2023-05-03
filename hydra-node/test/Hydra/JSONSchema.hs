@@ -177,5 +177,5 @@ ensureSystemRequirements = do
         pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
       Left (err :: IOError)
         | ioeGetErrorType err == OtherError ->
-          pure (Left $ "Check jsonschema is installed and in $PATH")
+            pure (Left $ "Check jsonschema is installed and in $PATH")
       Left err -> pure (Left $ show err)

@@ -83,8 +83,8 @@ instance Arbitrary APIServerLog where
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { -- | Send some output to all connected clients.
-    sendOutput :: ServerOutput tx -> m ()
+  { sendOutput :: ServerOutput tx -> m ()
+  -- ^ Send some output to all connected clients.
   }
 
 -- | Callback for receiving client inputs.

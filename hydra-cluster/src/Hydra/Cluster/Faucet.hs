@@ -79,7 +79,8 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
     faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
     let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
     when (null foundUTxO) $
-      throwIO $ FaucetHasNotEnoughFunds{faucetUTxO}
+      throwIO $
+        FaucetHasNotEnoughFunds{faucetUTxO}
     pure foundUTxO
 
   receivingAddress = buildAddress receivingVerificationKey networkId
@@ -142,13 +143,13 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 -- | Build and sign tx and return the calculated fee.
 -- - Signing key should be the key of a sender
 -- - Address is used as a change address.
-calculateTxFee
-  :: RunningNode
-  -> SigningKey PaymentKey
-  -> UTxO
-  -> AddressInEra
-  -> Lovelace
-  -> IO Lovelace
+calculateTxFee ::
+  RunningNode ->
+  SigningKey PaymentKey ->
+  UTxO ->
+  AddressInEra ->
+  Lovelace ->
+  IO Lovelace
 calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
   let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
    in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case

@@ -117,9 +117,9 @@ encodeBool = \case
 encodeInteger :: Integer -> Encoding
 encodeInteger n
   | n < 0 =
-    Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1))
+      Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1))
   | otherwise =
-    Encoding (encodeUnsigned 0 n)
+      Encoding (encodeUnsigned 0 n)
 {-# INLINEABLE encodeInteger #-}
 
 -- | Encode a 'BuiltinByteString' as a CBOR type-02 major type.
@@ -317,15 +317,15 @@ withMajorType major n =
 encodeUnsigned :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
 encodeUnsigned major n next
   | n < 24 =
-    withMajorType major n next
+      withMajorType major n next
   | n < 256 =
-    withMajorType major 24 (encodeUnsigned8 n next)
+      withMajorType major 24 (encodeUnsigned8 n next)
   | n < 65536 =
-    withMajorType major 25 (encodeUnsigned16 n next)
+      withMajorType major 25 (encodeUnsigned16 n next)
   | n < 4294967296 =
-    withMajorType major 26 (encodeUnsigned32 n next)
+      withMajorType major 26 (encodeUnsigned32 n next)
   | otherwise =
-    withMajorType major 27 (encodeUnsigned64 n next)
+      withMajorType major 27 (encodeUnsigned64 n next)
 {-# INLINEABLE encodeUnsigned #-}
 
 encodeUnsigned8 :: Integer -> BuiltinByteString -> BuiltinByteString
