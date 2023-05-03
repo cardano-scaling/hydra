@@ -189,8 +189,7 @@ withDirectChain ::
 withDirectChain tracer config ctx wallet chainStateAt callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt chainStateAt
-  -- TODO we should use NonEmptyList here instead
-  chainStateTVar <- newTVarIO $ [chainStateAt]
+  chainStateTVar <- newTVarIO $ fromList [chainStateAt]
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do

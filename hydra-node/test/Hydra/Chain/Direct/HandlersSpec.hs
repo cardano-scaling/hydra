@@ -106,7 +106,7 @@ spec = do
 
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
-      chainStateVar <- run $ newTVarIO chainState
+      chainStateVar <- run $ newTVarIO $ fromList chainState
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
           handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext chainStateVar
 
@@ -125,7 +125,7 @@ spec = do
             { chainState = st
             , recordedAt = Nothing
             }
-    chainStatesVar <- run $ newTVarIO [cs]
+    chainStatesVar <- run $ newTVarIO $ fromList [cs]
     timeHandle <- pickBlind arbitrary
     let callback = \case
           Rollback{} ->
@@ -145,7 +145,7 @@ spec = do
     monitor $ label ("Rollback to: " <> show rollbackPoint <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
-    chainStateAtVar <- run $ newTVarIO [chainStateAt]
+    chainStateAtVar <- run $ newTVarIO $ fromList [chainStateAt]
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
           Tick{} -> pure ()
@@ -176,7 +176,7 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  chainStateVar <- newTVarIO [cs]
+  chainStateVar <- newTVarIO $ fromList [cs]
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx chainStateVar
   pure (handler, getEvents eventsVar)
  where

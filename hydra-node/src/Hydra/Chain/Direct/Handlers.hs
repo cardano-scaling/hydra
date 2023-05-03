@@ -85,17 +85,15 @@ mkChain ::
   TinyWallet m ->
   ChainContext ->
   -- TVar containing the local ChainState
-  TVar m [ChainStateAt] ->
+  TVar m (NonEmpty ChainStateAt) ->
   SubmitTx m ->
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx chainStateTVar submitTx =
   Chain
     { postTx = \_chainState tx -> do
-        cs <- atomically $ readTVar chainStateTVar
-        case cs of
-          -- FIXME we should use NonEmptyList
-          [] -> error "Illegal State"
-          (chainState : _) -> do
+        cs <- readTVarIO chainStateTVar
+        case head cs of
+          chainState -> do
             traceWith tracer $ ToPost{toPost = tx}
             timeHandle <- queryTimeHandle
             vtx <-
@@ -187,7 +185,7 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   -- TVar containing the local ChainState
-  TVar m [ChainStateAt] ->
+  TVar m (NonEmpty ChainStateAt) ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
 chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
@@ -207,22 +205,8 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
    where
     rollback rollbackChainPoint chainStates =
       case chainStates of
-        [] ->
-          let chainState =
-                ChainStateAt
-                  { chainState = Idle
-                  , recordedAt = Nothing
-                  }
-           in ( chainState
-              ,
-                [ ChainStateAt
-                    { chainState = Idle
-                    , recordedAt = Nothing
-                    }
-                ]
-              )
-        (cs@ChainStateAt{recordedAt = (Just recordPoint)} : rest) | recordPoint <= rollbackChainPoint -> (cs, cs : rest)
-        (_ : rest) -> rollback rollbackChainPoint rest
+        (cs@ChainStateAt{recordedAt = (Just recordPoint)} :| rest) | recordPoint <= rollbackChainPoint -> (cs, cs :| rest)
+        (_ :| rest) -> rollback rollbackChainPoint (fromList rest)
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -245,11 +229,9 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
 
     forM_ receivedTxs $ \tx -> do
       -- TODO: refactor to use modifyTVar instead of read and then write
-      cs <- atomically $ readTVar chainStateTVar
+      cs <- readTVarIO chainStateTVar
       case cs of
-        -- FIXME we should use NonEmptyList
-        [] -> error "Illegal State"
-        (currentChainState : previousChainStates) ->
+        (currentChainState :| previousChainStates) ->
           case observeSomeTx ctx (ChainState.chainState currentChainState) tx of
             Nothing -> pure ()
             Just (observedTx, cs') -> do
@@ -258,7 +240,7 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
                       { chainState = cs'
                       , recordedAt = Just point
                       }
-              atomically $ writeTVar chainStateTVar (newChainState : currentChainState : previousChainStates)
+              atomically $ writeTVar chainStateTVar (fromList $ newChainState : currentChainState : previousChainStates)
               callback Observation{observedTx, newChainState}
 
 prepareTxToPost ::

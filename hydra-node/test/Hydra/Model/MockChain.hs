@@ -123,7 +123,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     nodeState <- createNodeState $ Idle IdleState{chainState}
     let HydraNode{eq} = node
     let callback = chainCallback eq
-    chainStateTVar <- newTVarIO [initialChainState]
+    chainStateTVar <- newTVarIO $ fromList [initialChainState]
     let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput chainStateTVar
     let chainHandler = chainSyncHandler tr callback getTimeHandle ctx chainStateTVar
     let node' =
@@ -222,7 +222,7 @@ createMockChain ::
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
-  TVar m [ChainStateAt] ->
+  TVar m (NonEmpty ChainStateAt) ->
   Chain Tx m
 createMockChain tracer ctx submitTx timeHandle seedInput chainStateTVar =
   -- NOTE: The wallet basically does nothing
