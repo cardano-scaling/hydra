@@ -117,7 +117,6 @@ spec = do
   prop "yields observed transactions rolling forward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
-    -- let chainState = ChainStateAt{chainState = st, recordedAt = Nothing}
     TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
     let cs =

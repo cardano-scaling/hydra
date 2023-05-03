@@ -485,7 +485,7 @@ instance
           outputs <- lift $ serverOutputs node
           case find headIsOpen outputs of
             Just _ -> pure ()
-            Nothing -> error $ "The head is not open for node " -- <> show node
+            Nothing -> error "The head is not open for node"
       StopTheWorld ->
         stopTheWorld
    where

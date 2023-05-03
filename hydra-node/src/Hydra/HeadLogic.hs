@@ -200,32 +200,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
       <*> arbitrary
       <*> arbitrary
 
--- Expected type: HeadParameters
---                  -> PendingCommits
---                  -> Map Party (UTxOType tx)
---                  -> ChainStateType tx
---                  -> HeadState tx4
---                  -> InitialState tx
---     Actual type: HeadParameters
---                  -> PendingCommits
---                  -> Committed tx
---                  -> ChainStateType tx
---                  -> HeadId
---                  -> InitialState tx
-
---   Expected type: HeadParameters
---              -> PendingCommits
---              -> Map Party (UTxOType tx)
---              -> ChainStateType tx
---              -> HeadState tx4
---              -> InitialState tx
--- Actual type: HeadParameters
---              -> PendingCommits
---              -> Committed tx
---              -> ChainStateType tx
---              -> HeadId
---              -> InitialState tx
-
 type PendingCommits = Set Party
 
 type Committed tx = Map Party (UTxOType tx)
