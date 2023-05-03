@@ -78,8 +78,9 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState {slot :: ChainSlot}
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
+  deriving (Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
 
 instance Arbitrary SimpleChainState where
   arbitrary = SimpleChainState <$> arbitrary
