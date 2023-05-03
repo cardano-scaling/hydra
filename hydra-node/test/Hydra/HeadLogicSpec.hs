@@ -20,6 +20,8 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
+import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
   ClosedState (..),
@@ -39,11 +41,13 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
+import qualified Hydra.Prelude as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
@@ -320,6 +324,43 @@ spec = do
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
+
+    describe "Coordinated Head Protocol using real Tx" $
+      it "pruning transactions on ReqSn discards tx out of validity range" $ do
+        let parties = [alice, bob, carol]
+            s0 =
+              Open
+                OpenState
+                  { parameters = HeadParameters cperiod parties
+                  , coordinatedHeadState =
+                      CoordinatedHeadState
+                        { seenUTxO = mempty
+                        , -- TODO we need seenTxs to contain a tx for which
+                          -- its validity range should become outdated when we do the update
+                          seenTxs = mempty
+                        , confirmedSnapshot = InitialSnapshot mempty
+                        , seenSnapshot = NoSeenSnapshot
+                        }
+                  , previousRecoverableState = Prelude.error "should not be used"
+                  , chainState = Prelude.error "should not be used"
+                  , headId = testHeadId
+                  , currentSlot = ChainSlot 0
+                  }
+        let env =
+              Environment
+                { party = alice
+                , signingKey = aliceSk
+                , otherParties = [bob, carol]
+                , contestationPeriod = defaultContestationPeriod
+                }
+        let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+        let event = NetworkEvent defaultTTL $ ReqSn alice 1 []
+        s1 <- assertNewState $ update env ledger s0 event
+        s1 `shouldSatisfy` \case
+          -- TODO our goal here is to assert that seenTxs in
+          -- new CoordinatedHeadState is empty now
+          Open OpenState{} -> True
+          _ -> False
 
 --
 -- Assertion utilities
