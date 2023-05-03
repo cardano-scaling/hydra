@@ -174,9 +174,9 @@ spec = do
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
 -- the given 'ChainState' constantly.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler ctx _cs getTimeHandle = do
+recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  chainStateVar <- newTVarIO [_cs]
+  chainStateVar <- newTVarIO [cs]
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx chainStateVar
   pure (handler, getEvents eventsVar)
  where
