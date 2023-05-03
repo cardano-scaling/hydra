@@ -20,7 +20,7 @@ only slightly updated this month:
 
 ![](./img/2023-04-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
-#### Notable roadmap updates:
+#### Notable roadmap updates
 
 - There are still many 💭 **idea** items on the roadmap, however, not on the
   current and next planned release columns. The process involves clarifying and
@@ -66,83 +66,89 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-- **Configurable API.** The API evolved a bit, driven by the issues our users
-  reported [#823](https://github.com/input-output-hk/hydra/issues/823)
-  [#813](https://github.com/input-output-hk/hydra/issues/813)
-  [#800](https://github.com/input-output-hk/hydra/issues/800)
-  [#789](https://github.com/input-output-hk/hydra/issues/789).
-  Related changes were added to the API server so now our clients can:
+#### Configurable API
 
-  - Control the historical messages output. History messages can be displayed
-    upon re/connection or not depending on client needs.
-  - Snapshot UTXOs can optionally be disabled.
-  - Transactions can be displayed in CBOR or JSON format.
+The API evolved a bit, driven by the issues our users reported
+[#823](https://github.com/input-output-hk/hydra/issues/823)
+[#813](https://github.com/input-output-hk/hydra/issues/813)
+[#800](https://github.com/input-output-hk/hydra/issues/800)
+[#789](https://github.com/input-output-hk/hydra/issues/789). Related changes
+were added to the API server so now our clients can:
 
-  Our clients can also have a nice insight into the current Hydra node state and head UTXOs
-  that are now displayed as part of a `Greetings` message.
+- Control the historical messages output. History messages can be displayed
+  upon re/connection or not depending on client needs.
+- Snapshot UTXOs can optionally be disabled.
+- Transactions can be displayed in CBOR or JSON format.
 
-  Next steps on the API level are to further fulfill user needs by grooming and
-  implementing needed changes related to filtering, pagination etc.
+Our clients can also have a nice insight into the current Hydra node state and head UTXOs
+that are now displayed as part of a `Greetings` message.
 
-- **Versioned docs and specification.** Over the [last couple of
-  months](./2023-02#development) the Hydra specification became an important
-  artifact to use in discussion, review and potential audit of the Hydra Head
-  protocol implementation. The document was now moved from overleaf into the
-  Hydra repository, where it is properly versioned and built on each CI run.
-  Changes can be proposed using our regular pull request worfklow and the final
-  PDF is built and [published to the
-  website](https://hydra.family/head-protocol/unstable/core-concepts/specification)
-  automatically.
+Next steps on the API level are to further fulfill user needs by grooming and
+implementing needed changes related to filtering, pagination etc.
 
-  Note that the above link points to the new `/unstable` version of the
-  documentation, which holds the bleeding edge user manual, specification and
-  API reference (which got a new sidebar) built directly from `master`. The
-  normal, non-unstable version of the website is always referring to the [last
-  released version](https://github.com/input-output-hk/hydra/releases).
+#### Versioned docs and specification
+
+Over the [last couple of months](./2023-02#development) the Hydra specification
+became an important artifact to use in discussion, review and potential audit of
+the Hydra Head protocol implementation. The document was now moved from overleaf
+into the Hydra repository, where it is properly versioned and built on each CI
+run. Changes can be proposed using our regular pull request worfklow and the
+final PDF is built and [published to the
+website](https://hydra.family/head-protocol/unstable/core-concepts/specification)
+automatically.
+
+Note that the above link points to the new `/unstable` version of the
+documentation, which holds the bleeding edge user manual, specification and
+API reference (which got a new sidebar) built directly from `master`. The
+normal, non-unstable version of the website is always referring to the [last
+released version](https://github.com/input-output-hk/hydra/releases).
 
 ![](./img/2023-04-specification.png) <small><center>Specification on the Hydra website</center></small>
 
-- **Fixed scripts, Plutonomy and custom script contexts.** As we made the
-  specification use a more direct way to represent transactions (instead of the
-  constraint emitting machine formalism), we realized that our scripts are not
-  correctly ensuring _script continuity_. We identified these 'gaps' as red
-  sections (see above) in the specification and worked on fixing them.
+#### Fixed scripts, Plutonomy and custom script contexts
 
-  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)
-  was fairly straightforward and could easily be covered by our mutation-based
-  contract tests, the script size increased and we could not publish all three
-  Hydra scripts in a single publish transaction (which allows for a single
-  `--hydra-scripts-tx-id` parameter on the `hydra-node`).
+As we made the specification use a more direct way to represent transactions
+(instead of the constraint emitting machine formalism), we realized that our
+scripts are not correctly ensuring _script continuity_. We identified these
+'gaps' as red sections (see above) in the specification and worked on fixing
+them.
 
-  To mitigate this, we looked into the UPLC optimizer
-  [Plutonomy](https://github.com/well-typed/plutonomy/tree/master/src/Plutonomy).
-  Applying it was fairly simple, our tests did also pass, script sizes _and
-  costs_ also became lower. But, script size does not matter so much as we are
-  using reference scripts and using a (not really maintained?) optimizer which
-  introduces yet another question mark after compilation from `plutus-tx` to
-  `uplc` was not our cup of tea right now at least (and we might pull this out
-  of the drawer later).
+While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)
+was fairly straightforward and could easily be covered by our mutation-based
+contract tests, the script size increased and we could not publish all three
+Hydra scripts in a single publish transaction (which allows for a single
+`--hydra-scripts-tx-id` parameter on the `hydra-node`).
 
-  There is an alternative: decoding `ScriptContext` involves quite some code,
-  but we don't need everything in all validators. So we introduced a
-  customscript context that only decodes the fields we need.
+To mitigate this, we looked into the UPLC optimizer
+[Plutonomy](https://github.com/well-typed/plutonomy/tree/master/src/Plutonomy).
+Applying it was fairly simple, our tests did also pass, script sizes _and
+costs_ also became lower. But, script size does not matter so much as we are
+using reference scripts and using a (not really maintained?) optimizer which
+introduces yet another question mark after compilation from `plutus-tx` to
+`uplc` was not our cup of tea right now at least (and we might pull this out
+of the drawer later).
 
-  | scripts  | @0.9.0 | fixes | fixes + plutonomy | fixes + custom ScriptContext |
-  | -------- | ------ | ----- | ----------------- | ---------------------------- |
-  | νInitial | 4621   | 4727  | 3672              | 4300                         |
-  | νCommit  | 2422   | 2513  | 1816              | 2068                         |
-  | νHead    | 8954   | 9492  | 7579              | 9456 (no custom SC)          |
-  | μHead    | 4458   | 4537  | 3468              | 4104                         |
+There is an alternative: decoding `ScriptContext` involves quite some code,
+but we don't need everything in all validators. So we introduced a
+customscript context that only decodes the fields we need.
+
+| scripts  | @0.9.0 | fixes | fixes + plutonomy | fixes + custom ScriptContext |
+| -------- | ------ | ----- | ----------------- | ---------------------------- |
+| νInitial | 4621   | 4727  | 3672              | 4300                         |
+| νCommit  | 2422   | 2513  | 1816              | 2068                         |
+| νHead    | 8954   | 9492  | 7579              | 9456 (no custom SC)          |
+| μHead    | 4458   | 4537  | 3468              | 4104                         |
 
 As part of this process, we also updated dependencies #[826](https://github.com/input-output-hk/hydra/pull/826) to the latest
 `cardano-node` master. Although it didn't have an impact on script sizes, it's a
 crucial step towards preparing for upcoming hard-forks.
 
-- **Rollback bug hunt.**
+#### Rollback bug hunt
 
-Opening our first head on mainnet failed. We didn't lose any funds, except for
-some fees, but the head just did not open. Exploring the logs, we figured out
-that a rollback happened while opening the head and there was a bug.
+Opening our first head on mainnet failed. We didn't
+lose any funds, except for some fees, but the head just did not open.
+Exploring the logs, we figured out that a rollback happened while opening the
+head and there was a bug.
 
 This is our test pyramid. It already contained some tests about the rollback but
 we decided to enrich our model-based tests to simulate rollbacks (before that,
@@ -198,52 +204,58 @@ rollbacks until we focus on this topic again when dealing with this roadmap item
 
 ## Community
 
-- **Hydra for Voting.** The project is advancing and a basic vote tallying
-  scenario in the Catalyst use case was demonstrated in the review meeting. The
-  project is driving the API discussions as it is not using any Haskell tooling,
-  but an application in Java with Aiken as the validator scripting language.
-  Besides the catalyst use case, other scenarios like the ballot voting for the
-  summit are also explored now.
+#### Hydra for Voting
 
-- **Hydra for Auctions.** A new demo was recorded in the wake of an upcoming
-  Twitter space discussing auctions and NFT marketplaces with the community. The
-  feature set currently includes starting the auction on L1, bidding on L1 or
-  (and this is the novel thing!) transferring the auction from L1 to L2, such
-  that it can be bid on L2.
+The project is advancing and a basic vote tallying scenario in the Catalyst use
+case was demonstrated in the review meeting. The project is driving the API
+discussions as it is not using any Haskell tooling, but an application in Java
+with Aiken as the validator scripting language. Besides the catalyst use case,
+other scenarios like the ballot voting for the summit are also explored now.
 
-  <div style={{position: "relative", paddingBottom: "56.25%", height: 0}}>
-    <iframe src="https://www.loom.com/embed/7ed84e37d65748d994d8a0be147f7ecb"
-    frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen
-    style={{position: "absolute", top: 0, left: 0, width: "100%", height:
-    "100%"}}></iframe>
-  </div>
+#### Hydra for Auctions
 
-- **Kupo x Hydra.** In a good old pairing session between IOG and CF engineers,
-  the integration of Kupo with Hydra was explored. This seems to be promising
-  and work started [here
-  kupo#117](https://github.com/CardanoSolutions/kupo/pull/117). This will make
-  it possible to run `kupo` natively connected to a `hydra-node`, very much it
-  would run with `cardano-node` or `ogmios`. Kupo is a lightweight indexer of
-  chain data like unspent transaction outputs and allows its clients to query
-  information on-demand. 🐹
+A new demo was recorded in the wake of an upcoming Twitter space discussing
+auctions and NFT marketplaces with the community. The feature set currently
+includes starting the auction on L1, bidding on L1 or (and this is the novel
+thing!) transferring the auction from L1 to L2, such that it can be bid on L2.
 
-- **CBIA meetings.** Hydra Team is now a regular participant to
-  [Cardano Blockchain Infrastructure Alliance](https://www.cbia.io/)
-  meetings which happen more or less on a monthly basis. Hydra was
-  featured during the meetup that happened while the team was in
-  [workshop in Feldkirch](./2023-03) and through this
-  participation we hope to contribute to growth of the Cardano
-  eco-system and position Hydra as a key infrastructure for builders.
+<div style={{position: "relative", paddingBottom: "56.25%", height: 0}}>
+  <iframe src="https://www.loom.com/embed/7ed84e37d65748d994d8a0be147f7ecb"
+  frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen
+  style={{position: "absolute", top: 0, left: 0, width: "100%", height:
+  "100%"}}></iframe>
+</div>
 
-- **Twitter space on scaling Cardano.** This month we took part in a Twitter
-  space about scaling Cardano and how Hydra can contribute to this. Thanks for
-  conducting this [@thepizzaknight\_](https://twitter.com/thepizzaknight_) 🙏
+#### Kupo x Hydra
 
-  <a href="https://twitter.com/i/spaces/1vOxwMVDaXLGB">
+In a good old pairing session between IOG and CF engineers, the integration of
+Kupo with Hydra was explored. This seems to be promising and work started [here
+kupo#117](https://github.com/CardanoSolutions/kupo/pull/117). This will make it
+possible to run `kupo` natively connected to a `hydra-node`, very much it would
+run with `cardano-node` or `ogmios`. Kupo is a lightweight indexer of chain data
+like unspent transaction outputs and allows its clients to query information
+on-demand. 🐹
 
-  ![](./img/2023-04-twitter-space.png)
+#### CBIA meetings
 
-  </a>
+Hydra Team is now a regular participant to [Cardano Blockchain Infrastructure
+Alliance](https://www.cbia.io/) meetings which happen more or less on a monthly
+basis. Hydra was featured during the meetup that happened while the team was on
+a [workshop in Feldkirch](./2023-03) and through this participation we hope to
+contribute to growth of the Cardano eco-system and position Hydra as a key
+infrastructure for builders.
+
+#### Twitter space on scaling Cardano
+
+This month we took part in a Twitter space about scaling Cardano and how Hydra
+can contribute to this. Thanks for conducting this
+[@thepizzaknight\_](https://twitter.com/thepizzaknight_) 🙏
+
+<a href="https://twitter.com/i/spaces/1vOxwMVDaXLGB">
+
+![](./img/2023-04-twitter-space.png)
+
+</a>
 
 ## Conclusion
 
