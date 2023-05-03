@@ -477,7 +477,7 @@ instance
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
-            Left u -> error $ "Did not observe transaction " <> show tx <> " applied: " <> show u
+            Left u -> throwIO $ TransactionNotObserved tx u
             Right _ -> pure ()
       ObserveHeadIsOpen -> do
         nodes' <- Map.toList <$> gets nodes
