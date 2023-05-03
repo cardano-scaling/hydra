@@ -550,7 +550,7 @@ performCommit ::
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
   case Map.lookup party nodes of
-    Nothing -> error $ "unexpected party " <> Hydra.Prelude.show party
+    Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> do
       let realUTxO =
             UTxO.fromPairs $
