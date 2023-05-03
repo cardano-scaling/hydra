@@ -41,7 +41,7 @@ import Hydra.Crypto (
   verifyMultiSignature,
  )
 import Hydra.Ledger (
-  ChainSlot (ChainSlot),
+  ChainSlot,
   IsTx,
   Ledger (..),
   UTxOType,
@@ -717,12 +717,11 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
     foldr go ([], utxo) seenTxs
    where
     go tx (txs, u) =
-      -- FIXME: We need to have a test which motivates not using some arbitrary
-      -- chain slot here. It's quite clear that we should use the current
-      -- slot, but it would be great to have a test covering the behavior of
-      -- removal of "now invalid" transactions from the seenTxs (a.k.a our
-      -- mempool).
-      case applyTransactions ledger (ChainSlot 42) u [tx] of
+      -- XXX: We prune transactions on any error, while only some of them are
+      -- actually expected.
+      -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
+      -- here when a tx becomes invalid.
+      case applyTransactions ledger currentSlot u [tx] of
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
 

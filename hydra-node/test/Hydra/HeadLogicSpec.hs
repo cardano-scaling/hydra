@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
@@ -13,7 +14,7 @@ import Test.Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue)
+import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   HeadId (..),
@@ -337,7 +338,7 @@ spec = do
             utxo
             (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
             sk
-            (Nothing, Nothing)
+            (Nothing, Just $ TxValidityUpperBound 43)
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
@@ -351,13 +352,13 @@ spec = do
                       CoordinatedHeadState
                         { seenUTxO = UTxO.singleton utxo
                         , seenTxs = [expiringTransaction]
-                        , confirmedSnapshot = InitialSnapshot mempty
+                        , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         }
                   , previousRecoverableState = Prelude.error "should not be used"
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
-                  , currentSlot = ChainSlot 0
+                  , currentSlot = ChainSlot 45
                   }
         let env =
               Environment
@@ -374,7 +375,7 @@ spec = do
             OpenState
               { coordinatedHeadState =
                 CoordinatedHeadState{seenTxs}
-              } -> seenTxs == [expiringTransaction] -- FIXME expect null
+              } -> null seenTxs
           _ -> False
 
 --
