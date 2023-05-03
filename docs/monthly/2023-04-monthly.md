@@ -6,8 +6,9 @@ tags: [monthly]
 ---
 
 This report summarizes the work on Hydra since March 2023. It serves as
-preparation for the monthly review meeting
-(see [slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/) and the
+preparation for the monthly review meeting (see
+[slides](https://docs.google.com/presentation/d/10wZJy0tyGMbvMihbHnHk0QByA_TAZrtbcRbf5Gd-SHg/)
+and the
 [recording](https://drive.google.com/file/d/1X4yPerLTatPPMrX3RYS7XH9lfT_LYaaX/view?usp=sharing)),
 where the team updates major project stakeholders on recent developments to
 gather their feedback on proposed plans.
@@ -17,34 +18,46 @@ gather their feedback on proposed plans.
 The project [roadmap](https://github.com/orgs/input-output-hk/projects/21) was
 only slightly updated this month:
 
-![](./img/2023-04-roadmap.png) <small><center>Figure 1. The latest roadmap with features and ideas</center></small>
+![](./img/2023-04-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
 #### Notable roadmap updates:
 
-- There are still many 💭 **idea** items on the roadmap,
-  however, not on the current and next planned release columns. The process involves clarifying and refining each idea item into a 💬 **feature** before starting work on it. This includes giving equal consideration to new user 💭 **idea**s and requests.
+- There are still many 💭 **idea** items on the roadmap, however, not on the
+  current and next planned release columns. The process involves clarifying and
+  refining each idea item into a 💬 **feature** before starting work on it. This
+  includes giving equal consideration to new user 💭 **idea**s and requests.
 
 - Temporarily postponed the [Hydra heads explorer
-  #696](https://github.com/input-output-hk/hydra/issues/696) item until there is more clarity. While there aren't any major blockers,the explorer just requires further detailing, especially since we're currently in talks with existing Cardano explorer platforms.
+  #696](https://github.com/input-output-hk/hydra/issues/696) item until there is
+  more clarity. While there aren't any major blockers,the explorer just requires
+  further detailing, especially since we're currently in talks with existing
+  Cardano explorer platforms.
 
 - Converted the [aggregated multi-signature
   #193](https://github.com/input-output-hk/hydra/issues/193) from the concrete
   roadmap into an [idea discussion
-  #787](https://github.com/input-output-hk/hydra/discussions/787). This is based on feedback from the community, and we believe that discussing it there would be more beneficial.
+  #787](https://github.com/input-output-hk/hydra/discussions/787). This is based
+  on feedback from the community, and we believe that discussing it there would
+  be more beneficial.
 
-- The main focus for the 0.10.0 release is implementing mainnet compatibility. This is mostly done and only requires some documentation and disclaimer updates. We're about to release 0.10.0, which will be the first mainnet-compatible version.
+- The main focus for the 0.10.0 release is implementing mainnet compatibility.
+  This is mostly done and only requires some documentation and disclaimer
+  updates. We're about to release 0.10.0, which will be the first
+  mainnet-compatible version.
 
 - Meanwhile, work on the [configurable API
-  #380](https://github.com/input-output-hk/hydra/issues/380) was completed, which gave rise to new ideas and follow-up feature requests from users. One
-  of them ([Add HeadState/Snapshot to Greetings
-  #823](https://github.com/input-output-hk/hydra/issues/823)) was fairly straightforward and necessary to deliver a consistent, usable increment on the
+  #380](https://github.com/input-output-hk/hydra/issues/380) was completed,
+  which gave rise to new ideas and follow-up feature requests from users. One of
+  them ([Add HeadState/Snapshot to Greetings
+  #823](https://github.com/input-output-hk/hydra/issues/823)) was fairly
+  straightforward and necessary to deliver a consistent, usable increment on the
   API with the upcoming release.
 
 - Prioritized [Support timed transactions
   #196](https://github.com/input-output-hk/hydra/issues/196) higher as yet
   another use case would benefit from this.
 
-![](./img/2023-04-roadmap-ex-ideas.png) <small><center>Figure 2. The roadmap without idea items</center></small>
+![](./img/2023-04-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
 
 ## Development
 
@@ -59,7 +72,9 @@ This month, the team worked on the following:
   [#800](https://github.com/input-output-hk/hydra/issues/800)
   [#789](https://github.com/input-output-hk/hydra/issues/789).
   Related changes were added to the API server so now our clients can:
-  - Control the historical messages output. History messages can be displayed upon re/connection or not depending on client needs.
+
+  - Control the historical messages output. History messages can be displayed
+    upon re/connection or not depending on client needs.
   - Snapshot UTXOs can optionally be disabled.
   - Transactions can be displayed in CBOR or JSON format.
 
@@ -71,11 +86,11 @@ This month, the team worked on the following:
 
 - **Versioned docs and specification.** Over the [last couple of
   months](./2023-02#development) the Hydra specification became an important
-  artifact to use in discussion, review and potential audit of the Hydra Head protocol
-  implementation. The document was now moved from overleaf into the Hydra
-  repository, where it is properly versioned and built on each CI run. Changes
-  can be proposed using our regular pull request worfklow and the final PDF is
-  built and [published to the
+  artifact to use in discussion, review and potential audit of the Hydra Head
+  protocol implementation. The document was now moved from overleaf into the
+  Hydra repository, where it is properly versioned and built on each CI run.
+  Changes can be proposed using our regular pull request worfklow and the final
+  PDF is built and [published to the
   website](https://hydra.family/head-protocol/unstable/core-concepts/specification)
   automatically.
 
@@ -93,7 +108,8 @@ This month, the team worked on the following:
   correctly ensuring _script continuity_. We identified these 'gaps' as red
   sections (see above) in the specification and worked on fixing them.
 
-  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777) was fairly straightforward and could easily be covered by our mutation-based
+  While the [actual fix #777](https://github.com/input-output-hk/hydra/pull/777)
+  was fairly straightforward and could easily be covered by our mutation-based
   contract tests, the script size increased and we could not publish all three
   Hydra scripts in a single publish transaction (which allows for a single
   `--hydra-scripts-tx-id` parameter on the `hydra-node`).
@@ -108,7 +124,8 @@ This month, the team worked on the following:
   of the drawer later).
 
   There is an alternative: decoding `ScriptContext` involves quite some code,
-  but we don't need everything in all validators. So we introduced a customscript context that only decodes the fields we need.
+  but we don't need everything in all validators. So we introduced a
+  customscript context that only decodes the fields we need.
 
   | scripts  | @0.9.0 | fixes | fixes + plutonomy | fixes + custom ScriptContext |
   | -------- | ------ | ----- | ----------------- | ---------------------------- |
@@ -117,39 +134,42 @@ This month, the team worked on the following:
   | νHead    | 8954   | 9492  | 7579              | 9456 (no custom SC)          |
   | μHead    | 4458   | 4537  | 3468              | 4104                         |
 
-
-As part of this process, we also updated dependencies
-  #[826](https://github.com/input-output-hk/hydra/pull/826) to the latest `cardano-node` master. Although it didn't have an impact on script sizes, it's a crucial step towards preparing for upcoming hard-forks.
+As part of this process, we also updated dependencies #[826](https://github.com/input-output-hk/hydra/pull/826) to the latest
+`cardano-node` master. Although it didn't have an impact on script sizes, it's a
+crucial step towards preparing for upcoming hard-forks.
 
 - **Rollback bug hunt.**
 
-Opening our first head on mainnet failed. We didn't lose any funds, except for some fees, but the head just did not open. Exploring the logs, we figured out that a rollback happened while opening the head and there was a bug.
+Opening our first head on mainnet failed. We didn't lose any funds, except for
+some fees, but the head just did not open. Exploring the logs, we figured out
+that a rollback happened while opening the head and there was a bug.
 
 This is our test pyramid. It already contained some tests about the rollback but
-we decided to enrich our model-based tests to simulate rollbacks
-(before that, it used to run on a _perfect_ blockchain). You can find more about our model-based test strategy in
-[Model-Based Testing with QuickCheck](https://engineering.iog.io/2022-09-28-introduce-q-d/).
+we decided to enrich our model-based tests to simulate rollbacks (before that,
+it used to run on a _perfect_ blockchain). You can find more about our
+model-based test strategy in [Model-Based Testing with
+QuickCheck](https://engineering.iog.io/2022-09-28-introduce-q-d/).
 
-![test pyramid](./img/2023-04-test-pyramide.png)
+![test pyramid](./img/2023-04-test-pyramide.png) <small><center>Testing pyramide</center></small>
 
 The new property
 [headOpensIfAllPartiesCommit](https://github.com/input-output-hk/hydra/blob/commit_vs_rollback/hydra-node/test/Hydra/ModelSpec.hs#L185)
-helped prove the issue. At the end of the day, the problem came from a concurrency
-issue introduced while implementing [ADR 18](./adr/18).
+helped prove the issue. At the end of the day, the problem came from a
+concurrency issue introduced while implementing [ADR 18](./adr/18).
 
 In the figure below, the `DirectChain` processes a new block, updating the
 `chainState` stored inside the `headState`. This also leads to an event being
-published to some event queue. Later, the `HeadLogic` (called _Node_ in the picture)
-will process this event, updating the `headState`.
+published to some event queue. Later, the `HeadLogic` (called _Node_ in the
+picture) will process this event, updating the `headState`.
 
 At the end of the process, we can see that the new `headState` points to a
 `previousRecoverableState` which contains the same `chainState`, `chainState 1`
 instead of `chainState 0`. If a rollback then happens, the `headState` will be
 reverted to this `previousRecoverableState` and the fact that it contains
-`chainState 1` instead of `chainState 0` makes some on-chain observations impossible.
+`chainState 1` instead of `chainState 0` makes some on-chain observations
+impossible.
 
-![Figure 4. Race condition](./img/2023-04-race-condition.jpeg)
-Figure 4. Race conditions
+![Race condition](./img/2023-04-race-condition.png) <small><center>Race condition</center></small>
 
 This explains the issue we had when opening our head:
 
