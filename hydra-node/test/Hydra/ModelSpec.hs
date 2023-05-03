@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -184,8 +183,8 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  seedTheWorld
-  initHead
+  _ <- seedTheWorld
+  _ <- initHead
   everybodyCommit
   void $ eventually ObserveHeadIsOpen
  where
