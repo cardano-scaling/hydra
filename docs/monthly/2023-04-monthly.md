@@ -88,12 +88,12 @@ implementing needed changes related to filtering, pagination etc.
 
 #### Versioned docs and specification
 
-Over the [last couple of months](./2023-02#development) the Hydra specification
-became an important artifact to use in discussion, review and potential audit of
-the Hydra Head protocol implementation. The document was now moved from overleaf
-into the Hydra repository, where it is properly versioned and built on each CI
-run. Changes can be proposed using our regular pull request worfklow and the
-final PDF is built and [published to the
+Over the [last couple of months](/monthly/2023-02#development) the Hydra
+specification became an important artifact to use in discussion, review and
+potential audit of the Hydra Head protocol implementation. The document was now
+moved from overleaf into the Hydra repository, where it is properly versioned
+and built on each CI run. Changes can be proposed using our regular pull request
+worfklow and the final PDF is built and [published to the
 website](https://hydra.family/head-protocol/unstable/core-concepts/specification)
 automatically.
 
@@ -241,9 +241,9 @@ on-demand. 🐹
 Hydra Team is now a regular participant to [Cardano Blockchain Infrastructure
 Alliance](https://www.cbia.io/) meetings which happen more or less on a monthly
 basis. Hydra was featured during the meetup that happened while the team was on
-a [workshop in Feldkirch](./2023-03) and through this participation we hope to
-contribute to growth of the Cardano eco-system and position Hydra as a key
-infrastructure for builders.
+a [workshop in Feldkirch](/monthly/2023-03) and through this participation we
+hope to contribute to growth of the Cardano eco-system and position Hydra as a
+key infrastructure for builders.
 
 #### Twitter space on scaling Cardano
 
