@@ -2,9 +2,7 @@
     "samples": [
         {
             "contents": {
-                "chainState": {
-                    "slot": 15
-                },
+                "chainState": 15,
                 "coordinatedHeadState": {
                     "confirmedSnapshot": {
                         "signatures": {
@@ -616,9 +614,7 @@
                 },
                 "previousRecoverableState": {
                     "contents": {
-                        "chainState": {
-                            "slot": 15
-                        },
+                        "chainState": 15,
                         "committed": [
                             [
                                 {
@@ -1148,9 +1144,7 @@
                         ],
                         "previousRecoverableState": {
                             "contents": {
-                                "chainState": {
-                                    "slot": 4
-                                }
+                                "chainState": 4
                             },
                             "tag": "Idle"
                         }
@@ -1162,9 +1156,7 @@
         },
         {
             "contents": {
-                "chainState": {
-                    "slot": 6
-                },
+                "chainState": 6,
                 "coordinatedHeadState": {
                     "confirmedSnapshot": {
                         "signatures": {
@@ -1720,9 +1712,7 @@
                 },
                 "previousRecoverableState": {
                     "contents": {
-                        "chainState": {
-                            "slot": 12
-                        },
+                        "chainState": 12,
                         "committed": [
                             [
                                 {
@@ -2063,9 +2053,7 @@
                         ],
                         "previousRecoverableState": {
                             "contents": {
-                                "chainState": {
-                                    "slot": 19
-                                }
+                                "chainState": 19
                             },
                             "tag": "Idle"
                         }
@@ -2077,9 +2065,7 @@
         },
         {
             "contents": {
-                "chainState": {
-                    "slot": 27
-                },
+                "chainState": 27,
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
@@ -2210,9 +2196,7 @@
                 },
                 "previousRecoverableState": {
                     "contents": {
-                        "chainState": {
-                            "slot": 7
-                        },
+                        "chainState": 7,
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
@@ -2261,9 +2245,7 @@
                         },
                         "previousRecoverableState": {
                             "contents": {
-                                "chainState": {
-                                    "slot": 0
-                                },
+                                "chainState": 0,
                                 "confirmedSnapshot": {
                                     "signatures": {
                                         "multiSignature": [
@@ -2324,9 +2306,7 @@
                                 },
                                 "previousRecoverableState": {
                                     "contents": {
-                                        "chainState": {
-                                            "slot": 12
-                                        },
+                                        "chainState": 12,
                                         "confirmedSnapshot": {
                                             "signatures": {
                                                 "multiSignature": [
@@ -2447,9 +2427,7 @@
                                         },
                                         "previousRecoverableState": {
                                             "contents": {
-                                                "chainState": {
-                                                    "slot": 7
-                                                },
+                                                "chainState": 7,
                                                 "coordinatedHeadState": {
                                                     "confirmedSnapshot": {
                                                         "signatures": {
@@ -2775,9 +2753,7 @@
                                                 },
                                                 "previousRecoverableState": {
                                                     "contents": {
-                                                        "chainState": {
-                                                            "slot": 16
-                                                        },
+                                                        "chainState": 16,
                                                         "committed": [
                                                             [
                                                                 {
@@ -2933,9 +2909,7 @@
                                                         ],
                                                         "previousRecoverableState": {
                                                             "contents": {
-                                                                "chainState": {
-                                                                    "slot": 11
-                                                                }
+                                                                "chainState": 11
                                                             },
                                                             "tag": "Idle"
                                                         }
@@ -2963,9 +2937,7 @@
         },
         {
             "contents": {
-                "chainState": {
-                    "slot": 28
-                },
+                "chainState": 28,
                 "committed": [
                     [
                         {
@@ -3132,9 +3104,7 @@
                 ],
                 "previousRecoverableState": {
                     "contents": {
-                        "chainState": {
-                            "slot": 4
-                        }
+                        "chainState": 4
                     },
                     "tag": "Idle"
                 }
@@ -3143,9 +3113,7 @@
         },
         {
             "contents": {
-                "chainState": {
-                    "slot": 27
-                },
+                "chainState": 27,
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
@@ -3230,9 +3198,7 @@
                 },
                 "previousRecoverableState": {
                     "contents": {
-                        "chainState": {
-                            "slot": 9
-                        },
+                        "chainState": 9,
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
@@ -3293,9 +3259,7 @@
                         },
                         "previousRecoverableState": {
                             "contents": {
-                                "chainState": {
-                                    "slot": 3
-                                },
+                                "chainState": 3,
                                 "coordinatedHeadState": {
                                     "confirmedSnapshot": {
                                         "signatures": {
@@ -3951,9 +3915,7 @@
                                 },
                                 "previousRecoverableState": {
                                     "contents": {
-                                        "chainState": {
-                                            "slot": 13
-                                        },
+                                        "chainState": 13,
                                         "committed": [
                                             [
                                                 {
@@ -4347,9 +4309,7 @@
                                         ],
                                         "previousRecoverableState": {
                                             "contents": {
-                                                "chainState": {
-                                                    "slot": 19
-                                                }
+                                                "chainState": 19
                                             },
                                             "tag": "Idle"
                                         }

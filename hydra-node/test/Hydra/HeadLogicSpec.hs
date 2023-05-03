@@ -14,7 +14,7 @@ import Test.Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   HeadId (..),
@@ -329,7 +329,7 @@ spec = do
         assertOnlyEffects s1
 
     describe "Coordinated Head Protocol using real Tx" $
-      it "pruning transactions on ReqSn discards tx out of validity range" $ do
+      prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> do
         (utxo, expiringTransaction) <- generate $ do
           (vk, sk) <- genKeyPair
           txOut <- genOutput vk
@@ -338,11 +338,10 @@ spec = do
             utxo
             (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
             sk
-            (Nothing, Just $ TxValidityUpperBound 43)
+            (Nothing, Just $ TxValidityUpperBound slotNo)
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
-
         let parties = [alice, bob, carol]
             s0 =
               Open
@@ -358,7 +357,7 @@ spec = do
                   , previousRecoverableState = Prelude.error "should not be used"
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
-                  , currentSlot = ChainSlot 45
+                  , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
         let env =
               Environment
