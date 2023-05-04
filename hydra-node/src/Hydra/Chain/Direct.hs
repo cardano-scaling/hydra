@@ -18,7 +18,6 @@ import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
-  newTVarIO,
   putTMVar,
   readTQueue,
   takeTMVar,
@@ -71,6 +70,7 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
   chainSyncHandler,
   mkChain,
+  newLocalChainState,
   onRollBackward,
   onRollForward,
  )
@@ -189,7 +189,6 @@ withDirectChain ::
 withDirectChain tracer config ctx wallet chainStateAt callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt chainStateAt
-  chainStateTVar <- newTVarIO $ chainStateAt :| []
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -198,18 +197,19 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
+  localChainState <- newLocalChainState chainStateAt
   let chainHandle =
         mkChain
           tracer
           getTimeHandle
           wallet
           ctx
-          chainStateTVar
+          localChainState
           (submitTx queue)
   res <-
     race
       ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar
+          let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
           connectToLocalNode
             connectInfo
             (clientProtocols chainPoint queue handler)

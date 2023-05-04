@@ -28,7 +28,17 @@ import Hydra.BehaviorSpec (
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.Handlers (ChainSyncHandler (..), DirectChainLog, SubmitTx, chainSyncHandler, mkChain, onRollBackward, onRollForward)
+import Hydra.Chain.Direct.Handlers (
+  ChainSyncHandler (..),
+  DirectChainLog,
+  LocalChainState,
+  SubmitTx,
+  chainSyncHandler,
+  mkChain,
+  newLocalChainState,
+  onRollBackward,
+  onRollForward,
+ )
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import qualified Hydra.Chain.Direct.State as S
@@ -123,9 +133,9 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     nodeState <- createNodeState $ Idle IdleState{chainState}
     let HydraNode{eq} = node
     let callback = chainCallback eq
-    chainStateTVar <- newTVarIO $ fromList [initialChainState]
-    let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput chainStateTVar
-    let chainHandler = chainSyncHandler tr callback getTimeHandle ctx chainStateTVar
+    localChainState <- newLocalChainState initialChainState
+    let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput localChainState
+    let chainHandler = chainSyncHandler tr callback getTimeHandle ctx localChainState
     let node' =
           node
             { hn = createMockNetwork node nodes
@@ -167,7 +177,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       Nothing ->
         pure ()
   sendRollBackward chain nbBlocks =
-    if False --inhibiting the rollback until we can support it in the code
+    if False -- inhibiting the rollback until we can support it in the code
       then do
         (slotNum, position, blocks) <- readTVarIO chain
         case Seq.lookup (position - nbBlocks) blocks of
@@ -222,9 +232,9 @@ createMockChain ::
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
-  TVar m (NonEmpty ChainStateAt) ->
+  LocalChainState m ->
   Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput chainStateTVar =
+createMockChain tracer ctx submitTx timeHandle seedInput chainState =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
@@ -235,7 +245,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainStateTVar =
           , reset = pure ()
           , update = \_ _ -> pure ()
           }
-   in mkChain tracer timeHandle wallet ctx chainStateTVar submitTx
+   in mkChain tracer timeHandle wallet ctx chainState submitTx
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
 mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)

@@ -26,6 +26,7 @@ import Hydra.Chain.Direct.Handlers (
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
+  newLocalChainState,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -108,10 +109,15 @@ spec = do
 
       chainContext <- pickBlind arbitrary
       chainState <- pickBlind arbitrary
-      chainStateVar <- run $ newTVarIO $ fromList chainState
+      localChainState <- run $ newLocalChainState chainState
       let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler = chainSyncHandler nullTracer chainSyncCallback (pure timeHandle) chainContext chainStateVar
-
+          handler =
+            chainSyncHandler
+              nullTracer
+              chainSyncCallback
+              (pure timeHandle)
+              chainContext
+              localChainState
       run $
         onRollForward handler header txs
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
@@ -121,12 +127,13 @@ spec = do
     (ctx, st, tx, transition) <- pick genChainStateWithTx
     TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
     monitor (label $ show transition)
-    let cs =
+    localChainState <-
+      run $
+        newLocalChainState
           ChainStateAt
             { chainState = st
             , recordedAt = Nothing
             }
-    chainStatesVar <- run $ newTVarIO $ fromList [cs]
     timeHandle <- pickBlind arbitrary
     let callback = \case
           Rollback{} ->
@@ -137,7 +144,13 @@ spec = do
               then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
               else pure ()
 
-    let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx chainStatesVar
+    let handler =
+          chainSyncHandler
+            nullTracer
+            callback
+            (pure timeHandle)
+            ctx
+            localChainState
     run $ onRollForward handler header txs
 
   prop "rollbacks state onRollBackward" . monadicIO $ do
@@ -145,21 +158,23 @@ spec = do
     rollbackPoint <- pick $ genRollbackPoint blocks
     monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
-    -- Mock callback which keeps the chain state in a tvar
-    chainStateAtVar <- run $ newTVarIO $ chainStateAt :| []
+
+    -- Stub for recording Rollback events
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
-          Tick{} -> pure ()
           (Rollback _slot chainState) -> atomically $ putTMVar rolledBackTo chainState
           _ -> pure ()
 
+    -- Using the "real" rollbackable chain state
+    localChainState <- run $ newLocalChainState chainStateAt
     let handler =
           chainSyncHandler
             nullTracer
             callback
             (pure timeHandle)
             chainContext
-            chainStateAtVar
+            localChainState
+
     -- Simulate some chain following
     run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
     -- Inject the rollback to somewhere between any of the previous state
@@ -172,13 +187,11 @@ spec = do
     pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 
 -- | Create a chain sync handler which records events as they are called back.
--- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
--- the given 'ChainState' constantly.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  chainStateVar <- newTVarIO $ fromList [cs]
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx chainStateVar
+  localChainState <- newLocalChainState cs
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
