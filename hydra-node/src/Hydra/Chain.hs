@@ -225,8 +225,8 @@ instance
   where
   arbitrary = genericArbitrary
 
--- | A callback indicating receival of a potential Hydra transaction which is Maybe
--- observing a relevant 'ChainEvent tx'.
+-- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
+-- 'Observation' of a relevant Hydra transaction.
 type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.

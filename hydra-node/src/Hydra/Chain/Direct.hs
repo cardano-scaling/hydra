@@ -184,6 +184,7 @@ withDirectChain ::
   ChainConfig ->
   ChainContext ->
   TinyWallet IO ->
+  -- | Last known chain state as loaded from persistence.
   ChainStateAt ->
   ChainComponent Tx IO a
 withDirectChain tracer config ctx wallet chainStateAt callback action = do
