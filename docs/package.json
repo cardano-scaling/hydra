@@ -32,10 +32,8 @@
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
   },
-  "overrides": {
-    "asyncapi-validator@3.1.1": {
-      "@asyncapi/specs": "4.2.1"
-    }
+  "resolutions": {
+    "@asyncapi/specs": "4.2.1"
   },
   "browserslist": {
     "production": [

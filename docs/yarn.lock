@@ -171,14 +171,7 @@
     node-fetch "^2.6.0"
     tiny-merge-patch "^0.1.2"
 
-"@asyncapi/specs@4.2.1":
-  version "4.2.1"
-  resolved "https://registry.yarnpkg.com/@asyncapi/specs/-/specs-4.2.1.tgz#057fc2cb317a7d651c3ef76f3e3573486b191cad"
-  integrity sha512-NeOgMxl1J00PbsmStbDFE6OVA6rE5S3xv0Twm70MwMigsE28hdG9iH/+2SrMBeD/NFKVlryHcEuLtAPoqiCCFg==
-  dependencies:
-    "@types/json-schema" "^7.0.11"
-
-"@asyncapi/specs@^4.1.1":
+"@asyncapi/specs@4.2.1", "@asyncapi/specs@^4.1.1":
   version "4.2.1"
   resolved "https://registry.yarnpkg.com/@asyncapi/specs/-/specs-4.2.1.tgz#057fc2cb317a7d651c3ef76f3e3573486b191cad"
   integrity sha512-NeOgMxl1J00PbsmStbDFE6OVA6rE5S3xv0Twm70MwMigsE28hdG9iH/+2SrMBeD/NFKVlryHcEuLtAPoqiCCFg==
@@ -2205,9 +2198,9 @@
     "@types/react" "*"
 
 "@types/react@*":
-  version "18.2.0"
-  resolved "https://registry.yarnpkg.com/@types/react/-/react-18.2.0.tgz#15cda145354accfc09a18d2f2305f9fc099ada21"
-  integrity sha512-0FLj93y5USLHdnhIhABk83rm8XEGA7kH3cr+YUlvxoUGp1xNt/DINUMvqPxLyOQMzLmZe8i4RTHbvb8MC7NmrA==
+  version "18.2.4"
+  resolved "https://registry.yarnpkg.com/@types/react/-/react-18.2.4.tgz#970e6d56f6d3fd8bd2cb1d1f042aef1d0426d08e"
+  integrity sha512-IvAIhJTmKAAJmCIcaa6+5uagjyh+9GvcJ/thPZcw+i+vx+22eHlTy2Q1bJg/prES57jehjebq9DnIhOTtIhmLw==
   dependencies:
     "@types/prop-types" "*"
     "@types/scheduler" "*"
@@ -3989,9 +3982,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.4.284:
-  version "1.4.380"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.380.tgz#195dc59d930c6b74efbee6f0e6a267ce4af5ed91"
-  integrity sha512-XKGdI4pWM78eLH2cbXJHiBnWUwFSzZM7XujsB6stDiGu9AeSqziedP6amNLpJzE3i0rLTcfAwdCTs5ecP5yeSg==
+  version "1.4.382"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.382.tgz#87e659b0f0d5f7b19759038871bac0a327191f82"
+  integrity sha512-czMavlW52VIPgutbVL9JnZIZuFijzsG1ww/1z2Otu1r1q+9Qe2bTsH3My3sZarlvwyqHM6+mnZfEnt2Vr4dsIg==
 
 elkjs@^0.8.2:
   version "0.8.2"
@@ -7371,9 +7364,9 @@ statuses@2.0.1:
   integrity sha512-OpZ3zP+jT1PI7I8nemJX4AKmAX070ZkYPVWV/AaKTJl+tXCTGyVdC1a4SL8RUQYEwk/f34ZX8UTykN68FwrqAA==
 
 std-env@^3.0.1:
-  version "3.3.2"
-  resolved "https://registry.yarnpkg.com/std-env/-/std-env-3.3.2.tgz#af27343b001616015534292178327b202b9ee955"
-  integrity sha512-uUZI65yrV2Qva5gqE0+A7uVAvO40iPo6jGhs7s8keRfHCmtg+uB2X6EiLGCI9IgL1J17xGhvoOqSz79lzICPTA==
+  version "3.3.3"
+  resolved "https://registry.yarnpkg.com/std-env/-/std-env-3.3.3.tgz#a54f06eb245fdcfef53d56f3c0251f1d5c3d01fe"
+  integrity sha512-Rz6yejtVyWnVjC1RFvNmYL10kgjC49EOghxWn0RFqlCHGFpQx+Xe7yW3I4ceK1SGrWIGMjD5Kbue8W/udkbMJg==
 
 string-width@^4.0.0, string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.2:
   version "4.2.3"
@@ -8041,9 +8034,9 @@ webpack-sources@^3.2.2, webpack-sources@^3.2.3:
   integrity sha512-/DyMEOrDgLKKIG0fmvtz+4dUX/3Ghozwgm6iPp8KRhvn+eQf9+Q7GWxVNMk3+uCPWfdXYC4ExGBckIXdFEfH1w==
 
 webpack@^5.73.0:
-  version "5.81.0"
-  resolved "https://registry.yarnpkg.com/webpack/-/webpack-5.81.0.tgz#27a2e8466c8b4820d800a8d90f06ef98294f9956"
-  integrity sha512-AAjaJ9S4hYCVODKLQTgG5p5e11hiMawBwV2v8MYLE0C/6UAGLuAF4n1qa9GOwdxnicaP+5k6M5HrLmD4+gIB8Q==
+  version "5.82.0"
+  resolved "https://registry.yarnpkg.com/webpack/-/webpack-5.82.0.tgz#3c0d074dec79401db026b4ba0fb23d6333f88e7d"
+  integrity sha512-iGNA2fHhnDcV1bONdUu554eZx+XeldsaeQ8T67H6KKHl2nUSwX8Zm7cmzOA46ox/X1ARxf7Bjv8wQ/HsB5fxBg==
   dependencies:
     "@types/eslint-scope" "^3.7.3"
     "@types/estree" "^1.0.0"
