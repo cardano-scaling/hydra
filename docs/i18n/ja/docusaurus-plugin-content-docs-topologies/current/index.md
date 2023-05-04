@@ -14,5 +14,5 @@ Hydra Headは、[コアコンセプト](/core-concepts) ページで説明され
 import DocCardList from '@theme/DocCardList';
 import {useDocsSidebar} from '@docusaurus/theme-common/internal';
 
-<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
+<DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
 ```
