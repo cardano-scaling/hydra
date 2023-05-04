@@ -30,6 +30,7 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genValue,
   genVerificationKey,
+  unsafeBuildWithDefaultPParams,
  )
 import Hydra.Party (Party)
 import Test.QuickCheck (oneof, scale, suchThat)
@@ -47,13 +48,14 @@ healthyCommitTx =
       <> UTxO.singleton healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
-    commitTx
-      Fixture.testNetworkId
-      scriptRegistry
-      (mkHeadId Fixture.testPolicyId)
-      commitParty
-      (Just healthyCommittedUTxO)
-      (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
+    unsafeBuildWithDefaultPParams $
+      commitTx
+        Fixture.testNetworkId
+        scriptRegistry
+        (mkHeadId Fixture.testPolicyId)
+        commitParty
+        (Just healthyCommittedUTxO)
+        (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

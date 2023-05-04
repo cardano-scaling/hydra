@@ -18,6 +18,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
+  BuildTx,
   ChainPoint (..),
   CtxUTxO,
   Hash,
@@ -30,6 +31,7 @@ import Hydra.Cardano.Api (
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
+  TxBodyContent,
   TxIn,
   TxOut,
   UTxO,
@@ -102,7 +104,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey, unsafeBuildWithDefaultPParams)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Options (maximumNumberOfParties)
@@ -289,7 +291,7 @@ initialize ::
   HeadParameters ->
   -- | Seed input.
   TxIn ->
-  Tx
+  TxBodyContent BuildTx
 initialize ctx =
   initTx networkId (allVerificationKeys ctx)
  where
@@ -302,7 +304,7 @@ commit ::
   ChainContext ->
   InitialState ->
   UTxO ->
-  Either (PostTxError Tx) Tx
+  Either (PostTxError Tx) (TxBodyContent BuildTx)
 commit ctx st utxo = do
   case ownInitial of
     Nothing ->
@@ -374,7 +376,7 @@ abort ::
   InitialState ->
   -- | Committed UTxOs to reimburse.
   UTxO ->
-  Tx
+  TxBodyContent BuildTx
 abort ctx st committedUTxO = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
@@ -404,7 +406,7 @@ abort ctx st committedUTxO = do
 collect ::
   ChainContext ->
   InitialState ->
-  Tx
+  TxBodyContent BuildTx
 collect ctx st = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
    in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
@@ -433,7 +435,7 @@ close ::
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  Tx
+  TxBodyContent BuildTx
 close ctx st confirmedSnapshot startSlotNo pointInTime =
   closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
@@ -464,7 +466,7 @@ contest ::
   ClosedState ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
-  Tx
+  TxBodyContent BuildTx
 contest ctx st confirmedSnapshot pointInTime = do
   contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
@@ -488,7 +490,7 @@ fanout ::
   UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
-  Tx
+  TxBodyContent BuildTx
 fanout ctx st utxo deadlineSlotNo = do
   fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
  where
@@ -732,7 +734,7 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    let tx = unsafeBuildWithDefaultPParams $ initialize cctx (ctxHeadParameters ctx) seedInput
     pure (cctx, Idle, tx, Init)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -857,7 +859,7 @@ genStInitial ::
 genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
-  let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
+  let txInit = unsafeBuildWithDefaultPParams $ initialize cctx (ctxHeadParameters ctx) seedInput
   let initState = unsafeObserveInit cctx txInit
   pure (cctx, initState)
 
@@ -866,7 +868,7 @@ genInitTx ::
   Gen Tx
 genInitTx ctx = do
   cctx <- pickChainContext ctx
-  initialize cctx (ctxHeadParameters ctx) <$> genTxIn
+  fmap unsafeBuildWithDefaultPParams $ initialize cctx (ctxHeadParameters ctx) <$> genTxIn
 
 genCommits ::
   HydraContext ->
@@ -884,7 +886,7 @@ genCommits' genUTxOToCommit ctx txInit = do
   -- Prepare UTxO to commit. We need to scale down the quantities by number of
   -- committed UTxOs to ensure we are not as easily hitting overflows of the max
   -- bound (Word64) when collecting all the commits together later.
-  commitUTxOs <- forM (ctxParties ctx) $ \_p -> genUTxOToCommit
+  commitUTxOs <- forM (ctxParties ctx) $ const genUTxOToCommit
   let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
 
   allChainContexts <- deriveChainContexts ctx
@@ -913,7 +915,7 @@ genCollectComTx = do
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
-  pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
+  pure (cctx, committedUTxO, stInitialized, unsafeBuildWithDefaultPParams $ collect cctx stInitialized)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -923,7 +925,7 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (cctx, stOpen, close cctx stOpen snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, unsafeBuildWithDefaultPParams $ close cctx stOpen snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -933,12 +935,12 @@ genContestTx = do
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx stOpen confirmed startSlot closePointInTime
+  let txClose = unsafeBuildWithDefaultPParams $ close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, unsafeBuildWithDefaultPParams $ contest cctx stClosed contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -947,7 +949,7 @@ genFanoutTx numParties numOutputs = do
   (_, toFanout, stClosed) <- genStClosed ctx utxo
   cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-  pure (ctx, stClosed, fanout cctx stClosed toFanout deadlineSlotNo)
+  pure (ctx, stClosed, unsafeBuildWithDefaultPParams $ fanout cctx stClosed toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
@@ -962,7 +964,7 @@ genStOpen ctx = do
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
-  let txCollect = collect cctx stInitial
+  let txCollect = unsafeBuildWithDefaultPParams $ collect cctx stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -989,7 +991,7 @@ genStClosed ctx utxo = do
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx stOpen snapshot startSlot pointInTime
+  let txClose = unsafeBuildWithDefaultPParams $ close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 -- ** Danger zone
 
@@ -1000,7 +1002,7 @@ unsafeCommit ::
   UTxO ->
   Tx
 unsafeCommit ctx st u =
-  either (error . show) id $ commit ctx st u
+  either (error . show) unsafeBuildWithDefaultPParams $ commit ctx st u
 
 unsafeObserveInit ::
   HasCallStack =>

@@ -37,6 +37,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
+import Hydra.Ledger.Cardano (unsafeBuildWithDefaultPParams)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -188,7 +189,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput =
           { getUTxO = pure mempty
           , getSeedInput = pure (Just seedInput)
           , sign = id
-          , coverFee = \_ tx -> pure (Right tx)
+          , coverFee = \_ tx -> pure (Right $ unsafeBuildWithDefaultPParams tx)
           , reset = pure ()
           , update = \_ _ -> pure ()
           }

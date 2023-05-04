@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
   genVerificationKey,
+  unsafeBuildWithDefaultPParams,
  )
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
@@ -67,7 +68,7 @@ spec =
           forAll (elements cardanoKeys) $ \signer ->
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
-                  tx = initTx testNetworkId cardanoKeys params txIn
+                  tx = unsafeBuildWithDefaultPParams $ initTx testNetworkId cardanoKeys params txIn
                in case observeInitTx testNetworkId cardanoKeys cperiod party parties tx of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
@@ -79,7 +80,7 @@ spec =
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case unsafeBuildWithDefaultPParams <$> abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->
@@ -118,7 +119,7 @@ spec =
               (UnsafeContestationPeriod cp) = cperiod
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
-              tx = initTx testNetworkId cardanoKeys params txIn
+              tx = unsafeBuildWithDefaultPParams $ initTx testNetworkId cardanoKeys params txIn
           pure $ case observeInitTx testNetworkId cardanoKeys wrongCPeriod party parties tx of
             Right InitObservation{} -> do
               property False
@@ -137,7 +138,7 @@ spec =
               cardanoKeys = genForParty genVerificationKey <$> allParties
               wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
               params = HeadParameters cperiod allParties
-              tx = initTx testNetworkId cardanoKeys params txIn
+              tx = unsafeBuildWithDefaultPParams $ initTx testNetworkId cardanoKeys params txIn
            in case observeInitTx testNetworkId wrongCardanoKeys cperiod party parties tx of
                 Right InitObservation{} -> do
                   property False

@@ -25,6 +25,7 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genUTxOWithSimplifiedAddresses,
   genValue,
+  unsafeBuildWithDefaultPParams,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (partyToChain)
@@ -42,12 +43,13 @@ healthyFanoutTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    fanoutTx
-      scriptRegistry
-      healthyFanoutUTxO
-      (headInput, headOutput, headDatum)
-      healthySlotNo
-      headTokenScript
+    unsafeBuildWithDefaultPParams $
+      fanoutTx
+        scriptRegistry
+        healthyFanoutUTxO
+        (headInput, headOutput, headDatum)
+        healthySlotNo
+        headTokenScript
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

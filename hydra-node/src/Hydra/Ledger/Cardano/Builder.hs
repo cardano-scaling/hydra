@@ -4,6 +4,7 @@ module Hydra.Ledger.Cardano.Builder where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Ledger.Core (PParams)
 import Data.Default (def)
 import qualified Data.Map as Map
 
@@ -45,33 +46,29 @@ instance Exception InvalidTransactionException
 -- flow to avoid this exception and have the wallet work from a TxBodyContent BuildTx  instead
 -- of fiddling with a sealed 'CardanoTx'.
 --
--- Similarly, 'makeTransactionBody' throws when building a transaction
--- with scripts and no protocol parameters (needed to compute the script
--- integrity hash). This is also added by our wallet at the moment so
--- hopefully, this ugly work-around will be removed eventually.
---
 -- So we currently bypass this by having default but seemingly innofensive
--- values for collaterals and protocol params in the 'empty' value
+-- values for collaterals as the 'empty' value
 emptyTxBody :: TxBodyContent BuildTx
 emptyTxBody =
   TxBodyContent
-    mempty -- inputs
-    (TxInsCollateral mempty) -- FIXME
-    TxInsReferenceNone
-    mempty -- outputs
-    TxTotalCollateralNone
-    TxReturnCollateralNone
-    (TxFeeExplicit 0)
-    (TxValidityNoLowerBound, TxValidityNoUpperBound)
-    TxMetadataNone
-    TxAuxScriptsNone
-    TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
-    TxWithdrawalsNone
-    TxCertificatesNone
-    TxUpdateProposalNone
-    TxMintValueNone
-    TxScriptValidityNone
+    { txIns = mempty
+    , txInsCollateral = TxInsCollateral mempty -- FIXME
+    , txInsReference = TxInsReferenceNone
+    , txOuts = mempty
+    , txTotalCollateral = TxTotalCollateralNone
+    , txReturnCollateral = TxReturnCollateralNone
+    , txFee = TxFeeExplicit 0
+    , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound)
+    , txMetadata = TxMetadataNone
+    , txAuxScripts = TxAuxScriptsNone
+    , txExtraKeyWits = TxExtraKeyWitnessesNone
+    , txProtocolParams = BuildTxWith Nothing
+    , txWithdrawals = TxWithdrawalsNone
+    , txCertificates = TxCertificatesNone
+    , txUpdateProposal = TxUpdateProposalNone
+    , txMintValue = TxMintValueNone
+    , txScriptValidity = TxScriptValidityNone
+    }
 
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
@@ -153,3 +150,17 @@ setValidityLowerBound slotNo tx =
   tx{txValidityRange = (TxValidityLowerBound slotNo, upper)}
  where
   (_lower, upper) = txValidityRange tx
+
+-- | Set the 'txProtocolParams' tx body content field
+setProtocolParams :: PParams LedgerEra -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+setProtocolParams pparams txBodyC =
+  txBodyC
+    { txProtocolParams =
+        BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage pparams
+    }
+
+-- | Build a 'Tx' using default 'ProtocolParameters'
+-- NOTE: should be used only in tests
+unsafeBuildWithDefaultPParams :: TxBodyContent BuildTx -> Tx
+unsafeBuildWithDefaultPParams partialTx =
+  unsafeBuildTransaction $ partialTx{txProtocolParams = BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def}

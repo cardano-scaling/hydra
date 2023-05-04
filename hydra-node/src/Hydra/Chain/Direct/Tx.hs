@@ -46,7 +46,6 @@ import Hydra.Ledger.Cardano.Builder (
   mintTokens,
   setValidityLowerBound,
   setValidityUpperBound,
-  unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
@@ -111,16 +110,15 @@ initTx ::
   [VerificationKey PaymentKey] ->
   HeadParameters ->
   TxIn ->
-  Tx
+  TxBodyContent BuildTx
 initTx networkId cardanoKeys parameters seedTxIn =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addVkInputs [seedTxIn]
-      & addOutputs
-        ( mkHeadOutputInitial networkId seedTxIn parameters
-            : map (mkInitialOutput networkId seedTxIn) cardanoKeys
-        )
-      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+  emptyTxBody
+    & addVkInputs [seedTxIn]
+    & addOutputs
+      ( mkHeadOutputInitial networkId seedTxIn parameters
+          : map (mkInitialOutput networkId seedTxIn) cardanoKeys
+      )
+    & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
@@ -176,15 +174,14 @@ commitTx ::
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
-  Tx
+  TxBodyContent BuildTx
 commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(initialInput, initialWitness)]
-      & addReferenceInputs [initialScriptRef]
-      & addVkInputs (maybeToList mCommittedInput)
-      & addExtraRequiredSigners [vkh]
-      & addOutputs [commitOutput]
+  emptyTxBody
+    & addInputs [(initialInput, initialWitness)]
+    & addReferenceInputs [initialScriptRef]
+    & addVkInputs (maybeToList mCommittedInput)
+    & addExtraRequiredSigners [vkh]
+    & addOutputs [commitOutput]
  where
   initialWitness =
     BuildTxWith $
@@ -237,14 +234,13 @@ collectComTx ::
   Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   -- | Head id
   HeadId ->
-  Tx
+  TxBodyContent BuildTx
 collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
-      & addReferenceInputs [commitScriptRef, headScriptRef]
-      & addOutputs [headOutput]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+  emptyTxBody
+    & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+    & addReferenceInputs [commitScriptRef, headScriptRef]
+    & addOutputs [headOutput]
+    & addExtraRequiredSigners [verificationKeyHash vk]
  where
   InitialThreadOutput
     { initialThreadUTxO =
@@ -331,16 +327,15 @@ closeTx ::
   OpenThreadOutput ->
   -- | Head identifier
   HeadId ->
-  Tx
+  TxBodyContent BuildTx
 closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityLowerBound startSlotNo
-      & setValidityUpperBound endSlotNo
+  emptyTxBody
+    & addInputs [(headInput, headWitness)]
+    & addReferenceInputs [headScriptRef]
+    & addOutputs [headOutputAfter]
+    & addExtraRequiredSigners [verificationKeyHash vk]
+    & setValidityLowerBound startSlotNo
+    & setValidityUpperBound endSlotNo
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
@@ -415,7 +410,7 @@ contestTx ::
   ClosedThreadOutput ->
   HeadId ->
   ContestationPeriod ->
-  Tx
+  TxBodyContent BuildTx
 contestTx
   scriptRegistry
   vk
@@ -425,13 +420,12 @@ contestTx
   ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters}
   headId
   contestationPeriod =
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs [(headInput, headWitness)]
-        & addReferenceInputs [headScriptRef]
-        & addOutputs [headOutputAfter]
-        & addExtraRequiredSigners [verificationKeyHash vk]
-        & setValidityUpperBound slotNo
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
+      & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValidityUpperBound slotNo
    where
     headWitness =
       BuildTxWith $
@@ -485,15 +479,14 @@ fanoutTx ::
   SlotNo ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
-  Tx
+  TxBodyContent BuildTx
 fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) deadlineSlotNo headTokenScript =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs orderedTxOutsToFanout
-      & burnTokens headTokenScript Burn headTokens
-      & setValidityLowerBound (deadlineSlotNo + 1)
+  emptyTxBody
+    & addInputs [(headInput, headWitness)]
+    & addReferenceInputs [headScriptRef]
+    & addOutputs orderedTxOutsToFanout
+    & burnTokens headTokenScript Burn headTokens
+    & setValidityLowerBound (deadlineSlotNo + 1)
  where
   headWitness =
     BuildTxWith $
@@ -534,19 +527,18 @@ abortTx ::
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
-  Either AbortTxError Tx
+  Either AbortTxError (TxBodyContent BuildTx)
 abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
       Left OverlappingInputs
   | otherwise =
       Right $
-        unsafeBuildTransaction $
-          emptyTxBody
-            & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
-            & addOutputs reimbursedOutputs
-            & burnTokens headTokenScript Burn headTokens
-            & addExtraRequiredSigners [verificationKeyHash vk]
+        emptyTxBody
+          & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
+          & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
+          & addOutputs reimbursedOutputs
+          & burnTokens headTokenScript Burn headTokens
+          & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $

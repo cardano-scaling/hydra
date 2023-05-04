@@ -74,7 +74,8 @@ import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (markerDatum)
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (setProtocolParams)
 import Hydra.Logging (Tracer, traceWith)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
@@ -99,10 +100,10 @@ data TinyWallet m = TinyWallet
   , sign :: Api.Tx -> Api.Tx
   , coverFee ::
       UTxO ->
-      Api.Tx ->
+      Api.TxBodyContent Api.BuildTx ->
       m (Either ErrCoverFee Api.Tx)
   , reset :: m ()
-  -- ^ Re-initializ wallet against the latest tip of the node and start to
+  -- ^ Re-initialize wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
   , update :: BlockHeader -> [Api.Tx] -> m ()
   -- ^ Update the wallet state given a block and list of txs. May be ignored if
@@ -146,11 +147,12 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
       , sign = signWith sk
-      , coverFee = \lookupUTxO partialTx -> do
+      , coverFee = \lookupUTxO partialTx' -> do
           -- XXX: We should query pparams here. If not, we likely will have
           -- wrong fee estimation should they change in between.
           epochInfo <- queryEpochInfo
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
+          let partialTx = unsafeBuildTransaction $ setProtocolParams pparams partialTx'
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)

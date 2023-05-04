@@ -40,7 +40,13 @@ import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (
+  genAddressInEra,
+  genOneUTxOFor,
+  genValue,
+  genVerificationKey,
+  unsafeBuildWithDefaultPParams,
+ )
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -58,14 +64,15 @@ healthyCloseTx =
   (tx, lookupUTxO)
  where
   tx =
-    closeTx
-      scriptRegistry
-      somePartyCardanoVerificationKey
-      closingSnapshot
-      healthyCloseLowerBoundSlot
-      healthyCloseUpperBoundPointInTime
-      openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
+    unsafeBuildWithDefaultPParams $
+      closeTx
+        scriptRegistry
+        somePartyCardanoVerificationKey
+        closingSnapshot
+        healthyCloseLowerBoundSlot
+        healthyCloseUpperBoundPointInTime
+        openThreadOutput
+        (mkHeadId Fixture.testPolicyId)
 
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
@@ -98,14 +105,15 @@ healthyCloseInitialTx =
   (tx, lookupUTxO)
  where
   tx =
-    closeTx
-      scriptRegistry
-      somePartyCardanoVerificationKey
-      closingSnapshot
-      healthyCloseLowerBoundSlot
-      healthyCloseUpperBoundPointInTime
-      openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
+    unsafeBuildWithDefaultPParams $
+      closeTx
+        scriptRegistry
+        somePartyCardanoVerificationKey
+        closingSnapshot
+        healthyCloseLowerBoundSlot
+        healthyCloseUpperBoundPointInTime
+        openThreadOutput
+        (mkHeadId Fixture.testPolicyId)
 
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)

@@ -38,7 +38,7 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Ledger.Cardano (genVerificationKey, unsafeBuildWithDefaultPParams)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
@@ -58,7 +58,7 @@ healthyAbortTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    either (error . show) id $
+    either (error . show) unsafeBuildWithDefaultPParams $
       abortTx
         committedUTxO
         scriptRegistry

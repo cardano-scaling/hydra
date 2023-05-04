@@ -15,8 +15,10 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
+  BuildTx,
   ChainPoint (..),
   Tx,
+  TxBodyContent,
   TxId,
   chainPointToSlotNo,
   getChainPoint,
@@ -57,6 +59,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Hydra.Ledger.Cardano (unsafeBuildWithDefaultPParams)
 
 -- * Posting Transactions
 
@@ -110,7 +113,7 @@ finalizeTx ::
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
-  Tx ->
+  TxBodyContent BuildTx ->
   m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
@@ -132,7 +135,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
         ( InternalWalletError
             { headUTxO
             , reason = show e
-            , tx = partialTx
+            , tx = unsafeBuildWithDefaultPParams partialTx
             } ::
             PostTxError Tx
         )
@@ -230,7 +233,7 @@ prepareTxToPost ::
   ChainContext ->
   ChainStateType Tx ->
   PostChainTx Tx ->
-  STM m Tx
+  STM m (TxBodyContent BuildTx)
 prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
   case (tx, chainState) of
     (InitTx params, Idle) ->

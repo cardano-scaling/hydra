@@ -48,6 +48,7 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.Ledger.Cardano (unsafeBuildWithDefaultPParams)
 import Hydra.Options (maximumNumberOfParties)
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
@@ -277,7 +278,7 @@ genSequenceOfObservableBlocks = do
     HeadParameters ->
     StateT [TestBlock] Gen Tx
   stepInit ctx params = do
-    initTx <- lift $ initialize ctx params <$> genTxIn
+    initTx <- lift $ unsafeBuildWithDefaultPParams . initialize ctx params <$> genTxIn
     initTx <$ putNextBlock initTx
 
   stepCommits ::

@@ -90,6 +90,7 @@ import Hydra.Ledger.Cardano (
   genTxOutWithReferenceScript,
   genUTxO1,
   genUTxOSized,
+  unsafeBuildWithDefaultPParams,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
@@ -155,7 +156,7 @@ spec = parallel $ do
         seedInput <- pickBlind arbitrary
         seedTxOut <- pickBlind genTxOutAdaOnly
 
-        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+        let tx = unsafeBuildWithDefaultPParams $ initialize cctx (ctxHeadParameters ctx) seedInput
             originalIsObserved = property $ isRight (observeInit cctx tx)
         -- We do replace the minting policy and datum of a head output to
         -- simulate a faked init transaction.
@@ -199,7 +200,7 @@ spec = parallel $ do
           ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
           $ \(cctxA, cctxB) ->
             forAll genTxIn $ \seedInput ->
-              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+              let tx = unsafeBuildWithDefaultPParams $ initialize cctxA (ctxHeadParameters ctxA) seedInput
                in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
@@ -271,8 +272,8 @@ spec = parallel $ do
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        let observedIn1 = observeAbort stHead1 (abort ctx1 stHead1 mempty)
-            observedIn2 = observeAbort stHead2 (abort ctx2 stHead1 mempty)
+        let observedIn1 = observeAbort stHead1 (unsafeBuildWithDefaultPParams $ abort ctx1 stHead1 mempty)
+            observedIn2 = observeAbort stHead2 (unsafeBuildWithDefaultPParams $ abort ctx2 stHead1 mempty)
          in conjoin
               [ observedIn1 =/= Nothing
               , observedIn2 === Nothing
@@ -317,16 +318,20 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   -- Collect
   let initialUTxO = fold committed
-  let txCollect = collect cctx stInitial
+  let txCollect = unsafeBuildWithDefaultPParams $ collect cctx stInitial
   stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
+  let txClose =
+        unsafeBuildWithDefaultPParams $
+          close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let txFanout =
+        unsafeBuildWithDefaultPParams $
+          fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =
@@ -391,7 +396,7 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx (ctxHeadParameters ctx) seedIn
+        let tx = unsafeBuildWithDefaultPParams $ initialize cctx (ctxHeadParameters ctx) seedIn
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
@@ -439,7 +444,7 @@ forAllAbort action = do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-           in action utxo (abort cctx stInitialized (fold committed))
+           in action utxo (unsafeBuildWithDefaultPParams $ abort cctx stInitialized (fold committed))
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"

@@ -42,7 +42,13 @@ import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (
+  genAddressInEra,
+  genOneUTxOFor,
+  genValue,
+  genVerificationKey,
+  unsafeBuildWithDefaultPParams,
+ )
 import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -50,7 +56,15 @@ import Plutus.Orphans ()
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import qualified PlutusLedgerApi.V2 as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (
+  arbitrarySizedNatural,
+  elements,
+  listOf,
+  listOf1,
+  oneof,
+  suchThat,
+  vectorOf,
+ )
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -69,15 +83,16 @@ healthyContestTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    contestTx
-      scriptRegistry
-      healthyContesterVerificationKey
-      healthyContestSnapshot
-      (healthySignature healthyContestSnapshotNumber)
-      (healthySlotNo, slotNoToUTCTime healthySlotNo)
-      closedThreadOutput
-      (mkHeadId testPolicyId)
-      healthyContestationPeriod
+    unsafeBuildWithDefaultPParams $
+      contestTx
+        scriptRegistry
+        healthyContesterVerificationKey
+        healthyContestSnapshot
+        (healthySignature healthyContestSnapshotNumber)
+        (healthySlotNo, slotNoToUTCTime healthySlotNo)
+        closedThreadOutput
+        (mkHeadId testPolicyId)
+        healthyContestationPeriod
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

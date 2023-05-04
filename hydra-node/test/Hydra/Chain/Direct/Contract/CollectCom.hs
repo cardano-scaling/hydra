@@ -42,7 +42,12 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genVerificationKey)
+import Hydra.Ledger.Cardano (
+  genAdaOnlyUTxO,
+  genAddressInEra,
+  genVerificationKey,
+  unsafeBuildWithDefaultPParams,
+ )
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
@@ -64,13 +69,14 @@ healthyCollectComTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    collectComTx
-      testNetworkId
-      scriptRegistry
-      somePartyCardanoVerificationKey
-      initialThreadOutput
-      ((txOut &&& scriptData) <$> healthyCommits)
-      (mkHeadId testPolicyId)
+    unsafeBuildWithDefaultPParams $
+      collectComTx
+        testNetworkId
+        scriptRegistry
+        somePartyCardanoVerificationKey
+        initialThreadOutput
+        ((txOut &&& scriptData) <$> healthyCommits)
+        (mkHeadId testPolicyId)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
