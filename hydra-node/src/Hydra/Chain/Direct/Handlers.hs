@@ -207,8 +207,9 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
 
   rollback rollbackChainPoint chainStates =
     case chainStates of
+      (cs :| []) -> (cs, cs :| [])
       (cs@ChainStateAt{recordedAt = (Just recordPoint)} :| rest) | recordPoint <= rollbackChainPoint -> (cs, cs :| rest)
-      (_ :| rest) -> rollback rollbackChainPoint (fromList rest)
+      (_ :| cs : rest) -> rollback rollbackChainPoint (cs :| rest)
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -242,7 +243,7 @@ chainSyncHandler tracer callback getTimeHandle ctx chainStateTVar =
                       { chainState = cs'
                       , recordedAt = Just point
                       }
-              atomically $ writeTVar chainStateTVar (fromList $ newChainState : currentChainState : previousChainStates)
+              atomically $ writeTVar chainStateTVar (newChainState :| currentChainState : previousChainStates)
               callback Observation{observedTx, newChainState}
 
 prepareTxToPost ::

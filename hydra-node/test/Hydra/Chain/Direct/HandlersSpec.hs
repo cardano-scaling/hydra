@@ -10,7 +10,7 @@ import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
-  ChainPoint,
+  ChainPoint (ChainPointAtGenesis),
   SlotNo (..),
   Tx,
   genTxIn,
@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
+  chainStateSlot,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -52,6 +53,7 @@ import Test.QuickCheck (
   counterexample,
   elements,
   label,
+  oneof,
   (===),
  )
 import Test.QuickCheck.Monadic (
@@ -114,7 +116,7 @@ spec = do
         onRollForward handler header txs
           `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-  prop "yields observed transactions rolling forward" . monadicIO $ do
+  prop "observes transactions onRollForward" . monadicIO $ do
     -- Generate a state and related transaction and a block containing it
     (ctx, st, tx, transition) <- pick genChainStateWithTx
     TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
@@ -138,17 +140,17 @@ spec = do
     let handler = chainSyncHandler nullTracer callback (pure timeHandle) ctx chainStatesVar
     run $ onRollForward handler header txs
 
-  prop "yields rollback events onRollBackward" . monadicIO $ do
+  prop "rollbacks state onRollBackward" . monadicIO $ do
     (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
     rollbackPoint <- pick $ genRollbackPoint blocks
-    monitor $ label ("Rollback to: " <> show rollbackPoint <> " / " <> show (length blocks))
+    monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
     timeHandle <- pickBlind arbitrary
     -- Mock callback which keeps the chain state in a tvar
-    chainStateAtVar <- run $ newTVarIO $ fromList [chainStateAt]
+    chainStateAtVar <- run $ newTVarIO $ chainStateAt :| []
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
           Tick{} -> pure ()
-          (Rollback slot _chainState) -> atomically $ putTMVar rolledBackTo slot
+          (Rollback _slot chainState) -> atomically $ putTMVar rolledBackTo chainState
           _ -> pure ()
 
     let handler =
@@ -165,9 +167,9 @@ spec = do
     monitor . counterexample $ "try onRollBackward: " <> show result
     assert $ isRight result
 
-    mSlot <- run . atomically $ tryReadTMVar rolledBackTo
-    monitor . counterexample $ "rolledBackTo: " <> show mSlot
-    assert $ mSlot == Just (chainSlotFromPoint rollbackPoint)
+    mRolledBackChainState <- run . atomically $ tryReadTMVar rolledBackTo
+    monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
+    pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 
 -- | Create a chain sync handler which records events as they are called back.
 -- NOTE: This 'ChainSyncHandler' does not handle chain state updates, but uses
@@ -219,9 +221,15 @@ genBlockAt sl txs = do
 
 -- | Pick a block point in a list of blocks.
 genRollbackPoint :: [TestBlock] -> Gen ChainPoint
-genRollbackPoint blocks = do
-  TestBlock header _ <- elements blocks
-  pure $ getChainPoint header
+genRollbackPoint blocks =
+  oneof
+    [ pickFromBlocks
+    , pure ChainPointAtGenesis
+    ]
+ where
+  pickFromBlocks = do
+    TestBlock header _ <- elements blocks
+    pure $ getChainPoint header
 
 -- | Generate a non-sparse sequence of blocks each containing an observable
 -- transaction, starting from the returned on-chain head state.
