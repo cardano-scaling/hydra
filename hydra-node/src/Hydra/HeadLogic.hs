@@ -113,22 +113,13 @@ instance
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
--- It is a recursive data structure, where 'previousRecoverableState' fields
--- record the state before the latest 'OnChainEvent' that has been observed.
--- On-Chain events are indeed only __eventually__ immutable and the application
--- state may be rolled back at any time (with a decreasing probability as the
--- time pass).
+-- Each of the sub-types (InitialState, OpenState, etc.) contain black-box
+-- 'chainState' corresponding to 'OnChainEvent' that has been observed leading
+-- to the state.
 --
--- Thus, leverage functional immutable data-structure, we build a recursive
--- structure of states which we can easily navigate backwards when needed (see
--- 'Rollback' and 'rollback').
---
--- Note that currently, rolling back to a previous recoverable state eliminates
--- any off-chain events (e.g. transactions) that happened after that state. This
--- is particularly important for anything following the transition to
--- 'OpenState' since this is where clients may start submitting transactions. In
--- practice, clients should not send transactions right way but wait for a
--- certain grace period to minimize the risk.
+-- Note that rollbacks are currently not fully handled in the head logic and
+-- only this internal chain state gets replaced with the "rolled back to"
+-- version.
 data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)
@@ -941,25 +932,6 @@ onClosedChainFanoutTx closedState newChainState =
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
--- | Observe a chain rollback
---
--- __Transition__: 'OpenState' → 'HeadState'
-onCurrentChainRollback ::
-  HeadState tx ->
-  ChainStateType tx ->
-  Outcome tx
-onCurrentChainRollback currentState newChainState =
-  NewState (updateChainState newChainState currentState) []
- where
-  updateChainState chainState = \case
-    Idle s@IdleState{} -> Idle s{chainState}
-    Initial s@InitialState{} ->
-      Initial s{chainState}
-    Open s@OpenState{} ->
-      Open s{chainState}
-    Closed s@ClosedState{} ->
-      Closed s{chainState}
-
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
@@ -1022,8 +994,8 @@ update env ledger st ev = case (st, ev) of
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx closedState newChainState
   -- General
-  (currentState, OnChainEvent (Rollback _slot chainState)) ->
-    onCurrentChainRollback currentState chainState
+  (currentState, OnChainEvent Rollback{rolledBackChainState}) ->
+    NewState (setChainState rolledBackChainState currentState) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1100,7 +1072,7 @@ emitSnapshot env@Environment{party} outcome =
                       coordinatedHeadState
                         { seenSnapshot =
                             RequestedSnapshot
-                              { lastSeen = seenSnapshotNumber $ seenSnapshot
+                              { lastSeen = seenSnapshotNumber seenSnapshot
                               , requested = sn
                               }
                         }

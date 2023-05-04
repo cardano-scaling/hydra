@@ -38,7 +38,6 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  chainStateSlot,
   nextChainSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -641,7 +640,7 @@ simulatedChainAndNetwork initialChainState = do
     atomically $ writeTVar chainStateVar rolledBackChainState
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n (Rollback (chainStateSlot rolledBackChainState) rolledBackChainState)
+    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev

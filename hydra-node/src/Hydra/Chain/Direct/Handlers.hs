@@ -38,7 +38,6 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
-  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -233,8 +232,8 @@ chainSyncHandler tracer callback getTimeHandle ctx rcs =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    chainState <- atomically $ rollback point
-    callback (Rollback (chainSlotFromPoint point) chainState)
+    rolledBackChainState <- atomically $ rollback point
+    callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do

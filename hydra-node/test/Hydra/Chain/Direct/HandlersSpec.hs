@@ -162,7 +162,8 @@ spec = do
     -- Stub for recording Rollback events
     rolledBackTo <- run newEmptyTMVarIO
     let callback = \case
-          (Rollback _slot chainState) -> atomically $ putTMVar rolledBackTo chainState
+          Rollback{rolledBackChainState} ->
+            atomically $ putTMVar rolledBackTo rolledBackChainState
           _ -> pure ()
 
     -- Using the "real" rollbackable chain state

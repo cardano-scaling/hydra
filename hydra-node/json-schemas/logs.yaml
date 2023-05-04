@@ -1076,15 +1076,12 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - slot
-          - newChainState
+          - rolledBackChainState
         properties:
           tag:
             type: string
             enum: ["Rollback"]
-          slot:
-            type: integer
-          newChainState:
+          rolledBackChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
       - title: Tick
         description: |
