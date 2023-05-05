@@ -15,6 +15,15 @@ import ArchitectureSvg from './hydra-components.svg';
 <ArchitectureSvg className="architecture" />
 ```
 
+:::info
+
+This diagram is manually produced using [PlantUML](https://plantuml.com) graphing tool with [C4 extensions](https://github.com/plantuml-stdlib/C4-PlantUML).
+
+```
+$ plantuml -Tsvg architecture-c4.puml
+```
+
+:::
 
 ### Network
 
