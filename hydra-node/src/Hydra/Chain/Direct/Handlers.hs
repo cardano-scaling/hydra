@@ -18,8 +18,8 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   Tx,
   TxId,
-  chainPointToSlotNo,
   getChainPoint,
+  getChainSlotNo,
   getTxBody,
   getTxId,
  )
@@ -192,21 +192,18 @@ chainSyncHandler tracer callback getTimeHandle ctx =
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
     let point = getChainPoint header
+
     traceWith tracer $
       RolledForward
         { point
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
-    case chainPointToSlotNo point of
-      Nothing -> pure ()
-      Just slotNo -> do
-        timeHandle <- getTimeHandle
-        case slotToUTCTime timeHandle slotNo of
-          Left reason ->
-            throwIO TimeConversionException{slotNo, reason}
-          Right utcTime ->
-            callback (const . Just $ Tick utcTime (chainSlotFromPoint point))
+    let slotNo = getChainSlotNo header
+    timeHandle <- getTimeHandle
+    utcTime <- slotToUTC timeHandle slotNo
+    let chainSlot = chainSlotFromPoint point
+    callback (const . Just $ Tick utcTime chainSlot)
 
     forM_ receivedTxs $ \tx ->
       callback $ \ChainStateAt{chainState = cs} ->
@@ -222,6 +219,13 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       , recordedAt = Just point
                       }
                 }
+   where
+    slotToUTC timeHandle slotNo =
+      case slotToUTCTime timeHandle slotNo of
+        Left reason ->
+          throwIO TimeConversionException{slotNo, reason}
+        Right utcTime -> do
+          pure utcTime
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

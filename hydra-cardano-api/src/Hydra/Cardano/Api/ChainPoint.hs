@@ -11,6 +11,12 @@ getChainPoint header =
  where
   (BlockHeader slotNo headerHash _) = header
 
+-- | Get the chain SlotNo corresponding to a given 'BlockHeader'.
+getChainSlotNo :: BlockHeader -> SlotNo
+getChainSlotNo header = slotNo
+ where
+  (BlockHeader slotNo _ _) = header
+
 -- * Orphans
 
 -- XXX: Incomplete arbitrary instance
