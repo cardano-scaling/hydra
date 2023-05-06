@@ -24,7 +24,7 @@ Container_Boundary(hydra_node, "Hydra Node") {
    Rel_L(chain, wallet, "Sign transactions", "")
 }
 
-Container(hydra_node_peer, "Hydra Node (peer)", "Local cadano-node")
+Container(hydra_node_peer, "Hydra Node (peer)", "Local cardano-node")
 Container(cardano_node, "Cardano Node", "Local cadano-node")
 Container(cardano_node_peer, "Cardano Node (peer)", "Local cardano-node")
 Container(hydra_client, "Hydra Client", "")
