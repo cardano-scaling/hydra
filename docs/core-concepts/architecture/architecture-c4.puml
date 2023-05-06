@@ -26,7 +26,7 @@ Container_Boundary(hydra_node, "Hydra Node") {
 
 Container(hydra_node_peer, "Hydra Node (peer)", "Local cadano-node")
 Container(cardano_node, "Cardano Node", "Local cadano-node")
-Container(cardano_node_peer, "Cardano Node (peer)", "Local cadano-node")
+Container(cardano_node_peer, "Cardano Node (peer)", "Local cardano-node")
 Container(hydra_client, "Hydra Client", "")
 Component(smart_contracts, "Hydra Smart Contracts", "Plutus", "On-chain smart contracts controlling the behaviour of the protocol on-chain", $link="https://github.com/input-output-hk/hydra/tree/master/hydra-plutus")
 Rel(chain, smart_contracts, "References", "")
