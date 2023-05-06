@@ -83,8 +83,8 @@ instance Arbitrary APIServerLog where
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { -- | Send some output to all connected clients.
-    sendOutput :: ServerOutput tx -> m ()
+  { sendOutput :: ServerOutput tx -> m ()
+  -- ^ Send some output to all connected clients.
   }
 
 -- | Callback for receiving client inputs.
@@ -247,17 +247,13 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     let k = [queryKey|tx-output|]
         v = [queryValue|cbor|]
         queryP = QueryParam k v
-     in case queryP `elem` qp of
-          True -> OutputCBOR
-          False -> OutputJSON
+     in if queryP `elem` qp then OutputCBOR else OutputJSON
 
   decideOnUTxODisplay qp =
     let k = [queryKey|snapshot-utxo|]
         v = [queryValue|no|]
         queryP = QueryParam k v
-     in case queryP `elem` qp of
-          True -> WithoutUTxO
-          False -> WithUTxO
+     in if queryP `elem` qp then WithoutUTxO else WithUTxO
 
   shouldNotServeHistory qp =
     flip any qp $ \case

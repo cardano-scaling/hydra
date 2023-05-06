@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   CardanoMode,
   EraHistory (EraHistory),
   NetworkId,
+  getProgress,
  )
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.CardanoClient (
@@ -22,20 +23,20 @@ import Hydra.Chain.CardanoClient (
   queryTip,
  )
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
-import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
+import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, wallclockToSlot)
 import Test.QuickCheck (getPositive)
 
 type PointInTime = (SlotNo, UTCTime)
 
 data TimeHandle = TimeHandle
-  { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
-  , -- | Lookup slot number given a 'UTCTime'. This will fail if the time is
-    -- outside the "safe zone".
-    slotFromUTCTime :: UTCTime -> Either Text SlotNo
-  , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
-    -- will fail if the slot is outside the "safe zone".
-    slotToUTCTime :: SlotNo -> Either Text UTCTime
+  { currentPointInTime :: Either Text PointInTime
+  -- ^ Get the current 'PointInTime'
+  , slotFromUTCTime :: UTCTime -> Either Text SlotNo
+  -- ^ Lookup slot number given a 'UTCTime'. This will fail if the time is
+  -- outside the "safe zone".
+  , slotToUTCTime :: SlotNo -> Either Text UTCTime
+  -- ^ Convert a slot number to a 'UTCTime' using the stored epoch info. This
+  -- will fail if the slot is outside the "safe zone".
   }
 
 data TimeHandleParams = TimeHandleParams
@@ -87,9 +88,9 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
     , slotToUTCTime
     }
  where
-  slotToUTCTime :: HasCallStack => SlotNo -> Either Text UTCTime
+  slotToUTCTime :: SlotNo -> Either Text UTCTime
   slotToUTCTime slot =
-    case interpretQuery interpreter (slotToWallclock slot) of
+    case getProgress slot eraHistory of
       Left pastHorizonEx -> Left $ show pastHorizonEx
       Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
 
