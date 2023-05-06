@@ -23,7 +23,7 @@ Any participant can **close** the Head using an agreed state, when for example t
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
-import {useDocsSidebar} from "@docusaurus/theme-common/internal";
+import {useDocsSidebar} from '@docusaurus/theme-common/internal';
 
 <DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
 ```
