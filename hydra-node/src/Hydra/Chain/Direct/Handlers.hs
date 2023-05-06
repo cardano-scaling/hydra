@@ -218,6 +218,8 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       { chainState = cs'
                       , recordedAt = Just point
                       }
+                , chainTime = utcTime
+                , chainSlot
                 }
    where
     slotToUTC timeHandle slotNo =

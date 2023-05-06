@@ -396,6 +396,8 @@ observeEventAtSlot slot observedTx =
         Observation
           { observedTx
           , newChainState = SimpleChainState{slot = ChainSlot slot}
+          , chainTime = arbitrary `generateWith` 42
+          , chainSlot = ChainSlot slot
           }
     }
 
@@ -407,6 +409,8 @@ observationEvent observedTx =
         Observation
           { observedTx
           , newChainState = SimpleChainState{slot = ChainSlot 0}
+          , chainTime = arbitrary `generateWith` 42
+          , chainSlot = ChainSlot 0
           }
     }
 

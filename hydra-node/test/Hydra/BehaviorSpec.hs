@@ -412,8 +412,10 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              let chainTime = arbitrary `generateWith` 42
+                  chainSlot = ChainSlot 0
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -615,6 +617,8 @@ simulatedChainAndNetwork initialChainState = do
         Observation
           { observedTx = toOnChainTx now tx
           , newChainState = cs'
+          , chainTime = now
+          , chainSlot = chainStateSlot cs'
           }
     recordAndYieldEvent nodes history chainEvent
 

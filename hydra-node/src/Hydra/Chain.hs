@@ -190,6 +190,8 @@ data ChainEvent tx
   = Observation
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
+      , chainTime :: UTCTime
+      , chainSlot :: ChainSlot
       }
   | Rollback ChainSlot
   | -- XXX: it's not guaranteed that UTCTime and ChainSlot of a Tick are consistent

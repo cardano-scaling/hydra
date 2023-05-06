@@ -8,9 +8,12 @@
         },
         {
             "chainEvent": {
-                "newChainState": 5,
+                "chainSlot": 20,
+                "chainTime": "1864-05-27T18:32:13.171671550313Z",
+                "newChainState": 25,
                 "observedTx": {
-                    "tag": "OnFanoutTx"
+                    "snapshotNumber": 7,
+                    "tag": "OnContestTx"
                 },
                 "tag": "Observation"
             },

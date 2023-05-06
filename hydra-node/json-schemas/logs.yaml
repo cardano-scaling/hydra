@@ -1074,6 +1074,8 @@ definitions:
           - tag
           - observedTx
           - newChainState
+          - chainTime
+          - chainSlot
         properties:
           tag:
             type: string
@@ -1082,6 +1084,10 @@ definitions:
             $ref: "#/definitions/OnChainTx"
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+          chainTime:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+          chainSlot:
+            $ref: "api.yaml#/components/schemas/ChainSlot"
 
       - title: Rollback
         type: object

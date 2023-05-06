@@ -142,6 +142,8 @@ eventsToOpenHead =
           Observation
             { observedTx
             , newChainState = SimpleChainState{slot = ChainSlot 0}
+            , chainTime = arbitrary `generateWith` 42
+            , chainSlot = ChainSlot 0
             }
       }
 
