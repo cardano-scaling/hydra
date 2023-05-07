@@ -104,21 +104,9 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "headId": "01000708000805060800000507050500",
-            "tag": "TxValid",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    2
-                ],
-                "outputs": [
-                    -6,
-                    -1,
-                    4,
-                    5,
-                    6
-                ]
-            }
+            "chainSlot": 1,
+            "chainTime": "1864-05-15T13:50:20.725130980434Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "03070800080506030307010206030506",
@@ -212,8 +200,9 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "peer": "dqzmb",
-            "tag": "PeerConnected"
+            "chainSlot": 3,
+            "chainTime": "1864-05-07T07:12:41.398120976886Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "08080705030500000703030805020206",
@@ -231,8 +220,9 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": "l",
-            "tag": "PeerConnected"
+            "chainSlot": 1,
+            "chainTime": "1864-05-10T22:30:26.314922785328Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "08080101060608030802040300060500",
@@ -329,14 +319,9 @@
             }
         },
         {
-            "headId": "03040501070102010206030706060107",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -6,
-                -2,
-                3,
-                5
-            ]
+            "chainSlot": 0,
+            "chainTime": "1864-05-10T20:29:32.58748975773Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "03030801020002080103050003020006",
@@ -359,13 +344,14 @@
             }
         },
         {
+            "chainSlot": 6,
+            "chainTime": "1864-05-10T08:53:33.743338241692Z",
             "headStatus": "FanoutPossible",
             "me": {
-                "vkey": "d19e99ff33b6e0edd3e016ae4cc1609cdbad0ce8be7230b0a41a764edf0946ad"
+                "vkey": "5b3ae355aa115b6de3cfd83873e7456008fff726ebcc7da9f0f12d56bfc69a3d"
             },
-            "snapshotUtxo": [
-                3
-            ],
+            "slotLength": 2,
+            "systemStart": "1864-05-09T09:17:52.952795440571Z",
             "tag": "Greetings"
         },
         {
@@ -453,17 +439,18 @@
             "tag": "PeerConnected"
         },
         {
-            "headStatus": "Initializing",
+            "chainSlot": 6,
+            "chainTime": "1864-05-12T02:30:08.594239487596Z",
+            "headStatus": "Closed",
             "me": {
-                "vkey": "b8a018adea080d555d00596ca4463eec91c052225b4dc8a7d64bb03e940319d9"
+                "vkey": "47352dcf77b4bfb1f80c852f9d4478f7cc5613820aa8aa36c5857c44c4f07207"
             },
+            "slotLength": 2,
             "snapshotUtxo": [
-                -6,
                 -5,
-                -3,
-                1,
                 4
             ],
+            "systemStart": "1864-05-11T09:32:49.786797288215Z",
             "tag": "Greetings"
         },
         {
@@ -721,11 +708,14 @@
             }
         },
         {
-            "headStatus": "Initializing",
+            "chainSlot": 2,
+            "chainTime": "1864-05-08T17:50:28.008879454595Z",
+            "headStatus": "Closed",
             "me": {
-                "vkey": "da3d972212102321e7f507bfca3b3df7fd966140e895324e3ae3fa78c1ce2e3e"
+                "vkey": "06f30e5b45d8720cf23a54f1b154c8137d7deaeaee9f0da28f7f3138b74fdba5"
             },
-            "snapshotUtxo": [],
+            "slotLength": 5,
+            "systemStart": "1864-05-09T18:38:46.24114665699Z",
             "tag": "Greetings"
         },
         {
@@ -954,16 +944,17 @@
             "utxo": []
         },
         {
-            "headStatus": "FanoutPossible",
+            "chainSlot": 2,
+            "chainTime": "1864-05-06T06:49:20.133296218362Z",
+            "headStatus": "Open",
             "me": {
-                "vkey": "c27a88414f511ff6ba163b7752e07471061cafd6b6058222908ab4f24d37ceb1"
+                "vkey": "c51503b3acc8280ac2cf3d2c107f1f6235d80809550c75bf57b912ccf96fbd14"
             },
+            "slotLength": 0,
             "snapshotUtxo": [
-                -3,
-                1,
-                4,
-                5
+                2
             ],
+            "systemStart": "1864-05-07T19:16:41.715411600467Z",
             "tag": "Greetings"
         },
         {
@@ -973,41 +964,54 @@
             "tag": "HeadIsClosed"
         },
         {
+            "chainSlot": 4,
+            "chainTime": "1864-05-07T00:04:26.778899456097Z",
             "headStatus": "Idle",
             "me": {
-                "vkey": "46502698b112436994128b4a625ca97bdd0977b3adb9e9f22ee30e87f36c3765"
+                "vkey": "8106d2387349e74bcd3fe700930a18dfb1a722bd460887d997acc0d040c34874"
             },
+            "slotLength": 3,
             "snapshotUtxo": [
-                -5,
+                -4,
                 -2,
-                6
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "headStatus": "Idle",
-            "me": {
-                "vkey": "a0a98a42d85d75eb2e8f20200bcb735029459992b88a2c8bd57aa6e747b88378"
-            },
-            "snapshotUtxo": [
-                -5,
-                2,
-                5
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "headStatus": "Idle",
-            "me": {
-                "vkey": "36126f79755a0650778002bec0a01e76b190fc06ec8d96c103733692928f2a21"
-            },
-            "snapshotUtxo": [
-                -3,
                 0,
-                1,
-                2,
                 3
             ],
+            "systemStart": "1864-05-10T00:02:55.070829660062Z",
+            "tag": "Greetings"
+        },
+        {
+            "chainSlot": 2,
+            "chainTime": "1864-05-03T05:21:29.643107498934Z",
+            "headStatus": "Final",
+            "me": {
+                "vkey": "8cb599088b0cb06706add678404d9e30990935947e5901b6ac13dfccea6b7839"
+            },
+            "slotLength": -2,
+            "snapshotUtxo": [
+                -5,
+                2,
+                3,
+                4
+            ],
+            "systemStart": "1864-05-07T21:59:43.290206255202Z",
+            "tag": "Greetings"
+        },
+        {
+            "chainSlot": 5,
+            "chainTime": "1864-05-14T09:22:32.555953749069Z",
+            "headStatus": "Closed",
+            "me": {
+                "vkey": "520d8da09654058910bc25322d167e487531c904ae38ee78273a1e9661b65353"
+            },
+            "slotLength": 6,
+            "snapshotUtxo": [
+                -5,
+                -3,
+                -2,
+                0
+            ],
+            "systemStart": "1864-05-03T02:00:34.004054278153Z",
             "tag": "Greetings"
         },
         {
@@ -1047,20 +1051,9 @@
             ]
         },
         {
-            "headId": "06080205080204000101000302020206",
-            "tag": "TxValid",
-            "transaction": {
-                "id": -3,
-                "inputs": [
-                    -6,
-                    -3
-                ],
-                "outputs": [
-                    -6,
-                    -1,
-                    0
-                ]
-            }
+            "chainSlot": 6,
+            "chainTime": "1864-05-11T16:15:54.363430048353Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "05080103040603030307070008040404",
@@ -1151,13 +1144,9 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "05050101050607080102080203080403",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                -5,
-                -2,
-                0
-            ]
+            "chainSlot": 6,
+            "chainTime": "1864-05-07T22:46:16.352563975495Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "01010806000702050504060302020603",
@@ -1217,15 +1206,20 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headStatus": "Initializing",
+            "chainSlot": 6,
+            "chainTime": "1864-05-07T06:04:51.87851026736Z",
+            "headStatus": "Closed",
             "me": {
-                "vkey": "40ea081f9dd15a94b65f2fa743bc6ee6c431a9444e7fd5fee5e19abb2538fe3f"
+                "vkey": "27ca8c64b0e0c07783cdcf0eb0f3b12afad9d03d5afa311cbcea42276be11adf"
             },
+            "slotLength": 1,
             "snapshotUtxo": [
                 -6,
-                -1,
-                2
+                -5,
+                -4,
+                -3
             ],
+            "systemStart": "1864-05-05T01:02:16.897069080713Z",
             "tag": "Greetings"
         },
         {
@@ -1237,9 +1231,9 @@
             "tag": "ReadyToFanout"
         },
         {
-            "input": "",
-            "reason": "𘊉BJ^㪜󹂄",
-            "tag": "InvalidInput"
+            "chainSlot": 0,
+            "chainTime": "1864-05-05T18:27:51.814335756047Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "04000605020501000600020401000004",
@@ -1271,16 +1265,19 @@
             }
         },
         {
+            "chainSlot": 6,
+            "chainTime": "1864-05-11T15:39:07.365867291759Z",
             "headStatus": "Final",
             "me": {
-                "vkey": "5c250fb6e60227d262f1636541cc8e8b8b112aea3be4b121e2f3650bc905f8d2"
+                "vkey": "57836ab895df1f0341f5acc1b518942418b30ad4794b2c50e35409105604baa9"
             },
+            "slotLength": -3,
             "snapshotUtxo": [
                 -5,
-                -4,
                 -1,
-                2
+                4
             ],
+            "systemStart": "1864-05-14T18:54:08.969311914086Z",
             "tag": "Greetings"
         },
         {
@@ -1470,14 +1467,20 @@
             }
         },
         {
-            "headStatus": "Final",
+            "chainSlot": 5,
+            "chainTime": "1864-05-15T23:52:49.023109124755Z",
+            "headStatus": "Initializing",
             "me": {
-                "vkey": "7160358c6ddc86648420d43b1a5dcfa4511b017bef814ba22081fb0590f8e32e"
+                "vkey": "3f53590e65cb2887ace762bc31c2b4e84990192aacffb1cb57c0d5a5324ef01a"
             },
+            "slotLength": -6,
             "snapshotUtxo": [
-                5,
-                6
+                -5,
+                -1,
+                0,
+                1
             ],
+            "systemStart": "1864-05-05T20:58:53.35715764595Z",
             "tag": "Greetings"
         },
         {
@@ -1506,8 +1509,9 @@
             ]
         },
         {
-            "peer": "r",
-            "tag": "PeerConnected"
+            "chainSlot": 3,
+            "chainTime": "1864-05-09T06:17:02.598496250786Z",
+            "tag": "HeadTick"
         },
         {
             "postChainTx": {
@@ -1550,14 +1554,20 @@
             ]
         },
         {
-            "headStatus": "Idle",
+            "chainSlot": 4,
+            "chainTime": "1864-05-05T11:17:31.032263218112Z",
+            "headStatus": "Initializing",
             "me": {
-                "vkey": "7742c3b1cdd14975d858f42e1366e53063ed856d14bd91bc5dff34493049ffc1"
+                "vkey": "30a2d8706fe5b2e1365b1d23f4d6aa3482f48edd6b847c878eb3140879c45f7a"
             },
+            "slotLength": -5,
             "snapshotUtxo": [
-                -5,
+                1,
+                3,
+                4,
                 6
             ],
+            "systemStart": "1864-05-06T18:33:34.769626617518Z",
             "tag": "Greetings"
         },
         {
@@ -1722,14 +1732,9 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "postChainTx": {
-                "tag": "AbortTx",
-                "utxo": []
-            },
-            "postTxError": {
-                "tag": "MoreThanOneUTxOCommitted"
-            },
-            "tag": "PostTxOnChainFailed"
+            "chainSlot": 2,
+            "chainTime": "1864-05-11T17:33:11.319307974285Z",
+            "tag": "HeadTick"
         },
         {
             "headId": "05050200050407000200040703060207",
@@ -1858,18 +1863,20 @@
             ]
         },
         {
+            "chainSlot": 0,
+            "chainTime": "1864-05-09T04:38:11.945480378377Z",
             "headStatus": "Final",
             "me": {
-                "vkey": "62946e1d323c5acacd6f3bdeed6e00ae8756cef7db275f6bb7d6b075d1621f9c"
+                "vkey": "2befa48801ddebd6d3e8eaa6ef98e95440fd7d93dd3750709f5372dd6bd9d402"
             },
+            "slotLength": -3,
             "snapshotUtxo": [
-                -6,
-                -3,
-                -2,
-                1,
-                2,
+                -1,
+                0,
+                5,
                 6
             ],
+            "systemStart": "1864-05-03T03:02:46.036219795374Z",
             "tag": "Greetings"
         },
         {
@@ -2054,13 +2061,14 @@
             "tag": "RolledBack"
         },
         {
-            "headStatus": "Open",
+            "chainSlot": 0,
+            "chainTime": "1864-05-05T08:25:34.941516649698Z",
+            "headStatus": "Initializing",
             "me": {
-                "vkey": "0989dbf152080e744074c849bcbf44a309e5368480d4c08cc283435ffd8bd293"
+                "vkey": "37ba96248c3406d192ac3a9be07098ed38415d62470d607758db80df6f90d3fe"
             },
-            "snapshotUtxo": [
-                -4
-            ],
+            "slotLength": 1,
+            "systemStart": "1864-05-12T14:33:55.63555596851Z",
             "tag": "Greetings"
         },
         {
@@ -2195,8 +2203,9 @@
             ]
         },
         {
-            "headId": "08060400000601070006020408010805",
-            "tag": "ReadyToFanout"
+            "chainSlot": 6,
+            "chainTime": "1864-05-13T10:50:06.740292948568Z",
+            "tag": "HeadTick"
         },
         {
             "tag": "RolledBack"
@@ -2267,10 +2276,14 @@
             ]
         },
         {
-            "headStatus": "Idle",
+            "chainSlot": 1,
+            "chainTime": "1864-05-07T08:51:05.911647388067Z",
+            "headStatus": "Closed",
             "me": {
-                "vkey": "05446c191ec3f312872da337aa59c92325b28de4ae150419838673f5e8396838"
+                "vkey": "5f1f10bdc01cb0acac6579c200a9f313f8e4759c07281925fae0c2cfd671a1f3"
             },
+            "slotLength": -4,
+            "systemStart": "1864-05-09T16:13:03.654850166189Z",
             "tag": "Greetings"
         },
         {

@@ -82,7 +82,15 @@ data ServerOutput tx
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
-    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
+    Greetings
+      { me :: Party
+      , headStatus :: HeadStatus
+      , snapshotUtxo :: Maybe (UTxOType tx)
+      , chainSlot :: ChainSlot
+      , systemStart :: UTCTime
+      , chainTime :: UTCTime
+      , slotLength :: Integer
+      }
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
   | -- REVIEW: it contains same information as seq and timestamp which every server output has
@@ -135,7 +143,15 @@ instance
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me headStatus snapshotUtxo -> Greetings <$> shrink me <*> shrink headStatus <*> shrink snapshotUtxo
+    Greetings me headStatus snapshotUtxo chainSlot sytemStart chainTime slotLength ->
+      Greetings
+        <$> shrink me
+        <*> shrink headStatus 
+        <*> shrink snapshotUtxo
+        <*> shrink chainSlot
+        <*> shrink sytemStart
+        <*> shrink chainTime
+        <*> shrink slotLength
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
     HeadTick ct cs -> HeadTick <$> shrink ct <*> shrink cs

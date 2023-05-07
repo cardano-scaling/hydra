@@ -37,6 +37,9 @@ instance Exception QueryException
 data CardanoClient = CardanoClient
   { queryUTxOByAddress :: [Address ShelleyAddr] -> IO UTxO
   , networkId :: NetworkId
+  , queryTipCurrentSlot :: IO SlotNo
+  , queryTipSystemStart :: IO SystemStart
+  , queryTipEraHistory :: IO (EraHistory CardanoMode)
   }
 
 -- | Construct a 'CardanoClient' handle.
@@ -45,6 +48,9 @@ mkCardanoClient networkId nodeSocket =
   CardanoClient
     { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
     , networkId
+    , queryTipCurrentSlot = queryTipSlotNo networkId nodeSocket
+    , queryTipSystemStart = querySystemStart networkId nodeSocket QueryTip
+    , queryTipEraHistory = queryEraHistory networkId nodeSocket QueryTip
     }
 
 -- * Tx Construction / Submission

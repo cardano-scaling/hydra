@@ -236,6 +236,10 @@ components:
           - tag
           - me
           - headStatus
+          - chainSlot
+          - systemStart
+          - chainTime
+          - slotLength
           - seq
           - timestamp
         properties:
@@ -248,6 +252,14 @@ components:
             $ref: "#/components/schemas/HeadStatus"
           snapshotUtxo:
             $ref: "#/components/schemas/UTxO"
+          chainSlot:
+            $ref: "#/components/schemas/ChainSlot"
+          systemStart:
+            $ref: "#/components/schemas/UTCTime"
+          chainTime:
+            $ref: "#/components/schemas/UTCTime"
+          slotLength:
+            type: integer
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 

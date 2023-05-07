@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Hydra.API.Server where
 
@@ -27,10 +28,10 @@ import Hydra.API.ServerOutput (
   prepareServerOutput,
   projectHeadStatus,
   projectSnapshotUtxo,
-  snapshotUtxo,
+  snapshotUtxo, chainSlot, chainTime, systemStart, slotLength,
  )
 import Hydra.Chain (IsChainState)
-import Hydra.Ledger (UTxOType)
+import Hydra.Ledger (UTxOType, ChainSlot (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -59,6 +60,9 @@ import Network.WebSockets (
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
+import Hydra.Cardano.Api (NetworkId, SlotNo (..), getSystemStart, getProgress)
+import Hydra.Chain.CardanoClient (querySystemStart, QueryPoint (..), CardanoClient (..))
+import Cardano.Slotting.Time (fromRelativeTime, slotLengthToSec)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -100,9 +104,10 @@ withAPIServer ::
   PortNumber ->
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
+  CardanoClient ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} cardanoClient tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- reverse <$> loadAll
 
@@ -115,7 +120,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party cardanoClient tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -162,6 +167,7 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Party ->
+  CardanoClient ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
@@ -173,7 +179,7 @@ runAPIServer ::
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party cardanoClient tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
@@ -220,6 +226,14 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     headStatus <- atomically getLatestHeadStatus
     snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
+
+    slot@(SlotNo currentSlotNo) <- queryTipCurrentSlot cardanoClient
+    systemStart <- queryTipSystemStart cardanoClient
+    eraHistory <- queryTipEraHistory cardanoClient
+    (chainTime, slotLength) <- case getProgress slot eraHistory of
+      Left pastHorizonEx -> error $ show pastHorizonEx
+      Right (relativeTime, _slotLength) -> pure (fromRelativeTime systemStart relativeTime, _slotLength)
+
     sendTextData con $
       Aeson.encode
         TimedServerOutput
@@ -230,6 +244,10 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
                 { me = party
                 , headStatus
                 , snapshotUtxo
+                , chainSlot = ChainSlot $ fromIntegral currentSlotNo
+                , systemStart = getSystemStart systemStart
+                , chainTime
+                , slotLength = slotLengthToSec slotLength
                 } ::
                 ServerOutput tx
           }

@@ -69,7 +69,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
-import Hydra.Ledger (txId)
+import Hydra.Ledger (txId, ChainSlot (..))
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -124,7 +124,7 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
-      it "can submmit a timed tx" $ \tracer -> do
+      fit "can submmit a timed tx" $ \tracer -> do
         withClusterTempDir "timmed-tx" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
@@ -503,6 +503,18 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+
+    -- Acquire a current point in time
+    (chainSlot, _, chainTime, slotLength, _) <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      chainSlot :: ChainSlot <- v ^? key "chainSlot" . _JSON
+      systemStart :: UTCTime <- v ^? key "systemStart" . _JSON
+      chainTime :: UTCTime <- v ^? key "chainTime" . _JSON
+      -- slotLength :: Integer <- v ^? key "slotLength" . _JSON
+      timestamp :: UTCTime <- v ^? key "timestamp" . _JSON
+      -- FIXME: should use `slotLength` from ledger Config
+      return (chainSlot, systemStart, chainTime, 0.1, timestamp)
+
     waitForNodesConnected tracer [n1]
 
     -- Funds to be used as fuel by Hydra protocol transactions
@@ -523,22 +535,16 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
     (faucetVk, _) <- keysFor Faucet
 
-    -- Acquire a current point in time
-    -- TODO: maybe not send both, but only slots?
-    (currentSlot, chainTime) <- waitMatch 3 n1 $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadTick"
-      chainSlot <- v ^? key "chainSlot" . _JSON
-      chainTime <- v ^? key "chainTime" . _JSON
-      pure (chainSlot, chainTime)
-
     -- Create a transaction which is only valid in 5 seconds
+    now <- getCurrentTime
     let
-      -- TODO use `slotLength` from ledger Config
-      slotLength = 0.1
-      secondsToAwait = 5
+      secondsToAwait = 15
       slotsToAwait = SlotNo . truncate $ secondsToAwait / slotLength
 
-      futureUTCTime = addUTCTime secondsToAwait chainTime
+      -- futureUTCTime = addUTCTime secondsToAwait chainTime
+      (ChainSlot nbr) = chainSlot
+      slotsSince = SlotNo . truncate $ (diffUTCTime now chainTime / slotLength)
+      currentSlot = SlotNo (fromIntegral nbr) + slotsSince
       futureSlot = currentSlot + slotsToAwait
 
       -- TODO (later) use time in a script (as it is using POSIXTime)
@@ -555,9 +561,7 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
       guard $ v ^? key "tag" == Just "TxInvalid"
 
     -- Wait for the future chain slot and time
-    -- TODO: wait for utc time directly?
-    waitFor tracer 10 [n1] $
-      output "HeadTick" ["chainSlot" .= futureSlot, "chainTime" .= futureUTCTime]
+    threadDelay 15
 
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]

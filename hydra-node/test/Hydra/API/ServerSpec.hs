@@ -39,13 +39,19 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import Hydra.Chain.CardanoClient (CardanoClient (..))
+import Cardano.Ledger.Slot (SlotNo(SlotNo))
+import Cardano.Slotting.Time (SystemStart(SystemStart))
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 
 spec :: Spec
 spec = describe "ServerSpec" $
   parallel $ do
     it "should fail on port in use" $ do
       showLogsOnFailure $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withAPIServer @SimpleTx "127.0.0.1" p alice mockPersistence tracer noop
+        let withServerOnPort p = withAPIServer @SimpleTx "127.0.0.1" p alice mockPersistence mockCardanoClient tracer noop
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
@@ -57,8 +63,8 @@ spec = describe "ServerSpec" $
     it "greets" $ do
       failAfter 5 $
         showLogsOnFailure $ \tracer ->
-          withFreePort $ \port ->
-            withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
+          withFreePort $ \port -> do
+            withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
@@ -66,7 +72,7 @@ spec = describe "ServerSpec" $
       queue <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -92,14 +98,14 @@ spec = describe "ServerSpec" $
 
           persistence <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
+            withAPIServer @SimpleTx "127.0.0.1" port alice persistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
               sendOutput arbitraryMsg
 
           queue1 <- atomically newTQueue
           queue2 <- atomically newTQueue
           persistence' <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
+            withAPIServer @SimpleTx "127.0.0.1" port alice persistence' mockCardanoClient tracer noop $ \Server{sendOutput} -> do
               semaphore <- newTVarIO 0
               withAsync
                 ( concurrently_
@@ -134,8 +140,8 @@ spec = describe "ServerSpec" $
         monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure $ \tracer ->
-            withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            withFreePort $ \port -> do
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- failAfter 5 $ replicateM (length outputs + 1) (receiveData conn)
@@ -154,8 +160,8 @@ spec = describe "ServerSpec" $
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure $ \tracer ->
-            withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            withFreePort $ \port -> do
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
                 mapM_ sendFromApiServer history
                 -- start client that doesn't want to see the history
@@ -178,8 +184,8 @@ spec = describe "ServerSpec" $
 
     it "outputs tx as cbor or json depending on the client" $
       showLogsOnFailure $ \tracer ->
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
 
@@ -241,8 +247,8 @@ spec = describe "ServerSpec" $
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure $ \tracer -> failAfter 5 $
-        withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+        withFreePort $ \port -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
@@ -262,8 +268,8 @@ spec = describe "ServerSpec" $
         outputs :: [ServerOutput SimpleTx] <- pick arbitrary
         run $
           showLogsOnFailure $ \tracer -> failAfter 5 $
-            withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+            withFreePort $ \port -> do
+              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
@@ -276,7 +282,7 @@ spec = describe "ServerSpec" $
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
             let generateSnapshot =
                   generate $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
@@ -316,7 +322,7 @@ spec = describe "ServerSpec" $
               generateSnapshot
             let expectedUtxos = toJSON utxo
 
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence mockCardanoClient tracer noop $ \Server{sendOutput} -> do
               headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
 
               mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
@@ -325,7 +331,7 @@ spec = describe "ServerSpec" $
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
             -- expect the api server to load events from apiPersistence and project headStatus correctly
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
+            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence mockCardanoClient tracer noop $ \_ -> do
               waitForValue port $ \v -> do
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
@@ -333,7 +339,18 @@ spec = describe "ServerSpec" $
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
         withFreePort $
-          \port -> sendsAnErrorWhenInputCannotBeDecoded port
+          \port -> do
+            sendsAnErrorWhenInputCannotBeDecoded port
+
+mockCardanoClient :: CardanoClient
+mockCardanoClient = CardanoClient
+  {
+    queryUTxOByAddress = error "should not call queryUTxOByAddress in test"
+    , networkId = testNetworkId
+    , queryTipCurrentSlot = pure $ SlotNo 0
+    , queryTipSystemStart = pure $ SystemStart $ posixSecondsToUTCTime 0
+    , queryTipEraHistory = pure $ eraHistoryWithHorizonAt (SlotNo 1000)
+  }
 
 strictlyMonotonic :: [Natural] -> Bool
 strictlyMonotonic = \case
@@ -344,7 +361,7 @@ strictlyMonotonic = \case
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure $ \tracer ->
-    withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_server -> do
+    withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence mockCardanoClient tracer noop $ \_server -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
@@ -433,8 +450,7 @@ waitMatch delay con match = do
       Right value -> pure value
 
 shouldSatisfyAll :: Show a => [a] -> [a -> Bool] -> Expectation
-shouldSatisfyAll values predicates =
-  go values predicates
+shouldSatisfyAll = go
  where
   go [] [] = pure ()
   go [] _ = failure "shouldSatisfyAll: ran out of values"

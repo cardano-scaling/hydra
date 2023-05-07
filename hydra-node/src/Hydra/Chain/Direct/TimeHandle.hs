@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.TimeHandle where
 import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
-import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
+import Cardano.Slotting.Time (fromRelativeTime, toRelativeTime, SystemStart (SystemStart))
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -15,12 +15,11 @@ import Hydra.Cardano.Api (
   NetworkId,
   getProgress,
  )
-import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.CardanoClient (
   QueryPoint (QueryTip),
   queryEraHistory,
   querySystemStart,
-  queryTip,
+  queryTipSlotNo,
  )
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, wallclockToSlot)
@@ -107,12 +106,8 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
 -- 'TimeHandle' using the slot at the tip of the network.
 queryTimeHandle :: NetworkId -> FilePath -> IO TimeHandle
 queryTimeHandle networkId socketPath = do
-  tip <- queryTip networkId socketPath
   systemStart <- querySystemStart networkId socketPath QueryTip
   eraHistory <- queryEraHistory networkId socketPath QueryTip
-  currentTipSlot <-
-    case tip of
-      ChainPointAtGenesis -> pure $ SlotNo 0
-      ChainPoint slotNo _ -> pure slotNo
-
+  currentTipSlot <- queryTipSlotNo networkId socketPath
   pure $ mkTimeHandle currentTipSlot systemStart eraHistory
+

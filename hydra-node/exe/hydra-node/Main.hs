@@ -53,9 +53,10 @@ import Hydra.Options (
   RunOptions (..),
   explain,
   parseHydraCommand,
-  validateRunOptions,
+  validateRunOptions, ChainConfig (..)
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
+import Hydra.Chain.CardanoClient (mkCardanoClient)
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -106,9 +107,10 @@ main = do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
-
+                DirectChainConfig{networkId, nodeSocket} = chainConfig
+                cardanoClient = mkCardanoClient networkId nodeSocket
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
+            withAPIServer apiHost apiPort party apiPersistence cardanoClient (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
