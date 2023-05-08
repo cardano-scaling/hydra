@@ -617,22 +617,18 @@ performNewTx party tx = do
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 
--- | Wait for the head to be open. Search from the beginning of history and make
--- sure there is no RolledBack after the last HeadIsOpen. Wait and retry forever
--- otherwise.
+-- | Wait for the head to be open by searching from the beginning. Note that
+-- there rollbacks or multiple life-cycles of heads are not handled here.
 waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
-  if isOpen False outs
-    then pure ()
-    else waitAndRetry
+  unless
+    (any headIsOpen outs)
+    waitAndRetry
  where
-  isOpen status [] = status
-  isOpen _ (HeadIsOpen{} : rest) = isOpen True rest
-  -- Remember, if we introduce rollback again, we'll have to
-  -- take them into account here
-  -- isOpen _ (RolledBack{} : rest) = isOpen False rest
-  isOpen status (_ : rest) = isOpen status rest
+  headIsOpen = \case
+    HeadIsOpen{} -> True
+    _ -> False
 
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
 
