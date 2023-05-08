@@ -38,7 +38,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (async)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainCallback, ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -258,9 +258,3 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
-
-chainCallback ::
-  EventQueue m (Event tx) ->
-  ChainCallback tx m
-chainCallback eventQueue chainEvent = do
-  putEvent eventQueue $ OnChainEvent{chainEvent}

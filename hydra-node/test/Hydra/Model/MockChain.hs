@@ -39,7 +39,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
@@ -48,9 +48,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Environment (Environment, otherParties, party),
-  Event (NetworkEvent),
-  HeadState (..),
-  IdleState (..),
+  Event (..),
   defaultTTL,
  )
 import Hydra.Logging (Tracer)
@@ -58,13 +56,11 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
+  EventQueue (..),
   HydraNode (..),
-  chainCallback,
-  createNodeState,
   putEvent,
  )
 import Hydra.Party (Party (..), deriveParty)
-import Test.Consensus.Cardano.Generators ()
 
 -- | Provide the logic to connect a list of `MockHydraNode` through a dummy chain.
 mockChainAndNetwork ::
@@ -92,12 +88,12 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     ( ConnectToChain
         { rollbackAndForward = error "Not implemented, should never be called"
         , tickThread
-        , chainComponent = chainComponent queue
+        , chainComponent = connectNode queue
         }
     , tickThread
     )
  where
-  chainComponent queue node = do
+  connectNode queue node = do
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
@@ -107,35 +103,32 @@ mockChainAndNetwork tr seedKeys nodes cp = do
             , ownVerificationKey = vkey
             , ownParty
             , otherParties
-            , scriptRegistry =
-                -- TODO: we probably want different _scripts_ as initial and commit one
-                let txIn = mkMockTxIn vkey 0
-                    txOut =
-                      TxOut
-                        (mkVkAddress testNetworkId vkey)
-                        (lovelaceToValue 10_000_000)
-                        TxOutDatumNone
-                        ReferenceScriptNone
-                 in ScriptRegistry
-                      { initialReference = (txIn, txOut)
-                      , commitReference = (txIn, txOut)
-                      , headReference = (txIn, txOut)
-                      }
+            , scriptRegistry = genScriptRegistry `generateWith` 42
             , contestationPeriod = cp
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let seedInput = genTxIn `generateWith` 42
-    nodeState <- createNodeState $ Idle IdleState{chainState = initialChainState}
-    let HydraNode{eq} = node
-    let callback = chainCallback eq
+    let HydraNode{eq = EventQueue{putEvent}} = node
     localChainState <- newLocalChainState initialChainState
-    let chainHandle = createMockChain tr ctx (atomically . writeTQueue queue) getTimeHandle seedInput localChainState
-    let chainHandler = chainSyncHandler tr callback getTimeHandle ctx localChainState
+    let chainHandle =
+          createMockChain
+            tr
+            ctx
+            (atomically . writeTQueue queue)
+            getTimeHandle
+            seedInput
+            localChainState
+    let chainHandler =
+          chainSyncHandler
+            tr
+            (putEvent . OnChainEvent)
+            getTimeHandle
+            ctx
+            localChainState
     let node' =
           node
             { hn = createMockNetwork node nodes
             , oc = chainHandle
-            , nodeState
             }
     let mockNode = MockHydraNode{node = node', chainHandler}
     atomically $ modifyTVar nodes (mockNode :)

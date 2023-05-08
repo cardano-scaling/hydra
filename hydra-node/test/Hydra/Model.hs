@@ -53,25 +53,23 @@ import Hydra.BehaviorSpec (
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
+  IdleState (..),
   PendingCommits,
  )
+import qualified Hydra.HeadLogic as HeadState
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (
-  NodeState (NodeState),
-  modifyHeadState,
-  queryHeadState,
-  runHydraNode,
- )
+import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
@@ -509,11 +507,6 @@ seedWorld ::
   RunMonad m ()
 seedWorld seedKeys seedCP = do
   let parties = map (deriveParty . fst) seedKeys
-      dummyNodeState =
-        NodeState
-          { modifyHeadState = error "undefined"
-          , queryHeadState = error "undefined"
-          }
   tr <- gets logger
   nodes <- lift $ do
     let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
@@ -528,7 +521,8 @@ seedWorld seedKeys seedCP = do
       labelTVarIO nodes ("history-" <> shortLabel hsk)
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
-      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
+      nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
+      node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory connectToChain seedCP
       let testNode = createTestHydraNode outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       link nodeThread
