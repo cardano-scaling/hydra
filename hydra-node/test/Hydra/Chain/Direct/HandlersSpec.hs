@@ -53,6 +53,7 @@ import Hydra.Options (maximumNumberOfParties)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
 import Test.QuickCheck (
+  choose,
   counterexample,
   elements,
   label,
@@ -204,31 +205,32 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-      run $ forM_ (List.init blocks) $ \(TestBlock header txs) -> onRollForward handler header txs
+      run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
       latestChainState <- run . atomically $ getLatest localChainState
       assert $ latestChainState /= chainStateAt
 
       -- Provided the latest chain state the LocalChainState must be able to
       -- rollback and forward
-      localChainState' <- run $ newLocalChainState latestChainState
-      calledBack <- run newEmptyTMVarIO
-      let handler' =
+      resumedLocalChainState <- run $ newLocalChainState latestChainState
+      let resumedHandler =
             chainSyncHandler
               nullTracer
-              ( \case
-                  Observation{observedTx} -> atomically (putTMVar calledBack observedTx)
-                  Tick{} -> pure ()
-                  Rollback{} -> error "unexpected rollback"
-              )
+              (\_ -> pure ())
               (pure timeHandle)
               chainContext
-              localChainState'
-      run $ do
-        let (TestBlock header txs) = List.last blocks
-        onRollForward handler' header txs
+              resumedLocalChainState
 
-      observedTx <- run . atomically $ tryTakeTMVar calledBack
-      pure $ isJust observedTx
+      (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
+      monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
+
+      run $ onRollBackward resumedHandler rollbackPoint
+
+      rolledBackChainState <- run . atomically $ getLatest resumedLocalChainState
+      assert $ rolledBackChainState /= latestChainState
+
+      run $ forM_ blocksAfter $ \(TestBlock header txs) -> onRollForward resumedHandler header txs
+      latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
+      pure $ latestResumedChainState === latestChainState
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
@@ -287,6 +289,19 @@ genRollbackPoint blocks =
   pickFromBlocks = do
     TestBlock header _ <- elements blocks
     pure $ getChainPoint header
+
+-- | Pick a rollback point from a list of blocks and also yield the tail of blocks to be replayed.
+genRollbackBlocks :: [TestBlock] -> Gen (ChainPoint, [TestBlock])
+genRollbackBlocks blocks =
+  oneof
+    [ pickFromBlocks
+    , pure (ChainPointAtGenesis, blocks)
+    ]
+ where
+  pickFromBlocks = do
+    i <- choose (0, length blocks - 1)
+    let (TestBlock header _) = blocks List.!! i
+    pure (getChainPoint header, List.drop i blocks)
 
 -- | Generate a non-sparse sequence of blocks each containing an observable
 -- transaction, starting from the returned on-chain head state.
