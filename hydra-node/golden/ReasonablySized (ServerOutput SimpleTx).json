@@ -104,9 +104,21 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "chainSlot": 1,
-            "chainTime": "1864-05-15T13:50:20.725130980434Z",
-            "tag": "HeadTick"
+            "headId": "01000708000805060800000507050500",
+            "tag": "TxValid",
+            "transaction": {
+                "id": -2,
+                "inputs": [
+                    2
+                ],
+                "outputs": [
+                    -6,
+                    -1,
+                    4,
+                    5,
+                    6
+                ]
+            }
         },
         {
             "headId": "03070800080506030307010206030506",
@@ -200,9 +212,8 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "chainSlot": 3,
-            "chainTime": "1864-05-07T07:12:41.398120976886Z",
-            "tag": "HeadTick"
+            "peer": "dqzmb",
+            "tag": "PeerConnected"
         },
         {
             "headId": "08080705030500000703030805020206",
@@ -220,9 +231,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "chainSlot": 1,
-            "chainTime": "1864-05-10T22:30:26.314922785328Z",
-            "tag": "HeadTick"
+            "peer": "l",
+            "tag": "PeerConnected"
         },
         {
             "headId": "08080101060608030802040300060500",
@@ -319,9 +329,14 @@
             }
         },
         {
-            "chainSlot": 0,
-            "chainTime": "1864-05-10T20:29:32.58748975773Z",
-            "tag": "HeadTick"
+            "headId": "03040501070102010206030706060107",
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -6,
+                -2,
+                3,
+                5
+            ]
         },
         {
             "headId": "03030801020002080103050003020006",
@@ -1051,9 +1066,20 @@
             ]
         },
         {
-            "chainSlot": 6,
-            "chainTime": "1864-05-11T16:15:54.363430048353Z",
-            "tag": "HeadTick"
+            "headId": "06080205080204000101000302020206",
+            "tag": "TxValid",
+            "transaction": {
+                "id": -3,
+                "inputs": [
+                    -6,
+                    -3
+                ],
+                "outputs": [
+                    -6,
+                    -1,
+                    0
+                ]
+            }
         },
         {
             "headId": "05080103040603030307070008040404",
@@ -1144,9 +1170,13 @@
             "tag": "PeerDisconnected"
         },
         {
-            "chainSlot": 6,
-            "chainTime": "1864-05-07T22:46:16.352563975495Z",
-            "tag": "HeadTick"
+            "headId": "05050101050607080102080203080403",
+            "tag": "GetUTxOResponse",
+            "utxo": [
+                -5,
+                -2,
+                0
+            ]
         },
         {
             "headId": "01010806000702050504060302020603",
@@ -1231,9 +1261,9 @@
             "tag": "ReadyToFanout"
         },
         {
-            "chainSlot": 0,
-            "chainTime": "1864-05-05T18:27:51.814335756047Z",
-            "tag": "HeadTick"
+            "input": "",
+            "reason": "𘊉BJ^㪜󹂄",
+            "tag": "InvalidInput"
         },
         {
             "headId": "04000605020501000600020401000004",
@@ -1509,9 +1539,8 @@
             ]
         },
         {
-            "chainSlot": 3,
-            "chainTime": "1864-05-09T06:17:02.598496250786Z",
-            "tag": "HeadTick"
+            "peer": "r",
+            "tag": "PeerConnected"
         },
         {
             "postChainTx": {
@@ -1732,9 +1761,14 @@
             "tag": "PostTxOnChainFailed"
         },
         {
-            "chainSlot": 2,
-            "chainTime": "1864-05-11T17:33:11.319307974285Z",
-            "tag": "HeadTick"
+            "postChainTx": {
+                "tag": "AbortTx",
+                "utxo": []
+            },
+            "postTxError": {
+                "tag": "MoreThanOneUTxOCommitted"
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
             "headId": "05050200050407000200040703060207",
@@ -2203,9 +2237,8 @@
             ]
         },
         {
-            "chainSlot": 6,
-            "chainTime": "1864-05-13T10:50:06.740292948568Z",
-            "tag": "HeadTick"
+            "headId": "08060400000601070006020408010805",
+            "tag": "ReadyToFanout"
         },
         {
             "tag": "RolledBack"

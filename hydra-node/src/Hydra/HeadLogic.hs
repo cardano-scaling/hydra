@@ -1061,7 +1061,7 @@ update env ledger st ev = case (st, ev) of
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
   (Open ost@OpenState{}, OnChainEvent Tick{chainTime, chainSlot}) ->
-    NewState (Open ost{currentSlot = chainSlot}) [ClientEffect $ HeadTick chainTime chainSlot]
+    NewState (Open ost{currentSlot = chainSlot}) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->

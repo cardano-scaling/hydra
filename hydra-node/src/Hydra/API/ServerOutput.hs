@@ -93,11 +93,6 @@ data ServerOutput tx
       }
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RolledBack
-  | -- REVIEW: it contains same information as seq and timestamp which every server output has
-    HeadTick
-      { chainTime :: UTCTime
-      , chainSlot :: ChainSlot
-      }
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
@@ -154,7 +149,6 @@ instance
         <*> shrink slotLength
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     RolledBack -> []
-    HeadTick ct cs -> HeadTick <$> shrink ct <*> shrink cs
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -257,7 +251,6 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                 encodedResponse
         _other -> encodedResponse
     RolledBack -> encodedResponse
-    HeadTick{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
