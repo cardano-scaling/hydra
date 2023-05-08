@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Model.MockChain where
 
@@ -40,7 +40,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollForward,
  )
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainContext (..))
 import qualified Hydra.Chain.Direct.State as S
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
@@ -123,14 +123,9 @@ mockChainAndNetwork tr seedKeys nodes cp = do
                       }
             , contestationPeriod = cp
             }
-        chainState =
-          S.ChainStateAt
-            { chainState = S.Idle
-            , recordedAt = Nothing
-            }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let seedInput = genTxIn `generateWith` 42
-    nodeState <- createNodeState $ Idle IdleState{chainState}
+    nodeState <- createNodeState $ Idle IdleState{chainState = initialChainState}
     let HydraNode{eq} = node
     let callback = chainCallback eq
     localChainState <- newLocalChainState initialChainState

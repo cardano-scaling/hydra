@@ -260,7 +260,7 @@ chainSyncHandler tracer callback getTimeHandle ctx rcs =
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
-    ChainStateAt{chainState} <- getLatest
+    csa@ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Nothing -> pure Nothing
       Just (observedTx, cs') -> do
@@ -268,6 +268,7 @@ chainSyncHandler tracer callback getTimeHandle ctx rcs =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
+                , previous = Just csa 
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}

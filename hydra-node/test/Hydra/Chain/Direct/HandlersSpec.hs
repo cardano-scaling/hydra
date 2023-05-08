@@ -21,6 +21,7 @@ import Hydra.Chain (
   HeadParameters,
   chainStateSlot,
  )
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -30,7 +31,6 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Idle),
   ChainStateAt (..),
   HydraContext,
   InitialState (..),
@@ -133,6 +133,7 @@ spec = do
           ChainStateAt
             { chainState = st
             , recordedAt = Nothing
+            , previous = Nothing
             }
     timeHandle <- pickBlind arbitrary
     let callback = \case
@@ -263,12 +264,7 @@ genSequenceOfObservableBlocks = do
     initTx <- stepInit cctx (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits ctx initTx allContexts
-  let chainState =
-        ChainStateAt
-          { chainState = Idle
-          , recordedAt = Nothing
-          }
-  pure (cctx, chainState, reverse blks)
+  pure (cctx, initialChainState, reverse blks)
  where
   nextSlot :: Monad m => StateT [TestBlock] m SlotNo
   nextSlot = do

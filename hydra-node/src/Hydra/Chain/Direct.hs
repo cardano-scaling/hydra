@@ -117,6 +117,7 @@ initialChainState =
   ChainStateAt
     { chainState = Idle
     , recordedAt = Nothing
+    , previous = Nothing
     }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
@@ -207,10 +208,10 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
           ctx
           localChainState
           (submitTx queue)
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     race
-      ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+      ( handle onIOException $ 
           connectToLocalNode
             connectInfo
             (clientProtocols chainPoint queue handler)
