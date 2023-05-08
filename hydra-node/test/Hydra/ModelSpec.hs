@@ -123,7 +123,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.BehaviorSpec (TestHydraNode (..))
+import Hydra.BehaviorSpec (TestHydraClient (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -275,7 +275,7 @@ prop_checkModel actions =
 
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
-  Map Party (TestHydraNode Tx (IOSim s)) ->
+  Map Party (TestHydraClient Tx (IOSim s)) ->
   Party ->
   PropertyM (RunMonad (IOSim s)) ()
 assertBalancesInOpenHeadAreConsistent world nodes p = do

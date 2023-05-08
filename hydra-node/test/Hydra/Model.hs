@@ -24,6 +24,7 @@ import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
+  labelTQueueIO,
   labelTVarIO,
   modifyTVar,
   newTQueue,
@@ -44,9 +45,9 @@ import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
-  TestHydraNode (..),
+  TestHydraClient (..),
   createHydraNode,
-  createTestHydraNode,
+  createTestHydraClient,
   shortLabel,
   waitMatch,
   waitUntilMatch,
@@ -376,7 +377,7 @@ partyKeys =
 -- | Concrete state needed to run actions against the implementation.
 -- This state is used and might be updated when actually `perform`ing actions generated from the `StateModel`.
 data Nodes m = Nodes
-  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  { nodes :: Map.Map Party (TestHydraClient Tx m)
   -- ^ Map from party identifiers to a /handle/ for interacting with a node.
   , logger :: Tracer m (HydraLog Tx ())
   -- ^ Logger used by each node.
@@ -516,17 +517,17 @@ seedWorld seedKeys seedCP = do
       mockChainAndNetwork (contramap DirectChain tr) seedKeys nodes seedCP
     res <- forM seedKeys $ \(hsk, _csk) -> do
       outputs <- atomically newTQueue
+      labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
-      labelTVarIO nodes ("outputs-" <> shortLabel hsk)
-      labelTVarIO nodes ("history-" <> shortLabel hsk)
+      labelTVarIO outputHistory ("history-" <> shortLabel hsk)
       let party = deriveParty hsk
           otherParties = filter (/= party) parties
       nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
       node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory connectToChain seedCP
-      let testNode = createTestHydraNode outputs outputHistory node
+      let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       link nodeThread
-      pure (party, testNode, nodeThread)
+      pure (party, testClient, nodeThread)
     pure (res, tickThread)
 
   modify $ \n ->
@@ -613,7 +614,7 @@ performNewTx party tx = do
 -- | Wait for the head to be open. Search from the beginning of history and make
 -- sure there is no RolledBack after the last HeadIsOpen. Wait and retry forever
 -- otherwise.
-waitForOpen :: MonadDelay m => TestHydraNode tx m -> RunMonad m ()
+waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
   if isOpen False outs
@@ -693,7 +694,7 @@ waitForUTxOToSpend ::
   UTxO ->
   CardanoSigningKey ->
   Value ->
-  TestHydraNode Tx m ->
+  TestHydraClient Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
 waitForUTxOToSpend utxo key value node = go 100
  where

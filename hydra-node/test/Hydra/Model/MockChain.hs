@@ -23,7 +23,7 @@ import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
-  ConnectToChain (..),
+  SimulatedChainNetwork (..),
  )
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct (initialChainState)
@@ -77,18 +77,18 @@ mockChainAndNetwork ::
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   TVar m [MockHydraNode m] ->
   ContestationPeriod ->
-  m (ConnectToChain Tx m, Async m ())
+  m (SimulatedChainNetwork Tx m, Async m ())
 mockChainAndNetwork tr seedKeys nodes cp = do
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   chain <- newTVarIO (0, 0, Empty)
-  tickThread <- async (labelThisThread "chain" >> simulateTicks queue chain)
+  tickThread <- async (labelThisThread "chain" >> simulateChain queue chain)
   link tickThread
   return
-    ( ConnectToChain
+    ( SimulatedChainNetwork
         { rollbackAndForward = error "Not implemented, should never be called"
         , tickThread
-        , chainComponent = connectNode queue
+        , connectNode = connectNode queue
         }
     , tickThread
     )
@@ -134,27 +134,32 @@ mockChainAndNetwork tr seedKeys nodes cp = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  blockTime :: Integer
-  blockTime = 20 -- seconds
-  simulateTicks queue chain = forever $ do
+  blockTime :: Integer -- seconds
+  blockTime = 20
+
+  simulateChain queue chain = forever $ do
     rollForward chain queue
     rollForward chain queue
     rollForward chain queue
     rollForward chain queue
     sendRollBackward chain 2
+
   rollForward chain queue = do
     threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []
     addNewBlockToChain chain transactions
     sendRollForward chain
+
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
     case hasTx of
       Just tx -> do
         flushQueue queue (tx : transactions)
       Nothing -> pure transactions
+
   appendToChain block (slotNum, cursor, blocks) =
     (slotNum, cursor, blocks :|> block)
+
   sendRollForward chain = do
     (slotNum, position, blocks) <- readTVarIO chain
     case Seq.lookup position blocks of
@@ -164,19 +169,17 @@ mockChainAndNetwork tr seedKeys nodes cp = do
         atomically $ writeTVar chain (slotNum, position + 1, blocks)
       Nothing ->
         pure ()
-  sendRollBackward chain nbBlocks =
-    if False -- inhibiting the rollback until we can support it in the code
-      then do
-        (slotNum, position, blocks) <- readTVarIO chain
-        case Seq.lookup (position - nbBlocks) blocks of
-          Just (header, _) -> do
-            allHandlers <- fmap chainHandler <$> readTVarIO nodes
-            let point = getChainPoint header
-            forM_ allHandlers (`onRollBackward` point)
-            atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
-          Nothing ->
-            pure ()
-      else pure ()
+
+  sendRollBackward chain nbBlocks = do
+    (slotNum, position, blocks) <- readTVarIO chain
+    case Seq.lookup (position - nbBlocks) blocks of
+      Just (header, _) -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        let point = getChainPoint header
+        forM_ allHandlers (`onRollBackward` point)
+        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
+      Nothing ->
+        pure ()
 
   addNewBlockToChain chain transactions =
     atomically $ modifyTVar chain $ \(slotNum, position, blocks) -> appendToChain (mkBlock transactions (fromIntegral $ slotNum + blockTime)) (slotNum + blockTime, position, blocks)
