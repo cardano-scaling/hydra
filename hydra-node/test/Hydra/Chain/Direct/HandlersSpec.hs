@@ -7,6 +7,7 @@ import Hydra.Prelude hiding (label)
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
+import qualified Data.List as List
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
@@ -27,6 +28,7 @@ import Hydra.Chain.Direct.Handlers (
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
+  getLatest,
   newLocalChainState,
  )
 import Hydra.Chain.Direct.State (
@@ -81,112 +83,152 @@ genTimeHandleWithSlotPastHorizon = do
 
 spec :: Spec
 spec = do
-  prop "roll forward results in Tick events" $
-    monadicIO $ do
-      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
-      TestBlock header txs <- pickBlind $ genBlockAt slot []
+  describe "chainSyncHanlder" $ do
+    prop "roll forward results in Tick events" $
+      monadicIO $ do
+        (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
+        TestBlock header txs <- pickBlind $ genBlockAt slot []
 
-      chainContext <- pickBlind arbitrary
-      chainState <- pickBlind arbitrary
+        chainContext <- pickBlind arbitrary
+        chainState <- pickBlind arbitrary
 
-      (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
+        (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
 
-      run $ onRollForward handler header txs
+        run $ onRollForward handler header txs
 
-      events <- run getEvents
-      monitor $ counterexample ("events: " <> show events)
+        events <- run getEvents
+        monitor $ counterexample ("events: " <> show events)
 
-      expectedUTCTime <-
+        expectedUTCTime <-
+          run $
+            either (failure . ("Time conversion failed: " <>) . toString) pure $
+              slotToUTCTime timeHandle slot
+        void . stop $ events === [Tick expectedUTCTime]
+
+    prop "roll forward fails with outdated TimeHandle" $
+      monadicIO $ do
+        (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
+        TestBlock header txs <- pickBlind $ genBlockAt slot []
+
+        chainContext <- pickBlind arbitrary
+        chainState <- pickBlind arbitrary
+        localChainState <- run $ newLocalChainState chainState
+        let chainSyncCallback = \_cont -> failure "Unexpected callback"
+            handler =
+              chainSyncHandler
+                nullTracer
+                chainSyncCallback
+                (pure timeHandle)
+                chainContext
+                localChainState
         run $
-          either (failure . ("Time conversion failed: " <>) . toString) pure $
-            slotToUTCTime timeHandle slot
-      void . stop $ events === [Tick expectedUTCTime]
+          onRollForward handler header txs
+            `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-  prop "roll forward fails with outdated TimeHandle" $
-    monadicIO $ do
-      (timeHandle, slot) <- pickBlind genTimeHandleWithSlotPastHorizon
-      TestBlock header txs <- pickBlind $ genBlockAt slot []
+    prop "observes transactions onRollForward" . monadicIO $ do
+      -- Generate a state and related transaction and a block containing it
+      (ctx, st, tx, transition) <- pick genChainStateWithTx
+      TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      monitor (label $ show transition)
+      localChainState <-
+        run $
+          newLocalChainState
+            ChainStateAt
+              { chainState = st
+              , recordedAt = Nothing
+              , previous = Nothing
+              }
+      timeHandle <- pickBlind arbitrary
+      let callback = \case
+            Rollback{} ->
+              failure "rolled back but expected roll forward."
+            Tick{} -> pure ()
+            Observation{observedTx} ->
+              if (fst <$> observeSomeTx ctx st tx) /= Just observedTx
+                then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
+                else pure ()
 
-      chainContext <- pickBlind arbitrary
-      chainState <- pickBlind arbitrary
-      localChainState <- run $ newLocalChainState chainState
-      let chainSyncCallback = \_cont -> failure "Unexpected callback"
-          handler =
+      let handler =
             chainSyncHandler
               nullTracer
-              chainSyncCallback
+              callback
+              (pure timeHandle)
+              ctx
+              localChainState
+      run $ onRollForward handler header txs
+
+    prop "rollbacks state onRollBackward" . monadicIO $ do
+      (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
+      rollbackPoint <- pick $ genRollbackPoint blocks
+      monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
+      timeHandle <- pickBlind arbitrary
+
+      -- Stub for recording Rollback events
+      rolledBackTo <- run newEmptyTMVarIO
+      let callback = \case
+            Rollback{rolledBackChainState} ->
+              atomically $ putTMVar rolledBackTo rolledBackChainState
+            _ -> pure ()
+      localChainState <- run $ newLocalChainState chainStateAt
+      let handler =
+            chainSyncHandler
+              nullTracer
+              callback
               (pure timeHandle)
               chainContext
               localChainState
-      run $
-        onRollForward handler header txs
-          `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
-  prop "observes transactions onRollForward" . monadicIO $ do
-    -- Generate a state and related transaction and a block containing it
-    (ctx, st, tx, transition) <- pick genChainStateWithTx
-    TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
-    monitor (label $ show transition)
-    localChainState <-
-      run $
-        newLocalChainState
-          ChainStateAt
-            { chainState = st
-            , recordedAt = Nothing
-            , previous = Nothing
-            }
-    timeHandle <- pickBlind arbitrary
-    let callback = \case
-          Rollback{} ->
-            failure "rolled back but expected roll forward."
-          Tick{} -> pure ()
-          Observation{observedTx} ->
-            if (fst <$> observeSomeTx ctx st tx) /= Just observedTx
-              then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
-              else pure ()
+      -- Simulate some chain following
+      run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
+      -- Inject the rollback to somewhere between any of the previous state
+      result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
+      monitor . counterexample $ "try onRollBackward: " <> show result
+      assert $ isRight result
 
-    let handler =
-          chainSyncHandler
-            nullTracer
-            callback
-            (pure timeHandle)
-            ctx
-            localChainState
-    run $ onRollForward handler header txs
+      mRolledBackChainState <- run . atomically $ tryReadTMVar rolledBackTo
+      monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
+      pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 
-  prop "rollbacks state onRollBackward" . monadicIO $ do
-    (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
-    rollbackPoint <- pick $ genRollbackPoint blocks
-    monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
-    timeHandle <- pickBlind arbitrary
+  describe "LocalChainState" $ do
+    prop "can resume from chain state" . monadicIO $ do
+      (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
+      monitor $ counterexample ("Observable block depth: " <> show (length blocks))
+      timeHandle <- pickBlind arbitrary
 
-    -- Stub for recording Rollback events
-    rolledBackTo <- run newEmptyTMVarIO
-    let callback = \case
-          Rollback{rolledBackChainState} ->
-            atomically $ putTMVar rolledBackTo rolledBackChainState
-          _ -> pure ()
+      -- Use the handler to evolve the chain state to some new, latest version
+      localChainState <- run $ newLocalChainState chainStateAt
+      let handler =
+            chainSyncHandler
+              nullTracer
+              (\_ -> pure ())
+              (pure timeHandle)
+              chainContext
+              localChainState
+      run $ forM_ (List.init blocks) $ \(TestBlock header txs) -> onRollForward handler header txs
+      latestChainState <- run . atomically $ getLatest localChainState
+      assert $ latestChainState /= chainStateAt
 
-    -- Using the "real" rollbackable chain state
-    localChainState <- run $ newLocalChainState chainStateAt
-    let handler =
-          chainSyncHandler
-            nullTracer
-            callback
-            (pure timeHandle)
-            chainContext
-            localChainState
+      -- Provided the latest chain state the LocalChainState must be able to
+      -- rollback and forward
+      localChainState' <- run $ newLocalChainState latestChainState
+      calledBack <- run newEmptyTMVarIO
+      let handler' =
+            chainSyncHandler
+              nullTracer
+              ( \case
+                  Observation{observedTx} -> atomically (putTMVar calledBack observedTx)
+                  Tick{} -> pure ()
+                  Rollback{} -> error "unexpected rollback"
+              )
+              (pure timeHandle)
+              chainContext
+              localChainState'
+      run $ do
+        let (TestBlock header txs) = List.last blocks
+        onRollForward handler' header txs
 
-    -- Simulate some chain following
-    run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
-    -- Inject the rollback to somewhere between any of the previous state
-    result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
-    monitor . counterexample $ "try onRollBackward: " <> show result
-    assert $ isRight result
-
-    mRolledBackChainState <- run . atomically $ tryReadTMVar rolledBackTo
-    monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
-    pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
+      observedTx <- run . atomically $ tryTakeTMVar calledBack
+      pure $ isJust observedTx
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
