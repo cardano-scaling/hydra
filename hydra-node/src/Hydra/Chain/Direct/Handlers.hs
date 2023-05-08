@@ -222,13 +222,13 @@ chainSyncHandler ::
   LocalChainState m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx rcs =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
-  LocalChainState{rollback, getLatest, pushNew} = rcs
+  LocalChainState{rollback, getLatest, pushNew} = localChainState
 
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do

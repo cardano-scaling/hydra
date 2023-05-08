@@ -157,7 +157,7 @@ stepHydraNode tracer node = do
   HydraNode{persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
-waitDelay :: NominalDiffTime
+waitDelay :: DiffTime
 waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
@@ -203,7 +203,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
-  , putEventAfter :: NominalDiffTime -> e -> m ()
+  , putEventAfter :: DiffTime -> e -> m ()
   , nextEvent :: m e
   , isEmpty :: m Bool
   }
@@ -227,7 +227,7 @@ createEventQueue = do
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do
-            threadDelay $ realToFrac delay
+            threadDelay delay
             atomically $ do
               modifyTVar' numThreads pred
               writeTQueue q e
