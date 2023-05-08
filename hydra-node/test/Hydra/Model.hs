@@ -386,9 +386,6 @@ data Nodes m = Nodes
   -- instantiated upon the test run initialisation, outiside of the model.
   , threads :: [Async m ()]
   -- ^ List of threads spawned when executing `RunMonad`
-  -- FIXME: Remove it? It's not actually useful when running inside io-sim as
-  -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
-  -- to keep it?
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
