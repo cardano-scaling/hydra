@@ -7,7 +7,6 @@ import Hydra.Prelude hiding (label)
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..), newTVarIO)
 import Control.Tracer (nullTracer)
-import qualified Data.List as List
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
@@ -53,7 +52,6 @@ import Hydra.Options (maximumNumberOfParties)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
 import Test.QuickCheck (
-  choose,
   counterexample,
   elements,
   label,
@@ -193,7 +191,6 @@ spec = do
   describe "LocalChainState" $ do
     prop "can resume from chain state" . monadicIO $ do
       (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
-      monitor $ counterexample ("Observable block depth: " <> show (length blocks))
       timeHandle <- pickBlind arbitrary
 
       -- Use the handler to evolve the chain state to some new, latest version
@@ -221,12 +218,12 @@ spec = do
               resumedLocalChainState
 
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
-      monitor $ label ("Rollback to: " <> show (chainSlotFromPoint rollbackPoint) <> " / " <> show (length blocks))
+      monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
 
       run $ onRollBackward resumedHandler rollbackPoint
-
+      -- NOTE: Sanity check that the rollback was affecting the local state
       rolledBackChainState <- run . atomically $ getLatest resumedLocalChainState
-      assert $ rolledBackChainState /= latestChainState
+      assert $ null blocksAfter || rolledBackChainState /= latestChainState
 
       run $ forM_ blocksAfter $ \(TestBlock header txs) -> onRollForward resumedHandler header txs
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
@@ -290,18 +287,24 @@ genRollbackPoint blocks =
     TestBlock header _ <- elements blocks
     pure $ getChainPoint header
 
--- | Pick a rollback point from a list of blocks and also yield the tail of blocks to be replayed.
+-- | Pick a rollback point from a list of blocks and also yield the tail of
+-- blocks to be replayed.
 genRollbackBlocks :: [TestBlock] -> Gen (ChainPoint, [TestBlock])
 genRollbackBlocks blocks =
   oneof
     [ pickFromBlocks
-    , pure (ChainPointAtGenesis, blocks)
+    , rollbackFromGenesis
     ]
  where
+  rollbackFromGenesis =
+    pure (ChainPointAtGenesis, blocks)
+
   pickFromBlocks = do
-    i <- choose (0, length blocks - 1)
-    let (TestBlock header _) = blocks List.!! i
-    pure (getChainPoint header, List.drop i blocks)
+    toReplay <- elements $ tails blocks
+    case toReplay of
+      [] -> rollbackFromGenesis
+      ((TestBlock header _) : blocksAfter) ->
+        pure (getChainPoint header, blocksAfter)
 
 -- | Generate a non-sparse sequence of blocks each containing an observable
 -- transaction, starting from the returned on-chain head state.
