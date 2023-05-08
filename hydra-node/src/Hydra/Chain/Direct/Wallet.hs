@@ -11,11 +11,11 @@ import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
-import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
+import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _protocolVersion)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
@@ -91,23 +91,23 @@ type TxOut = Ledger.TxOut LedgerEra
 -- The wallet is connecting to the node initially and when asked to 'reset'.
 -- Otherwise it can be fed blocks via 'update' as the chain rolls forward.
 data TinyWallet m = TinyWallet
-  { getUTxO :: STM m (Map TxIn TxOut)
-  -- ^ Return all known UTxO addressed to this wallet.
-  , getSeedInput :: STM m (Maybe Api.TxIn)
-  -- ^ Returns the /seed input/
-  -- This is the special input needed by `Direct` chain component to initialise
-  -- a head
+  { -- | Return all known UTxO addressed to this wallet.
+    getUTxO :: STM m (Map TxIn TxOut)
+  , -- | Returns the /seed input/
+    -- This is the special input needed by `Direct` chain component to initialise
+    -- a head
+    getSeedInput :: STM m (Maybe Api.TxIn)
   , sign :: Api.Tx -> Api.Tx
   , coverFee ::
       UTxO ->
       Api.TxBodyContent Api.BuildTx ->
       m (Either ErrCoverFee Api.Tx)
-  , reset :: m ()
-  -- ^ Re-initialize wallet against the latest tip of the node and start to
-  -- ignore 'update' calls until reaching that tip.
-  , update :: BlockHeader -> [Api.Tx] -> m ()
-  -- ^ Update the wallet state given a block and list of txs. May be ignored if
-  -- wallet is still initializing.
+  , -- | Re-initialize wallet against the latest tip of the node and start to
+    -- ignore 'update' calls until reaching that tip.
+    reset :: m ()
+  , -- | Update the wallet state given a block and list of txs. May be ignored if
+    -- wallet is still initializing.
+    update :: BlockHeader -> [Api.Tx] -> m ()
   }
 
 data WalletInfoOnChain = WalletInfoOnChain
@@ -115,8 +115,8 @@ data WalletInfoOnChain = WalletInfoOnChain
   , pparams :: Core.PParams LedgerEra
   , systemStart :: SystemStart
   , epochInfo :: EpochInfo (Either Text)
-  , tip :: ChainPoint
-  -- ^ Latest point on chain the wallet knows of.
+  , -- | Latest point on chain the wallet knows of.
+    tip :: ChainPoint
   }
 
 type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
@@ -147,15 +147,17 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
       , sign = signWith sk
-      , coverFee = \lookupUTxO partialTx' -> do
+      , coverFee = \lookupUTxO txBodyNoPParams -> do
           -- XXX: We should query pparams here. If not, we likely will have
           -- wrong fee estimation should they change in between.
           epochInfo <- queryEpochInfo
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
-          let partialTx = unsafeBuildTransaction $ setProtocolParams pparams partialTx'
+          let txBodyWithPParams = setProtocolParams pparams txBodyNoPParams
+          let witnessNo = Api.estimateTransactionKeyWitnessCount txBodyWithPParams
+          let partialTx = unsafeBuildTransaction txBodyWithPParams
           pure $
             fromLedgerTx
-              <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
+              <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO partialTx witnessNo
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -246,9 +248,11 @@ coverFee_ ::
   EpochInfo (Either Text) ->
   Map TxIn TxOut ->
   Map TxIn TxOut ->
-  Babbage.AlonzoTx LedgerEra ->
+  Api.Tx ->
+  Word ->
   Either ErrCoverFee (Babbage.AlonzoTx LedgerEra)
-coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
+coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO cardanoTx@(Api.Tx apiTxBody _) shelleyWitnesses = do
+  let partialTx@Babbage.AlonzoTx{body, wits} = toLedgerTx cardanoTx
   (input, output) <- findUTxOToPayFees walletUTxO
 
   let inputs' = inputs body <> Set.singleton input
@@ -263,7 +267,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
           inputs'
           estimatedScriptCosts
           (txrdmrs wits)
-      needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
   change <-
     first ErrNotEnoughFunds $
@@ -271,7 +274,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         output
         resolvedInputs
         (toList $ outputs' body)
-        needlesslyHighFee
+        calculatedFee
 
   let newOutputs = outputs body <> StrictSeq.singleton (mkSized change)
       referenceScripts = refScripts @LedgerEra (referenceInputs body) (Ledger.UTxO utxo)
@@ -286,7 +289,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
           { inputs = inputs'
           , outputs = newOutputs
           , collateral = Set.singleton input
-          , txfee = needlesslyHighFee
+          , txfee = calculatedFee
           , scriptIntegrityHash =
               hashScriptIntegrity
                 (Set.fromList langs)
@@ -305,10 +308,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
     Just (i, o) ->
       Right (i, o)
 
-  -- TODO: Do a better fee estimation based on the transaction's content.
-  calculateNeedlesslyHighFee (Redeemers redeemers) =
-    let executionCost = txscriptfee (_prices pparams) $ foldMap snd redeemers
-     in Coin 2_000_000 <> executionCost
+  calculatedFee = Coin calculated
+
+  (Api.Lovelace calculated) =
+    Api.evaluateTransactionFee
+      (Api.bundleProtocolParams Api.BabbageEra $ Api.fromLedgerPParams Api.ShelleyBasedEraBabbage pparams)
+      apiTxBody
+      shelleyWitnesses
+      0
 
   getAdaValue :: TxOut -> Coin
   getAdaValue (Babbage.BabbageTxOut _ value _ _) =
@@ -329,13 +336,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
   mkChange (Babbage.BabbageTxOut addr _ datum _) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-        Left $
-          ChangeError
-            { inputBalance = totalIn
-            , outputBalance = totalOut
-            }
+      Left $
+        ChangeError
+          { inputBalance = totalIn
+          , outputBalance = totalOut
+          }
     | otherwise =
-        Right $ Babbage.BabbageTxOut addr (inject changeOut) datum refScript
+      Right $ Babbage.BabbageTxOut addr (inject changeOut) datum refScript
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
     totalIn = foldMap getAdaValue resolvedInputs
@@ -354,7 +361,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       case ptr of
         RdmrPtr Spend idx
           | fromIntegral idx `elem` differences ->
-              (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
+            (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 

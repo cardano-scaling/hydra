@@ -64,6 +64,8 @@ changes.
 
 - Use the server-provided `timestamp` of messages in the `hydra-tui`.
 
+- Remove the hardcoded ada amount when calculating fee in the internal wallet. 
+
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 

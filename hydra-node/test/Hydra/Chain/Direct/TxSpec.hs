@@ -80,30 +80,32 @@ spec =
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case unsafeBuildWithDefaultPParams <$> abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
-                            Right (toLedgerTx -> txAbort) ->
-                              case coverFee_ ledgerPParams systemStart epochInfo lookupUTxO walletUTxO txAbort of
-                                Left err ->
-                                  True
-                                    & label
-                                      ( case err of
-                                          ErrNoFuelUTxOFound{} -> "No fuel UTxO found"
-                                          ErrNotEnoughFunds{} -> "Not enough funds"
-                                          ErrUnknownInput{} -> "Unknown input"
-                                          ErrScriptExecutionFailed{} -> "Script(s) execution failed"
-                                          ErrTranslationError{} -> "Transaction context translation error"
-                                      )
-                                Right (fromLedgerTx -> txAbortWithFees) ->
-                                  let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
-                                      fee = txFee' txAbortWithFees
-                                   in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
-                                        & label "Ok"
-                                        & counterexample ("Execution cost: " <> show actualExecutionCost)
-                                        & counterexample ("Fee: " <> show fee)
-                                        & counterexample ("Tx: " <> show txAbortWithFees)
-                                        & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
+                            Right txAbort ->
+                              let cardanoTx = unsafeBuildWithDefaultPParams txAbort
+                                  witnessNo =  estimateTransactionKeyWitnessCount txAbort
+                               in case coverFee_ ledgerPParams systemStart epochInfo lookupUTxO walletUTxO cardanoTx witnessNo of
+                                    Left err ->
+                                      True
+                                        & label
+                                          ( case err of
+                                              ErrNoFuelUTxOFound{} -> "No fuel UTxO found"
+                                              ErrNotEnoughFunds{} -> "Not enough funds"
+                                              ErrUnknownInput{} -> "Unknown input"
+                                              ErrScriptExecutionFailed{} -> "Script(s) execution failed"
+                                              ErrTranslationError{} -> "Transaction context translation error"
+                                          )
+                                    Right (fromLedgerTx -> txAbortWithFees) ->
+                                      let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
+                                          fee = txFee' txAbortWithFees
+                                       in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
+                                            & label "Ok"
+                                            & counterexample ("Execution cost: " <> show actualExecutionCost)
+                                            & counterexample ("Fee: " <> show fee)
+                                            & counterexample ("Tx: " <> show txAbortWithFees)
+                                            & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
                     Left e ->
                       property False
                         & counterexample "Failed to construct and observe init tx."

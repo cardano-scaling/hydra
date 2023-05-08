@@ -201,15 +201,16 @@ prop_balanceTransaction =
   forAllBlind (reasonablySized genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind genMarkedUTxO $ \walletUTxO ->
-        case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
-          Left err ->
-            property False
-              & counterexample ("Error: " <> show err)
-              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
-              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
-              & counterexample (renderTx $ fromLedgerTx tx)
-          Right tx' ->
-            isBalanced (lookupUTxO <> walletUTxO) tx tx'
+        let cardanoTx = fromLedgerTx tx
+         in case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO cardanoTx 0 of
+              Left err ->
+                property False
+                  & counterexample ("Error: " <> show err)
+                  & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+                  & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+                  & counterexample (renderTx $ fromLedgerTx tx)
+              Right tx' ->
+                isBalanced (lookupUTxO <> walletUTxO) tx tx'
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =
