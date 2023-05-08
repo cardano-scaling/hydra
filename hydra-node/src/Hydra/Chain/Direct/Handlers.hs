@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -73,7 +72,7 @@ newLocalChainState ::
   ChainStateAt ->
   m (LocalChainState m)
 newLocalChainState chainStateAt = do
-  tv <- newTVarIO $ chainStateAt :| []
+  tv <- newTVarIO chainStateAt
   pure
     LocalChainState
       { getLatest = getLatest tv
@@ -81,21 +80,23 @@ newLocalChainState chainStateAt = do
       , rollback = rollback tv
       }
  where
-  getLatest tv = head <$> readTVar tv
+  getLatest tv = readTVar tv
 
-  pushNew tv cs = modifyTVar tv (cs <|)
+  pushNew tv cs =
+    modifyTVar tv $ \prev ->
+      cs{previous = Just prev}
 
   rollback tv point = do
-    chainStates <- readTVar tv
-    let (chainState, chainStates') = go point chainStates
-    writeTVar tv chainStates'
-    pure chainState
+    latest <- readTVar tv
+    let rolledBack = go point latest
+    writeTVar tv rolledBack
+    pure rolledBack
 
-  go rollbackChainPoint chainStates =
-    case chainStates of
-      (cs :| []) -> (cs, cs :| [])
-      (cs@ChainStateAt{recordedAt = (Just recordPoint)} :| rest) | recordPoint <= rollbackChainPoint -> (cs, cs :| rest)
-      (_ :| cs : rest) -> go rollbackChainPoint (cs :| rest)
+  go rollbackChainPoint = \case
+    cs@ChainStateAt{recordedAt = Just recordPoint}
+      | recordPoint <= rollbackChainPoint -> cs
+    ChainStateAt{previous = Just prev} -> go rollbackChainPoint prev
+    cs -> cs
 
 -- * Posting Transactions
 
@@ -268,7 +269,7 @@ chainSyncHandler tracer callback getTimeHandle ctx rcs =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
-                , previous = Just csa 
+                , previous = Just csa
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
