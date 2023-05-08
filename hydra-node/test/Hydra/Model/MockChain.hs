@@ -10,6 +10,7 @@ import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   MonadSTM (newTVarIO, writeTVar),
   labelTQueueIO,
+  labelTVarIO,
   modifyTVar,
   newTQueueIO,
   newTVarIO,
@@ -18,7 +19,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (Async, async, link)
+import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
@@ -75,25 +76,24 @@ mockChainAndNetwork ::
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  TVar m [MockHydraNode m] ->
   ContestationPeriod ->
-  m (SimulatedChainNetwork Tx m, Async m ())
-mockChainAndNetwork tr seedKeys nodes cp = do
+  m (SimulatedChainNetwork Tx m)
+mockChainAndNetwork tr seedKeys cp = do
+  nodes <- newTVarIO []
+  labelTVarIO nodes "nodes"
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
   chain <- newTVarIO (0, 0, Empty)
-  tickThread <- async (labelThisThread "chain" >> simulateChain queue chain)
+  tickThread <- async (labelThisThread "chain" >> simulateChain nodes queue chain)
   link tickThread
-  return
-    ( SimulatedChainNetwork
-        { rollbackAndForward = error "Not implemented, should never be called"
-        , tickThread
-        , connectNode = connectNode queue
-        }
-    , tickThread
-    )
+  pure
+    SimulatedChainNetwork
+      { rollbackAndForward = error "Not implemented, should never be called"
+      , tickThread
+      , connectNode = connectNode nodes queue
+      }
  where
-  connectNode queue node = do
+  connectNode nodes queue node = do
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
@@ -137,18 +137,18 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   blockTime :: Integer -- seconds
   blockTime = 20
 
-  simulateChain queue chain = forever $ do
-    rollForward chain queue
-    rollForward chain queue
-    rollForward chain queue
-    rollForward chain queue
-    sendRollBackward chain 2
+  simulateChain nodes queue chain = forever $ do
+    rollForward nodes chain queue
+    rollForward nodes chain queue
+    rollForward nodes chain queue
+    rollForward nodes chain queue
+    sendRollBackward nodes chain 2
 
-  rollForward chain queue = do
+  rollForward nodes chain queue = do
     threadDelay $ fromIntegral blockTime
     transactions <- flushQueue queue []
     addNewBlockToChain chain transactions
-    sendRollForward chain
+    sendRollForward nodes chain
 
   flushQueue queue transactions = do
     hasTx <- atomically $ tryReadTQueue queue
@@ -160,7 +160,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
   appendToChain block (slotNum, cursor, blocks) =
     (slotNum, cursor, blocks :|> block)
 
-  sendRollForward chain = do
+  sendRollForward nodes chain = do
     (slotNum, position, blocks) <- readTVarIO chain
     case Seq.lookup position blocks of
       Just (header, txs) -> do
@@ -170,7 +170,7 @@ mockChainAndNetwork tr seedKeys nodes cp = do
       Nothing ->
         pure ()
 
-  sendRollBackward chain nbBlocks = do
+  sendRollBackward nodes chain nbBlocks = do
     (slotNum, position, blocks) <- readTVarIO chain
     case Seq.lookup (position - nbBlocks) blocks of
       Just (header, _) -> do

@@ -45,6 +45,7 @@ import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
+  SimulatedChainNetwork (..),
   TestHydraClient (..),
   createHydraNode,
   createTestHydraClient,
@@ -507,34 +508,39 @@ seedWorld ::
   ContestationPeriod ->
   RunMonad m ()
 seedWorld seedKeys seedCP = do
-  let parties = map (deriveParty . fst) seedKeys
   tr <- gets logger
-  nodes <- lift $ do
-    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-    nodes <- newTVarIO []
-    labelTVarIO nodes "nodes"
-    (connectToChain, tickThread) <-
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys nodes seedCP
-    res <- forM seedKeys $ \(hsk, _csk) -> do
+
+  mockChain@SimulatedChainNetwork{tickThread} <-
+    lift $
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys seedCP
+  pushThread tickThread
+
+  clients <- forM seedKeys $ \(hsk, _csk) -> do
+    let party = deriveParty hsk
+        otherParties = filter (/= party) parties
+    (testClient, nodeThread) <- lift $ do
       outputs <- atomically newTQueue
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      let party = deriveParty hsk
-          otherParties = filter (/= party) parties
       nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
-      node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory connectToChain seedCP
+      node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
       let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       link nodeThread
-      pure (party, testClient, nodeThread)
-    pure (res, tickThread)
+      pure (testClient, nodeThread)
+    pushThread nodeThread
+    pure (party, testClient)
 
   modify $ \n ->
-    n
-      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
-      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
-      }
+    n{nodes = Map.fromList clients}
+ where
+  parties = map (deriveParty . fst) seedKeys
+
+  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+
+  pushThread t = modify $ \s ->
+    s{threads = t : threads s}
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
