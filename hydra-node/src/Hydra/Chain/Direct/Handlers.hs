@@ -201,7 +201,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
 
     let slotNo = getChainSlotNo header
     timeHandle <- getTimeHandle
-    utcTime <- slotToUTC timeHandle slotNo
+    (utcTime, _) <- slotToUTC timeHandle slotNo
     let chainSlot = chainSlotFromPoint point
     callback (const . Just $ Tick utcTime chainSlot)
 

@@ -98,8 +98,10 @@ spec = do
 
       expectedUTCTime <-
         run $
-          either (failure . ("Time conversion failed: " <>) . toString) pure $
-            slotToUTCTime timeHandle slot
+          either
+            (failure . ("Time conversion failed: " <>) . toString)
+            pure
+            (fst <$> slotToUTCTime timeHandle slot)
 
       void . stop $ events === [Tick expectedUTCTime (ChainSlot . fromIntegral . unSlotNo $ slot)]
 

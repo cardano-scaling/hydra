@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.TimeHandle where
 import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
-import Cardano.Slotting.Time (fromRelativeTime, toRelativeTime, SystemStart (SystemStart))
+import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -33,7 +33,7 @@ data TimeHandle = TimeHandle
   , slotFromUTCTime :: UTCTime -> Either Text SlotNo
   -- ^ Lookup slot number given a 'UTCTime'. This will fail if the time is
   -- outside the "safe zone".
-  , slotToUTCTime :: SlotNo -> Either Text UTCTime
+  , slotToUTCTime :: SlotNo -> Either Text (UTCTime, SlotLength)
   -- ^ Convert a slot number to a 'UTCTime' using the stored epoch info. This
   -- will fail if the slot is outside the "safe zone".
   }
@@ -81,17 +81,17 @@ mkTimeHandle ::
 mkTimeHandle currentSlotNo systemStart eraHistory = do
   TimeHandle
     { currentPointInTime = do
-        pt <- slotToUTCTime currentSlotNo
+        (pt, _) <- slotToUTCTime currentSlotNo
         pure (currentSlotNo, pt)
     , slotFromUTCTime
     , slotToUTCTime
     }
  where
-  slotToUTCTime :: SlotNo -> Either Text UTCTime
+  slotToUTCTime :: SlotNo -> Either Text (UTCTime, SlotLength)
   slotToUTCTime slot =
     case getProgress slot eraHistory of
       Left pastHorizonEx -> Left $ show pastHorizonEx
-      Right (relativeTime, _slotLength) -> pure $ fromRelativeTime systemStart relativeTime
+      Right (relativeTime, _slotLength) -> pure (fromRelativeTime systemStart relativeTime, _slotLength)
 
   slotFromUTCTime :: HasCallStack => UTCTime -> Either Text SlotNo
   slotFromUTCTime utcTime = do
@@ -110,4 +110,3 @@ queryTimeHandle networkId socketPath = do
   eraHistory <- queryEraHistory networkId socketPath QueryTip
   currentTipSlot <- queryTipSlotNo networkId socketPath
   pure $ mkTimeHandle currentTipSlot systemStart eraHistory
-

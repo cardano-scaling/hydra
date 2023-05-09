@@ -17,7 +17,8 @@ spec = do
       let onLeft err = property False & counterexample ("Conversion failed: " <> toString err)
        in either onLeft id $ do
             (slot, _) <- currentPointInTime
-            res <- slotFromUTCTime =<< slotToUTCTime slot
+            (time, _) <- slotToUTCTime slot
+            res <- slotFromUTCTime time
             pure $ res === slot
 
   it "should convert slot within latest/current era" $ do
@@ -28,4 +29,4 @@ spec = do
         slotInside = SlotNo 14
         converted = slotToUTCTime timeHandle slotInside
         expected = Right $ posixSecondsToUTCTime 14
-    converted `shouldBe` expected
+    (fst <$> converted) `shouldBe` expected
