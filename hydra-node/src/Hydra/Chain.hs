@@ -207,7 +207,10 @@ data ChainEvent tx
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }
-  | Tick UTCTime
+  | Tick
+      { chainTime :: UTCTime
+      , chainSlot :: ChainSlot
+      }
   deriving (Generic)
 
 deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)

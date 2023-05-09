@@ -18,6 +18,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainEvent (..),
+  ChainSlot (..),
   HeadParameters,
   chainStateSlot,
  )
@@ -102,7 +103,7 @@ spec = do
           run $
             either (failure . ("Time conversion failed: " <>) . toString) pure $
               slotToUTCTime timeHandle slot
-        void . stop $ events === [Tick expectedUTCTime]
+        void . stop $ events === [Tick expectedUTCTime (ChainSlot . fromIntegral . unSlotNo $ slot)]
 
     prop "roll forward fails with outdated TimeHandle" $
       monadicIO $ do

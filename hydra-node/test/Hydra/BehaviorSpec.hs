@@ -38,6 +38,7 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
+  chainStateSlot,
   nextChainSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -588,7 +589,7 @@ simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
   chainStateVar <- newTVarIO initialChainState
-  tickThread <- async $ simulateTicks nodes
+  tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     SimulatedChainNetwork
       { connectNode = \node -> do
@@ -605,10 +606,11 @@ simulatedChainAndNetwork initialChainState = do
   -- seconds
   blockTime = 20
 
-  simulateTicks nodes = forever $ do
+  simulateTicks nodes chainStateVar = forever $ do
+    cs <- readTVarIO chainStateVar
     threadDelay blockTime
     now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now (chainStateSlot cs)) ns
 
   postTx nodes history chainStateVar tx = do
     now <- getCurrentTime

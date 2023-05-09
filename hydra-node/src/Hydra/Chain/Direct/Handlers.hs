@@ -37,6 +37,7 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -252,8 +253,9 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         case slotToUTCTime timeHandle slotNo of
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
-          Right utcTime ->
-            callback (Tick utcTime)
+          Right utcTime -> do
+            let chainSlot = chainSlotFromPoint point
+            callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $ \tx -> do
       maybeObserveSomeTx point tx >>= \case

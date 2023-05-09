@@ -23,10 +23,11 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
+  ChainSlot,
   ChainStateType,
   HeadId,
   HeadParameters (..),
-  IsChainState,
+  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -204,6 +205,7 @@ data OpenState tx = OpenState
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , currentSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -216,6 +218,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
   arbitrary =
     OpenState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -526,7 +529,7 @@ onInitialChainAbortTx newChainState committed headId =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (Monoid (UTxOType tx)) =>
+  (IsChainState tx) =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -540,6 +543,7 @@ onInitialChainCollectTx st newChainState =
               CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
           , chainState = newChainState
           , headId
+          , currentSlot = chainStateSlot newChainState
           }
     )
     [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
@@ -984,7 +988,7 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
-  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
+  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         NewState
           (Closed cst{readyToFanoutSent = True})
@@ -996,6 +1000,8 @@ update env ledger st ev = case (st, ev) of
   -- General
   (currentState, OnChainEvent Rollback{rolledBackChainState}) ->
     NewState (setChainState rolledBackChainState currentState) []
+  (Open ost@OpenState{}, OnChainEvent Tick{chainSlot}) ->
+    NewState (Open ost{currentSlot = chainSlot}) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1060,7 +1066,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) effects ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1078,6 +1084,7 @@ emitSnapshot env@Environment{party} outcome =
                         }
                   , chainState
                   , headId
+                  , currentSlot
                   }
             )
             $ NetworkEffect (ReqSn party sn txs) : effects

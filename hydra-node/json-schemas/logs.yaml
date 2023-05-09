@@ -760,6 +760,7 @@ definitions:
       - coordinatedHeadState
       - chainState
       - headId
+      - currentSlot
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -769,6 +770,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
         $ref: "api.yaml#/components/schemas/HeadId"
+      currentSlot:
+        $ref: "api.yaml#/components/schemas/ChainSlot"
 
   ClosedState:
     type: object
@@ -1099,13 +1102,16 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contents
+          - chainTime
+          - chainSlot
         properties:
           tag:
             type: string
             enum: ["Tick"]
-          contents:
+          chainTime:
             $ref: "api.yaml#/components/schemas/UTCTime"
+          chainSlot:
+            $ref: "api.yaml#/components/schemas/ChainSlot"
 
   OnChainTx:
     description: >-

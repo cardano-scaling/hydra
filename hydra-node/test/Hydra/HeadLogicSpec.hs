@@ -279,7 +279,7 @@ spec = do
           _ -> False
         s1 <- assertNewState outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline
+            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline (ChainSlot 1)
             s2 = update bobEnv ledger s1 stepTimePastDeadline
         s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
@@ -411,11 +411,14 @@ inOpenState' parties coordinatedHeadState =
     OpenState
       { parameters
       , coordinatedHeadState
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , currentSlot = chainSlot
       }
  where
   parameters = HeadParameters cperiod parties
+
+  chainSlot = ChainSlot 0
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
