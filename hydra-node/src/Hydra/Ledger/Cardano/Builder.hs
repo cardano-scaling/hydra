@@ -39,16 +39,15 @@ instance Exception InvalidTransactionException
 -- | An empty 'TxBodyContent' with all empty/zero values to be extended using
 -- record updates.
 --
--- FIXME: 'makeTransactionBody' throws when one tries to build a transaction
+-- NOTE: 'makeTransactionBody' throws when one tries to build a transaction
 -- with scripts but no collaterals. This is unfortunate because collaterals are
--- currently added after by out integrated wallet... We may want to revisit our
--- flow to avoid this exception and have the wallet work from a TxBodyContent BuildTx  instead
--- of fiddling with a sealed 'CardanoTx'.
+-- currently added after by our integrated wallet.
 --
--- Similarly, 'makeTransactionBody' throws when building a transaction
--- with scripts and no protocol parameters (needed to compute the script
--- integrity hash). This is also added by our wallet at the moment so
--- hopefully, this ugly work-around will be removed eventually.
+-- Similarly, 'makeTransactionBody' throws when building a transaction with
+-- scripts and no protocol parameters (needed to compute the script integrity
+-- hash). This is also added by our wallet at the moment and this ugly
+-- work-around will be removed eventually (related item
+-- [215](https://github.com/input-output-hk/hydra/issues/215).
 --
 -- So we currently bypass this by having default but seemingly innofensive
 -- values for collaterals and protocol params in the 'empty' value
@@ -56,7 +55,7 @@ emptyTxBody :: TxBodyContent BuildTx
 emptyTxBody =
   TxBodyContent
     mempty -- inputs
-    (TxInsCollateral mempty) -- FIXME
+    (TxInsCollateral mempty)
     TxInsReferenceNone
     mempty -- outputs
     TxTotalCollateralNone
@@ -66,7 +65,7 @@ emptyTxBody =
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) -- FIXME
+    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) 
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone
