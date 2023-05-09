@@ -523,15 +523,15 @@ instance
       withObject "Tx" $ \o -> do
         Ledger.Babbage.AlonzoTx
           <$> o
-          .: "body"
+            .: "body"
           <*> o
-          .: "witnesses"
+            .: "witnesses"
           <*> o
-          .:? "isValid"
-          .!= Ledger.Babbage.IsValid True
+            .:? "isValid"
+            .!= Ledger.Babbage.IsValid True
           <*> o
-          .:? "auxiliaryData"
-          .!= SNothing
+            .:? "auxiliaryData"
+            .!= SNothing
 
 --
 -- ValidityInterval
@@ -548,9 +548,9 @@ instance FromJSON Ledger.Mary.ValidityInterval where
   parseJSON = withObject "ValidityInterval" $ \obj ->
     Ledger.Mary.ValidityInterval
       <$> obj
-      .: "notBefore"
+        .: "notBefore"
       <*> obj
-      .: "notAfter"
+        .: "notAfter"
 
 --
 -- Value

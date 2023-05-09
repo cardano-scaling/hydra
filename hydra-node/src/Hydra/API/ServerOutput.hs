@@ -51,12 +51,12 @@ data ServerOutput tx
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
-      , -- | Nominal deadline until which contest can be submitted and after
-        -- which fanout is possible. NOTE: Use this only for informational
-        -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
-        -- as the ledger of our cardano-node might not have progressed
-        -- sufficiently in time yet and we do not re-submit transactions (yet).
-        contestationDeadline :: UTCTime
+      , contestationDeadline :: UTCTime
+      -- ^ Nominal deadline until which contest can be submitted and after
+      -- which fanout is possible. NOTE: Use this only for informational
+      -- purpose and wait for 'ReadyToFanout' instead before sending 'Fanout'
+      -- as the ledger of our cardano-node might not have progressed
+      -- sufficiently in time yet and we do not re-submit transactions (yet).
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | ReadyToFanout {headId :: HeadId}

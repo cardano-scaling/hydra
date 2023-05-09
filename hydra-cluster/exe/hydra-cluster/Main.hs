@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import CardanoNode (withCardanoNodeOnKnownNetwork, withCardanoNodeDevnet)
+import CardanoNode (withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), parseOptions)

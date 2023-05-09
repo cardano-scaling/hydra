@@ -220,15 +220,15 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits, notCollected)
     | isHeadOutput txInInfoResolved =
-      (commits, nCommits, notCollected)
+        (commits, nCommits, notCollected)
     | hasPT headId txInInfoResolved =
-      case commitDatum txInfo txInInfoResolved of
-        Just commit@Commit{} ->
-          (commit : commits, succ nCommits, notCollected)
-        Nothing ->
-          (commits, succ nCommits, notCollected)
+        case commitDatum txInfo txInInfoResolved of
+          Just commit@Commit{} ->
+            (commit : commits, succ nCommits, notCollected)
+          Nothing ->
+            (commits, succ nCommits, notCollected)
     | otherwise =
-      (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
+        (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
 
   isHeadOutput txOut = txOutAddress txOut == headAddress
 {-# INLINEABLE checkCollectCom #-}

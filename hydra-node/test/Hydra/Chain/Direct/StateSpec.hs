@@ -195,12 +195,12 @@ spec = parallel $ do
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
-        null (ctxParties ctxA `intersect` ctxParties ctxB)
-          ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
-          $ \(cctxA, cctxB) ->
-            forAll genTxIn $ \seedInput ->
-              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-               in isLeft (observeInit cctxB tx)
+        null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
+          forAll2 (pickChainContext ctxA) (pickChainContext ctxB) $
+            \(cctxA, cctxB) ->
+              forAll genTxIn $ \seedInput ->
+                let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+                 in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit

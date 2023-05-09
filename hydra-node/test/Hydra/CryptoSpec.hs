@@ -34,8 +34,8 @@ specSigningKey =
           exceedingSizeSeedB = Char8.pack $ replicate 32 'x' <> "b"
        in generateSigningKey exceedingSizeSeedA `shouldNotBe` generateSigningKey exceedingSizeSeedB
     prop "can be generated" $ \(seedA, seedB) -> do
-      (seedA /= seedB)
-        ==> (generateSigningKey seedA =/= generateSigningKey seedB)
+      (seedA /= seedB) ==>
+        (generateSigningKey seedA =/= generateSigningKey seedB)
     propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
 
 specVerificationKey :: Spec
@@ -54,8 +54,8 @@ specSignature =
         `shouldEndWith` "0a0a0a\""
 
     prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
-      (msgA /= msgB)
-        ==> (sign sk msgA =/= sign sk msgB)
+      (msgA /= msgB) ==>
+        (sign sk msgA =/= sign sk msgB)
 
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       let sig = sign sk msg
@@ -68,8 +68,8 @@ specMultiSignature =
     prop "is sensitive to order" $ \(allSigs :: HashSet (Signature ByteString)) ->
       let sigs = toList allSigs
        in forAll (shuffle sigs) $ \shuffled ->
-            (length sigs > 1 && sigs /= shuffled)
-              ==> (aggregate sigs =/= aggregate shuffled)
+            (length sigs > 1 && sigs /= shuffled) ==>
+              (aggregate sigs =/= aggregate shuffled)
 
     prop "aggregate/verifyMultiSignature roundtrip" $ \sks (msg :: ByteString) ->
       let sigs = map (\sk -> sign sk msg) sks

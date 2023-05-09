@@ -28,14 +28,14 @@ import Test.QuickCheck (getPositive)
 type PointInTime = (SlotNo, UTCTime)
 
 data TimeHandle = TimeHandle
-  { -- | Get the current 'PointInTime'
-    currentPointInTime :: Either Text PointInTime
-  , -- | Lookup slot number given a 'UTCTime'. This will fail if the time is
-    -- outside the "safe zone".
-    slotFromUTCTime :: UTCTime -> Either Text SlotNo
-  , -- | Convert a slot number to a 'UTCTime' using the stored epoch info. This
-    -- will fail if the slot is outside the "safe zone".
-    slotToUTCTime :: SlotNo -> Either Text UTCTime
+  { currentPointInTime :: Either Text PointInTime
+  -- ^ Get the current 'PointInTime'
+  , slotFromUTCTime :: UTCTime -> Either Text SlotNo
+  -- ^ Lookup slot number given a 'UTCTime'. This will fail if the time is
+  -- outside the "safe zone".
+  , slotToUTCTime :: SlotNo -> Either Text UTCTime
+  -- ^ Convert a slot number to a 'UTCTime' using the stored epoch info. This
+  -- will fail if the slot is outside the "safe zone".
   }
 
 data TimeHandleParams = TimeHandleParams

@@ -27,8 +27,9 @@ import Test.Hydra.Prelude (failure)
 -- package's data path.
 readConfigFile :: FilePath -> IO ByteString
 readConfigFile source = do
-  filename <- lookupEnv "HYDRA_CONFIG_DIR" >>=
-    maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
+  filename <-
+    lookupEnv "HYDRA_CONFIG_DIR"
+      >>= maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
   BS.readFile filename
 
 -- | Get the "well-known" keys for given actor.
@@ -49,7 +50,8 @@ keysFor actor = do
 chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> ContestationPeriod -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them cp = do
   when (me `elem` them) $
-    failure $ show me <> " must not be in " <> show them
+    failure $
+      show me <> " must not be in " <> show them
   readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
   readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
   forM_ them $ \actor ->

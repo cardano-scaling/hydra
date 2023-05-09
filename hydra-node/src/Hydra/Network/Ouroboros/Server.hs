@@ -15,12 +15,12 @@ import Network.TypedProtocol (
  )
 
 data FireForgetServer msg m a = FireForgetServer
-  { -- | The client sent us a message.
-    -- There is no response and we must have effects.
-    recvMsg :: msg -> m (FireForgetServer msg m a)
-  , -- | The client terminated. Here we have a pure return value, but we
-    -- could have done another action in 'm' if we wanted to.
-    recvMsgDone :: m a
+  { recvMsg :: msg -> m (FireForgetServer msg m a)
+  -- ^ The client sent us a message.
+  -- There is no response and we must have effects.
+  , recvMsgDone :: m a
+  -- ^ The client terminated. Here we have a pure return value, but we
+  -- could have done another action in 'm' if we wanted to.
   }
 
 fireForgetServerPeer ::

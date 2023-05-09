@@ -28,6 +28,7 @@ fireForgetClientPeer = \case
     Effect $ fireForgetClientPeer <$> next
   SendMsg msg next ->
     Yield (ClientAgency TokIdle) (MsgSend msg) $
-      Effect $ fireForgetClientPeer <$> next
+      Effect $
+        fireForgetClientPeer <$> next
   SendDone action ->
     Effect $ Yield (ClientAgency TokIdle) MsgDone . Done TokDone <$> action

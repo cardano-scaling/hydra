@@ -23,10 +23,10 @@ import PlutusLedgerApi.V2 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
 data ScriptInfo = ScriptInfo
-  { -- | Hash of the μHead minting script given some default parameters.
-    mintingScriptHash :: ScriptHash
-  , -- | Size of the μHead minting script given some default parameters.
-    mintingScriptSize :: Int64
+  { mintingScriptHash :: ScriptHash
+  -- ^ Hash of the μHead minting script given some default parameters.
+  , mintingScriptSize :: Int64
+  -- ^ Size of the μHead minting script given some default parameters.
   , initialScriptHash :: ScriptHash
   , initialScriptSize :: Int64
   , commitScriptHash :: ScriptHash

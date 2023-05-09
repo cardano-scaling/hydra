@@ -52,7 +52,8 @@ printTrace _ tr =
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
 shouldBe actual expected =
   unless (actual == expected) $
-    throwIO $ HUnitFailure location reason
+    throwIO $
+      HUnitFailure location reason
  where
   reason = ExpectedButGot Nothing (show expected) (show actual)
 

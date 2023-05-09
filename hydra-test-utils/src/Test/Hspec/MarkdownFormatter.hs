@@ -68,10 +68,10 @@ pathsToTree startLevel =
     case (path, forest) of
       ((root : rest, itemDesc), Group desc _ subs : groups)
         | root == desc ->
-          let subs' = growForest (lvl + 1) ((rest, itemDesc), item) subs
-           in Group desc (lvl + 1) subs' : groups
+            let subs' = growForest (lvl + 1) ((rest, itemDesc), item) subs
+             in Group desc (lvl + 1) subs' : groups
         | otherwise ->
-          Group desc (lvl + 1) subs : growForest lvl (path, item) groups
+            Group desc (lvl + 1) subs : growForest lvl (path, item) groups
       ((root : rest, itemDesc), groups) ->
         let subs = growForest (lvl + 1) ((rest, itemDesc), item) []
          in Group root (lvl + 1) subs : groups

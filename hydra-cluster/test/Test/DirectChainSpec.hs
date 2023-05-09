@@ -262,7 +262,8 @@ spec = around showLogsOnFailure $ do
                 _ -> Nothing
             now <- getCurrentTime
             unless (deadline > now) $
-              failure $ "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
+              failure $
+                "contestationDeadline in the past: " <> show deadline <> ", now: " <> show now
             delayUntil deadline
 
             waitMatch aliceChain $ \case
@@ -329,12 +330,12 @@ spec = around showLogsOnFailure $ do
           readCreateProcess
             ( proc
                 "hydra-node"
-                ( "publish-scripts" :
-                  mconcat
-                    [ ["--node-socket", nodeSocket]
-                    , toArgNetworkId networkId
-                    , ["--cardano-signing-key", cardanoSigningKey]
-                    ]
+                ( "publish-scripts"
+                    : mconcat
+                      [ ["--node-socket", nodeSocket]
+                      , toArgNetworkId networkId
+                      , ["--cardano-signing-key", cardanoSigningKey]
+                      ]
                 )
             )
             ""

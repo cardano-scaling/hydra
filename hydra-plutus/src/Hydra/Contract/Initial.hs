@@ -47,8 +47,8 @@ import qualified PlutusTx.Builtins as Builtins
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
-      { -- | Points to the committed Utxo.
-        committedRef :: Maybe TxOutRef
+      { committedRef :: Maybe TxOutRef
+      -- ^ Points to the committed Utxo.
       }
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer

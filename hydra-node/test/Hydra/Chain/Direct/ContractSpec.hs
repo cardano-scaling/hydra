@@ -184,21 +184,21 @@ prop_consistentHashPreSerializedCommits =
 prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_hashingCaresAboutOrderingOfTxOuts =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    (length utxo > 1)
-      ==> let plutusTxOuts =
-                rights $
-                  zipWith
-                    (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
-                    [0 ..]
-                    txOuts
-              txOuts = snd <$> UTxO.pairs utxo
-           in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
-                (shuffledTxOuts /= plutusTxOuts)
-                  ==> let hashed = OnChain.hashTxOuts plutusTxOuts
-                          hashShuffled = OnChain.hashTxOuts shuffledTxOuts
-                       in (hashed =/= hashShuffled)
-                            & counterexample ("Plutus: " <> show plutusTxOuts)
-                            & counterexample ("Shuffled: " <> show shuffledTxOuts)
+    (length utxo > 1) ==>
+      let plutusTxOuts =
+            rights $
+              zipWith
+                (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+                [0 ..]
+                txOuts
+          txOuts = snd <$> UTxO.pairs utxo
+       in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
+            (shuffledTxOuts /= plutusTxOuts) ==>
+              let hashed = OnChain.hashTxOuts plutusTxOuts
+                  hashShuffled = OnChain.hashTxOuts shuffledTxOuts
+               in (hashed =/= hashShuffled)
+                    & counterexample ("Plutus: " <> show plutusTxOuts)
+                    & counterexample ("Shuffled: " <> show shuffledTxOuts)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
