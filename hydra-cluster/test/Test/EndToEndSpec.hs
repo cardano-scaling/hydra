@@ -124,7 +124,7 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
-      fit "can submmit a timed tx" $ \tracer -> do
+      it "can submmit a timed tx" $ \tracer -> do
         withClusterTempDir "timmed-tx" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
