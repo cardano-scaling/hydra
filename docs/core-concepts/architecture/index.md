@@ -58,7 +58,7 @@ The _Head Logic_ of course maintains the internal state of the head and persists
 
 This "component" represents  all of the Hydra smart contracts needed for Head protocol operation. Currently the contracts are written using `Plutus-Tx`. The scripts are optimized using custom `ScriptContext` and error codes for now.
 
-### API layer
+### API
 
 `hydra-node` exposes an [Asynchronous API](https://hydra.family/head-protocol/unstable/api-reference) through a Websocket server. This API is available to _Hydra Client_ to send commands and observe changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from persistence layer and serves them to clients in case they are interested in observing them.
 
