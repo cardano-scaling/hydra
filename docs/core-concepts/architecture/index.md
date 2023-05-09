@@ -72,4 +72,4 @@ The Hydra node logs all side-effects occuring internally as JSON-formatted messa
 
 ### Monitoring
 
-The Hydra node [optionally](http://localhost:3000/head-protocol/docs/getting-started/quickstart#hydra-node-options) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.
+The Hydra node [optionally](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-node-options) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.
