@@ -30,4 +30,3 @@ For the time being, until _Plutus Application Framework_ is released, we will im
 
 * Limit Hydra dependencies to [plutus](https://github.com/input-output-hk/plutus) repository
 * Remove all PAB-related code as well as off-chain `Contract`s code and related dependencies
-* See [Architecture page](/core-concepts/architecture) for details
