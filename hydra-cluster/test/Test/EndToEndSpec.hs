@@ -69,7 +69,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
-import Hydra.Ledger (txId, ChainSlot (..))
+import Hydra.Ledger (ChainSlot (..), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -503,17 +503,14 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-
     -- Acquire a current point in time
-    (chainSlot, _, chainTime, slotLength, _) <- waitMatch 3 n1 $ \v -> do
+    _ <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
-      chainSlot :: ChainSlot <- v ^? key "chainSlot" . _JSON
       systemStart :: UTCTime <- v ^? key "systemStart" . _JSON
+      chainSlot :: ChainSlot <- v ^? key "chainSlot" . _JSON
       chainTime :: UTCTime <- v ^? key "chainTime" . _JSON
-      -- slotLength :: Integer <- v ^? key "slotLength" . _JSON
-      timestamp :: UTCTime <- v ^? key "timestamp" . _JSON
-      -- FIXME: should use `slotLength` from ledger Config
-      return (chainSlot, systemStart, chainTime, 0.1, timestamp)
+      slotLength :: Integer <- v ^? key "slotLength" . _JSON
+      return (systemStart, chainSlot, chainTime, slotLength)
 
     waitForNodesConnected tracer [n1]
 
@@ -527,7 +524,14 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     -- Get some UTXOs to commit to a head
     committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
     send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-    waitFor tracer 10 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+    (chainSlot, chainTime, slotLengthMillis) <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsOpen"
+      guard $ v ^? key "utxo" == Just (toJSON committedUTxOByAlice)
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      chainSlot :: ChainSlot <- v ^? key "chainSlot" . _JSON
+      chainTime :: UTCTime <- v ^? key "chainTime" . _JSON
+      slotLength :: Integer <- v ^? key "slotLength" . _JSON
+      return (chainSlot, chainTime, slotLength)
 
     -- Create an arbitrary transaction using some input.
     let paymentFromAliceToFaucet :: Num a => a
@@ -539,11 +543,11 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     now <- getCurrentTime
     let
       secondsToAwait = 15
-      slotsToAwait = SlotNo . truncate $ secondsToAwait / slotLength
+      slotLengthSec = fromInteger slotLengthMillis / 1000
+      slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
 
-      -- futureUTCTime = addUTCTime secondsToAwait chainTime
       (ChainSlot nbr) = chainSlot
-      slotsSince = SlotNo . truncate $ (diffUTCTime now chainTime / slotLength)
+      slotsSince = SlotNo . truncate $ (diffUTCTime now chainTime / slotLengthSec)
       currentSlot = SlotNo (fromIntegral nbr) + slotsSince
       futureSlot = currentSlot + slotsToAwait
 

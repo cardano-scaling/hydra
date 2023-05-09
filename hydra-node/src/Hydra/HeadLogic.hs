@@ -559,8 +559,10 @@ onInitialChainCollectTx ::
   -- | New chain state
   ChainStateType tx ->
   ChainSlot ->
+  UTCTime ->
+  Integer ->
   Outcome tx
-onInitialChainCollectTx st newChainState currentChainSlot =
+onInitialChainCollectTx st newChainState currentChainSlot currentChainTime chainSlotLength =
   NewState
     ( Open
         OpenState
@@ -573,7 +575,15 @@ onInitialChainCollectTx st newChainState currentChainSlot =
           , currentSlot = currentChainSlot
           }
     )
-    [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
+    [ ClientEffect $
+        HeadIsOpen
+          { headId
+          , utxo = u0
+          , chainSlot = currentChainSlot
+          , chainTime = currentChainTime
+          , slotLength = chainSlotLength
+          }
+    ]
  where
   u0 = fold committed
 
@@ -1018,8 +1028,8 @@ update env ledger st ev = case (st, ev) of
     onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
-  (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState, chainSlot}) ->
-    onInitialChainCollectTx initialState newChainState chainSlot
+  (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState, chainSlot, chainTime, chainSlotLength}) ->
+    onInitialChainCollectTx initialState newChainState chainSlot chainTime chainSlotLength
   (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
@@ -1060,7 +1070,7 @@ update env ledger st ev = case (st, ev) of
   -- General
   (currentState, OnChainEvent (Rollback slot)) ->
     onCurrentChainRollback currentState slot
-  (Open ost@OpenState{}, OnChainEvent Tick{chainTime, chainSlot}) ->
+  (Open ost@OpenState{}, OnChainEvent Tick{chainSlot}) ->
     NewState (Open ost{currentSlot = chainSlot}) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []

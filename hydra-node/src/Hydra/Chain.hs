@@ -192,6 +192,8 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       , chainTime :: UTCTime
       , chainSlot :: ChainSlot
+      , chainSlotLength :: Integer
+      -- ^ Slot length on the chain measured in milli seconds.
       }
   | Rollback ChainSlot
   | -- XXX: it's not guaranteed that UTCTime and ChainSlot of a Tick are consistent

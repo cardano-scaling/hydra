@@ -47,7 +47,13 @@ data ServerOutput tx
   | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsOpen
+      { headId :: HeadId
+      , utxo :: UTxOType tx
+      , chainSlot :: ChainSlot
+      , chainTime :: UTCTime
+      , slotLength :: Integer
+      }
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -126,7 +132,13 @@ instance
     PeerDisconnected p -> PeerDisconnected <$> shrink p
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
-    HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
+    HeadIsOpen headId u chainSlot chainTime slotLength ->
+      HeadIsOpen
+        <$> shrink headId
+        <*> shrink u
+        <*> shrink chainSlot
+        <*> shrink chainTime
+        <*> shrink slotLength
     HeadIsClosed headId s t -> HeadIsClosed <$> shrink headId <*> shrink s <*> shrink t
     HeadIsContested headId sn -> HeadIsContested <$> shrink headId <*> shrink sn
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
@@ -141,7 +153,7 @@ instance
     Greetings me headStatus snapshotUtxo chainSlot sytemStart chainTime slotLength ->
       Greetings
         <$> shrink me
-        <*> shrink headStatus 
+        <*> shrink headStatus
         <*> shrink snapshotUtxo
         <*> shrink chainSlot
         <*> shrink sytemStart
@@ -294,5 +306,5 @@ projectHeadStatus headStatus = \case
 projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Hydra.Snapshot.utxo snapshot
-  HeadIsOpen _ utxos -> Just utxos
+  HeadIsOpen _ utxos _ _ _ -> Just utxos
   _other -> snapshotUtxo

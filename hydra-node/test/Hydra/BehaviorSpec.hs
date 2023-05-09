@@ -50,7 +50,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger (ChainSlot (..), Ledger, nextChainSlot)
+import Hydra.Ledger (ChainSlot (..), Ledger, nextChainSlot, IsTx (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -104,7 +104,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRef 1)
             send n1 (Commit (utxoRef 2))
             waitUntil [n1] (CommandFailed (Commit (utxoRef 2)))
 
@@ -116,7 +116,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRef 1)
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
@@ -128,7 +128,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRef 1)
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
@@ -142,7 +142,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRef 1)
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
@@ -161,11 +161,15 @@ spec = parallel $ do
               send n1 (Commit (utxoRef 1))
               waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
               let veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
+              veryLong (waitForNext n1) >>= (\output -> 
+                  case output of
+                    Just HeadIsOpen{utxo} -> utxo `shouldNotBe` (utxoRef 1)
+                    _ -> return ()
+                )
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+              waitUntil' [n1] $ headIsOpenWithUTxO (utxoRefs [1, 2])
 
     it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
@@ -190,9 +194,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
-
-              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
-
+              waitUntil' [n1, n2] $ headIsOpenWithUTxO (utxoRefs [1, 2])
               send n1 Abort
               waitUntil [n1] (CommandFailed Abort)
 
@@ -211,7 +213,7 @@ spec = parallel $ do
 
               send n2 (Commit (utxoRef 2))
               waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+              waitUntil' [n1] $ headIsOpenWithUTxO (utxoRefs [1, 2])
 
               send n1 (Commit (utxoRef 11))
               waitUntil [n1] (CommandFailed (Commit (utxoRef 11)))
@@ -307,7 +309,7 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
-                threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
+                threadDelay . realToFrac $ fromIntegral defaultTTL * waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> transaction == secondTx
                   _ -> False
@@ -414,8 +416,8 @@ spec = parallel $ do
               -- 'OnChainTx' without providing a chain state?
               let chainTime = arbitrary `generateWith` 42
                   chainSlot = ChainSlot 0
-              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot, chainSlotLength = mockSlotLength}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx 0 deadline, newChainState = SimpleChainState{slot = chainSlot}, chainTime, chainSlot, chainSlotLength = mockSlotLength}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> snapshotNumber == 0
@@ -475,13 +477,13 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             send n1 (Commit (utxoRef 1))
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRefs [1])
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
             waitUntil [n1] RolledBack
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
+            waitUntil' [n1] $ headIsOpenWithUTxO (utxoRefs [1])
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
@@ -491,7 +493,15 @@ waitUntil ::
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
-  waitUntilMatch nodes (== expected)
+  waitUntil' nodes (== expected)
+
+waitUntil' ::
+  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  (ServerOutput tx -> Bool) ->
+  m ()
+waitUntil' nodes expectedPredicate =
+  waitUntilMatch nodes expectedPredicate
 
 -- | Wait for some output to match some predicate /eventually/. This will not
 -- wait forever, but for a long time (1 month) to get a nice error location.
@@ -610,6 +620,7 @@ simulatedChainAndNetwork initialChainState = do
 
   postTx nodes history chainStateVar tx = do
     now <- getCurrentTime
+    (_, currentChainTime, slotLength) <- getStatus chainStateVar
     chainEvent <- atomically $ do
       modifyTVar' chainStateVar advanceSlot
       cs' <- readTVar chainStateVar
@@ -617,8 +628,9 @@ simulatedChainAndNetwork initialChainState = do
         Observation
           { observedTx = toOnChainTx now tx
           , newChainState = cs'
-          , chainTime = now
+          , chainTime = currentChainTime
           , chainSlot = chainStateSlot cs'
+          , chainSlotLength = slotLength
           }
     recordAndYieldEvent nodes history chainEvent
 
@@ -647,6 +659,15 @@ simulatedChainAndNetwork initialChainState = do
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
+
+  getStatus chainStateVar = do
+    chainTime <- getCurrentTime
+    cs <- readTVarIO chainStateVar
+    let chainSlot = chainStateSlot cs
+    pure (chainSlot, chainTime, mockSlotLength)
+
+mockSlotLength :: Integer
+mockSlotLength = 1000
 
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
@@ -787,7 +808,7 @@ openHead n1 n2 = do
   waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
   send n2 (Commit (utxoRef 2))
   waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
-  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+  waitUntil' [n1, n2] $ headIsOpenWithUTxO (utxoRefs [1, 2])
 
 matchFanout :: PostChainTx tx -> Bool
 matchFanout = \case
@@ -809,3 +830,10 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
 shortLabel :: SigningKey HydraKey -> String
 shortLabel s =
   take 8 $ drop 1 $ List.words (show s) !! 2
+
+
+headIsOpenWithUTxO :: Eq (UTxOType tx) => UTxOType tx -> ServerOutput tx -> Bool
+headIsOpenWithUTxO expectedUTxO output =
+  case output of
+    HeadIsOpen{utxo} | utxo == expectedUTxO -> True
+    _ -> False

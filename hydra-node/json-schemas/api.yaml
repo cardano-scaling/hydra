@@ -394,6 +394,9 @@ components:
           - tag
           - headId
           - utxo
+          - chainSlot
+          - chainTime
+          - slotLength
           - seq
           - timestamp
         properties:
@@ -404,6 +407,15 @@ components:
             $ref: "#/components/schemas/HeadId"
           utxo:
             $ref: "#/components/schemas/UTxO"
+          chainSlot:
+            $ref: "#/components/schemas/ChainSlot"
+          chainTime:
+            $ref: "#/components/schemas/UTCTime"
+          slotLength:
+            type: integer
+            minimum: 0
+            description:
+              Current slot length on chain in millis
           seq:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:

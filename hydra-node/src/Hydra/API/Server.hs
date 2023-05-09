@@ -7,6 +7,7 @@ module Hydra.API.Server where
 
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
+import Cardano.Slotting.Time (fromRelativeTime, slotLengthToMillisec, slotLengthToSec)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
@@ -23,15 +24,21 @@ import Hydra.API.ServerOutput (
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
+  chainSlot,
+  chainTime,
   headStatus,
   me,
   prepareServerOutput,
   projectHeadStatus,
   projectSnapshotUtxo,
-  snapshotUtxo, chainSlot, chainTime, systemStart, slotLength,
+  slotLength,
+  snapshotUtxo,
+  systemStart,
  )
+import Hydra.Cardano.Api (NetworkId, SlotNo (..), getProgress, getSystemStart)
 import Hydra.Chain (IsChainState)
-import Hydra.Ledger (UTxOType, ChainSlot (..))
+import Hydra.Chain.CardanoClient (CardanoClient (..), QueryPoint (..), querySystemStart)
+import Hydra.Ledger (ChainSlot (..), UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -60,9 +67,6 @@ import Network.WebSockets (
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
-import Hydra.Cardano.Api (NetworkId, SlotNo (..), getSystemStart, getProgress)
-import Hydra.Chain.CardanoClient (querySystemStart, QueryPoint (..), CardanoClient (..))
-import Cardano.Slotting.Time (fromRelativeTime, slotLengthToSec)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -247,7 +251,7 @@ runAPIServer host port party cardanoClient tracer history callback headStatusP s
                 , chainSlot = ChainSlot $ fromIntegral currentSlotNo
                 , systemStart = getSystemStart systemStart
                 , chainTime
-                , slotLength = slotLengthToSec slotLength
+                , slotLength = slotLengthToMillisec slotLength
                 } ::
                 ServerOutput tx
           }

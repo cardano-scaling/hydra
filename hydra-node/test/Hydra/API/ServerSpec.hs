@@ -7,6 +7,8 @@ import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
+import Cardano.Ledger.Slot (SlotNo (SlotNo))
+import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
@@ -24,9 +26,13 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
 import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot)
+import Hydra.Chain.CardanoClient (CardanoClient (..))
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -39,12 +45,6 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Hydra.Chain.CardanoClient (CardanoClient (..))
-import Cardano.Ledger.Slot (SlotNo(SlotNo))
-import Cardano.Slotting.Time (SystemStart(SystemStart))
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 
 spec :: Spec
 spec = describe "ServerSpec" $
@@ -292,7 +292,7 @@ spec = describe "ServerSpec" $
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
-            headIsOpenMsg <- generate $ HeadIsOpen <$> arbitrary <*> arbitrary
+            headIsOpenMsg <- generate $ HeadIsOpen <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
             snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
               generateSnapshot
 
@@ -343,14 +343,14 @@ spec = describe "ServerSpec" $
             sendsAnErrorWhenInputCannotBeDecoded port
 
 mockCardanoClient :: CardanoClient
-mockCardanoClient = CardanoClient
-  {
-    queryUTxOByAddress = error "should not call queryUTxOByAddress in test"
+mockCardanoClient =
+  CardanoClient
+    { queryUTxOByAddress = error "should not call queryUTxOByAddress in test"
     , networkId = testNetworkId
     , queryTipCurrentSlot = pure $ SlotNo 0
     , queryTipSystemStart = pure $ SystemStart $ posixSecondsToUTCTime 0
     , queryTipEraHistory = pure $ eraHistoryWithHorizonAt (SlotNo 1000)
-  }
+    }
 
 strictlyMonotonic :: [Natural] -> Bool
 strictlyMonotonic = \case

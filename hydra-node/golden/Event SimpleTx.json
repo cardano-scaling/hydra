@@ -8,7 +8,8 @@
         },
         {
             "chainEvent": {
-                "chainSlot": 20,
+                "chainSlot": 12,
+                "chainSlotLength": -27,
                 "chainTime": "1864-05-27T18:32:13.171671550313Z",
                 "newChainState": 25,
                 "observedTx": {

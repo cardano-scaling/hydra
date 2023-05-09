@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (..))
+import Cardano.Slotting.Time (slotLengthToMillisec)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
@@ -201,7 +202,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
 
     let slotNo = getChainSlotNo header
     timeHandle <- getTimeHandle
-    (utcTime, _) <- slotToUTC timeHandle slotNo
+    (utcTime, slotLength) <- slotToUTC timeHandle slotNo
     let chainSlot = chainSlotFromPoint point
     callback (const . Just $ Tick utcTime chainSlot)
 
@@ -220,6 +221,7 @@ chainSyncHandler tracer callback getTimeHandle ctx =
                       }
                 , chainTime = utcTime
                 , chainSlot
+                , chainSlotLength = slotLengthToMillisec slotLength
                 }
    where
     slotToUTC timeHandle slotNo =
