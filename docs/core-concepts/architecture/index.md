@@ -31,17 +31,11 @@ _Network_ component is responsible for all of the communications related to the 
 
 ### Chain Interaction
 
-#### Direct Chain
+#### Chain
 
-The _Chain_ component is responsible for interfacing the Hydra node with the Cardano (aka. Layer 1) chain. It uses the `Node-to-Client` protocol to both "follow the chain" and observe new blocks and transactions which can change the state of the head, and submit transactions in response to client's requests or as needed to advance the protocol's state. It connects to a locally spun cardano-node using the _local socket_and contains the _off-chain_ logic, based on cardano-api, that knows how to observe and build transactions relevant to the Hydra protocol.
+The _Chain_ component is responsible for interfacing the Hydra node with the Cardano (aka. Layer 1) chain. The current, so-called `Direct`, implementation uses the `Node-to-Client` protocol to both "follow the chain" and observe new blocks and transactions which can change the state of the head, and submit transactions in response to client's requests or as needed to advance the protocol's state. It connects to a locally spun cardano-node using the _local socket_and contains the _off-chain_ logic, based on cardano-api, that knows how to observe and build transactions relevant to the Hydra protocol. See  [ADR-10](/adr/10) for more details.
 
-:::info
-
-The reason why this component is called _Direct_ chain is historical: Initially, we thought of using the [Plutus Application Backend](https://plutus-apps.readthedocs.io/en/latest/plutus/explanations/pab.html) to handle interaction between the off- and on-chain parts of the Hydra protocol but we switched to use the lower level node-to-client protocol.
-
-:::
-
-#### Tiny Wallet
+#### Wallet
 
 Hydra also maintains an internal "wallet" which is currently part of the Chain components layer, to handle the payment of transaction fees and signing transctions using a dedicated Cardano signing key. There are [plans](https://github.com/input-output-hk/hydra/issues/215) to make it possible to use an external wallet to balance and sign Hydra node's transactions.
 
