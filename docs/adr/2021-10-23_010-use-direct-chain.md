@@ -1,6 +1,6 @@
 ---
 slug: 10
-title: | 
+title: |
   10. Use Direct Connection to `cardano-node`
 authors: []
 tags: [Accepted]
@@ -30,6 +30,4 @@ For the time being, until _Plutus Application Framework_ is released, we will im
 
 * Limit Hydra dependencies to [plutus](https://github.com/input-output-hk/plutus) repository
 * Remove all PAB-related code as well as off-chain `Contract`s code and related dependencies
-* An updated architecture diagram:
-
-![](../../hydra-node/images/hydra-architecture-direct.jpg)
+* See [Architecture page](/core-concepts/architecture) for details
