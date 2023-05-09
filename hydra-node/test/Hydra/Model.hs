@@ -24,6 +24,7 @@ import Cardano.Api.UTxO (pairs)
 import qualified Cardano.Api.UTxO as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
+  labelTQueueIO,
   labelTVarIO,
   modifyTVar,
   newTQueue,
@@ -43,36 +44,34 @@ import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
-import qualified Hydra.API.ServerOutput as Output
 import Hydra.BehaviorSpec (
-  TestHydraNode (..),
+  SimulatedChainNetwork (..),
+  TestHydraClient (..),
   createHydraNode,
-  createTestHydraNode,
+  createTestHydraClient,
   shortLabel,
   waitMatch,
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
+  IdleState (..),
   PendingCommits,
  )
+import qualified Hydra.HeadLogic as HeadState
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (
-  NodeState (NodeState),
-  modifyHeadState,
-  queryHeadState,
-  runHydraNode,
- )
+import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
@@ -128,6 +127,10 @@ isInitialState :: GlobalState -> Bool
 isInitialState Initial{} = True
 isInitialState _ = False
 
+isOpenState :: GlobalState -> Bool
+isOpenState Open{} = True
+isOpenState _ = False
+
 isFinalState :: GlobalState -> Bool
 isFinalState Final{} = True
 isFinalState _ = False
@@ -168,6 +171,8 @@ instance StateModel WorldState where
     NewTx :: Party -> Payment -> Action WorldState ()
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Payment -> Action WorldState ()
+    -- Check that all parties have observed the head as open
+    ObserveHeadIsOpen :: Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -179,23 +184,17 @@ instance StateModel WorldState where
   arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
   arbitraryAction _ st@WorldState{hydraParties, hydraState} =
     case hydraState of
-      Start -> genSeed
-      Idle{} -> genInit
+      Start -> fmap Some genSeed
+      Idle{} -> fmap Some $ genInit hydraParties
       Initial{pendingCommits} ->
         frequency
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{} -> genNewTx
-      _ -> genSeed
+      Open{} -> do
+        genNewTx
+      _ -> fmap Some genSeed
    where
-    genSeed = fmap Some $ Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
-
-    genInit = do
-      key <- fst <$> elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Init party
-
     genCommit pending = do
       party <- elements $ toList pending
       let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
@@ -210,10 +209,6 @@ instance StateModel WorldState where
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
-    genContestationPeriod = do
-      n <- choose (1, 200)
-      pure $ UnsafeContestationPeriod $ wordToNatural n
-
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -227,6 +222,8 @@ instance StateModel WorldState where
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
+  precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition _ StopTheWorld =
     True
@@ -309,6 +306,7 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       Wait _ -> s
       ObserveConfirmedTx _ -> s
+      ObserveHeadIsOpen -> s
       StopTheWorld -> s
 
 instance HasVariables WorldState where
@@ -325,6 +323,30 @@ deriving instance Show (Action WorldState a)
 deriving instance Eq (Action WorldState a)
 
 -- ** Generator Helper
+
+genSeed :: Gen (Action WorldState ())
+genSeed = Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+
+genContestationPeriod :: Gen ContestationPeriod
+genContestationPeriod = do
+  n <- choose (1, 200)
+  pure $ UnsafeContestationPeriod $ wordToNatural n
+
+genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
+genInit hydraParties = do
+  key <- fst <$> elements hydraParties
+  let party = deriveParty key
+  pure $ Init party
+
+genCommit' ::
+  [(SigningKey HydraKey, CardanoSigningKey)] ->
+  (SigningKey HydraKey, CardanoSigningKey) ->
+  Gen (Action WorldState [(CardanoSigningKey, Value)])
+genCommit' hydraParties hydraParty = do
+  let (_, sk) = fromJust $ find (== hydraParty) hydraParties
+  value <- genAdaValue
+  let utxo = [(sk, value)]
+  pure $ Commit (deriveParty . fst $ hydraParty) utxo
 
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
@@ -356,7 +378,7 @@ partyKeys =
 -- | Concrete state needed to run actions against the implementation.
 -- This state is used and might be updated when actually `perform`ing actions generated from the `StateModel`.
 data Nodes m = Nodes
-  { nodes :: Map.Map Party (TestHydraNode Tx m)
+  { nodes :: Map.Map Party (TestHydraClient Tx m)
   -- ^ Map from party identifiers to a /handle/ for interacting with a node.
   , logger :: Tracer m (HydraLog Tx ())
   -- ^ Logger used by each node.
@@ -364,9 +386,6 @@ data Nodes m = Nodes
   -- instantiated upon the test run initialisation, outiside of the model.
   , threads :: [Async m ()]
   -- ^ List of threads spawned when executing `RunMonad`
-  -- FIXME: Remove it? It's not actually useful when running inside io-sim as
-  -- there's no risk of leaking threads anyway, but perhaps it's good hygiene
-  -- to keep it?
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -437,8 +456,8 @@ instance
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-  perform st command _ = do
-    case command of
+  perform st action _ = do
+    case action of
       Seed{seedKeys, seedContestationPeriod} ->
         seedWorld seedKeys seedContestationPeriod
       Commit party utxo ->
@@ -446,7 +465,7 @@ instance
       NewTx party transaction ->
         performNewTx party transaction
       Init party ->
-        party `sendsInput` Input.Init
+        performInit party
       Abort party -> do
         performAbort party
       Wait delay ->
@@ -457,56 +476,68 @@ instance
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
             Left u -> throwIO $ TransactionNotObserved tx u
             Right _ -> pure ()
+      ObserveHeadIsOpen -> do
+        nodes' <- Map.toList <$> gets nodes
+        forM_ nodes' $ \(_, node) -> do
+          outputs <- lift $ serverOutputs node
+          case find headIsOpen outputs of
+            Just _ -> pure ()
+            Nothing -> error "The head is not open for node"
       StopTheWorld ->
         stopTheWorld
+   where
+    headIsOpen = \case
+      HeadIsOpen{} -> True
+      _otherwise -> False
 
 -- ** Performing actions
 
 seedWorld ::
   ( MonadDelay m
   , MonadAsync m
-  , MonadFork m
-  , MonadMask m
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
+  , MonadFork m
+  , MonadMask m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
   RunMonad m ()
 seedWorld seedKeys seedCP = do
-  let parties = map (deriveParty . fst) seedKeys
-      dummyNodeState =
-        NodeState
-          { modifyHeadState = error "undefined"
-          , queryHeadState = error "undefined"
-          }
   tr <- gets logger
-  nodes <- lift $ do
-    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-    nodes <- newTVarIO []
-    labelTVarIO nodes "nodes"
-    (connectToChain, tickThread) <-
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys nodes seedCP
-    res <- forM seedKeys $ \(hsk, _csk) -> do
+
+  mockChain@SimulatedChainNetwork{tickThread} <-
+    lift $
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys seedCP
+  pushThread tickThread
+
+  clients <- forM seedKeys $ \(hsk, _csk) -> do
+    let party = deriveParty hsk
+        otherParties = filter (/= party) parties
+    (testClient, nodeThread) <- lift $ do
       outputs <- atomically newTQueue
+      labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
-      labelTVarIO nodes ("outputs-" <> shortLabel hsk)
-      labelTVarIO nodes ("history-" <> shortLabel hsk)
-      let party = deriveParty hsk
-          otherParties = filter (/= party) parties
-      node <- createHydraNode ledger dummyNodeState hsk otherParties outputs outputHistory connectToChain seedCP
-      let testNode = createTestHydraNode outputs outputHistory node
+      labelTVarIO outputHistory ("history-" <> shortLabel hsk)
+      nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
+      node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
+      let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       link nodeThread
-      pure (party, testNode, nodeThread)
-    pure (res, tickThread)
+      pure (testClient, nodeThread)
+    pushThread nodeThread
+    pure (party, testClient)
 
   modify $ \n ->
-    n
-      { nodes = Map.fromList $ (\(p, t, _) -> (p, t)) <$> fst nodes
-      , threads = snd nodes : ((\(_, _, t) -> t) <$> fst nodes)
-      }
+    n{nodes = Map.fromList clients}
+ where
+  parties = map (deriveParty . fst) seedKeys
+
+  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+
+  pushThread t = modify $ \s ->
+    s{threads = t : threads s}
 
 performCommit ::
   (MonadThrow m, MonadTimer m) =>
@@ -519,7 +550,6 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> do
-      lift $ waitForHeadIsInitializing party nodes
       let realUTxO =
             UTxO.fromPairs $
               [ (mkMockTxIn vk ix, txOut)
@@ -533,7 +563,9 @@ performCommit parties party paymentUTxO = do
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
               | cp == party -> Just committedUTxO
+            err@CommandFailed{} -> error $ show err
             _ -> Nothing
+
       pure $ fromUtxo observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
@@ -545,7 +577,7 @@ performCommit parties party paymentUTxO = do
   findSigningKey :: (AddressInEra, Value) -> (CardanoSigningKey, Value)
   findSigningKey (addr, value) =
     case List.lookup addr knownAddresses of
-      Nothing -> error $ show $ UnknownAddress addr knownAddresses
+      Nothing -> error $ "cannot invert address:  " <> show addr
       Just sk -> (sk, value)
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
@@ -559,20 +591,13 @@ performNewTx ::
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
+  let thisNode = nodes ! party
 
-  let waitForOpen = do
-        outs <- lift $ serverOutputs (nodes ! party)
-        let matchHeadIsOpen = \case
-              Output.HeadIsOpen{} -> True
-              _ -> False
-        case find matchHeadIsOpen outs of
-          Nothing -> lift (threadDelay 0.1) >> waitForOpen
-          Just{} -> pure ()
-  waitForOpen
+  waitForOpen thisNode
 
   (i, o) <-
-    lift (waitForUTxOToSpend mempty (from tx) (value tx) (nodes ! party)) >>= \case
-      Left u -> throwIO $ CannotFindSpendableUTxO tx u
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
+      Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
 
   let realTx =
@@ -583,11 +608,26 @@ performNewTx party tx = do
 
   party `sendsInput` Input.NewTx realTx
   lift $
-    waitUntilMatch [nodes ! party] $ \case
-      SnapshotConfirmed{Output.snapshot = snapshot} ->
+    waitUntilMatch [thisNode] $ \case
+      SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      err@Output.TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+      err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
+
+-- | Wait for the head to be open by searching from the beginning. Note that
+-- there rollbacks or multiple life-cycles of heads are not handled here.
+waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
+waitForOpen node = do
+  outs <- lift $ serverOutputs node
+  unless
+    (any headIsOpen outs)
+    waitAndRetry
+ where
+  headIsOpen = \case
+    HeadIsOpen{} -> True
+    _ -> False
+
+  waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
@@ -596,11 +636,27 @@ sendsInput party command = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> lift $ actorNode `send` command
 
-performAbort :: (MonadDelay m, MonadSTM m, MonadThrow m) => Party -> RunMonad m ()
-performAbort party = do
+performInit :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performInit party = do
+  party `sendsInput` Input.Init
+
   nodes <- gets nodes
-  lift $ waitForHeadIsInitializing party nodes
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsInitializing{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
+
+performAbort :: (MonadDelay m, MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
+performAbort party = do
   party `sendsInput` Input.Abort
+
+  nodes <- gets nodes
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsAborted{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
@@ -624,36 +680,12 @@ showFromAction k = \case
   Wait{} -> k
   ObserveConfirmedTx{} -> k
   StopTheWorld -> k
+  ObserveHeadIsOpen -> k
 
 checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
 checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
   expectedCommitted == actualCommitted
 checkOutcome _ _ _ = True
-
-waitForHeadIsInitializing ::
-  forall m tx.
-  MonadDelay m =>
-  Party ->
-  Map Party (TestHydraNode tx m) ->
-  m ()
-waitForHeadIsInitializing party nodes = go 100
- where
-  -- The reason why we repeatedly query the server is because we could
-  -- miss some outputs _before_ we even call that function which will
-  -- lead to random failures.
-  go :: Int -> m ()
-  go = \case
-    0 -> pure ()
-    n -> do
-      outs <- serverOutputs (nodes ! party)
-      let matchHeadIsInitializing = \case
-            Output.HeadIsInitializing{} -> True
-            _ -> False
-      case find matchHeadIsInitializing outs of
-        Nothing ->
-          threadDelay 10 >> go (n - 1)
-        Just{} ->
-          pure ()
 
 waitForUTxOToSpend ::
   forall m.
@@ -661,7 +693,7 @@ waitForUTxOToSpend ::
   UTxO ->
   CardanoSigningKey ->
   Value ->
-  TestHydraNode Tx m ->
+  TestHydraClient Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
 waitForUTxOToSpend utxo key value node = go 100
  where

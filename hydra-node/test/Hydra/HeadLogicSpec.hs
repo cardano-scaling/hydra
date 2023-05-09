@@ -29,7 +29,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  IdleState (..),
   InitialState (..),
   LogicError (..),
   OpenState (..),
@@ -48,8 +47,6 @@ import Hydra.Party (Party (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
-import Test.QuickCheck (forAll)
-import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = do
@@ -286,12 +283,6 @@ spec = do
             s2 = update bobEnv ledger s1 stepTimePastDeadline
         s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
-      it "notify user on rollback" $
-        forAll arbitrary $ \s -> monadicIO $ do
-          let rollback = OnChainEvent (Rollback $ ChainSlot 2)
-          let s' = update bobEnv ledger s rollback
-          void $ run $ s' `hasEffect` ClientEffect RolledBack
-
       it "contests when detecting close with old snapshot" $ do
         let snapshot = Snapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
@@ -395,15 +386,11 @@ inInitialState parties =
       { parameters
       , pendingCommits = Set.fromList parties
       , committed = mempty
-      , previousRecoverableState = Idle idleState
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where
   parameters = HeadParameters cperiod parties
-
-  idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inOpenState ::
   [Party] ->
@@ -424,26 +411,11 @@ inOpenState' parties coordinatedHeadState =
     OpenState
       { parameters
       , coordinatedHeadState
-      , previousRecoverableState
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where
   parameters = HeadParameters cperiod parties
-
-  previousRecoverableState =
-    Initial
-      InitialState
-        { parameters
-        , pendingCommits = mempty
-        , committed = mempty
-        , previousRecoverableState = Idle idleState
-        , chainState = SimpleChainState{slot = ChainSlot 0}
-        , headId = testHeadId
-        }
-
-  idleState =
-    IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
@@ -456,7 +428,6 @@ inClosedState' parties confirmedSnapshot =
   Closed
     ClosedState
       { parameters
-      , previousRecoverableState
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
@@ -467,8 +438,6 @@ inClosedState' parties confirmedSnapshot =
   parameters = HeadParameters cperiod parties
 
   contestationDeadline = arbitrary `generateWith` 42
-
-  previousRecoverableState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case

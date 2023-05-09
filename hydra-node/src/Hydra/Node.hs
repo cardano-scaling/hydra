@@ -38,7 +38,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (async)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -48,8 +48,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   Outcome (..),
   defaultTTL,
-  getChainState,
-  setChainState,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
@@ -159,7 +157,7 @@ stepHydraNode tracer node = do
   HydraNode{persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
-waitDelay :: NominalDiffTime
+waitDelay :: DiffTime
 waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
@@ -205,7 +203,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
-  , putEventAfter :: NominalDiffTime -> e -> m ()
+  , putEventAfter :: DiffTime -> e -> m ()
   , nextEvent :: m e
   , isEmpty :: m Bool
   }
@@ -229,7 +227,7 @@ createEventQueue = do
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do
-            threadDelay $ realToFrac delay
+            threadDelay delay
             atomically $ do
               modifyTVar' numThreads pred
               writeTQueue q e
@@ -260,25 +258,3 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
-
-chainCallback ::
-  MonadSTM m =>
-  NodeState tx m ->
-  EventQueue m (Event tx) ->
-  ChainCallback tx m
-chainCallback NodeState{modifyHeadState} eq cont = do
-  -- Provide chain state to continuation and update it when we get a newState
-  -- NOTE: Although we do handle the chain state explictly in the 'HeadLogic',
-  -- this is required as multiple transactions may be observed and the chain
-  -- state shall accumulate the state changes coming with those observations.
-  mEvent <- atomically . modifyHeadState $ \hs ->
-    case cont $ getChainState hs of
-      Nothing ->
-        (Nothing, hs)
-      Just ev@Observation{newChainState} ->
-        (Just ev, setChainState newChainState hs)
-      Just ev ->
-        (Just ev, hs)
-  case mEvent of
-    Nothing -> pure ()
-    Just chainEvent -> putEvent eq $ OnChainEvent{chainEvent}

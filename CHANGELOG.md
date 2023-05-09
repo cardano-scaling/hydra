@@ -10,6 +10,10 @@ changes.
 
 ## [0.10.0] - UNRELEASED
 
+- **BREAKING** Removed `RolledBack` server output from the API and changed
+  `hydra-node` internal handling of rollbacks. This also changes the log format
+  of the internal `Rollback` event.
+
 - **BREAKING** Changed `hydra-node` and `hydra-tui` arguments:
   + Instead of `--network-id` flag they now use `--testnet-magic` and we support
     also `--mainnet` flag.

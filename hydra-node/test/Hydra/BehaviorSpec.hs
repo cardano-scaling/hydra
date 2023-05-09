@@ -38,7 +38,6 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  chainStateSlot,
   nextChainSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -309,7 +308,7 @@ spec = parallel $ do
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
-                threadDelay . realToFrac $ (fromIntegral defaultTTL) * waitDelay + 1
+                threadDelay $ fromIntegral defaultTTL * waitDelay + 1
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> transaction == secondTx
                   _ -> False
@@ -455,7 +454,7 @@ spec = parallel $ do
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
-  describe "rolling back & forward" $ do
+  describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -464,8 +463,9 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
-            waitUntil [n1] RolledBack
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+            -- We expect the node to still work and let us commit
+            send n1 (Commit (utxoRef 1))
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
@@ -479,15 +479,15 @@ spec = parallel $ do
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
-            waitUntil [n1] RolledBack
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
+            -- We expect the node to still work and let us post L2 transactions
+            send n1 (NewTx (aValidTx 42))
+            waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
   (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, IsChainState tx) =>
-  [TestHydraNode tx m] ->
+  [TestHydraClient tx m] ->
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
@@ -500,7 +500,7 @@ waitUntil nodes expected =
 -- constantly this would be fully simulated to the end.
 waitUntilMatch ::
   (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
-  [TestHydraNode tx m] ->
+  [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate =
@@ -517,7 +517,7 @@ waitUntilMatch nodes predicate =
 -- will loop forever until a match has been found.
 waitMatch ::
   (MonadThrow m) =>
-  TestHydraNode tx m ->
+  TestHydraClient tx m ->
   (ServerOutput tx -> Maybe a) ->
   m a
 waitMatch node predicate =
@@ -529,8 +529,10 @@ waitMatch node predicate =
 
 -- XXX: The names of the following handles and functions are confusing.
 
--- | A thin layer around 'HydraNode' to be able to 'waitFor'.
-data TestHydraNode tx m = TestHydraNode
+-- | A thin client layer around 'HydraNode' to be interact with it through
+-- 'send', 'waitForNext', access all outputs and inject events through the test
+-- chain.
+data TestHydraClient tx m = TestHydraClient
   { send :: ClientInput tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   , injectChainEvent :: ChainEvent tx -> m ()
@@ -540,8 +542,8 @@ data TestHydraNode tx m = TestHydraNode
 -- | A simulated chain that just echoes 'PostChainTx' as 'Observation's of
 -- 'OnChainTx' onto all connected nodes. It can also 'rollbackAndForward' any
 -- number of these "transactions".
-data ConnectToChain tx m = ConnectToChain
-  { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
+data SimulatedChainNetwork tx m = SimulatedChainNetwork
+  { connectNode :: HydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   }
@@ -551,7 +553,7 @@ data ConnectToChain tx m = ConnectToChain
 -- initial chain state to play back to our test nodes.
 withSimulatedChainAndNetwork ::
   (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m) =>
-  (ConnectToChain SimpleTx m -> m ()) ->
+  (SimulatedChainNetwork SimpleTx m -> m ()) ->
   m ()
 withSimulatedChainAndNetwork action = do
   chain <- simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0}
@@ -575,22 +577,22 @@ instance IsChainStateTest Tx where
             ChainPoint (SlotNo 1) (error "should not use block header hash in tests")
      in cs{recordedAt = Just newChainPoint}
 
--- | Creates a simulated chain and network by returning a handle with a
--- 'HydraNode' decorator to connect it to the simulated chain. NOTE: The
--- 'tickThread' needs to be 'cancel'ed after use. Use
--- 'withSimulatedChainAndNetwork' instead where possible.
+-- | Creates a simulated chain and network to which 'HydraNode's can be
+-- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
+-- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
+-- possible.
 simulatedChainAndNetwork ::
   (MonadSTM m, MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
   ChainStateType tx ->
-  m (ConnectToChain tx m)
+  m (SimulatedChainNetwork tx m)
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
   chainStateVar <- newTVarIO initialChainState
   tickThread <- async $ simulateTicks nodes
   pure $
-    ConnectToChain
-      { chainComponent = \node -> do
+    SimulatedChainNetwork
+      { connectNode = \node -> do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
@@ -601,7 +603,9 @@ simulatedChainAndNetwork initialChainState = do
       , rollbackAndForward = rollbackAndForward nodes history chainStateVar
       }
  where
-  blockTime = 20 -- seconds
+  -- seconds
+  blockTime = 20
+
   simulateTicks nodes = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
@@ -640,7 +644,7 @@ simulatedChainAndNetwork initialChainState = do
     atomically $ writeTVar chainStateVar rolledBackChainState
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n (Rollback $ chainStateSlot rolledBackChainState)
+    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
@@ -695,7 +699,7 @@ testHeadId = HeadId "1234"
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
-  TestHydraNode tx m ->
+  TestHydraClient tx m ->
   DiffTime ->
   m ()
 nothingHappensFor node secs =
@@ -705,25 +709,25 @@ withHydraNode ::
   forall s a.
   SigningKey HydraKey ->
   [Party] ->
-  ConnectToChain SimpleTx (IOSim s) ->
-  (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode signingKey otherParties connectToChain action = do
+withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory connectToChain testContestationPeriod
+  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action (createTestHydraNode outputs outputHistory node)
+    action (createTestHydraClient outputs outputHistory node)
 
-createTestHydraNode ::
+createTestHydraClient ::
   (MonadSTM m) =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
-  TestHydraNode tx m
-createTestHydraNode outputs outputHistory HydraNode{eq} =
-  TestHydraNode
+  TestHydraClient tx m
+createTestHydraClient outputs outputHistory HydraNode{eq} =
+  TestHydraClient
     { send = putEvent eq . ClientEvent
     , waitForNext = atomically (readTQueue outputs)
     , injectChainEvent = putEvent eq . OnChainEvent
@@ -738,14 +742,14 @@ createHydraNode ::
   [Party] ->
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
-  ConnectToChain tx m ->
+  SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   m (HydraNode tx m)
-createHydraNode ledger nodeState signingKey otherParties outputs outputHistory connectToChain cp = do
+createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
   eq <- createEventQueue
   persistenceVar <- newTVarIO Nothing
   labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
-  chainComponent connectToChain $
+  connectNode chain $
     HydraNode
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
@@ -773,8 +777,8 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
       }
 
 openHead ::
-  TestHydraNode SimpleTx (IOSim s) ->
-  TestHydraNode SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
   IOSim s ()
 openHead n1 n2 = do
   send n1 Init

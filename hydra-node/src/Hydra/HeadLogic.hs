@@ -23,11 +23,10 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot,
   ChainStateType,
   HeadId,
   HeadParameters (..),
-  IsChainState (chainStateSlot),
+  IsChainState,
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -51,7 +50,6 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.QuickCheck (oneof)
 
 -- * Types
 
@@ -115,22 +113,13 @@ instance
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
--- It is a recursive data structure, where 'previousRecoverableState' fields
--- record the state before the latest 'OnChainEvent' that has been observed.
--- On-Chain events are indeed only __eventually__ immutable and the application
--- state may be rolled back at any time (with a decreasing probability as the
--- time pass).
+-- Each of the sub-types (InitialState, OpenState, etc.) contain black-box
+-- 'chainState' corresponding to 'OnChainEvent' that has been observed leading
+-- to the state.
 --
--- Thus, leverage functional immutable data-structure, we build a recursive
--- structure of states which we can easily navigate backwards when needed (see
--- 'Rollback' and 'rollback').
---
--- Note that currently, rolling back to a previous recoverable state eliminates
--- any off-chain events (e.g. transactions) that happened after that state. This
--- is particularly important for anything following the transition to
--- 'OpenState' since this is where clients may start submitting transactions. In
--- practice, clients should not send transactions right way but wait for a
--- certain grace period to minimize the risk.
+-- Note that rollbacks are currently not fully handled in the head logic and
+-- only this internal chain state gets replaced with the "rolled back to"
+-- version.
 data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)
@@ -185,7 +174,6 @@ data InitialState tx = InitialState
   , committed :: Committed tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -202,10 +190,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> oneof
-        [ Idle <$> arbitrary
-        , Initial <$> arbitrary
-        ]
 
 type PendingCommits = Set Party
 
@@ -220,7 +204,6 @@ data OpenState tx = OpenState
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -236,7 +219,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> (Initial <$> arbitrary)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -309,7 +291,6 @@ data ClosedState tx = ClosedState
   -- 'ReadyToFanout'.
   , chainState :: ChainStateType tx
   , headId :: HeadId
-  , previousRecoverableState :: HeadState tx
   }
   deriving (Generic)
 
@@ -327,10 +308,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
-      <*> oneof
-        [ Open <$> arbitrary
-        , Closed <$> arbitrary
-        ]
 
 -- ** Other types
 
@@ -425,21 +402,19 @@ onIdleClientInit env st =
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
-  IdleState tx ->
   -- | New chain state.
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
   HeadId ->
   Outcome tx
-onIdleChainInitTx idleState newChainState parties contestationPeriod headId =
+onIdleChainInitTx newChainState parties contestationPeriod headId =
   NewState
     ( Initial
         InitialState
           { parameters = HeadParameters{contestationPeriod, parties}
           , pendingCommits = Set.fromList parties
           , committed = mempty
-          , previousRecoverableState = Idle idleState
           , chainState = newChainState
           , headId
           }
@@ -496,7 +471,6 @@ onInitialChainCommitTx st newChainState pt utxo =
         { parameters
         , pendingCommits = remainingParties
         , committed = newCommitted
-        , previousRecoverableState = Initial st
         , chainState = newChainState
         , headId
         }
@@ -564,7 +538,6 @@ onInitialChainCollectTx st newChainState =
           { parameters
           , coordinatedHeadState =
               CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
-          , previousRecoverableState = Initial st
           , chainState = newChainState
           , headId
           }
@@ -881,7 +854,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
         , confirmedSnapshot
         , contestationDeadline
         , readyToFanoutSent = False
-        , previousRecoverableState = Open openState
         , chainState = newChainState
         , headId
         }
@@ -960,30 +932,6 @@ onClosedChainFanoutTx closedState newChainState =
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
--- | Observe a chain rollback and transition to corresponding previous
--- recoverable state.
---
--- __Transition__: 'OpenState' → 'HeadState'
-onCurrentChainRollback ::
-  (IsChainState tx) =>
-  HeadState tx ->
-  ChainSlot ->
-  Outcome tx
-onCurrentChainRollback currentState slot =
-  NewState (rollback slot currentState) [ClientEffect RolledBack]
- where
-  rollback rollbackSlot hs
-    | chainStateSlot (getChainState hs) <= rollbackSlot = hs
-    | otherwise =
-        case hs of
-          Idle{} -> hs
-          Initial InitialState{previousRecoverableState} ->
-            rollback rollbackSlot previousRecoverableState
-          Open OpenState{previousRecoverableState} ->
-            rollback rollbackSlot previousRecoverableState
-          Closed ClosedState{previousRecoverableState} ->
-            rollback rollbackSlot previousRecoverableState
-
 -- | The "pure core" of the Hydra node, which handles the 'Event' against a
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
@@ -997,8 +945,8 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle idleState, ClientEvent Init) ->
     onIdleClientInit env idleState
-  (Idle idleState, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
-    onIdleChainInitTx idleState newChainState parties contestationPeriod headId
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
+    onIdleChainInitTx newChainState parties contestationPeriod headId
   -- Initial
   (Initial idleState, ClientEvent clientInput@(Commit _)) ->
     onInitialClientCommit env idleState clientInput
@@ -1046,8 +994,8 @@ update env ledger st ev = case (st, ev) of
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx closedState newChainState
   -- General
-  (currentState, OnChainEvent (Rollback slot)) ->
-    onCurrentChainRollback currentState slot
+  (currentState, OnChainEvent Rollback{rolledBackChainState}) ->
+    NewState (setChainState rolledBackChainState currentState) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1112,7 +1060,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, previousRecoverableState, chainState, headId}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId}) effects ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1124,11 +1072,10 @@ emitSnapshot env@Environment{party} outcome =
                       coordinatedHeadState
                         { seenSnapshot =
                             RequestedSnapshot
-                              { lastSeen = seenSnapshotNumber $ seenSnapshot
+                              { lastSeen = seenSnapshotNumber seenSnapshot
                               , requested = sn
                               }
                         }
-                  , previousRecoverableState
                   , chainState
                   , headId
                   }

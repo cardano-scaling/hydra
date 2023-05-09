@@ -2,107 +2,24 @@
     "samples": [
         {
             "by": {
-                "vkey": "e0fd432241097de20e23c8539e7c75e9d23cfb95142203036d63dd9c86e7ec21"
+                "vkey": "c8d08ad907abb9fc6cc6c6662d6a2fddad87218ea70bb1e320c4cfb966747609"
             },
-            "event": {
-                "chainEvent": {
-                    "contents": 9,
-                    "tag": "Rollback"
+            "outcome": {
+                "reason": {
+                    "tag": "WaitOnSnapshotNumber",
+                    "waitingFor": 10
                 },
-                "tag": "OnChainEvent"
+                "tag": "Wait"
             },
-            "tag": "BeginEvent"
+            "tag": "LogicOutcome"
         },
         {
             "by": {
-                "vkey": "3bb9e29ecb946ea6cb64b16056bfa125de8177fafd6705f1cd1611123fa30546"
-            },
-            "event": {
-                "clientInput": {
-                    "tag": "NewTx",
-                    "transaction": {
-                        "id": 21,
-                        "inputs": [
-                            -27,
-                            -26,
-                            -24,
-                            -22,
-                            -16,
-                            -14,
-                            -9,
-                            -8,
-                            -6,
-                            -5,
-                            -2,
-                            0,
-                            5,
-                            8,
-                            10,
-                            14,
-                            15,
-                            16,
-                            20,
-                            21,
-                            23,
-                            25,
-                            29
-                        ],
-                        "outputs": [
-                            -27,
-                            -26,
-                            -23,
-                            -21,
-                            -18,
-                            -17,
-                            -16,
-                            -15,
-                            -11,
-                            -9,
-                            -6,
-                            -4,
-                            -3,
-                            -2,
-                            1,
-                            6,
-                            9,
-                            18,
-                            19,
-                            24,
-                            25,
-                            30
-                        ]
-                    }
-                },
-                "tag": "ClientEvent"
-            },
-            "tag": "EndEvent"
-        },
-        {
-            "by": {
-                "vkey": "16811b0eaf2a63175744ca75e3c4464348518cb8573152bb536a1d1032a51c5c"
-            },
-            "event": {
-                "chainEvent": {
-                    "newChainState": {
-                        "slot": 11
-                    },
-                    "observedTx": {
-                        "snapshotNumber": 11,
-                        "tag": "OnContestTx"
-                    },
-                    "tag": "Observation"
-                },
-                "tag": "OnChainEvent"
-            },
-            "tag": "EndEvent"
-        },
-        {
-            "by": {
-                "vkey": "8954b941ddcb9291139b60a9d8bfa30092929f5f4d8f613d530386dfb45c654d"
+                "vkey": "3c226859075a842f065a1214e288772277b9fa8564be61e262069bb17cbf5a82"
             },
             "effect": {
                 "message": {
-                    "nodeId": "bywwpjmsyshjs",
+                    "nodeId": "nujkr",
                     "tag": "Disconnected"
                 },
                 "tag": "NetworkEffect"
@@ -111,55 +28,74 @@
         },
         {
             "by": {
-                "vkey": "f6d74e363529be8ea53086d44d916d3e73f7b1ae85a8218142466f2dfc65d511"
+                "vkey": "0225977568032687468cd3b63a876b1e922f0942767f8cbfa5175a2683fd928a"
             },
             "event": {
                 "message": {
-                    "party": {
-                        "vkey": "eec0b7d807689031b7146de858c74d1355fdb372a01832388fc30e1b0cbdc3e9"
-                    },
-                    "tag": "ReqTx",
-                    "transaction": {
-                        "id": 21,
-                        "inputs": [
-                            -29,
-                            -12,
-                            15,
-                            20,
-                            30
-                        ],
-                        "outputs": [
-                            -30,
-                            -27,
-                            -26,
-                            -25,
-                            -23,
-                            -21,
-                            -14,
-                            -12,
-                            -8,
-                            -6,
-                            0,
-                            1,
-                            2,
-                            7,
-                            11,
-                            14,
-                            15,
-                            17,
-                            18,
-                            20,
-                            22,
-                            27,
-                            29
-                        ]
-                    }
+                    "nodeId": "soovwftwiftftccnmsvrqnfdazecmc",
+                    "tag": "Connected"
                 },
                 "tag": "NetworkEvent",
-                "ttl": 15
+                "ttl": 24
+            },
+            "tag": "BeginEvent"
+        },
+        {
+            "by": {
+                "vkey": "1f9a64bc9923fc43e2e9aee933866f20ec4efcc03923c3c7b0b4dacca61e0801"
+            },
+            "outcome": {
+                "reason": {
+                    "tag": "WaitOnNotApplicableTx",
+                    "validationError": {
+                        "reason": "%\u000f'LVmfdⱫK\u0017\\䚴𮅙o7󹖕?Fk5;YK"
+                    }
+                },
+                "tag": "Wait"
+            },
+            "tag": "LogicOutcome"
+        },
+        {
+            "by": {
+                "vkey": "fdba840c22c1c8e7579908f3a74baa9fe8916a051ef29ee8e646ff3f651d050b"
+            },
+            "event": {
+                "postChainTx": {
+                    "tag": "CollectComTx",
+                    "utxo": [
+                        -29,
+                        -28,
+                        -27,
+                        -26,
+                        -22,
+                        -19,
+                        -18,
+                        -12,
+                        -11,
+                        -10,
+                        -9,
+                        -5,
+                        3,
+                        14,
+                        15,
+                        16,
+                        19,
+                        20,
+                        21,
+                        23,
+                        26,
+                        27,
+                        28
+                    ]
+                },
+                "postTxError": {
+                    "byronAddress": "Ae2tdPwUPEZ6Jm4iKoi14djDDVaWBpJ4bTErxgENMEpJhWbLstDUMRe4BEy",
+                    "tag": "UnsupportedLegacyOutput"
+                },
+                "tag": "PostTxError"
             },
             "tag": "EndEvent"
         }
     ],
-    "seed": -2088440374
+    "seed": -432724400
 }

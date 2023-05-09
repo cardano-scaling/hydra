@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (..))
+import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
@@ -36,7 +37,6 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
-  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -57,6 +57,46 @@ import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+
+-- | Handle of a local chain state that is kept in the direct chain layer.
+data LocalChainState m = LocalChainState
+  { getLatest :: STM m ChainStateAt
+  , pushNew :: ChainStateAt -> STM m ()
+  , rollback :: ChainPoint -> STM m ChainStateAt
+  }
+
+-- | Initialize a new local chain state with given 'ChainStateAt' (see also
+-- 'initialChainState').
+newLocalChainState ::
+  MonadSTM m =>
+  ChainStateAt ->
+  m (LocalChainState m)
+newLocalChainState chainStateAt = do
+  tv <- newTVarIO chainStateAt
+  pure
+    LocalChainState
+      { getLatest = getLatest tv
+      , pushNew = pushNew tv
+      , rollback = rollback tv
+      }
+ where
+  getLatest tv = readTVar tv
+
+  pushNew tv cs =
+    modifyTVar tv $ \prev ->
+      cs{previous = Just prev}
+
+  rollback tv point = do
+    latest <- readTVar tv
+    let rolledBack = go point latest
+    writeTVar tv rolledBack
+    pure rolledBack
+
+  go rollbackChainPoint = \case
+    cs@ChainStateAt{recordedAt = Just recordPoint}
+      | recordPoint <= rollbackChainPoint -> cs
+    ChainStateAt{previous = Just prev} -> go rollbackChainPoint prev
+    cs -> cs
 
 -- * Posting Transactions
 
@@ -82,26 +122,29 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
+  LocalChainState m ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx submitTx =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { postTx = \chainState tx -> do
+    { postTx = \_chainState tx -> do
+        chainState <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        -- FIXME (MB): cardano keys should really not be here (as this
-        -- point they are in the 'chainState' stored in the 'ChainContext')
-        -- . They are only required for the init transaction and ought to
-        -- come from the _client_ and be part of the init request
-        -- altogether. This goes in the direction of 'dynamic heads' where
-        -- participants aren't known upfront but provided via the API.
-        -- Ultimately, an init request from a client would contain all the
-        -- details needed to establish connection to the other peers and
-        -- to bootstrap the init transaction. For now, we bear with it and
-        -- keep the static keys in context.
-        atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-          >>= finalizeTx wallet ctx chainState
-          >>= submitTx
+        vtx <-
+          -- FIXME (MB): cardano keys should really not be here (as this
+          -- point they are in the 'chainState' stored in the 'ChainContext')
+          -- . They are only required for the init transaction and ought to
+          -- come from the _client_ and be part of the init request
+          -- altogether. This goes in the direction of 'dynamic heads' where
+          -- participants aren't known upfront but provided via the API.
+          -- Ultimately, an init request from a client would contain all the
+          -- details needed to establish connection to the other peers and
+          -- to bootstrap the init transaction. For now, we bear with it and
+          -- keep the static keys in context.
+          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
+            >>= finalizeTx wallet ctx chainState
+        submitTx vtx
     }
 
 -- | Balance and sign the given partial transaction.
@@ -176,18 +219,22 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
+  LocalChainState m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
     }
  where
+  LocalChainState{rollback, getLatest, pushNew} = localChainState
+
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    callback (const . Just $ Rollback $ chainSlotFromPoint point)
+    rolledBackChainState <- atomically $ rollback point
+    callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -206,22 +253,26 @@ chainSyncHandler tracer callback getTimeHandle ctx =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime ->
-            callback (const . Just $ Tick utcTime)
+            callback (Tick utcTime)
 
-    forM_ receivedTxs $ \tx ->
-      callback $ \ChainStateAt{chainState = cs} ->
-        case observeSomeTx ctx cs tx of
-          Nothing -> Nothing
-          Just (observedTx, cs') ->
-            Just $
-              Observation
-                { observedTx
-                , newChainState =
-                    ChainStateAt
-                      { chainState = cs'
-                      , recordedAt = Just point
-                      }
+    forM_ receivedTxs $ \tx -> do
+      maybeObserveSomeTx point tx >>= \case
+        Nothing -> pure ()
+        Just event -> callback event
+
+  maybeObserveSomeTx point tx = atomically $ do
+    csa@ChainStateAt{chainState} <- getLatest
+    case observeSomeTx ctx chainState tx of
+      Nothing -> pure Nothing
+      Just (observedTx, cs') -> do
+        let newChainState =
+              ChainStateAt
+                { chainState = cs'
+                , recordedAt = Just point
+                , previous = Just csa
                 }
+        pushNew newChainState
+        pure $ Just Observation{observedTx, newChainState}
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

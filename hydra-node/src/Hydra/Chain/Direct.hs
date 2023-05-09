@@ -70,6 +70,7 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
   chainSyncHandler,
   mkChain,
+  newLocalChainState,
   onRollBackward,
   onRollForward,
  )
@@ -116,6 +117,7 @@ initialChainState =
   ChainStateAt
     { chainState = Idle
     , recordedAt = Nothing
+    , previous = Nothing
     }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
@@ -182,11 +184,13 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   ChainContext ->
-  -- | Last known point on chain as loaded from persistence.
-  Maybe ChainPoint ->
   TinyWallet IO ->
+  -- | Last known chain state as loaded from persistence.
+  ChainStateAt ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx persistedPoint wallet callback action = do
+withDirectChain tracer config ctx wallet chainStateAt callback action = do
+  -- Last known point on chain as loaded from persistence.
+  let persistedPoint = recordedAt chainStateAt
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -195,17 +199,19 @@ withDirectChain tracer config ctx persistedPoint wallet callback action = do
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
+  localChainState <- newLocalChainState chainStateAt
   let chainHandle =
         mkChain
           tracer
           getTimeHandle
           wallet
           ctx
+          localChainState
           (submitTx queue)
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     race
-      ( handle onIOException $ do
-          let handler = chainSyncHandler tracer callback getTimeHandle ctx
+      ( handle onIOException $ 
           connectToLocalNode
             connectInfo
             (clientProtocols chainPoint queue handler)

@@ -204,7 +204,9 @@ data ChainEvent tx
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | Rollback ChainSlot
+  | Rollback
+      { rolledBackChainState :: ChainStateType tx
+      }
   | Tick UTCTime
   deriving (Generic)
 
@@ -223,9 +225,9 @@ instance
   where
   arbitrary = genericArbitrary
 
--- | A callback indicating receival of a potential Hydra transaction which is Maybe
--- observing a relevant 'ChainEvent tx'.
-type ChainCallback tx m = (ChainStateType tx -> Maybe (ChainEvent tx)) -> m ()
+-- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
+-- 'Observation' of a relevant Hydra transaction.
+type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a

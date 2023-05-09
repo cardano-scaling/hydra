@@ -41,9 +41,4 @@ The consequences of a rollback on the Head's state are different depending at wh
 🛠 Hydra currently handles rollback gracefully in simple cases, eg. case 1 above, and does not try to do anything clever when a `CollectCom` happens which can lead easily to a Head becoming stale: Because one node is desynchronised from other nodes (it has observed a rollback of a `Collectcom` transaction, reset its state before that, thus lost track of everything that happened while the Head was open), it will be necessary to close the head.
 :::
 
-Rollbacks are handled in a very simple way in the Head, as the following sequence diagram shows:
-
-![](rollbacks-4.jpg)
-
-* When a relevant transaction is observed, eg. `OnInit` or `OnCommit` in the case depicted above, it induces a new `HeadState` which is linked to the _previous_ state,
-* When a rollback is observed on-chain, the `HeadLogic` is notified with `Rollback` event telling the number of steps that need to be rolled-back: The `HeadLogic` layer does not need to care about the details of what a `Point Block` is on-chain, it only stores a sequence of state that can be easily "rolled back" to a previous state.
+Rollbacks handling has been partially deactivated in hydra by [ADR-22](https://github.com/input-output-hk/hydra/blob/master/docs/adr/2023-04-26_022-single-state.md). This section shall be updated with a more appropriate and detailed rollback handling with issue [#185](https://github.com/input-output-hk/hydra/issues/185).

@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE MultiWayIf #-}
 
 module Main where
 
@@ -10,7 +9,6 @@ import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.HeadLogic (
   ClosedState (..),
@@ -40,7 +38,6 @@ import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
-  chainCallback,
   createEventQueue,
   createNodeState,
   initEnvironment,
@@ -58,7 +55,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
 
-data ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
+newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
 instance Exception ParamMismatchError
 
@@ -78,7 +75,7 @@ main = do
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
-        eq <- createEventQueue
+        eq@EventQueue{putEvent} <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
         persistence <- createPersistence $ persistenceDir <> "/state"
@@ -90,7 +87,7 @@ main = do
             Just headState -> do
               traceWith tracer LoadedState
               let paramsMismatch = checkParamsAgainstExistingState headState env
-              when (not $ null paramsMismatch) $ do
+              unless (null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
                 throwIO $
                   ParamMismatchError $
@@ -102,14 +99,13 @@ main = do
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-        let ChainStateAt{recordedAt} = getChainState hs
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx recordedAt wallet (chainCallback nodeState eq) $ \chain -> do
+        withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
-          withNetwork (contramap Network tracer) host port peers nodeId (putEvent eq . NetworkEvent defaultTTL) $ \hn -> do
+          withNetwork (contramap Network tracer) host port peers nodeId (putEvent . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
 
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
