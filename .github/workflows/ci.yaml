@@ -16,8 +16,57 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
+
+  populate-build-cache:
+    name: "Populate build cache"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
+    - name: 🔨 Build
+      run: |
+        nix develop .#ci --command bash -c 'cabal build all'
+
   build-test:
     name: "Build & test using cabal"
+    needs: [populate-build-cache]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -176,6 +225,7 @@ jobs:
 
   haddock-benchmarks:
     name: "Haddock & benchmarks"
+    needs: [populate-build-cache]
     runs-on: ubuntu-latest
     strategy:
       matrix:
