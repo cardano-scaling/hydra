@@ -7,7 +7,7 @@ AddElementTag("external", $bgColor="#23aa12")
 Container_Boundary(hydra_node, "Hydra Node") {
    Component(persistence, "Persistence", "JSON/FS", "Persists state of the head on disk", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Persistence.hs")
    Component(head_logic, "Head Logic", "", "Maintains internal Head state and processes events", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/HeadLogic.hs")
-   Component(api_server, "API Server", "", "Dispatch client commands & queries and serves outputs", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/API/Server.hs")
+   Component(api_server, "API Server", "", "Handle client commands & queries and serves outputs", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/API/Server.hs")
    Component(chain, "Direct Chain", "", "Connection to Cardano\nObserve txs on-chain and post tx to chain", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Chain/Direct.hs")
    Component(wallet, "Tiny Wallet", "", "Embedded Wallet to sign transactions and pay fees", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Chain/Direct/Wallet.hs")
    Component(network, "Network", "", "Manages connections to peers", $link="https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/Network/Ouroboros.hs")
