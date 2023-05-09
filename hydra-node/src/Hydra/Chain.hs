@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   UsingRawBytesHex (..),
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Ledger (IsTx, TxIdType, UTxOType)
+import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
@@ -173,19 +173,6 @@ class
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
-
--- | A generic description for a chain slot all implementions need to use.
-newtype ChainSlot = ChainSlot Natural
-  deriving (Ord, Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
-
--- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
--- instances to 'ChainSlot'.
-nextChainSlot :: ChainSlot -> ChainSlot
-nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
-
-instance Arbitrary ChainSlot where
-  arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain

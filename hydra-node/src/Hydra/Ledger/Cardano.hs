@@ -27,7 +27,6 @@ import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
-import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Data.ByteString as BS
 import Data.Default (def)
@@ -36,7 +35,7 @@ import Data.Maybe (fromJust)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import qualified Hydra.Contract.Head as Head
-import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
@@ -57,17 +56,17 @@ import Test.QuickCheck (
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
   Ledger
-    { applyTransactions = applyAll
+    { applyTransactions
     , initUTxO = mempty
     }
  where
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
-  applyAll utxo = \case
+  applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) -> do
-      utxo' <- left (first fromLedgerTx) $ fromLedgerUTxO <$> applyTx ledgerEnv (toLedgerUTxO utxo) (toLedgerTx tx)
-      applyAll utxo' txs
+      utxo' <- applyTx slot utxo tx
+      applyTransactions slot utxo' txs
 
   -- TODO(SN): Pre-validate transactions to get less confusing errors on
   -- transactions which are not expected to work on a layer-2
@@ -79,18 +78,20 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx env utxo tx =
-    case Ledger.applyTx globals env memPoolState tx of
+  applyTx (ChainSlot slot) utxo tx =
+    case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
       Left err ->
         Left (tx, toValidationError err)
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-        Right $ Ledger._utxo us
+        Right . fromLedgerUTxO $ Ledger._utxo us
    where
     toValidationError = ValidationError . show
 
+    env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
+
     memPoolState =
       Ledger.LedgerState
-        { Ledger.lsUTxOState = def{Ledger._utxo = utxo}
+        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxo}
         , Ledger.lsDPState = def
         }
 

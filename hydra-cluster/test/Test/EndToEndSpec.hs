@@ -40,7 +40,7 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern TxValidityLowerBound,
  )
-import Hydra.Chain (ChainSlot (..), HeadParameters (contestationPeriod, parties))
+import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -70,7 +70,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
-import Hydra.Ledger (txId)
+import Hydra.Ledger (ChainSlot (..), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options

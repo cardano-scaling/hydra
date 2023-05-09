@@ -31,7 +31,6 @@ import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (HeadId),
   HeadParameters (..),
@@ -39,7 +38,6 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   chainStateSlot,
-  nextChainSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
@@ -52,7 +50,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger (Ledger)
+import Hydra.Ledger (ChainSlot (ChainSlot), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)

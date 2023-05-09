@@ -16,9 +16,9 @@ import Hydra.Cardano.Api (
   genTxIn,
   getChainPoint,
  )
+
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot (..),
   HeadParameters,
   chainStateSlot,
  )
@@ -49,6 +49,9 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.Ledger (
+  ChainSlot (..),
+ )
 import Hydra.Options (maximumNumberOfParties)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude

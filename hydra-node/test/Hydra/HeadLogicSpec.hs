@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
@@ -10,17 +11,20 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
-  ChainSlot (..),
   HeadId (..),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
+import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
   ClosedState (..),
@@ -38,15 +42,18 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (NodeId (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
+import qualified Hydra.Prelude as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = do
@@ -312,6 +319,54 @@ spec = do
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
+
+    describe "Coordinated Head Protocol using real Tx" $
+      prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> do
+        (utxo, expiringTransaction) <- generate $ do
+          (vk, sk) <- genKeyPair
+          txOut <- genOutput vk
+          utxo <- (,txOut) <$> genTxIn
+          mkRangedTx
+            utxo
+            (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
+            sk
+            (Nothing, Just $ TxValidityUpperBound slotNo)
+            & \case
+              Left _ -> Prelude.error "cannot generate expired tx"
+              Right tx -> pure (utxo, tx)
+        let parties = [alice, bob, carol]
+            s0 =
+              Open
+                OpenState
+                  { parameters = HeadParameters cperiod parties
+                  , coordinatedHeadState =
+                      CoordinatedHeadState
+                        { seenUTxO = UTxO.singleton utxo
+                        , seenTxs = [expiringTransaction]
+                        , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
+                        , seenSnapshot = NoSeenSnapshot
+                        }
+                  , chainState = Prelude.error "should not be used"
+                  , headId = testHeadId
+                  , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                  }
+        let env =
+              Environment
+                { party = alice
+                , signingKey = aliceSk
+                , otherParties = [bob, carol]
+                , contestationPeriod = defaultContestationPeriod
+                }
+        let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+        let event = NetworkEvent defaultTTL $ ReqSn alice 1 []
+        s1 <- assertNewState $ update env ledger s0 event
+        s1 `shouldSatisfy` \case
+          Open
+            OpenState
+              { coordinatedHeadState =
+                CoordinatedHeadState{seenTxs}
+              } -> null seenTxs
+          _ -> False
 
 --
 -- Assertion utilities
