@@ -116,9 +116,9 @@ stepHydraNode ::
   HydraNode tx m ->
   m ()
 stepHydraNode tracer node = do
-  e@Queued{eventId, eventQueued} <- nextEvent eq
-  traceWith tracer $ BeginEvent{by = party, eventId, event = eventQueued}
-  outcome <- atomically (processNextEvent node eventQueued)
+  e@Queued{eventId, queuedEvent} <- nextEvent eq
+  traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
+  outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
@@ -135,8 +135,8 @@ stepHydraNode tracer node = do
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
-      Queued{eventId, eventQueued = NetworkEvent ttl msg}
-        | ttl > 0 -> Queued{eventId, eventQueued = NetworkEvent (ttl - 1) msg}
+      Queued{eventId, queuedEvent = NetworkEvent ttl msg}
+        | ttl > 0 -> Queued{eventId, queuedEvent = NetworkEvent (ttl - 1) msg}
       e -> e
 
   Environment{party} = env
@@ -197,7 +197,7 @@ data EventQueue m e = EventQueue
   , isEmpty :: m Bool
   }
 
-data Queued e = Queued {eventId :: Word64, eventQueued :: e}
+data Queued e = Queued {eventId :: Word64, queuedEvent :: e}
 
 createEventQueue ::
   ( MonadSTM m
@@ -214,10 +214,10 @@ createEventQueue = do
   labelTQueueIO q "event-queue"
   pure
     EventQueue
-      { putEvent = \eventQueued ->
+      { putEvent = \queuedEvent ->
           atomically $ do
             eventId <- readTVar nextId
-            writeTQueue q Queued{eventId, eventQueued}
+            writeTQueue q Queued{eventId, queuedEvent}
             modifyTVar' nextId succ
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ

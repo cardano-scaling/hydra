@@ -335,11 +335,11 @@ spec = describe "ServerSpec" $
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
-strictlyMonotonic :: [Natural] -> Bool
+strictlyMonotonic :: (Eq a, Enum a) => [a] -> Bool
 strictlyMonotonic = \case
   [] -> True
   [_] -> True
-  (a : b : as) -> a + 1 == b && strictlyMonotonic (b : as)
+  (a : b : as) -> succ a == b && strictlyMonotonic (b : as)
 
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do

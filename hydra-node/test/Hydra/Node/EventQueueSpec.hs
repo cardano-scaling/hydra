@@ -5,6 +5,7 @@ module Hydra.Node.EventQueueSpec where
 import Hydra.Prelude
 
 import Control.Monad.IOSim (IOSim, runSimOrThrow)
+import Hydra.API.ServerSpec (strictlyMonotonic)
 import Hydra.Node (Queued (eventId), createEventQueue, nextEvent, putEvent)
 import Test.Hspec (Spec)
 import Test.Hspec.QuickCheck (prop)
@@ -26,5 +27,5 @@ prop_identify_enqueued_events (NonEmpty events) =
           putEvent q e
           eventId <$> nextEvent q
       eventIds = runSimOrThrow test
-   in eventIds == [0 .. fromIntegral (length events - 1)]
+   in strictlyMonotonic eventIds
         & counterexample ("queued ids: " <> show eventIds)
