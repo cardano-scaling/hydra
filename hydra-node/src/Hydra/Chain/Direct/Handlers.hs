@@ -37,7 +37,6 @@ import Hydra.Chain.Direct.State (
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
-  chainSlotFromPoint,
   close,
   collect,
   commit,
@@ -54,6 +53,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -254,7 +254,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
-            let chainSlot = chainSlotFromPoint point
+            let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $ \tx -> do
