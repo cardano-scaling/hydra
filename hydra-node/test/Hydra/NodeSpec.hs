@@ -10,7 +10,16 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadId (HeadId), HeadParameters (HeadParameters), IsChainState, OnChainTx (..), PostChainTx (InitTx), PostTxError (NoSeedInput))
+import Hydra.Chain (
+  Chain (..),
+  ChainEvent (..),
+  HeadId (HeadId),
+  HeadParameters (HeadParameters),
+  IsChainState,
+  OnChainTx (..),
+  PostChainTx (InitTx),
+  PostTxError (NoSeedInput),
+ )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (

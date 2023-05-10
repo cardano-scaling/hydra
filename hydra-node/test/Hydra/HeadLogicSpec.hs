@@ -62,16 +62,17 @@ spec = do
       roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
       roundtripAndGoldenSpecs (Proxy @(HeadState SimpleTx))
 
+    let threeParties = [alice, bob, carol]
+        bobEnv =
+          Environment
+            { party = bob
+            , signingKey = bobSk
+            , otherParties = [alice, carol]
+            , contestationPeriod = defaultContestationPeriod
+            }
+
     describe "Coordinated Head Protocol" $ do
-      let threeParties = [alice, bob, carol]
-          ledger = simpleLedger
-          bobEnv =
-            Environment
-              { party = bob
-              , signingKey = bobSk
-              , otherParties = [alice, carol]
-              , contestationPeriod = defaultContestationPeriod
-              }
+      let ledger = simpleLedger
 
       it "reports if a requested tx is expired" $ do
         let inputs = utxoRef 1
@@ -286,7 +287,8 @@ spec = do
           _ -> False
         s1 <- assertNewState outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline (ChainSlot 1)
+            someChainSlot = arbitrary `generateWith` 42
+            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline someChainSlot
             s2 = update bobEnv ledger s1 stepTimePastDeadline
         s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
@@ -334,11 +336,10 @@ spec = do
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
-        let parties = [alice, bob, carol]
-            s0 =
+        let s0 =
               Open
                 OpenState
-                  { parameters = HeadParameters cperiod parties
+                  { parameters = HeadParameters cperiod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
                         { seenUTxO = UTxO.singleton utxo
@@ -350,16 +351,9 @@ spec = do
                   , headId = testHeadId
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
-        let env =
-              Environment
-                { party = alice
-                , signingKey = aliceSk
-                , otherParties = [bob, carol]
-                , contestationPeriod = defaultContestationPeriod
-                }
         let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
         let event = NetworkEvent defaultTTL $ ReqSn alice 1 []
-        s1 <- assertNewState $ update env ledger s0 event
+        s1 <- assertNewState $ update bobEnv ledger s0 event
         s1 `shouldSatisfy` \case
           Open
             OpenState
