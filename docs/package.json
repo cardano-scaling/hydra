@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prepare": "yarn enrich-document-metadata",
+    "prepare": "yarn enrich-document-metadata && yarn regenerate-plantuml",
     "build": "yarn prepare && docusaurus build",
     "start": "yarn dummy-spec && docusaurus start",
     "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx BabbageEra)).json'",
@@ -17,7 +17,8 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "enrich-document-metadata": "node ./scripts/enrich-document-metadata.js",
-    "dummy-spec": "echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf"
+    "dummy-spec": "echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf",
+    "regenerate-plantuml": "[ -x $(which plantuml) ] && ./scripts/regenerate-plantuml.sh"
   },
   "dependencies": {
     "@docusaurus/core": "^2.4.0",
