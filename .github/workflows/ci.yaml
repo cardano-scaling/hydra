@@ -51,8 +51,8 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v12
       with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
