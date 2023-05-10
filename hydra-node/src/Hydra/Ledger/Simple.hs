@@ -21,13 +21,19 @@ import Data.Aeson (
 import Data.List (maximum)
 import qualified Data.Set as Set
 import Hydra.Chain (ChainStateType, IsChainState (..))
-import Hydra.Ledger
+import Hydra.Ledger (
+  ChainSlot (..),
+  IsTx (..),
+  Ledger (..),
+  ValidationError (ValidationError),
+ )
 import Test.QuickCheck (choose, getSize, sublistOf)
 
 -- * Simple transactions
 
 -- | Simple transaction.
--- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
+-- A transaction is a 'SimpleId', a list of inputs and a list of outputs,
+-- and it has no time validity.
 data SimpleTx = SimpleTx
   { txSimpleId :: SimpleId
   , txInputs :: UTxOType SimpleTx
@@ -78,8 +84,9 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState {slot :: ChainSlot}
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
+  deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary SimpleChainState where
   arbitrary = SimpleChainState <$> arbitrary
@@ -111,7 +118,8 @@ instance FromCBOR SimpleTxIn where
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
-    { applyTransactions = \slot ->
+    { -- NOTE: SimpleTx transactions don't have a notion of time.
+      applyTransactions = \_slot ->
         foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
