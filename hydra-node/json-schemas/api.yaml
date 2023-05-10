@@ -1516,7 +1516,7 @@ components:
       type: integer
       minimum: 0
       description: |
-        A number representing the time periods (slots) progressed on the chain.
+        A number representing discrete time (slots) on the chain.
 
     UTxO:
       type: object
