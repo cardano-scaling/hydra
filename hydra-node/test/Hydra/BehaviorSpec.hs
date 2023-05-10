@@ -605,10 +605,12 @@ simulatedChainAndNetwork initialChainState = do
   blockTime = 20
 
   simulateTicks nodes chainStateVar = forever $ do
-    cs <- readTVarIO chainStateVar
     threadDelay blockTime
     now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now (chainStateSlot cs)) ns
+    event <- atomically $ do
+      cs <- readTVar chainStateVar
+      pure $ Tick now (chainStateSlot cs)
+    readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   postTx nodes history chainStateVar tx = do
     now <- getCurrentTime
