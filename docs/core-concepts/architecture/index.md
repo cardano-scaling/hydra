@@ -37,7 +37,7 @@ The _Chain_ component is responsible for interfacing the Hydra node with the Car
 
 #### Wallet
 
-Hydra also maintains an internal "wallet" which is currently part of the Chain components layer, to handle the payment of transaction fees and signing transctions using a dedicated Cardano signing key. There are [plans](https://github.com/input-output-hk/hydra/issues/215) to make it possible to use an external wallet to balance and sign Hydra node's transactions.
+The Hydra node maintains an internal wallet using the Cardano signing key provided to the `hydra-node`. This is used to handle the payment of transaction fees and signing transactions.
 
 ### Head Logic
 

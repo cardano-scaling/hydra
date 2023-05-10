@@ -19,7 +19,7 @@ Container_Boundary(hydra_node, "Hydra Node") {
    Lay_U(head_logic, logging)
    Lay_U(head_logic, monitoring)
    BiRel_L(head_logic, network, "Hydra Protocol Messages", "")
-   BiRel_R(head_logic, api_server, "Input & Output", "")
+   BiRel_R(head_logic, api_server, "ClientInput & ServerOutput", "")
    BiRel_D(head_logic, chain, "Observation & OnChainTx", "")
    Rel_D(head_logic, ledger, "Apply Tx")
 
@@ -31,11 +31,11 @@ Container(cardano_node, "Cardano Node", "Local cadano-node")
 Container(cardano_node_peer, "Cardano Node (peer)", "Local cardano-node")
 Container(hydra_client, "Hydra Client", "")
 Component(smart_contracts, "Hydra Smart Contracts", "Plutus", "On-chain smart contracts controlling the behaviour of the protocol on-chain", $link="https://github.com/input-output-hk/hydra/tree/master/hydra-plutus")
-Rel(chain, smart_contracts, "References", "")
+Rel(chain, smart_contracts, "Use", "")
 BiRel_D(chain, cardano_node, "", "N2C protocol")
 BiRel_L(cardano_node, cardano_node_peer, "", "N2N protocol")
 BiRel(hydra_node_peer, cardano_node_peer, "", "N2C protocol")
-BiRel_L(network, hydra_node_peer, "", "N2C protocol")
+BiRel_L(network, hydra_node_peer, "", "Hydra Network protocol")
 BiRel_R(api_server, hydra_client, "", "JSON/Websocket")
 
 
