@@ -108,6 +108,7 @@ library
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
     Hydra.Node
+    Hydra.Node.EventQueue
     Hydra.Options
     Hydra.Party
     Hydra.Persistence

@@ -56,15 +56,14 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
-  EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
   NodeState,
-  createEventQueue,
   createNodeState,
   runHydraNode,
   waitDelay,
  )
+import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)

@@ -35,14 +35,12 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
-  EventQueue (..),
   HydraNode (..),
   HydraNodeLog,
-  createEventQueue,
   createNodeState,
-  isEmpty,
   stepHydraNode,
  )
+import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))

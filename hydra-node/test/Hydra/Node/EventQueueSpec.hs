@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Control.Monad.IOSim (IOSim, runSimOrThrow)
 import Hydra.API.ServerSpec (strictlyMonotonic)
-import Hydra.Node (Queued (eventId), createEventQueue, nextEvent, putEvent)
+import Hydra.Node.EventQueue (Queued (eventId), createEventQueue, nextEvent, putEvent)
 import Test.Hspec (Spec)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (NonEmptyList (NonEmpty), Property, counterexample)

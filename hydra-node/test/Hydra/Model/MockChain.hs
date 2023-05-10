@@ -56,10 +56,9 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
-  EventQueue (..),
   HydraNode (..),
-  putEvent,
  )
+import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
