@@ -126,7 +126,7 @@ spec = around showLogsOnFailure $ do
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
       it "can submmit a timed tx" $ \tracer -> do
-        withClusterTempDir "timmed-tx" $ \tmpDir -> do
+        withClusterTempDir "timed-tx" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
