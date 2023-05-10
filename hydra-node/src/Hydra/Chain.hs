@@ -194,7 +194,14 @@ data ChainEvent tx
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }
-  | Tick
+  | -- | Indicate time has advanced on the chain.
+    --
+    -- NOTE: While the type does not guarantee that the UTCTime and ChainSlot
+    -- are consistent the alternative would be provide the means to do the
+    -- conversion. For Cardano, this would be a systemStart and eraHistory..
+    -- which is annoying and if it's kept in the chain layer, it would mean
+    -- another round trip / state to keep there.
+    Tick
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
       }
