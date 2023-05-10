@@ -77,8 +77,8 @@ data HydraNode tx m = HydraNode
   }
 
 data HydraNodeLog tx
-  = BeginEvent {by :: Party, event :: Event tx}
-  | EndEvent {by :: Party, event :: Event tx}
+  = BeginEvent {by :: Party, eventId :: Word64, event :: Event tx}
+  | EndEvent {by :: Party, eventId :: Word64}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
@@ -116,9 +116,9 @@ stepHydraNode ::
   HydraNode tx m ->
   m ()
 stepHydraNode tracer node = do
-  e <- nextEvent eq
-  traceWith tracer $ BeginEvent party e
-  outcome <- atomically (processNextEvent node e)
+  e@Queued{eventId, eventQueued} <- nextEvent eq
+  traceWith tracer $ BeginEvent{by = party, eventId, event = eventQueued}
+  outcome <- atomically (processNextEvent node eventQueued)
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
@@ -130,12 +130,13 @@ stepHydraNode tracer node = do
       forM_ effs (processEffect node tracer)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer)
-  traceWith tracer (EndEvent party e)
+  traceWith tracer EndEvent{by = party, eventId}
  where
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
-      NetworkEvent ttl msg | ttl > 0 -> NetworkEvent (ttl - 1) msg
+      Queued{eventId, eventQueued = NetworkEvent ttl msg}
+        | ttl > 0 -> Queued{eventId, eventQueued = NetworkEvent (ttl - 1) msg}
       e -> e
 
   Environment{party} = env
@@ -191,10 +192,12 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
-  , putEventAfter :: DiffTime -> e -> m ()
-  , nextEvent :: m e
+  , putEventAfter :: DiffTime -> Queued e -> m ()
+  , nextEvent :: m (Queued e)
   , isEmpty :: m Bool
   }
+
+data Queued e = Queued {eventId :: Word64, eventQueued :: e}
 
 createEventQueue ::
   ( MonadSTM m
@@ -205,13 +208,17 @@ createEventQueue ::
   m (EventQueue m e)
 createEventQueue = do
   numThreads <- newTVarIO (0 :: Integer)
+  nextId <- newTVarIO 0
   labelTVarIO numThreads "num-threads"
   q <- atomically newTQueue
   labelTQueueIO q "event-queue"
   pure
     EventQueue
-      { putEvent =
-          atomically . writeTQueue q
+      { putEvent = \eventQueued ->
+          atomically $ do
+            eventId <- readTVar nextId
+            writeTQueue q Queued{eventId, eventQueued}
+            modifyTVar' nextId succ
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do

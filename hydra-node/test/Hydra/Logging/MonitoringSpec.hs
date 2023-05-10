@@ -30,8 +30,8 @@ spec =
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-        traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
-        traceWith tracer (Node $ BeginEvent alice (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))
+        traceWith tracer (Node $ BeginEvent alice 0 (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
+        traceWith tracer (Node $ BeginEvent alice 1 (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))
         threadDelay 0.1
         traceWith tracer (Node $ EndEffect alice (ClientEffect (SnapshotConfirmed testHeadId (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) mempty)))
 

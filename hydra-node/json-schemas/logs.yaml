@@ -499,6 +499,7 @@ definitions:
         required:
           - tag
           - by
+          - eventId
           - event
         properties:
           tag:
@@ -508,6 +509,13 @@ definitions:
             <<: { "$ref": "api.yaml#/components/schemas/Party" }
             description: >-
               The Party emitting the log entry.
+          eventId:
+            type: integer
+            minimum: 0
+            description: >-
+              Provides a unique, incremental, number identifying that event within
+              the stream of events from this node. This is useful to correlate with
+              `EndEvent`.
           event:
             <<: { "$ref": "#/definitions/Event" }
       - title: EndEvent
@@ -518,7 +526,7 @@ definitions:
         required:
           - tag
           - by
-          - event
+          - eventId
         properties:
           tag:
             type: string
@@ -527,8 +535,9 @@ definitions:
             <<: { "$ref": "api.yaml#/components/schemas/Party" }
             description: >-
               The Party emitting the log entry.
-          event:
-            $ref: "#/definitions/Event"
+          eventId:
+            type: integer
+            minimum: 0
       - title: BeginEffect
         description: >-
           Head has started processing an effect produced by some transition in the

@@ -435,9 +435,9 @@ spec = parallel $ do
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginEvent alice $ ClientEvent Init]
+        `shouldContain` [BeginEvent alice 0 (ClientEvent Init)]
       logs
-        `shouldContain` [EndEvent alice $ ClientEvent Init]
+        `shouldContain` [EndEvent alice 0]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
