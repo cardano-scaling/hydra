@@ -37,14 +37,10 @@ You also acknowledge and agree to have an adequate understanding of
 the risks associated with use of the Hydra Head protocol version
 0.10.0 and that all information and materials published, distributed
 or otherwise made available on Hydra.Family and Hydra Github
-Repository is provided for non-commercial, personal use, and testing
-purposes only.
-
-Hydra Head protocol version 0.10.0 is available on an ‘AS IS’ and ‘AS
-AVAILABLE’ basis, without any representations or warranties of any
-kind. All implied terms are excluded to the fullest extent permitted
-by law. For details, see also sections 7, 8 and 9 of Apache 2.0
-License.
+Repository is available on an ‘AS IS’ and ‘AS AVAILABLE’ basis,
+without any representations or warranties of any kind. All implied
+terms are excluded to the fullest extent permitted by law. For
+details, see also sections 7, 8 and 9 of Apache 2.0 License.
 
 :::
 
