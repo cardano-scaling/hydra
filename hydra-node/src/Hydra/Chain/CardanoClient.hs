@@ -225,6 +225,20 @@ queryProtocolParameters networkId socket queryPoint =
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
+-- | Query 'GenesisParameters' at a given point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryGenesisParameters :: NetworkId -> FilePath -> QueryPoint -> IO GenesisParameters
+queryGenesisParameters networkId socket queryPoint =
+  let query =
+        QueryInEra
+          BabbageEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraBabbage
+              QueryGenesisParameters
+          )
+   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+
 -- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
