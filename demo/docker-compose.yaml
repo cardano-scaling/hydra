@@ -22,7 +22,7 @@ services:
       ]
 
   hydra-node-1:
-    image: ghcr.io/input-output-hk/hydra-node:unstable
+    image: ghcr.io/input-output-hk/hydra-node:0.10.0
     build:
       context: ../
       target: hydra-node
@@ -58,7 +58,7 @@ services:
     restart: always
 
   hydra-node-2:
-    image: ghcr.io/input-output-hk/hydra-node:unstable
+    image: ghcr.io/input-output-hk/hydra-node:0.10.0
     build:
       context: ../
       target: hydra-node
@@ -94,7 +94,7 @@ services:
     restart: always
 
   hydra-node-3:
-    image: ghcr.io/input-output-hk/hydra-node:unstable
+    image: ghcr.io/input-output-hk/hydra-node:0.10.0
     build:
       context: ../
       target: hydra-node
@@ -130,7 +130,7 @@ services:
     restart: always
 
   hydra-tui-1:
-    image: ghcr.io/input-output-hk/hydra-tui:unstable
+    image: ghcr.io/input-output-hk/hydra-tui:0.10.0
     build:
        context: ../
        target: hydra-tui
@@ -149,7 +149,7 @@ services:
         ipv4_address: 172.16.238.11
 
   hydra-tui-2:
-    image: ghcr.io/input-output-hk/hydra-tui:unstable
+    image: ghcr.io/input-output-hk/hydra-tui:0.10.0
     build:
        context: ../
        target: hydra-tui
@@ -168,7 +168,7 @@ services:
         ipv4_address: 172.16.238.21
 
   hydra-tui-3:
-    image: ghcr.io/input-output-hk/hydra-tui:unstable
+    image: ghcr.io/input-output-hk/hydra-tui:0.10.0
     build:
        context: ../
        target: hydra-tui
