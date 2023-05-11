@@ -9,7 +9,7 @@ if ! which plantuml > /dev/null; then
 fi
 
 changes=()
-for puml in $(find -name *.puml); do
+for puml in $(find . -name *.puml); do
     plantuml -Tsvg ${puml}
 
     # Collect changes in all directories holding .puml files
