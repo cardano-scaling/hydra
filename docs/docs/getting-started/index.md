@@ -25,7 +25,7 @@ testing purposes.
 
 Before running a Hydra node to take part in the Hydra Head protocol,
 developers are strongly encouraged to review the [relevant
-section](/docs/getting-started/troubleshooting) of the documentation
+section](/docs/known-issues) of the documentation
 in order to understand the current limitations and the possible
 consequences.
 
