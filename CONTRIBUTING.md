@@ -172,17 +172,18 @@ During development
 
 To perform a release of next `<version>`:
 
-1. Publish hydra scripts onto `preview`/`pre-prod` using the [smoke
-   test](https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml)
-   and update transaction ids in our documentation, examples and
-   `testnets/<network/hydra-scripts-tx-id` files. This will also be the green
-   light for the next step.
+1. Publish hydra scripts onto `preview`, `pre-prod`, and `mainnet` using the
+   [smoke test][smoke-test] and update transaction ids in our documentation,
+   examples and `testnets/<network/hydra-scripts-tx-id` files. This will also be
+   the green light for the next step.
 2. Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) in CHANGELOG.md
 3. run `./release.sh` with `<version>` and the just published `hydra-scripts-tx-id` from step 1
 4. Create a github release page containing
    - The released changes (formatted) and giving credit where credit is due
    - Attach static binaries to the release (or link the CI artifact)
    - The just published `hydra-scripts-tx-id` from step 1
+
+[smoke-test]: https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml
 
 ## Communication
 

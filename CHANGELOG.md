@@ -8,70 +8,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.10.0] - UNRELEASED
+## [0.10.0] - 2023-05-11
 
-- **BREAKING** Removed `RolledBack` server output from the API and changed
-  `hydra-node` internal handling of rollbacks. This also changes the log format
-  of the internal `Rollback` event.
+This release contains several breaking changes and you'll need to apply the
+following procedure to upgrade all the nodes running a head:
 
-- **BREAKING** Changed `hydra-node` and `hydra-tui` arguments:
-  + Instead of `--network-id` flag they now use `--testnet-magic` and we support
-    also `--mainnet` flag.
+1. Close the head
+2. Stop `hydra-node`
+3. Remove persistent files stored in `--persistence-dir`, in particular
+   `server-output` and `state`
+4. Upgrade `hydra-node` version
+5. Start new `hydra-node` version
 
-- Changed interface of `Hydra.Ledger.Cardano.Evaluate` functions.
+Only when this procedure has been applied to all Hydra nodes can you open a new
+head again.
 
-- Reject commits of `UTxO` containing `ReferenceScript` in `hydra-node`:
-  + The scripts still accept these outputs, but `hydra-node` would not be able
-    to properly finalize a Head which was opened from commits with reference
-    scripts.
-  + Reference scripts on the layer 2 ledger are non-problematic.
+---
 
-- Introduced a hard-coded limit of 100 ADA for the commit tx on mainnet: help
-  people to not shoot themselves in the foot too hard.
+- Make `hydra-node` compatible to mainnet [#713][713]
 
-- Added `CommittedTooMuchADAForMainnet` API error to signal that the hard-coded
-  mainnet ADA limit is exceeded.
+    - **BREAKING** Change to command line options: Replaced `--network-id` with
+      `--mainnet` or `--testnet-magic`.
 
-- The hydra scripts are persisted in `hydra-plutus/scripts` and golden tests
-  ensure they are not changed accidentally.
+    - Hard-coded temporary **limit of 100 ADA** for commits to a head on
+      mainnet. This will be incraeased or be made configurable in future
+      versions.
 
-- `hydra-node` detects misconfiguration and exits with the log item and
-  exception if the provided arguments are not inline with persisted state.
+- **BREAKING** Change in internal handling of rollbacks. Now, the `hydra-node`
+  does only rollback it's low level state and not report when a rollback
+  happened, under the optimistic assumption that the Hydra protocol transactions
+  are still applicable and the Head is unaffected by the rollback. This was
+  needed to avoid [#784][784] and will be further improved in [#185][185]. This
+  removes `RolledBack` server output from the API and also changes the log
+  format of the internal `Rollback` event.
 
-- All participants' `hydra-node` try to collect once seeing the last `commitTx`.
+- Reject commits of `UTxO` containing `ReferenceScript` to avoid a head not
+  being finalizable by the `hydra-node`. The layer 1 scripts still accept these
+  outputs, but we would not be able to automatically finalize a head which was
+  opened from commits with reference scripts. Reference scripts on the layer 2
+  ledger (e.g. included in transactions via `NewTx`) are non-problematic.
+  [#766][766]
+
+- All participants try to collect once seeing the last `commitTx`. [#786][786]
+  This may lead to misleading errors on the logs about not being able to post
+  collect transactions (see also [#839][839]).
+
+- The `hydra-node` detects misconfiguration and mismatch of command line options
+  with persisted state. [#764][764]
+  
+- Fixed a bug where the `hydra-node` would crash sometimes when the
+  `cardano-node` switches onto a fork, which is a common event on mainnet.
+  [#560][560]
+
+- **BREAKING** Hydra scripts changed, need to use new `--hydra-scripts-tx-id`
+
+    - Check contract continuity of state machine, i.e. that the output with the
+      state datum and ST is actually owned by vHead.
+      [#777][777]
+
+    - Collect the right value in `collect` transactions (had been dropped for cost
+      reasons, but found a constant cost way to do it).
+
+    - The right `headId` is enforced in `commit` transactions.
+
+    - Updated `plutus-tx` tool-chain. This also resulted in changed return type
+      of `validatorScript` functions of script modules to `SerialisedScript`.
+      [#826][826]
+      
+    - Use of a custom script context for `vInitial` and `vCommit` validators to
+      reduce cost of transactions again.
+      [#825][825]
+
+    - The hydra scripts are persisted in `hydra-plutus/scripts` and golden tests
+      ensure they are not changed accidentally.
+      [#772][772]
+
+- **BREAKING** Changes to `hydra-node` API
+
+    - Configurable API using query parameters. [#380][380] Clients can decide to:
+        - Skip observing history of events before they connected
+        - View the transactions in the server output encoded as CBOR
+        - Prevent utxo display in `SnapshotConfirmed` server outputs
+          [#808][808]
+
+    - `Greetings` message is now only sent last (after replaying history) on
+      connection and added additional information [#813][813]:
+        - `headStatus` - representing current hydra head status
+        - `snapshotUtxo` - containing UTxOs and updating on each `SnapshotConfirmed` message
+
+    - Updated `hydra-tui` to handle `Greetings` message accordingly. Make sure
+      to use the same version.
+
+    - Reference scripts in the `hydra-node` API (e.g. on `NewTx`) are not
+      decodable when using `SimpleScriptV2` envelope anymore (just use
+      `SimpleScript`).
 
 - Versioned the documentation website, now the last released, stable is the
   default available at https://hydra.family/head-protocol, while the
   bleeding-edge from `master` branch is available at
-  https://hydra.family/head-protocol/unstable.
+  https://hydra.family/head-protocol/unstable. [#803][803] [#805][805] [#783][783]
 
-- API clients can decide if they want to:
-  + Skip observing history of events before they connected
-  + View the transactions in the server output encoded as CBOR
-  + Prevent utxo display in `SnapshotConfirmed` server outputs
-
-- `Greetings` API server output changed and now there are two more fields:
-  + `headStatus` - representing current hydra head status
-  + `snapshotUtxo` - containing UTxOs and updating on each `SnapshotConfirmed` message
-
-- **BREAKING** Changed the `hydra-plutus` scripts to address short-comings:
-  + Check contract continuity of state machine, i.e. that the output with the
-    state datum and ST is actually owned by vHead.
-  + Collect the right value in `collect` transactions (had been dropped for cost
-    reasons, but found a constant cost way to do it).
-  + The right `headId` is enforced in `commit` transactions.
-
-- Replaced existing websocket server with production-grade one
-
-- Removed `Greetings` messages from hydra-node history and changed `hydra-tui`
-  to not wipe connected peers based on this message.
-
-- Use the server-provided `timestamp` of messages in the `hydra-tui`.
+- Add the
+  [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
+  the repository and
+  [website](https://hydra.family/head-protocol/core-concepts/specification).
+  [#693][693]
 
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 
-- **BREAKING** Changes to `hydra-cardano-api`:
+- Use the server-provided `timestamp` of messages in the `hydra-tui`. [#837][837]
+
+- **BREAKING** Changes to `hydra-cardano-api` [#826][826]:
   - Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
   - Renamed `getScriptData` to `txOutScriptData` to not conflict with the new function in `cardano-api`.
   - Changed `toScriptData`, `toLedgerData`, `fromLedgerData`,
@@ -83,21 +131,26 @@ changes.
   - Added `genTxIn` and `arbitrary` instance for `TxIn`.
   - Added `getChainPoint`.
 
-- **BREAKING** Changes to `hydra-test-utils`:
-  - Greatly simplified the implementation of `evaluateScriptExecutionUnits` using `cardano-api` types now.
-
-- **BREAKING** Changes to `hydra-plutus`:
-  - Script hashes changed due to updated `plutus-tx` tool-chain.
-  - Changed return type of `validatorScript` functions of script modules to `SerialisedScript`.
-
-- **BREAKING** Changes to `hydra-node`:
-  - Reference scripts in the API are not decodable when using `SimpleScriptV2`
-    envelope anymore (just use `SimpleScript`).
-
-- Add the
-  [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
-  the repository and
-  [website](https://hydra.family/head-protocol/core-concepts/specification).
+[185]: https://github.com/input-output-hk/hydra/issues/185
+[380]: https://github.com/input-output-hk/hydra/issues/380
+[693]: https://github.com/input-output-hk/hydra/issues/693
+[713]: https://github.com/input-output-hk/hydra/issues/713
+[764]: https://github.com/input-output-hk/hydra/pull/764
+[766]: https://github.com/input-output-hk/hydra/pull/766
+[772]: https://github.com/input-output-hk/hydra/pull/772
+[777]: https://github.com/input-output-hk/hydra/pull/777
+[783]: https://github.com/input-output-hk/hydra/pull/783
+[784]: https://github.com/input-output-hk/hydra/issues/784
+[786]: https://github.com/input-output-hk/hydra/pull/786
+[803]: https://github.com/input-output-hk/hydra/pull/803
+[805]: https://github.com/input-output-hk/hydra/pull/805
+[808]: https://github.com/input-output-hk/hydra/pull/808
+[813]: https://github.com/input-output-hk/hydra/pull/813
+[825]: https://github.com/input-output-hk/hydra/pull/825
+[826]: https://github.com/input-output-hk/hydra/pull/826
+[826]: https://github.com/input-output-hk/hydra/pull/826
+[837]: https://github.com/input-output-hk/hydra/issues/837
+[839]: https://github.com/input-output-hk/hydra/issues/839
 
 ## [0.9.0] - 2023-03-02
 
