@@ -1,5 +1,7 @@
 #!/usr/bin/env -S bash -e
 
+set -eo pipefail
+
 cd $(dirname $0)
 
 main() {
@@ -15,7 +17,7 @@ main() {
 
   prepare_release "$version" "$preview_txid" "$preprod_txid"
 
-  publish_release # fake for now
+  publish_release "$version" # fake for now
 }
 
 usage() {
@@ -67,11 +69,11 @@ prepare_release() {
 publish_release() {
   local version="$1"
 
-  echo Prepared the release commit and tag, review it now and if everything is okay, push using: >&2:
-  echo git push >&2
-  echo git push ${version} >&2
-  echo >&2
-  echo And then you shall manually create the release page, see CONTRIBUTING.md >&2
+  >&2 echo Prepared the release commit and tag, review it now and if everything is okay, push using:
+  >&2 echo git push
+  >&2 echo git push ${version}
+  >&2 echo
+  >&2 echo And then you shall manually create the release page, see CONTRIBUTING.md
 }
 
 # Checking helper functions
@@ -158,7 +160,7 @@ update_demo_version() {
   local version="$1"
   (
     cd demo
-    sed -i -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," *
+    sed -i -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
   )
 }
 
