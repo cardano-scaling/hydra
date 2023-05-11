@@ -3,6 +3,11 @@
 # Regenerate all plantuml drawings
 set -eo pipefail
 
+if ! which plantuml > /dev/null; then
+  >&2 echo "WARNING: Missing executable 'plantuml', cannot regenerate planuml drawings"
+  exit 0
+fi
+
 changes=()
 for puml in $(find -name *.puml); do
     plantuml -Tsvg ${puml}
