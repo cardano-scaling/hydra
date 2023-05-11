@@ -45,6 +45,19 @@ class
   -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
   hashUTxO :: UTxOType tx -> ByteString
 
+-- | A generic description for a chain slot all implementions need to use.
+newtype ChainSlot = ChainSlot Natural
+  deriving (Ord, Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+instance Arbitrary ChainSlot where
+  arbitrary = genericArbitrary
+
+-- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
+-- instances to 'ChainSlot'.
+nextChainSlot :: ChainSlot -> ChainSlot
+nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
+
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
@@ -65,19 +78,6 @@ data Ledger tx = Ledger
   -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
   -- coming with `IsTx`. We probably want to dry this out.
   }
-
--- | A generic description for a chain slot all implementions need to use.
-newtype ChainSlot = ChainSlot Natural
-  deriving (Ord, Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
-
--- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
--- instances to 'ChainSlot'.
-nextChainSlot :: ChainSlot -> ChainSlot
-nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
-
-instance Arbitrary ChainSlot where
-  arbitrary = genericArbitrary
 
 canApply :: Ledger tx -> ChainSlot -> UTxOType tx -> tx -> ValidationResult
 canApply ledger slot utxo tx =

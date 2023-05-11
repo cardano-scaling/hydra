@@ -118,7 +118,7 @@ instance FromCBOR SimpleTxIn where
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
-    { -- NOTE: SimpleTx transactions don't have a notion of time.
+    { -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
       applyTransactions = \_slot ->
         foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
