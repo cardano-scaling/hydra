@@ -195,7 +195,7 @@ executable log-filter
     , optparse-applicative
     , temporary
 
-test-suite integration
+test-suite tests
   import:             project-config
   hs-source-dirs:     test
   main-is:            Main.hs
