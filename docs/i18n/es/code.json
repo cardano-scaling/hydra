@@ -1,30 +1,30 @@
 {
   "theme.ErrorPageContent.title": {
-    "message": "Cette page a planté.",
+    "message": "La página ha colapsado.",
     "description": "The title of the fallback page when the page crashed"
   },
   "theme.ErrorPageContent.tryAgain": {
-    "message": "Réessayer",
+    "message": "Inténtalo de nuevo",
     "description": "The label of the button to try again when the page crashed"
   },
   "theme.NotFound.title": {
-    "message": "Page introuvable",
+    "message": "Página no encontrada",
     "description": "The title of the 404 page"
   },
   "theme.NotFound.p1": {
-    "message": "Nous n'avons pas trouvé ce que vous recherchez.",
+    "message": "No hemos encontrado lo que busca.",
     "description": "The first paragraph of the 404 page"
   },
   "theme.NotFound.p2": {
-    "message": "Veuillez contacter le propriétaire du site qui vous a lié à l'URL d'origine et leur faire savoir que leur lien est cassé.",
+    "message": "Póngase en contacto con el propietario del sitio que le enlazó a la URL original y hágale saber que su enlace está roto.",
     "description": "The 2nd paragraph of the 404 page"
   },
   "theme.AnnouncementBar.closeButtonAriaLabel": {
-    "message": "Fermer",
+    "message": "Cerrar",
     "description": "The ARIA label for close button of announcement bar"
   },
   "theme.BackToTopButton.buttonAriaLabel": {
-    "message": "Revenez en haut",
+    "message": "Volver arriba",
     "description": "The ARIA label for the back to top button"
   },
   "theme.blog.archive.title": {
@@ -32,264 +32,264 @@
     "description": "The page & hero title of the blog archive page"
   },
   "theme.blog.archive.description": {
-    "message": "Archive",
+    "message": "Archivo",
     "description": "The page & hero description of the blog archive page"
   },
   "theme.blog.paginator.navAriaLabel": {
-    "message": "Pagination de la liste des articles du blog",
+    "message": "Paginación de la lista de entradas del blog",
     "description": "The ARIA label for the blog pagination"
   },
   "theme.blog.paginator.newerEntries": {
-    "message": "Nouvelles entrées",
+    "message": "Novedades",
     "description": "The label used to navigate to the newer blog posts page (previous page)"
   },
   "theme.blog.paginator.olderEntries": {
-    "message": "Anciennes entrées",
+    "message": "Entradas anteriores",
     "description": "The label used to navigate to the older blog posts page (next page)"
   },
   "theme.blog.post.readingTime.plurals": {
-    "message": "Une minute de lecture|{readingTime} minutes de lecture",
+    "message": "Un minuto de lectura|{readingTime} minutos de lectura",
     "description": "Pluralized label for \"{readingTime} min read\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.blog.post.readMoreLabel": {
-    "message": "En savoir plus sur {title}",
+    "message": "Más sobre {title}",
     "description": "The ARIA label for the link to full blog posts from excerpts"
   },
   "theme.blog.post.readMore": {
-    "message": "Lire plus",
+    "message": "Seguir leyendo",
     "description": "The label used in blog post item excerpts to link to full blog posts"
   },
   "theme.blog.post.paginator.navAriaLabel": {
-    "message": "Pagination des articles du blog",
+    "message": "Paginación de las entradas del blog",
     "description": "The ARIA label for the blog posts pagination"
   },
   "theme.blog.post.paginator.newerPost": {
-    "message": "Suivant",
+    "message": "Siguiente",
     "description": "The blog post button label to navigate to the newer/previous post"
   },
   "theme.blog.post.paginator.olderPost": {
-    "message": "Précédent",
+    "message": "Anterior",
     "description": "The blog post button label to navigate to the older/next post"
   },
   "theme.blog.sidebar.navAriaLabel": {
-    "message": "Navigation article de blog récent",
+    "message": "Navegación por las últimas entradas del blog",
     "description": "The ARIA label for recent posts in the blog sidebar"
   },
   "theme.blog.post.plurals": {
-    "message": "Un article|{count} articles",
+    "message": "Artículo \"{count} artículos",
     "description": "Pluralized label for \"{count} posts\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.blog.tagTitle": {
-    "message": "Un résultat étiquetté avec « {tagName} »|{nPosts} étiquettés avec « {tagName} »",
+    "message": "Un resultado etiquetado con « {tagName} »|{nPosts} etiquetado con « {tagName} »",
     "description": "The title of the page for a blog tag"
   },
   "theme.tags.tagsPageLink": {
-    "message": "Voir tous les tags",
+    "message": "Ver todas las etiquetas",
     "description": "The label of the link targeting the tag list page"
   },
   "theme.CodeBlock.copyButtonAriaLabel": {
-    "message": "Copier le code",
+    "message": "Copiar el código",
     "description": "The ARIA label for copy code blocks button"
   },
   "theme.CodeBlock.copied": {
-    "message": "Copié",
+    "message": "Copiado",
     "description": "The copied button label on code blocks"
   },
   "theme.CodeBlock.copy": {
-    "message": "Copier",
+    "message": "Copia",
     "description": "The copy button label on code blocks"
   },
   "theme.colorToggle.ariaLabel": {
-    "message": "Basculer entre thème clair ou sombre (theme actuel: {mode})",
+    "message": "Cambiar entre modo claro y oscuro (tema actual: {mode})",
     "description": "The ARIA label for the navbar color mode toggle"
   },
   "theme.colorToggle.ariaLabel.mode.dark": {
-    "message": "Thème sombre",
+    "message": "Modo oscuro",
     "description": "The name for the dark color mode"
   },
   "theme.colorToggle.ariaLabel.mode.light": {
-    "message": "Thème clair",
+    "message": "Modo claro",
     "description": "The name for the light color mode"
   },
   "theme.docs.DocCard.categoryDescription": {
-    "message": "un élément|{count} éléments",
+    "message": "un elemento|{count} elementos",
     "description": "The default description for a category card in the generated index about how many items this category includes"
   },
   "theme.docs.sidebar.expandButtonTitle": {
-    "message": "Afficher le menu latéral",
+    "message": "Mostrar menú lateral",
     "description": "The ARIA label and title attribute for expand button of doc sidebar"
   },
   "theme.docs.sidebar.expandButtonAriaLabel": {
-    "message": "Afficher le menu latéral",
+    "message": "Mostrar menú lateral",
     "description": "The ARIA label and title attribute for expand button of doc sidebar"
   },
   "theme.docs.paginator.navAriaLabel": {
-    "message": "Pagination des documents",
+    "message": "Paginación de documentos",
     "description": "The ARIA label for the docs pagination"
   },
   "theme.docs.paginator.previous": {
-    "message": "Précédent",
+    "message": "Anterior",
     "description": "The label used to navigate to the previous doc"
   },
   "theme.docs.paginator.next": {
-    "message": "Suivant",
+    "message": "Siguiente",
     "description": "The label used to navigate to the next doc"
   },
   "theme.docs.sidebar.collapseButtonTitle": {
-    "message": "Cacher le menu latéral",
+    "message": "Ocultar menú lateral",
     "description": "The title attribute for collapse button of doc sidebar"
   },
   "theme.docs.sidebar.collapseButtonAriaLabel": {
-    "message": "Cacher le menu latéral",
+    "message": "Ocultar menú lateral",
     "description": "The title attribute for collapse button of doc sidebar"
   },
   "theme.DocSidebarItem.toggleCollapsedCategoryAriaLabel": {
-    "message": "Ouvrir/Fermer la catégorie '{label}'",
+    "message": "Abrir/Cerrar Categoría '{label}'",
     "description": "The ARIA label to toggle the collapsible sidebar category"
   },
   "theme.docs.tagDocListPageTitle.nDocsTagged": {
-    "message": "Un document étiquetté|{count} documents étiquettés",
+    "message": "Un documento etiquetado|{count} documentos etiquetados",
     "description": "Pluralized label for \"{count} docs tagged\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.docs.tagDocListPageTitle": {
-    "message": "{nDocsTagged} avec \"{tagName}\"",
+    "message": "{nDocsTagged} con \"{tagName}\"",
     "description": "The title of the page for a docs tag"
   },
   "theme.docs.versionBadge.label": {
     "message": "Version: {versionLabel}"
   },
   "theme.common.editThisPage": {
-    "message": "Éditer cette page",
+    "message": "Editar esta página",
     "description": "The link label to edit the current page"
   },
   "theme.docs.versions.unreleasedVersionLabel": {
-    "message": "Ceci est la documentation de la prochaine version {versionLabel} de {siteTitle}.",
+    "message": "Esta es la documentación de la próxima versión {versionLabel} de {siteTitle}.",
     "description": "The label used to tell the user that he's browsing an unreleased doc version"
   },
   "theme.docs.versions.unmaintainedVersionLabel": {
-    "message": "Ceci est la documentation de {siteTitle} {versionLabel} qui n'est plus activement maintenue.",
+    "message": "Esta es la documentación para {siteTitle} {versionLabel} que ya no se mantiene activamente.",
     "description": "The label used to tell the user that he's browsing an unmaintained doc version"
   },
   "theme.docs.versions.latestVersionSuggestionLabel": {
-    "message": "Pour une documentation à jour, consultez la {latestVersionLink} ({versionLabel}).",
+    "message": "Para obtener documentación actualizada, consulte la página {latestVersionLink} ({versionLabel}).",
     "description": "The label used to tell the user to check the latest version"
   },
   "theme.docs.versions.latestVersionLinkLabel": {
-    "message": "dernière version",
+    "message": "última versión",
     "description": "The label used for the latest version suggestion link label"
   },
   "theme.common.headingLinkTitle": {
-    "message": "Lien direct vers le titre",
+    "message": "Enlace directo al título",
     "description": "Title for link to heading"
   },
   "theme.lastUpdated.atDate": {
-    "message": " le {date}",
+    "message": " el {date}",
     "description": "The words used to describe on which date a page has been last updated"
   },
   "theme.lastUpdated.byUser": {
-    "message": " par {user}",
+    "message": " por {user}",
     "description": "The words used to describe by who the page has been last updated"
   },
   "theme.lastUpdated.lastUpdatedAtBy": {
-    "message": "Dernière mise à jour{atDate}{byUser}",
+    "message": "Última actualización{atDate}{byUser}",
     "description": "The sentence used to display when a page has been last updated, and by who"
   },
   "theme.navbar.mobileSidebarSecondaryMenu.backButtonLabel": {
-    "message": "← Retour au menu principal",
+    "message": "← Volver al menú principal",
     "description": "The label of the back button to return to main menu, inside the mobile navbar sidebar secondary menu (notably used to display the docs sidebar)"
   },
   "theme.navbar.mobileVersionsDropdown.label": {
-    "message": "Versions",
+    "message": "Versiones",
     "description": "The label for the navbar versions dropdown on mobile view"
   },
   "theme.common.skipToMainContent": {
-    "message": "Aller au contenu principal",
+    "message": "Ir al contenido principal",
     "description": "The skip to content label used for accessibility, allowing to rapidly navigate to main content with keyboard tab/enter navigation"
   },
   "theme.TOCCollapsible.toggleButtonLabel": {
-    "message": "Sur cette page",
+    "message": "En esta página",
     "description": "The label used by the button on the collapsible TOC component"
   },
   "theme.tags.tagsListLabel": {
-    "message": "Étiquettes :",
+    "message": "Etiquetas :",
     "description": "The label alongside a tag list"
   },
   "theme.navbar.mobileLanguageDropdown.label": {
-    "message": "Langues",
+    "message": "Idiomas",
     "description": "The label for the mobile language switcher dropdown"
   },
   "theme.SearchBar.seeAll": {
-    "message": "Voir tous les résultats ({count})"
+    "message": "Ver todos los resultados ({count})"
   },
   "theme.SearchBar.label": {
-    "message": "Chercher",
+    "message": "Buscar en",
     "description": "The ARIA label and placeholder for search button"
   },
   "theme.SearchPage.documentsFound.plurals": {
-    "message": "Un document trouvé|{count} documents trouvés",
+    "message": "Documento encontrado|{count} documentos encontrados",
     "description": "Pluralized label for \"{count} documents found\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.SearchPage.existingResultsTitle": {
-    "message": "Résultats de recherche pour « {query} »",
+    "message": "Resultados de la búsqueda « {query} »",
     "description": "The search page title for non-empty query"
   },
   "theme.SearchPage.emptyResultsTitle": {
-    "message": "Rechercher dans la documentation",
+    "message": "Buscar en la documentación",
     "description": "The search page title for empty query"
   },
   "theme.SearchPage.inputPlaceholder": {
-    "message": "Indiquez votre recherche ici",
+    "message": "Introduzca aquí su búsqueda",
     "description": "The placeholder for search page input"
   },
   "theme.SearchPage.inputLabel": {
-    "message": "Chercher",
+    "message": "Buscar en",
     "description": "The ARIA label for search page input"
   },
   "theme.SearchPage.algoliaLabel": {
-    "message": "Recherche par Algolia",
+    "message": "Búsqueda por Algolia",
     "description": "The ARIA label for Algolia mention"
   },
   "theme.SearchPage.noResultsText": {
-    "message": "Aucun résultat trouvé",
+    "message": "No se han encontrado resultados",
     "description": "The paragraph for empty search result"
   },
   "theme.SearchPage.fetchingNewResults": {
-    "message": "Chargement de nouveaux résultats...",
+    "message": "Carga de nuevos resultados...",
     "description": "The paragraph for fetching new search results"
   },
   "theme.tags.tagsPageTitle": {
-    "message": "Étiquettes",
+    "message": "Etiquetas",
     "description": "The title of the tag list page"
   },
   "homepage.tagline": {
-    "message": "Manuel utilisateur, concepts clés et référence d'API"
+    "message": "Manual del usuario, conceptos clave y referencia API"
   },
   "homepage.featureList.secure.title": {
-    "message": "Sécurisé",
+    "message": "Seguridad",
     "description": "Hydra heads' first highlight: security."
   },
   "homepage.featureList.secure.tagline": {
-    "message": "Gardez le contrôle et ne dépensez que ce pour quoi vous avez expressément donné votre accord.",
+    "message": "Mantén el control y gasta sólo lo que hayas acordado expresamente."
     "description": "Tagline for the 'secure' property."
   },
   "homepage.featureList.fast.title": {
-    "message": "Rapide",
+    "message": "Rápido",
     "description": "Hydra heads' second highlight: swiftness."
   },
   "homepage.featureList.fast.tagline": {
-    "message": "Confirmez les transactions au sein de façon quasi-instantanée.",
+    "message": "Confirme las transacciones casi al instante.",
     "description": "Tagline for the 'fast' property."
   },
   "homepage.featureList.isomorphic.title": {
-    "message": "Isomorphique",
+    "message": "Isomorfo",
     "description": "Hydra heads' third highlight: isomorphism."
   },
   "homepage.featureList.isomorphic.tagline": {
-    "message": "Tirez parti des aptitudes, interfaces et sécurités du ledger Cardano.",
+    "message": "Aproveche las capacidades, interfaces y seguridad de la capa uno de Cardano.",
     "description": "Tagline for the 'isomorphic' property."
   },
   "homepage.gettingStarted": {
-    "message": "Prise en main - 5min ⏱️",
+    "message": "Primeros pasos - 5min ⏱️",
     "description": "'Getting Started' button in the home header."
   }
 }
