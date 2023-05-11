@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (queryTip, waitForUTxO)
+import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, waitForUTxO)
 import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
@@ -41,6 +41,7 @@ import Hydra.Cardano.Api (
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
+import Hydra.Chain.Direct.GenesisParameters (toShelleyGenesis)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -70,7 +71,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
-import Hydra.Ledger (ChainSlot (..), txId)
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -497,7 +498,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
           <> logs
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
+timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   let aliceSk = generateSigningKey "alice-timed"
   let alice = deriveParty aliceSk
@@ -505,10 +506,10 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     waitForNodesConnected tracer [n1]
-    now <- getCurrentTime
+    let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+    seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue Fuel (contramap FromFaucet tracer)
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
@@ -520,31 +521,25 @@ timedTx tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
     waitFor tracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
-    now' <- getCurrentTime
-    let slotLengthMillis = 100
+    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
+    slotLengthSec <- sgSlotLength <$> toShelleyGenesis genesisParams
+    currentSlot <- queryTipSlotNo networkId nodeSocket
 
     -- Create an arbitrary transaction using some input.
-    let paymentFromAliceToFaucet :: Num a => a
-        paymentFromAliceToFaucet = 1_000_000
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
-    (faucetVk, _) <- keysFor Faucet
 
     -- Create a transaction which is only valid in 5 seconds
     let
       secondsToAwait = 15
-      slotLengthSec = fromInteger slotLengthMillis / 1000
       slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
-
-      (ChainSlot nbr) = ChainSlot 0
-      slotsSince = SlotNo . truncate $ (diffUTCTime now' now / slotLengthSec)
-      currentSlot = SlotNo (fromIntegral nbr) + slotsSince
       futureSlot = currentSlot + slotsToAwait
+      lovelaceToSend = lovelaceBalanceValue - 90_000_000
 
       -- TODO (later) use time in a script (as it is using POSIXTime)
       Right tx =
         mkRangedTx
           firstCommittedUTxO
-          (inHeadAddress faucetVk, lovelaceToValue paymentFromAliceToFaucet)
+          (inHeadAddress aliceCardanoVk, lovelaceToValue lovelaceToSend)
           aliceCardanoSk
           (Just $ TxValidityLowerBound futureSlot, Nothing)
 
