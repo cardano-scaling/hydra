@@ -90,3 +90,8 @@
     height: 5em;
   }
 }
+
+svg.architecture{
+  width: 100% !important;
+  height: 100% !important;
+}

@@ -12,7 +12,7 @@ As more users implement solutions on top of Hydra, this "catalog" of topologies 
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
-import {useDocsSidebar} from '@docusaurus/theme-common';
+import {useDocsSidebar} from '@docusaurus/theme-common/internal';
 
-<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
+<DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
 ```

@@ -9,7 +9,7 @@ In this section, you'll find example use cases and user-stories about Hydra head
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
-import {useDocsSidebar} from '@docusaurus/theme-common';
+import {useDocsSidebar} from '@docusaurus/theme-common/internal';
 
-<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
+<DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
 ```

@@ -279,6 +279,13 @@ const config = {
         contextualSearch: true,
       },
     }),
+
+  markdown: {
+    mermaid: true,
+  },
+
+  themes: ['@docusaurus/theme-mermaid'],
+
 };
 
 module.exports = config;

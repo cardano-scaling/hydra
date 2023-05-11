@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prepare": "yarn enrich-document-metadata",
+    "prepare": "yarn enrich-document-metadata && yarn regenerate-plantuml",
     "build": "yarn prepare && docusaurus build",
     "start": "yarn dummy-spec && docusaurus start",
     "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx BabbageEra)).json'",
@@ -17,18 +17,24 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "enrich-document-metadata": "node ./scripts/enrich-document-metadata.js",
-    "dummy-spec": "echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf"
+    "dummy-spec": "echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf",
+    "regenerate-plantuml": "./scripts/regenerate-plantuml.sh"
   },
   "dependencies": {
-    "@docusaurus/core": "2.0.0-beta.17",
-    "@docusaurus/plugin-content-docs": "^2.0.0-beta.17",
-    "@docusaurus/preset-classic": "2.0.0-beta.17",
+    "@docusaurus/core": "^2.4.0",
+    "@docusaurus/plugin-content-docs": "^2.4.0",
+    "@docusaurus/preset-classic": "^2.4.0",
+    "@docusaurus/theme-mermaid": "^2.4.0",
     "@mdx-js/react": "^1.6.22",
-    "asyncapi-validator": "^3.1.1",
+    "@asyncapi/specs": "4.2.1",
+    "asyncapi-validator": "3.1.1",
     "clsx": "^1.1.1",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
+  },
+  "resolutions": {
+    "@asyncapi/specs": "4.2.1"
   },
   "browserslist": {
     "production": [
