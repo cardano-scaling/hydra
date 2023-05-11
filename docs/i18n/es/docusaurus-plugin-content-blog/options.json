@@ -1,14 +1,14 @@
 {
   "title": {
-    "message": "Décisions Architecturales",
+    "message": "Decisiones de arquitectura",
     "description": "The title for the blog used in SEO"
   },
   "description": {
-    "message": "Documentation technique succincte des décisions majeurs relatives au développement du noeud Hydra.",
+    "message": "Documentación técnica resumida de las principales decisiones relativas al desarrollo del nodo Hydra.",
     "description": "The description for the blog used in SEO"
   },
   "sidebar.title": {
-    "message": "Décisions Architecturales",
+    "message": "Decisiones de arquitectura",
     "description": "The label for the left sidebar"
   }
 }
