@@ -4,8 +4,6 @@ sidebar_position: 1
 
 # Getting Started
 
-:::warning Mainnet Availability
-
 Hydra is the layer-two scalability solution for Cardano, which aims to increase
 the speed of transactions (low latency, high throughput) and minimize
 transaction cost.
@@ -17,13 +15,13 @@ we've put together, marching towards a production ready solution. It contains a
 connects to other hydra-nodes, interfaces the Cardano blockchain and provides an
 API to clients such as the included example terminal user interface `hydra-tui`.
 
-:rotating_light: Mainnet Availability :rotating_light:
+:::warning Mainnet Availability
 
 The Hydra Head protocol version 0.10.0 is compatible with the Cardano mainnet,
 which means it is possible to run a hydra-node on mainnet for testing purposes.
 
-Before running a Hydra node to take part in the Hydra Head protocol, developers
-are strongly encouraged to review the [relevant section](/docs/known-issues) of
+Before running a `hydra-node` to take part in the Hydra Head protocol,
+developers are strongly encouraged to review the [known issues][known-issues] in
 the documentation in order to understand the current limitations and the
 possible consequences.
 
@@ -37,9 +35,12 @@ information and materials published, distributed or otherwise made available on
 Hydra.Family and Hydra Github Repository is available on an ‘AS IS’ and ‘AS
 AVAILABLE’ basis, without any representations or warranties of any kind. All
 implied terms are excluded to the fullest extent permitted by law. For details,
-see also sections 7, 8 and 9 of Apache 2.0 License.
+see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 
 :::
+
+[known-issues]: ../known-issues
+[license]: https://github.com/input-output-hk/hydra/blob/master/LICENSE
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
