@@ -206,16 +206,6 @@ spec = parallel $
                   }
             }
 
-    it "parses --ledger-genesis-file as a filepath" $
-      setFlags ["--ledger-genesis", "my-custom-genesis.json"]
-        `shouldParse` Run
-          defaultRunOptions
-            { ledgerConfig =
-                defaultLedgerConfig
-                  { cardanoLedgerGenesisFile = "my-custom-genesis.json"
-                  }
-            }
-
     it "parses --ledger-protocol-parameters-file as a filepath" $
       setFlags ["--ledger-protocol-parameters", "my-custom-protocol-parameters.json"]
         `shouldParse` Run

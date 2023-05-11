@@ -6,6 +6,8 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import CardanoClient (QueryPoint (QueryTip), queryGenesisParameters)
+import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Cluster.Fixture (Actor (Faucet))
@@ -25,30 +27,36 @@ import Hydra.Ledger.Cardano.Configuration (
   newLedgerEnv,
   protocolParametersFromJson,
   readJsonFileThrow,
-  shelleyGenesisFromJson,
  )
+import Hydra.Logging (showLogsOnFailure)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
+import Test.EndToEndSpec (withClusterTempDir)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
   counterexample,
   forAll,
   idempotentIOProperty,
+  property,
+  quickCheck,
  )
 
 spec :: Spec
 spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
-  prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
+  around showLogsOnFailure $
+    it "generates a Dataset that keeps UTXO constant" $ \tracer -> do
+      failAfter 60 $
+        withClusterTempDir "queryGenesisParameters" $ \tmpDir -> do
+          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
+            globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
+            quickCheck $ property $ prop_keepsUTxOConstant globals
 
-prop_keepsUTxOConstant :: Property
-prop_keepsUTxOConstant =
+prop_keepsUTxOConstant :: Globals -> Property
+prop_keepsUTxOConstant globals =
   forAll arbitrary $ \(Positive n) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
-      globals <-
-        newGlobals
-          <$> readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
       ledgerEnv <-
         newLedgerEnv
           <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"

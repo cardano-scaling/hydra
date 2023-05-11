@@ -35,8 +35,7 @@
                 "b/a/c.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerGenesisFile": "c/b/c/b/b/b..json",
-                "cardanoLedgerProtocolParametersFile": "b..json"
+                "cardanoLedgerProtocolParametersFile": "c/b/c/b/b/b..json"
             },
             "monitoringPort": 10,
             "nodeId": "ibqamqhmfggaqsj",
@@ -86,8 +85,7 @@
                 "b.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerGenesisFile": "a/b/c/a/b/b..json",
-                "cardanoLedgerProtocolParametersFile": "c/a/c/b/b..json"
+                "cardanoLedgerProtocolParametersFile": "a/b/c/a/b/b..json"
             },
             "monitoringPort": null,
             "nodeId": "spdagobgcblquqlviwbymhcdr",
@@ -143,8 +141,7 @@
                 "b/c.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerGenesisFile": "b/b/a/b/c/c..json",
-                "cardanoLedgerProtocolParametersFile": "b/a/c..json"
+                "cardanoLedgerProtocolParametersFile": "b/b/a/b/c/c..json"
             },
             "monitoringPort": 19746,
             "nodeId": "icqna",
@@ -215,8 +212,7 @@
                 "c/c/c.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerGenesisFile": "a/c/c..json",
-                "cardanoLedgerProtocolParametersFile": "c/a/b/a/b..json"
+                "cardanoLedgerProtocolParametersFile": "a/c/c..json"
             },
             "monitoringPort": 6616,
             "nodeId": "ip",
@@ -264,8 +260,7 @@
                 "a/a/c.vk"
             ],
             "ledgerConfig": {
-                "cardanoLedgerGenesisFile": "c/b/b/c..json",
-                "cardanoLedgerProtocolParametersFile": "a/c/a/a/a/b..json"
+                "cardanoLedgerProtocolParametersFile": "c/b/b/c..json"
             },
             "monitoringPort": 9885,
             "nodeId": "vgnfmvtyrtutqozcjppmpaab",

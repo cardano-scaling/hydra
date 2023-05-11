@@ -1525,7 +1525,5 @@ definitions:
       ledgerConfig:
         type: object
         properties:
-          cardanoLedgerGenesisFile:
-            type: string
           cardanoLedgerProtocolParametersFile:
             type: string

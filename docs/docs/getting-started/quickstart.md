@@ -35,7 +35,6 @@ Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [--cardano-verification-key FILE]
                     [--start-chain-from SLOT.HEADER_HASH]
                     [--contestation-period CONTESTATION-PERIOD]
-                    [--ledger-genesis FILE]
                     [--ledger-protocol-parameters FILE] |
                     COMMAND) [--version] [--script-info]
 
@@ -105,11 +104,6 @@ Available options:
                            hydra-node will ignore the initial tx. Additionally,
                            this value needs to make sense compared to the
                            current network we are running. (default: 60s)
-  --ledger-genesis FILE    Path to a Shelley-compatible genesis JSON file used
-                           for the Hydra ledger. You can use the corresponding
-                           Cardano network's shelley genesis file from:
-                           https://book.world.dev.cardano.org/environments.html
-                           (default: "genesis-shelley.json")
   --ledger-protocol-parameters FILE
                            Path to protocol parameters used in the Hydra Head.
                            See manual how to configure this.
@@ -128,6 +122,7 @@ Available commands:
                             ┃    This costs money. About 50 Ada.    ┃
                             ┃ Spent using the provided signing key. ┃
                             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
 
 
 ```
@@ -200,12 +195,12 @@ On success, this commands outputs a transaction id ready to be used. The provide
 
 ### Ledger Parameters
 
-At the core of a Hydra head, there's a ledger. At the moment, Hydra is wired only to Cardano and assumes a ledger configuration similar to the one used on the layer 1. This translates as two command-line options `--ledger-genesis` and `--ledger-protocol-parameters`. The former defines the (Shelley!) genesis rules and more specifically, the **global**, non-updatable protocol parameters required by the ledger. The latter defines the updatable protocol parameters such as fees or transaction sizes. They use the same format as the one used by the cardano-cli (e.g. `cardano-cli query protocol-parameters`'s output).
+At the core of a Hydra head, there's a ledger. At the moment, Hydra is wired only to Cardano and assumes a ledger configuration similar to the one used on the layer 1. This translates as a command-line option `--ledger-protocol-parameters`. This defines the updatable protocol parameters such as fees or transaction sizes. They use the same format as the one used by the cardano-cli (e.g. `cardano-cli query protocol-parameters`'s output).
 
 We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config) which can be used as basis. In particular, the protocol parameters are defined to nullify costs inside a head. Apart from that, they are the direct copy the current mainnet parameters. An interesting point about the Hydra's ledger is that, while it re-uses the same rules and code as the layer 1 (a.k.a. isomorphic), parameters may also be altered to slightly differ from the layer 1. This is the case for fees, but could also be done for script maximum execution budget for instance. However, not all parameters are safe to alter! Changing parameters that control the maximum size of a value (carrying native assets), or the minimum Ada value for a UTxO may render a head "unclosable"! A good rule thumb is that anything that applies strictly to transactions (fees, execution units, max tx size...) is safe to change. But anything that could be reflected in the UTxO is not.
 
 :::info About Protocol Parameters
-Note that there's a bit of overlap between the two files since most protocol parameters are first and foremost genesis parameters. Moreover, many of those parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
+Note that many of protocol-parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
 :::
 
 ### Fuel

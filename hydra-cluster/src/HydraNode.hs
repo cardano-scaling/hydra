@@ -253,8 +253,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
--- config/. Note that this is using the 'config/devnet/genesis-shelly.json'
--- irrelevant of the used cardano network.
+-- config/. 
 withHydraNode ::
   Tracer IO EndToEndLog ->
   ChainConfig ->
@@ -270,8 +269,6 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
-      let cardanoLedgerGenesisFile = dir </> "genesis.json"
-      readConfigFile ("devnet" </> "genesis-shelley.json") >>= writeFileBS cardanoLedgerGenesisFile
       let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
       readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
       let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
@@ -281,8 +278,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
         filepath <$ writeFileTextEnvelope filepath Nothing vKey
       let ledgerConfig =
             CardanoLedgerConfig
-              { cardanoLedgerGenesisFile
-              , cardanoLedgerProtocolParametersFile
+              { cardanoLedgerProtocolParametersFile
               }
       let p =
             ( hydraNodeProcess $
