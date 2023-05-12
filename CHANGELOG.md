@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.11.0] - UNRELEASED
+
+- Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` log items using a
+  numeric `eventId`.
+
 ## [0.10.0] - 2023-05-11
 
 This release contains several breaking changes and you'll need to apply the
@@ -192,7 +197,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
   transactions according to our
   [benchmarks](https://hydra.family/head-protocol/benchmarks/transaction-cost/)
   changed:
-  
+
   + Init increased by 10%.
   + Commit reduced by 50%.
   + Collect reduced by 30%.
