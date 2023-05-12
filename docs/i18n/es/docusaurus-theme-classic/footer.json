@@ -8,11 +8,11 @@
     "description": "The title of the footer links column with title=Community in the footer"
   },
   "link.title.More": {
-    "message": "Varios",
+    "message": "Más",
     "description": "The title of the footer links column with title=More in the footer"
   },
   "link.item.label.Coding Standards": {
-    "message": "Standards de programación",
+    "message": "Estándares de programación",
     "description": "The label of footer link with label=Coding Standards linking to https://github.com/input-output-hk/hydra/wiki/Coding-Standards"
   },
   "link.item.label.Architectural Decision Records": {
@@ -36,7 +36,7 @@
     "description": "The label of footer link with label=Stack Exchange linking to https://cardano.stackexchange.com/questions/tagged/hydra"
   },
   "link.item.label.Haskell Packages": {
-    "message": "Bibliotecas de Haskell",
+    "message": "Librerías de Haskell",
     "description": "The label of footer link with label=Haskell Packages linking to /docs/haskell_packages"
   },
   "link.item.label.Logbook": {
@@ -48,7 +48,7 @@
     "description": "The label of footer link with label=Input Output (Blog) linking to https://iohk.io/en/blog"
   },
   "copyright": {
-    "message": "Copyright © 2022 <strong>Input Output</strong> <br/> <small>Site réalisé avec Docusaurus</small>",
+    "message": "Copyright © 2022 <strong>Input Output</strong> <br/> <small> Sitio realizado con Docusaurus</small>",
     "description": "The footer copyright"
   }
 }
