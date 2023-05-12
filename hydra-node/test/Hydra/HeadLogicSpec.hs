@@ -371,7 +371,6 @@ chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
 chainEffect postChainTx =
   OnChainEffect
     { postChainTx
-    , chainState = SimpleChainState{slot = ChainSlot 0}
     }
 
 observeEventAtSlot :: Natural -> OnChainTx SimpleTx -> Event SimpleTx

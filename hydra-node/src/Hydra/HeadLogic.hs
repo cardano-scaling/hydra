@@ -95,7 +95,7 @@ data Effect tx
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
-    OnChainEffect {chainState :: ChainStateType tx, postChainTx :: PostChainTx tx}
+    OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
@@ -385,10 +385,9 @@ data Environment = Environment
 -- __Transition__: 'IdleState' → 'IdleState'
 onIdleClientInit ::
   Environment ->
-  IdleState tx ->
   Outcome tx
-onIdleClientInit env st =
-  OnlyEffects [OnChainEffect{chainState, postChainTx = InitTx parameters}]
+onIdleClientInit env =
+  OnlyEffects [OnChainEffect{postChainTx = InitTx parameters}]
  where
   parameters =
     HeadParameters
@@ -397,8 +396,6 @@ onIdleClientInit env st =
       }
 
   Environment{party, otherParties, contestationPeriod} = env
-
-  IdleState{chainState} = st
 
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.
@@ -439,12 +436,12 @@ onInitialClientCommit env st clientInput =
     (Commit utxo)
       -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
       -- deal with it?
-      | canCommit -> OnlyEffects [OnChainEffect{chainState, postChainTx = CommitTx party utxo}]
+      | canCommit -> OnlyEffects [OnChainEffect{postChainTx = CommitTx party utxo}]
     _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
 
-  InitialState{pendingCommits, chainState} = st
+  InitialState{pendingCommits} = st
 
   Environment{party} = env
 
@@ -484,8 +481,7 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   postCollectCom =
     OnChainEffect
-      { chainState = newChainState
-      , postChainTx = CollectComTx $ fold newCommitted
+      { postChainTx = CollectComTx $ fold newCommitted
       }
 
   canCollectCom = null remainingParties
@@ -503,9 +499,9 @@ onInitialClientAbort ::
   InitialState tx ->
   Outcome tx
 onInitialClientAbort st =
-  OnlyEffects [OnChainEffect{chainState, postChainTx = AbortTx{utxo = fold committed}}]
+  OnlyEffects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed}}]
  where
-  InitialState{chainState, committed} = st
+  InitialState{committed} = st
 
 -- | Observe an abort transaction by switching the state and notifying clients
 -- about it.
@@ -821,11 +817,11 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  OnlyEffects [OnChainEffect{chainState, postChainTx = CloseTx confirmedSnapshot}]
+  OnlyEffects [OnChainEffect{postChainTx = CloseTx confirmedSnapshot}]
  where
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{chainState, coordinatedHeadState} = st
+  OpenState{coordinatedHeadState} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -845,9 +841,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
   NewState closedState $
     notifyClient
       : [ OnChainEffect
-          { -- REVIEW: Was using "old" chainState before
-            chainState = newChainState
-          , postChainTx = ContestTx{confirmedSnapshot}
+          { postChainTx = ContestTx{confirmedSnapshot}
           }
         | doContest
         ]
@@ -890,7 +884,7 @@ onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
       OnlyEffects
         [ ClientEffect HeadIsContested{snapshotNumber, headId}
-        , OnChainEffect{chainState, postChainTx = ContestTx{confirmedSnapshot}}
+        , OnChainEffect{postChainTx = ContestTx{confirmedSnapshot}}
         ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
       -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -899,7 +893,7 @@ onClosedChainContestTx closedState snapshotNumber
   | otherwise =
       OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
  where
-  ClosedState{chainState, confirmedSnapshot, headId} = closedState
+  ClosedState{confirmedSnapshot, headId} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
@@ -911,15 +905,14 @@ onClosedClientFanout ::
 onClosedClientFanout closedState =
   OnlyEffects
     [ OnChainEffect
-        { chainState
-        , postChainTx =
+        { postChainTx =
             FanoutTx{utxo, contestationDeadline}
         }
     ]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
 
-  ClosedState{chainState, confirmedSnapshot, contestationDeadline} = closedState
+  ClosedState{confirmedSnapshot, contestationDeadline} = closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -951,8 +944,8 @@ update ::
   Event tx ->
   Outcome tx
 update env ledger st ev = case (st, ev) of
-  (Idle idleState, ClientEvent Init) ->
-    onIdleClientInit env idleState
+  (Idle _, ClientEvent Init) ->
+    onIdleClientInit env
   (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
     onIdleChainInitTx newChainState parties contestationPeriod headId
   -- Initial
