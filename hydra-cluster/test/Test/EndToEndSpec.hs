@@ -24,6 +24,7 @@ import qualified Data.Set as Set
 import Data.Text (pack)
 import Hydra.Cardano.Api (
   AddressInEra,
+  GenesisParameters (..),
   Key (SigningKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -41,7 +42,6 @@ import Hydra.Cardano.Api (
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
-import Hydra.Chain.Direct.GenesisParameters (toShelleyGenesis)
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -522,7 +522,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
 
     -- Acquire a current point in time
     genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
-    slotLengthSec <- sgSlotLength <$> toShelleyGenesis genesisParams
+    let slotLengthSec = protocolParamSlotLength genesisParams
     currentSlot <- queryTipSlotNo networkId nodeSocket
 
     -- Create an arbitrary transaction using some input.
