@@ -13,17 +13,10 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
-  isEmptyTQueue,
-  labelTQueueIO,
   labelTVarIO,
-  modifyTVar',
-  newTQueue,
   newTVarIO,
-  readTQueue,
   stateTVar,
-  writeTQueue,
  )
-import Control.Monad.Class.MonadAsync (async)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
@@ -42,6 +35,7 @@ import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
+import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (Persistence (..))
@@ -77,8 +71,8 @@ data HydraNode tx m = HydraNode
   }
 
 data HydraNodeLog tx
-  = BeginEvent {by :: Party, event :: Event tx}
-  | EndEvent {by :: Party, event :: Event tx}
+  = BeginEvent {by :: Party, eventId :: Word64, event :: Event tx}
+  | EndEvent {by :: Party, eventId :: Word64}
   | BeginEffect {by :: Party, effect :: Effect tx}
   | EndEffect {by :: Party, effect :: Effect tx}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
@@ -116,9 +110,9 @@ stepHydraNode ::
   HydraNode tx m ->
   m ()
 stepHydraNode tracer node = do
-  e <- nextEvent eq
-  traceWith tracer $ BeginEvent party e
-  outcome <- atomically (processNextEvent node e)
+  e@Queued{eventId, queuedEvent} <- nextEvent eq
+  traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
+  outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
@@ -130,12 +124,13 @@ stepHydraNode tracer node = do
       forM_ effs (processEffect node tracer)
     OnlyEffects effs ->
       forM_ effs (processEffect node tracer)
-  traceWith tracer (EndEvent party e)
+  traceWith tracer EndEvent{by = party, eventId}
  where
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
-      NetworkEvent ttl msg | ttl > 0 -> NetworkEvent (ttl - 1) msg
+      Queued{eventId, queuedEvent = NetworkEvent ttl msg}
+        | ttl > 0 -> Queued{eventId, queuedEvent = NetworkEvent (ttl - 1) msg}
       e -> e
 
   Environment{party} = env
@@ -183,50 +178,6 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party e
--- ** Some general event queue from which the Hydra head is "fed"
-
--- | The single, required queue in the system from which a hydra head is "fed".
--- NOTE(SN): this probably should be bounded and include proper logging
--- NOTE(SN): handle pattern, but likely not required as there is no need for an
--- alternative implementation
-data EventQueue m e = EventQueue
-  { putEvent :: e -> m ()
-  , putEventAfter :: DiffTime -> e -> m ()
-  , nextEvent :: m e
-  , isEmpty :: m Bool
-  }
-
-createEventQueue ::
-  ( MonadSTM m
-  , MonadDelay m
-  , MonadAsync m
-  , MonadLabelledSTM m
-  ) =>
-  m (EventQueue m e)
-createEventQueue = do
-  numThreads <- newTVarIO (0 :: Integer)
-  labelTVarIO numThreads "num-threads"
-  q <- atomically newTQueue
-  labelTQueueIO q "event-queue"
-  pure
-    EventQueue
-      { putEvent =
-          atomically . writeTQueue q
-      , putEventAfter = \delay e -> do
-          atomically $ modifyTVar' numThreads succ
-          void . async $ do
-            threadDelay delay
-            atomically $ do
-              modifyTVar' numThreads pred
-              writeTQueue q e
-      , nextEvent =
-          atomically $ readTQueue q
-      , isEmpty = do
-          atomically $ do
-            n <- readTVar numThreads
-            isEmpty' <- isEmptyTQueue q
-            pure (isEmpty' && n == 0)
-      }
 
 -- ** Manage state
 

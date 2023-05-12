@@ -36,13 +36,12 @@ import Hydra.Network (Host (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
-  EventQueue (..),
   HydraNode (..),
-  createEventQueue,
   createNodeState,
   initEnvironment,
   runHydraNode,
  )
+import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (
   Command (Publish, Run),
   LedgerConfig (..),

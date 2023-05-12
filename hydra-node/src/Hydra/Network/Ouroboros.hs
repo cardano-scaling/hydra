@@ -49,7 +49,6 @@ import Hydra.Network.Ouroboros.Type (
   codecFireForget,
  )
 import Network.Mux.Compat (
-  MuxTrace,
   WithMuxBearer (..),
  )
 import Network.Socket (
@@ -187,8 +186,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
-    handle onIOException
-      $ withServerNode
+    handle onIOException $
+      withServerNode
         (socketSnocket iomgr)
         makeSocketBearer
         notConfigureSocket
@@ -202,8 +201,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         acceptableVersion
         (unversionedProtocol (SomeResponderApplication app))
         nullErrorPolicies
-      $ \_addr serverAsync -> do
-        race_ (wait serverAsync) continuation
+        $ \_addr serverAsync -> do
+          race_ (wait serverAsync) continuation
    where
     notConfigureSocket _ _ = pure ()
 
@@ -236,7 +235,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        (contramap (WithHost localHost . TraceSendRecv) tracer)
+        nullTracer
         codecFireForget
         (fireForgetClientPeer $ client chan)
 
@@ -253,7 +252,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     responder =
       MuxPeer
-        (contramap (WithHost localHost . TraceSendRecv) tracer)
+        nullTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -307,7 +306,6 @@ data TraceOuroborosNetwork msg
   | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
   | TraceAcceptPolicy AcceptConnectionsPolicyTrace
   | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
-  | TraceMux (WithMuxBearer (ConnectionId SockAddr) MuxTrace)
   | TraceSendRecv (TraceSendRecv (FireForget msg))
   deriving stock (Show, Generic)
 
@@ -323,8 +321,6 @@ instance ToJSON msg => ToJSON (TraceOuroborosNetwork msg) where
       tagged "TraceAcceptPolicy" ["accept" .= show @Text accept]
     TraceHandshake handshake ->
       tagged "TraceHandshake" ["handshake" .= encodeTraceSendRecvHandshake handshake]
-    TraceMux withMuxBearer ->
-      tagged "TraceMux" ["mux" .= encodeWithMuxBearer withMuxBearer]
     TraceSendRecv sndRcv ->
       tagged "TraceSendRecv" ["trace" .= encodeTraceSendRecvFireForget sndRcv]
 
@@ -345,14 +341,6 @@ encodeWithAddr (WithAddr addr ev) =
   tagged
     "WithAddr"
     [ "addr" .= show @Text addr
-    , "event" .= show @Text ev
-    ]
-
-encodeWithMuxBearer :: WithMuxBearer (ConnectionId SockAddr) MuxTrace -> Aeson.Value
-encodeWithMuxBearer (WithMuxBearer peerId ev) =
-  tagged
-    "WithMuxBearer"
-    [ "peerId" .= show @Text peerId
     , "event" .= show @Text ev
     ]
 

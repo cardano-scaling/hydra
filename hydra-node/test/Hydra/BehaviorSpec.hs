@@ -56,15 +56,14 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
-  EventQueue (putEvent),
   HydraNode (..),
   HydraNodeLog (..),
   NodeState,
-  createEventQueue,
   createNodeState,
   runHydraNode,
   waitDelay,
  )
+import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -435,9 +434,9 @@ spec = parallel $ do
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginEvent alice $ ClientEvent Init]
+        `shouldContain` [BeginEvent alice 0 (ClientEvent Init)]
       logs
-        `shouldContain` [EndEvent alice $ ClientEvent Init]
+        `shouldContain` [EndEvent alice 0]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do

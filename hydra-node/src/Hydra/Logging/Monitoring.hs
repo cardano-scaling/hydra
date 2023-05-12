@@ -26,7 +26,7 @@ import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent))
+import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent), event)
 import Hydra.Snapshot (Snapshot (confirmed))
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
@@ -89,7 +89,7 @@ monitor ::
   HydraLog tx net ->
   m ()
 monitor transactionsMap metricsMap = \case
-  (Node (BeginEvent _ (NetworkEvent _ (ReqTx _ tx)))) -> do
+  (Node BeginEvent{event = NetworkEvent _ (ReqTx _ tx)}) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
     -- forever in the transactions map which could lead to unbounded growth and
