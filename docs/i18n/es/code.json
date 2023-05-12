@@ -1,6 +1,6 @@
 {
   "theme.ErrorPageContent.title": {
-    "message": "La página ha colapsado.",
+    "message": "Esta página se ha bloqueado",
     "description": "The title of the fallback page when the page crashed"
   },
   "theme.ErrorPageContent.tryAgain": {
