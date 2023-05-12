@@ -61,17 +61,20 @@ prepare_release() {
   
   git add .
   
-  git commit -m "Prepare release $version"
+  git commit -m "Release $version"
 
   git tag -as "$version" -F <(changelog "$version")
+
+  git merge release "${version}" --ff-only
 }
 
 publish_release() {
   local version="$1"
 
   >&2 echo Prepared the release commit and tag, review it now and if everything is okay, push using:
-  >&2 echo git push
-  >&2 echo git push ${version}
+  >&2 echo git push origin master
+  >&2 echo git push origin release
+  >&2 echo git push origin ${version}
   >&2 echo
   >&2 echo And then you shall manually create the release page, see CONTRIBUTING.md
 }
