@@ -15,7 +15,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
-import Control.Concurrent.STM (newEmptyTMVarIO, newTVarIO, readTVarIO, takeTMVar)
+import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
@@ -433,7 +433,6 @@ withDirectChainTest ::
   IO a
 withDirectChainTest tracer config ctx action = do
   eventMVar <- newEmptyTMVarIO
-  stateVar <- newTVarIO initialChainState
 
   let callback = \event -> do
         atomically $ putTMVar eventMVar event
@@ -443,9 +442,7 @@ withDirectChainTest tracer config ctx action = do
   withDirectChain tracer config ctx wallet initialChainState callback $ \Chain{postTx} -> do
     action
       DirectChainTest
-        { postTx = \tx -> do
-            cs <- readTVarIO stateVar
-            postTx cs tx
+        { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
         }
 

@@ -170,7 +170,7 @@ createHydraNode signingKey otherParties contestationPeriod events = do
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
-      , oc = Chain{postTx = \_ _ -> pure ()}
+      , oc = Chain{postTx = \_ -> pure ()}
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger
       , env =
@@ -212,4 +212,4 @@ throwExceptionOnPostTx ::
   HydraNode tx IO ->
   IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
-  pure node{oc = Chain{postTx = \_ _ -> throwIO exception}}
+  pure node{oc = Chain{postTx = \_ -> throwIO exception}}

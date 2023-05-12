@@ -128,7 +128,7 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { postTx = \_chainState tx -> do
+    { postTx = \tx -> do
         chainState <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
