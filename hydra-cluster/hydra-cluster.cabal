@@ -203,6 +203,7 @@ test-suite integration
   other-modules:
     Paths_hydra_cluster
     Spec
+    Test.CardanoClientSpec
     Test.CardanoNodeSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
@@ -248,7 +249,10 @@ test-suite integration
     , temporary
     , text
 
-  build-tool-depends: hspec-discover:hspec-discover, hydra-node:hydra-node
+  build-tool-depends:
+    , hspec-discover:hspec-discover
+    , hydra-node:hydra-node
+
   ghc-options:        -threaded -rtsopts
 
 benchmark bench-e2e
