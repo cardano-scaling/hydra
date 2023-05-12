@@ -12,11 +12,11 @@
     "description": "The title of the 404 page"
   },
   "theme.NotFound.p1": {
-    "message": "No hemos encontrado lo que busca.",
+    "message": "No pudimos encontrar lo que buscas.",
     "description": "The first paragraph of the 404 page"
   },
   "theme.NotFound.p2": {
-    "message": "Póngase en contacto con el propietario del sitio que le enlazó a la URL original y hágale saber que su enlace está roto.",
+    "message": "Comuníquese con el propietario del sitio que lo asoció a la URL original e infórmele que su vínculo/enlace está roto.",
     "description": "The 2nd paragraph of the 404 page"
   },
   "theme.AnnouncementBar.closeButtonAriaLabel": {
@@ -28,7 +28,7 @@
     "description": "The ARIA label for the back to top button"
   },
   "theme.blog.archive.title": {
-    "message": "Archive",
+    "message": "Archivo",
     "description": "The page & hero title of the blog archive page"
   },
   "theme.blog.archive.description": {
@@ -36,15 +36,15 @@
     "description": "The page & hero description of the blog archive page"
   },
   "theme.blog.paginator.navAriaLabel": {
-    "message": "Paginación de la lista de entradas del blog",
+    "message": "Paginación de la lista de artículos del blog.",
     "description": "The ARIA label for the blog pagination"
   },
   "theme.blog.paginator.newerEntries": {
-    "message": "Novedades",
+    "message": "Nuevas publicaciones",
     "description": "The label used to navigate to the newer blog posts page (previous page)"
   },
   "theme.blog.paginator.olderEntries": {
-    "message": "Entradas anteriores",
+    "message": "Artículos anteriores",
     "description": "The label used to navigate to the older blog posts page (next page)"
   },
   "theme.blog.post.readingTime.plurals": {
@@ -52,7 +52,7 @@
     "description": "Pluralized label for \"{readingTime} min read\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.blog.post.readMoreLabel": {
-    "message": "Más sobre {title}",
+    "message": "Más información sobre {title}",
     "description": "The ARIA label for the link to full blog posts from excerpts"
   },
   "theme.blog.post.readMore": {
@@ -60,7 +60,7 @@
     "description": "The label used in blog post item excerpts to link to full blog posts"
   },
   "theme.blog.post.paginator.navAriaLabel": {
-    "message": "Paginación de las entradas del blog",
+    "message": "Paginación de los artículos del blog.",
     "description": "The ARIA label for the blog posts pagination"
   },
   "theme.blog.post.paginator.newerPost": {
@@ -72,15 +72,15 @@
     "description": "The blog post button label to navigate to the older/next post"
   },
   "theme.blog.sidebar.navAriaLabel": {
-    "message": "Navegación por las últimas entradas del blog",
+    "message": "Navegación por los últimos artículos del blog.",
     "description": "The ARIA label for recent posts in the blog sidebar"
   },
   "theme.blog.post.plurals": {
-    "message": "Artículo \"{count} artículos",
+    "message": "Un artículo \"{count} artículos",
     "description": "Pluralized label for \"{count} posts\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.blog.tagTitle": {
-    "message": "Un resultado etiquetado con « {tagName} »|{nPosts} etiquetado con « {tagName} »",
+    "message": "Un resultado etiquetado con « {tagName} »|{nPosts} etiquetados con « {tagName} »",
     "description": "The title of the page for a blog tag"
   },
   "theme.tags.tagsPageLink": {
@@ -96,7 +96,7 @@
     "description": "The copied button label on code blocks"
   },
   "theme.CodeBlock.copy": {
-    "message": "Copia",
+    "message": "Copiar",
     "description": "The copy button label on code blocks"
   },
   "theme.colorToggle.ariaLabel": {
@@ -144,7 +144,7 @@
     "description": "The title attribute for collapse button of doc sidebar"
   },
   "theme.DocSidebarItem.toggleCollapsedCategoryAriaLabel": {
-    "message": "Abrir/Cerrar Categoría '{label}'",
+    "message": "Abrir/Cerrar categoría '{label}'",
     "description": "The ARIA label to toggle the collapsible sidebar category"
   },
   "theme.docs.tagDocListPageTitle.nDocsTagged": {
@@ -163,7 +163,7 @@
     "description": "The link label to edit the current page"
   },
   "theme.docs.versions.unreleasedVersionLabel": {
-    "message": "Esta es la documentación de la próxima versión {versionLabel} de {siteTitle}.",
+    "message": "Esta es la documentación para la próxima versión {versionLabel} de {siteTitle}.",
     "description": "The label used to tell the user that he's browsing an unreleased doc version"
   },
   "theme.docs.versions.unmaintainedVersionLabel": {
@@ -171,7 +171,7 @@
     "description": "The label used to tell the user that he's browsing an unmaintained doc version"
   },
   "theme.docs.versions.latestVersionSuggestionLabel": {
-    "message": "Para obtener documentación actualizada, consulte la página {latestVersionLink} ({versionLabel}).",
+    "message": "Para obtener documentación actualizada, consulte {latestVersionLink} ({versionLabel}).",
     "description": "The label used to tell the user to check the latest version"
   },
   "theme.docs.versions.latestVersionLinkLabel": {
@@ -211,7 +211,7 @@
     "description": "The label used by the button on the collapsible TOC component"
   },
   "theme.tags.tagsListLabel": {
-    "message": "Etiquetas :",
+    "message": "Etiquetas:",
     "description": "The label alongside a tag list"
   },
   "theme.navbar.mobileLanguageDropdown.label": {
@@ -226,7 +226,7 @@
     "description": "The ARIA label and placeholder for search button"
   },
   "theme.SearchPage.documentsFound.plurals": {
-    "message": "Documento encontrado|{count} documentos encontrados",
+    "message": "Un documento encontrado | {count} documentos encontrados",
     "description": "Pluralized label for \"{count} documents found\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
   },
   "theme.SearchPage.existingResultsTitle": {
@@ -238,11 +238,11 @@
     "description": "The search page title for empty query"
   },
   "theme.SearchPage.inputPlaceholder": {
-    "message": "Introduzca aquí su búsqueda",
+    "message": "Introduzca su búsqueda aquí",
     "description": "The placeholder for search page input"
   },
   "theme.SearchPage.inputLabel": {
-    "message": "Buscar en",
+    "message": "Buscar",
     "description": "The ARIA label for search page input"
   },
   "theme.SearchPage.algoliaLabel": {
@@ -254,7 +254,7 @@
     "description": "The paragraph for empty search result"
   },
   "theme.SearchPage.fetchingNewResults": {
-    "message": "Carga de nuevos resultados...",
+    "message": "Cargando nuevos resultados...",
     "description": "The paragraph for fetching new search results"
   },
   "theme.tags.tagsPageTitle": {
