@@ -13,6 +13,13 @@ changes.
 - Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` log items using a
   numeric `eventId`.
 
+- Make `hydra-node` support time bounded transactions.
+  + Introduce time in the Hydra Head transactions. 
+  + Users have the option to submit transactions using time validity ranges.
+  + Changes to the logs:
+    - Added current chain slot in OpenState.
+    - Added current chain slot and time in chain Tick.
+
 ## [0.10.0] - 2023-05-11
 
 This release contains several breaking changes and you'll need to apply the
