@@ -37,6 +37,10 @@ changes.
 - **BREAKING** Change to the Hydra scripts due to upgrading our plutus compiler
   and toolchain to GHC 9.2.8.
 
+- **BREAKING** Changes to `hydra-cardano-api`:
+
+  - Drop `UsingRawBytesHex` as it is available upstream in `cardano-api` now.
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts

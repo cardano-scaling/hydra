@@ -106,7 +106,6 @@ library
     Hydra.Cardano.Api.TxOutDatum
     Hydra.Cardano.Api.TxOutValue
     Hydra.Cardano.Api.TxScriptValidity
-    Hydra.Cardano.Api.UsingRawBytesHex
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.ValidityInterval
     Hydra.Cardano.Api.Value
