@@ -8,11 +8,11 @@
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,
-  module Control.Monad.Class.MonadTime,
+  module Control.Monad.Class.MonadTime.SI,
   module Control.Monad.Class.MonadST,
   module Control.Monad.Class.MonadAsync,
   module Control.Monad.Class.MonadEventlog,
-  module Control.Monad.Class.MonadTimer,
+  module Control.Monad.Class.MonadTimer.SI,
   module Control.Monad.Class.MonadFork,
   module Control.Monad.Class.MonadThrow,
   module Control.Concurrent.Class.MonadSTM.TBQueue,
@@ -74,7 +74,7 @@ import Control.Monad.Class.MonadThrow (
   MonadMask (..),
   MonadThrow (..),
  )
-import Control.Monad.Class.MonadTime (
+import Control.Monad.Class.MonadTime.SI (
   DiffTime,
   MonadMonotonicTime (..),
   MonadTime (..),
@@ -86,9 +86,9 @@ import Control.Monad.Class.MonadTime (
   diffTime,
   diffUTCTime,
  )
-import Control.Monad.Class.MonadTimer (
+import Control.Monad.Class.MonadTimer.SI (
   MonadDelay (..),
-  MonadTimer,
+  MonadTimer (..),
  )
 import Control.Monad.Trans.Except (Except)
 import Data.Aeson (
