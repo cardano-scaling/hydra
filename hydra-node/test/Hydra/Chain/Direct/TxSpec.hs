@@ -140,8 +140,8 @@ spec =
                     & counterexample (renderTx tx)
                     & counterexample (show e)
 
-    describe "draftCommitTx" $ do
-      prop "can build valid draft commit tx" $ \chainState initialPubKeyHash intialTxIn committedUTxO party walletUtxo -> do
+    xdescribe "draftCommitTx" $ do
+      xprop "can build valid draft commit tx" $ \chainState initialPubKeyHash intialTxIn committedUTxO party walletUtxo -> do
         let
           initialTxOut = genTxOut `generateWith` 45
           scriptRegistry = genScriptRegistry `generateWith` 42

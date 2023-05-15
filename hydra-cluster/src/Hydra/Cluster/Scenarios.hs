@@ -5,10 +5,11 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip)
+import CardanoClient (queryTip, submitTransaction)
 import CardanoNode (RunningNode (..))
-import Control.Lens ((^?))
+import Control.Lens ((.~), (^?))
 import Data.Aeson (Value, object, (.=))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
@@ -126,6 +127,48 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
       send n1 $ input "Fanout" []
       waitFor tracer 600 [n1] $
         output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
+    traceRemainingFunds Alice
+ where
+  RunningNode{nodeSocket} = node
+
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+singlePartyCommitsFromExternal ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+    withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Build Draft Commit Tx
+      send n1 $ input "DraftCommitTx" ["utxo" .= object mempty]
+
+      commitTxValue <- waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "CommitTxDrafted"
+        v ^? key "commitTx" . _JSON
+
+      -- Commit Tx from external
+      -- use cardano-cli to submit drafted commitTx
+      submitTransaction networkId nodeSocket commitTxValue
+
+      waitFor tracer 600 [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
