@@ -1511,6 +1511,12 @@ components:
       format: "date-time"
       description: |
         A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
+    
+    ChainSlot:
+      type: integer
+      minimum: 0
+      description: |
+        A number representing discrete time (slots) on the chain.
 
     UTxO:
       type: object

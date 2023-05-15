@@ -13,7 +13,6 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainSlot (..),
   HeadId (HeadId),
   HeadParameters (HeadParameters),
   IsChainState,
@@ -30,6 +29,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
+import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Network (..), NodeId (..))

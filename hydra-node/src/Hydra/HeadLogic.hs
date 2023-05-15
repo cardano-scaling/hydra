@@ -26,7 +26,7 @@ import Hydra.Chain (
   ChainStateType,
   HeadId,
   HeadParameters (..),
-  IsChainState,
+  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError,
@@ -41,6 +41,7 @@ import Hydra.Crypto (
   verifyMultiSignature,
  )
 import Hydra.Ledger (
+  ChainSlot,
   IsTx,
   Ledger (..),
   UTxOType,
@@ -204,6 +205,7 @@ data OpenState tx = OpenState
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , currentSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -216,6 +218,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
   arbitrary =
     OpenState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -526,7 +529,7 @@ onInitialChainAbortTx newChainState committed headId =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (Monoid (UTxOType tx)) =>
+  (IsChainState tx) =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -540,6 +543,7 @@ onInitialChainCollectTx st newChainState =
               CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
           , chainState = newChainState
           , headId
+          , currentSlot = chainStateSlot newChainState
           }
     )
     [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
@@ -586,7 +590,7 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions seenUTxO [tx] of
+  case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
           OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
@@ -609,7 +613,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   CoordinatedHeadState{seenTxs, seenUTxO} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, headId} = st
+  OpenState{coordinatedHeadState, headId, currentSlot} = st
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -678,7 +682,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   -- be applicable already. This is a bit of a precursor for only submitting
   -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
-    case applyTransactions ledger confirmedUTxO requestedTxs of
+    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
       Left (_, err) ->
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
@@ -687,7 +691,11 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
     foldr go ([], utxo) seenTxs
    where
     go tx (txs, u) =
-      case applyTransactions ledger u [tx] of
+      -- XXX: We prune transactions on any error, while only some of them are
+      -- actually expected.
+      -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
+      -- here when a tx becomes invalid.
+      case applyTransactions ledger currentSlot u [tx] of
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
 
@@ -703,7 +711,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState} = st
+  OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
   Environment{party, signingKey} = env
 
@@ -984,7 +992,7 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
-  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent (Tick chainTime))
+  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         NewState
           (Closed cst{readyToFanoutSent = True})
@@ -996,6 +1004,8 @@ update env ledger st ev = case (st, ev) of
   -- General
   (currentState, OnChainEvent Rollback{rolledBackChainState}) ->
     NewState (setChainState rolledBackChainState currentState) []
+  (Open ost@OpenState{}, OnChainEvent Tick{chainSlot}) ->
+    NewState (Open ost{currentSlot = chainSlot}) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
   (_, NetworkEvent _ (Connected nodeId)) ->
@@ -1060,7 +1070,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) effects ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1078,6 +1088,7 @@ emitSnapshot env@Environment{party} outcome =
                         }
                   , chainState
                   , headId
+                  , currentSlot
                   }
             )
             $ NetworkEffect (ReqSn party sn txs) : effects

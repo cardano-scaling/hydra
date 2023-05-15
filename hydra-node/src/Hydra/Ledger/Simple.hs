@@ -1,12 +1,13 @@
--- | A mock implementation of a ledger slightly less dumb than 'Mock'.
+-- | A mock implementation of a ledger using very simple UTxO transactions.
 --
--- This implementation of a 'Ledger' adds a bit more logic in order to:
+-- These transactions have a very simplified representation of unspent
+-- transaction outputs being just integers, but already have inputs and outputs.
+-- Transactions are validated against the current state of the ledger, so that
+-- one transaction could at some point be invalid, then becomes valid because
+-- some inputs it consumes are now available.
 --
--- * Be able to have a representation of 'UTxO' closer to what a real-life eUTxO would be,
---   so that we can distinguish it from other components of the ledger,
--- * Be able to have transactions validated against the current state of the ledger, so that
---   one transaction could at some point be invalid, then becomes valid because some inputs it
---   consumes is now available.
+-- NOTE: There is no notion of time in this ledger, so transactions validation
+-- will never depend on the L1 slot.
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
@@ -20,14 +21,20 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import qualified Data.Set as Set
-import Hydra.Chain (ChainSlot, ChainStateType, IsChainState (..))
-import Hydra.Ledger
+import Hydra.Chain (ChainStateType, IsChainState (..))
+import Hydra.Ledger (
+  ChainSlot (..),
+  IsTx (..),
+  Ledger (..),
+  ValidationError (ValidationError),
+ )
 import Test.QuickCheck (choose, getSize, sublistOf)
 
 -- * Simple transactions
 
 -- | Simple transaction.
--- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
+-- A transaction is a 'SimpleId', a list of inputs and a list of outputs,
+-- and it has no time validity.
 data SimpleTx = SimpleTx
   { txSimpleId :: SimpleId
   , txInputs :: UTxOType SimpleTx
@@ -78,8 +85,9 @@ instance FromCBOR SimpleTx where
 
 -- * Simple chain state
 
-data SimpleChainState = SimpleChainState {slot :: ChainSlot}
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
+  deriving (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary SimpleChainState where
   arbitrary = SimpleChainState <$> arbitrary
@@ -111,7 +119,8 @@ instance FromCBOR SimpleTxIn where
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
-    { applyTransactions =
+    { -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
+      applyTransactions = \_slot ->
         foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs

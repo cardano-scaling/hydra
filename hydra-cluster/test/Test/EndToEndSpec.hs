@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
@@ -8,25 +9,28 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (queryTip, waitForUTxO)
+import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, waitForUTxO)
 import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
-import Control.Lens ((^?))
+import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _JSON)
+import Data.Aeson.Lens (key, values, _JSON)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Text (pack)
+import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
+  GenesisParameters (..),
   Key (SigningKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
+  SlotNo (..),
   Tx,
   TxId,
   TxIn (..),
@@ -35,6 +39,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   writeFileTextEnvelope,
+  pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
@@ -67,7 +72,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
@@ -121,6 +126,11 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
+      it "can submmit a timed tx" $ \tracer -> do
+        withClusterTempDir "timed-tx" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= timedTx tmpDir tracer node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
@@ -486,6 +496,70 @@ waitForLog delay nodeOutput failureMessage predicate = do
         , "seen logs:"
         ]
           <> logs
+
+timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
+  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+  let aliceSk = generateSigningKey "alice-timed"
+  let alice = deriveParty aliceSk
+  let contestationPeriod = UnsafeContestationPeriod 2
+  aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
+  withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    waitForNodesConnected tracer [n1]
+    let lovelaceBalanceValue = 100_000_000
+
+    -- Funds to be used as fuel by Hydra protocol transactions
+    seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue Fuel (contramap FromFaucet tracer)
+    send n1 $ input "Init" []
+    headId <-
+      waitForAllMatch 10 [n1] $
+        headIsInitializingWith (Set.fromList [alice])
+
+    -- Get some UTXOs to commit to a head
+    committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+    send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+    waitFor tracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+
+    -- Acquire a current point in time
+    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
+    let slotLengthSec = protocolParamSlotLength genesisParams
+    currentSlot <- queryTipSlotNo networkId nodeSocket
+
+    -- Create an arbitrary transaction using some input.
+    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+
+    -- Create a transaction which is only valid in 5 seconds
+    let
+      secondsToAwait = 5
+      slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
+      futureSlot = currentSlot + slotsToAwait
+      lovelaceToSend = lovelaceBalanceValue - 90_000_000
+
+      -- TODO (later) use time in a script (as it is using POSIXTime)
+      Right tx =
+        mkRangedTx
+          firstCommittedUTxO
+          (inHeadAddress aliceCardanoVk, lovelaceToValue lovelaceToSend)
+          aliceCardanoSk
+          (Just $ TxValidityLowerBound futureSlot, Nothing)
+
+    -- First submission: invalid
+    send n1 $ input "NewTx" ["transaction" .= tx]
+    waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "TxInvalid"
+
+    -- Wait for the future chain slot and time
+    threadDelay $ secondsToDiffTime secondsToAwait
+
+    -- Second submission: now valid
+    send n1 $ input "NewTx" ["transaction" .= tx]
+    waitFor tracer 3 [n1] $
+      output "TxValid" ["transaction" .= tx, "headId" .= headId]
+
+    confirmedTransactions <- waitMatch 3 n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      v ^? key "snapshot" . key "confirmedTransactions"
+    confirmedTransactions ^.. values . key "id" `shouldBe` [toJSON $ txId tx]
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

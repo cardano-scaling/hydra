@@ -16,7 +16,7 @@ import Hydra.Generator (
   defaultProtocolParameters,
   genDatasetConstantUTxO,
  )
-import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
@@ -65,7 +65,7 @@ prop_keepsUTxOConstant =
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =
-  case applyTransactions (cardanoLedger globals ledgerEnv) utxo [tx] of
+  case applyTransactions (cardanoLedger globals ledgerEnv) (ChainSlot 0) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
 

@@ -31,14 +31,13 @@ import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainSlot (ChainSlot),
   ChainStateType,
   HeadId (HeadId),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  nextChainSlot,
+  chainStateSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
@@ -51,7 +50,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.Ledger (Ledger)
+import Hydra.Ledger (ChainSlot (ChainSlot), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -588,7 +587,7 @@ simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
   chainStateVar <- newTVarIO initialChainState
-  tickThread <- async $ simulateTicks nodes
+  tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     SimulatedChainNetwork
       { connectNode = \node -> do
@@ -605,10 +604,13 @@ simulatedChainAndNetwork initialChainState = do
   -- seconds
   blockTime = 20
 
-  simulateTicks nodes = forever $ do
+  simulateTicks nodes chainStateVar = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
-    readTVarIO nodes >>= \ns -> mapM_ (`handleChainEvent` Tick now) ns
+    event <- atomically $ do
+      cs <- readTVar chainStateVar
+      pure $ Tick now (chainStateSlot cs)
+    readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   postTx nodes history chainStateVar tx = do
     now <- getCurrentTime

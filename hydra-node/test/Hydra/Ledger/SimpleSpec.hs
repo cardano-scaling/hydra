@@ -3,7 +3,7 @@ module Hydra.Ledger.SimpleSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
 import Hydra.Ledger.Simple
 import Test.QuickCheck (Property, forAllShrink, shrinkList)
 
@@ -14,7 +14,7 @@ spec =
 prop_validateCorrectTransactions :: Property
 prop_validateCorrectTransactions =
   forAllShrink (genSequenceOfValidTransactions mempty) shrinkSequence $ \txs ->
-    isRight (applyTransactions simpleLedger mempty txs)
+    isRight (applyTransactions simpleLedger (ChainSlot 0) mempty txs)
 
 shrinkSequence :: [SimpleTx] -> [[SimpleTx]]
 shrinkSequence = shrinkList (const [])
