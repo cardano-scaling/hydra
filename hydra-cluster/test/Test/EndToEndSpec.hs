@@ -132,7 +132,7 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
-      it "commits from external" $ \tracer -> do
+      it "commits from external wallet" $ \tracer -> do
         withClusterTempDir "single-commits-from-external" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet

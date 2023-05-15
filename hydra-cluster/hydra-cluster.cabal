@@ -150,6 +150,7 @@ library
     , QuickCheck
     , random-shuffle
     , retry
+    , req
     , say
     , streaming-commons
     , temporary

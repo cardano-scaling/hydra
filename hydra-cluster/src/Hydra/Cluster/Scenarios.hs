@@ -7,12 +7,12 @@ import Hydra.Prelude
 
 import CardanoClient (queryTip, submitTransaction)
 import CardanoNode (RunningNode (..))
-import Control.Lens ((.~), (^?))
+import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
-import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
+import Hydra.API.ClientInput (ClientInput (DraftCommitTx))
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
@@ -26,6 +26,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import Network.HTTP.Req
 import Test.Hspec.Expectations (shouldBe)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
@@ -151,21 +152,27 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket [] contestationPeriod
         <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    let hydraNodeId = 1
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- Build Draft Commit Tx
-      send n1 $ input "DraftCommitTx" ["utxo" .= object mempty]
+      -- Request a Draft Commit Tx from hydra-node
+      let clientPayload = DraftCommitTx @Tx mempty
+      response <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (https "127.0.0.1")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
 
-      commitTxValue <- waitMatch 10 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "CommitTxDrafted"
-        v ^? key "commitTx" . _JSON
+      let commitTx = responseBody response
 
-      -- Commit Tx from external
-      -- use cardano-cli to submit drafted commitTx
-      submitTransaction networkId nodeSocket commitTxValue
+      -- submit the received draft commit tx
+      submitTransaction networkId nodeSocket commitTx
 
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
