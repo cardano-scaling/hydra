@@ -5,8 +5,9 @@ module Hydra.Cardano.Api.ScriptData where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (TxBody (..))
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
+import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
+import qualified Cardano.Ledger.Era as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)
@@ -49,7 +50,7 @@ txOutScriptData (TxOut _ _ d _) =
 lookupScriptData ::
   forall era.
   ( UsesStandardCrypto era
-  , Typeable (ShelleyLedgerEra era)
+  , Ledger.Era (ShelleyLedgerEra era)
   ) =>
   Tx era ->
   TxOut CtxUTxO era ->
@@ -76,7 +77,7 @@ fromLedgerData =
   fromAlonzoData
 
 -- | Convert a cardano-api script data into a cardano-ledger script 'Data'.
-toLedgerData :: HashableScriptData -> Ledger.Data era
+toLedgerData :: Ledger.Era era => HashableScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData
 

@@ -14,8 +14,6 @@ import Hydra.Cardano.Api.Network (Network)
 import PlutusLedgerApi.V2 (
   Address (..),
   Credential (..),
-  PubKeyHash (PubKeyHash),
-  ScriptHash (ScriptHash),
   StakingCredential (StakingHash, StakingPtr),
   fromBuiltin,
  )
@@ -93,9 +91,9 @@ fromPlutusAddress network plutusAddress =
         Ledger.Addr network (unsafeCredential cred) Ledger.StakeRefNull
  where
   unsafeCredential = \case
-    PubKeyCredential (PubKeyHash h) ->
+    PubKeyCredential (Plutus.PubKeyHash h) ->
       Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h
-    ScriptCredential (ScriptHash h) ->
+    ScriptCredential (Plutus.ScriptHash h) ->
       Ledger.ScriptHashObj . Ledger.ScriptHash . unsafeHashFromBytes $ fromBuiltin h
 
   Plutus.Address{addressCredential, addressStakingCredential} = plutusAddress

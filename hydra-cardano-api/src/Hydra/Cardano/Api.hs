@@ -142,11 +142,12 @@ import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
+import qualified Cardano.Ledger.Alonzo.TxAuxData as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
-import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
+import qualified Cardano.Ledger.Keys.WitVKey as Ledger
 import Data.ByteString.Short (ShortByteString)
 import Prelude
 
@@ -307,7 +308,7 @@ pattern ShelleyTxBody ::
   Ledger.TxBody LedgerEra ->
   [Ledger.Script LedgerEra] ->
   TxBodyScriptData ->
-  Maybe (Ledger.AuxiliaryData LedgerEra) ->
+  Maybe (Ledger.AlonzoTxAuxData LedgerEra) ->
   TxScriptValidity ->
   TxBody
 pattern ShelleyTxBody
