@@ -42,7 +42,7 @@ import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Babbage as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
-import qualified Cardano.Ledger.Era as Ledger.Era
+import Cardano.Ledger.Era (EraCrypto)
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
@@ -59,8 +59,7 @@ type Era = BabbageEra
 
 type LedgerEra = Ledger.BabbageEra StandardCrypto
 
-type UsesStandardCrypto era =
-  (Ledger.Era.EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
+type UsesStandardCrypto era = (EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
 
 -- | Interpret some raw 'ByteString' as a particular 'Hash'.
 --

@@ -3,8 +3,8 @@ module Hydra.Cardano.Api.Value where
 import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
+import Cardano.Ledger.Core (getMinCoinTxOut)
 import qualified Cardano.Ledger.Mary.Value as Ledger
-import Cardano.Ledger.Shelley.API (evaluateMinLovelaceOutput)
 import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
@@ -26,7 +26,7 @@ minUTxOValue ::
   Value
 minUTxOValue pparams (TxOut addr val dat ref) =
   fromLedgerLovelace $
-    evaluateMinLovelaceOutput
+    getMinCoinTxOut
       (toLedgerPParams ShelleyBasedEraBabbage pparams)
       (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
  where
