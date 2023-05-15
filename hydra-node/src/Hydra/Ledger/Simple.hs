@@ -1,12 +1,13 @@
--- | A mock implementation of a ledger slightly less dumb than 'Mock'.
+-- | A mock implementation of a ledger using very simple UTxO transactions.
 --
--- This implementation of a 'Ledger' adds a bit more logic in order to:
+-- These transactions have a very simplified representation of unspent
+-- transaction outputs being just integers, but already have inputs and outputs.
+-- Transactions are validated against the current state of the ledger, so that
+-- one transaction could at some point be invalid, then becomes valid because
+-- some inputs it consumes are now available.
 --
--- * Be able to have a representation of 'UTxO' closer to what a real-life eUTxO would be,
---   so that we can distinguish it from other components of the ledger,
--- * Be able to have transactions validated against the current state of the ledger, so that
---   one transaction could at some point be invalid, then becomes valid because some inputs it
---   consumes is now available.
+-- NOTE: There is no notion of time in this ledger, so transactions validation
+-- will never depend on the L1 slot.
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
