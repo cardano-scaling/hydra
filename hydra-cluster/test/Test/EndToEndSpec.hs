@@ -22,6 +22,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Text (pack)
+import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
   GenesisParameters (..),
@@ -29,7 +30,6 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  ShelleyGenesis (..),
   SlotNo (..),
   Tx,
   TxId,
@@ -530,7 +530,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
 
     -- Create a transaction which is only valid in 5 seconds
     let
-      secondsToAwait = 15
+      secondsToAwait = 5
       slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
       futureSlot = currentSlot + slotsToAwait
       lovelaceToSend = lovelaceBalanceValue - 90_000_000
@@ -549,7 +549,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
       guard $ v ^? key "tag" == Just "TxInvalid"
 
     -- Wait for the future chain slot and time
-    threadDelay 15
+    threadDelay $ secondsToDiffTime secondsToAwait
 
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]
