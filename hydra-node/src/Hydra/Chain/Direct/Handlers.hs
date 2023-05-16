@@ -33,7 +33,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
+  ChainContext (contestationPeriod, ChainContext),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -44,7 +44,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
+  observeSomeTx, networkId, scriptRegistry, InitialState (..), ownParty, ownInitial
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -58,6 +58,9 @@ import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Hydra.API.ServerOutput (HeadStatus(Initializing))
+import Hydra.Chain.Direct.Tx (commitTx)
+import qualified Cardano.Api.UTxO as UTxO
 
 -- | Handle of a local chain state that is kept in the direct chain layer.
 data LocalChainState m = LocalChainState
@@ -146,6 +149,20 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState
         submitTx vtx
+    , draftTx = \utxo -> do
+        s <- atomically getLatest
+        let currentState = Hydra.Chain.Direct.State.chainState s
+        case currentState of
+          Initial st@InitialState{headId} -> do
+            let ChainContext{networkId,scriptRegistry, ownParty} = ctx
+            case ownInitial ctx st of
+              Nothing -> pure $ Left "Could not find own initial output"
+              Just initials ->
+                case UTxO.pairs utxo of
+                  [aUTxO] ->
+                     pure $ Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initials
+                  _ -> pure $ Left "Cannot draft commit tx with more than one utxo"
+          _ -> pure $ Left "You can draft a commit transaction only if in Initializing state"
     }
 
 -- | Balance and sign the given partial transaction.

@@ -5,7 +5,7 @@ module Main where
 
 import Hydra.Prelude
 
-import Hydra.API.Server (utxo, withAPIServer, restApiCallback)
+import Hydra.API.Server (utxo, withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -106,7 +106,7 @@ main = do
             let RunOptions{apiHost, apiPort} = opts
 
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) restApiCallback (putEvent . ClientEvent) $ \server -> do
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $

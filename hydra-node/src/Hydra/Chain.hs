@@ -174,7 +174,7 @@ class
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
 -- | Handle to interface with the main chain network
-newtype Chain tx m = Chain
+data Chain tx m = Chain
   { postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.
@@ -183,6 +183,7 @@ newtype Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
+  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either String tx)
   }
 
 data ChainEvent tx

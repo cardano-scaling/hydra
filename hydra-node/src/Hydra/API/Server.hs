@@ -31,9 +31,8 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Chain (IsChainState)
+import Hydra.Chain (Chain (..), IsChainState)
 import Hydra.Ledger (IsTx, UTxOType)
-import Hydra.Ledger.Cardano (unsafeBuildTransaction, emptyTxBody)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -129,8 +128,6 @@ instance IsTx tx => Arbitrary (RestServerOutput tx) where
   shrink = \case
     DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
 
-type ApiServerCallback tx m = RestClientInput tx -> m (RestServerOutput tx)
-
 withAPIServer ::
   forall tx.
   (IsChainState tx) =>
@@ -139,7 +136,7 @@ withAPIServer ::
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
-  ApiServerCallback tx IO ->
+  Chain tx IO ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer router callback action = do
   responseChannel <- newBroadcastTChanIO
@@ -203,7 +200,7 @@ runAPIServer ::
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
-  ApiServerCallback tx IO ->
+  Chain tx IO ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -213,12 +210,12 @@ runAPIServer ::
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history routerCallback callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp (httpApp routerCallback)
+      websocketsOr defaultConnectionOptions wsApp (httpApp chain)
  where
   serverSettings =
     defaultSettings
@@ -249,7 +246,7 @@ runAPIServer host port party tracer history routerCallback callback headStatusP 
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp router req respond =
+  httpApp directChain req respond =
     case (requestMethod req, pathInfo req) of
       ("POST", ["commit"]) -> do
         body <- getWaiRequestBody req
@@ -262,10 +259,14 @@ runAPIServer host port party tracer history routerCallback callback headStatusP 
                 , paths = pathInfo req
                 , requestInputBody = Just $ toJSON requestInput
                 }
-            commitTx <- router requestInput
-            let encodedRestOutput = Aeson.encode commitTx
-            traceShowM commitTx
-            respond $ responseLBS status200 [] encodedRestOutput
+            let Chain{draftTx} = directChain
+            eCommitTx <- draftTx (utxo requestInput)
+            case eCommitTx of
+              Left err -> respond $ responseLBS status400 [] (show err)
+              Right commitTx -> do
+                let encodedRestOutput = Aeson.encode commitTx
+                traceShowM commitTx
+                respond $ responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $
           APIRestInputReceived
@@ -369,15 +370,6 @@ data RunServerException = RunServerException
   deriving (Show)
 
 instance Exception RunServerException
-
--- HTTP Server helpers
-
--- TODO: Tx vs. abstract tx
-restApiCallback :: IsTx tx => ApiServerCallback tx IO
-restApiCallback clientInput =
-  pure $ DraftedCommitTx $ unsafeBuildTransaction emptyTxBody
- where
-  DraftCommitTx{utxo} = clientInput
 
 getWaiRequestBody :: Request -> IO ByteString
 getWaiRequestBody request = BS.concat <$> getChunks

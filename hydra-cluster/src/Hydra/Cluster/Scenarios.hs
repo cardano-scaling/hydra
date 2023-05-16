@@ -5,6 +5,7 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (queryTip, submitTransaction)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
@@ -13,15 +14,15 @@ import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
 import Hydra.API.Server (RestClientInput (..), RestServerOutput (DraftedCommitTx))
-import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.Cardano.Api (Lovelace, TxId, genTxIn, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Ledger (IsTx (balance), UTxOType)
-import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger (IsTx (balance))
+import Hydra.Ledger.Cardano (Tx, genKeyPair, genOutput)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -158,7 +159,11 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
-      utxo <- generate (arbitrary :: Gen (UTxOType Tx))
+      utxo <- generate $ do
+        (vk, _sk) <- genKeyPair
+        txOut <- genOutput vk
+        txIn <- genTxIn
+        pure $ UTxO.singleton (txIn, txOut)
 
       -- Request to build a draft commit tx from hydra-node
       let clientPayload = DraftCommitTx @Tx utxo
