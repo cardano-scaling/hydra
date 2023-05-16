@@ -25,6 +25,7 @@ library
     , base
     , base16-bytestring
     , cardano-binary
+    , file-embed
     , generic-random
     , gitrev
     , io-classes         >=0.3.0.0

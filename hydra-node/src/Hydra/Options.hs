@@ -33,7 +33,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
-import Hydra.Version (gitDescribe)
+import Hydra.Version (gitDescribe, gitRevision)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -264,16 +264,16 @@ cardanoLedgerProtocolParametersParser =
     )
 
 data ChainConfig = DirectChainConfig
-  { networkId :: NetworkId
-  -- ^ Network identifer to which we expect to connect.
-  , nodeSocket :: FilePath
-  -- ^ Path to a domain socket used to connect to the server.
-  , cardanoSigningKey :: FilePath
-  -- ^ Path to the cardano signing key of the internal wallet.
-  , cardanoVerificationKeys :: [FilePath]
-  -- ^ Paths to other node's verification keys.
-  , startChainFrom :: Maybe ChainPoint
-  -- ^ Point at which to start following the chain.
+  { -- | Network identifer to which we expect to connect.
+    networkId :: NetworkId
+  , -- | Path to a domain socket used to connect to the server.
+    nodeSocket :: FilePath
+  , -- | Path to the cardano signing key of the internal wallet.
+    cardanoSigningKey :: FilePath
+  , -- | Paths to other node's verification keys.
+    cardanoVerificationKeys :: [FilePath]
+  , -- | Point at which to start following the chain.
+    startChainFrom :: Maybe ChainPoint
   , contestationPeriod :: ContestationPeriod
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -571,8 +571,11 @@ hydraNodeCommand =
  where
   versionInfo =
     infoOption
-      (fromMaybe (showVersion version) gitDescribe)
+      (fromMaybe displayVersion gitDescribe)
       (long "version" <> help "Show version")
+
+  displayVersion =
+    showVersion version <> maybe "" ("-" <>) gitRevision
 
   scriptInfo =
     infoOption
@@ -626,7 +629,7 @@ validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
   | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
   | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
-      Left CardanoAndHydraKeysMissmatch
+    Left CardanoAndHydraKeysMissmatch
   | otherwise = Right ()
  where
   -- let's take the higher number of loaded cardano/hydra keys
