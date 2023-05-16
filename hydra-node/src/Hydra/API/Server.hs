@@ -104,7 +104,7 @@ deriving stock instance IsTx tx => Show (RestClientInput tx)
 deriving newtype instance IsTx tx => ToJSON (RestClientInput tx)
 deriving newtype instance IsTx tx => FromJSON (RestClientInput tx)
 
-instance (IsTx tx, Arbitrary (UTxOType tx)) => Arbitrary (RestClientInput tx) where
+instance Arbitrary (UTxOType tx) => Arbitrary (RestClientInput tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -120,7 +120,7 @@ deriving stock instance IsTx tx => Show (RestServerOutput tx)
 deriving newtype instance IsTx tx => ToJSON (RestServerOutput tx)
 deriving newtype instance IsTx tx => FromJSON (RestServerOutput tx)
 
-instance (IsTx tx, Arbitrary (UTxOType tx)) => Arbitrary (RestServerOutput tx) where
+instance IsTx tx => Arbitrary (RestServerOutput tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -242,9 +242,9 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp req respond =
+  httpApp req respond = do
     case (requestMethod req, pathInfo req) of
-      ("GET", []) ->
+      ("POST", ["commit"]) -> do
         respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "DraftedCommitTx")
       _ -> respond $ responseLBS status400 [] "Resource not found"
 
@@ -283,17 +283,13 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     let k = [queryKey|tx-output|]
         v = [queryValue|cbor|]
         queryP = QueryParam k v
-     in case queryP `elem` qp of
-          True -> OutputCBOR
-          False -> OutputJSON
+     in if queryP `elem` qp then OutputCBOR else OutputJSON
 
   decideOnUTxODisplay qp =
     let k = [queryKey|snapshot-utxo|]
         v = [queryValue|no|]
         queryP = QueryParam k v
-     in case queryP `elem` qp of
-          True -> WithoutUTxO
-          False -> WithUTxO
+     in if queryP `elem` qp then WithoutUTxO else WithUTxO
 
   shouldNotServeHistory qp =
     flip any qp $ \case

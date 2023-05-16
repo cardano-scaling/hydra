@@ -158,24 +158,26 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- Request a Draft Commit Tx from hydra-node
-      let clientPayload = DraftCommitTx @Tx mempty
+      -- Request to build a draft commit tx from hydra-node
+      let utxo = mempty
+          clientPayload = DraftCommitTx @Tx utxo
       response <-
         runReq defaultHttpConfig $
           req
             POST
-            (https "127.0.0.1")
+            (http "127.0.0.1" /: "commit")
             (ReqBodyJson clientPayload)
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
       let commitTx = responseBody response
 
-      -- submit the received draft commit tx
+      -- submit the received draft commit tx using cardano-cli
+      -- TODO: sign Tx before submit
       submitTransaction networkId nodeSocket commitTx
 
       waitFor tracer 600 [n1] $
-        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= utxo, "headId" .= headId]
     traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
