@@ -123,8 +123,6 @@ main = do
 
   withCardanoLedger ledgerConfig chainConfig action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
-    -- NOTE: hydra-node will fail early if the conversion
-    -- `GenesisParameters -> Globals` in 'newGlobals' is not successfull.
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
     ledgerEnv <-
       newLedgerEnv

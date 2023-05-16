@@ -6,10 +6,10 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (QueryPoint (QueryTip), queryGenesisParameters)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import Cardano.Ledger.Shelley.API (mkShelleyGlobals)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Cardano.Api.Prelude (protocolParamProtocolVersion)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
@@ -23,40 +23,36 @@ import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
-  newGlobals,
   newLedgerEnv,
   protocolParametersFromJson,
   readJsonFileThrow,
+  shelleyGenesisFromJson,
  )
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.EndToEndSpec (withClusterTempDir)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
   counterexample,
   forAll,
   idempotentIOProperty,
-  property,
-  quickCheck,
  )
 
 spec :: Spec
 spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
-  around showLogsOnFailure $
-    it "generates a Dataset that keeps UTXO constant" $ \tracer -> do
-      failAfter 60 $
-        withClusterTempDir "queryGenesisParameters" $ \tmpDir -> do
-          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
-            globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-            quickCheck $ property $ prop_keepsUTxOConstant globals
+  prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
 
-prop_keepsUTxOConstant :: Globals -> Property
-prop_keepsUTxOConstant globals =
+prop_keepsUTxOConstant :: Property
+prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
+
+      shelleyGenesis <- readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
+      let (majV, _) = protocolParamProtocolVersion pparams
+      let globals = mkShelleyGlobals shelleyGenesis epochInfo majV
+
       ledgerEnv <-
         newLedgerEnv
           <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"

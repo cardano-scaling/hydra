@@ -1,4 +1,3 @@
-
 module Hydra.Ledger.Cardano.Configuration (
   module Hydra.Ledger.Cardano.Configuration,
   Ledger.Globals,
@@ -18,7 +17,6 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
-import Hydra.Cardano.Api.Prelude (toShelleyNetwork)
 
 -- * Helpers
 
