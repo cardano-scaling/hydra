@@ -127,30 +127,29 @@ Figure~\ref{fig:off-chain-prot} for details about these checks.\\
 \subsection{Commit Transaction}\label{sec:commit-tx}
 
 A \mtxCom{} transaction may be submitted by each participant
-$\forall i \in \{1 \dots \nop\}$ to commit a UTxO into the head or acknowledge
-to not commit anything. The transaction is depicted in Figure~\ref{fig:commitTx}
-and has the following structure:
+$\forall i \in \{1 \dots \nop\}$ to commit some UTxO into the head or
+acknowledge to not commit anything. The transaction is depicted in
+Figure~\ref{fig:commitTx} and has the following structure:
 \begin{itemize}
 	\item One input spending from $\nuInitial$ with datum $\datumInitial{}$,
 	      where value $\valInitial{i}$ holds a $\pt_i$, and the redeemer
 	      $\redeemerInitial{} \in \tyOutRef^{?}$ is an optional output
 	      reference to be committed,
-	\item zero or one input with reference $\txOutRef_{\mathsf{committed}}$
-	      spending output $o_{\mathsf{committed}}$ with
-	      $\val_{\mathsf{committed}}$, and
+	\item zero or more inputs with reference $\txOutRef_{\mathsf{committed}_{j}}$
+	      spending output $o_{\mathsf{committed}_{j}}$ with
+	      $\val_{\mathsf{committed}_{j}}$,
 	\item one output paying to $\nuCommit$ with value $\valCommit{i}$ and datum $\datumCommit{}$.
 \end{itemize}
 
 \noindent The $\nuInitial$ validator with $\datumInitial{} = \cid$ and
-$\redeemerInitial{} = \txOutRef_{\mathsf{committed}}^{?}$ ensures that:
+$\redeemerInitial{} = \underline{\txOutRef}_{\mathsf{committed}}$ ensures that:
 \begin{menumerate}
-	\item Committed value is in the output
-	$\valCommit{i} = \valInitial{i} \cup \val_{\mathsf{committed}}$
-	\item Currency id and committed output are recorded in the
-		output datum $\datumCommit{} = (\cid, C_{i})$ where
-	$C_{i} = (\txOutRef_{\mathsf{committed}},\bytes(o_{\mathsf{committed}}))$ if
-	$\txOutRef_{\mathsf{committed}}$ was given, or $C_{i} = (\Diamond, \emptyset)$
-	if nothing committed.
+	\item All committed value is in the output
+	$\valCommit{i} = \valInitial{i} \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$
+	\item Currency id and committed outputs are recorded in the output datum
+	$\datumCommit{} = (\cid, C_{i})$, where
+	$C_{i} = \forall j \in \{1 \dots m\} : [(\txOutRef_{\mathsf{committed}_{j}},\bytes(o_{\mathsf{committed}_{j}}))]$
+	is a list of all committed UTxO recorded as tuples on-chain.
 	\item Transaction is signed by the right participant
 	$\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valInitial{} \Rightarrow \keyHash_{i} \in \txKeys$
 	\item No minting or burning $\txMint = \varnothing$
@@ -166,6 +165,7 @@ by the appropriate redeemer.
 	\caption{\mtxCom{} transaction spending an initial output and a single
 		committed output, and producing a commit output.}\label{fig:commitTx}
 \end{figure}
+\todo{update with multiple commits}
 
 \subsection{CollectCom Transaction}\label{sec:collect-tx}
 
@@ -195,16 +195,16 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 		U^{\#} = \combine([C_{1}, \dots, C_{\nop}])
 	\]
 	\[
-		\combine(\underline{C}) = \hash(\mathsf{concat}({\sortOn(1, \underline{C})}^{\downarrow2}))
+		\combine(\underline{C}) = \hash(\mathsf{concat}({\sortOn(1, \mathsf{concat}(\underline{C}))}^{\downarrow2}))
 	\]
 	% TODO: mention in off-chain that it is limited what we can fan out, so size
 	% & complexity of U needs to be contained, especially off-chain.
-	That is, given a list of commits $\underline{C}$, where each element is a
-	pair of an output reference and the serialised representation of what was
-	committed $C_{i} \in (\tyOutRef \times \tyBytes)$, $\combine$ sorts this
-	list by the output references, concatenates all bytes and hashes the
-	result\footnote{Sorting is required to ensure a canonical representation
-		which can also be reproduced from the UTxO set later in the fanout.}.
+	That is, given a list of committed UTxO $\underline{C}$, where each element is
+	a list of output references and the serialised representation of what was
+	committed, $\combine$ first concatenates all commits together, sorts this list
+	by the output references, concatenates all bytes and hashes the
+	result\footnote{Sorting is required to ensure a canonical representation which
+		can also be reproduced from the UTxO set later in the fanout.}.
 
 	\item All committed value captured and no value is extracted
 	$\valHead' = \valHead \cup (\bigcup_{i=1}^{n} \valCommit{i})$.
