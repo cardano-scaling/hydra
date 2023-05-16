@@ -87,7 +87,7 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-      # TUI specs are flaky. They are failing because of SIGSEGV. 
+      # TUI specs are flaky. They are failing because of SIGSEGV.
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
@@ -141,6 +141,12 @@ jobs:
 
     - name: ❄ Build static executables
       run: |
+        # extract commit SHA and use it as revision
+        echo ${{ github.event.pull_request.head.sha || github.ref }} > hydra-prelude/VERSION
+        # we need to commit the VERSION file because otherwise it's not picked up by
+        # nix build
+        git add hydra-prelude/VERSION && git commit -m "Add VERSION"
+
         mkdir -p bin/
         nix build .#hydra-node-static && cp result/bin/* bin/
         nix build .#hydra-tools-static && cp result/bin/* bin/
