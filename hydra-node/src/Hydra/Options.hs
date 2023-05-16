@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-deprecations #-}
 
 module Hydra.Options (
   module Hydra.Options,
@@ -14,7 +14,7 @@ import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import Data.Version (showVersion)
+import Data.Version (showVersion, Version(..))
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -575,7 +575,7 @@ hydraNodeCommand =
       (long "version" <> help "Show version")
 
   displayVersion =
-    showVersion version <> maybe "" ("-" <>) gitRevision
+    showVersion version { versionTags =  maybeToList gitRevision }
 
   scriptInfo =
     infoOption
