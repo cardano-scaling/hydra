@@ -15,7 +15,7 @@ import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import Data.Version (showVersion)
+import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -34,7 +34,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
-import Hydra.Version (gitDescribe)
+import Hydra.Version (gitRevision)
 import Language.Haskell.TH.Env (envQ)
 import Options.Applicative (
   Parser,
@@ -557,15 +557,16 @@ hydraNodeCommand =
  where
   versionInfo =
     infoOption
-      ( fromMaybe fromCabalOnly $ gitDescribe <|> fromCabalAndEnv
-      )
+      (showVersion ourVersion)
       (long "version" <> help "Show version")
 
-  fromCabalOnly = showVersion version <> "-UNKNOWN"
+  ourVersion =
+    version & \(Version semver _) -> Version semver revision
 
-  fromCabalAndEnv = do
-    rev <- $$(envQ "GIT_REVISION") :: Maybe String
-    pure $ showVersion version <> "-" <> rev
+  revision =
+    maybeToList $
+      ($$(envQ "GIT_REVERSION") :: Maybe String)
+        <|> gitRevision
 
   scriptInfo =
     infoOption

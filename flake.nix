@@ -31,8 +31,8 @@
           inherit (inputs) haskellNix iohk-nix CHaP;
           inherit system nixpkgs;
           gitRev =
-            if (builtins.hasAttr "rev" inputs.self)
-            then inputs.self.rev
+            if (builtins.hasAttr "rev" self)
+            then self.rev
             else "dirty";
         };
         hydraPackages = import ./nix/hydra/packages.nix {
