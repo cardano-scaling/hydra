@@ -5,8 +5,8 @@ module Main where
 
 import Hydra.Prelude
 
-import Hydra.API.Server (ApiServerCallback, RestClientInput (DraftCommitTx), RestServerOutput (..), utxo, withAPIServer)
-import Hydra.Cardano.Api (Tx, serialiseToRawBytesHex)
+import Hydra.API.Server (utxo, withAPIServer, restApiCallback)
+import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
@@ -23,7 +23,6 @@ import Hydra.HeadLogic (
   defaultTTL,
   getChainState,
  )
-import Hydra.Ledger.Cardano (emptyTxBody, unsafeBuildTransaction)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -157,8 +156,3 @@ identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
 
-restApiCallback :: ApiServerCallback Ledger.Tx IO
-restApiCallback clientInput =
-  pure $ DraftedCommitTx $ unsafeBuildTransaction emptyTxBody
- where
-  DraftCommitTx{utxo} = clientInput

@@ -33,6 +33,7 @@ import Hydra.API.ServerOutput (
  )
 import Hydra.Chain (IsChainState)
 import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Ledger.Cardano (unsafeBuildTransaction, emptyTxBody)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -263,7 +264,7 @@ runAPIServer host port party tracer history routerCallback callback headStatusP 
                 }
             commitTx <- router requestInput
             let encodedRestOutput = Aeson.encode commitTx
-            traceShowM  commitTx
+            traceShowM commitTx
             respond $ responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $
@@ -368,6 +369,15 @@ data RunServerException = RunServerException
   deriving (Show)
 
 instance Exception RunServerException
+
+-- HTTP Server helpers
+
+-- TODO: Tx vs. abstract tx
+restApiCallback :: IsTx tx => ApiServerCallback tx IO
+restApiCallback clientInput =
+  pure $ DraftedCommitTx $ unsafeBuildTransaction emptyTxBody
+ where
+  DraftCommitTx{utxo} = clientInput
 
 getWaiRequestBody :: Request -> IO ByteString
 getWaiRequestBody request = BS.concat <$> getChunks
