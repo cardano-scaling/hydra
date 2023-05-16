@@ -143,14 +143,7 @@ jobs:
       run: |
         # extract commit SHA and use it as revision
         echo ${{ github.event.pull_request.head.sha || github.ref }} > hydra-prelude/VERSION
-        # we need to commit the VERSION file because otherwise it's not picked up by
-        # nix build
-        # We also need to set the author name/email in the git config otherwise git
-        # refuses to commit even with an explicit --author argument
-        git config user.email hydra@iohk.io
-        git config user.name "Hydra Team"
-        git add hydra-prelude/VERSION
-        git commit -m "Add VERSION"
+        echo 'data-files: VERSION' >> hydra-prelude/hydra-prelude.cabal
 
         mkdir -p bin/
         nix build .#hydra-node-static && cp result/bin/* bin/

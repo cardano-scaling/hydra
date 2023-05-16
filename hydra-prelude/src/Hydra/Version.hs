@@ -22,6 +22,7 @@ gitDescribe
   fromGit = $(GitRev.gitDescribe)
 
 -- | Determine the version during build time.  Uses either the content of a
+--
 -- `VERSION` file if it exists, the output of `git rev-parse` if available, or
 -- `Nothing`.
 gitRevision :: Maybe String
