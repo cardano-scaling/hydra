@@ -145,7 +145,8 @@ jobs:
         echo ${{ github.event.pull_request.head.sha || github.ref }} > hydra-prelude/VERSION
         # we need to commit the VERSION file because otherwise it's not picked up by
         # nix build
-        git add hydra-prelude/VERSION && git commit --author='Hydra Team <hydra@iohk.io>'  -m "Add VERSION"
+        git add hydra-prelude/VERSION
+        GIT_AUTHOR_EMAIL=hydra@iohk.io GIT_AUTHOR_NAME="Hydra Team" git commit -m "Add VERSION"
 
         mkdir -p bin/
         nix build .#hydra-node-static && cp result/bin/* bin/
