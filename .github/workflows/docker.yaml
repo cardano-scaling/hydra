@@ -76,8 +76,7 @@ jobs:
         docker inspect ${IMAGE_NAME}:unstable
 
     - name: 📤 Maybe push
-      if: ${{ github.ref == 'refs/heads/master' || (github.ref_type == 'tag' && matrix.target != 'hydraw') }}
+      if: ${{ github.ref == 'refs/heads/master' || github.ref_type == 'tag' }}
       run: |
-        # Only push images from master or release tags, unless it's about
-        # 'hydraw' (which is not yet versioned)
+        # Only push images from master or release tags
         docker push -a ${IMAGE_NAME}
