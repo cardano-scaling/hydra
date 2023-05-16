@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -34,6 +35,7 @@ import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
 import Hydra.Version (gitDescribe)
+import Language.Haskell.TH.Env (envQ)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -555,8 +557,15 @@ hydraNodeCommand =
  where
   versionInfo =
     infoOption
-      (fromMaybe (showVersion version) gitDescribe)
+      ( fromMaybe fromCabalOnly $ gitDescribe <|> fromCabalAndEnv
+      )
       (long "version" <> help "Show version")
+
+  fromCabalOnly = showVersion version <> "-UNKNOWN"
+
+  fromCabalAndEnv = do
+    rev <- $$(envQ "GIT_REVISION") :: Maybe String
+    pure $ showVersion version <> "-" <> rev
 
   scriptInfo =
     infoOption

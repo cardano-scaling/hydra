@@ -172,6 +172,7 @@ library
     , serialise
     , stm
     , text
+    , th-env
     , time
     , transformers
     , typed-protocols                                                   >=0.1.0.0
