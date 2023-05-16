@@ -20,15 +20,18 @@ changes.
     - Added current chain slot in OpenState.
     - Added current chain slot and time in chain Tick.
 
-- Simply postTx interface, in chain handle, to not depend on chain state type.
+- Simplify postTx interface, in chain handle, to not depend on chain state type.
   + This removed the need to keep the chain state type as part of on-chain effects.
   + Changes to the logs:
     - Removed chain state from OnChainEffect.
 
 - **BREAKING** Change the hydra-node command line options:
 
-   - Removed `--ledger-genesis` argument. Hydra-node queries this information
-     from cardano-node.
+  - Removed `--ledger-genesis` argument. Hydra-node queries this information
+    from cardano-node.
+
+  - `hydra-node --version` always displays git revision (SHA) alongside the
+    declared version.
 
 ## [0.10.0] - 2023-05-11
 
