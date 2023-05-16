@@ -37,7 +37,7 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (status200, status400)
-import Network.Wai (Request (pathInfo), requestMethod, responseLBS)
+import Network.Wai (Request (pathInfo), requestBody, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -69,6 +69,7 @@ data APIServerLog
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   | APIConnectionError {reason :: String}
   | APIHandshakeError {reason :: String}
+  | APIRestInputReceived {method :: Text, paths :: [Text], requestInputBody :: Maybe Aeson.Value}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -242,11 +243,29 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp req respond = do
+  httpApp req respond =
     case (requestMethod req, pathInfo req) of
       ("POST", ["commit"]) -> do
-        respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "DraftedCommitTx")
-      _ -> respond $ responseLBS status400 [] "Resource not found"
+        -- FIXME: requestBody is deprecated
+        body <- requestBody req
+        case Aeson.eitherDecode (fromStrict body) :: Either String (RestClientInput tx) of
+          Left err -> respond $ responseLBS status400 [] (show err)
+          Right requestInput -> do
+            traceWith tracer $
+              APIRestInputReceived
+                { method = decodeUtf8 $ requestMethod req
+                , paths = pathInfo req
+                , requestInputBody = Just $ toJSON requestInput
+                }
+            respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "DraftedCommitTx")
+      _ -> do
+        traceWith tracer $
+          APIRestInputReceived
+            { method = decodeUtf8 $ requestMethod req
+            , paths = pathInfo req
+            , requestInputBody = Nothing
+            }
+        respond $ responseLBS status400 [] "Resource not found"
 
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the

@@ -222,6 +222,29 @@ definitions:
             oneOf:
               - type: "null"
               - type: object
+      - title: APIRestInputReceived
+        description: >-
+          Some input has been received from a REST client.
+        additionalProperties: false
+        required:
+          - tag
+          - method
+          - paths
+          - requestInputBody
+        properties:
+          tag:
+            type: string
+            enum: ["APIRestInputReceived"]
+          method:
+            type: string
+          paths:
+            type: array
+            items:
+              type: string
+          requestInputBody:
+            oneOf:
+              - type: "null"
+              - type: object
       - title: APIInvalidInput
         description: >-
           Some input sent by a client is invalid.
