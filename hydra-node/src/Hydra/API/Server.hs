@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -30,13 +31,13 @@ import Hydra.API.ServerOutput (
   snapshotUtxo,
  )
 import Hydra.Chain (IsChainState)
-import Hydra.Ledger (UTxOType)
+import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Network.HTTP.Types (status400)
-import Network.Wai (responseLBS)
+import Network.HTTP.Types (status200, status400)
+import Network.Wai (Request (pathInfo), requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -92,6 +93,38 @@ type ServerCallback tx m = ClientInput tx -> m ()
 
 -- | A type tying both receiving input and sending output into a /Component/.
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
+
+newtype RestClientInput tx = DraftCommitTx
+  { utxo :: UTxOType tx
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (RestClientInput tx)
+deriving stock instance IsTx tx => Show (RestClientInput tx)
+deriving newtype instance IsTx tx => ToJSON (RestClientInput tx)
+deriving newtype instance IsTx tx => FromJSON (RestClientInput tx)
+
+instance (IsTx tx, Arbitrary (UTxOType tx)) => Arbitrary (RestClientInput tx) where
+  arbitrary = genericArbitrary
+
+  shrink = \case
+    DraftCommitTx xs -> DraftCommitTx <$> shrink xs
+
+newtype RestServerOutput tx = DraftedCommitTx
+  { commitTx :: tx
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (RestServerOutput tx)
+deriving stock instance IsTx tx => Show (RestServerOutput tx)
+deriving newtype instance IsTx tx => ToJSON (RestServerOutput tx)
+deriving newtype instance IsTx tx => FromJSON (RestServerOutput tx)
+
+instance (IsTx tx, Arbitrary (UTxOType tx)) => Arbitrary (RestServerOutput tx) where
+  arbitrary = genericArbitrary
+
+  shrink = \case
+    DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
 
 withAPIServer ::
   forall tx.
@@ -209,8 +242,11 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp _ respond =
-    respond $ responseLBS status400 [] "only WebSocket connections supported"
+  httpApp req respond =
+    case (requestMethod req, pathInfo req) of
+      ("GET", []) ->
+        respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "DraftedCommitTx")
+      _ -> respond $ responseLBS status400 [] "Resource not found"
 
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the

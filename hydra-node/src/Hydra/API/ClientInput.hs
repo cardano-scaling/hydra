@@ -15,7 +15,6 @@ data ClientInput tx
   | Close
   | Contest
   | Fanout
-  | DraftCommitTx {utxo :: UTxOType tx}
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ClientInput tx)
@@ -38,4 +37,3 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
     Close -> []
     Contest -> []
     Fanout -> []
-    DraftCommitTx xs -> DraftCommitTx <$> shrink xs

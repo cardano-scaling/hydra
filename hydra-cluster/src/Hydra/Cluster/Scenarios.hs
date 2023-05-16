@@ -12,7 +12,7 @@ import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.API.ClientInput (ClientInput (DraftCommitTx))
+import Hydra.API.Server (RestClientInput (..))
 import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
