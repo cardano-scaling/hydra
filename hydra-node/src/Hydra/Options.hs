@@ -565,7 +565,7 @@ hydraNodeCommand =
 
   revision =
     maybeToList $
-      ($$(envQ "GIT_REVERSION") :: Maybe String)
+      ($$(envQ "GIT_REVISION") :: Maybe String)
         <|> gitRevision
 
   scriptInfo =
