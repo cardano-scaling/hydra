@@ -14,6 +14,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
@@ -37,7 +38,7 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (status200, status400)
-import Network.Wai (Request (pathInfo), requestBody, requestMethod, responseLBS)
+import Network.Wai (Request (pathInfo), getRequestBodyChunk, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -100,10 +101,10 @@ newtype RestClientInput tx = DraftCommitTx
   }
   deriving (Generic)
 
-deriving stock instance IsTx tx => Eq (RestClientInput tx)
-deriving stock instance IsTx tx => Show (RestClientInput tx)
-deriving newtype instance IsTx tx => ToJSON (RestClientInput tx)
-deriving newtype instance IsTx tx => FromJSON (RestClientInput tx)
+deriving newtype instance IsTx tx => Eq (RestClientInput tx)
+deriving newtype instance IsTx tx => Show (RestClientInput tx)
+deriving anyclass instance IsTx tx => ToJSON (RestClientInput tx)
+deriving anyclass instance IsTx tx => FromJSON (RestClientInput tx)
 
 instance Arbitrary (UTxOType tx) => Arbitrary (RestClientInput tx) where
   arbitrary = genericArbitrary
@@ -127,6 +128,8 @@ instance IsTx tx => Arbitrary (RestServerOutput tx) where
   shrink = \case
     DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
 
+type ApiServerCallback tx m = RestClientInput tx -> m (RestServerOutput tx)
+
 withAPIServer ::
   forall tx.
   (IsChainState tx) =>
@@ -135,8 +138,9 @@ withAPIServer ::
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
+  ApiServerCallback tx IO ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer router callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- reverse <$> loadAll
 
@@ -149,7 +153,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history router callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -198,6 +202,7 @@ runAPIServer ::
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
+  ApiServerCallback tx IO ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -207,12 +212,12 @@ runAPIServer ::
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history routerCallback callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp httpApp
+      websocketsOr defaultConnectionOptions wsApp (httpApp routerCallback)
  where
   serverSettings =
     defaultSettings
@@ -243,12 +248,11 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp req respond =
+  httpApp router req respond =
     case (requestMethod req, pathInfo req) of
       ("POST", ["commit"]) -> do
-        -- FIXME: requestBody is deprecated
-        body <- requestBody req
-        case Aeson.eitherDecode (fromStrict body) :: Either String (RestClientInput tx) of
+        body <- getWaiRequestBody req
+        case Aeson.eitherDecode' (fromStrict body) :: Either String (RestClientInput tx) of
           Left err -> respond $ responseLBS status400 [] (show err)
           Right requestInput -> do
             traceWith tracer $
@@ -257,7 +261,10 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
                 , paths = pathInfo req
                 , requestInputBody = Just $ toJSON requestInput
                 }
-            respond $ responseLBS status200 [] (Aeson.encode $ Aeson.String "DraftedCommitTx")
+            commitTx <- router requestInput
+            let encodedRestOutput = Aeson.encode commitTx
+            traceShowM  commitTx
+            respond $ responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $
           APIRestInputReceived
@@ -361,3 +368,13 @@ data RunServerException = RunServerException
   deriving (Show)
 
 instance Exception RunServerException
+
+getWaiRequestBody :: Request -> IO ByteString
+getWaiRequestBody request = BS.concat <$> getChunks
+ where
+  getChunks :: IO [ByteString]
+  getChunks =
+    getRequestBodyChunk request >>= \chunk ->
+      if chunk == BS.empty
+        then pure []
+        else (chunk :) <$> getChunks

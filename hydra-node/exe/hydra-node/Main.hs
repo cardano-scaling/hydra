@@ -1,11 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
 import Hydra.Prelude
 
-import Hydra.API.Server (withAPIServer)
-import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.API.Server (ApiServerCallback, RestClientInput (DraftCommitTx), RestServerOutput (..), utxo, withAPIServer)
+import Hydra.Cardano.Api (Tx, serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
@@ -22,6 +23,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   getChainState,
  )
+import Hydra.Ledger.Cardano (emptyTxBody, unsafeBuildTransaction)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
@@ -105,7 +107,7 @@ main = do
             let RunOptions{apiHost, apiPort} = opts
 
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent . ClientEvent) $ \server -> do
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) restApiCallback (putEvent . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
@@ -154,3 +156,9 @@ main = do
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
+
+restApiCallback :: ApiServerCallback Ledger.Tx IO
+restApiCallback clientInput =
+  pure $ DraftedCommitTx $ unsafeBuildTransaction emptyTxBody
+ where
+  DraftCommitTx{utxo} = clientInput
