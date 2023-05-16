@@ -62,7 +62,7 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+         cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
         restore-keys: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
@@ -145,7 +145,7 @@ jobs:
         echo ${{ github.event.pull_request.head.sha || github.ref }} > hydra-prelude/VERSION
         # we need to commit the VERSION file because otherwise it's not picked up by
         # nix build
-        git add hydra-prelude/VERSION && git commit -m "Add VERSION"
+        git add hydra-prelude/VERSION && git commit --author='Hydra Team <hydra@iohk.io>'  -m "Add VERSION"
 
         mkdir -p bin/
         nix build .#hydra-node-static && cp result/bin/* bin/
