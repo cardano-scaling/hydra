@@ -6,26 +6,50 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (buildTransaction, queryTip, sign, submitTransaction)
+import Cardano.Ledger.Shelley.API (unUTxO)
+import CardanoClient (QueryPoint (QueryTip), buildScriptAddress, queryProtocolParameters, querySystemStart, queryTip, queryUTxO, submitTransaction)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
-import qualified Data.List as List
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.API.Server (RestClientInput (..), RestServerOutput (DraftedCommitTx))
-import Hydra.Cardano.Api (Lovelace, TxId, genTxIn, getTxBody, mkVkAddress, renderTxIn, selectLovelace, txIns, txOuts)
+import Hydra.Cardano.Api (
+  Lovelace,
+  PaymentCredential (PaymentCredentialByScript),
+  PlutusScriptV2,
+  ShelleyBasedEra (ShelleyBasedEraBabbage),
+  StakeAddressReference (NoStakeAddress),
+  TxId,
+  fromLedgerTx,
+  fromPlutusScript,
+  genTxIn,
+  getTxBody,
+  makeShelleyAddress,
+  mkScriptAddress,
+  mkVkAddress,
+  selectLovelace,
+  toLedgerPParams,
+  toLedgerTx,
+  toLedgerUTxO,
+  txIns,
+  txOuts,
+ )
 import Hydra.Cardano.Api.Prelude (TxBody (..))
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (HeadId)
+import Hydra.Chain.Direct.Wallet (coverFee2, coverFee_, signWith)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano
+import Hydra.Ledger.Cardano.Evaluate (epochInfo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -188,22 +212,35 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
 
       let DraftedCommitTx commitTx = responseBody response
 
-      let externalAddress = mkVkAddress networkId externalVk
+      -- let externalAddress = mkVkAddress networkId externalVk
       let (TxBody bodyContent) = getTxBody commitTx
       let theOutput = txOuts bodyContent
       let theInput = fst <$> txIns bodyContent
+
+      let commitScript =
+            fromPlutusScript Commit.validatorScript
+      -- let shelleyScriptAddr = makeShelleyAddress networkId (PaymentCredentialByScript Commit.validatorHash) NoStakeAddress
+      -- scriptUtxo <- queryUTxO networkId nodeSocket QueryTip shelleyScriptAddr
       -- traceShowM "theInput"
       -- traceShowM theInput
       -- traceShowM "theOutput"
       -- traceShowM theOutput
       putStrLn $ renderTxWithUTxO utxoToCommit commitTx
-
-      ebalancedTxBody <- buildTransaction networkId nodeSocket externalAddress utxoToCommit [] theOutput
-      case ebalancedTxBody of
+      pparams' <- queryProtocolParameters networkId nodeSocket QueryTip
+      systemStart <- querySystemStart networkId nodeSocket QueryTip
+      -- walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
+      let pparams = toLedgerPParams ShelleyBasedEraBabbage pparams'
+      let submitUtxo = unUTxO $ toLedgerUTxO $ utxoToCommit -- <> scriptUtxo
+      case coverFee2 pparams systemStart epochInfo submitUtxo (toLedgerTx commitTx) of
         Left e -> expectationFailure $ show e
-        Right balancedTxBody -> do
+        Right balancedTx -> do
+          -- ebalancedTxBody <- buildTransaction networkId nodeSocket externalAddress utxoToCommit theInput theOutput
+          -- case ebalancedTxBody of
+          --   Left e -> expectationFailure $ show e
+          --   Right balancedTxBody -> do
           -- sign the received draft commit tx (on behalf of a user) using external key
-          let signedCommitTx = sign externalSk balancedTxBody
+          -- let signedCommitTx = sign externalSk balancedTxBody
+          let signedCommitTx = signWith externalSk (fromLedgerTx balancedTx)
           submitTransaction networkId nodeSocket signedCommitTx
 
           waitFor tracer 600 [n1] $
