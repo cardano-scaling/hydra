@@ -51,7 +51,7 @@
               hydraProject.hsPkgs.plutus-merkle-tree.components.library.doc
               hydraProject.hsPkgs.hydra-prelude.components.library.doc
               hydraProject.hsPkgs.hydra-cardano-api.components.library.doc
-              # TODO: hydraProject.hsPkgs.hydra-plutus.components.library.doc
+              hydraProject.hsPkgs.hydra-plutus.components.library.doc
               # TODO: haddocks for tests
               hydraProject.hsPkgs.hydra-node.components.library.doc
               hydraProject.hsPkgs.hydra-cluster.components.library.doc

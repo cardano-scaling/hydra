@@ -54,11 +54,19 @@ let
         packages.hydra-tui.dontStrip = false;
         packages.hydraw.dontStrip = false;
       }
+      # Inject the git revision into hydra-node --version
+      # (see hydra-node/src/Hydra/Options.hs)
       {
         packages.hydra-node.preBuild = ''
           echo ======= PATCHING --version to ${gitRev} =======
           export GIT_REVISION=${gitRev}
         '';
+      }
+      # Avoid plutus-tx errors in haddock (see also cabal.project)
+      {
+        packages.hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
+        packages.plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
+        packages.plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
       }
       # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
       # on libsodium, which lacks the vrf functionality.
