@@ -33,8 +33,6 @@ module Hydra.Cardano.Api (
 
   -- * Re-exports from @cardano-api@
   module X,
-
-  toShelleyNetwork,
 ) where
 
 import Cardano.Api as X hiding (
@@ -95,6 +93,7 @@ import Cardano.Api.Shelley as X (
   toAlonzoPrices,
   toConsensusPointInMode,
   toPlutusData,
+  toShelleyNetwork,
  )
 import Cardano.Api.UTxO (
   UTxO,
@@ -105,7 +104,6 @@ import Hydra.Cardano.Api.Prelude (
   LedgerEra,
   Map,
   StandardCrypto,
-  toShelleyNetwork
  )
 
 import Hydra.Cardano.Api.Address ()
