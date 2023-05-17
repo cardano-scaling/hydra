@@ -30,6 +30,7 @@ import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatc
 import Network.HTTP.Req
 import Test.Hspec.Expectations (shouldBe)
 import Test.QuickCheck (generate)
+import Hydra.Chain.Direct.Wallet (signWith)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -148,6 +149,9 @@ singlePartyCommitsFromExternal ::
 singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
+    refuelIfNeeded tracer node External 25_000_000
+    -- these keys should mimic external wallet keys needed to sign and submit the commit tx
+    (externalVk, externalSk) <- keysFor External
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
@@ -160,8 +164,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
       utxo <- generate $ do
-        (vk, _sk) <- genKeyPair
-        txOut <- genOutput vk
+        txOut <- genOutput externalVk
         txIn <- genTxIn
         pure $ UTxO.singleton (txIn, txOut)
 
@@ -181,9 +184,9 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
 
       let DraftedCommitTx commitTx = responseBody response
 
-      -- submit the received draft commit tx using cardano-cli
-      -- TODO: sign Tx before submit
-      submitTransaction networkId nodeSocket commitTx
+      -- sign the received draft commit tx using external key
+      let signedCommitTx = signWith externalSk commitTx
+      submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= utxo, "headId" .= headId]

@@ -48,6 +48,7 @@ data Actor
   | Bob
   | Carol
   | Faucet
+  | External
   deriving (Eq, Show)
 
 actorName :: Actor -> String
@@ -56,6 +57,7 @@ actorName = \case
   Bob -> "bob"
   Carol -> "carol"
   Faucet -> "faucet"
+  External -> "external"
 
 -- | A network known to the hydra-cluster. That means we have configuration
 -- files to connect to at least these networks.

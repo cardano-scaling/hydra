@@ -265,7 +265,6 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
               Left err -> respond $ responseLBS status400 [] (show err)
               Right commitTx -> do
                 let encodedRestOutput = Aeson.encode commitTx
-                traceShowM commitTx
                 respond $ responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $
