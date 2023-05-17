@@ -269,7 +269,7 @@
     "description": "Hydra heads' first highlight: security."
   },
   "homepage.featureList.secure.tagline": {
-    "message": "Mantén el control y gasta sólo lo que hayas acordado expresamente."
+    "message": "Mantén el control y gasta sólo lo que hayas acordado expresamente.",
     "description": "Tagline for the 'secure' property."
   },
   "homepage.featureList.fast.title": {
