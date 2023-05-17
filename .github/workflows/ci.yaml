@@ -179,7 +179,7 @@ jobs:
           - bench: hydra-cluster
             options: '--scaling-factor 1'
           - bench: plutus-merkle-tree
-            options: '$(pwd)/docs/benchmarks'
+            options: '--output-directory $(pwd)/docs/benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
