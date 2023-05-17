@@ -56,4 +56,23 @@ rec {
         ];
     };
   };
+  benchs = {
+    hydra-node = pkgs.mkShellNoCC {
+      name = "bench-tx-cost";
+      buildInputs = [ nativePkgs.hydra-node.components.benchmarks.tx-cost ];
+    };
+    hydra-cluster = pkgs.mkShellNoCC {
+      name = "bench-hydra-cluster";
+      buildInputs =
+        [
+          nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
+    };
+    plutus-merkle-tree = pkgs.mkShellNoCC {
+      name = "bench-plutus-merkle-tree";
+      buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
+    };
+  };
 }
