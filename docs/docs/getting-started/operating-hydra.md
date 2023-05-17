@@ -1,15 +1,56 @@
 ---
-sidebar_position: 3
+sidebar_position: 6
 ---
 
-# Troubleshooting
+# Operating a Hydra Node
+
+```mdx-code-block
+import TerminalWindow from '@site/src/components/TerminalWindow';
+```
 
 This page aims at helping Hydra users troubleshoot issues when running their own instances of `hydra-node` and participate in a Hydra Head.
 
 ## Logs
 
-Following [ADR-9](/adr/9) design principles, the `hydra-node` provides [JSON](https://json.org) formatted logs on the `stdout` stream, one line per log item. The log items follow a [JSON schema](https://github.com/input-output-hk/hydra/blob/8a8157d8cba4907e1653e2fbb87551cf7ddd59d8/hydra-node/json-schemas/logs.yaml).
+Following [ADR-9](/adr/9) design principles, the `hydra-node` provides [JSON](https://json.org) formatted logs on the `stdout` stream, one line per log item. The log items follow a [JSON schema](https://github.com/input-output-hk/hydra/blob/master/hydra-node/json-schemas/logs.yaml). This logging capability is kept voluntarily simple and non configurable in order to ease integration of Hydra logging into more general log analysis infrastructure, whether a custom ELK stack, third-party services, docker sidecars...
 
+:::info
+
+There is an unpublished [log-filter](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/exe/log-filter/Main.hs) executable that one can attach to a hydra-node in order to trim down the volume of information in the log stream. This filter provides _some_ filtering features, namely removing transactions bodies and replacing them with transaction ids, but it's not general enough to warrant publication. Similar capabilites can be easily provided with tools like [jq](https://stedolan.github.io/jq/).
+
+:::
+
+## Monitoring
+
+When given `--monitoring-port PORT` argument, the hydra-node executable will expose a [Prometheus](https://prometheus.io) compatible HTTP `/metrics` endpoint on the given port to enable _scraping_ of exposed metrics.
+
+For example, assuming a hydra-node was started with `--monitoring-port 6001`, this command
+
+```mdx-code-block
+<TerminalWindow>
+curl http://localhost:6001/metrics
+</TerminalWindow>
+```
+
+will output
+
+```
+# TYPE hydra_head_confirmed_tx counter
+hydra_head_confirmed_tx  0
+# TYPE hydra_head_events counter
+hydra_head_events  50467
+# TYPE hydra_head_requested_tx counter
+hydra_head_requested_tx  0
+# TYPE hydra_head_tx_confirmation_time_ms histogram
+hydra_head_tx_confirmation_time_ms_bucket{le="5.0"} 0.0
+hydra_head_tx_confirmation_time_ms_bucket{le="10.0"} 0.0
+hydra_head_tx_confirmation_time_ms_bucket{le="50.0"} 0.0
+hydra_head_tx_confirmation_time_ms_bucket{le="100.0"} 0.0
+hydra_head_tx_confirmation_time_ms_bucket{le="1000.0"} 0.0
+hydra_head_tx_confirmation_time_ms_bucket{le="+Inf"} 0.0
+hydra_head_tx_confirmation_time_ms_sum  0.0
+hydra_head_tx_confirmation_time_ms_count  0
+```
 
 ## Common Issues
 
