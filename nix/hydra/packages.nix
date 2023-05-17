@@ -38,17 +38,22 @@ rec {
       buildInputs = [nativePkgs.hydra-node.components.tests.tests];
     };
     hydra-cluster = pkgs.mkShell {
-       name = "hydra-cluster-tests";
-       buildInputs =
-       [
-         nativePkgs.hydra-cluster.components.tests.tests
-	 hydra-node
-	 cardano-node.packages.${system}.cardano-node
-       ];
+      name = "hydra-cluster-tests";
+      buildInputs =
+      [
+        nativePkgs.hydra-cluster.components.tests.tests
+        hydra-node
+        cardano-node.packages.${system}.cardano-node
+      ];
      };
     hydra-tui = pkgs.mkShell {
       name = "hydra-tui-tests";
-      buildInputs = [nativePkgs.hydra-tui.components.tests.tests];
+      buildInputs =
+      [
+        nativePkgs.hydra-tui.components.tests.tests
+        hydra-node
+	cardano-node.packages.${system}.cardano-node
+      ];
     };
   };
 }
