@@ -385,31 +385,29 @@ jobs:
         name: hydra-spec
         path: docs/static/
 
-    - name: 📚 Documentation
+    - name: 📚 Documentation sanity check
+      if: github.ref_name != 'master' && github.ref_name != 'release'
       working-directory: docs
       run: |
-        yarn && yarn build
-        mkdir -p public/
-        mv build/* public/
+        yarn && yarn build-dev
 
-    - name: 💾 Upload docs artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs-stable
-        path: docs/public
-
-    - name: 📚 Documentation (unstable)
-      if: github.ref_name != 'release'
+    - name: 📚 Prepare Documentation (unstable)
+      if: github.ref_name == 'master'
       working-directory: docs
       run: |
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
-        yarn && yarn build
-        mkdir -p public/unstable
-        mv build/* public/unstable
 
-    - name: 💾 Upload docs artifact (unstable) - only master branch
-      if: github.ref_name == 'master'
+    - name: 📚 Documentation
+      if: github.ref_name == 'master' || github.ref_name == 'release'
+      working-directory: docs
+      run: |
+        yarn && yarn build
+        mkdir public
+        mv build/* public
+
+    - name: 💾 Upload docs artifact
+      if: github.ref_name == 'master' || github.ref_name == 'release'
       uses: actions/upload-artifact@v3
       with:
-        name: docs-unstable
-        path: docs/public/unstable
+        name: docs
+        path: docs/public
