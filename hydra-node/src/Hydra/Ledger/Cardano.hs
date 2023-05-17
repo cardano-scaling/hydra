@@ -261,6 +261,15 @@ genOutput vk = do
   value <- genValue
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
+-- | Generate ada-only 'TxOut' payed to specified public key
+genAdaOnlyOutput ::
+  forall ctx.
+  VerificationKey PaymentKey ->
+  Gen (TxOut ctx)
+genAdaOnlyOutput vk = do
+  value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
+
 -- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
 genTxOutAdaOnly :: Gen (TxOut ctx)
 genTxOutAdaOnly = do

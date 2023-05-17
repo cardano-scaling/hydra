@@ -58,7 +58,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Hydra.API.ServerOutput (HeadStatus(Initializing))
 import Hydra.Chain.Direct.Tx (commitTx)
 import qualified Cardano.Api.UTxO as UTxO
 

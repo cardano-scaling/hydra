@@ -6,15 +6,18 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (queryTip, submitTransaction)
+import CardanoClient (buildTransaction, queryTip, sign, submitTransaction)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.API.Server (RestClientInput (..), RestServerOutput (DraftedCommitTx))
-import Hydra.Cardano.Api (Lovelace, TxId, genTxIn, selectLovelace)
+import Hydra.Cardano.Api (Lovelace, TxId, genTxIn, getTxBody, mkVkAddress, renderTxIn, selectLovelace, txIns, txOuts)
+import Hydra.Cardano.Api.Prelude (TxBody (..))
+import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
@@ -22,15 +25,14 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (Tx, genKeyPair, genOutput)
+import Hydra.Ledger.Cardano
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import Network.HTTP.Req
-import Test.Hspec.Expectations (shouldBe)
+import Test.Hspec.Expectations (expectationFailure, shouldBe)
 import Test.QuickCheck (generate)
-import Hydra.Chain.Direct.Wallet (signWith)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -163,13 +165,15 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
-      utxo <- generate $ do
-        txOut <- genOutput externalVk
+
+      -- generate utxo at external key address
+      utxoToCommit <- generate $ do
+        txOut <- genAdaOnlyOutput externalVk
         txIn <- genTxIn
         pure $ UTxO.singleton (txIn, txOut)
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTx @Tx utxo
+      let clientPayload = DraftCommitTx @Tx utxoToCommit
 
       response <-
         runReq defaultHttpConfig $
@@ -177,19 +181,33 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
             POST
             (http "127.0.0.1" /: "commit")
             (ReqBodyJson clientPayload)
-            jsonResponse
+            (Proxy :: Proxy (JsonResponse (RestServerOutput Tx)))
             (port $ 4000 + hydraNodeId)
 
       responseStatusCode response `shouldBe` 200
 
       let DraftedCommitTx commitTx = responseBody response
 
-      -- sign the received draft commit tx using external key
-      let signedCommitTx = signWith externalSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
+      let externalAddress = mkVkAddress networkId externalVk
+      let (TxBody bodyContent) = getTxBody commitTx
+      let theOutput = txOuts bodyContent
+      let theInput = fst <$> txIns bodyContent
+      -- traceShowM "theInput"
+      -- traceShowM theInput
+      -- traceShowM "theOutput"
+      -- traceShowM theOutput
+      putStrLn $ renderTxWithUTxO utxoToCommit commitTx
 
-      waitFor tracer 600 [n1] $
-        output "HeadIsOpen" ["utxo" .= utxo, "headId" .= headId]
+      ebalancedTxBody <- buildTransaction networkId nodeSocket externalAddress utxoToCommit [] theOutput
+      case ebalancedTxBody of
+        Left e -> expectationFailure $ show e
+        Right balancedTxBody -> do
+          -- sign the received draft commit tx (on behalf of a user) using external key
+          let signedCommitTx = sign externalSk balancedTxBody
+          submitTransaction networkId nodeSocket signedCommitTx
+
+          waitFor tracer 600 [n1] $
+            output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
 
     traceRemainingFunds Alice
  where
