@@ -69,7 +69,8 @@ jobs:
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix develop .?submodules=1#tests.${{ matrix.package}} --command tests
+        cd ${{ matrix.package }}
+        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -83,7 +84,8 @@ jobs:
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
-        nix develop .?submodules=1#tests.${{ matrix.package}} --command tests
+        cd ${{ matrix.package  }}
+        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
