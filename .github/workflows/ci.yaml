@@ -66,18 +66,11 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: 🧰 Prepare tools
-      run: |
-        nix develop .#ci --command bash -c 'cabal update'
-
-    - name: 🔨 Build
-      run: |
-        nix develop .#ci --command bash -c 'cabal build ${{ matrix.package }}'
-
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
+        cd ${{ matrix.package }}
+        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -91,7 +84,8 @@ jobs:
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
-        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
+        cd ${{ matrix.package  }}
+        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
