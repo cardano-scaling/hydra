@@ -23,37 +23,37 @@ rec {
   tests = {
     plutus-cbor = pkgs.mkShell {
       name = "plutus-cbor-tests";
-      buildInputs = [nativePkgs.plutus-cbor.components.tests.tests];
+      buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
     };
     plutus-merkle-tree = pkgs.mkShell {
       name = "plutus-merkle-tree-tests";
-      buildInputs = [nativePkgs.plutus-merkle-tree.components.tests.tests];
+      buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
     };
     hydra-plutus = pkgs.mkShell {
       name = "hydra-plutus-tests";
-      buildInputs = [nativePkgs.hydra-plutus.components.tests.tests];
+      buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
     };
     hydra-node = pkgs.mkShell {
       name = "hydra-node-tests";
-      buildInputs = [nativePkgs.hydra-node.components.tests.tests];
+      buildInputs = [ nativePkgs.hydra-node.components.tests.tests ];
     };
     hydra-cluster = pkgs.mkShell {
       name = "hydra-cluster-tests";
       buildInputs =
-      [
-        nativePkgs.hydra-cluster.components.tests.tests
-        hydra-node
-        cardano-node.packages.${system}.cardano-node
-      ];
-     };
+        [
+          nativePkgs.hydra-cluster.components.tests.tests
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
+    };
     hydra-tui = pkgs.mkShell {
       name = "hydra-tui-tests";
       buildInputs =
-      [
-        nativePkgs.hydra-tui.components.tests.tests
-        hydra-node
-	cardano-node.packages.${system}.cardano-node
-      ];
+        [
+          nativePkgs.hydra-tui.components.tests.tests
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
     };
   };
 }
