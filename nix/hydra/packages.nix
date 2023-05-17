@@ -21,23 +21,23 @@ rec {
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
   tests = {
-    plutus-cbor = pkgs.mkShell {
+    plutus-cbor = pkgs.mkShellNoCC {
       name = "plutus-cbor-tests";
       buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
     };
-    plutus-merkle-tree = pkgs.mkShell {
+    plutus-merkle-tree = pkgs.mkShellNoCC {
       name = "plutus-merkle-tree-tests";
       buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
     };
-    hydra-plutus = pkgs.mkShell {
+    hydra-plutus = pkgs.mkShellNoCC {
       name = "hydra-plutus-tests";
       buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
     };
-    hydra-node = pkgs.mkShell {
+    hydra-node = pkgs.mkShellNoCC {
       name = "hydra-node-tests";
       buildInputs = [ nativePkgs.hydra-node.components.tests.tests ];
     };
-    hydra-cluster = pkgs.mkShell {
+    hydra-cluster = pkgs.mkShellNoCC {
       name = "hydra-cluster-tests";
       buildInputs =
         [
@@ -46,7 +46,7 @@ rec {
           cardano-node.packages.${system}.cardano-node
         ];
     };
-    hydra-tui = pkgs.mkShell {
+    hydra-tui = pkgs.mkShellNoCC {
       name = "hydra-tui-tests";
       buildInputs =
         [
