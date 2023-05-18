@@ -173,8 +173,8 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
-    OnChainEffect{chainState, postChainTx} ->
-      postTx chainState postChainTx
+    OnChainEffect{postChainTx} ->
+      postTx postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party e

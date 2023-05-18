@@ -1262,7 +1262,6 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - chainState
           - postChainTx
         description: >-
           An effect representing some transaction must be posted on-chain. Note
@@ -1272,8 +1271,6 @@ definitions:
           tag:
             type: string
             enum: ["OnChainEffect"]
-          chainState:
-            $ref: "api.yaml#/components/schemas/ChainState"
           postChainTx:
             $ref: "api.yaml#/components/schemas/PostChainTx"
       - title: Delay

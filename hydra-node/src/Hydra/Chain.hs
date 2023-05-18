@@ -176,10 +176,10 @@ class
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
-  { postTx :: (IsChainState tx, MonadThrow m) => ChainStateType tx -> PostChainTx tx -> m ()
+  { postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
-  -- given 'PostChainTx' description and the current 'ChainState'. This
-  -- function is not expected to block, so it is only responsible for
+  -- given 'PostChainTx' description.
+  -- This function is not expected to block, so it is only responsible for
   -- submitting, but it should validate the created transaction against a
   -- reasonable local view of the chain and throw an exception when invalid.
   --
