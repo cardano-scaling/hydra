@@ -29,12 +29,11 @@ Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [--api-port PORT] [--monitoring-port PORT]
                     [--hydra-signing-key FILE] [--hydra-verification-key FILE]
                     [--hydra-scripts-tx-id TXID] [--persistence-dir DIR]
-                    (--mainnet | --testnet-magic NATURAL) [--node-socket FILE]
+                    [--mainnet | --testnet-magic NATURAL] [--node-socket FILE]
                     [--cardano-signing-key FILE]
                     [--cardano-verification-key FILE]
                     [--start-chain-from SLOT.HEADER_HASH]
                     [--contestation-period CONTESTATION-PERIOD]
-                    [--ledger-genesis FILE]
                     [--ledger-protocol-parameters FILE] |
                     COMMAND) [--version] [--script-info]
 
@@ -76,7 +75,11 @@ Available options:
   --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
                            not edit these files manually!
   --mainnet                Use the mainnet magic id.
-  --testnet-magic NATURAL  Specify a testnet magic id.
+  --testnet-magic NATURAL  Network identifier for a testnet to connect to. We
+                           only need to provide the magic number here. For
+                           example: '2' is the 'preview' network. See
+                           https://book.world.dev.cardano.org/environments.html
+                           for available networks. (default: 42)
   --node-socket FILE       Filepath to local unix domain socket used to
                            communicate with the cardano node.
                            (default: "node.socket")
@@ -100,11 +103,6 @@ Available options:
                            hydra-node will ignore the initial tx. Additionally,
                            this value needs to make sense compared to the
                            current network we are running. (default: 60s)
-  --ledger-genesis FILE    Path to a Shelley-compatible genesis JSON file used
-                           for the Hydra ledger. You can use the corresponding
-                           Cardano network's shelley genesis file from:
-                           https://book.world.dev.cardano.org/environments.html
-                           (default: "genesis-shelley.json")
   --ledger-protocol-parameters FILE
                            Path to protocol parameters used in the Hydra Head.
                            See manual how to configure this.
@@ -157,7 +155,7 @@ cardano-cli address key-gen --verification-key-file cardano.vk --signing-key-fil
 
 ### 元帳パラメーター
 
-Hydra-Head のコアには、台帳があります。現時点では、Hydra は Cardano にのみ配線されており、レイヤー 1 で使われているものと同様の台帳構成を想定しています。 これは、2 つのコマンドラインオプション `--ledger-genesis` と `--ledger-protocol-parameters` として翻訳されます。前者は（シェリー！）生成規則を定義し、より具体的には、台帳が必要とする**グローバル**で更新不可能なプロトコルパラメータを定義しています。後者は、手数料や取引サイズなど、更新可能なプロトコルパラメータを定義します。これらは cardano-cli で使用されるものと同じ形式を使用します（例：`cardano-cli query protocol-parameters`の出力）。
+ヒドラの頭の中核には台帳があります。 現時点では、Hydra は Cardano にのみ接続されており、レイヤー 1 で使用されているものと同様のレジャー構成を想定しています。これは、コマンドライン オプション `--ledger-protocol-parameters` として変換されます。 これにより、料金やトランザクション サイズなどの更新可能なプロトコル パラメーターが定義されます。 これらは、cardano-cli で使用される形式と同じ形式を使用します (例: `cardano-cli query protocol-parameters`の出力)。
 
 [hydra-cluster/config](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config)に既存のファイルを提供しており、これをベースに利用することができます。特に、ヘッド内のコストを無効化するためのプロトコルパラメータが定義されています。それとは別に、現在のメインネットのパラメータもそのままコピーしています。ヒドラの台帳の面白いところは、レイヤー 1 と同じルールやコードを再利用している（いわゆる同型）にもかかわらず、パラメーターがレイヤー 1 とは若干異なるように変更されている点です。これは料金の場合ですが、例えばスクリプトの最大実行予算などでも可能です。ただし、すべてのパラメータが安全に変更できるわけではありません。値の最大サイズ（ネイティブアセットを運ぶ）を制御するパラメータや、UTxO の最小 Ada 値を変更すると、ヘッドが「closable」になってしまう可能性があります。経験則から言うと、取引に厳密に適用されるもの（手数料、実行単位、最大 TX サイズ...）は変更しても安全である。しかし、UTxO に反映される可能性があるものは、そうではありません。
 

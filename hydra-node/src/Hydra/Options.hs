@@ -213,43 +213,27 @@ runOptionsParser =
     <*> chainConfigParser
     <*> ledgerConfigParser
 
-data LedgerConfig = CardanoLedgerConfig
-  { cardanoLedgerGenesisFile :: FilePath
-  , cardanoLedgerProtocolParametersFile :: FilePath
+newtype LedgerConfig = CardanoLedgerConfig
+  { cardanoLedgerProtocolParametersFile :: FilePath
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 defaultLedgerConfig :: LedgerConfig
 defaultLedgerConfig =
   CardanoLedgerConfig
-    { cardanoLedgerGenesisFile = "genesis-shelley.json"
-    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
+    { cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
 
 instance Arbitrary LedgerConfig where
   arbitrary = do
-    cardanoLedgerGenesisFile <- genFilePath ".json"
     cardanoLedgerProtocolParametersFile <- genFilePath ".json"
-    pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile, cardanoLedgerGenesisFile}
+    pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile}
 
 ledgerConfigParser :: Parser LedgerConfig
 ledgerConfigParser =
   CardanoLedgerConfig
-    <$> cardanoLedgerGenesisParser
-    <*> cardanoLedgerProtocolParametersParser
-
-cardanoLedgerGenesisParser :: Parser FilePath
-cardanoLedgerGenesisParser =
-  strOption
-    ( long "ledger-genesis"
-        <> metavar "FILE"
-        <> value "genesis-shelley.json"
-        <> showDefault
-        <> help
-          "Path to a Shelley-compatible genesis JSON file used for the Hydra \
-          \ledger. You can use the corresponding Cardano network's shelley \
-          \genesis file from: https://book.world.dev.cardano.org/environments.html"
-    )
+    <$> cardanoLedgerProtocolParametersParser
 
 cardanoLedgerProtocolParametersParser :: Parser FilePath
 cardanoLedgerProtocolParametersParser =
@@ -704,12 +688,10 @@ toArgs
         <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =
-      ["--ledger-genesis", cardanoLedgerGenesisFile]
-        <> ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
+      ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
 
     CardanoLedgerConfig
-      { cardanoLedgerGenesisFile
-      , cardanoLedgerProtocolParametersFile
+      { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
 
     DirectChainConfig

@@ -6,8 +6,9 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Ledger.Shelley.API (mkShelleyGlobals)
 import Data.Text (unpack)
-import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, protocolParamProtocolVersion, utxoFromTx)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
@@ -21,12 +22,12 @@ import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
-  newGlobals,
   newLedgerEnv,
   protocolParametersFromJson,
   readJsonFileThrow,
   shelleyGenesisFromJson,
  )
+import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (
   Positive (Positive),
@@ -46,9 +47,11 @@ prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
-      globals <-
-        newGlobals
-          <$> readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
+
+      shelleyGenesis <- readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
+      let (majV, _) = protocolParamProtocolVersion Fixture.pparams
+      let globals = mkShelleyGlobals shelleyGenesis Fixture.epochInfo majV
+
       ledgerEnv <-
         newLedgerEnv
           <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"

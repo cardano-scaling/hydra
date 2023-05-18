@@ -50,7 +50,6 @@ services:
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
       , "--hydra-signing-key", "/data/hydra-key.sk"
       , "--cardano-signing-key", "/data/cardano-key.sk"
-      , "--ledger-genesis", "/data/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
       , "--testnet-magic", "${NETWORK_MAGIC}"
       , "--node-socket", "/devnet/node.socket"

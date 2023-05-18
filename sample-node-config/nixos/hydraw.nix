@@ -64,7 +64,6 @@ in
         [ "--hydra-scripts-tx-id" hydraScriptsTxId ]
         [ "--hydra-signing-key" "/data/credentials/sebastian.hydra.sk" ]
         [ "--cardano-signing-key" "/data/credentials/sebastian.cardano.sk" ]
-        [ "--ledger-genesis" "/cardano-node/config/preview/shelley-genesis.json" ]
         [ "--ledger-protocol-parameters" "/data/protocol-parameters.json" ]
         [ "--testnet-magic" networkMagic ]
         [ "--node-socket" "/cardano-node/node.socket" ]

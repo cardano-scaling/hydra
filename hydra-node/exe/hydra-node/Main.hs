@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
@@ -27,7 +28,6 @@ import Hydra.Ledger.Cardano.Configuration (
   newLedgerEnv,
   protocolParametersFromJson,
   readJsonFileThrow,
-  shelleyGenesisFromJson,
  )
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -43,6 +43,7 @@ import Hydra.Node (
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (
+  ChainConfig (..),
   Command (Publish, Run),
   LedgerConfig (..),
   ParamMismatch (..),
@@ -106,7 +107,7 @@ main = do
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
-              withCardanoLedger ledgerConfig $ \ledger ->
+              withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
 
@@ -120,11 +121,9 @@ main = do
     let localhost = Host{hostname = show host, port}
      in withHeartbeat nodeId $ withOuroborosNetwork tracer localhost peers
 
-  withCardanoLedger ledgerConfig action = do
-    globals <-
-      newGlobals
-        <$> readJsonFileThrow shelleyGenesisFromJson (cardanoLedgerGenesisFile ledgerConfig)
-
+  withCardanoLedger ledgerConfig chainConfig action = do
+    let DirectChainConfig{networkId, nodeSocket} = chainConfig
+    globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
     ledgerEnv <-
       newLedgerEnv
         <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)

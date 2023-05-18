@@ -14,11 +14,16 @@ changes.
   numeric `eventId`.
 
 - Make `hydra-node` support time bounded transactions.
-  + Introduce time in the Hydra Head transactions. 
+  + Introduce time in the Hydra Head transactions.
   + Users have the option to submit transactions using time validity ranges.
   + Changes to the logs:
     - Added current chain slot in OpenState.
     - Added current chain slot and time in chain Tick.
+
+- **BREAKING** Change the hydra-node command line options:
+
+   - Removed `--ledger-genesis` argument. Hydra-node queries this information
+     from cardano-node.
 
 ## [0.10.0] - 2023-05-11
 
@@ -67,7 +72,7 @@ head again.
 
 - The `hydra-node` detects misconfiguration and mismatch of command line options
   with persisted state. [#764][764]
-  
+
 - Fixed a bug where the `hydra-node` would crash sometimes when the
   `cardano-node` switches onto a fork, which is a common event on mainnet.
   [#560][560]
@@ -86,7 +91,7 @@ head again.
     - Updated `plutus-tx` tool-chain. This also resulted in changed return type
       of `validatorScript` functions of script modules to `SerialisedScript`.
       [#826][826]
-      
+
     - Use of a custom script context for `vInitial` and `vCommit` validators to
       reduce cost of transactions again.
       [#825][825]

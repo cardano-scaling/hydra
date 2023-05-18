@@ -63,7 +63,6 @@ hydra-node \
   --node-socket "preview/node.socket" \
   --testnet-magic $(cat preview/db/protocolMagicId) \
   --hydra-scripts-tx-id ${HYDRA_SCRIPTS_TX_ID} \
-  --ledger-genesis "preview/genesis/shelley.json" \
   --ledger-protocol-parameters "../hydra-cluster/config/protocol-parameters.json" \
   --hydra-signing-key "credentials/sebastian.hydra.sk" \
   --cardano-signing-key "credentials/sebastian.cardano.sk"

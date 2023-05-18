@@ -121,8 +121,7 @@ hydra-node \
 	--hydra-scripts-tx-id 4081fab39728fa3c05c0edc4dc7c0e8c45129ca6b2b70bf8600c1203a79d2c6d \
 	--cardano-signing-key AliceCardano.sk \
 	--cardano-verification-key ../Bob/BobCardano.vk \
-	--ledger-genesis ../../preview-testnet/shelley-genesis.json \
-    --ledger-protocol-parameters ../protocol-parameters.json \
+	--ledger-protocol-parameters ../protocol-parameters.json \
 	--network-id 2 \
 	--node-socket ../../preview-testnet/node.socket
 ```
@@ -136,7 +135,6 @@ hydra-node \
 	--hydra-scripts-tx-id 4081fab39728fa3c05c0edc4dc7c0e8c45129ca6b2b70bf8600c1203a79d2c6d \
 	--cardano-signing-key BobCardano.sk \
 	--cardano-verification-key ../Alice/AliceCardano.vk \
-	--ledger-genesis ../../preview-testnet/shelley-genesis.json \
 	--ledger-protocol-parameters ../protocol-parameters.json \
 	--network-id 2 \
 	--node-socket ../../preview-testnet/node.socket

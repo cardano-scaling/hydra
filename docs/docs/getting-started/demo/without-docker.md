@@ -93,7 +93,6 @@ source .env && hydra-node \
   --cardano-signing-key devnet/credentials/alice.sk \
   --cardano-verification-key devnet/credentials/bob.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
-  --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -118,7 +117,6 @@ source .env && hydra-node \
   --cardano-signing-key devnet/credentials/bob.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
-  --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -143,7 +141,6 @@ source .env && hydra-node \
   --cardano-signing-key devnet/credentials/carol.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/bob.vk \
-  --ledger-genesis devnet/genesis-shelley.json \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \

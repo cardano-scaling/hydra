@@ -93,6 +93,7 @@ import Cardano.Api.Shelley as X (
   toAlonzoPrices,
   toConsensusPointInMode,
   toPlutusData,
+  toShelleyNetwork,
  )
 import Cardano.Api.UTxO (
   UTxO,

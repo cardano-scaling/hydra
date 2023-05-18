@@ -451,8 +451,7 @@ spec = around showLogsOnFailure $ do
                       , persistenceDir
                       , ledgerConfig =
                           defaultLedgerConfig
-                            { cardanoLedgerGenesisFile = "config/devnet/genesis-shelley.json"
-                            , cardanoLedgerProtocolParametersFile = "config/protocol-parameters.json"
+                            { cardanoLedgerProtocolParametersFile = "config/protocol-parameters.json"
                             }
                       }
 
