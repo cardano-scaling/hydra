@@ -18,7 +18,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.API.ServerHandle (Server (..))
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -33,12 +32,10 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Chain (Chain (..), IsChainState, PostChainTx (CommitTx))
-import Hydra.HeadLogic (Effect (..), getChainState)
+import Hydra.Chain (Chain (..), IsChainState)
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Node (NodeState (..))
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (status200, status400)
@@ -88,6 +85,12 @@ instance Arbitrary APIServerLog where
       , APIInvalidInput <$> arbitrary <*> arbitrary
       ]
 
+-- | Handle to provide a means for sending server outputs to clients.
+newtype Server tx m = Server
+  { sendOutput :: ServerOutput tx -> m ()
+  -- ^ Send some output to all connected clients.
+  }
+
 -- | Callback for receiving client inputs.
 type ServerCallback tx m = ClientInput tx -> m ()
 
@@ -135,9 +138,8 @@ withAPIServer ::
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  NodeState tx IO ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer router nodeState callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer router callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- reverse <$> loadAll
 
@@ -150,7 +152,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer rou
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history router nodeState callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history router callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -200,7 +202,6 @@ runAPIServer ::
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
   Chain tx IO ->
-  NodeState tx IO ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -210,14 +211,13 @@ runAPIServer ::
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history chain nodeState callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
       websocketsOr defaultConnectionOptions wsApp (httpApp chain)
  where
-  NodeState{modifyHeadState, queryHeadState} = nodeState
   serverSettings =
     defaultSettings
       & setHost (fromString $ show host)
@@ -262,10 +262,6 @@ runAPIServer host port party tracer history chain nodeState callback headStatusP
                 }
             let Chain{draftTx} = directChain
             let userUtxo = utxo requestInput
-            _ <-
-              atomically $ do
-                headState <- queryHeadState
-                modifyHeadState (OnChainEffect{chainState = getChainState headState, postChainTx = CommitTx party userUtxo},)
             eCommitTx <- draftTx userUtxo
             case eCommitTx of
               Left err -> respond $ responseLBS status400 [] (show err)

@@ -25,9 +25,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
-  toLedgerUTxO,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -37,7 +35,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext (ChainContext, contestationPeriod),
+  ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   InitialState (..),
@@ -49,24 +47,17 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  networkId,
   observeSomeTx,
-  ownInitial,
-  ownParty,
-  scriptRegistry,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (CommitObservation (committed), commitTx)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.HeadLogic (Effect (OnChainEffect, chainState, postChainTx))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (NodeState (..))
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -196,15 +187,14 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO part
             PostTxError Tx
         )
     Left e ->
-      traceShow e $
-        throwIO
-          ( InternalWalletError
-              { headUTxO
-              , reason = show e
-              , tx = partialTx
-              } ::
-              PostTxError Tx
-          )
+      throwIO
+        ( InternalWalletError
+            { headUTxO
+            , reason = show e
+            , tx = partialTx
+            } ::
+            PostTxError Tx
+        )
     Right balancedTx -> do
       pure $ sign balancedTx
 
