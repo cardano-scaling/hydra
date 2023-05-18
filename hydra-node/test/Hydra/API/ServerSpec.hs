@@ -24,7 +24,8 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
-import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
+import Hydra.API.Server (RunServerException (..), withAPIServer)
+import Hydra.API.ServerHandle (Server (Server, sendOutput))
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
 import Hydra.Chain (Chain (Chain), HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot, draftTx, postTx)
 import Hydra.Ledger.Simple (SimpleTx)

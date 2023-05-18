@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..))
+import Hydra.API.ServerHandle (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (

@@ -25,7 +25,7 @@ import Data.List ((!!))
 import qualified Data.List as List
 import GHC.Records (getField)
 import Hydra.API.ClientInput
-import Hydra.API.Server (Server (..))
+import Hydra.API.ServerHandle (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (

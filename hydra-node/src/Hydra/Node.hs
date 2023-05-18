@@ -17,7 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   stateTVar,
  )
-import Hydra.API.Server (Server, sendOutput)
+import Hydra.API.ServerHandle (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)

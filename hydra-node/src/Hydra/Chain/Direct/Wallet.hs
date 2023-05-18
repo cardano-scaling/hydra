@@ -151,6 +151,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           -- wrong fee estimation should they change in between.
           epochInfo <- queryEpochInfo
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
+          traceShowM "before coverFee_"
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)

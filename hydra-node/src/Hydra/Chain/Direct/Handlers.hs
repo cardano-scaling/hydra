@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   getTxId,
   toLedgerUTxO,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -55,15 +56,17 @@ import Hydra.Chain.Direct.State (
   scriptRegistry,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (commitTx)
+import Hydra.Chain.Direct.Tx (CommitObservation (committed), commitTx)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.HeadLogic (Effect (OnChainEffect, chainState, postChainTx))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node (NodeState (..))
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -153,17 +156,17 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           -- to bootstrap the init transaction. For now, we bear with it and
           -- keep the static keys in context.
           atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-            >>= finalizeTx wallet ctx chainState
+            >>= finalizeTx wallet ctx chainState mempty
         submitTx vtx
     , draftTx = \utxo -> do
         chainState <- atomically getLatest
         let currentState = Hydra.Chain.Direct.State.chainState chainState
         case currentState of
-          Initial st -> do
+          Initial st@InitialState{} -> do
             case commit ctx st utxo of
               Left e -> pure $ Left (show e)
               Right draftCommitTx -> do
-                eresult :: Either (PostTxError Tx) Tx <- try (finalizeTx wallet ctx chainState draftCommitTx)
+                eresult :: Either (PostTxError Tx) Tx <- try (finalizeTx wallet ctx chainState utxo draftCommitTx)
                 pure $ left show eresult
           _ -> pure $ Left "You can draft a commit transaction only if in Initializing state"
     }
@@ -174,10 +177,11 @@ finalizeTx ::
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->
+  UTxO.UTxO ->
   Tx ->
   m Tx
-finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = do
-  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState
+finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO partialTx = do
+  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState <> userUTxO
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
@@ -192,14 +196,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} partialTx = d
             PostTxError Tx
         )
     Left e ->
-      throwIO
-        ( InternalWalletError
-            { headUTxO
-            , reason = show e
-            , tx = partialTx
-            } ::
-            PostTxError Tx
-        )
+      traceShow e $
+        throwIO
+          ( InternalWalletError
+              { headUTxO
+              , reason = show e
+              , tx = partialTx
+              } ::
+              PostTxError Tx
+          )
     Right balancedTx -> do
       pure $ sign balancedTx
 
