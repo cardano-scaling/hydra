@@ -2,8 +2,8 @@
 
 ---
 
-<!-- Tick off or strike-through / remove if not applicable -->
-* [ ] CHANGELOG updated
-* [ ] Documentation updated
-* [ ] Added and/or updated haddocks
+<!-- Consider each and tick it off one way or the other -->
+* [ ] CHANGELOG updated or not needed
+* [ ] Documentation updated or not needed
+* [ ] Haddocks updated or not needed
 * [ ] No new TODOs introduced or explained herafter
