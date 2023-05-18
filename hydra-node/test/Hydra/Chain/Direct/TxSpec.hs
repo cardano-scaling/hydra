@@ -13,7 +13,6 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Alonzo.Tx (AlonzoTx)
 import Cardano.Ledger.Babbage.PParams (BabbagePParams)
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -29,17 +28,13 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
-import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainState)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import qualified Hydra.Chain.Direct.Wallet as W
-import Hydra.Chain.Direct.WalletSpec (isBalanced)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genTxOut, genVerificationKey)
+import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -139,37 +134,6 @@ spec =
                     & counterexample "Failed to ignore init tx for the right reason."
                     & counterexample (renderTx tx)
                     & counterexample (show e)
-
-    xdescribe "draftCommitTx" $ do
-      xprop "can build valid draft commit tx" $ \chainState initialPubKeyHash intialTxIn committedUTxO party walletUtxo -> do
-        let
-          initialTxOut = genTxOut `generateWith` 45
-          scriptRegistry = genScriptRegistry `generateWith` 42
-          tx =
-            commitTx
-              Fixture.testNetworkId
-              scriptRegistry
-              (mkHeadId Fixture.testPolicyId)
-              party
-              (Just committedUTxO)
-              (intialTxIn, toUTxOContext initialTxOut, initialPubKeyHash)
-          (txIn, txOut) = bimap toLedgerTxIn toLedgerTxOut committedUTxO
-          commitUtxo = Map.singleton txIn txOut
-          balancedTx = draftCommitTx commitUtxo walletUtxo chainState tx
-         in
-          case balancedTx of
-            Left err ->
-              property False
-                & counterexample ("Error: " <> show err)
-                & counterexample ("Commit UTXO: \n" <> decodeUtf8 (encodePretty commitUtxo))
-                & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUtxo))
-                & counterexample (renderTx tx)
-            Right tx' ->
-              isBalanced commitUtxo (toLedgerTx tx) tx'
- where
-  draftCommitTx :: Map W.TxIn W.TxOut -> Map W.TxIn W.TxOut -> ChainState -> Tx -> Either ErrCoverFee (AlonzoTx LedgerEra)
-  draftCommitTx commitUTxO walletUTxO _chainState tx =
-    coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo commitUTxO walletUTxO (toLedgerTx tx)
 
 ledgerPParams :: BabbagePParams LedgerEra
 ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
