@@ -11,7 +11,9 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
+import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
@@ -23,6 +25,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  toLedgerUTxO,
  )
 import Hydra.Chain (
   Chain (..),
@@ -33,9 +36,10 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod, ChainContext),
+  ChainContext (ChainContext, contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
+  InitialState (..),
   abort,
   close,
   collect,
@@ -44,9 +48,14 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx, networkId, scriptRegistry, InitialState (..), ownParty, ownInitial
+  networkId,
+  observeSomeTx,
+  ownInitial,
+  ownParty,
+  scriptRegistry,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Tx (commitTx)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -58,8 +67,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Hydra.Chain.Direct.Tx (commitTx)
-import qualified Cardano.Api.UTxO as UTxO
 
 -- | Handle of a local chain state that is kept in the direct chain layer.
 data LocalChainState m = LocalChainState
@@ -119,7 +126,7 @@ type GetTimeHandle m = m TimeHandle
 -- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
 -- require any actual `IO` to happen which makes it highly suitable for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
+  (MonadSTM m, MonadTimer m, MonadThrow (STM m), MonadCatch m) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -149,18 +156,15 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             >>= finalizeTx wallet ctx chainState
         submitTx vtx
     , draftTx = \utxo -> do
-        s <- atomically getLatest
-        let currentState = Hydra.Chain.Direct.State.chainState s
+        chainState <- atomically getLatest
+        let currentState = Hydra.Chain.Direct.State.chainState chainState
         case currentState of
-          Initial st@InitialState{headId} -> do
-            let ChainContext{networkId,scriptRegistry, ownParty} = ctx
-            case ownInitial ctx st of
-              Nothing -> pure $ Left "Could not find own initial output"
-              Just initials ->
-                case UTxO.pairs utxo of
-                  [aUTxO] ->
-                     pure $ Right $ commitTx networkId scriptRegistry headId ownParty (Just aUTxO) initials
-                  _ -> pure $ Left "Cannot draft commit tx with more than one utxo"
+          Initial st -> do
+            case commit ctx st utxo of
+              Left e -> pure $ Left (show e)
+              Right draftCommitTx -> do
+                eresult :: Either (PostTxError Tx) Tx <- try (finalizeTx wallet ctx chainState draftCommitTx)
+                pure $ left show eresult
           _ -> pure $ Left "You can draft a commit transaction only if in Initializing state"
     }
 
