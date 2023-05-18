@@ -167,8 +167,9 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- TODO:  we should submit the tx using our external user key
+      -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+
       -- Request to build a draft commit tx from hydra-node
       let clientPayload = DraftCommitTx @Tx utxoToCommit
 
@@ -185,6 +186,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
 
       let DraftedCommitTx commitTx = responseBody response
 
+      -- sign and submit the tx with our external user key
       let signedCommitTx = signWith externalSk commitTx
       submitTransaction networkId nodeSocket signedCommitTx
 
