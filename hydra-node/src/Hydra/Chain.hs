@@ -140,6 +140,8 @@ data PostTxError tx
   | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
+  | -- | We can only draft commit tx for the user when in Initializing state
+    FailedToDraftTx {failureReason :: Text}
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
@@ -183,7 +185,7 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either String tx)
+  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either (PostTxError tx) tx)
   }
 
 data ChainEvent tx

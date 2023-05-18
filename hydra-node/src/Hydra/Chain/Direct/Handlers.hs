@@ -13,7 +13,6 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
@@ -38,7 +37,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  InitialState (..),
   abort,
   close,
   collect,
@@ -151,15 +149,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         submitTx vtx
     , draftTx = \utxo -> do
         chainState <- atomically getLatest
-        let currentState = Hydra.Chain.Direct.State.chainState chainState
-        case currentState of
-          Initial st@InitialState{} -> do
-            case commit ctx st utxo of
-              Left e -> pure $ Left (show e)
-              Right draftCommitTx -> do
-                eresult :: Either (PostTxError Tx) Tx <- try (finalizeTx wallet ctx chainState utxo draftCommitTx)
-                pure $ left show eresult
-          _ -> pure $ Left "You can draft a commit transaction only if in Initializing state"
+        case Hydra.Chain.Direct.State.chainState chainState of
+          Initial st ->
+            finalizeTx wallet ctx chainState utxo `traverse` commit ctx st utxo
+          _ -> pure $ Left $ FailedToDraftTx "You can draft a commit transaction only in Initializing state"
     }
 
 -- | Balance and sign the given partial transaction.
