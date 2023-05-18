@@ -26,7 +26,7 @@ import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
-import Hydra.Chain (Chain (Chain), HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot, draftTx, postTx)
+import Hydra.Chain (Chain (Chain), HeadId (HeadId), PostChainTx (CloseTx), PostTxError (FailedToDraftTx, NoSeedInput), confirmedSnapshot, draftTx, postTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -383,7 +383,7 @@ testClient queue semaphore cnx = do
       testClient queue semaphore cnx
 
 dummyChainHandle :: Chain tx IO
-dummyChainHandle = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left "oops"}
+dummyChainHandle = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left (FailedToDraftTx "oops")}
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()

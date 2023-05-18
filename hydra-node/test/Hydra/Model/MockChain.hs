@@ -212,7 +212,7 @@ data MockHydraNode m = MockHydraNode
   }
 
 createMockChain ::
-  (MonadTimer m, MonadThrow (STM m), MonadCatch m) =>
+  (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   ChainContext ->
   SubmitTx m ->
