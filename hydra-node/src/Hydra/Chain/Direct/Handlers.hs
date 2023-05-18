@@ -118,7 +118,7 @@ type GetTimeHandle m = m TimeHandle
 -- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
 -- require any actual `IO` to happen which makes it highly suitable for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadTimer m, MonadThrow (STM m), MonadCatch m) =>
+  (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
