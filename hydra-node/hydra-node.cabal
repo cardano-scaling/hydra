@@ -130,7 +130,6 @@ library
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
     , cardano-ledger-babbage-test
-    , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
@@ -239,6 +238,24 @@ benchmark tx-cost
   if flag(hydra-development)
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+benchmark micro
+  import:         project-config
+  hs-source-dirs: exe/micro-bench
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-slotting
+    , criterion
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , QuickCheck
+    , time
+
+  ghc-options:    -threaded -rtsopts
 
 test-suite tests
   import:             project-config
