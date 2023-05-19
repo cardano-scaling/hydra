@@ -110,7 +110,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 putTextLn "Closing the Head"
                 send leader $ input "Close" []
 
-                deadline <- waitMatch 30 leader $ \v -> do
+                deadline <- waitMatch 300 leader $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   v ^? key "contestationDeadline" . _JSON
