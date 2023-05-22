@@ -15,6 +15,11 @@ changes.
     multiple UTxOs into a Hydra head.
   + Removes the `MoreThanOneUTxOCommitted` server output on the API.
 
+- Provide the option to commit utxo externally. `hydra-node` now has an http
+  endpoint for submitting the utxo user wants to commit which returns back a
+  draft `commit` transaction. This transaction can be signed and submitted to
+  the network by the user now instead of `hydra-node`.
+
 - Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` log items using a
   numeric `eventId`.
 
