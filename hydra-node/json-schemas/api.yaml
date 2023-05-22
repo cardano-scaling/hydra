@@ -82,6 +82,7 @@ channels:
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
+          - $ref: "#/components/messages/RestServerOutput"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -96,6 +97,7 @@ channels:
           - $ref: "#/components/messages/Close"
           - $ref: "#/components/messages/Contest"
           - $ref: "#/components/messages/Fanout"
+          - $ref: "#/components/messages/RestClientInput"
 
 components:
   messages:
@@ -217,6 +219,22 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
+
+    RestClientInput:
+      title: RestClientInput
+      description: |
+        Provide a utxo that will be used to draft a commit transaction that will be sent back to the user.
+      payload:
+        type: object
+        required:
+          - tag
+          - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["RestClientInput"]
+          utxo:
+            $ref: "#/components/schemas/UTxO"
 
     ########
     #
@@ -699,6 +717,22 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
+
+    RestServerOutput:
+      title: RestServerOutput
+      description: |
+        Emitted by the server after drafting a commit transaction with the user provided utxo. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        type: object
+        required:
+          - tag
+          - commitTx
+        properties:
+          tag:
+            type: string
+            enum: ["RestServerOutput"]
+          commitTx:
+            $ref: "#/components/schemas/RawTransaction"
 
   ########
   #
@@ -1497,7 +1531,7 @@ components:
       format: "date-time"
       description: |
         A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
-    
+
     ChainSlot:
       type: integer
       minimum: 0
