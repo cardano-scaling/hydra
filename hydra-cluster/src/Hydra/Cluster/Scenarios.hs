@@ -12,7 +12,8 @@ import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.API.Server (RestClientInput (..), RestServerOutput (DraftedCommitTx))
+import Hydra.API.ClientInput (RestClientInput (..))
+import Hydra.API.ServerOutput (RestServerOutput (DraftedCommitTx))
 import Hydra.Cardano.Api (
   Lovelace,
   TxId,

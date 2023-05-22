@@ -21,6 +21,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
+  RestServerOutput (DraftedCommitTx),
   ServerOutput (Greetings, InvalidInput),
   ServerOutputConfig (..),
   TimedServerOutput (..),
@@ -235,7 +236,7 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
               case eCommitTx of
                 Left err -> responseLBS status400 [] (show err)
                 Right commitTx -> do
-                  let encodedRestOutput = Aeson.encode commitTx
+                  let encodedRestOutput = Aeson.encode $ DraftedCommitTx commitTx
                   responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $

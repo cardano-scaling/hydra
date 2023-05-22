@@ -127,6 +127,7 @@ library
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-slotting
+    , cborg
     , containers
     , contra-tracer
     , data-default
