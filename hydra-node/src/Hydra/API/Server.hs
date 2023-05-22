@@ -1,4 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -216,28 +215,10 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
+  -- Hydra HTTP server
   httpApp directChain req respond =
     case (requestMethod req, pathInfo req) of
-      ("POST", ["commit"]) -> do
-        body <- getWaiRequestBody req
-        case Aeson.eitherDecode' (fromStrict body) :: Either String (RestClientInput tx) of
-          Left err -> respond $ responseLBS status400 [] (show err)
-          Right requestInput -> do
-            traceWith tracer $
-              APIRestInputReceived
-                { method = decodeUtf8 $ requestMethod req
-                , paths = pathInfo req
-                , requestInputBody = Just $ toJSON requestInput
-                }
-            let Chain{draftTx} = directChain
-            let userUtxo = utxo requestInput
-            eCommitTx <- draftTx userUtxo
-            respond $
-              case eCommitTx of
-                Left err -> responseLBS status400 [] (show err)
-                Right commitTx -> do
-                  let encodedRestOutput = Aeson.encode $ DraftedCommitTx commitTx
-                  responseLBS status200 [] encodedRestOutput
+      ("POST", ["commit"]) -> handleDraftCommitUtxo directChain req respond
       _ -> do
         traceWith tracer $
           APIRestInputReceived
@@ -282,13 +263,17 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     let k = [queryKey|tx-output|]
         v = [queryValue|cbor|]
         queryP = QueryParam k v
-     in if queryP `elem` qp then OutputCBOR else OutputJSON
+     in case queryP `elem` qp of
+          True -> OutputCBOR
+          False -> OutputJSON
 
   decideOnUTxODisplay qp =
     let k = [queryKey|snapshot-utxo|]
         v = [queryValue|no|]
         queryP = QueryParam k v
-     in if queryP `elem` qp then WithoutUTxO else WithUTxO
+     in case queryP `elem` qp of
+          True -> WithoutUTxO
+          False -> WithUTxO
 
   shouldNotServeHistory qp =
     flip any qp $ \case
@@ -333,6 +318,28 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
 
+  -- Handle user requests to obtain a draft commit tx
+  handleDraftCommitUtxo directChain req respond = do
+    body <- getWaiRequestBody req
+    case Aeson.eitherDecode' (fromStrict body) :: Either String (RestClientInput tx) of
+      Left err -> respond $ responseLBS status400 [] (show err)
+      Right requestInput -> do
+        traceWith tracer $
+          APIRestInputReceived
+            { method = decodeUtf8 $ requestMethod req
+            , paths = pathInfo req
+            , requestInputBody = Just $ toJSON requestInput
+            }
+        let Chain{draftTx} = directChain
+        let userUtxo = utxo requestInput
+        eCommitTx <- draftTx userUtxo
+        respond $
+          case eCommitTx of
+            Left err -> responseLBS status400 [] (show err)
+            Right commitTx -> do
+              let encodedRestOutput = Aeson.encode $ DraftedCommitTx commitTx
+              responseLBS status200 [] encodedRestOutput
+
 data RunServerException = RunServerException
   { ioException :: IOException
   , host :: IP
@@ -342,6 +349,7 @@ data RunServerException = RunServerException
 
 instance Exception RunServerException
 
+-- | Helper function to grab all of the request body contents
 getWaiRequestBody :: Request -> IO ByteString
 getWaiRequestBody request = BS.concat <$> getChunks
  where
