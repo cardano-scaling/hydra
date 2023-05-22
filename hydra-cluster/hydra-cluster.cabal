@@ -34,6 +34,8 @@ data-files:
   config/credentials/bob.vk
   config/credentials/carol.sk
   config/credentials/carol.vk
+  config/credentials/external.sk
+  config/credentials/external.vk
   config/credentials/faucet.sk
   config/credentials/faucet.vk
   config/devnet/byron-delegate.key
