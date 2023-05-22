@@ -152,12 +152,6 @@ jobs:
     needs: [build-test]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
       with:
@@ -168,8 +162,54 @@ jobs:
       with:
         junit_files: ./**/test-results.xml
 
-  haddock-benchmarks:
-    name: "Haddock & benchmarks"
+  haddock:
+    name: "Haddock"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
+    - name: 📚 Documentation (Haddock)
+      run: |
+        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
+
+    - name: 💾 Upload build & test artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: haddocks
+        path: ./docs/static/haddock
+
+  benchmarks:
+    name: "Benchmarks"
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -182,7 +222,7 @@ jobs:
             options: '--scaling-factor 1'
           - package: plutus-merkle-tree
             bench: on-chain-cost
-            options: '$(pwd)/../docs/benchmarks'
+            options: '--output-directory $(pwd)/../docs/benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
@@ -217,40 +257,30 @@ jobs:
         cd ${{ matrix.package }}
         nix develop .?submodules=1#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
 
-    - name: 📚 Documentation (Haddock)
-      run: |
-        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
-
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: benchmarks-and-haddocks
-        path: ./docs
+        name: benchmarks
+        path: ./docs/benchmarks
 
   publish-benchmark-results:
     name: Publish benchmark results
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
-    needs: [haddock-benchmarks]
+    needs: [benchmarks]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
       with:
-        name: benchmarks-and-haddocks
+        name: benchmarks
         path: artifact
 
     - name: ⚙ Prepare comment body
       id: comment-body
       run: |
         # Drop first 5 header lines and demote headlines one level
-        body="$(cat artifact/benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/')"
+        body="$(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/')"
         body="${body//'%'/'%25'}"
         body="${body//$'\n'/'%0A'}"
         body="${body//$'\r'/'%0D'}"
@@ -307,7 +337,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock-benchmarks,build-test,build-specification]
+    needs: [haddock,benchmarks,build-test,build-specification]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -331,11 +361,17 @@ jobs:
         yarn
         yarn validate
 
-    - name: 📥 Download generated documentation
+    - name: 📥 Download benchmark results
       uses: actions/download-artifact@v3
       with:
-        name: benchmarks-and-haddocks
-        path: docs
+        name: benchmarks
+        path: docs/benchmarks
+
+    - name: 📥 Download haddock documentation
+      uses: actions/download-artifact@v3
+      with:
+        name: haddocks
+        path: docs/static/haddock
 
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
