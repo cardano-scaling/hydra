@@ -174,12 +174,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - bench: tx-cost
-            options: '--output-directory $(pwd)/docs/benchmarks'
-          - bench: hydra-cluster
+          - package: hydra-node
+            bench: tx-cost
+            options: '--output-directory $(pwd)/../docs/benchmarks'
+          - package: hydra-cluster
+            bench: bench-e2e
             options: '--scaling-factor 1'
-          - bench: plutus-merkle-tree
-            options: '$(pwd)/docs/benchmarks'
+          - package: plutus-merkle-tree
+            bench: on-chain-cost
+            options: '$(pwd)/../docs/benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
@@ -209,13 +212,10 @@ jobs:
         key: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: 🧰 Prepare tools
-      run: |
-        nix develop .#ci --command bash -c 'cabal update'
-
     - name: 📈 Benchmark
       run: |
-        nix develop .#ci --command bash -c 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+        cd ${{ matrix.package }}
+        nix develop .?submodules=1#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 📚 Documentation (Haddock)
       run: |

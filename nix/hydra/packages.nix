@@ -21,39 +21,58 @@ rec {
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
   tests = {
-    plutus-cbor = pkgs.mkShell {
+    plutus-cbor = pkgs.mkShellNoCC {
       name = "plutus-cbor-tests";
-      buildInputs = [nativePkgs.plutus-cbor.components.tests.tests];
+      buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
     };
-    plutus-merkle-tree = pkgs.mkShell {
+    plutus-merkle-tree = pkgs.mkShellNoCC {
       name = "plutus-merkle-tree-tests";
-      buildInputs = [nativePkgs.plutus-merkle-tree.components.tests.tests];
+      buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
     };
-    hydra-plutus = pkgs.mkShell {
+    hydra-plutus = pkgs.mkShellNoCC {
       name = "hydra-plutus-tests";
-      buildInputs = [nativePkgs.hydra-plutus.components.tests.tests];
+      buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
     };
-    hydra-node = pkgs.mkShell {
+    hydra-node = pkgs.mkShellNoCC {
       name = "hydra-node-tests";
-      buildInputs = [nativePkgs.hydra-node.components.tests.tests];
+      buildInputs = [ nativePkgs.hydra-node.components.tests.tests ];
     };
-    hydra-cluster = pkgs.mkShell {
+    hydra-cluster = pkgs.mkShellNoCC {
       name = "hydra-cluster-tests";
       buildInputs =
-      [
-        nativePkgs.hydra-cluster.components.tests.tests
-        hydra-node
-        cardano-node.packages.${system}.cardano-node
-      ];
-     };
-    hydra-tui = pkgs.mkShell {
+        [
+          nativePkgs.hydra-cluster.components.tests.tests
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
+    };
+    hydra-tui = pkgs.mkShellNoCC {
       name = "hydra-tui-tests";
       buildInputs =
-      [
-        nativePkgs.hydra-tui.components.tests.tests
-        hydra-node
-	cardano-node.packages.${system}.cardano-node
-      ];
+        [
+          nativePkgs.hydra-tui.components.tests.tests
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
+    };
+  };
+  benchs = {
+    hydra-node = pkgs.mkShellNoCC {
+      name = "bench-tx-cost";
+      buildInputs = [ nativePkgs.hydra-node.components.benchmarks.tx-cost ];
+    };
+    hydra-cluster = pkgs.mkShellNoCC {
+      name = "bench-hydra-cluster";
+      buildInputs =
+        [
+          nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
+          hydra-node
+          cardano-node.packages.${system}.cardano-node
+        ];
+    };
+    plutus-merkle-tree = pkgs.mkShellNoCC {
+      name = "bench-plutus-merkle-tree";
+      buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
     };
   };
 }
