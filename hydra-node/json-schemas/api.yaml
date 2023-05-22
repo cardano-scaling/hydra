@@ -23,7 +23,7 @@ info:
 defaultContentType: application/json
 
 servers:
-  localhost:
+  localhost-ws:
     url: "{host}:{port}"
     protocol: ws
     description: |
@@ -34,7 +34,7 @@ servers:
       port:
         description: Port the Hydra node is listening for client connections.
         default: "4001"
-  http-localhost:
+  localhost-http:
     url: "{host}:{port}"
     protocol: http
     description: |
@@ -51,7 +51,7 @@ channels:
   /:
     description: Main entry point for Websockets server in Hydra service.
     servers:
-      - localhost
+      - localhost-ws
     bindings:
       ws:
         query:
@@ -114,9 +114,9 @@ channels:
   /commit:
     description: Main entry point for the HTTP server in Hydra service.
     servers:
-      - http-localhost
+      - localhost-http
     subscribe:
-      summary: Responses of the Hydra node's HTTP server.
+      summary: Hydra node HTTP server responses.
       operationId: restServerOutput
       message:
         oneOf:
@@ -1227,6 +1227,20 @@ components:
             tag:
               type: string
               enum: ["CommittedTooMuchADAForMainnet"]
+        - title: FailedToDraftTx
+          description: |
+            Raised if the user tried to draft a commit tx while Head is not in Initializing state.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            failureReason:
+              type: string
+            tag:
+              type: string
+              enum: ["FailedToDraftTx"]
 
     Signature:
       type: string

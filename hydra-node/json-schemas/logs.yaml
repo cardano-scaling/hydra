@@ -222,29 +222,6 @@ definitions:
             oneOf:
               - type: "null"
               - type: object
-      - title: APIRestInputReceived
-        description: >-
-          Some input has been received from a REST client.
-        additionalProperties: false
-        required:
-          - tag
-          - method
-          - paths
-          - requestInputBody
-        properties:
-          tag:
-            type: string
-            enum: ["APIRestInputReceived"]
-          method:
-            type: string
-          paths:
-            type: array
-            items:
-              type: string
-          requestInputBody:
-            oneOf:
-              - type: "null"
-              - type: object
       - title: APIInvalidInput
         description: >-
           Some input sent by a client is invalid.
@@ -268,6 +245,59 @@ definitions:
               hence it's potentially invalid JSON so we just encode it as a proper
               JSON string. Note that if the input contained invalid UTF-8
               characters they will be ignored.
+      - title: APIConnectionError
+        description: >-
+          API returned a connection error.
+        additionalProperties: false
+        required:
+          - tag
+          - reason
+        properties:
+          tag:
+            type: string
+            enum: ["APIConnectionError"]
+          reason:
+            type: string
+            description: >-
+              A textual description of the reason why this input is invalid.
+      - title: APIHandshakeError
+        description: >-
+          API returned a handshake error.
+        additionalProperties: false
+        required:
+          - tag
+          - reason
+        properties:
+          tag:
+            type: string
+            enum: ["APIHandshakeError"]
+          reason:
+            type: string
+            description: >-
+              A textual description of the reason why this input is invalid.
+      - title: APIRestInputReceived
+        description: >-
+          Some input has been received from a REST client.
+        additionalProperties: false
+        required:
+          - tag
+          - method
+          - paths
+          - requestInputBody
+        properties:
+          tag:
+            type: string
+            enum: ["APIRestInputReceived"]
+          method:
+            type: string
+          paths:
+            type: array
+            items:
+              type: string
+          requestInputBody:
+            oneOf:
+              - type: "null"
+              - type: object
 
   DirectChain:
     oneOf:

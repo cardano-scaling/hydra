@@ -84,7 +84,10 @@ instance Arbitrary APIServerLog where
       , APIInvalidInput <$> arbitrary <*> arbitrary
       , APIConnectionError <$> arbitrary
       , APIHandshakeError <$> arbitrary
-      , APIRestInputReceived <$> arbitrary <*> arbitrary <*> arbitrary
+      , APIRestInputReceived
+          <$> arbitrary
+          <*> arbitrary
+          <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
       ]
 
 -- | Handle to provide a means for sending server outputs to clients.
