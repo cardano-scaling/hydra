@@ -170,7 +170,7 @@ createHydraNode signingKey otherParties contestationPeriod events = do
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
-      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left (FailedToDraftTx "error")}
+      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left (FailedToDraftTx "draftTx handle not implemented")}
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger
       , env =
