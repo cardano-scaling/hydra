@@ -152,12 +152,6 @@ jobs:
     needs: [build-test]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
       with:
@@ -272,12 +266,6 @@ jobs:
     needs: [benchmarks]
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v3
       with:
