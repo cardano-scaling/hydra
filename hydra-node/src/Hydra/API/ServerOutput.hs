@@ -148,6 +148,22 @@ data ServerOutputConfig = ServerOutputConfig
   }
   deriving (Eq, Show)
 
+newtype RestServerOutput tx = DraftedCommitTx
+  { commitTx :: tx
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (RestServerOutput tx)
+deriving stock instance IsTx tx => Show (RestServerOutput tx)
+deriving newtype instance IsTx tx => ToJSON (RestServerOutput tx)
+deriving newtype instance IsTx tx => FromJSON (RestServerOutput tx)
+
+instance IsTx tx => Arbitrary (RestServerOutput tx) where
+  arbitrary = genericArbitrary
+
+  shrink = \case
+    DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
+
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
 -- NOTE: we deliberately pattern match on all 'ServerOutput' constructors in

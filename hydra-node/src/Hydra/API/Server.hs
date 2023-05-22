@@ -16,7 +16,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
-import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput, RestClientInput (..))
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
@@ -33,7 +33,7 @@ import Hydra.API.ServerOutput (
   snapshotUtxo,
  )
 import Hydra.Chain (Chain (..), IsChainState)
-import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
@@ -96,38 +96,6 @@ type ServerCallback tx m = ClientInput tx -> m ()
 
 -- | A type tying both receiving input and sending output into a /Component/.
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
-
-newtype RestClientInput tx = DraftCommitTx
-  { utxo :: UTxOType tx
-  }
-  deriving (Generic)
-
-deriving newtype instance IsTx tx => Eq (RestClientInput tx)
-deriving newtype instance IsTx tx => Show (RestClientInput tx)
-deriving anyclass instance IsTx tx => ToJSON (RestClientInput tx)
-deriving anyclass instance IsTx tx => FromJSON (RestClientInput tx)
-
-instance Arbitrary (UTxOType tx) => Arbitrary (RestClientInput tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftCommitTx xs -> DraftCommitTx <$> shrink xs
-
-newtype RestServerOutput tx = DraftedCommitTx
-  { commitTx :: tx
-  }
-  deriving (Generic)
-
-deriving stock instance IsTx tx => Eq (RestServerOutput tx)
-deriving stock instance IsTx tx => Show (RestServerOutput tx)
-deriving newtype instance IsTx tx => ToJSON (RestServerOutput tx)
-deriving newtype instance IsTx tx => FromJSON (RestServerOutput tx)
-
-instance IsTx tx => Arbitrary (RestServerOutput tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
 
 withAPIServer ::
   forall tx.
@@ -263,11 +231,12 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
             let Chain{draftTx} = directChain
             let userUtxo = utxo requestInput
             eCommitTx <- draftTx userUtxo
-            case eCommitTx of
-              Left err -> respond $ responseLBS status400 [] (show err)
-              Right commitTx -> do
-                let encodedRestOutput = Aeson.encode commitTx
-                respond $ responseLBS status200 [] encodedRestOutput
+            respond $
+              case eCommitTx of
+                Left err -> responseLBS status400 [] (show err)
+                Right commitTx -> do
+                  let encodedRestOutput = Aeson.encode commitTx
+                  responseLBS status200 [] encodedRestOutput
       _ -> do
         traceWith tracer $
           APIRestInputReceived
