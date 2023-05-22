@@ -171,12 +171,6 @@ jobs:
   haddock:
     name: "Haddock"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: hydra-node
-          - package: hydra-cluster
-          - package: plutus-merkle-tree
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
