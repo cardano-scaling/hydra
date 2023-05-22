@@ -194,6 +194,10 @@ jobs:
         key: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
+    - name: 🧰 Prepare tools
+      run: |
+        nix develop .#ci --command bash -c 'cabal update'
+
     - name: 📚 Documentation (Haddock)
       run: |
         nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
