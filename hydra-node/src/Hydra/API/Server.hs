@@ -14,12 +14,12 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.API.ClientInput (ClientInput, RestClientInput (..))
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
+import Hydra.API.RestServer (RestClientInput (utxo), RestServerOutput (..))
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
-  RestServerOutput (DraftedCommitTx),
   ServerOutput (Greetings, InvalidInput),
   ServerOutputConfig (..),
   TimedServerOutput (..),

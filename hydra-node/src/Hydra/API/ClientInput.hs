@@ -39,18 +39,3 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
     Contest -> []
     Fanout -> []
 
-newtype RestClientInput tx = DraftCommitTx
-  { utxo :: UTxOType tx
-  }
-  deriving (Generic)
-
-deriving newtype instance IsTx tx => Eq (RestClientInput tx)
-deriving newtype instance IsTx tx => Show (RestClientInput tx)
-deriving anyclass instance IsTx tx => ToJSON (RestClientInput tx)
-deriving anyclass instance IsTx tx => FromJSON (RestClientInput tx)
-
-instance Arbitrary (UTxOType tx) => Arbitrary (RestClientInput tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftCommitTx xs -> DraftCommitTx <$> shrink xs

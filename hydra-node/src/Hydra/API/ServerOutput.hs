@@ -2,10 +2,9 @@
 
 module Hydra.API.ServerOutput where
 
-import Cardano.Binary (decodeFull', serialize')
+import Cardano.Binary (serialize')
 import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
-import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
@@ -148,44 +147,6 @@ data ServerOutputConfig = ServerOutputConfig
   , utxoInSnapshot :: WithUTxO
   }
   deriving (Eq, Show)
-
-newtype RestServerOutput tx = DraftedCommitTx
-  { commitTx :: tx
-  }
-  deriving (Generic)
-
-deriving stock instance IsTx tx => Eq (RestServerOutput tx)
-deriving stock instance IsTx tx => Show (RestServerOutput tx)
-
-instance (IsTx tx, ToCBOR tx) => ToJSON (RestServerOutput tx) where
-  toJSON (DraftedCommitTx tx) =
-    Aeson.object
-      [ "tag" Aeson..= Aeson.String "RestServerOutput"
-      , "commitTx" Aeson..= (String . decodeUtf8 . Base16.encode $ serialize' tx)
-      ]
-
-instance
-  (IsTx tx, FromCBOR tx) =>
-  FromJSON (RestServerOutput tx)
-  where
-  parseJSON = withObject "RestServerOutput" $ \o -> do
-    tag <- o .: "tag"
-    case tag :: Text of
-      "RestServerOutput" -> do
-        encodedTx :: Text <- o .: "commitTx"
-        case Base16.decode $ encodeUtf8 encodedTx of
-          Left e -> fail e
-          Right commitTx ->
-            case decodeFull' commitTx of
-              Left err -> fail $ show err
-              Right v -> pure $ DraftedCommitTx v
-      _ -> fail "Expected tag to be PubKeyHash"
-
-instance IsTx tx => Arbitrary (RestServerOutput tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
 
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
