@@ -35,7 +35,7 @@ const config = {
 
   i18n: {
     defaultLocale: "en",
-    locales: ["en", "fr", "ja"],
+    locales: ["en", "fr", "ja", "es"],
   },
 
   presets: [
