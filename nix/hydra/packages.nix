@@ -58,8 +58,10 @@ rec {
   };
   benchs = {
     hydra-node = pkgs.mkShellNoCC {
-      name = "bench-tx-cost";
-      buildInputs = [ nativePkgs.hydra-node.components.benchmarks.tx-cost ];
+      name = "bench-hydra-node";
+      buildInputs = [ nativePkgs.hydra-node.components.benchmarks.tx-cost
+                      nativePkgs.hydra-node.components.benchmarks.micro
+                    ];
     };
     hydra-cluster = pkgs.mkShellNoCC {
       name = "bench-hydra-cluster";
