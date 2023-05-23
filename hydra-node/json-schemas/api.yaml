@@ -120,14 +120,14 @@ channels:
       operationId: restServerOutput
       message:
         oneOf:
-          - $ref: "#/components/messages/RestServerOutput"
+          - $ref: "#/components/messages/DraftCommitTxResponse"
 
     publish:
       summary: Requests sent to the Hydra node.
       operationId: restClientInput
       message:
         oneOf:
-          - $ref: "#/components/messages/RestClientInput"
+          - $ref: "#/components/messages/DraftCommitTxRequest"
 components:
   messages:
     ########
@@ -249,8 +249,8 @@ components:
             type: string
             enum: ["GetUTxO"]
 
-    RestClientInput:
-      title: RestClientInput
+    DraftCommitTxRequest:
+      title: DraftCommitTxRequest
       description: |
         Provide a utxo that will be used to draft a commit transaction that will be sent back to the user.
       payload:
@@ -261,7 +261,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["RestClientInput"]
+            enum: ["DraftCommitTxRequest"]
           utxo:
             $ref: "#/components/schemas/UTxO"
 
@@ -747,8 +747,8 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    RestServerOutput:
-      title: RestServerOutput
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
       description: |
         Emitted by the server after drafting a commit transaction with the user provided utxo. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
@@ -759,7 +759,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["RestServerOutput"]
+            enum: ["DraftCommitTxResponse"]
           commitTx:
             $ref: "#/components/schemas/RawTransaction"
 

@@ -12,7 +12,7 @@ import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.API.RestServer (RestClientInput (..), RestServerOutput (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cardano.Api (
   Lovelace,
   TxId,
@@ -168,7 +168,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTx @Tx utxoToCommit
+      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit
 
       response <-
         runReq defaultHttpConfig $
@@ -176,12 +176,12 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
             POST
             (http "127.0.0.1" /: "commit")
             (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (RestServerOutput Tx)))
+            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
             (port $ 4000 + hydraNodeId)
 
       responseStatusCode response `shouldBe` 200
 
-      let DraftedCommitTx commitTx = responseBody response
+      let DraftCommitTxResponse commitTx = responseBody response
 
       -- sign and submit the tx with our external user key
       let signedCommitTx = signWith externalSk commitTx

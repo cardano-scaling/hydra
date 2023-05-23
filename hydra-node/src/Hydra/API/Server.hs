@@ -16,7 +16,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.API.RestServer (RestClientInput (utxo), RestServerOutput (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -346,7 +346,7 @@ handleDraftCommitUtxo ::
   (Response -> IO ResponseReceived) ->
   IO ResponseReceived
 handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
-  case Aeson.eitherDecode' body :: Either String (RestClientInput tx) of
+  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err -> respond $ responseLBS status400 [] (show err)
     Right requestInput -> do
       traceWith tracer $
@@ -363,6 +363,6 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
         case eCommitTx of
           Left err -> responseLBS status400 [] (show err)
           Right commitTx ->
-            responseLBS status200 [] (Aeson.encode $ DraftedCommitTx commitTx)
+            responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
   Chain{draftTx} = directChain

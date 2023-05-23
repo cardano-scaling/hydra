@@ -9,56 +9,56 @@ import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Hydra.Ledger (IsTx, UTxOType)
 
-newtype RestServerOutput tx = DraftedCommitTx
+newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
   }
   deriving (Generic)
 
-deriving stock instance IsTx tx => Eq (RestServerOutput tx)
-deriving stock instance IsTx tx => Show (RestServerOutput tx)
+deriving stock instance IsTx tx => Eq (DraftCommitTxResponse tx)
+deriving stock instance IsTx tx => Show (DraftCommitTxResponse tx)
 
-instance (IsTx tx, ToCBOR tx) => ToJSON (RestServerOutput tx) where
-  toJSON (DraftedCommitTx tx) =
+instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxResponse tx) where
+  toJSON (DraftCommitTxResponse tx) =
     object
-      [ "tag" .= String "RestServerOutput"
+      [ "tag" .= String "DraftCommitTxResponse"
       , "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialize' tx)
       ]
 
 instance
   (IsTx tx, FromCBOR tx) =>
-  FromJSON (RestServerOutput tx)
+  FromJSON (DraftCommitTxResponse tx)
   where
-  parseJSON = withObject "RestServerOutput" $ \o -> do
+  parseJSON = withObject "DraftCommitTxResponse" $ \o -> do
     tag <- o .: "tag"
     case tag :: Text of
-      "RestServerOutput" -> do
+      "DraftCommitTxResponse" -> do
         encodedTx :: Text <- o .: "commitTx"
         case Base16.decode $ encodeUtf8 encodedTx of
           Left e -> fail e
           Right commitTx ->
             case decodeFull' commitTx of
               Left err -> fail $ show err
-              Right v -> pure $ DraftedCommitTx v
+              Right v -> pure $ DraftCommitTxResponse v
       _ -> fail "Expected tag to be PubKeyHash"
 
-instance IsTx tx => Arbitrary (RestServerOutput tx) where
+instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    DraftedCommitTx xs -> DraftedCommitTx <$> shrink xs
+    DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
 
-newtype RestClientInput tx = DraftCommitTx
+newtype DraftCommitTxRequest tx = DraftCommitTxRequest
   { utxo :: UTxOType tx
   }
   deriving (Generic)
 
-deriving newtype instance IsTx tx => Eq (RestClientInput tx)
-deriving newtype instance IsTx tx => Show (RestClientInput tx)
-deriving anyclass instance IsTx tx => ToJSON (RestClientInput tx)
-deriving anyclass instance IsTx tx => FromJSON (RestClientInput tx)
+deriving newtype instance IsTx tx => Eq (DraftCommitTxRequest tx)
+deriving newtype instance IsTx tx => Show (DraftCommitTxRequest tx)
+deriving anyclass instance IsTx tx => ToJSON (DraftCommitTxRequest tx)
+deriving anyclass instance IsTx tx => FromJSON (DraftCommitTxRequest tx)
 
-instance Arbitrary (UTxOType tx) => Arbitrary (RestClientInput tx) where
+instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    DraftCommitTx xs -> DraftCommitTx <$> shrink xs
+    DraftCommitTxRequest xs -> DraftCommitTxRequest <$> shrink xs
