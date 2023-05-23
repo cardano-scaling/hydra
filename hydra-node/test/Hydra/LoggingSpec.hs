@@ -7,6 +7,8 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key)
+import Hydra.API.ClientInput (RestClientInput)
+import Hydra.API.ServerOutput (RestServerOutput)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
@@ -31,6 +33,8 @@ spec = do
           conjoin
             [ prop_validateToJSON @(Envelope (HydraLog Tx ())) (dir </> "logs.yaml") "messages" (dir </> "HydraLog")
             , prop_specIsComplete @(HydraLog Tx ()) (dir </> "logs.yaml") apiSpecificationSelector
+            , prop_specIsComplete @(RestClientInput Tx) (dir </> "logs.yaml") apiSpecificationSelector
+            , prop_specIsComplete @(RestServerOutput Tx) (dir </> "logs.yaml") apiSpecificationSelector
             ]
 
 apiSpecificationSelector :: SpecificationSelector
