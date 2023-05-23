@@ -37,7 +37,6 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  PostTxError (FailedToDraftTx),
   chainStateSlot,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -595,7 +594,7 @@ simulatedChainAndNetwork initialChainState = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes history chainStateVar, draftTx = \_ -> pure $ Left (FailedToDraftTx "draftTx handle not implemented")}
+              { oc = Chain{postTx = postTx nodes history chainStateVar, draftTx = \_ -> error "draftTx not implemented"}
               , hn = createMockNetwork node nodes
               }
       , tickThread
@@ -757,7 +756,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
       , ledger
-      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left (FailedToDraftTx "draftTx handle not implemented")}
+      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> error "draftTx not implemented"}
       , server =
           Server
             { sendOutput = \out -> atomically $ do

@@ -18,7 +18,7 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (InitTx),
-  PostTxError (FailedToDraftTx, NoSeedInput),
+  PostTxError (NoSeedInput),
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
@@ -170,7 +170,7 @@ createHydraNode signingKey otherParties contestationPeriod events = do
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
-      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> pure $ Left (FailedToDraftTx "draftTx handle not implemented")}
+      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> error "draftTx not implemented"}
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger
       , env =
@@ -212,4 +212,4 @@ throwExceptionOnPostTx ::
   HydraNode tx IO ->
   IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
-  pure node{oc = Chain{postTx = \_ -> throwIO exception, draftTx = \_ -> pure $ Left (FailedToDraftTx "error")}}
+  pure node{oc = Chain{postTx = \_ -> throwIO exception, draftTx = \_ -> error "draftTx not implemented"}}

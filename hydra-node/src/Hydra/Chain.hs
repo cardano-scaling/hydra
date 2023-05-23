@@ -141,7 +141,7 @@ data PostTxError tx
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
   | -- | We can only draft commit tx for the user when in Initializing state
-    FailedToDraftTx {failureReason :: Text}
+    FailedToDraftTxNotInitializing
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)

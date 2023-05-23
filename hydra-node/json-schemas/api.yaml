@@ -1227,20 +1227,17 @@ components:
             tag:
               type: string
               enum: ["CommittedTooMuchADAForMainnet"]
-        - title: FailedToDraftTx
+        - title: FailedToDraftTxNotInitializing
           description: |
             Raised if the user tried to draft a commit tx while Head is not in Initializing state.
           type: object
           additionalProperties: false
           required:
           - tag
-          - failureReason
           properties:
-            failureReason:
-              type: string
             tag:
               type: string
-              enum: ["FailedToDraftTx"]
+              enum: ["FailedToDraftTxNotInitializing"]
 
     Signature:
       type: string

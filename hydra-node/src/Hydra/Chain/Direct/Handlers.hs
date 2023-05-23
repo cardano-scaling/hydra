@@ -113,10 +113,13 @@ type GetTimeHandle m = m TimeHandle
 -- This component does not actually interact with a cardano-node, but creates
 -- cardano transactions from `PostChainTx` transactions emitted by a
 -- `HydraNode`, balancing and signing them using given `TinyWallet`, before
--- handing it off to the given 'SubmitTx' callback.
+-- handing it off to the given 'SubmitTx' callback. There is also a 'draftTx'
+-- option for drafting a commit tx on behalf of the user using their selected
+-- utxo.
 --
--- NOTE: Given the constraints on `m` this function should work within `IOSim` and does not
--- require any actual `IO` to happen which makes it highly suitable for simulations and testing.
+-- NOTE: Given the constraints on `m` this function should work within `IOSim`
+-- and does not require any actual `IO` to happen which makes it highly suitable
+-- for simulations and testing.
 mkChain ::
   (MonadSTM m, MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
@@ -147,12 +150,22 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState mempty
         submitTx vtx
-    , draftTx = \utxo -> do
+    , -- Handle that creates a draft commit tx using the user utxo. Here we
+      -- distinguish between errors users can do something about (eg.
+      -- 'CannotCommitReferenceScript' which are returned in Left ) and the
+      -- system errors that will show as 500 errors on the api server level.
+      draftTx = \utxo -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
-            finalizeTx wallet ctx chainState utxo `traverse` commit ctx st utxo
-          _ -> pure $ Left $ FailedToDraftTx "You can draft a commit transaction only in Initializing state"
+            case commit ctx st utxo of
+              Left MoreThanOneUTxOCommitted -> pure $ Left MoreThanOneUTxOCommitted
+              Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
+              Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
+              Left e -> throwIO e
+              Right commitTx ->
+                try $ finalizeTx wallet ctx chainState utxo commitTx
+          _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
 -- | Balance and sign the given partial transaction.
