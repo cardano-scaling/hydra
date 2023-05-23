@@ -153,7 +153,8 @@ spec = parallel $ do
         ctx <- pickBlind (genHydraContext maximumNumberOfParties)
         cctx <- pickBlind $ pickChainContext ctx
         seedInput <- pickBlind arbitrary
-        seedTxOut <- pickBlind genTxOutAdaOnly
+        vk <- pickBlind arbitrary
+        seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
             originalIsObserved = property $ isRight (observeInit cctx tx)

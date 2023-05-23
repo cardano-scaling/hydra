@@ -65,7 +65,8 @@ data ScriptRegistry = ScriptRegistry
 genScriptRegistry :: Gen ScriptRegistry
 genScriptRegistry = do
   txId <- arbitrary
-  txOut <- genTxOutAdaOnly
+  vk <- arbitrary
+  txOut <- genTxOutAdaOnly vk
   pure $
     ScriptRegistry
       { initialReference =

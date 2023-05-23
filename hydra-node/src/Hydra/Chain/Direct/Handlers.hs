@@ -164,7 +164,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
               Right commitTx ->
-                try $ finalizeTx wallet ctx chainState utxo commitTx
+                Right <$> finalizeTx wallet ctx chainState utxo commitTx
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
