@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -14,7 +13,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput, RestClientInput (..))
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
@@ -38,8 +37,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Network.HTTP.Types (status200, status400)
-import Network.Wai (Request (pathInfo), getRequestBodyChunk, requestMethod, responseLBS)
+import Network.HTTP.Types (Method, status200, status400)
+import Network.Wai (Request (pathInfo), Response, ResponseReceived, consumeRequestBodyStrict, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -83,6 +82,9 @@ instance Arbitrary APIServerLog where
       , pure $ APIOutputSent (Aeson.Object mempty)
       , pure $ APIInputReceived (Aeson.Object mempty)
       , APIInvalidInput <$> arbitrary <*> arbitrary
+      , APIConnectionError <$> arbitrary
+      , APIHandshakeError <$> arbitrary
+      , APIRestInputReceived <$> arbitrary <*> arbitrary <*> arbitrary
       ]
 
 -- | Handle to provide a means for sending server outputs to clients.
@@ -107,7 +109,7 @@ withAPIServer ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer router callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- reverse <$> loadAll
 
@@ -120,7 +122,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer rou
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history router callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -218,7 +220,9 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
   -- Hydra HTTP server
   httpApp directChain req respond =
     case (requestMethod req, pathInfo req) of
-      ("POST", ["commit"]) -> handleDraftCommitUtxo directChain req respond
+      ("POST", ["commit"]) -> do
+        body <- consumeRequestBodyStrict req
+        handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
       _ -> do
         traceWith tracer $
           APIRestInputReceived
@@ -318,28 +322,6 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
 
-  -- Handle user requests to obtain a draft commit tx
-  handleDraftCommitUtxo directChain req respond = do
-    body <- getWaiRequestBody req
-    case Aeson.eitherDecode' (fromStrict body) :: Either String (RestClientInput tx) of
-      Left err -> respond $ responseLBS status400 [] (show err)
-      Right requestInput -> do
-        traceWith tracer $
-          APIRestInputReceived
-            { method = decodeUtf8 $ requestMethod req
-            , paths = pathInfo req
-            , requestInputBody = Just $ toJSON requestInput
-            }
-        let Chain{draftTx} = directChain
-        let userUtxo = utxo requestInput
-        eCommitTx <- draftTx userUtxo
-        respond $
-          case eCommitTx of
-            Left err -> responseLBS status400 [] (show err)
-            Right commitTx -> do
-              let encodedRestOutput = Aeson.encode $ DraftedCommitTx commitTx
-              responseLBS status200 [] encodedRestOutput
-
 data RunServerException = RunServerException
   { ioException :: IOException
   , host :: IP
@@ -349,13 +331,35 @@ data RunServerException = RunServerException
 
 instance Exception RunServerException
 
--- | Helper function to grab all of the request body contents
-getWaiRequestBody :: Request -> IO ByteString
-getWaiRequestBody request = BS.concat <$> getChunks
+-- Handle user requests to obtain a draft commit tx
+handleDraftCommitUtxo ::
+  forall tx.
+  IsChainState tx =>
+  Chain tx IO ->
+  Tracer IO APIServerLog ->
+  LBS.ByteString ->
+  Method ->
+  [Text] ->
+  (Response -> IO ResponseReceived) ->
+  IO ResponseReceived
+handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
+  case Aeson.eitherDecode' body :: Either String (RestClientInput tx) of
+    Left err -> respond $ responseLBS status400 [] (show err)
+    Right requestInput -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 reqMethod
+          , paths = reqPaths
+          , requestInputBody = Just $ toJSON requestInput
+          }
+
+      let userUtxo = utxo requestInput
+      eCommitTx <- draftTx userUtxo
+
+      respond $
+        case eCommitTx of
+          Left err -> responseLBS status400 [] (show err)
+          Right commitTx ->
+            responseLBS status200 [] (Aeson.encode $ DraftedCommitTx commitTx)
  where
-  getChunks :: IO [ByteString]
-  getChunks =
-    getRequestBodyChunk request >>= \chunk ->
-      if chunk == BS.empty
-        then pure []
-        else (chunk :) <$> getChunks
+  Chain{draftTx} = directChain
