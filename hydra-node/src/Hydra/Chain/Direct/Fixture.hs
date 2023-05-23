@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- | Generic Cardano constants for use in testing.
 module Hydra.Chain.Direct.Fixture (
   module Hydra.Chain.Direct.Fixture,
   pparams,

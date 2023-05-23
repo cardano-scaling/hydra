@@ -82,6 +82,7 @@ library
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
+    Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.ScriptRegistry
     Hydra.Chain.Direct.State
@@ -279,7 +280,6 @@ test-suite tests
     Hydra.Chain.Direct.Contract.Init
     Hydra.Chain.Direct.Contract.Mutation
     Hydra.Chain.Direct.ContractSpec
-    Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
