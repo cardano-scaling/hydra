@@ -263,6 +263,7 @@ test-suite tests
   hs-source-dirs:     test
   other-modules:
     Hydra.API.ClientInputSpec
+    Hydra.API.RestServerSpec
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
