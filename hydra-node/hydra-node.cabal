@@ -248,7 +248,6 @@ benchmark micro
   build-depends:
                     QuickCheck
                 , aeson
-                , bytestring
                 , cardano-ledger-core
                 , cardano-ledger-shelley
                 , cardano-slotting
