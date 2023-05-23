@@ -213,7 +213,7 @@ executable hydra-tools
 
 benchmark tx-cost
   import:         project-config
-  hs-source-dirs: exe/tx-cost
+  hs-source-dirs: bench/tx-cost
   main-is:        Main.hs
   other-modules:  TxCost
   type:           exitcode-stdio-1.0
@@ -241,7 +241,7 @@ benchmark tx-cost
 
 benchmark micro
   import:         project-config
-  hs-source-dirs: exe/micro-bench
+  hs-source-dirs: bench/micro-bench
   main-is:        Main.hs
   type:           exitcode-stdio-1.0
   build-depends:
