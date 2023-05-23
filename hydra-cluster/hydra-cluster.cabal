@@ -125,9 +125,7 @@ library
     , bytestring
     , cardano-crypto-class
     , cardano-ledger-core
-    , cardano-ledger-shelley
     , cardano-slotting
-    , cborg
     , containers
     , contra-tracer
     , data-default
