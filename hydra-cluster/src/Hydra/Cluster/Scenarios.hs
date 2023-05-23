@@ -27,7 +27,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano
+import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -156,21 +156,17 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
 
     -- these keys should mimic external wallet keys needed to sign the commit tx
     (externalVk, externalSk) <- generate genKeyPair
-    -- Start hydra-node on chain tip
-    tip <- queryTip networkId nodeSocket
+    -- submit the tx using our external user key to get a utxo to commit
+    utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+
     let contestationPeriod = UnsafeContestationPeriod 100
-    aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
-        <&> \config -> config{networkId, startChainFrom = Just tip}
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
     let hydraNodeId = 1
 
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      -- submit the tx using our external user key to get a utxo to commit
-      utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
 
       -- Request to build a draft commit tx from hydra-node
       let clientPayload = DraftCommitTx @Tx utxoToCommit
@@ -194,15 +190,8 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
 
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
-
-      traceRemainingFunds Alice
  where
   RunningNode{nodeSocket} = node
-
-  traceRemainingFunds actor = do
-    (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that

@@ -34,10 +34,22 @@ servers:
       port:
         description: Port the Hydra node is listening for client connections.
         default: "4001"
+  http-localhost:
+    url: "{host}:{port}"
+    protocol: http
+    description: |
+    variables:
+      host:
+        description: Address at which the Hydra node is accepting the client requests.
+        default: '127.0.0.1'
+      port:
+        description: Port at which the Hydra node is accepting the client requests.
+        default: "4001"
+
 
 channels:
   /:
-    description: Main (and sole) entry point for the Hydra service.
+    description: Main entry point for Websockets server in Hydra service.
     servers:
       - localhost
     bindings:
@@ -84,7 +96,6 @@ channels:
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
-          - $ref: "#/components/messages/RestServerOutput"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -99,8 +110,24 @@ channels:
           - $ref: "#/components/messages/Close"
           - $ref: "#/components/messages/Contest"
           - $ref: "#/components/messages/Fanout"
-          - $ref: "#/components/messages/RestClientInput"
 
+  /commit:
+    description: Main entry point for the HTTP server in Hydra service.
+    servers:
+      - http-localhost
+    subscribe:
+      summary: Responses of the Hydra node's HTTP server.
+      operationId: restServerOutput
+      message:
+        oneOf:
+          - $ref: "#/components/messages/RestServerOutput"
+
+    publish:
+      summary: Requests sent to the Hydra node.
+      operationId: restClientInput
+      message:
+        oneOf:
+          - $ref: "#/components/messages/RestClientInput"
 components:
   messages:
     ########
