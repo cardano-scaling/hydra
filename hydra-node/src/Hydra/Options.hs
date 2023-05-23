@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -14,7 +15,7 @@ import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import Data.Version (showVersion)
+import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -33,7 +34,8 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
-import Hydra.Version (gitDescribe)
+import Hydra.Version (gitRevision)
+import Language.Haskell.TH.Env (envQ)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -555,8 +557,16 @@ hydraNodeCommand =
  where
   versionInfo =
     infoOption
-      (fromMaybe (showVersion version) gitDescribe)
+      (showVersion ourVersion)
       (long "version" <> help "Show version")
+
+  ourVersion =
+    version & \(Version semver _) -> Version semver revision
+
+  revision =
+    maybeToList $
+      ($$(envQ "GIT_REVISION") :: Maybe String)
+        <|> gitRevision
 
   scriptInfo =
     infoOption
