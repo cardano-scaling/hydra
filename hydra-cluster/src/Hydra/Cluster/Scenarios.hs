@@ -34,6 +34,7 @@ import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import Network.HTTP.Req
 import Test.Hspec.Expectations (shouldBe)
+import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -154,7 +155,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
     refuelIfNeeded tracer node Alice 25_000_000
 
     -- these keys should mimic external wallet keys needed to sign the commit tx
-    (externalVk, externalSk) <- keysFor External
+    (externalVk, externalSk) <- generate genKeyPair
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
