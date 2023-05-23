@@ -222,7 +222,7 @@ jobs:
             options: '--output-directory $(pwd)/../docs/benchmarks'
           - package: hydra-node
             bench: micro
-            options: '-o $(pwd)/../docs/static/ledger-bench.html'
+            options: '-o $(pwd)/../docs/benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
             options: '--scaling-factor 1'
@@ -397,6 +397,7 @@ jobs:
       if: github.ref_name != 'master' && github.ref_name != 'release'
       working-directory: docs
       run: |
+        mv benchmarks/ledger-bench.html static
         yarn && yarn build-dev
 
     - name: 📚 Prepare Documentation (unstable)
@@ -409,6 +410,7 @@ jobs:
       if: github.ref_name == 'master' || github.ref_name == 'release'
       working-directory: docs
       run: |
+        mv benchmarks/ledger-bench.html static
         yarn && yarn build
         mkdir public
         mv build/* public
