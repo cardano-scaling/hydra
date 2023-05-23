@@ -246,17 +246,13 @@ benchmark micro
   main-is:        Main.hs
   type:           exitcode-stdio-1.0
   build-depends:
-                    QuickCheck
+                  QuickCheck
                 , aeson
-                , cardano-ledger-core
-                , cardano-ledger-shelley
-                , cardano-slotting
                 , base
                 , criterion
                 , hydra-cardano-api
                 , hydra-node
                 , hydra-prelude
-                , time
 
   ghc-options:    -threaded -rtsopts
 
