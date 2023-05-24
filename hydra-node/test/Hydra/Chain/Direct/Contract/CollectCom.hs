@@ -45,8 +45,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (
   genAdaOnlyUTxO,
   genAddressInEra,
-  genTxOutAdaOnly,
-  genUTxO1,
+  genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
 import Hydra.Party (Party, partyToChain)
@@ -94,13 +93,14 @@ healthyCollectComTx =
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
-  (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
+  (uncurry healthyCommitOutput <$> zip healthyParties healthyCommittedUTxO)
     & Map.fromList
- where
-  committedUTxO =
-    generateWith
-      (replicateM (length healthyParties) $ genUTxO1 genTxOutAdaOnly)
-      42
+
+healthyCommittedUTxO :: [UTxO]
+healthyCommittedUTxO =
+  flip generateWith 42 $
+    replicateM (length healthyParties) $
+      genUTxOAdaOnlyOfSize =<< choose (0, 5)
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
