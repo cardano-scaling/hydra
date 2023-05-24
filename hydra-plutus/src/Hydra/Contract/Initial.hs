@@ -110,9 +110,9 @@ checkCommit commitValidator headId committedRefs context =
       ([], []) ->
         True
       ([], (_ : _)) ->
-        traceError $(errorCode NothingCommittedButTxOutInOutputDatum)
+        traceError $(errorCode MissingCommittedTxOutInOutputDatum)
       ((_ : _), []) ->
-        traceError $(errorCode CommittedTxOutButNothingInOutputDatum)
+        traceError $(errorCode CommittedTxOutMissingInOutputDatum)
       (TxInInfo{txInInfoOutRef, txInInfoResolved} : restCommitted, Commit{input, preSerializedOutput} : restCommits) ->
         Builtins.serialiseData (toBuiltinData txInInfoResolved) == preSerializedOutput
           && txInInfoOutRef == input

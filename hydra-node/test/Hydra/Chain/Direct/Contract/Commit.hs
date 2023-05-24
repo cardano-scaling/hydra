@@ -33,7 +33,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (oneof, scale, suchThat)
+import Test.QuickCheck (elements, oneof, scale, suchThat)
 
 --
 -- CommitTx
@@ -90,6 +90,9 @@ data CommitMutation
   | -- | Ensures the datum recording the commit is consistent with the UTxO
     -- being committed.
     MutateCommittedAddress
+  | -- | Ensures a commit cannot be left out when "declared" in the commit
+    -- transaction output datum.
+    RecordAllCommittedUTxO
   | -- | Ensures commit is authenticated by a Head party by changing the signer
     -- used on the transaction to be the one in the PT.
     MutateRequiredSigner
@@ -126,6 +129,19 @@ genCommitMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= aCommittedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
+    , SomeMutation (Just $ toErrorCode MissingCommittedTxOutInOutputDatum) RecordAllCommittedUTxO <$> do
+        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
+        -- Leave out not-committed value
+        let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
+        pure $
+          Changes
+            [ RemoveInput removedTxIn
+            , ChangeOutput 0 mutatedCommitTxOut
+            , ChangeInput
+                healthyIntialTxIn
+                (toUTxOContext healthyInitialTxOut)
+                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
+            ]
     , SomeMutation (Just $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
