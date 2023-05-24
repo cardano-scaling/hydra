@@ -3,7 +3,7 @@ name: "Publish Docs"
 on:
   workflow_run:
     workflows: ["CI"]
-    branches: [master, release]
+    branches: [master]
     types: 
       - completed
 
@@ -13,6 +13,26 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+
+    - name: 📥 Download last released docs
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: release
+        name: docs
+        path: docs-release
+        # TODO: backward compatibility
+        # remove the following line to throw an error instead
+        # of a warning if artifact is not found when we have
+        # a release branch with artifact name docs instead of
+        # docs-stable
+        if_no_artifact_found: warn
+
+    # TODO: backward compatibility
+    # remove the following block when we have
+    # a release branch with artifact name docs instead of
+    # docs-stable
     - name: 📥 Download last released docs
       uses: dawidd6/action-download-artifact@v2
       with:
@@ -21,42 +41,34 @@ jobs:
         branch: release
         name: docs-stable
         path: docs-release
+        if_no_artifact_found: ignore
 
-    - name: 📥 Download latest docs
+    - name: 📥 Download latest unstable docs
       uses: dawidd6/action-download-artifact@v2
       with:
         workflow: ci.yaml
         workflow_conclusion: success
         branch: master
-        name: docs-stable
-        path: docs-master
-
-    - name: 📥 Download latest /unstable docs
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        workflow: ci.yaml
-        workflow_conclusion: success
-        branch: master
-        name: docs-unstable
-        path: docs-master-unstable
+        name: docs
+        path: docs-unstable
 
     - name: 🪓 Piece together docs
       run: |
         mkdir public
         mv docs-release public/head-protocol
-        mv docs-master-unstable public/head-protocol/unstable
+        mv docs-unstable public/head-protocol/unstable
         # Always use monthly reports from master
         # XXX: This depends on languages and assets are annoying
         rm -r public/head-protocol/monthly
-        mv docs-master/monthly public/head-protocol/monthly
+        cp -r public/head-protocol/unstable/monthly public/head-protocol/monthly
         rm -r public/head-protocol/ja/monthly
-        mv docs-master/ja/monthly public/head-protocol/ja/monthly
+        cp -r public/head-protocol/unstable/ja/monthly public/head-protocol/monthly
         rm -r public/head-protocol/fr/monthly
-        mv docs-master/fr/monthly public/head-protocol/fr/monthly
+        cp -r public/head-protocol/unstable/fr/monthly public/head-protocol/monthly
         # XXX: Need to copy assets as well. This will also litter with unrelated assets (js)
-        cp -r docs-master/assets/* public/head-protocol/assets/
-        cp -r docs-master/ja/assets/* public/head-protocol/ja/assets/
-        cp -r docs-master/fr/assets/* public/head-protocol/fr/assets/
+        cp -r public/head-protocol/unstable/assets/* public/head-protocol/assets/
+        cp -r public/head-protocol/unstable/ja/assets/* public/head-protocol/ja/assets/
+        cp -r public/head-protocol/unstable/fr/assets/* public/head-protocol/fr/assets/
 
     - name: 👉 Create redirect
       run: |
@@ -70,4 +82,3 @@ jobs:
         publish_dir: public
         enable_jekyll: true
         force_orphan: true
-    
