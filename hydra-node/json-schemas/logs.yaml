@@ -547,6 +547,8 @@ definitions:
         required:
           - tag
           - by
+          - eventId
+          - effectId
           - effect
         properties:
           tag:
@@ -556,6 +558,20 @@ definitions:
             <<: { "$ref": "api.yaml#/components/schemas/Party" }
             description: >-
               The Party emitting the log entry.
+          eventId:
+            type: integer
+            minimum: 0
+            description: >-
+              Provides a unique, incremental, number identifying which event within
+              the stream of events from this node this effect is part of. This number
+              can be used to correlate `EndEffect` entries.
+          effectId:
+            type: integer
+            minimum: 0
+            description: >-
+              Provides a unique, monotonically increasing index for this effect within
+              the span of a specific `eventId`. This number along with the `eventId`
+              field is used to correlate the beginning and end of an effect.
           effect:
             $ref: "#/definitions/Effect"
       - title: EndEffect
@@ -567,7 +583,8 @@ definitions:
         required:
           - tag
           - by
-          - effect
+          - eventId
+          - effectId
         properties:
           tag:
             type: string
@@ -576,8 +593,12 @@ definitions:
             <<: { "$ref": "api.yaml#/components/schemas/Party" }
             description: >-
               The Party emitting the log entry.
-          effect:
-            $ref: "#/definitions/Effect"
+          eventId:
+            type: integer
+            minimum: 0
+          effectId:
+            type: integer
+            minimum: 0
       - title: LogicOutcome
         description: >-
           An outcome produced is a decision the node took after processing an input event.
