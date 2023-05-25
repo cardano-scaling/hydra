@@ -43,6 +43,7 @@ jobs:
       with:
         extra_nix_config: |
           accept-flake-config = true
+          log-lines = 1000
 
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v12
@@ -50,7 +51,7 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 🔨 Build images using nix
+    - name: 🔨 Build image using nix
       run: |
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
