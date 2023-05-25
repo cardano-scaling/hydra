@@ -192,7 +192,25 @@ Next steps:
 
 #### Hydra for Payments
 
-Latest developments and summarize progress?...
+In this collaborative effort between IOG and ObsidianSystems, we are pushing the
+frontiers of using Hydra in payment use cases. It will lower the entry barrier
+for developers and ultimately users to leverage the Hydra Layer 2 for sending
+and receiving ADA and Cardano native assets with very low fees and sub-second
+finality.
+
+The project is in it's second phase where the open-source
+[hydra-pay](https://github.com/obsidiansystems/hydra-pay) library is getting
+expanded with necessary features while the team pushes for a building a
+dedicated mobile application.
+
+With the recently released hydra-pay version
+[0.2.0](https://github.com/obsidiansystems/hydra-pay/releases/tag/v0.2.0), an
+end-to-end workflow of the Android App nick-named "HydraNow" can be realized.
+This app will act as a layer 2 wallet quite like a Bitcoin Lightning Wallet and
+drives feature development in both, `hydra-pay` and `hydra` in the background.
+
+![](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in
+browser) connected via a hydra-pay channel</center></small>
 
 #### Hydrozoa?
 
