@@ -53,11 +53,7 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-#### Removing --ledger-genesis
-
-Why and how...
-
-#### Timed transactions
+#### Timed transactions [#196](https://github.com/input-output-hk/hydra/issues/196#)
 
 To realize the Hydra Head protocol, a `hydra-node` observes and follows the
 chain progress on the layer 1 (L1). Until now, this component was only observing
@@ -65,9 +61,33 @@ protocol related transactions. Now, on every block roll forward, a `Tick` event
 carrying the notion of time from L1 is observed by the `hydra-node` and is used
 to validate transactions in a Hydra head. This means that clients can submit
 time bounded transactions to an open head and expect them to be validated using
-the same slot that would be used on L1.
+the same slot that would be used on L1. It is important to mention, that time
+only advances on L1 when a block was produced.
 
-#### External commits?
+![](./img/2023-05-timed-transactions.jpg) <small><center>Timed transactions in a Hydra Head state channel</center></small>
+
+This feature will make the Hydra L2 ledger now en-par with UTxO features
+available on the Cardano L1. A logical next step in this direction could be to
+make time in the state channel advance every configured `slotLength` (e.g. every
+second) using the system clock in between blocks as a form of [dead reckoning](https://en.wikipedia.org/wiki/Dead_reckoning).
+
+#### Removing --ledger-genesis [#863](https://github.com/input-output-hk/hydra/pull/863)
+
+The hydra-node was taking two command line options to configure the ledger used
+to validate transactions on layer 2: `--ledger-protocol-parameters` and
+`--ledger-genesis`. The former is quite self-explanatory the Cardano protocol
+parameters which shall be used. Often the same as on the layer 1 are configure,
+or similar parameters with less fees for example. The second option however, was
+requiring the `genesis-shelley.json` as used for the cardano-node used to
+initialize the shelley era back in the day.
+
+When we started using the current slot in the L2 ledger (see above), we realized
+that only the start time and slot length are effectively used from that
+configuration file. Moreoever, it would be quite surprising if those are
+different and slots would be longer or shorter on L2 (unless explicitly
+configured). We opted to remove the option alltogether and have the `hydra-node`
+fetch the genesis parameters from the Cardano network. This makes the system
+easier to configure and more isomorphic.
 
 #### Improving CI runtime
 
@@ -167,10 +187,6 @@ Next steps:
   every single commit, or a smaller one)
 - focus on changed area (do not compile everything to generate the monthly
   report)
-
-#### Operational concerns?
-
-Log size, ops instructions page?...
 
 ## Community
 
