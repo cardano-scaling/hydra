@@ -22,6 +22,7 @@ data InitialError
   | ExpectedSingleCommitOutput
   | WrongHeadIdInCommitDatum
   | MintingOrBurningIsForbidden
+  | OutRefNotFound
   deriving (Show)
 
 instance ToErrorCode InitialError where
@@ -41,3 +42,4 @@ instance ToErrorCode InitialError where
     ExpectedSingleCommitOutput -> "I13"
     WrongHeadIdInCommitDatum -> "I14"
     MintingOrBurningIsForbidden -> "I15"
+    OutRefNotFound -> "I16"

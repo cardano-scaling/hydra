@@ -148,7 +148,7 @@ checkCommit commitValidator headId committedRefs context =
   committedUTxO = do
     flip fmap committedRefs $ \ref ->
       case findTxInByTxOutRef ref txInfo of
-        Nothing -> traceError "outref not found"
+        Nothing -> traceError $(errorCode OutRefNotFound)
         Just txInInfo -> txInInfo
 
   lockedValue = valueLockedBy txInfo commitValidator
