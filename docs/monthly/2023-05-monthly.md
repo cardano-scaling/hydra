@@ -59,7 +59,10 @@ Why and how...
 
 #### Timed transactions
 
-Explain how we ended up implementing this (quite straigh-forward)...
+As part of the machinary hydra uses to work there is a component which observes and follows the chain progress.
+Until now, this component was only observing protocol related transactions.
+Now, on every block roll forward, a Tick, carrying the notion of time on L1, is observed by the head and its used to extend its internal ledger capabilities during transaction validations.
+The idea is that cliens should be able to submit time bounded transactions to an open head and expect them to be validated using the current slot on L1.
 
 #### External commits?
 
