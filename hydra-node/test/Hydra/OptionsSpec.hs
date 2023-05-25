@@ -251,35 +251,6 @@ spec = parallel $
       forAll arbitrary canRoundtripRunOptionsAndPrettyPrinting
 
     describe "publish-scripts sub-command" $ do
-      xit "does not parse without any options" $
-        shouldNotParse
-          [ "publish-scripts"
-          ]
-
-      xit "does not parse with some missing option (1)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--node-socket", "foo"]
-            , ["--mainnet"]
-            ]
-
-      xit "does not parse with some missing option (2)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--testnet-magic", "42"]
-            , ["--cardano-signing-key", "foo"]
-            ]
-
-      xit "does not parse with some missing option (3)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--node-socket", "foo"]
-            , ["--cardano-signing-key", "foo"]
-            ]
-
       it "should parse using testnet and all options" $
         mconcat
           [ ["publish-scripts"]
