@@ -233,7 +233,18 @@ contribution of a [Spanish translation
 The monthly review meeting for May was held on 2023-05-24 via Google Meet with
 these [slides][slides] and here is the [recording][recording].
 
-TODO...
+The monthly review meeting was lively and we had stakeholders from IOG as well
+as interested community members join. They were well served by two very nice
+demos shown by ObsidianSystems and IOG teams.
+
+After having dealt with some annoying issues last month, we are happy to have
+the first mainnet-capable version released and have already another feature
+completed this month.
+
+It is great to see that more and more contributors from the community are
+stepping up to become advocates of the technology. A community is forming and we
+realize that the project could need some help from someone dedicated to keep
+track of all the great things happening. What a great problem to have!
 
 [slides]: https://docs.google.com/presentation/d/1anUC3Z1idloyR6uwiSHLZtV6-LQvUcByHPMUgCBOVIA
 [recording]: https://hydra.family/TODO
