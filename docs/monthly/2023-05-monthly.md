@@ -94,7 +94,7 @@ easier to configure and more isomorphic.
 The hydra project [embraces Test Driven Development](./adr/12) and our code is
 quite covered, at several level. You may already have seen our test pyramid.
 
-![test pyramid](./img/2023-05-test-pyramide.png) <small><center>Testing pyramide</center></small>
+![test pyramid](./img/2023-05-test-pyramide.png) <small><center>Testing pyramid</center></small>
 
 Although we expect the tests to be executed locally on developers' machines, we
 also implement a [Continuous
@@ -164,8 +164,7 @@ solved by [#889](https://github.com/input-output-hk/hydra/pull/889).
 Every morning, we rebuild our master branch and we can observe the whole
 execution time on the following graph (in seconds):
 
-![CI perf](./img/2023-05-ci-perf.png) <small><center>C.I. exceution total
-execution time</center></small>
+![CI perf](./img/2023-05-ci-perf.png) <small><center>C.I. execution total execution time</center></small>
 
 Although we got performance improvement on branches C.I. execution time, we
 don't observe so much benefit when we look at execution time on master. We can
@@ -190,7 +189,19 @@ Next steps:
 
 ## Community
 
-#### Hydra for Payments
+#### Hydrozoa [#850](https://github.com/input-output-hk/hydra/discussions/850)
+
+This month, the project saw a new kind of contribution from the community.
+@GeorgeFlerovsky has written a research piece about an adaptation of the
+(Coordinated) Hydra Head protocol into a new flavor - Hydrozoa. The article is
+currently getting examined and [discussed on
+Github](https://github.com/input-output-hk/hydra/discussions/850). Feedback so
+far has been positive. Of course, one does not simply change the Hydra Head
+protocol (pun intended), but the ideas contained could drive evolution and
+followed-up with concrete protocol extensions. Very much like the ideas
+presented in the original paper.
+
+#### Hydra for Payments project update
 
 In this collaborative effort between IOG and ObsidianSystems, we are pushing the
 frontiers of using Hydra in payment use cases. It will lower the entry barrier
@@ -209,14 +220,13 @@ end-to-end workflow of the Android App nick-named "HydraNow" can be realized.
 This app will act as a layer 2 wallet quite like a Bitcoin Lightning Wallet and
 drives feature development in both, `hydra-pay` and `hydra` in the background.
 
-![](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in
-browser) connected via a hydra-pay channel</center></small>
+![](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in browser) connected via a hydra-pay channel</center></small>
 
-#### Hydrozoa?
+#### Spanish translation
 
-Quickly mention community research contribution and how we are intend to treat it...
-
-#### Spanish translation?
+Last, but not least, we would like to thank @Agustinblockchain for their
+contribution of a [Spanish translation
+#866](https://github.com/input-output-hk/hydra/pull/866) of the [hydra.family website](https://hydra.family/head-protocol/unstable/es/) 🇪🇸 🎉
 
 ## Conclusion
 
