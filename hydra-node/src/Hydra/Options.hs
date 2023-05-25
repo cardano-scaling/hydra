@@ -83,6 +83,7 @@ maximumNumberOfParties = 4
 data ParamMismatch
   = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
   | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
+  | StartChainFromNotAllowed
   deriving (Generic, Eq, Show, ToJSON)
 
 instance Arbitrary ParamMismatch where

@@ -23,8 +23,10 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Text (pack)
 import Data.Time (secondsToDiffTime)
+import Debug.Trace (traceM)
 import Hydra.Cardano.Api (
   AddressInEra,
+  ChainPoint (ChainPointAtGenesis),
   GenesisParameters (..),
   Key (SigningKey),
   NetworkId (Testnet),
@@ -464,6 +466,64 @@ spec = around showLogsOnFailure $ do
 
                 -- node should exit with appropriate exception
                 waitForLog 10 nodeStdErr "Detect ParamMismatchError" $ \errline ->
+                  let allLogLines = lines errline
+                      expectedLog =
+                        "hydra-node: ParamMismatchError \"Loaded state does not match given command line options. Please check the state in: " <> pack persistenceDir <> " against provided command line options.\""
+                   in expectedLog `elem` allLogLines
+
+      xit "start-chain-from option is incompatbile with an existing persisted state" $ \tracer -> do
+        withClusterTempDir "detect-misconfiguration" $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let persistenceDir = dir </> "persistence"
+            let cardanoSK = dir </> "cardano.sk"
+            let hydraSK = dir </> "hydra.sk"
+
+            (_, cardanoSKey) <- generateCardanoKey
+            hydraSKey :: SigningKey HydraKey <- generate arbitrary
+
+            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
+            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
+
+            -- generate node state to save to a file
+            openState :: OpenState Tx <- generate arbitrary
+            startChainPoint :: ChainPoint <- generate $ arbitrary `suchThat` (/= ChainPointAtGenesis)
+            traceM "-- 0"
+
+            -- save altered node state
+            void $ do
+              createDirectoryIfMissing True persistenceDir
+              BSL.writeFile (persistenceDir </> "state") (Aeson.encode openState)
+
+            let nodeArgs =
+                  toArgs
+                    defaultRunOptions
+                      { chainConfig =
+                          defaultChainConfig
+                            { cardanoSigningKey = cardanoSK
+                            , nodeSocket
+                            , startChainFrom = Just startChainPoint
+                            }
+                      , hydraSigningKey = hydraSK
+                      , hydraScriptsTxId
+                      , persistenceDir
+                      , ledgerConfig =
+                          defaultLedgerConfig
+                            { cardanoLedgerProtocolParametersFile = "config/protocol-parameters.json"
+                            }
+                      }
+            traceM "-- 1"
+
+            -- expecting misconfiguration
+            withCreateProcess (proc "hydra-node" nodeArgs){std_out = CreatePipe, std_err = CreatePipe} $
+              \_ (Just nodeStdout) (Just nodeStdErr) _ -> do
+                traceM "-- 2"
+                -- we should be able to observe the log
+                waitForLog 1 nodeStdout "Detect Misconfiguration log" $ \outline ->
+                  outline ^? key "message" . key "tag" == Just (Aeson.String "Misconfiguration")
+
+                -- node should exit with appropriate exception
+                waitForLog 1 nodeStdErr "Detect ParamMismatchError" $ \errline ->
                   let allLogLines = lines errline
                       expectedLog =
                         "hydra-node: ParamMismatchError \"Loaded state does not match given command line options. Please check the state in: " <> pack persistenceDir <> " against provided command line options.\""

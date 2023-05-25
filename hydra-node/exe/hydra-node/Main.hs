@@ -4,8 +4,9 @@ module Main where
 
 import Hydra.Prelude
 
+import qualified Data.Maybe
 import Hydra.API.Server (withAPIServer)
-import Hydra.Cardano.Api (serialiseToRawBytesHex)
+import Hydra.Cardano.Api (ChainPoint, serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
@@ -77,6 +78,7 @@ main = do
         traceWith tracer (NodeOptions opts)
         eq@EventQueue{putEvent} <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
+        let DirectChainConfig{startChainFrom} = chainConfig
         -- Load state from persistence or create new one
         persistence <- createPersistence $ persistenceDir <> "/state"
         hs <-
@@ -86,7 +88,7 @@ main = do
               pure $ Idle IdleState{chainState = initialChainState}
             Just headState -> do
               traceWith tracer LoadedState
-              let paramsMismatch = checkParamsAgainstExistingState headState env
+              let paramsMismatch = checkParamsAgainstExistingState headState env startChainFrom
               unless (null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
                 throwIO $
@@ -131,8 +133,8 @@ main = do
     action (Ledger.cardanoLedger globals ledgerEnv)
 
   -- check if hydra-node parameters are matching with the hydra-node state.
-  checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> [ParamMismatch]
-  checkParamsAgainstExistingState hs env =
+  checkParamsAgainstExistingState :: HeadState Ledger.Tx -> Environment -> Maybe ChainPoint -> [ParamMismatch]
+  checkParamsAgainstExistingState hs env startChainFrom =
     case hs of
       Idle _ -> []
       Initial InitialState{parameters} -> validateParameters parameters
@@ -145,6 +147,8 @@ main = do
           modify (<> [ContestationPeriodMismatch{loadedCp, configuredCp}])
         when (loadedParties /= configuredParties) $
           modify (<> [PartiesMismatch{loadedParties, configuredParties}])
+        when (Data.Maybe.isJust startChainFrom) $
+          modify (<> [StartChainFromNotAllowed])
      where
       loadedParties = sort parties
 
