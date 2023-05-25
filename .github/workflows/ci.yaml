@@ -81,7 +81,7 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-      # TUI specs are flaky. They are failing because of SIGSEGV. 
+      # TUI specs are flaky. They are failing because of SIGSEGV.
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
@@ -220,6 +220,9 @@ jobs:
           - package: hydra-node
             bench: tx-cost
             options: '--output-directory $(pwd)/../docs/benchmarks'
+          - package: hydra-node
+            bench: micro
+            options: '-o $(pwd)/../docs/static/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
             options: '--scaling-factor 1'

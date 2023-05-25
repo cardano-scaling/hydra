@@ -82,6 +82,7 @@ library
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
+    Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.ScriptRegistry
     Hydra.Chain.Direct.State
@@ -130,7 +131,6 @@ library
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
     , cardano-ledger-babbage-test
-    , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
@@ -214,7 +214,7 @@ executable hydra-tools
 
 benchmark tx-cost
   import:         project-config
-  hs-source-dirs: exe/tx-cost
+  hs-source-dirs: bench/tx-cost
   main-is:        Main.hs
   other-modules:  TxCost
   type:           exitcode-stdio-1.0
@@ -240,6 +240,22 @@ benchmark tx-cost
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
+benchmark micro
+  import:         project-config
+  hs-source-dirs: bench/micro-bench
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+                  QuickCheck
+                , aeson
+                , base
+                , criterion
+                , hydra-cardano-api
+                , hydra-node
+                , hydra-prelude
+
+  ghc-options:    -threaded -rtsopts
+
 test-suite tests
   import:             project-config
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
@@ -259,7 +275,6 @@ test-suite tests
     Hydra.Chain.Direct.Contract.Init
     Hydra.Chain.Direct.Contract.Mutation
     Hydra.Chain.Direct.ContractSpec
-    Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
