@@ -113,6 +113,7 @@ more than one branch to merge... you can always feel it, don't you?
 
 So let's see what's going on there and let's take a look at this run from [may
 the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294):
+
 - Building and testing takes 19 minutes for the longest
 - Generating haddock documentation and running the benchmarks takes 28 minutes
   for the longest
@@ -180,6 +181,7 @@ cache miss introduce several minutes of overhead which explain why we observe so
 much variations between two days with this master excution time.
 
 Next steps:
+
 - Why do we have random cache miss that we do not expect?
 - Improve haddock generation time (15 minutes)
 - reduce bench time (we probably don't want to run the whole benchmark suite for
@@ -247,4 +249,4 @@ realize that the project could need some help from someone dedicated to keep
 track of all the great things happening. What a great problem to have!
 
 [slides]: https://docs.google.com/presentation/d/1anUC3Z1idloyR6uwiSHLZtV6-LQvUcByHPMUgCBOVIA
-[recording]: https://hydra.family/TODO
+[recording]: https://drive.google.com/file/d/1_N6b4RDe579TgLawiJzbE0NLofD3ljE6/view
