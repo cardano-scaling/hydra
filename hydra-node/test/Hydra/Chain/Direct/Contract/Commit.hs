@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.List as List
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -27,12 +28,12 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Ledger.Cardano (
   genAddressInEra,
-  genOutput,
+  genUTxOAdaOnlyOfSize,
   genValue,
   genVerificationKey,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (oneof, scale, suchThat)
+import Test.QuickCheck (elements, oneof, scale, suchThat)
 
 --
 -- CommitTx
@@ -44,7 +45,7 @@ healthyCommitTx =
  where
   lookupUTxO =
     UTxO.singleton (healthyIntialTxIn, toUTxOContext healthyInitialTxOut)
-      <> UTxO.singleton healthyCommittedUTxO
+      <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
   tx =
     commitTx
@@ -52,7 +53,7 @@ healthyCommitTx =
       scriptRegistry
       (mkHeadId Fixture.testPolicyId)
       commitParty
-      (Just healthyCommittedUTxO)
+      healthyCommittedUTxO
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -71,30 +72,27 @@ healthyIntialTxIn = generateWith arbitrary 42
 healthyInitialTxOut :: TxOut CtxTx
 healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
 
--- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
-healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
-healthyCommittedUTxO = flip generateWith 42 $ do
-  txIn <- arbitrary
-  txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
-  pure (txIn, txOut)
+-- NOTE: A UTxO of length 2 is picked to mutate it into cases where committing a
+-- single and empty UTxO.
+healthyCommittedUTxO :: UTxO
+healthyCommittedUTxO =
+  flip generateWith 42 $
+    genUTxOAdaOnlyOfSize 2
 
 data CommitMutation
   = -- | The headId in the output datum must match the one from the input datum.
     NonContinuousHeadId
-  | -- | Invalidates the tx by changing the commit output value.
-    --
-    -- Ensures the committed value is consistent with the locked value by the
-    -- commit validator.
+  | -- | Invalidates the transaction by changing the committed output value.
     MutateCommitOutputValue
-  | -- | Invalidates the tx by changing the value of the input committed utxo.
-    --
-    -- Ensures the output committed utxo value is consistent with the input
-    -- committed utxo value.
+  | -- | Invalidates the transaction by changing the value of the committed utxo
+    -- on the input side of the transaction.
     MutateCommittedValue
-  | -- | Invalidates the tx by changing the address of the input out-ref.
-    --
-    -- Ensures the output tx out-ref is consistent with the input tx out-ref.
+  | -- | Ensures the datum recording the commit is consistent with the UTxO
+    -- being committed.
     MutateCommittedAddress
+  | -- | Ensures a commit cannot be left out when "declared" in the commit
+    -- transaction output datum.
+    RecordAllCommittedUTxO
   | -- | Ensures commit is authenticated by a Head party by changing the signer
     -- used on the transaction to be the one in the PT.
     MutateRequiredSigner
@@ -124,13 +122,26 @@ genCommitMutation (tx, _utxo) =
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
     , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
-        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= committedOutputValue)
-        let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
-        pure $ ChangeInput committedTxIn mutatedOutput Nothing
+        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
+        let mutatedOutput = modifyTxOutValue (const mutatedValue) aCommittedTxOut
+        pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
     , SomeMutation (Just $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
-        mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
-        let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
-        pure $ ChangeInput committedTxIn mutatedOutput Nothing
+        mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= aCommittedAddress)
+        let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
+        pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
+    , SomeMutation (Just $ toErrorCode MissingCommittedTxOutInOutputDatum) RecordAllCommittedUTxO <$> do
+        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
+        -- Leave out not-committed value
+        let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
+        pure $
+          Changes
+            [ RemoveInput removedTxIn
+            , ChangeOutput 0 mutatedCommitTxOut
+            , ChangeInput
+                healthyIntialTxIn
+                (toUTxOContext healthyInitialTxOut)
+                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
+            ]
     , SomeMutation (Just $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
@@ -144,7 +155,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeInput
                 healthyIntialTxIn
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit $ Just $ toPlutusTxOutRef committedTxIn)
+                (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
@@ -154,8 +165,10 @@ genCommitMutation (tx, _utxo) =
 
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
-  (committedTxIn, committedTxOut) = healthyCommittedUTxO
+  allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
-  committedAddress = txOutAddress committedTxOut
+  (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
 
-  committedOutputValue = txOutValue committedTxOut
+  aCommittedAddress = txOutAddress aCommittedTxOut
+
+  aCommittedOutputValue = txOutValue aCommittedTxOut

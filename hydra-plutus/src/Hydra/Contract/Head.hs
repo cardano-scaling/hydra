@@ -114,31 +114,20 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     -- correspond to the number of commit inputs to make sure everything is
     -- reimbursed because we assume the outputs are correctly sorted with
     -- reimbursed commits coming first
-    hashTxOuts $ take (length commited) (txInfoOutputs txInfo)
+    hashTxOuts $ take (length committed) (txInfoOutputs txInfo)
 
   hashOfCommittedUTxO =
-    hashPreSerializedCommits commited
+    hashPreSerializedCommits committed
 
-  commited = committedUTxO [] (txInfoInputs txInfo)
+  committed = committedUTxO [] (txInfoInputs txInfo)
 
   committedUTxO commits = \case
-    [] ->
-      commits
+    [] -> commits
     TxInInfo{txInInfoResolved = txOut} : rest
       | hasPT headCurrencySymbol txOut ->
-          case commitDatum txInfo txOut of
-            Just commit ->
-              committedUTxO
-                (commit : commits)
-                rest
-            Nothing ->
-              committedUTxO
-                commits
-                rest
+          committedUTxO (commitDatum txInfo txOut <> commits) rest
       | otherwise ->
-          committedUTxO
-            commits
-            rest
+          committedUTxO commits rest
 
 -- | On-Chain verification for 'CollectCom' transition. It verifies that:
 --
@@ -222,11 +211,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     | isHeadOutput txInInfoResolved =
         (commits, nCommits, notCollected)
     | hasPT headId txInInfoResolved =
-        case commitDatum txInfo txInInfoResolved of
-          Just commit@Commit{} ->
-            (commit : commits, succ nCommits, notCollected)
-          Nothing ->
-            (commits, succ nCommits, notCollected)
+        (commitDatum txInfo txInInfoResolved <> commits, succ nCommits, notCollected)
     | otherwise =
         (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
 
@@ -234,14 +219,14 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 {-# INLINEABLE checkCollectCom #-}
 
 -- | Try to find the commit datum in the input and
--- if it is there return the commited utxo
-commitDatum :: TxInfo -> TxOut -> Maybe Commit
+-- if it is there return the committed utxo
+commitDatum :: TxInfo -> TxOut -> [Commit]
 commitDatum txInfo input = do
   let datum = findTxOutDatum txInfo input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, commit, _headId) ->
-      commit
-    Nothing -> Nothing
+    Just (_party, commits, _headId) ->
+      commits
+    Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
 -- | The close validator must verify that:

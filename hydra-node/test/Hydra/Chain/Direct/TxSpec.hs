@@ -186,15 +186,14 @@ generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
   committedUTxO <-
-    vectorOf (length parties) $ do
-      singleUTxO <- fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
-      pure $ head <$> nonEmpty (UTxO.pairs singleUTxO)
+    vectorOf (length parties) $
+      fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
   let commitUTxO =
         zip txins $
           uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, HashableScriptData, UTxO)
+  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, HashableScriptData, UTxO)
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
@@ -203,13 +202,13 @@ generateCommitUTxOs parties = do
           (mkTxOutDatum commitDatum)
           ReferenceScriptNone
     , toScriptData commitDatum
-    , maybe mempty (UTxO.fromPairs . pure) utxo
+    , utxo
     )
    where
     commitValue =
       mconcat
         [ lovelaceToValue (Lovelace 2000000)
-        , maybe mempty (txOutValue . snd) utxo
+        , foldMap txOutValue utxo
         , valueFromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]

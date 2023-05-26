@@ -34,7 +34,7 @@ import PlutusLedgerApi.V2 (
   ScriptHash,
   ToData (toBuiltinData),
   TokenName (unTokenName),
-  TxInInfo (txInInfoResolved),
+  TxInInfo (..),
   TxOut (txOutValue),
   TxOutRef,
   Value (getValue),
@@ -47,7 +47,7 @@ import qualified PlutusTx.Builtins as Builtins
 data InitialRedeemer
   = ViaAbort
   | ViaCommit
-      { committedRef :: Maybe TxOutRef
+      { committedRefs :: [TxOutRef]
       -- ^ Points to the committed Utxo.
       }
 
@@ -80,18 +80,18 @@ validator commitValidator headId red context =
       traceIfFalse
         $(errorCode STNotBurned)
         (mustBurnST (txInfoMint $ scriptContextTxInfo context) headId)
-    ViaCommit{committedRef} ->
-      checkCommit commitValidator headId committedRef context
+    ViaCommit{committedRefs} ->
+      checkCommit commitValidator headId committedRefs context
 
 checkCommit ::
   -- | Hash of the commit validator
   ScriptHash ->
   -- | Head id
   CurrencySymbol ->
-  Maybe TxOutRef ->
+  [TxOutRef] ->
   ScriptContext ->
   Bool
-checkCommit commitValidator headId committedRef context =
+checkCommit commitValidator headId committedRefs context =
   checkCommittedValue
     && checkLockedCommit
     && checkHeadId
@@ -103,17 +103,20 @@ checkCommit commitValidator headId committedRef context =
       lockedValue == initialValue + committedValue
 
   checkLockedCommit =
-    case (committedTxOut, lockedCommit) of
-      (Nothing, Nothing) ->
+    traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $
+      go (committedUTxO, lockedCommits)
+   where
+    go = \case
+      ([], []) ->
         True
-      (Nothing, Just{}) ->
-        traceError $(errorCode NothingCommittedButTxOutInOutputDatum)
-      (Just{}, Nothing) ->
-        traceError $(errorCode CommittedTxOutButNothingInOutputDatum)
-      (Just (ref, txOut), Just Commit{input, preSerializedOutput}) ->
-        traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $
-          Builtins.serialiseData (toBuiltinData txOut) == preSerializedOutput
-            && ref == input
+      ([], (_ : _)) ->
+        traceError $(errorCode MissingCommittedTxOutInOutputDatum)
+      ((_ : _), []) ->
+        traceError $(errorCode CommittedTxOutMissingInOutputDatum)
+      (TxInInfo{txInInfoOutRef, txInInfoResolved} : restCommitted, Commit{input, preSerializedOutput} : restCommits) ->
+        Builtins.serialiseData (toBuiltinData txInInfoResolved) == preSerializedOutput
+          && txInInfoOutRef == input
+          && go (restCommitted, restCommits)
 
   checkHeadId =
     traceIfFalse $(errorCode WrongHeadIdInCommitDatum) $
@@ -140,15 +143,17 @@ checkCommit commitValidator headId committedRef context =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
   committedValue =
-    maybe mempty (txOutValue . snd) committedTxOut
+    foldMap (txOutValue . txInInfoResolved) committedUTxO
 
-  committedTxOut = do
-    ref <- committedRef
-    (ref,) . txInInfoResolved <$> findTxInByTxOutRef ref txInfo
+  committedUTxO = do
+    flip fmap committedRefs $ \ref ->
+      case findTxInByTxOutRef ref txInfo of
+        Nothing -> traceError $(errorCode OutRefNotFound)
+        Just txInInfo -> txInInfo
 
   lockedValue = valueLockedBy txInfo commitValidator
 
-  (lockedCommit, headId') =
+  (lockedCommits, headId') =
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
@@ -160,8 +165,8 @@ checkCommit commitValidator headId committedRef context =
               Just da ->
                 case fromBuiltinData @Commit.DatumType $ getDatum da of
                   Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
-                  Just (_party, mCommit, hid) ->
-                    (mCommit, hid)
+                  Just (_party, commits, hid) ->
+                    (commits, hid)
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context

@@ -238,33 +238,33 @@ handleEvent client cardanoClient s = \case
       EvKey (KChar c) _ ->
         if
             | c `elem` ['<'] ->
-              scroll s Up *> continue s
+                scroll s Up *> continue s
             | c `elem` ['>'] ->
-              scroll s Down *> continue s
+                scroll s Down *> continue s
             | c `elem` ['h', 'H'] ->
-              continue $ s & feedbackStateL .~ Full
+                continue $ s & feedbackStateL .~ Full
             | c `elem` ['s', 'S'] ->
-              continue $ s & feedbackStateL .~ Short
+                continue $ s & feedbackStateL .~ Short
             | c `elem` ['q', 'Q'] ->
-              halt s
+                halt s
             | c `elem` ['i', 'I'] ->
-              sendInputAndTransition client s Init
+                sendInputAndTransition client s Init
             | c `elem` ['a', 'A'] ->
-              sendInputAndTransition client s Abort
+                sendInputAndTransition client s Abort
             | c `elem` ['f', 'F'] ->
-              sendInputAndTransition client s Fanout
+                sendInputAndTransition client s Fanout
             | c `elem` ['c', 'C'] ->
-              case s ^? headStateL of
-                Just Initializing{} ->
-                  showCommitDialog client cardanoClient s
-                Just Open{} ->
-                  sendInputAndTransition client s Close
-                _ ->
-                  continue s
+                case s ^? headStateL of
+                  Just Initializing{} ->
+                    showCommitDialog client cardanoClient s
+                  Just Open{} ->
+                    sendInputAndTransition client s Close
+                  _ ->
+                    continue s
             | c `elem` ['n', 'N'] ->
-              handleNewTxEvent client cardanoClient s
+                handleNewTxEvent client cardanoClient s
             | otherwise ->
-              continue s
+                continue s
       _ -> continue s
     -- Not connected
     Nothing -> case e of
@@ -374,10 +374,6 @@ handleAppEvent s = \case
         s
           & warn' time "Not enough Fuel. Please provide more to the internal wallet and try again."
           & stopPending
-      MoreThanOneUTxOCommitted ->
-        s
-          & warn' time "Can only commit one UTxO. Please try again."
-          & stopPending
       InternalWalletError{reason} ->
         s
           & warn' time reason
@@ -434,13 +430,13 @@ handleDialogEvent (title, form, submit) s = \case
       fs -> continue $ s & warn ("Invalid fields: " <> Text.intercalate ", " fs)
   EvKey (KChar c) _
     | c `elem` ['<'] ->
-      scroll s Up *> continue s
+        scroll s Up *> continue s
     | c `elem` ['>'] ->
-      scroll s Down *> continue s
+        scroll s Down *> continue s
     | c `elem` ['h', 'H'] ->
-      continue $ s & feedbackStateL .~ Full
+        continue $ s & feedbackStateL .~ Full
     | c `elem` ['s', 'S'] ->
-      continue $ s & feedbackStateL .~ Short
+        continue $ s & feedbackStateL .~ Short
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
@@ -757,9 +753,9 @@ draw Client{sk} CardanoClient{networkId} s =
 
   drawAddress addr
     | mkVkAddress networkId vk == addr =
-      withAttr own widget
+        withAttr own widget
     | otherwise =
-      widget
+        widget
    where
     widget = txt $ ellipsize 40 $ serialiseAddress addr
 

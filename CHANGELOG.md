@@ -10,6 +10,11 @@ changes.
 
 ## [0.11.0] - UNRELEASED
 
+- **BREAKING** Allow to commit multiple `UTxO`:
+  + This changes `hydra-plutus` scripts to allow commit transactions which spend
+    multiple UTxOs into a Hydra head.
+  + Removes the `MoreThanOneUTxOCommitted` server output on the API.
+
 - Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` log items using a
   numeric `eventId`.
 

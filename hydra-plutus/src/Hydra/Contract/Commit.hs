@@ -76,7 +76,7 @@ deserializeCommit network Commit{input, preSerializedOutput} =
 -- TODO: Party is not used on-chain but is needed off-chain while it's still
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
-type DatumType = (Party, Maybe Commit, CurrencySymbol)
+type DatumType = (Party, [Commit], CurrencySymbol)
 type RedeemerType = CommitRedeemer
 
 -- | The v_commit validator verifies that:

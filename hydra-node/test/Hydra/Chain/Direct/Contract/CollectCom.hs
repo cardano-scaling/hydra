@@ -42,7 +42,12 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genAddressInEra, genVerificationKey)
+import Hydra.Ledger.Cardano (
+  genAdaOnlyUTxO,
+  genAddressInEra,
+  genUTxOAdaOnlyOfSize,
+  genVerificationKey,
+ )
 import Hydra.Party (Party, partyToChain)
 import Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
@@ -88,13 +93,14 @@ healthyCollectComTx =
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
-  (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
+  (uncurry healthyCommitOutput <$> zip healthyParties healthyCommittedUTxO)
     & Map.fromList
- where
-  committedUTxO =
-    generateWith
-      (replicateM (length healthyParties) genCommittableTxOut)
-      42
+
+healthyCommittedUTxO :: [UTxO]
+healthyCommittedUTxO =
+  flip generateWith 42 $
+    replicateM (length healthyParties) $
+      genUTxOAdaOnlyOfSize =<< choose (0, 5)
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
@@ -144,7 +150,7 @@ data HealthyCommit = HealthyCommit
 
 healthyCommitOutput ::
   Party ->
-  (TxIn, TxOut CtxUTxO) ->
+  UTxO ->
   (TxIn, HealthyCommit)
 healthyCommitOutput party committed =
   ( txIn
@@ -165,12 +171,12 @@ healthyCommitOutput party committed =
     mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
   commitValue =
     headValue
-      <> (txOutValue . snd) committed
+      <> foldMap txOutValue committed
       <> valueFromList
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
-    mkCommitDatum party (Just committed) (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
+    mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
 
 data CollectComMutation
   = -- | Ensures collectCom does not allow any output address but νHead.

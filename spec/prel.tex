@@ -43,7 +43,7 @@ application of a function $f$ to an argument $x$ is written as $f(x)$. \\
 	\item Lists of values $l \in \mathcal{A}^{*}$ are written as
 	      $l = [x_{1}, \ldots, x_{n}]$. Empty lists are denoted by $[]$, the $i$th
 	      element $x_{i}$ is also written $l[i]$ and the length of the list is
-	      $|l| = n$. An underscore is also used to indicate al ist of values
+	      $|l| = n$. An underscore is also used to indicate a list of values
 	      $\underline{x} = l$. Projection on lists are mapped to their elements,
 	      i.e.
 	      $\underline{x}^{\downarrow1} = [x_{1}^{\downarrow1}, \dots, x_{n}^{\downarrow1}]$.
@@ -63,7 +63,7 @@ application of a function $f$ to an argument $x$ is written as $f(x)$. \\
 	\item $\msSig \gets \msSign(\msParams,\msSK,\msMsg)$ signs a message $\msMsg$
 	      using key $\msSK$,
 	\item $\msCVK \gets \msCombVK(\msParams,\msVKL)$ aggregates a list of
-        verification keys $\msVKL$ into a single, aggregate key $\msCVK$,
+	      verification keys $\msVKL$ into a single, aggregate key $\msCVK$,
 	\item $\msCSig \gets \msComb(\msParams,\msMsg,\msVKL,\msSigL)$ aggregates a
 	      list of signatures $\msSigL$ about message $m$ into a single, aggregate
 	      signature~$\msCSig$.
@@ -220,7 +220,7 @@ ledger model~\cite{eutxo-2, ledger-shelley-spec}.
 	validity bounds where $\txValidityMin <= \txValidityMax$, and
 	$\txKeys \in \mathcal{K}$ is the set of verification keys which signed the
 	transaction.
-    % TODO: \tyValidity undefined, define time, periods and intervals?
+	% TODO: \tyValidity undefined, define time, periods and intervals?
 \end{definition}
 
 Informally, scripts are evaluated by the ledger when it applies a transaction to

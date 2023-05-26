@@ -13,8 +13,8 @@ data InitialError
   | MismatchCommittedTxOutInDatum
   | CouldNotFindTheCorrectCurrencySymbolInTokens
   | MultipleHeadTokensOrMoreThan1PTsFound
-  | NothingCommittedButTxOutInOutputDatum
-  | CommittedTxOutButNothingInOutputDatum
+  | MissingCommittedTxOutInOutputDatum
+  | CommittedTxOutMissingInOutputDatum
   | MissingDatum
   | UnexpectedInlineDatum
   | CouldNotFindDatum
@@ -22,6 +22,7 @@ data InitialError
   | ExpectedSingleCommitOutput
   | WrongHeadIdInCommitDatum
   | MintingOrBurningIsForbidden
+  | OutRefNotFound
   deriving (Show)
 
 instance ToErrorCode InitialError where
@@ -32,8 +33,8 @@ instance ToErrorCode InitialError where
     MismatchCommittedTxOutInDatum -> "I04"
     CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
     MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
-    NothingCommittedButTxOutInOutputDatum -> "I07"
-    CommittedTxOutButNothingInOutputDatum -> "I08"
+    MissingCommittedTxOutInOutputDatum -> "I07"
+    CommittedTxOutMissingInOutputDatum -> "I08"
     MissingDatum -> "I09"
     UnexpectedInlineDatum -> "I10"
     CouldNotFindDatum -> "I11"
@@ -41,3 +42,4 @@ instance ToErrorCode InitialError where
     ExpectedSingleCommitOutput -> "I13"
     WrongHeadIdInCommitDatum -> "I14"
     MintingOrBurningIsForbidden -> "I15"
+    OutRefNotFound -> "I16"
