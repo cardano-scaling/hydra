@@ -159,6 +159,7 @@ library
     , unix
     , unordered-containers
     , websockets
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
 
   ghc-options:     -haddock
 
@@ -238,7 +239,7 @@ test-suite tests
     , lens
     , lens-aeson
     , ouroboros-network
-    , plutus-ledger-api
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , process
     , QuickCheck
     , say
