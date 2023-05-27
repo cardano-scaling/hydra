@@ -25,14 +25,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
  )
-import Hydra.Chain (
-  Chain (..),
-  ChainCallback,
-  ChainEvent (..),
-  ChainStateType,
-  PostChainTx (..),
-  PostTxError (..),
- )
+import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
@@ -159,7 +152,6 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
             case commit ctx st utxo of
-              Left MoreThanOneUTxOCommitted -> pure $ Left MoreThanOneUTxOCommitted
               Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
