@@ -9,7 +9,7 @@ pkgs.stdenvNoCC.mkDerivation rec {
   ];
   phases = [ "unpackPhase" "buildPhase" ];
   buildPhase = ''
-    pdflatex -file-line-error --synctex=1 -interaction=nonstopmode ${./main.tex}
+    latexmk -pdf ${./main.tex}
     mkdir -p $out
     mv *-main.pdf $out/${name}.pdf
   '';
