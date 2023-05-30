@@ -28,15 +28,15 @@ only slightly updated this month and already saw one more feature completed:
 
 - Some quality of life improvements in running the `hydra-node`
 
-- [Full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.10.0) and list of [delivered features](https://github.com/input-output-hk/hydra/milestone/8?closed=1)
+- [Full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.10.0) and a list of [delivered features](https://github.com/input-output-hk/hydra/milestone/8?closed=1)
 
 #### Notable roadmap updates
 
-- Got new input and concrete scenario for benchmarking (off-chain) performance
-  of a Hydra Head. As it is a very basic one, we moved the item from an
+- Got new input and a concrete scenario for benchmarking (off-chain) performance
+  of a Hydra head. As it is a very basic one, we moved the item from an
   idea to a feature and started work on it.
 
-- Added a new feature item to add Hydra as tool to developer platforms within
+- Added a new feature item to add Hydra as a tool to developer platforms within
   our agenda of [promoting Hydra as an open-source
   platform](https://hydra.family/head-protocol/monthly/2023-01#themes-for-2023)
   for scalability on Cardano.
@@ -73,13 +73,7 @@ second) using the system clock in between blocks as a form of [dead reckoning](h
 
 #### Removing --ledger-genesis [#863](https://github.com/input-output-hk/hydra/pull/863)
 
-The hydra-node was taking two command line options to configure the ledger used
-to validate transactions on layer 2 (L2): `--ledger-protocol-parameters` and
-`--ledger-genesis`. The former is quite self-explanatory; the Cardano protocol
-parameters which shall be used. Often the same as on the layer 1 are configured,
-or similar parameters with less fees for example. The second option, however, was
-requiring the `genesis-shelley.json` as used for the cardano-node used to
-initialize the shelley era back in the day.
+The hydra-node had two command line options to configure the ledger used for validating layer 2 (L2) transactions: `--ledger-protocol-parameters` and `--ledger-genesis`. The former option, which is self-explanatory, allows configuration of the Cardano protocol parameters to be used. Often, the same parameters as those on L1 are configured, or similar parameters with reduced fees, for example. On the other hand, the second option required the `genesis-shelley.json` file previously used to initialize the Shelley era by the cardano-node.
 
 When we started using the current slot in the L2 ledger (see above), we realized
 that only the start time and slot length are effectively used from that
@@ -92,31 +86,31 @@ easier to configure and more isomorphic to L1.
 #### Improving CI runtime
 
 The Hydra project [embraces Test Driven Development](./adr/12) and implements
-a [Continuous Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (C.I.),
+[Continuous Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (CI),
 checking all these tests pass and more.
 
-The C.I. could sometimes take as long as an hour or
+The CI could sometimes take as long as an hour or
 more to run, which has a negative impact on the project's workflow.
 For instance, all the project's branches have to be [fast-forward with
 master](https://github.com/input-output-hk/hydra/wiki/Coding-Standards#merge-prs-with-merge-commits-and-rebase-branches-on-top-of-master)
 before being merged.
 So if all the tests on a branch are green and the pull request has been
 approved but is lagging a bit behind master, it has to be rebased, so the
-C.I. has to run again, incurring a one hour or so delay in this case before
+CI has to run again, incurring a one hour or so delay in this case before
 being able to merge it. The situation becomes worse when several pull requests
 are _ready_ to be merged.
 
-Analyzing the run from [may the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294)
+Analyzing the run from [May, 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294)
 we can see that:
 
 - Building and testing takes 19 minutes for the longest
 - Generating haddock documentation and running the benchmarks takes 28 minutes
   for the longest
-- documentation (which will need artifacts generated in previous steps) will take
+- Documentation (which will need artifacts generated in previous steps) will take
   14 minutes
 - In total, this run took 1 hour and 16 minutes.
 
-Let's focus on the build and test stage first. We're expecting the
+Let's focus on the build and the testing stage first. We're expecting the
 plutus-merkle-tree to run fast but [it took 8 minutes and 52
 seconds](https://github.com/input-output-hk/hydra/actions/runs/4933005294/jobs/8816564512)
 , 7m and 11 seconds being spent setting up the build environment.
@@ -124,7 +118,7 @@ In other words, 81% of the build time is downloading binary dependencies from so
 
 Compiling the code requires cabal and other nix dependencies that will trigger
 massive downloads. Instead, let's, straight on, run the tests with nix and let
-nix decide what needs to be compiled. Sometime, most of the code will not have
+nix decide what needs to be compiled. Sometimes, most of the code will not have
 changed and the test binary will already be available in some nix cache to be run
 without any compilation step.
 
@@ -147,7 +141,7 @@ This has been done in [#880](https://github.com/input-output-hk/hydra/pull/880)
 and it [saves 10 minutes](https://github.com/input-output-hk/hydra/actions/runs/5067084637/jobs/9098252031)
 from this step.
 
-Our first goal was to reduce continuous integration execution time when pushing
+Our first goal was to reduce CI execution time when pushing
 on branches and this has been improved. We're now having execution time
 significantly under 30 minutes where it used to be 45 minutes or even an hour.
 
@@ -159,7 +153,7 @@ execution time on the following graph (in seconds):
 
 ![CI perf](./img/2023-05-ci-perf.png) <small><center>C.I. execution total execution time</center></small>
 
-Although we observed performance improvements on branches C.I. execution time,
+Although we observed performance improvements on branches CI execution time,
 master execution time has not been reduced that much. We may save 10 minutes
 from the documentation step because optimizing the _unstable_ documentation is
 maybe not worthwhile.
@@ -173,11 +167,11 @@ observe so much variation between two days with this master execution time.
 
 Next steps:
 
-- inspect why we have an unexpected random cache miss
-- improve haddock generation time (15 minutes)
-- reduce bench time (we probably don't want to run the whole benchmark suite for
+- Inspect why we have an unexpected random cache miss
+- Improve haddock generation time (15 minutes)
+- Reduce bench time (we probably don't want to run the whole benchmark suite for
   every single commit, or a smaller one)
-- focus on the changed area (do not compile everything to generate the monthly
+- Focus on the changed area (do not compile everything to generate the monthly
   report)
 
 ## Community
@@ -188,7 +182,7 @@ This month, the project saw a new kind of contribution from the community.
 @GeorgeFlerovsky has written a research piece about an adaptation of the
 (Coordinated) Hydra Head protocol into a new flavor - Hydrozoa. The article is
 currently being examined and [discussed on
-Github](https://github.com/input-output-hk/hydra/discussions/850). Feedback so
+GitHub](https://github.com/input-output-hk/hydra/discussions/850). Feedback so
 far has been positive. Of course, one does not simply change the Hydra Head
 protocol (pun intended), but the ideas contained could drive evolution and
 be followed up with concrete protocol extensions. Very much like the ideas
@@ -198,7 +192,7 @@ presented in the original paper.
 
 In this collaborative effort between IOG and ObsidianSystems, we are pushing the
 frontiers of using Hydra in payment use cases. It will lower the entry barrier
-for developers and ultimately users to leverage the Hydra Layer 2 for sending
+for developers and ultimately users to leverage Hydra L2 for sending
 and receiving ada and Cardano native assets with very low fees and sub-second
 finality.
 
@@ -230,7 +224,7 @@ The monthly review meeting was lively and we had stakeholders from IOG as well
 as interested community members join. They were well served by two very nice
 demos shown by ObsidianSystems and IOG teams.
 
-After having dealt with some annoying issues last month, we are happy to have
+After having dealt with some issues last month, we are happy to have
 the first mainnet-capable version released and have already another feature
 completed this month.
 
