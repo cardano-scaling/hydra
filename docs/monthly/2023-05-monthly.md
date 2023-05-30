@@ -16,7 +16,7 @@ This month the team released version 0.10.0 which includes many important featur
 The project [roadmap](https://github.com/orgs/input-output-hk/projects/21) was
 only slightly updated this month and already saw one more feature completed:
 
-![](./img/2023-05-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
+![The roadmap without idea items](./img/2023-05-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
 
 #### Release 0.10.0
 
@@ -44,7 +44,7 @@ only slightly updated this month and already saw one more feature completed:
 - Already completed a first feature for 0.11.0 and considering whether to release it as
   early as possible with latest advances.
 
-![](./img/2023-05-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
+![The latest roadmap with features and ideas](./img/2023-05-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
 ## Development
 
@@ -64,7 +64,7 @@ time bounded transactions to an open head and expect them to be validated using
 the same slot that would be used on L1. It is important to mention that time
 only advances on L1 when a block is produced.
 
-![](./img/2023-05-timed-transactions.jpg) <small><center>Timed transactions in a Hydra Head state channel</center></small>
+![Timed transactions in a Hydra Head state channel](./img/2023-05-timed-transactions.jpg) <small><center>Timed transactions in a Hydra Head state channel</center></small>
 
 This feature will make the Hydra L2 ledger now en-par with UTXO features
 available on the Cardano L1. A logical next step in this direction could be to
@@ -83,7 +83,7 @@ initialize the shelley era back in the day.
 
 When we started using the current slot in the L2 ledger (see above), we realized
 that only the start time and slot length are effectively used from that
-configuration file. Moreoever, it would be quite surprising if those were
+configuration file. Moreover, it would be quite surprising if those were
 different and slots would be longer or shorter on L2 (unless explicitly
 configured). We opted to remove the option altogether and have the `hydra-node`
 fetch the genesis parameters from the Cardano network. This makes the system
@@ -91,28 +91,23 @@ easier to configure and more isomorphic to L1.
 
 #### Improving CI runtime
 
-The Hydra project [embraces Test Driven Development](./adr/12) and our code is
-quite covered, at several levels. You may already have seen our test pyramid.
+The Hydra project [embraces Test Driven Development](./adr/12) and implements
+a [Continuous Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (C.I.),
+checking all these tests pass and more.
 
-![test pyramid](./img/2023-05-test-pyramide.png) <small><center>Testing pyramid</center></small>
-
-Although we expect the tests to be executed locally on developers' machines, we
-also implement a [Continuous
-Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (C.I.),
-checking all these tests still pass and more.
-
-This is fine until you realize that your C.I. can take as long as an hour or
-more and it has subtle implications on your workflow. A first, obvious, impact
-for us is that we want all our branches to be [fast-forward with
+The C.I. could sometimes take as long as an hour or
+more to run, which has a negative impact on the project's workflow.
+For instance, all the project's branches have to be [fast-forward with
 master](https://github.com/input-output-hk/hydra/wiki/Coding-Standards#merge-prs-with-merge-commits-and-rebase-branches-on-top-of-master)
-before merging them. In practice, imagine your pull request is all green,
-everybody approves it and all the tests pass but it's lagging a bit behind
-master. You'll have to rebase your branch and wait for C.I. to prove it still
-works before merging. Now imagine your C.I. takes an hour or more and you have
-more than one branch to merge... you can always feel it, can't you?
+before being merged.
+So if all the tests on a branch are green and the pull request has been
+approved but is lagging a bit behind master, it has to be rebased, so the
+C.I. has to run again, incurring a one hour or so delay in this case before
+being able to merge it. The situation becomes worse when several pull requests
+are _ready_ to be merged.
 
-So let's see what's going on there and let's take a look at this run from [may
-the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294):
+Analyzing the run from [may the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294)
+we can see that:
 
 - Building and testing takes 19 minutes for the longest
 - Generating haddock documentation and running the benchmarks takes 28 minutes
@@ -121,43 +116,40 @@ the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294):
   14 minutes
 - In total, this run took 1 hour and 16 minutes.
 
-Our first focus has been on the build and test stage. We're expecting the
+Let's focus on the build and test stage first. We're expecting the
 plutus-merkle-tree to run fast but [it took 8 minutes and 52
 seconds](https://github.com/input-output-hk/hydra/actions/runs/4933005294/jobs/8816564512)
-and if we look in detail, we can see that 7m and 11 seconds have been spent
-setting up the build environment. In other words, 81% of the build time is
-downloading binary dependencies from some nix cache. How can we reduce the size
-of our dependencies?
+, 7m and 11 seconds being spent setting up the build environment.
+In other words, 81% of the build time is downloading binary dependencies from some nix cache.
 
-If we want to compile our code and run the test, we need cabal and other nix
-dependencies that will download _the world_ before doing anything. But what if
-we decide to, straight on, run the test with nix and let it decide what it needs
-to compile because, maybe, most of our code did not change, the test binary is
-already available in some cache and we just run it!
+Compiling the code requires cabal and other nix dependencies that will trigger
+massive downloads. Instead, let's, straight on, run the tests with nix and let
+nix decide what needs to be compiled. Sometime, most of the code will not have
+changed and the test binary will already be available in some nix cache to be run
+without any compilation step.
 
-This is what we did in [#867](https://github.com/input-output-hk/hydra/pull/867).
-Merging this PR the [build on master took 45
+This has been done in [#867](https://github.com/input-output-hk/hydra/pull/867).
+Merging this PR, the [build on master took 45
 minutes](https://github.com/input-output-hk/hydra/actions/runs/5003046049) and,
 specifically, the same [plutus-merkle-tree
 job](https://github.com/input-output-hk/hydra/actions/runs/5003046049/jobs/8963773583)
 only took 1 minute and 44 seconds, only 20% of the time observed before.
 
-Then we decided that we wanted to spend less time on documentation (14 minutes,
-remember). It happened that most of the time spent by this process is website
-optimization. That's fine for master because we want to publish an optimized
-website. But what about all the builds in branches for which the web-site will
-never be published? We need to keep this documentation step in branches because
-it also provides security by checking that we didn't introduce too much mess
-in the doc, like broken links, for instance. But we definitely removed the
-optmization step.
+Then, let's focus on documentation (14 minutes). Most of the time spent by this
+process is website optimization. It makes sense for the documentation that will
+actually be published on the website (master or release). But what about all
+the builds in branches for which the website will never be published?
+We need to keep this documentation step in branches because it gives us sanity
+checks, preventing broken links, for instance. But we can definitely remove the
+optimization step.
 
-That is what we did in [#880](https://github.com/input-output-hk/hydra/pull/880)
-and it helped up [save 10 minutes from this
-step](https://github.com/input-output-hk/hydra/actions/runs/5067084637/jobs/9098252031).
+This has been done in [#880](https://github.com/input-output-hk/hydra/pull/880)
+and it [saves 10 minutes](https://github.com/input-output-hk/hydra/actions/runs/5067084637/jobs/9098252031)
+from this step.
 
-Our first goal was to reduce coninuous integration execution time when pushing
+Our first goal was to reduce continuous integration execution time when pushing
 on branches and this has been improved. We're now having execution time
-significantly under 30 minutes where it used to be 45 minutes or event an hour.
+significantly under 30 minutes where it used to be 45 minutes or even an hour.
 
 We had some issues with compilation output, obfuscated by nix, which have been
 solved by [#889](https://github.com/input-output-hk/hydra/pull/889).
@@ -167,18 +159,17 @@ execution time on the following graph (in seconds):
 
 ![CI perf](./img/2023-05-ci-perf.png) <small><center>C.I. execution total execution time</center></small>
 
-Although we got performance improvement on branches C.I. execution time, we
-don't observe so much benefit when we look at execution time on master. We can
-save some time on the documentation step because, after all, we don't care about
-optimizing the web-site for the unstable version to probably save 10 minutes.
+Although we observed performance improvements on branches C.I. execution time,
+master execution time has not been reduced that much. We may save 10 minutes
+from the documentation step because optimizing the _unstable_ documentation is
+maybe not worthwhile.
 But what's more problematic here is the process variability.
 
 This variability can be explained by nix cache misses. That's something we need
-to investigate. It's hard to optimize a process with buffer and we do have quite
-some buffer in place here and in case of a cache miss, it means we have to
-recompile everything and it happens that compiling takes time for us. So every
-cache miss introduces several minutes of overhead which explain why we observe so
-much variation between two days with this master excution time.
+to investigate. It's hard to optimize a process with buffers, especially here
+where in case of a cache miss, recompilation has to happen and takes time.
+So every cache miss introduces several minutes of overhead which explains why we
+observe so much variation between two days with this master execution time.
 
 Next steps:
 
@@ -222,13 +213,13 @@ end-to-end workflow of the Android App nicknamed "HydraNow" can be realized.
 This app will act as a layer 2 wallet quite like a Bitcoin Lightning Wallet and
 drives feature development in both `hydra-pay` and `hydra` in the background.
 
-![](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in browser) connected via a hydra-pay channel</center></small>
+![Two instances of HydraNow (in browser) connected via a hydra-pay channel](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in browser) connected via a hydra-pay channel</center></small>
 
 #### Spanish translation
 
 Last, but not least, we would like to thank @Agustinblockchain for their
-contribution of a [Spanish translation
-#866](https://github.com/input-output-hk/hydra/pull/866) of the [hydra.family website](https://hydra.family/head-protocol/unstable/es/) 🇪🇸 🎉
+contribution of a [Spanish translation #866](<https://github.com/input-output-hk/hydra/pull/866>)
+of the [hydra.family website](https://hydra.family/head-protocol/unstable/es/) 🇪🇸 🎉
 
 ## Conclusion
 
