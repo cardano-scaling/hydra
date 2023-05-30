@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -36,6 +37,7 @@ import Hydra.Crypto (
   HydraKey,
   Signature,
   SigningKey,
+  VerificationKey,
   aggregateInOrder,
   sign,
   verifyMultiSignature,
@@ -326,7 +328,7 @@ data LogicError tx
   | InvalidState (HeadState tx)
   | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
-  | RequireFailed Text
+  | RequireFailed RequirementFailure
   deriving stock (Generic)
 
 instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
@@ -338,6 +340,18 @@ deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 deriving instance (ToJSON (Event tx), ToJSON (HeadState tx)) => ToJSON (LogicError tx)
 deriving instance (FromJSON (Event tx), FromJSON (HeadState tx)) => FromJSON (LogicError tx)
+
+data RequirementFailure
+  = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
+  | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
+  | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
+  | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
+  | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary RequirementFailure where
+  arbitrary = genericArbitrary
 
 data Outcome tx
   = OnlyEffects {effects :: [Effect tx]}
@@ -665,9 +679,10 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
           [NetworkEffect $ AckSn party snapshotSignature sn]
  where
   requireReqSn continue =
-    if sn == seenSn + 1 && isLeader parameters otherParty sn
-      then continue
-      else Error $ RequireFailed "requireReqSn"
+    if
+        | sn /= seenSn + 1 -> Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+        | not (isLeader parameters otherParty sn) -> Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+        | otherwise -> continue
 
   waitNoSnapshotInFlight continue =
     if confSn == seenSn
@@ -765,7 +780,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   requireValidAckSn continue =
     if sn `elem` [seenSn, seenSn + 1]
       then continue
-      else Error $ RequireFailed "requireValidAckSn"
+      else Error $ RequireFailed $ AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
 
   waitOnSeenSnapshot continue =
     case seenSnapshot of
@@ -776,7 +791,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   requireNotSignedYet sigs continue =
     if not (Map.member otherParty sigs)
       then continue
-      else Error $ RequireFailed "requireNotSignedYet"
+      else Error $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
 
   ifAllMembersHaveSigned snapshot sigs' cont =
     if Map.keysSet sigs' == Set.fromList parties
@@ -791,9 +806,11 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
           []
 
   requireVerifiedMultisignature multisig msg cont =
-    if verifyMultiSignature (vkey <$> parties) multisig msg
+    if verifyMultiSignature vkeys multisig msg
       then cont
-      else Error $ RequireFailed "requireVerifiedMultisignature"
+      else Error $ RequireFailed $ InvalidMultisignature{multisig = show multisig, vkeys}
+
+  vkeys = vkey <$> parties
 
   -- XXX: Data structures become unwieldy -> helper functions or lenses
   onlyUpdateCoordinatedHeadState chs' =
