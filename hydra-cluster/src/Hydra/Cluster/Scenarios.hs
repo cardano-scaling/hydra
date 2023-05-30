@@ -15,7 +15,6 @@ import CardanoClient (
   queryProtocolParameters,
   querySystemStart,
   queryTip,
-  queryUTxOFor,
   submitTransaction,
   submitTx,
  )
@@ -28,13 +27,13 @@ import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cardano.Api (
-  mkTxOutDatumHash,
   AddressInEra,
   BuildTxWith (BuildTxWith),
   Key (SigningKey, getVerificationKey),
-  Lovelace,
+  Lovelace (..),
   PaymentKey,
   PlutusScriptV2,
+  ProtocolParameters,
   ScriptDatum (ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   ShelleyWitnessSigningKey (WitnessPaymentKey),
@@ -51,6 +50,7 @@ import Hydra.Cardano.Api (
   mkScriptAddress,
   mkScriptWitness,
   mkTxOutAutoBalance,
+  mkTxOutDatumHash,
   mkVkAddress,
   selectLovelace,
   setTxInsCollateral,
@@ -63,7 +63,7 @@ import Hydra.Cardano.Api (
   txOutValue,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
-  pattern TxInsCollateral, createAndValidateTransactionBody, ProtocolParameters,
+  pattern TxInsCollateral,
  )
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
@@ -77,10 +77,22 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
-import Network.HTTP.Req
+import Network.HTTP.Req (
+  JsonResponse,
+  POST (POST),
+  ReqBodyJson (ReqBodyJson),
+  defaultHttpConfig,
+  http,
+  port,
+  req,
+  responseBody,
+  responseStatusCode,
+  runReq,
+  (/:),
+ )
+import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe)
 import Test.QuickCheck (generate)
-import qualified PlutusLedgerApi.Test.Examples as Plutus
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -292,33 +304,31 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
       normalUTxO <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo <- createScriptOutput pparams scriptAddress someSk
+      scriptUtxo <- createScriptOutput pparams scriptAddress someSk normalUTxO
+      colateralUTxO <- seedFromFaucet node someVk 20_000_000 Normal (contramap FromFaucet tracer)
 
       let redeemer = toScriptData ()
           datum = ScriptDatumForTxIn $ toScriptData ()
 
       let scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
+          collateralTxIns = fst <$> UTxO.pairs colateralUTxO
           scriptWitness =
-              BuildTxWith $
-                ScriptWitness ScriptWitnessForSpending $
-                  mkScriptWitness script datum redeemer
-      
+            BuildTxWith $
+              ScriptWitness ScriptWitnessForSpending $
+                mkScriptWitness script datum redeemer
+
       -- TODO: temporary sanity check: Spend the script on L1
       let body =
             defaultTxBodyContent
               & addTxIn (scriptTxIn, scriptWitness)
-              & setTxInsCollateral (TxInsCollateral mempty)
+              & setTxInsCollateral (TxInsCollateral collateralTxIns)
               & setTxProtocolParams (BuildTxWith $ Just pparams)
 
       systemStart <- querySystemStart networkId nodeSocket QueryTip
       epochInfo <- toLedgerEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+
       let changeAddress = mkVkAddress networkId someVk
-
-      -- DEBUG
-      let validatedTx = createAndValidateTransactionBody body
-      print validatedTx
-
-      let balancedBody =
+          balancedBody =
             makeTransactionBodyAutoBalance
               systemStart
               epochInfo
@@ -331,7 +341,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
               & \case
                 Left e -> error (show e)
                 Right res -> balancedTxBody res
-      let spendScriptTx = signShelleyTransaction balancedBody []
+      let spendScriptTx = signShelleyTransaction balancedBody [WitnessPaymentKey someSk]
       submitTransaction networkId nodeSocket spendScriptTx
 
       -- -- Request to build a draft commit tx from hydra-node
@@ -365,9 +375,9 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
     ProtocolParameters ->
     AddressInEra ->
     SigningKey PaymentKey ->
+    UTxO ->
     IO UTxO
-  createScriptOutput pparams scriptAddress sk = do
-    utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
+  createScriptOutput pparams scriptAddress sk utxo = do
     let outputs = [scriptTxOut]
         totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
         someUTxO =
@@ -378,7 +388,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       nodeSocket
       changeAddress
       someUTxO
-      []
+      collateralTxIns
       outputs
       >>= \case
         Left e ->
@@ -387,8 +397,11 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
           submitTransaction networkId nodeSocket tx
           newUtxo <- awaitTransaction networkId nodeSocket tx
-          pure $ UTxO.filter (\out -> txOutAddress out == scriptAddress) newUtxo
+          let scriptUtxo = UTxO.filter (\out -> txOutAddress out == scriptAddress) newUtxo
+          pure scriptUtxo
    where
+    collateralTxIns = mempty
+
     vk = getVerificationKey sk
 
     changeAddress = mkVkAddress networkId vk
