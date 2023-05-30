@@ -12,7 +12,7 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month we released version 0.10.0 which includes many important features.
+This month the team released version 0.10.0 which includes many important features.
 The project [roadmap](https://github.com/orgs/input-output-hk/projects/21) was
 only slightly updated this month and already saw one more feature completed:
 
@@ -33,7 +33,7 @@ only slightly updated this month and already saw one more feature completed:
 #### Notable roadmap updates
 
 - Got new input and concrete scenario for benchmarking (off-chain) performance
-  of a Hydra Head. As it is a very basic one, we conretized the item from an
+  of a Hydra Head. As it is a very basic one, we moved the item from an
   idea to a feature and started work on it.
 
 - Added a new feature item to add Hydra as tool to developer platforms within
@@ -41,7 +41,7 @@ only slightly updated this month and already saw one more feature completed:
   platform](https://hydra.family/head-protocol/monthly/2023-01#themes-for-2023)
   for scalability on Cardano.
 
-- Already completed a first feature for 0.11.0 and considering to release it as
+- Already completed a first feature for 0.11.0 and considering whether to release it as
   early as possible with latest advances.
 
 ![](./img/2023-05-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
@@ -61,12 +61,12 @@ protocol related transactions. Now, on every block roll forward, a `Tick` event
 carrying the notion of time from L1 is observed by the `hydra-node` and is used
 to validate transactions in a Hydra head. This means that clients can submit
 time bounded transactions to an open head and expect them to be validated using
-the same slot that would be used on L1. It is important to mention, that time
-only advances on L1 when a block was produced.
+the same slot that would be used on L1. It is important to mention that time
+only advances on L1 when a block is produced.
 
 ![](./img/2023-05-timed-transactions.jpg) <small><center>Timed transactions in a Hydra Head state channel</center></small>
 
-This feature will make the Hydra L2 ledger now en-par with UTxO features
+This feature will make the Hydra L2 ledger now en-par with UTXO features
 available on the Cardano L1. A logical next step in this direction could be to
 make time in the state channel advance every configured `slotLength` (e.g. every
 second) using the system clock in between blocks as a form of [dead reckoning](https://en.wikipedia.org/wiki/Dead_reckoning).
@@ -74,31 +74,31 @@ second) using the system clock in between blocks as a form of [dead reckoning](h
 #### Removing --ledger-genesis [#863](https://github.com/input-output-hk/hydra/pull/863)
 
 The hydra-node was taking two command line options to configure the ledger used
-to validate transactions on layer 2: `--ledger-protocol-parameters` and
-`--ledger-genesis`. The former is quite self-explanatory the Cardano protocol
-parameters which shall be used. Often the same as on the layer 1 are configure,
-or similar parameters with less fees for example. The second option however, was
+to validate transactions on layer 2 (L2): `--ledger-protocol-parameters` and
+`--ledger-genesis`. The former is quite self-explanatory; the Cardano protocol
+parameters which shall be used. Often the same as on the layer 1 are configured,
+or similar parameters with less fees for example. The second option, however, was
 requiring the `genesis-shelley.json` as used for the cardano-node used to
 initialize the shelley era back in the day.
 
 When we started using the current slot in the L2 ledger (see above), we realized
 that only the start time and slot length are effectively used from that
-configuration file. Moreoever, it would be quite surprising if those are
+configuration file. Moreoever, it would be quite surprising if those were
 different and slots would be longer or shorter on L2 (unless explicitly
-configured). We opted to remove the option alltogether and have the `hydra-node`
+configured). We opted to remove the option altogether and have the `hydra-node`
 fetch the genesis parameters from the Cardano network. This makes the system
-easier to configure and more isomorphic.
+easier to configure and more isomorphic to L1.
 
 #### Improving CI runtime
 
-The hydra project [embraces Test Driven Development](./adr/12) and our code is
-quite covered, at several level. You may already have seen our test pyramid.
+The Hydra project [embraces Test Driven Development](./adr/12) and our code is
+quite covered, at several levels. You may already have seen our test pyramid.
 
 ![test pyramid](./img/2023-05-test-pyramide.png) <small><center>Testing pyramid</center></small>
 
 Although we expect the tests to be executed locally on developers' machines, we
 also implement a [Continuous
-Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml),
+Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (C.I.),
 checking all these tests still pass and more.
 
 This is fine until you realize that your C.I. can take as long as an hour or
@@ -108,8 +108,8 @@ master](https://github.com/input-output-hk/hydra/wiki/Coding-Standards#merge-prs
 before merging them. In practice, imagine your pull request is all green,
 everybody approves it and all the tests pass but it's lagging a bit behind
 master. You'll have to rebase your branch and wait for C.I. to prove it still
-works before merging. Know imagine your C.I. takes an hour or more and you have
-more than one branch to merge... you can always feel it, don't you?
+works before merging. Now imagine your C.I. takes an hour or more and you have
+more than one branch to merge... you can always feel it, can't you?
 
 So let's see what's going on there and let's take a look at this run from [may
 the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294):
@@ -117,7 +117,7 @@ the 10th](https://github.com/input-output-hk/hydra/actions/runs/4933005294):
 - Building and testing takes 19 minutes for the longest
 - Generating haddock documentation and running the benchmarks takes 28 minutes
   for the longest
-- documentation (which will need artifact generated in previous steps) will take
+- documentation (which will need artifacts generated in previous steps) will take
   14 minutes
 - In total, this run took 1 hour and 16 minutes.
 
@@ -125,7 +125,7 @@ Our first focus has been on the build and test stage. We're expecting the
 plutus-merkle-tree to run fast but [it took 8 minutes and 52
 seconds](https://github.com/input-output-hk/hydra/actions/runs/4933005294/jobs/8816564512)
 and if we look in detail, we can see that 7m and 11 seconds have been spent
-setting up the build environment. Stated otherwise, 81% of the build time is
+setting up the build environment. In other words, 81% of the build time is
 downloading binary dependencies from some nix cache. How can we reduce the size
 of our dependencies?
 
@@ -135,20 +135,20 @@ we decide to, straight on, run the test with nix and let it decide what it needs
 to compile because, maybe, most of our code did not change, the test binary is
 already available in some cache and we just run it!
 
-This what we did in [#867](https://github.com/input-output-hk/hydra/pull/867).
-Merging this P.R. the [build on master took 45
+This is what we did in [#867](https://github.com/input-output-hk/hydra/pull/867).
+Merging this PR the [build on master took 45
 minutes](https://github.com/input-output-hk/hydra/actions/runs/5003046049) and,
 specifically, the same [plutus-merkle-tree
 job](https://github.com/input-output-hk/hydra/actions/runs/5003046049/jobs/8963773583)
 only took 1 minute and 44 seconds, only 20% of the time observed before.
 
 Then we decided that we wanted to spend less time on documentation (14 minutes,
-remember). It happened that most of the time spent by this process is web-site
+remember). It happened that most of the time spent by this process is website
 optimization. That's fine for master because we want to publish an optimized
-web-site. But what about all the builds in branches for which the web-site will
+website. But what about all the builds in branches for which the web-site will
 never be published? We need to keep this documentation step in branches because
-it also provide us security by checking that we didn't introduce too much mess
-in the doc, like broken links, for instance. But we definitely got rid of the
+it also provides security by checking that we didn't introduce too much mess
+in the doc, like broken links, for instance. But we definitely removed the
 optmization step.
 
 That is what we did in [#880](https://github.com/input-output-hk/hydra/pull/880)
@@ -159,7 +159,7 @@ Our first goal was to reduce coninuous integration execution time when pushing
 on branches and this has been improved. We're now having execution time
 significantly under 30 minutes where it used to be 45 minutes or event an hour.
 
-We had some issue with compilation output, swallowed by nix, which have been
+We had some issues with compilation output, obfuscated by nix, which have been
 solved by [#889](https://github.com/input-output-hk/hydra/pull/889).
 
 Every morning, we rebuild our master branch and we can observe the whole
@@ -177,16 +177,16 @@ This variability can be explained by nix cache misses. That's something we need
 to investigate. It's hard to optimize a process with buffer and we do have quite
 some buffer in place here and in case of a cache miss, it means we have to
 recompile everything and it happens that compiling takes time for us. So every
-cache miss introduce several minutes of overhead which explain why we observe so
-much variations between two days with this master excution time.
+cache miss introduces several minutes of overhead which explain why we observe so
+much variation between two days with this master excution time.
 
 Next steps:
 
-- Why do we have random cache miss that we do not expect?
-- Improve haddock generation time (15 minutes)
+- inspect why we have an unexpected random cache miss
+- improve haddock generation time (15 minutes)
 - reduce bench time (we probably don't want to run the whole benchmark suite for
   every single commit, or a smaller one)
-- focus on changed area (do not compile everything to generate the monthly
+- focus on the changed area (do not compile everything to generate the monthly
   report)
 
 ## Community
@@ -196,11 +196,11 @@ Next steps:
 This month, the project saw a new kind of contribution from the community.
 @GeorgeFlerovsky has written a research piece about an adaptation of the
 (Coordinated) Hydra Head protocol into a new flavor - Hydrozoa. The article is
-currently getting examined and [discussed on
+currently being examined and [discussed on
 Github](https://github.com/input-output-hk/hydra/discussions/850). Feedback so
 far has been positive. Of course, one does not simply change the Hydra Head
 protocol (pun intended), but the ideas contained could drive evolution and
-followed-up with concrete protocol extensions. Very much like the ideas
+be followed up with concrete protocol extensions. Very much like the ideas
 presented in the original paper.
 
 #### Hydra for Payments project update
@@ -208,19 +208,19 @@ presented in the original paper.
 In this collaborative effort between IOG and ObsidianSystems, we are pushing the
 frontiers of using Hydra in payment use cases. It will lower the entry barrier
 for developers and ultimately users to leverage the Hydra Layer 2 for sending
-and receiving ADA and Cardano native assets with very low fees and sub-second
+and receiving ada and Cardano native assets with very low fees and sub-second
 finality.
 
-The project is in it's second phase where the open-source
-[hydra-pay](https://github.com/obsidiansystems/hydra-pay) library is getting
-expanded with necessary features while the team pushes for a building a
+The project is in its second phase where the open-source
+[hydra-pay](https://github.com/obsidiansystems/hydra-pay) library is being
+expanded with necessary features while the team pushes for building a
 dedicated mobile application.
 
 With the recently released hydra-pay version
 [0.2.0](https://github.com/obsidiansystems/hydra-pay/releases/tag/v0.2.0), an
-end-to-end workflow of the Android App nick-named "HydraNow" can be realized.
+end-to-end workflow of the Android App nicknamed "HydraNow" can be realized.
 This app will act as a layer 2 wallet quite like a Bitcoin Lightning Wallet and
-drives feature development in both, `hydra-pay` and `hydra` in the background.
+drives feature development in both `hydra-pay` and `hydra` in the background.
 
 ![](./img/2023-05-hydra-now.png) <small><center>Two instances of HydraNow (in browser) connected via a hydra-pay channel</center></small>
 
