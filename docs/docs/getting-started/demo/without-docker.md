@@ -16,8 +16,8 @@ import TabItem from '@theme/TabItem';
 
 Make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
 
- - use `nix develop .#demo` or
- - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
+- use `nix develop .#demo` or
+- `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
 
 :::info Tip for tmux users
 In the `demo` nix shell, there is a `run-tmux` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
@@ -53,7 +53,6 @@ cardano-node run \
 ## Seeding The Network
 
 You can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
-
 
 <TerminalWindow>
 
@@ -157,6 +156,7 @@ source .env && hydra-node \
 If things go well, the nodes should start logging once connected to the chain.
 
 ## Running The Clients
+
 Connect to the nodes using hydra-tui.
 
 ````mdx-code-block
@@ -183,7 +183,7 @@ hydra-tui \
 hydra-tui \
   --connect 0.0.0.0:4002 \
   --cardano-signing-key devnet/credentials/bob.sk \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```
 
@@ -195,9 +195,9 @@ hydra-tui \
 
 ```
 hydra-tui \
-  --connect 0.0.0.0:4002 \
+  --connect 0.0.0.0:4003 \
   --cardano-signing-key devnet/credentials/carol.sk \
-  --network-id 42 \
+  --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```
 
