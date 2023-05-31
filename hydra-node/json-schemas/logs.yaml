@@ -651,6 +651,13 @@ definitions:
           contents:
             $ref: "#/definitions/ValidationError"
       - title: RequireFailed
+        description: >-
+          A precondition for some state transition within the Hydra
+          Head state-machine failed, providing more details in the
+          'contents' field. Please note each possible precondition
+          failure is tied to some specific 'require p' expression in
+          the specification (check
+          https://hydra.family/head-protocol/core-concepts/specification).
         additionalProperties: false
         required:
           - tag
@@ -660,7 +667,7 @@ definitions:
             type: string
             enum: ["RequireFailed"]
           contents:
-            type: string
+            $ref: "#/definitions/RequirementFailure"
 
   ValidationError:
     type: object
@@ -670,6 +677,93 @@ definitions:
     properties:
       reason:
         type: string
+
+  RequirementFailure:
+    oneOf:
+      - title: "ReqSnNumberInvalid"
+        description: >-
+          Received ReqSn containing an invalid snapshot number
+        additionalProperties: false
+        required:
+          - tag
+          - requestedSn
+          - lastSeenSn
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSnNumberInvalid"]
+          requestedSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          lastSeenSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "ReqSnNotLeader"
+        description: >-
+          Received a ReqSn message from some party which is not the leader.
+        additionalProperties: false
+        required:
+          - tag
+          - requestedSn
+          - leader
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSnNotLeader"]
+          requestedSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          leader:
+            $ref: "api.yaml#/components/schemas/Party"
+      - title: "InvalidMultisignature"
+        description: >-
+          Multisignature computed for a snapshot from individual parties signature is invalid.
+        additionalProperties: false
+        required:
+          - tag
+          - multisig
+          - vkeys
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidMultisignature"]
+          multisig:
+            type: string
+          vkeys:
+            type: array
+            items:
+              type: string
+      - title: "SnapshotAlreadySigned"
+        description: >-
+          Received an AckSn from a party that already signed this particular snapshot.
+        additionalProperties: false
+        required:
+          - tag
+          - knownSignatures
+          - receivedSignature
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotAlreadySigned"]
+          knownSignatures:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Party"
+          receivedSignature:
+            $ref: "api.yaml#/components/schemas/Party"
+      - title: "AckSnNumberInvalid"
+        description: >-
+          Received an AckSn for an invalid snapshot number.
+        additionalProperties: false
+        required:
+          - tag
+          - requestedSn
+          - lastSeenSn
+        properties:
+          tag:
+            type: string
+            enum: ["AckSnNumberInvalid"]
+          requestedSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          lastSeenSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
 
   HeadState:
     oneOf:

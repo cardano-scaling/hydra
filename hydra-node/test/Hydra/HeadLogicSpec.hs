@@ -37,6 +37,7 @@ import Hydra.HeadLogic (
   LogicError (..),
   OpenState (..),
   Outcome (..),
+  RequirementFailure (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   defaultTTL,
@@ -52,7 +53,7 @@ import Hydra.Party (Party (..))
 import qualified Hydra.Prelude as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, allVKeys, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -117,7 +118,9 @@ spec = do
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
         update bobEnv ledger s3 (invalidAckFrom bobSk bob)
-          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
+          `shouldSatisfy` \case
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == allVKeys
+            _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let s0 = inOpenState threeParties ledger
@@ -128,7 +131,9 @@ spec = do
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
         update bobEnv ledger s3 (ackFrom (generateSigningKey "foo") bob)
-          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
+          `shouldSatisfy` \case
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == allVKeys
+            _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let s0 = inOpenState threeParties ledger
@@ -142,7 +147,21 @@ spec = do
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (invalidAckFrom bobSk bob)
         update bobEnv ledger s3 (ackFrom aliceSk alice)
-          `shouldBe` Error (RequireFailed "requireVerifiedMultisignature")
+          `shouldSatisfy` \case
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == allVKeys
+            _ -> False
+
+      it "rejects last AckSn if already received signature from this party" $ do
+        let s0 = inOpenState threeParties ledger
+            reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 []
+            snapshot1 = Snapshot 1 mempty []
+            ackFrom sk vk = NetworkEvent defaultTTL $ AckSn vk (sign sk snapshot1) 1
+        s1 <- assertNewState $ update bobEnv ledger s0 reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        update bobEnv ledger s2 (ackFrom carolSk carol)
+          `shouldSatisfy` \case
+            Error (RequireFailed (SnapshotAlreadySigned {receivedSignature})) -> receivedSignature == carol
+            _ -> False
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
         let event = NetworkEvent defaultTTL $ ReqSn alice 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
@@ -161,7 +180,7 @@ spec = do
       it "rejects if we receive a too far future snapshot" $ do
         let event = NetworkEvent defaultTTL $ ReqSn bob 2 []
             st = inOpenState threeParties ledger
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let s0 = inOpenState threeParties ledger
@@ -184,7 +203,7 @@ spec = do
             notTheLeader = bob
             st = inOpenState threeParties ledger
         update bobEnv ledger st event `shouldSatisfy` \case
-          Error RequireFailed{} -> True
+          Error (RequireFailed (ReqSnNotLeader{requestedSn = 1, leader})) -> leader == notTheLeader
           _ -> False
 
       it "rejects too-old snapshots" $ do
@@ -199,7 +218,7 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
                   }
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 2 []
@@ -213,13 +232,13 @@ spec = do
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
         let event = NetworkEvent defaultTTL $ ReqSn theLeader 3 []
             theLeader = carol
             st = inOpenState threeParties ledger
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed "requireReqSn")
+        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let s0 = inOpenState threeParties ledger
