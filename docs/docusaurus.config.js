@@ -127,6 +127,17 @@ const config = {
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
+        id: "specification",
+        path: "specification",
+        routeBasePath: "specification",
+        editUrl,
+        editLocalizedFiles: true,
+      }),
+    ],
+    [
+      "content-docs",
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
         id: "benchmarks",
         path: "benchmarks",
         routeBasePath: "benchmarks",
@@ -168,6 +179,11 @@ const config = {
             position: "left",
           },
           {
+            to: "/specification",
+            label: "Specification",
+            position: "left",
+          },
+           {
             to: "/benchmarks",
             label: "Benchmarks",
             position: "left",

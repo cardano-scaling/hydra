@@ -391,7 +391,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: hydra-spec
-        path: docs/static/
+        path: docs/specification
 
     - name: 📚 Documentation sanity check
       if: github.ref_name != 'master' && github.ref_name != 'release'
