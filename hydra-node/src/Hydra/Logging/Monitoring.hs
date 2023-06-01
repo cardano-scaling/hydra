@@ -26,7 +26,7 @@ import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEvent, EndEffect, EndEvent), event)
+import Hydra.Node (HydraNodeLog (BeginEvent, EndEvent, BeginEffect), event)
 import Hydra.Snapshot (Snapshot (confirmed))
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
@@ -97,7 +97,7 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (EndEffect _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
+  (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do
       let tid = txId tx

@@ -73,8 +73,8 @@ data HydraNode tx m = HydraNode
 data HydraNodeLog tx
   = BeginEvent {by :: Party, eventId :: Word64, event :: Event tx}
   | EndEvent {by :: Party, eventId :: Word64}
-  | BeginEffect {by :: Party, effect :: Effect tx}
-  | EndEffect {by :: Party, effect :: Effect tx}
+  | BeginEffect {by :: Party, eventId :: Word64, effectId :: Word32, effect :: Effect tx}
+  | EndEffect {by :: Party, eventId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   deriving stock (Generic)
 
@@ -114,16 +114,20 @@ stepHydraNode tracer node = do
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  case outcome of
+  effs <- case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
-    Error _ -> return ()
-    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
+    Error _ -> do
+      pure []
+    Wait _reason -> do
+      putEventAfter eq waitDelay (decreaseTTL e)
+      pure []
     NewState s effs -> do
       save s
-      forM_ effs (processEffect node tracer)
-    OnlyEffects effs ->
-      forM_ effs (processEffect node tracer)
+      pure effs
+    OnlyEffects effs -> do
+      pure effs
+  mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
   traceWith tracer EndEvent{by = party, eventId}
  where
   decreaseTTL =
@@ -166,10 +170,11 @@ processEffect ::
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
+  (Word64, Word32) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer e = do
-  traceWith tracer $ BeginEffect party e
+processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer (eventId, effectId) e = do
+  traceWith tracer $ BeginEffect party eventId effectId e
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
@@ -177,7 +182,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
       postTx postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
-  traceWith tracer $ EndEffect party e
+  traceWith tracer $ EndEffect party eventId effectId
 
 -- ** Manage state
 

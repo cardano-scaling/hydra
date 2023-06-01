@@ -447,8 +447,8 @@ spec = parallel $ do
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      logs `shouldContain` [BeginEffect alice 1 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      logs `shouldContain` [EndEffect alice 1 0]
 
     roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
