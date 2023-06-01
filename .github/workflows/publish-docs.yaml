@@ -43,14 +43,23 @@ jobs:
         path: docs-release
         if_no_artifact_found: ignore
 
-    - name: 📥 Download latest unstable docs
+    - name: 📥 Download latest /unstable docs
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: master
+        name: docs-unstable
+        path: docs-unstable
+
+    - name: 📥 Download latest / docs
       uses: dawidd6/action-download-artifact@v2
       with:
         workflow: ci.yaml
         workflow_conclusion: success
         branch: master
         name: docs
-        path: docs-unstable
+        path: docs-master
 
     - name: 🪓 Piece together docs
       run: |
@@ -60,15 +69,15 @@ jobs:
         # Always use monthly reports from master
         # XXX: This depends on languages and assets are annoying
         rm -r public/head-protocol/monthly
-        cp -r public/head-protocol/unstable/monthly public/head-protocol/monthly
+        cp -r docs-master/monthly public/head-protocol/monthly
         rm -r public/head-protocol/ja/monthly
-        cp -r public/head-protocol/unstable/ja/monthly public/head-protocol/monthly
+        cp -r docs-master/ja/monthly public/head-protocol/ja/monthly
         rm -r public/head-protocol/fr/monthly
-        cp -r public/head-protocol/unstable/fr/monthly public/head-protocol/monthly
+        cp -r docs-master/fr/monthly public/head-protocol/fr/monthly
         # XXX: Need to copy assets as well. This will also litter with unrelated assets (js)
-        cp -r public/head-protocol/unstable/assets/* public/head-protocol/assets/
-        cp -r public/head-protocol/unstable/ja/assets/* public/head-protocol/ja/assets/
-        cp -r public/head-protocol/unstable/fr/assets/* public/head-protocol/fr/assets/
+        cp -r docs-master/assets/* public/head-protocol/assets/
+        cp -r docs-master/ja/assets/* public/head-protocol/ja/assets/
+        cp -r docs-master/fr/assets/* public/head-protocol/fr/assets/
 
     - name: 👉 Create redirect
       run: |
