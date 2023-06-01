@@ -405,6 +405,7 @@ jobs:
       working-directory: docs
       run: |
         yarn && yarn build
+        rm -rf public
         mkdir public
         mv build/* public
 
@@ -426,6 +427,7 @@ jobs:
       working-directory: docs
       run: |
         yarn && yarn build
+        rm -rf public
         mkdir public
         mv build/* public
 
