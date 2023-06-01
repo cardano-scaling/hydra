@@ -194,6 +194,16 @@ const config = {
             position: "left",
           },
           {
+            type: 'custom-localDocsVersionDropdown',
+            position: "right",
+            docsPluginId: "specification",
+          },
+          {
+            type: 'custom-localDocsVersionDropdown',
+            position: "right",
+            docsPluginId: "benchmarks",
+          },
+          {
             href: "https://github.com/input-output-hk/hydra",
             label: "GitHub",
             position: "right",
