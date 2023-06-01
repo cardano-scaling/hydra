@@ -24,7 +24,6 @@ import Hydra.API.ServerOutput (
   WithUTxO (..),
   headStatus,
   me,
-  prepareServerOutput,
   projectHeadStatus,
   projectSnapshotUtxo,
   snapshotUtxo,
@@ -276,7 +275,8 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
   sendOutputs chan con outConfig = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse =
-          prepareServerOutput outConfig response
+          reify outConfig $ \(Proxy :: Proxy r) ->
+            (toJSON response :: ToJSON TimedServerOutput r tx)
 
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)

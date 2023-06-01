@@ -167,6 +167,7 @@ library
     , plutus-core
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , prometheus
+    , reflection
     , QuickCheck
     , quickcheck-instances
     , serialise
