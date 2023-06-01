@@ -598,6 +598,7 @@ simulatedChainAndNetwork initialChainState = do
                   Chain
                     { postTx = postTx nodes history chainStateVar
                     , draftTx = \_ -> error "unexpected call to draftTx"
+                    , draftScriptTx = \_ _ _ _ _ -> error "unexpected call to draftScriptTx"
                     }
               , hn = createMockNetwork node nodes
               }
@@ -761,7 +762,12 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
       , ledger
-      , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> error "draftTx not implemented"}
+      , oc =
+          Chain
+            { postTx = \_ -> pure ()
+            , draftTx = \_ -> error "draftTx not implemented"
+            , draftScriptTx = \_ _ _ _ _ -> error "draftTx not implemented"
+            }
       , server =
           Server
             { sendOutput = \out -> atomically $ do

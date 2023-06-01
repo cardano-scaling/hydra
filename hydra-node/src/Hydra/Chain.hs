@@ -22,8 +22,13 @@ import Hydra.Cardano.Api (
   ByronAddr,
   HasTypeProxy (..),
   Lovelace (..),
+  PlutusScript,
+  ScriptDatum,
+  ScriptRedeemer,
   SerialiseAsRawBytes (..),
+  TxIn,
   UsingRawBytesHex (..),
+  WitCtxTxIn,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
@@ -192,6 +197,14 @@ data Chain tx m = Chain
   -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
   -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
   -- possible exceptions are turned into 500 errors
+  , draftScriptTx ::
+      (IsChainState tx, MonadThrow m) =>
+      UTxOType tx ->
+      ScriptDatum WitCtxTxIn ->
+      ScriptRedeemer ->
+      PlutusScript ->
+      [TxIn] ->
+      m (Either (PostTxError tx) tx)
   }
 
 data ChainEvent tx

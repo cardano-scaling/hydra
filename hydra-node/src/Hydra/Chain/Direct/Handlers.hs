@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
   chainPointToSlotNo,
   getChainPoint,
   getTxBody,
-  getTxId,
+  getTxId
  )
 import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.State (
@@ -150,6 +150,18 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
             sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
+          _ -> pure $ Left FailedToDraftTxNotInitializing
+      , draftScriptTx = \scriptUtxo datum redeemer script collateralTxIns -> do
+        -- FIXME: we need to build a script tx
+        chainState <- atomically getLatest
+        case Hydra.Chain.Direct.State.chainState chainState of
+          Initial st ->
+            case commit ctx st scriptUtxo of
+              Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
+              Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
+              Left e -> throwIO e
+              Right commitTx ->
+                Right <$> finalizeTx wallet ctx chainState scriptUtxo commitTx
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
