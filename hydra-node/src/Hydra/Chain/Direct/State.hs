@@ -304,7 +304,7 @@ commit ::
   UTxO ->
   Either (PostTxError Tx) Tx
 commit ctx st utxo = do
-  case ownInitial of
+  case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial -> do
@@ -313,7 +313,8 @@ commit ctx st utxo = do
       rejectMoreThanMainnetLimit networkId utxo
       Right $ commitTx networkId scriptRegistry headId ownParty utxo initial
  where
-  ChainContext{networkId, ownParty, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{networkId, ownParty, scriptRegistry} = ctx
+  InitialState{headId} = st
 
   InitialState
     { initialInitials
@@ -321,49 +322,71 @@ commit ctx st utxo = do
     , headId
     } = st
 
-  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
-  ownInitial =
-    foldl' go Nothing initialInitials
-   where
-    go (Just x) _ = Just x
-    go Nothing (i, out, _) = do
-      let vkh = verificationKeyHash ownVerificationKey
-      guard $ hasMatchingPT vkh (txOutValue out)
-      pure (i, out, vkh)
+-- | Construct a commit a script transaction based on the 'InitialState'.
+--  This does look for "our initial output" to spend and check the given 'UTxO' to be
+-- compatible. Hence, this function does fail if already committed.
+commitScript ::
+  ChainContext ->
+  InitialState ->
+  UTxO ->
+  Either (PostTxError Tx) Tx
+commitScript ctx st utxo = do
+  case ownInitial ctx st of
+    Nothing ->
+      Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
+    Just initial -> do
+      rejectByronAddress utxo
+      rejectReferenceScripts utxo
+      rejectMoreThanMainnetLimit networkId utxo
+      -- FIXME: should build a script tx using rawCommitTxBody and taking more args
+      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial
+ where
+  ChainContext{networkId, ownParty, scriptRegistry} = ctx
+  InitialState{headId} = st
 
-  hasMatchingPT :: Hash PaymentKey -> Value -> Bool
-  hasMatchingPT vkh val =
-    case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
-      [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
-      _ -> False
+ownInitial :: ChainContext -> InitialState -> Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
+ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
+  foldl' go Nothing initialInitials
+ where
+  go (Just x) _ = Just x
+  go Nothing (i, out, _) = do
+    let vkh = verificationKeyHash ownVerificationKey
+    guard $ hasMatchingPT st vkh (txOutValue out)
+    pure (i, out, vkh)
 
-  rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
-  rejectByronAddress u = do
-    forM_ u $ \case
-      (TxOut (ByronAddressInEra addr) _ _ _) ->
-        Left (UnsupportedLegacyOutput addr)
-      (TxOut ShelleyAddressInEra{} _ _ _) ->
-        Right ()
+hasMatchingPT :: InitialState -> Hash PaymentKey -> Value -> Bool
+hasMatchingPT InitialState{initialHeadTokenScript} vkh val =
+  case headTokensFromValue initialHeadTokenScript val of
+    [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
+    _ -> False
 
-  rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
-  rejectReferenceScripts u =
-    when (any hasReferenceScript u) $
-      Left CannotCommitReferenceScript
-   where
-    hasReferenceScript out =
-      case txOutReferenceScript out of
-        ReferenceScript{} -> True
-        ReferenceScriptNone -> False
+rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
+rejectByronAddress u = do
+  forM_ u $ \case
+    (TxOut (ByronAddressInEra addr) _ _ _) ->
+      Left (UnsupportedLegacyOutput addr)
+    (TxOut ShelleyAddressInEra{} _ _ _) ->
+      Right ()
 
-  -- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
-  -- NOTE: Remove this limit once we have more experiments on mainnet.
-  rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
-  rejectMoreThanMainnetLimit network u = do
-    when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
-      Left $
-        CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
-   where
-    lovelaceAmt = foldMap (selectLovelace . txOutValue) u
+rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
+rejectReferenceScripts u =
+  when (any hasReferenceScript u) $
+    Left CannotCommitReferenceScript
+ where
+  hasReferenceScript out =
+    case txOutReferenceScript out of
+      ReferenceScript{} -> True
+      ReferenceScriptNone -> False
+
+-- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
+-- NOTE: Remove this limit once we have more experiments on mainnet.
+rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
+rejectMoreThanMainnetLimit network u = do
+  when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
+    Left $
+      CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
+ where
+  lovelaceAmt = foldMap (selectLovelace . txOutValue) u
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
