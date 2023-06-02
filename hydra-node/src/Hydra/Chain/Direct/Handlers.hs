@@ -18,12 +18,15 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  LedgerEpochInfo,
+  ProtocolParameters,
+  SystemStart,
   Tx,
   TxId,
   chainPointToSlotNo,
   getChainPoint,
   getTxBody,
-  getTxId
+  getTxId,
  )
 import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.State (
@@ -122,8 +125,11 @@ mkChain ::
   ChainContext ->
   LocalChainState m ->
   SubmitTx m ->
+  ProtocolParameters ->
+  SystemStart ->
+  LedgerEpochInfo ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pparams systemStart epochInfo =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -151,7 +157,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           Initial st ->
             sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
           _ -> pure $ Left FailedToDraftTxNotInitializing
-      , draftScriptTx = \scriptUtxo datum redeemer script collateralTxIns -> do
+    , draftScriptTx = \scriptUtxo datum redeemer script collateralTxIns -> do
         -- FIXME: we need to build a script tx
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of

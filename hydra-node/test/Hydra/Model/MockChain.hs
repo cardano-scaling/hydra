@@ -21,6 +21,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
+import Data.Default (def)
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
@@ -42,7 +43,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, TimeHandleParams (..), genTimeParams)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -221,8 +222,9 @@ createMockChain ::
   LocalChainState m ->
   Chain Tx m
 createMockChain tracer ctx submitTx timeHandle seedInput chainState =
-  -- NOTE: The wallet basically does nothing
-  let wallet =
+  let TimeHandleParams{systemStart, eraHistory} = genTimeParams `generateWith` 42
+      -- NOTE: The wallet basically does nothing
+      wallet =
         TinyWallet
           { getUTxO = pure mempty
           , getSeedInput = pure (Just seedInput)
@@ -231,7 +233,18 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , reset = pure ()
           , update = \_ _ -> pure ()
           }
-   in mkChain tracer timeHandle wallet ctx chainState submitTx
+   in mkChain
+        tracer
+        timeHandle
+        wallet
+        ctx
+        chainState
+        submitTx
+        defaultProtocolParameters
+        systemStart
+        (toLedgerEpochInfo eraHistory)
+ where
+  defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
 mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
