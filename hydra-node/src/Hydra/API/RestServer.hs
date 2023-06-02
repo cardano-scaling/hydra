@@ -59,7 +59,7 @@ instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
 data ScriptInfo = ScriptInfo
   { redeemer :: HashableScriptData
   , datum :: HashableScriptData
-  , script :: Hydra.Cardano.Api.PlutusScript
+  , script :: PlutusScript
   , collateralTxIns :: [TxIn]
   }
   deriving stock (Show, Eq, Generic)
