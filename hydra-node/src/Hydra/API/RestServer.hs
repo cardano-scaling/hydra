@@ -105,7 +105,7 @@ instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
     DraftCommitTxRequest xs si -> DraftCommitTxRequest <$> shrink xs <*> shrink si
 
 -- * Orphans
-instance Arbitrary Hydra.Cardano.Api.PlutusScript where
+instance Arbitrary PlutusScript where
   arbitrary = do
     word8 :: ShortByteString <- arbitrary
-    pure $ Hydra.Cardano.Api.PlutusScriptSerialised word8
+    pure $ PlutusScriptSerialised word8

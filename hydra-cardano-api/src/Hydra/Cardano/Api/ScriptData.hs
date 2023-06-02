@@ -107,6 +107,7 @@ instance ToJSON HashableScriptData where
 instance FromJSON HashableScriptData where
   parseJSON = fmap unsafeHashableScriptData . parseJSON
 
+-- XXX: Incomplete arbitrary instance
 instance Arbitrary HashableScriptData where
   arbitrary = do
     unsafeHashableScriptData . ScriptDataNumber <$> arbitrary
