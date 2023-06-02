@@ -43,7 +43,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, TimeHandleParams (..), genTimeParams)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -222,9 +222,8 @@ createMockChain ::
   LocalChainState m ->
   Chain Tx m
 createMockChain tracer ctx submitTx timeHandle seedInput chainState =
-  let TimeHandleParams{systemStart, eraHistory} = genTimeParams `generateWith` 42
-      -- NOTE: The wallet basically does nothing
-      wallet =
+  -- NOTE: The wallet basically does nothing
+  let wallet =
         TinyWallet
           { getUTxO = pure mempty
           , getSeedInput = pure (Just seedInput)
@@ -241,8 +240,6 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
         chainState
         submitTx
         defaultProtocolParameters
-        systemStart
-        (toLedgerEpochInfo eraHistory)
  where
   defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
 

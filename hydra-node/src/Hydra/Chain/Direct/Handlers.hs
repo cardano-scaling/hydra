@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -15,18 +16,25 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import qualified Data.List as List
 import Hydra.Cardano.Api (
   BlockHeader,
+  BuildTxWith (BuildTxWith),
   ChainPoint (..),
-  LedgerEpochInfo,
   ProtocolParameters,
-  SystemStart,
+  ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
   TxId,
+  addTxIn,
   chainPointToSlotNo,
   getChainPoint,
   getTxBody,
   getTxId,
+  mkScriptWitness,
+  setTxInsCollateral,
+  setTxProtocolParams,
+  pattern ScriptWitness,
+  pattern TxInsCollateral,
  )
 import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.State (
@@ -52,6 +60,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
+import Hydra.Ledger.Cardano (unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -127,10 +136,8 @@ mkChain ::
   LocalChainState m ->
   SubmitTx m ->
   ProtocolParameters ->
-  SystemStart ->
-  LedgerEpochInfo ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pparams systemStart epochInfo =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pparams =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -166,7 +173,18 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
               Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
-              Right commitScriptTx ->
+              Right commitScriptTxBody -> do
+                let scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
+                    scriptWitness =
+                      BuildTxWith $
+                        ScriptWitness ScriptWitnessForSpending $
+                          mkScriptWitness script datum redeemer
+                let commitScriptTx =
+                      unsafeBuildTransaction $
+                        commitScriptTxBody
+                          & addTxIn (scriptTxIn, scriptWitness)
+                          & setTxInsCollateral (TxInsCollateral collateralTxIns)
+                          & setTxProtocolParams (BuildTxWith $ Just pparams)
                 Right <$> finalizeTx wallet ctx chainState scriptUtxo commitScriptTx
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }

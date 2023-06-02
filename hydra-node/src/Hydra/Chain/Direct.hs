@@ -48,7 +48,6 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   shelleyBasedEra,
-  toLedgerEpochInfo,
   toLedgerPParams,
   toLedgerUTxO,
  )
@@ -202,8 +201,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateAt
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-  systemStart <- querySystemStart networkId nodeSocket QueryTip
-  epochInfo <- toLedgerEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+
   let chainHandle =
         mkChain
           tracer
@@ -213,8 +211,6 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
           localChainState
           (submitTx queue)
           pparams
-          systemStart
-          epochInfo
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-

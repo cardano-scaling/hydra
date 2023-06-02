@@ -11,9 +11,7 @@ import CardanoClient (
   QueryPoint (QueryTip),
   awaitTransaction,
   buildTransaction,
-  queryEraHistory,
   queryProtocolParameters,
-  querySystemStart,
   queryTip,
   submitTransaction,
   submitTx,
@@ -23,47 +21,32 @@ import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
-import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..))
 import Hydra.Cardano.Api (
   AddressInEra,
-  BuildTxWith (BuildTxWith),
   Key (SigningKey, getVerificationKey),
   Lovelace (..),
   PaymentKey,
   PlutusScriptV2,
   ProtocolParameters,
-  ScriptDatum (ScriptDatumForTxIn),
-  ScriptWitnessInCtx (ScriptWitnessForSpending),
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   Tx,
   TxId,
   UTxO,
-  addTxIn,
-  balancedTxBody,
-  defaultTxBodyContent,
   fromPlutusScript,
   makeShelleyKeyWitness,
   makeSignedTransaction,
-  makeTransactionBodyAutoBalance,
   mkScriptAddress,
-  mkScriptWitness,
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
   selectLovelace,
-  setTxInsCollateral,
-  setTxProtocolParams,
-  signShelleyTransaction,
   throwErrorAsException,
-  toLedgerEpochInfo,
   toScriptData,
   txOutAddress,
   txOutValue,
   pattern ReferenceScriptNone,
-  pattern ScriptWitness,
-  pattern TxInsCollateral,
  )
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
@@ -307,64 +290,29 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       scriptUtxo <- createScriptOutput pparams scriptAddress someSk normalUTxO
       colateralUTxO <- seedFromFaucet node someVk 20_000_000 Normal (contramap FromFaucet tracer)
 
-      let redeemer = toScriptData ()
-          datum = ScriptDatumForTxIn $ toScriptData ()
-
-      let scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
-          scriptWitness =
-            BuildTxWith $
-              ScriptWitness ScriptWitnessForSpending $
-                mkScriptWitness script datum redeemer
+      -- Request to build a draft commit tx from hydra-node
+      let reedemer = toScriptData () -- ScriptDataBytes mempty
+          datum = toScriptData () -- ScriptDataBytes mempty
           collateralTxIns = fst <$> UTxO.pairs colateralUTxO
+          scriptInfo = ScriptInfo reedemer datum script collateralTxIns
+          clientPayload = DraftCommitTxRequest @Tx scriptUtxo (Just scriptInfo)
 
-      -- TODO: temporary sanity check: Spend the script on L1
-      let body =
-            defaultTxBodyContent
-              & addTxIn (scriptTxIn, scriptWitness)
-              & setTxInsCollateral (TxInsCollateral collateralTxIns)
-              & setTxProtocolParams (BuildTxWith $ Just pparams)
+      response <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+            (port $ 4000 + hydraNodeId)
 
-      systemStart <- querySystemStart networkId nodeSocket QueryTip
-      epochInfo <- toLedgerEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+      responseStatusCode response `shouldBe` 200
 
-      let changeAddress = mkVkAddress networkId someVk
-          balancedBody =
-            makeTransactionBodyAutoBalance
-              systemStart
-              epochInfo
-              pparams
-              mempty
-              (UTxO.toApi $ scriptUtxo <> normalUTxO)
-              body
-              changeAddress
-              Nothing
-              & \case
-                Left e -> error (show e)
-                Right res -> balancedTxBody res
+      let DraftCommitTxResponse commitTx = responseBody response
 
-      let spendScriptTx = signShelleyTransaction balancedBody [WitnessPaymentKey someSk]
-      submitTransaction networkId nodeSocket spendScriptTx
-
-      -- -- Request to build a draft commit tx from hydra-node
-      -- let reedemer = ScriptDataBytes mempty
-      --     datum = ScriptDataBytes mempty
-      --     clientPayload = DraftCommitTxRequest @Tx scriptUtxo -- reedemer datum script
-      -- response <-
-      --   runReq defaultHttpConfig $
-      --     req
-      --       POST
-      --       (http "127.0.0.1" /: "commit")
-      --       (ReqBodyJson clientPayload)
-      --       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-      --       (port $ 4000 + hydraNodeId)
-
-      -- responseStatusCode response `shouldBe` 200
-
-      -- let DraftCommitTxResponse commitTx = responseBody response
-
-      -- -- sign and submit the tx with our external user key
-      -- let signedCommitTx = signWith someSk commitTx
-      -- submitTransaction networkId nodeSocket signedCommitTx
+      -- sign and submit the tx with our external user key
+      let signedCommitTx = signWith someSk commitTx
+      submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= scriptUtxo, "headId" .= headId]
