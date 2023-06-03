@@ -48,6 +48,7 @@ import Hydra.Ledger (
   IsTx,
   Ledger (..),
   UTxOType,
+  TxIdType,
   ValidationError,
   applyTransactions,
   txId,
@@ -372,15 +373,20 @@ deriving instance (IsTx tx, IsChainState tx) => FromJSON (Outcome tx)
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
 
-data WaitReason
+data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
+  | WaitOnSeenTx {unseenTxId :: TxIdType tx}
   | WaitOnContestationDeadline
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
 
-instance Arbitrary WaitReason where
+deriving instance (IsTx tx) => Eq (WaitReason tx)
+deriving instance (IsTx tx) => Show (WaitReason tx)
+deriving instance (IsTx tx) => ToJSON (WaitReason tx)
+deriving instance (IsTx tx) => FromJSON (WaitReason tx)
+
+instance IsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary
 
 data Environment = Environment
