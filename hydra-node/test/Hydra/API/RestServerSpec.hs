@@ -23,7 +23,7 @@ spec = parallel $ do
 
   roundtripAndGoldenSpecsWithSettings
     settings
-    (Proxy @(ReasonablySized (DraftCommitTxRequest SimpleTx)))
+    (Proxy @(ReasonablySized (DraftCommitTxResponse SimpleTx)))
 
   roundtripAndGoldenSpecsWithSettings
     settings
@@ -31,7 +31,7 @@ spec = parallel $ do
 
   roundtripAndGoldenSpecsWithSettings
     settings
-    (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
+    (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
 
 settings :: Settings
 settings =

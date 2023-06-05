@@ -416,7 +416,6 @@
             }
         },
         {
-            "contestationPeriod": 43200,
             "tag": "Init"
         },
         {
@@ -1760,14 +1759,12 @@
             }
         },
         {
-            "contestationPeriod": 86400,
             "tag": "Init"
         },
         {
             "tag": "GetUTxO"
         },
         {
-            "contestationPeriod": 31536000,
             "tag": "Init"
         },
         {
@@ -3381,7 +3378,6 @@
             }
         },
         {
-            "contestationPeriod": 2592000,
             "tag": "Init"
         },
         {
@@ -4907,7 +4903,6 @@
             "tag": "Fanout"
         },
         {
-            "contestationPeriod": 86400,
             "tag": "Init"
         },
         {
@@ -6571,7 +6566,6 @@
             }
         },
         {
-            "contestationPeriod": 2592000,
             "tag": "Init"
         },
         {
@@ -6669,11 +6663,9 @@
             }
         },
         {
-            "contestationPeriod": 31536000,
             "tag": "Init"
         },
         {
-            "contestationPeriod": 2592000,
             "tag": "Init"
         },
         {
@@ -7507,7 +7499,6 @@
             }
         },
         {
-            "contestationPeriod": 604800,
             "tag": "Init"
         },
         {
@@ -7533,7 +7524,6 @@
             "tag": "Fanout"
         },
         {
-            "contestationPeriod": 31536000,
             "tag": "Init"
         },
         {
@@ -7715,7 +7705,6 @@
             }
         },
         {
-            "contestationPeriod": 2417,
             "tag": "Init"
         },
         {
@@ -8059,7 +8048,6 @@
             }
         },
         {
-            "contestationPeriod": 86400,
             "tag": "Init"
         },
         {
@@ -9674,11 +9662,9 @@
             "tag": "Close"
         },
         {
-            "contestationPeriod": 2592000,
             "tag": "Init"
         },
         {
-            "contestationPeriod": 43200,
             "tag": "Init"
         },
         {
@@ -9697,7 +9683,6 @@
             "tag": "Fanout"
         },
         {
-            "contestationPeriod": 52986,
             "tag": "Init"
         },
         {
@@ -10371,7 +10356,6 @@
             "tag": "Fanout"
         },
         {
-            "contestationPeriod": 5418,
             "tag": "Init"
         },
         {
@@ -10414,11 +10398,9 @@
             }
         },
         {
-            "contestationPeriod": 2592000,
             "tag": "Init"
         },
         {
-            "contestationPeriod": 604800,
             "tag": "Init"
         },
         {
@@ -10570,7 +10552,6 @@
             }
         },
         {
-            "contestationPeriod": 604800,
             "tag": "Init"
         },
         {

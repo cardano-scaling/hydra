@@ -1,7 +1,7 @@
 asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: '0.10.0'
+  version: '0.11.0'
   description: |
     WebSocket/HTTP API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
 
@@ -112,22 +112,51 @@ channels:
           - $ref: "#/components/messages/Fanout"
 
   /commit:
-    description: Main entry point for the HTTP server in Hydra service.
+    description: Main entry point to draft commit transaction in Hydra service.
     servers:
       - localhost-http
     subscribe:
-      summary: Hydra node HTTP server responses.
-      operationId: restServerOutput
+      summary: Hydra node drafted commit transaction responses.
+      operationId: draftCommitTxResponse
       message:
-        oneOf:
-          - $ref: "#/components/messages/DraftCommitTxResponse"
-
+        $ref: "#/components/messages/DraftCommitTxResponse"
+      bindings:
+        http:
+          type: response
+          method: POST
+          query:
+            type: object
+            required:
+              - tag
+              - commitTx
+            properties:
+              tag:
+                type: string
+              commitTx:
+                type: string
+            additionalProperties: false
+          bindingVersion: '0.1.0'
     publish:
-      summary: Requests sent to the Hydra node.
-      operationId: restClientInput
+      summary: Requests sent to the Hydra node to draft a commit transactions.
+      operationId: draftCommitTxRequest
       message:
-        oneOf:
-          - $ref: "#/components/messages/DraftCommitTxRequest"
+        $ref: "#/components/messages/DraftCommitTxRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          query:
+            type: object
+            required:
+              - tag
+              - utxo
+            properties:
+              tag:
+                type: string
+              utxo:
+                $ref: "#/components/schemas/UTxO"
+            additionalProperties: false
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########

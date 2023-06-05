@@ -39,7 +39,7 @@ instance
             case decodeFull' commitTx of
               Left err -> fail $ show err
               Right v -> pure $ DraftCommitTxResponse v
-      _ -> fail "Expected tag to be PubKeyHash"
+      _ -> fail "Expected tag to be DraftCommitTxResponse"
 
 instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
   arbitrary = genericArbitrary
@@ -54,8 +54,26 @@ newtype DraftCommitTxRequest tx = DraftCommitTxRequest
 
 deriving newtype instance IsTx tx => Eq (DraftCommitTxRequest tx)
 deriving newtype instance IsTx tx => Show (DraftCommitTxRequest tx)
-deriving anyclass instance IsTx tx => ToJSON (DraftCommitTxRequest tx)
-deriving anyclass instance IsTx tx => FromJSON (DraftCommitTxRequest tx)
+
+instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
+  toJSON (DraftCommitTxRequest utxo) =
+    object
+      [ "tag" .= String "DraftCommitTxRequest"
+      , "utxo" .= toJSON utxo
+      ]
+
+instance
+  (IsTx tx, FromCBOR tx) =>
+  FromJSON (DraftCommitTxRequest tx)
+  where
+  parseJSON = withObject "DraftCommitTxRequest" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "DraftCommitTxRequest" -> do
+        utxo :: (UTxOType tx) <- o .: "utxo"
+        pure $ DraftCommitTxRequest utxo
+      _ -> fail "Expected tag to be DraftCommitTxRequest"
+
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary

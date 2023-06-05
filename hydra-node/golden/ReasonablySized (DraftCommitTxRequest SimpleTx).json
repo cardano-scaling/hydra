@@ -1,22 +1,133 @@
 {
     "samples": [
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                -5,
+                -4,
+                0,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -4,
+                -2,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                4,
                 6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
-                -5,
-                -4,
+                -2,
                 -1
             ]
         },
         {
-            "utxo": []
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                4
+            ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -4,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                -1,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5,
                 -2,
@@ -25,1245 +136,1414 @@
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                1,
-                5,
-                6
+                -2
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -3,
+                -2,
+                -1,
+                1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": []
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -1,
-                0,
+                -6,
+                2,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
                 1,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                3,
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                0,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0,
+                2,
                 5,
                 6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5,
+                -2,
+                3,
+                5,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                0,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -3,
+                -1,
+                1,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                0,
+                2,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
                 -4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                2,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -4,
+                -3,
+                -2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -2,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                0
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                -1,
+                0,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -3,
+                -2,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                2,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
+                0,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                1,
+                2,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -3,
+                -2,
+                -1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
                 -3,
+                -1,
+                0,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -1,
                 1,
                 4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                1,
+                2,
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                3,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                0,
+                2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -1,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -2,
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -2,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
+                -5,
+                0,
+                1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                1,
+                2,
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                2,
+                3,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -5,
                 -2,
                 4,
                 5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -5,
+                -2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5,
+                -1,
+                1,
                 6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -6,
                 -4,
+                -2,
                 3
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -2,
+                -6,
+                -3,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
                 -1,
                 0,
-                3
+                1,
+                3,
+                6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -4,
+                -6,
                 -1,
                 2
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -4,
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
                 0,
-                3,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -3,
-                -1,
-                1,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                6
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -4
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                3,
-                4,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -5,
-                -3,
-                -2,
-                3
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                0
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                -2,
-                2,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                -2,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                -3,
                 1,
                 4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -2,
-                -1,
-                6
+                -3,
+                2,
+                4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                0,
+                1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -3,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                1,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -1,
                 2,
                 5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -1,
-                6
+                1,
+                5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
+                -3,
                 -2,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -4,
-                0,
-                3
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -5,
                 -1,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                0,
-                2,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                0,
-                2,
-                4,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                1,
-                2
-            ]
-        },
-        {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
                 4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
                 -5,
-                4
-            ]
-        },
-        {
-            "utxo": [
                 -2,
-                0,
+                2,
                 5
             ]
         },
         {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -2,
-                3,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -5,
                 -1,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -2,
-                3,
+                1,
                 5,
                 6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
-                -2,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -5,
-                -3,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                -2,
-                -1,
-                1,
-                4
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -6,
-                -3,
-                3
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -4,
-                -1,
-                3,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -3,
-                -2,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                1,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -6
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                1,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                1,
-                3,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                0
-            ]
-        },
-        {
-            "utxo": [
-                0,
                 2
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                -6,
                 0,
                 1
             ]
         },
         {
-            "utxo": []
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5,
-                -4,
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -4,
                 -3,
-                -2,
-                -1,
-                3,
-                6
+                3
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                0,
+                -5,
+                -3,
+                -1,
                 4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
-                -3,
                 -2,
+                -1,
+                2,
                 5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
+                1,
+                3,
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
                 -3,
                 -2,
-                2,
-                4
+                -1,
+                1
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                -6,
                 -5,
-                3,
-                4
+                -4,
+                -2,
+                3
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -2
             ]
         },
         {
-            "utxo": [
-                -2,
-                5
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
-                -3,
-                4,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                0,
-                3,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                -2,
-                1,
-                6
-            ]
-        },
-        {
-            "utxo": [
                 -4,
-                -2,
-                3,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                1,
-                2,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -1,
-                0,
-                5
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -5,
-                2,
-                5
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -3,
                 -1,
                 0,
                 1
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -3,
-                -1,
-                0,
-                3,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -4,
-                -3,
+                -5,
                 -2,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                6
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -3
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -5,
-                1,
-                2,
-                4
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -4,
-                -3,
-                3,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -4
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -1,
-                4
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -4,
-                -1,
                 2,
                 6
             ]
         },
         {
-            "utxo": [
-                -5,
-                1,
-                2,
-                4,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                4
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": []
         },
         {
-            "utxo": [
-                -6,
-                -3,
-                0,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -1,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -4,
-                -2,
-                -1,
-                0
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -2,
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -2,
-                1,
-                3,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                -3,
-                0,
-                1,
-                6
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -6,
-                -2,
-                -1,
-                4,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
                 2
             ]
         },
         {
-            "utxo": [
-                0,
-                2
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -5,
-                -1,
-                1,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                5
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -4,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                -2,
-                -1
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -1,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                2,
-                3,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                -2,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                0,
-                2,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                -2,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                1,
-                2
-            ]
-        },
-        {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4,
-                -3,
-                0,
-                3
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
                 -2,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -4,
-                -3,
-                -1,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                0,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -2,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                0,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                2
-            ]
-        },
-        {
-            "utxo": [
-                -4
-            ]
-        },
-        {
-            "utxo": [
-                -2,
-                1,
                 2,
                 4
             ]
         },
         {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                1,
-                2,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -4
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -4,
-                -1,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                1,
-                2,
-                4,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                -2,
-                5
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -3
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -3,
-                -1,
-                0,
-                2,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -3,
-                1
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                0,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -3,
-                1,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                0,
-                4
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -3,
-                -2,
-                3,
-                5,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                -2
-            ]
-        },
-        {
-            "utxo": [
-                -5,
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                0,
-                2
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -1,
-                3
-            ]
-        },
-        {
-            "utxo": [
-                -4
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -3,
+                -4,
+                3,
+                4,
                 6
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -4,
-                0
-            ]
-        },
-        {
-            "utxo": [
-                -4,
-                -2,
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -3
-            ]
-        },
-        {
-            "utxo": [
-                1,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -2,
-                1,
-                2
-            ]
-        },
-        {
-            "utxo": [
-                2
-            ]
-        },
-        {
-            "utxo": [
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -5,
                 -1,
+                4,
                 5
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                -6,
                 -5,
-                0,
-                2,
-                3,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -3,
-                1,
-                3,
-                6
-            ]
-        },
-        {
-            "utxo": [
-                -6,
                 -4,
-                0,
-                3,
-                6
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                -4,
-                -3,
-                2
-            ]
-        },
-        {
-            "utxo": [
-                -1
-            ]
-        },
-        {
-            "utxo": [
-                -6,
-                -3,
-                -2,
-                0
-            ]
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": []
-        },
-        {
-            "utxo": [
-                0,
-                2,
-                5
-            ]
-        },
-        {
-            "utxo": [
-                -2
-            ]
-        },
-        {
-            "utxo": [
-                -2,
-                0,
-                1,
-                2,
                 4
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
-                -6,
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                1,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
                 -3,
                 -1,
-                6
+                1,
+                3,
+                5
             ]
         },
         {
-            "utxo": [
-                -3
-            ]
-        },
-        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -2
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                5,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
                 -6,
                 -5,
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -3,
+                -2,
+                3,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -4,
+                0,
+                3,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -3,
+                -2,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
+                -2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -1,
+                0
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -1,
+                1,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
                 -1,
                 2,
                 3
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxo": [
+                1,
+                3,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                2,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                -1,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                0,
+                1,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
+                -1,
+                1,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -3,
+                0,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                -3,
                 -2
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -2,
+                2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
             "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -2,
+                0,
+                2,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -3,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                0,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                2
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -3,
+                0,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                0
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -5,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -1,
+                3,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -3,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                -2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                5,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                1,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -4,
+                -3,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -3,
+                0,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -3,
+                -1,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -3,
+                2,
+                4,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                -5,
+                -1,
+                2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": []
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -1,
+                1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                0,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                3,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                2,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                -2,
+                1,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -1,
+                5
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -5,
+                -4,
+                2,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                4,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -6,
+                1,
+                3,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                1,
+                2,
+                4
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -4,
+                -3,
+                -1,
+                3
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                -2,
+                2,
+                6
+            ]
+        },
+        {
+            "tag": "DraftCommitTxRequest",
+            "utxo": [
+                2
+            ]
         }
     ],
-    "seed": -1376947491
+    "seed": 1275784302
 }
