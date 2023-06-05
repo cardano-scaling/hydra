@@ -16,7 +16,8 @@ This month the team released version 0.10.0 which includes many important featur
 The project [roadmap](https://github.com/orgs/input-output-hk/projects/21) was
 only slightly updated this month and already saw one more feature completed:
 
-![The roadmap without idea items](./img/2023-05-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
+![The roadmap without idea items](./img/2023-05-roadmap-ex-ideas.png)
+<small><center>The roadmap without idea items</center></small>
 
 #### Release 0.10.0
 
