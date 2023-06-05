@@ -1,9 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
 import Hydra.Prelude
 
+import Data.Default (def)
+import Data.Reflection (reify)
 import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
@@ -103,13 +106,13 @@ main = do
           let RunOptions{host, port, peers, nodeId} = opts
           withNetwork (contramap Network tracer) host port peers nodeId (putEvent . NetworkEvent defaultTTL) $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
-
-            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent . ClientEvent) $ \server -> do
-              let RunOptions{ledgerConfig} = opts
-              withCardanoLedger ledgerConfig chainConfig $ \ledger ->
-                runHydraNode (contramap Node tracer) $
-                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
+            reify def $ \(Proxy :: Proxy r) -> do
+              apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+              withAPIServer @r apiHost apiPort party apiPersistence (contramap APIServer tracer) (putEvent . ClientEvent) $ \server -> do
+                let RunOptions{ledgerConfig} = opts
+                withCardanoLedger ledgerConfig chainConfig $ \ledger ->
+                  runHydraNode (contramap Node tracer) $
+                    HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)

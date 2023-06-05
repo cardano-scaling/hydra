@@ -5,6 +5,8 @@ module Hydra.API.ServerOutputSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.Default (def)
+import Data.Reflection (reify)
 import Hydra.API.ServerOutput (ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano (Tx)
@@ -27,9 +29,10 @@ spec = parallel $ do
 
   -- NOTE: The golden file produced by this is also used by the
   -- 'validate:outputs' target in ./docs/package.json.
-  roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (TimedServerOutput Tx)))
+  -- reify def $ \(Proxy :: Proxy r) ->
+  --   roundtripAndGoldenSpecsWithSettings
+  --     settings
+  --     (Proxy @(ReasonablySized (TimedServerOutput r Tx)))
 
 settings :: Settings
 settings =

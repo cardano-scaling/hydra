@@ -13,6 +13,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import Data.Reflection (Reifies, reify)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
@@ -22,6 +23,7 @@ import Hydra.API.ServerOutput (
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
+  WrappedServerOutput (WrappedServerOutput, unWrapped),
   headStatus,
   me,
   projectHeadStatus,
@@ -93,12 +95,12 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
-  forall tx.
-  (IsChainState tx) =>
+  forall r tx.
+  (IsChainState tx, Reifies r ServerOutputConfig) =>
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
+  PersistenceIncremental r (TimedServerOutput r tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
@@ -106,8 +108,8 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   timedOutputEvents <- reverse <$> loadAll
 
   -- Intialize our read model from stored events
-  headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-  snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
+  headStatusP <- mkProjection Idle (unWrapped . output <$> timedOutputEvents) projectHeadStatus
+  snapshotUtxoP <- mkProjection Nothing (unWrapped . output <$> timedOutputEvents) projectSnapshotUtxo
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
@@ -120,7 +122,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
         action $
           Server
             { sendOutput = \output -> do
-                timedOutput <- appendToHistory history output
+                timedOutput <- appendToHistory history (WrappedServerOutput output)
                 atomically $ do
                   update headStatusP output
                   update snapshotUtxoP output
@@ -138,7 +140,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
     append timedOutput
     pure timedOutput
 
-nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
+nextSequenceNumber :: TVar [TimedServerOutput r tx] -> STM.STM Natural
 nextSequenceNumber historyList =
   STM.readTVar historyList >>= \case
     [] -> pure 0
@@ -156,19 +158,19 @@ setupServerNotification = do
   pure (putMVar mv (), takeMVar mv)
 
 runAPIServer ::
-  forall tx.
-  (IsChainState tx) =>
+  forall r tx.
+  (IsChainState tx, Reifies r ServerOutputConfig) =>
   IP ->
   PortNumber ->
   Party ->
   Tracer IO APIServerLog ->
-  TVar [TimedServerOutput tx] ->
+  TVar [TimedServerOutput r tx] ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
-  TChan (TimedServerOutput tx) ->
+  TChan (TimedServerOutput r tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
@@ -194,6 +196,7 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     traceWith tracer NewAPIConnection
     let path = requestPath $ pendingRequest pending
     queryParams <- uriQuery <$> mkURIBs path
+    let outConfig = mkServerOutputConfig queryParams
     con <- acceptRequest pending
     chan <- STM.atomically $ dupTChan responseChannel
 
@@ -202,8 +205,6 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
       forwardHistory con
 
     forwardGreetingOnly con
-
-    let outConfig = mkServerOutputConfig queryParams
 
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
@@ -225,12 +226,13 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
           { time
           , seq
           , output =
-              Greetings
-                { me = party
-                , headStatus
-                , snapshotUtxo
-                } ::
-                ServerOutput tx
+              WrappedServerOutput
+                Greetings
+                  { me = party
+                  , headStatus
+                  , snapshotUtxo
+                  } ::
+                WrappedServerOutput r tx
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
@@ -275,8 +277,8 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
   sendOutputs chan con outConfig = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse =
-          reify outConfig $ \(Proxy :: Proxy r) ->
-            (toJSON response :: ToJSON TimedServerOutput r tx)
+          reify outConfig $ \_ ->
+            Aeson.encode $ toJSON (response :: TimedServerOutput r tx)
 
     sendTextData con sentResponse
     traceWith tracer (APIOutputSent $ toJSON response)
@@ -293,7 +295,7 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
         time <- getCurrentTime
         seq <- atomically $ nextSequenceNumber history
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
+        let timedOutput = TimedServerOutput{output = WrappedServerOutput @r (InvalidInput @tx e clientInput), time, seq}
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 

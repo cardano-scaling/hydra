@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.PersistenceSpec where
 
 import Hydra.Prelude hiding (label)
@@ -5,7 +7,10 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (Value (..))
 import qualified Data.Aeson as Aeson
+import Data.Default (def)
+import Data.Reflection (reify)
 import qualified Data.Text as Text
+import Hydra.API.ServerOutput (ServerOutputConfig)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, (===))
 import Test.QuickCheck.Gen (listOf)
@@ -34,11 +39,12 @@ spec = do
 
   describe "PersistenceIncremental" $ do
     it "can handle empty files" $ do
-      withTempDir "hydra-persistence" $ \tmpDir -> do
-        let fp = tmpDir <> "/data"
-        writeFileBS fp ""
-        PersistenceIncremental{loadAll} <- createPersistenceIncremental fp
-        loadAll `shouldReturn` ([] :: [Aeson.Value])
+      withTempDir "hydra-persistence" $ \tmpDir ->
+        reify (def :: ServerOutputConfig) $ \(Proxy :: Proxy r) -> do
+          let fp = tmpDir <> "/data"
+          writeFileBS fp ""
+          PersistenceIncremental{loadAll} <- createPersistenceIncremental @r fp
+          loadAll `shouldReturn` ([] :: [Aeson.Value])
 
     it "is consistent after multiple append calls in presence of new-lines" $
       checkCoverage $
@@ -48,10 +54,11 @@ spec = do
           monitor (cover 10 (containsNewLine items) "some item contains a new line")
 
           actualResult <- run $
-            withTempDir "hydra-persistence" $ \tmpDir -> do
-              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
-              forM_ items append
-              loadAll
+            withTempDir "hydra-persistence" $ \tmpDir ->
+              reify (def :: ServerOutputConfig) $ \(Proxy :: Proxy r) -> do
+                PersistenceIncremental{loadAll, append} <- createPersistenceIncremental @r $ tmpDir <> "/data"
+                forM_ items append
+                loadAll
           pure $ actualResult === items
 
 genPersistenceItem :: Gen Aeson.Value

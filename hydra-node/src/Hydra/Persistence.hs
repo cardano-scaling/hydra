@@ -7,6 +7,8 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
+import Data.Reflection (Reifies)
+import Hydra.API.ServerOutput (ServerOutputConfig)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
@@ -47,16 +49,17 @@ createPersistence fp = do
       }
 
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
-data PersistenceIncremental a m = PersistenceIncremental
-  { append :: ToJSON a => a -> m ()
+data PersistenceIncremental r a m = PersistenceIncremental
+  { append :: (ToJSON a, Reifies r ServerOutputConfig) => a -> m ()
   , loadAll :: FromJSON a => m [a]
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 createPersistenceIncremental ::
-  (MonadIO m, MonadThrow m) =>
+  forall r m a.
+  (MonadIO m, MonadThrow m, Reifies r ServerOutputConfig) =>
   FilePath ->
-  m (PersistenceIncremental a m)
+  m (PersistenceIncremental r a m)
 createPersistenceIncremental fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
   pure $

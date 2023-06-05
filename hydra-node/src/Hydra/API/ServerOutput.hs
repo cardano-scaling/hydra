@@ -16,19 +16,26 @@ import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot (Snapshot, confirmed, number, utxo), SnapshotNumber)
+import Data.Default (Default (def))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput r tx = TimedServerOutput
-  { output :: ServerOutput r tx
+  { output :: WrappedServerOutput r tx
   , seq :: Natural
   , time :: UTCTime
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary (ServerOutput r tx) => Arbitrary (TimedServerOutput r tx) where
+instance
+  (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ServerOutput tx)) =>
+  Arbitrary (TimedServerOutput r tx)
+  where
   arbitrary = genericArbitrary
 
-instance (ToJSON tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (TimedServerOutput r tx) where
+instance
+  (ToJSON tx, IsChainState tx, Reifies r ServerOutputConfig) =>
+  ToJSON (TimedServerOutput r tx)
+  where
   toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
       Object o ->
@@ -41,7 +48,7 @@ instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput r tx) whe
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
-data ServerOutput r tx
+data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
   | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
@@ -85,17 +92,39 @@ data ServerOutput r tx
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput r tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (ServerOutput r tx)
+deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (ServerOutput tx)
 
-instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (ServerOutput r tx) where
-  toJSON so =
+newtype WrappedServerOutput r tx = WrappedServerOutput
+  { unWrapped :: ServerOutput tx
+  }
+  deriving stock (Generic)
+  deriving newtype (FromJSON)
+
+deriving instance (IsTx tx, IsChainState tx) => Eq (WrappedServerOutput r tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (WrappedServerOutput r tx)
+
+instance (IsChainState tx, Arbitrary (ChainStateType tx)) => Arbitrary (WrappedServerOutput r tx) where
+  arbitrary = genericArbitrary
+
+instance (IsTx tx, IsChainState tx) => ToJSON (ServerOutput tx) where
+  toJSON =
+    genericToJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
+
+instance
+  (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) =>
+  ToJSON (WrappedServerOutput r tx)
+  where
+  toJSON (WrappedServerOutput so) =
     case so of
       commandFailed@(CommandFailed clientInput) ->
         case clientInput of
           NewTx{Hydra.API.ClientInput.transaction = tx} ->
             handleTxOutput
-              commandFailed
+              so
               ( object
                   [
                     ( "NewTx"
@@ -106,9 +135,9 @@ instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (Ser
                   ]
               )
           _ -> defGeneric commandFailed
-      txValid@(TxValid headId tx) ->
+      (TxValid headId tx) ->
         handleTxOutput
-          txValid
+          so
           ( object
               [
                 ( "TxValid"
@@ -119,22 +148,27 @@ instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (Ser
                 )
               ]
           )
-      txInvalid@TxInvalid{headId, Hydra.API.ServerOutput.utxo, Hydra.API.ServerOutput.transaction = tx, validationError} ->
-        handleTxOutput
-          txInvalid
-          ( object
-              [
-                ( "TxInvalid"
-                , object
-                    [ ("headId", toJSON headId)
-                    , ("utxo", toJSON utxo)
-                    , ("transaction", txToCbor tx)
-                    , ("validationError", toJSON validationError)
-                    ]
-                )
-              ]
-          )
-      snapshotConfirmed@SnapshotConfirmed
+      TxInvalid
+        { headId
+        , Hydra.API.ServerOutput.utxo
+        , Hydra.API.ServerOutput.transaction = tx
+        , validationError
+        } ->
+          handleTxOutput
+            so
+            ( object
+                [
+                  ( "TxInvalid"
+                  , object
+                      [ ("headId", toJSON headId)
+                      , ("utxo", toJSON utxo)
+                      , ("transaction", txToCbor tx)
+                      , ("validationError", toJSON validationError)
+                      ]
+                  )
+                ]
+            )
+      SnapshotConfirmed
         { headId
         , Hydra.API.ServerOutput.snapshot =
           Snapshot{number, Hydra.Snapshot.utxo, confirmed}
@@ -142,7 +176,7 @@ instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (Ser
         } ->
           handleUtxoInclusion (fromText "utxo") $
             handleTxOutput
-              snapshotConfirmed
+              so
               ( object
                   [
                     ( "SnapshotConfirmed"
@@ -171,9 +205,9 @@ instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (Ser
             Object v -> toJSON $ KeyMap.delete k v
             _ -> val
 
-    handleTxOutput json cbor =
+    handleTxOutput wrappedType cbor =
       case txOutputFormat outputConf of
-        OutputJSON -> defGeneric json
+        OutputJSON -> toJSON wrappedType
         OutputCBOR -> cbor
 
     outputConf = reflect (Proxy :: Proxy r)
@@ -186,7 +220,7 @@ instance (IsTx tx, IsChainState tx, Reifies r ServerOutputConfig) => ToJSON (Ser
           { omitNothingFields = True
           }
 
-instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput r tx) where
+instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput tx) where
   parseJSON =
     genericParseJSON
       defaultOptions
@@ -197,7 +231,7 @@ instance
   ( IsTx tx
   , Arbitrary (ChainStateType tx)
   ) =>
-  Arbitrary (ServerOutput r tx)
+  Arbitrary (ServerOutput tx)
   where
   arbitrary = genericArbitrary
 
@@ -238,6 +272,14 @@ data ServerOutputConfig = ServerOutputConfig
   }
   deriving (Eq, Show)
 
+instance Default ServerOutputConfig where
+  def =
+    ServerOutputConfig
+     { txOutputFormat = OutputJSON
+     , utxoInSnapshot = WithUTxO
+     }
+
+
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
@@ -252,7 +294,7 @@ instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
-projectHeadStatus :: HeadStatus -> ServerOutput r tx -> HeadStatus
+projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
 projectHeadStatus headStatus = \case
   HeadIsInitializing{} -> Initializing
   HeadIsOpen{} -> Open
@@ -262,7 +304,7 @@ projectHeadStatus headStatus = \case
   _other -> headStatus
 
 -- | Projection function related to 'snapshotUtxo' field in 'Greetings' message.
-projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput r tx -> Maybe (UTxOType tx)
+projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Hydra.Snapshot.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos

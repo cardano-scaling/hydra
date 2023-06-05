@@ -152,8 +152,6 @@ library
     , io-classes                                                        >=0.3.0.0
     , iohk-monitoring
     , iproute
-    , lens
-    , lens-aeson
     , modern-uri
     , network
     , network-mux
@@ -192,9 +190,11 @@ executable hydra-node
   main-is:        Main.hs
   build-depends:
     , base
+    , data-default
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , reflection
 
   ghc-options:    -threaded -rtsopts
 
@@ -328,6 +328,7 @@ test-suite tests
     , cborg
     , containers
     , contra-tracer
+    , data-default
     , directory
     , filepath
     , hspec
@@ -352,6 +353,7 @@ test-suite tests
     , quickcheck-dynamic                                                >=3.0.3
     , quickcheck-instances
     , req
+    , reflection
     , silently
     , text
     , time
