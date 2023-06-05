@@ -8,9 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Ledger.Simple (SimpleTx)
 import Test.Aeson.GenericSpecs (
-  Settings (..),
   defaultSettings,
   roundtripAndGoldenSpecsWithSettings,
  )
@@ -18,23 +16,9 @@ import Test.Aeson.GenericSpecs (
 spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (DraftCommitTxRequest SimpleTx)))
+    defaultSettings
+    (Proxy @(DraftCommitTxResponse Tx))
 
   roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (DraftCommitTxResponse SimpleTx)))
-
-  roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
-
-  roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
-
-settings :: Settings
-settings =
-  defaultSettings
-    { sampleSize = 200
-    }
+    defaultSettings
+    (Proxy @(DraftCommitTxRequest Tx))

@@ -153,7 +153,7 @@ channels:
             properties:
               tag:
                 type: string
-              utxo:
+              utxos:
                 $ref: "#/components/schemas/UTxO"
             additionalProperties: false
           bindingVersion: '0.1.0'
@@ -286,12 +286,12 @@ components:
         type: object
         required:
           - tag
-          - utxo
+          - utxos
         properties:
           tag:
             type: string
             enum: ["DraftCommitTxRequest"]
-          utxo:
+          utxos:
             $ref: "#/components/schemas/UTxO"
 
     ########
