@@ -356,7 +356,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           , requestInputBody = Just $ toJSON requestInput
           }
 
-      let userUtxo = utxo requestInput
+      let userUtxo = utxos requestInput
       eCommitTx <- draftTx userUtxo
 
       respond $

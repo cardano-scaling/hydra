@@ -48,7 +48,7 @@ instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
     DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
 
 newtype DraftCommitTxRequest tx = DraftCommitTxRequest
-  { utxo :: UTxOType tx
+  { utxos :: UTxOType tx
   }
   deriving (Generic)
 
@@ -59,7 +59,7 @@ instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
   toJSON (DraftCommitTxRequest utxo) =
     object
       [ "tag" .= String "DraftCommitTxRequest"
-      , "utxo" .= toJSON utxo
+      , "utxos" .= toJSON utxo
       ]
 
 instance
@@ -70,10 +70,9 @@ instance
     tag <- o .: "tag"
     case tag :: Text of
       "DraftCommitTxRequest" -> do
-        utxo :: (UTxOType tx) <- o .: "utxo"
-        pure $ DraftCommitTxRequest utxo
+        utxos :: (UTxOType tx) <- o .: "utxos"
+        pure $ DraftCommitTxRequest utxos
       _ -> fail "Expected tag to be DraftCommitTxRequest"
-
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary

@@ -2,11 +2,11 @@
     "samples": [
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003050807050002070505060005010106020106040106080507000808070606#11": {
                     "address": "2RhQhCGqYPDoHG5gNSJNX3iv9meJs6EyudQiKxnCm8mCPqky6TXsingB6eJy2Kai8H6HRozWR7sf88LoxurRXyQNEsAwbUumC3wKqwXZp1Z97a",
                     "datum": null,
@@ -97,7 +97,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106050105000708080800010001030607000404070601000207030605070103#44": {
                     "address": "EqGAuA8vHnNrL1mdNZ3hHEC3jvU2ZbS2z7aYJcnzwfn34vgRo8mYconpJGxs1dKhTdHay6WGGLaq4vhi4tmswCim5Wn9HvHVvEmJ5ggBHu2oLRen2kVbQyH",
                     "datum": null,
@@ -215,11 +215,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0306060007000101000707050303080406030008040704060103020503040804#26": {
                     "address": "addr_test12zckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpevzny4qzpqfj6fsw",
                     "datum": null,
@@ -343,11 +343,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000000504060705030305080605010702060105020405050401060808020805#16": {
                     "address": "2cWKMJemoBajHkudV8NRkXksSUhAwpjzFA5trUJGfFzNaMFrLGZozzYaGbzE7EpNo2JDf",
                     "datum": null,
@@ -441,11 +441,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002060804030403010705080005040402060100060002040002040108010505#22": {
                     "address": "addr1v9mwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwq0eu8qv",
                     "datum": null,
@@ -566,7 +566,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0308050704000607030207070605080206070600080402010705070700030608#90": {
                     "address": "addr12x7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9s5zkqkssqqt7sqmm",
                     "datum": null,
@@ -748,7 +748,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0100070304040404060104020707070506080208070407080502000004000700#3": {
                     "address": "2RhQhCGqYPDoZjUxxiPiwSYHHe4z2pkXwcGbLieW5Kjbkw2sxMQGiobsqvzcSdL4KkCMxVKwn25VP7F7ZP1tqnbNSavUaAVZgkH26Cee9dWoX8",
                     "datum": null,
@@ -881,7 +881,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0100010005000201020400050307080002020201050508080703040705000803#63": {
                     "address": "EqGAuA8vHnPFKKvXgWzcCmeinADVmWNbE91oZNGcwqQHSVzKrR9fp9PGyAMbpSqhoEsV7AdwWVnxVRSpVTJyeJXRfLEA5PVujE29YcPmd1W8YErvvNtZM2Y",
                     "datum": null,
@@ -896,7 +896,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0104000702030002020305050801080506040403030706020003010207010805#87": {
                     "address": "addr_test1wzckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpegsw4juk",
                     "datum": null,
@@ -911,11 +911,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106040607030500070408010807070601010403020500040308030206070504#80": {
                     "address": "addr_test1wpjlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dcsj4erd",
                     "datum": null,
@@ -1046,7 +1046,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006010003000503060804020206050406000808050801080208080803010102#81": {
                     "address": "2RhQhCGqYPDqNi2Ey3BQWogm4xuJozJyXXvANE35rAqEvuPAv2jVY9XYyQPppxwSpAwALGtMbshhaTKtusuXgdUVZcEkgucn8gXtxbSG9oU5Ke",
                     "datum": null,
@@ -1212,7 +1212,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0501060104070704040605080001060204000707070707050402080007010605#33": {
                     "address": "EqGAuA8vHnP43zdJDrK9zmGbUhDixS2fSEcuvQQpdsAHLrkoFokPBYqDfRH4xwMKUoFXwtohcqCtBspnHEcwFs6rarcwn38VtMcgM4QHiBSKQNnJEfHz33f",
                     "datum": null,
@@ -1243,7 +1243,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0206080308080201000704050808020303070503040604070403070206080807#10": {
                     "address": "addr_test1gqxefct5wvh0n2h88uu44dz9q7l6nq7k2q3uzx54ruxr9eyzcads2qc2nrt29",
                     "datum": null,
@@ -1308,7 +1308,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0307020404060506020403000607080102010706040605050803040202060002#38": {
                     "address": "addr_test1wznyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yzs735734",
                     "datum": null,
@@ -1407,7 +1407,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0405030500020408040201030508060608040304030308070708010007060503#93": {
                     "address": "EqGAuA8vHnP538pT3uHfVdAT9DS98QmitkTNpGXZy1P8kcc8UGrB52yusD49y3UU4XWgo24JpjSA2kULydf8JnK8CrC6SLAj13Ccfg8CYFaFLi1i6UaT5Yo",
                     "datum": null,
@@ -1514,7 +1514,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0203030300050400040403030505050602020200020000000208000308060705#77": {
                     "address": "EqGAuA8vHnNjX1DMmtJKSuczRdxjrWEwm6hK3MccHv6z6hiKNEXSKshJq2WvFjVnXaL4wM2aAcwGco2K3LPG6EEmXW1ej9JRc56BQFnKS88qet7Z4dQqdVk",
                     "datum": null,
@@ -1708,7 +1708,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000030704050101020702050301030102030200040401040801000406030405#61": {
                     "address": "addr1gyvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjy95y9sqzqc758x6",
                     "datum": null,
@@ -1770,7 +1770,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0104070805060201050003060004080507020106030007040100030500050502#34": {
                     "address": "addr1wyvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjqyqfvh7",
                     "datum": null,
@@ -1877,7 +1877,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0608010303000802060602080602020608030601050204010104070107020603#17": {
                     "address": "EqGAuA8vHnNiGVwX6FFWzWug13zoEgAi7XZ5BT7fbohJWndeGiiyZTUcUoBDKRrRagJS6mbziCLQyxyK1LVH8tR7g7cB82xACBhVmE6qUrFsB8RUtEMAm3k",
                     "datum": null,
@@ -1934,15 +1934,15 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0502080802070506000503030806060300060205070106060805050107020505#5": {
                     "address": "addr_test1zznyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz43ddt0tmqxf0n2c09tvq67lt5xkdnvc0wy5r2hzcpawrjsglsz50",
                     "datum": null,
@@ -2151,7 +2151,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002010307040300040807030604000002010000020305030202030203050306#89": {
                     "address": "addr_test12rs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sw0pyzsxmq9mxc",
                     "datum": null,
@@ -2379,7 +2379,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0105040104050606060205070001070107010205030107060101040202080104#56": {
                     "address": "2RhQhCGqYPDoQweapwfFyCTXL67PLKmLYRo5ZyBH81oRoEy8NtkLHu2ZDYK6ynnqmBDYNHi9G1fdJrEGCFNUSXWjvpht8u53AY7gVKHTksSBA1",
                     "datum": null,
@@ -2454,15 +2454,15 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008040501020700030104000203070408000306050803040207060008080205#52": {
                     "address": "addr_test1vpmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwq53gm0f",
                     "datum": null,
@@ -2522,7 +2522,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0304050401020707060602070308000200050206080607000507070003070803#0": {
                     "address": "2RhQhCGqYPDpRuLFnJZ1Co9aHbBSZKjXxdV9tLtsrs2JFfQ3DSCNYRK8iovJxx6qF2wnNAbSnBEx1Gg3XQhjSZ6QB7cTMpnBLKJNKNmiEsQm1y",
                     "datum": null,
@@ -2544,11 +2544,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006040603020807080308050104070100080304040307000303070008010103#96": {
                     "address": "2cWKMJemoBakgkr3uTotBUmvz9jDmD78hSdbEYk3KgtoYjErVLNacx67LJXWKHoHh6Px6",
                     "datum": null,
@@ -2956,7 +2956,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008040005030605080308040607050205000308030306050304030302050303#25": {
                     "address": "2RhQhCGqYPDqJeY3Ee6LFPqfeuaheSPHMkCw5wwgqytL8GPE9aSH1iAgWA7dkqpjqemVgC3zG6MEdAusqYEihrxETCSpYMzkabRUdWkHjusva4",
                     "datum": null,
@@ -3023,7 +3023,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006010602080105020704030305070001040101060104060304080504040500#89": {
                     "address": "Ae2tdPwUPEYxwk1zJ1yQ1JG2xdbL4nm6yBrVUTztCT7aGasQNnRZNNShw7c",
                     "datum": null,
@@ -3146,7 +3146,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0102050105040203050206050407060804030103070403070706060405010700#43": {
                     "address": "EqGAuA8vHnP4UPyphYDbPCpFFP2WD5W2QN8mpzDJnsk94UztP6pVeRQcj8kbYagtszcXnJY7Jup26cdMr14tqM1j5PdD5uQAfCYZ8XC67Y7GSsD5gqEYwBB",
                     "datum": null,
@@ -3214,7 +3214,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008040502080000000003050502070800010406060707080700000107000301#83": {
                     "address": "Ae2tdPwUPEZMA69YCs3QScpc41n5Juw5bdEh8VQCtNJkvydy61HFFvtzt7s",
                     "datum": null,
@@ -3428,7 +3428,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0207080804050003000405030106010103060204000806060305010606050307#82": {
                     "address": "EqGAuA8vHnP4r4z2kKAWYsrXkT8P1bZq5dSaupCqm6bE8GGbnHTG2jjRijFbZCvoiQDqS7zuc3svsXtYZke28DuPyc5i4Zbab5RcwXhYW8b7dSMyHBHPD9p",
                     "datum": null,
@@ -3486,7 +3486,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007070100050004040804020606060501010206030404070105040001000004#48": {
                     "address": "2cWKMJemoBaj5MZdywEmbueoUUFhk7p77muugjDSXrxn1cNpDNQ8CtTbAvd4cZtUXaF8y",
                     "datum": null,
@@ -3555,11 +3555,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0403080204060803050301050607020706010105060800030106080505000103#41": {
                     "address": "EqGAuA8vHnNg2yi5JMYhWzGr7w7qcvgv2QfXBFkxXxqWq5ApsfirYXSwmV61kMACPHC3QkgYrsXhAB5PedRst41LW9sUx6t15BtCTrhS41iNNs7BimanDJn",
                     "datum": null,
@@ -3587,7 +3587,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0406030804060501060303020506010802070208060805030002080402080608#10": {
                     "address": "EqGAuA8vHnNh6mvu53cvSiv6sQcNf5Td4mWMWMZSYL6Vd5KditMfvE3mg9NXdorXBwyrGARbQ6XRsJ7PpaVHNCUBgs3LBNgSkyGm1kwsrMYKWSib4NYtWzb",
                     "datum": null,
@@ -3633,7 +3633,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0407040003060706040404040004080705050303080207080603050004060000#28": {
                     "address": "EqGAuA8vHnNh6jS1FY3raGkNoybvuykgVv7Q6mGr9e9rHW7gsu8PAsZuPhqAUBeYfsUA6ZJGaK477kiwS1vSLA6VZPFXPZW2dddksxxWaQuGrHjSsNhPZfE",
                     "datum": null,
@@ -3663,7 +3663,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0507070703080808010305080401070103010605040301080005020206000406#27": {
                     "address": "addr1qxckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpedxger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qec2u3f",
                     "datum": null,
@@ -3698,7 +3698,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0201000506040003080301000504030105000806030507020801050506000800#10": {
                     "address": "EqGAuA8vHnNr2h6DHKo23DXwFifijeeS1E6MxFVCukhLQayY2vNZsm78LdpgwxKwPWceBKFKfqyZhxqKCpSCRtfjqmzVeVMbLbJLaqJzVqWbTuP9thDSThz",
                     "datum": null,
@@ -3809,11 +3809,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0001030204060400020303000806080401040200040807030408040002070103#83": {
                     "address": "Ae2tdPwUPEZN6S8UYpSFuM61tbTtKeqLHPX38BJmybZaF2YvXoqqnvByDEH",
                     "datum": null,
@@ -3921,7 +3921,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0204020003070005010008040302000507010700030807060508070005070104#26": {
                     "address": "2RhQhCGqYPDozbe6MzFAYC5FW1x4eaH3FVZTkrQmpkc3b5UHC4JrGVa9FwpMUu61cF94zhrQUL3d2BrscRuxEGXLPFa2XohUbhP1VgxXxQWc8J",
                     "datum": null,
@@ -3942,7 +3942,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106030707030408050007000606030105010002030303060308050008030500#81": {
                     "address": "2RhQhCGqYPDoCTtRCpBNGpq7qB23AvdvrgfmAG4r8ZwxNixKyEc3o5gDM3rknsirkrg8SqJd5yN2wLcDdc1DuMpqYMpqmrd9G9RACJuX5jJV7B",
                     "datum": null,
@@ -4120,7 +4120,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0004070302030305040405000004040806040708080700020505070107030801#45": {
                     "address": "addr1z9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50daxger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qsujqjn",
                     "datum": null,
@@ -4180,7 +4180,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000020103050207040102020105020101060401020105010708050105000800#31": {
                     "address": "2cWKMJemoBajA2WKxhyev234aFDdcqJ5CmMvJ5q2EvafyeqLjqjKwoiejJrqHE2WtuScF",
                     "datum": null,
@@ -4308,7 +4308,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0505030506080806050708000308050302070603050300050104040105040703#78": {
                     "address": "addr1z8s2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2s0q5u2rrxqjc0mh8wsya3wkk0lu6k4ds5qxspdsg7cgy4qs76qcwm",
                     "datum": null,
@@ -4333,7 +4333,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006020206050407080800060104020805070201060200080004020000050408#94": {
                     "address": "addr1y9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50d62eunh8ytu0d28c4m20lc3p5462ueuruw2nnwxtxh28ftqe0gqwz",
                     "datum": null,
@@ -4451,7 +4451,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008050803040606010108010407070208080106020701050302070201050707#12": {
                     "address": "addr1g9mwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwynyyyqzrdgyfe",
                     "datum": null,
@@ -4572,7 +4572,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0001050706010108010801030807070300050305020601050800070500030505#83": {
                     "address": "EqGAuA8vHnNrrvjEHnVTxqPv36AkqQTZcZ4V83yWUR8mJb6P59x45FYgNX1UemV6bwyCZmxJuJdhW9wXrHAvNLvABxG11QUcerGYVaYyVEVtBE4U5Kw7sS4",
                     "datum": null,
@@ -4651,7 +4651,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002080801030207030304080205070202080704080007040505000604010008#4": {
                     "address": "addr_test1vp9v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r54sfjy3a9",
                     "datum": null,
@@ -4711,11 +4711,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0405020205020207000200060602070008070305050402030403020601020108#99": {
                     "address": "addr_test1zpjlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50daxger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qn20q7v",
                     "datum": null,
@@ -4800,7 +4800,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0403050404020806030805030203060700050708070605060306000207040604#19": {
                     "address": "addr_test1wq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8s24hsvh",
                     "datum": null,
@@ -4964,7 +4964,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0305030205070200070000070200050702050108070003060103000101040005#78": {
                     "address": "addr1y8kvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84a0ve0a4ccvkw0cxfzjzeshcytype0p54mjpyarr36y60t6s9r8lvm",
                     "datum": null,
@@ -4988,7 +4988,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0208080808000707020102010706030404050100010303050201030007070202#57": {
                     "address": "addr1zx7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9ssdjnshguewlx4ww0eet26y2pal4xpav5prcydf28cvxtjqxp5al8",
                     "datum": null,
@@ -5119,7 +5119,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0306010302080103050001020207010605070800080807060205080303060603#79": {
                     "address": "addr1v9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dczja9mg",
                     "datum": null,
@@ -5151,7 +5151,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002000803070206030408020502010000000104020802010306000302000104#36": {
                     "address": "EqGAuA8vHnNi3cnHZyFq6Z5xPXpLME8Wy6eBpynVjvA7h3J2vDuFesEbRJbQUJC12qjw6KDfNyb2j4kFMqtJrjFyvcmwBS6nQMBWuoVGaqhfSWWoe4GsNti",
                     "datum": null,
@@ -5319,7 +5319,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003010108040401010106060003040400080008050506020005020101000606#25": {
                     "address": "2RhQhCGqYPDn1V4NBc4H5pVMgqxKT2ecs5C3VN2QRDua6PyGtC4UFa5qnHYY1kyPKQSVgrV6SEpCLty1ZAZp71t6uT9xctj8JEUGFQx8AZrKqi",
                     "datum": null,
@@ -5869,11 +5869,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0303060005020606070604060004020008080706010701020406020107040706#80": {
                     "address": "addr_test12rkvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84avp5etqyqqxqykyf",
                     "datum": null,
@@ -5987,11 +5987,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0403010308040407040603010000010204050501040300080402000606050405#24": {
                     "address": "addr_test1wrs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sg3p9azg",
                     "datum": null,
@@ -6049,7 +6049,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007000607010206050504080604040301070001070807070707030805010700#22": {
                     "address": "2RhQhCGqYPDojwiAJdNV9fTA3BoXozJmsmVUVzPxuQoTPCDMmVUnWWr1oMaZNDa1qAgdCDAXiSFghB8gzbnJZm3nDFnjzQFLuABzGgut7WKmP9",
                     "datum": null,
@@ -6324,11 +6324,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0004070206030607060405010402040705030406080206070506010808000107#43": {
                     "address": "EqGAuA8vHnPCJrW9eK2LWtoJKCkyAW6AWdck3F7sxxwjePc6YQLg6z3xt7ANQFU1fmSnyDwU2q4CX7FSWVS1b8VwnGtEzVGpnHL9q1xkC7aEJG5tZSPSi1T",
                     "datum": null,
@@ -6693,7 +6693,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000080400020305030005060608010404000405040400000702000207030706#93": {
                     "address": "2RhQhCGqYPDphpetP7WuN2BJxNGVdZpnCZtW2VzGnW64wdiM2p4LK727rDob4EZ3xSeWtP4DnkkZS3mjeLmwxVg1Zj44czQJRxydhM47rfUgDp",
                     "datum": null,
@@ -6857,7 +6857,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0105000001080507030805070203070105040007000502000305010503080304#37": {
                     "address": "addr_test1xrs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sd44enr4t4gu5qp277lfw406m6m5r89wk0he4qsrlqn9a2qmjk975",
                     "datum": null,
@@ -6954,7 +6954,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0402070800020104010507000304080001040704040506050303000001080406#11": {
                     "address": "2RhQhCGqYPDniA4YfNqXDFxvFNrv1Bw4z6GeEMBARkHRH5EbADGMZiyh6i3npAthrdFiRHugD68SRYbSpyD7QU55X2HYypGPujF1WXSEs6b5xJ",
                     "datum": null,
@@ -6991,7 +6991,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0005040700070607080708070601020202020102020204080304060402030601#12": {
                     "address": "Ae2tdPwUPEZHNx6vXebJ5CgyaYxjx5wjXveNxHWU8t4vdeBHD1eo8ukE7iV",
                     "datum": null,
@@ -7009,7 +7009,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0206060304030700060201050607000502020205010007030203040702070007#98": {
                     "address": "2RhQhCGqYPDnBuPgfJZvrqVVpLAYqcyQedDkAc9S8eEf4Fo66MS3sPDU1m1HFo82pJKXaUsfPoPXnMPgcLrdeercAYfXVUriFwUgWg5dz3ecFB",
                     "datum": null,
@@ -7136,7 +7136,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003070500040501040306080301050303020608040106030002040301040002#99": {
                     "address": "2RhQhCGqYPDpFvscp1xhMkc3VJFto8BzPaAcRzkP4yR2LeWnURPFuqZBVX99GPWHAZL8uEKircCXfRbcPrsGDBSDet34iVmFvESX4hRmmHEtZ2",
                     "datum": null,
@@ -7271,7 +7271,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0506000605000705030302070107010503050107060305050608010501060404#2": {
                     "address": "addr1yx66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj749aqw0e2m6txqhn4dhu0396cv6s54q0gjhcr2zfyx2d6tpq4n9rv4",
                     "datum": null,
@@ -7286,11 +7286,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0304050305060306010001040705000301060606000201040505050100030100#97": {
                     "address": "addr_test1gq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess859lymq2zqtvyggx",
                     "datum": null,
@@ -7311,7 +7311,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000030002040205000104010408010500040302050202050000010204030801#69": {
                     "address": "addr_test12qvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjyr6fgsvpglnlm5u",
                     "datum": null,
@@ -7457,7 +7457,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0001070202060005020406060702060207080202070408000001020401070602#87": {
                     "address": "EqGAuA8vHnP17cqFjSPbKmpeGZ6RAWaMcbeMD4DvS4QW7rsrKVv5w1gqpiMDDGvNXsJVN2fSgnm5SYw3kn7Zi6X74qy9FYLDMwyDapKP76UaHNJNcVxPVjM",
                     "datum": null,
@@ -7563,7 +7563,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0104030206060603080301070402080304020607010806030106030805000708#13": {
                     "address": "addr_test1zrkvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84a0q5u2rrxqjc0mh8wsya3wkk0lu6k4ds5qxspdsg7cgy4qsjcjn5c",
                     "datum": null,
@@ -7864,7 +7864,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0207070303030206060408070004050307070607050006000305080803040400#92": {
                     "address": "addr12xnyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz5psy2qvqq04903p",
                     "datum": null,
@@ -7950,7 +7950,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000020004080802050607080801080004070404070704010300020403040804#1": {
                     "address": "addr_test1wq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8s24hsvh",
                     "datum": null,
@@ -8077,7 +8077,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0208030800030106030704070604060200020102020003080406080708020603#94": {
                     "address": "addr_test1zqxefct5wvh0n2h88uu44dz9q7l6nq7k2q3uzx54ruxr9e944enr4t4gu5qp277lfw406m6m5r89wk0he4qsrlqn9a2qmpf6kx",
                     "datum": null,
@@ -8252,11 +8252,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000000701080105000300030507000107080204030303030204050404010401#35": {
                     "address": "addr_test1xrkvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84ageyrnc9uzga8h49txcn3p5r2yu8yyvdczx4kruga8lldyq7qure0",
                     "datum": null,
@@ -8464,7 +8464,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0707020400050805080808020402010107070607060102000603000601060107#72": {
                     "address": "EqGAuA8vHnNsanY88yUDrGfJXmeKQkgsmFJ628ypHDUa2V87TGmMfwByFevnyggMY5rhTbE7qeTyt8qCWSus7EWbrtyaJtz3gEu4xJgafHqWiDfncam7a9L",
                     "datum": null,
@@ -8692,11 +8692,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0103070200040604030206070306000101020107020701030104030503060700#69": {
                     "address": "addr1w8kvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84ags8p63j",
                     "datum": null,
@@ -8887,7 +8887,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0005060108020302000205070202080802060503010005070503070407050608#93": {
                     "address": "2RhQhCGqYPDpUywzj5XgzuHqitaQ2v2yaYbKQdSUwYXmaV5tHgGmy15P9ZVnjfRR53pnQ8RoxemLCmJQFYuadBujy4N73faxttFnFRgktBejGu",
                     "datum": null,
@@ -9016,7 +9016,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000080802030308070207010206030801050807010204060608030104080501#72": {
                     "address": "2RhQhCGqYPDpo8xyM6hx2LyXZ2qG38g3yrpZ59BrsVxvYL3gWogpfN4fsa46bSEN9gQph1G6wqQfDMHjBmzQnKs2sVE74ByYTAEQDsEsyST6ce",
                     "datum": null,
@@ -9051,7 +9051,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0105050503000002060706070601010506040508030306070605080804060806#37": {
                     "address": "addr_test1gpmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnw98qvqsz06h2n4",
                     "datum": null,
@@ -9267,7 +9267,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006010105010108040708050103010101030103040401030305010301080604#63": {
                     "address": "2RhQhCGqYPDou8AdNMSsX7va2NnskHRgWyVGkYNGKgmTtFgW6ct8L2oMDXFvKvxXPBGXg463tqCiturk3CpNEgZ91tZNgwHFY9R31f9yEAVwSc",
                     "datum": null,
@@ -9343,7 +9343,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008010208030505000104010006000003020204050805030402050407070205#13": {
                     "address": "addr_test1vpvwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpecqqal60",
                     "datum": null,
@@ -9773,7 +9773,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0703080804050606010306040505010003020506020002060002060601060007#38": {
                     "address": "addr_test1yq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8sdjnshguewlx4ww0eet26y2pal4xpav5prcydf28cvxtjqrwpvy9",
                     "datum": null,
@@ -9795,11 +9795,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0305060306060007010505050506050005030205040707000705070207080201#88": {
                     "address": "addr1wx66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74qhpnf3s",
                     "datum": null,
@@ -9864,7 +9864,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0005020804040808050104020303060800040603010206010608040106000605#2": {
                     "address": "addr_test1gpvwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpeuz69js2psjgvk97",
                     "datum": null,
@@ -9902,7 +9902,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0300000503010307060705030704050408080702040305000407040807050002#41": {
                     "address": "addr_test12pjlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dupn4aszzqccdy32",
                     "datum": null,
@@ -9931,7 +9931,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0101030308010504020501030308040004030102080301020402030202000206#59": {
                     "address": "addr_test12zckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpevzappsxqql8lvyk",
                     "datum": null,
@@ -10016,11 +10016,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007060702020807010200000208000404070505080704040806000705080005#24": {
                     "address": "addr1vx7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9ssekeaqh",
                     "datum": null,
@@ -10135,11 +10135,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0104050804020801050105010205080007080505060505010606060506030001#68": {
                     "address": "2RhQhCGqYPDnxc98Jj54PxB5vopvsWsZPU3CzAGoxrYGf7tPJ6pVTFkfA9YnCoo8AsrbcZVDGZf6kccX71JYmy5hGKiLD3bXKw8mrMuX4SLnST",
                     "datum": null,
@@ -10179,11 +10179,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0705010200020703010804070301080700080801070104040301050502030105#34": {
                     "address": "addr_test12qvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjyycqsswpsn4xn2d",
                     "datum": null,
@@ -10280,7 +10280,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000020206080000070608000201060406080605030806010300050802050208#83": {
                     "address": "Ae2tdPwUPEZ9xDsCmMSToFvGxztiwBFpuUb2HBvydg5aP8ZiuZvKfW3BgjG",
                     "datum": null,
@@ -10401,11 +10401,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0201010202050800000808020202000803030608020008020203020500080202#86": {
                     "address": "EqGAuA8vHnNfsfrPQVvKEEFE7wkHRBCFWsweSPFjnPivnBmZ3842YvkwD8yGmXg7ggDmF78nBR7HSoLy5mx3Cv3pT7saf8i12bFb67SMpgkm1CEWwyHhuvG",
                     "datum": null,
@@ -10546,7 +10546,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0702010307000201070200060804040706020604030701000000020106070007#18": {
                     "address": "addr1w9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dct6p9vg",
                     "datum": null,
@@ -10581,7 +10581,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0306020207020806030800000403070505040004050606060001020803070508#73": {
                     "address": "addr1yxnyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yzj2eunh8ytu0d28c4m20lc3p5462ueuruw2nnwxtxh28ftqg6uulz",
                     "datum": null,
@@ -10676,7 +10676,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0508020406030204000600020207060102060307040406060804070606010703#96": {
                     "address": "addr1gy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8hfvsyqzptychy",
                     "datum": null,
@@ -10700,7 +10700,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0302080202010803000202070100070206000105080708050202020108020308#37": {
                     "address": "2cWKMJemoBajgzds1KYy7sVc9kLqUr4u6umgMAXtGUNh2GpLcUpCjRNPY9N9GUjm78iBg",
                     "datum": null,
@@ -10773,7 +10773,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106040006020207020305060402050502060806050600050500030406070600#81": {
                     "address": "addr12xnyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz5yuu9swpc9uucuf",
                     "datum": null,
@@ -10909,7 +10909,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007010100000204010001010803050202050501060205020308040202010500#29": {
                     "address": "2RhQhCGqYPDnz5ujEUD9vHqDceQ6m1xxaz36jtGDWdJAqNQVTPRzptLqKKGAXKKFMLuVZ2pYddWK1ckHdg44L4sjjKGaEbazDvzJdB1pUqvopw",
                     "datum": null,
@@ -11003,7 +11003,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0602020700070208030806060200050003030100040207020603010207080804#22": {
                     "address": "2cWKMJemoBahoRtAYv9bSSQ3BThofY2YwzVnqcq6xSRcQrRBybTWHSKFMVgE53z3XXFHq",
                     "datum": null,
@@ -11052,7 +11052,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0107010705030501010602040006080808070105030107080105030704010504#48": {
                     "address": "addr_test1qrs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sdaqw0e2m6txqhn4dhu0396cv6s54q0gjhcr2zfyx2d6tpqvszq4c",
                     "datum": null,
@@ -11185,7 +11185,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0203070804030705010107060302060203010605010000080100040301070507#88": {
                     "address": "addr_test1xpvwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpea44enr4t4gu5qp277lfw406m6m5r89wk0he4qsrlqn9a2q9dfpzc",
                     "datum": null,
@@ -11356,11 +11356,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0608030604080606010407080501040800040800080604060401080703070502#50": {
                     "address": "Ae2tdPwUPEZEzxioxaVqHHw71Lg3Jidw4QzfDNkGdAgTGSyR5ujYZRfdnoy",
                     "datum": null,
@@ -11406,7 +11406,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0107070506040605030407080803010407080603070501030105020807020307#78": {
                     "address": "addr1zx7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9ssdjnshguewlx4ww0eet26y2pal4xpav5prcydf28cvxtjqxp5al8",
                     "datum": null,
@@ -11461,7 +11461,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0306000807020206030105000104060508020508030308020602010505040208#26": {
                     "address": "addr_test12pvwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpeu9645qwqcvshn8m",
                     "datum": null,
@@ -11542,7 +11542,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0107040401050304060803010504030600020206030403010803060102040407#69": {
                     "address": "2RhQhCGqYPDn1h1jV9kDvzHATTnpohGPEgsD6GGh4cVGBXrexHysiLFgwB42aPKJPdHLcXmUBfAMdfoGGAvgZvyZ99trNSH36SCM9VxfMXzu1T",
                     "datum": null,
@@ -11592,7 +11592,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106070306060703040208020405020100040808060808030300010506060800#40": {
                     "address": "addr_test1wzckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpegsw4juk",
                     "datum": null,
@@ -11936,11 +11936,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0506060101070000020707010504020407050104030500070803070706030604#9": {
                     "address": "addr_test1xp9v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r54nkucrak233ex3vxfmp6fp35xr225xvxg0hnnvdd2pt9xuqwfte7h",
                     "datum": null,
@@ -11964,7 +11964,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0501030407050200010601050506070004000400050104050407020203030402#68": {
                     "address": "Ae2tdPwUPEZ7CLVxdUQn2MBHXHqk2Q7whYEwXPfbrwUAahdMNWD28Z9WZij",
                     "datum": null,
@@ -12023,15 +12023,15 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0103010506070501060502000702030303040804000706000702050602050307#94": {
                     "address": "2cWKMJemoBakPrqaXd6RkRrjd5C7sZUzpi2HkRH7qn3SJDGqfoL1Y3MPGky58dkVJ2c85",
                     "datum": null,
@@ -12122,7 +12122,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0001060405020502010005050003030402060704080207020403050105000802#64": {
                     "address": "addr_test1qzckk4h4asryhe4v8j4kqd0046rtxekv8hz2p4t3vq7hpe22eunh8ytu0d28c4m20lc3p5462ueuruw2nnwxtxh28ftqzv0c2j",
                     "datum": null,
@@ -12509,7 +12509,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003030207020800060206070604080204010403020404030606080303010106#83": {
                     "address": "addr_test1gpmwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwy9hcws2qsm3p770",
                     "datum": null,
@@ -12737,7 +12737,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0301040102070607040400080508080706070304060402010600010006000801#19": {
                     "address": "addr1v8s2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sgrpdp6d",
                     "datum": null,
@@ -13059,7 +13059,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0801040104070705020103040200010707030402000202080300000200060107#28": {
                     "address": "addr1w8kvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84ags8p63j",
                     "datum": null,
@@ -13087,7 +13087,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0704060305040601070205070606070202040506010400020206010500010805#17": {
                     "address": "2RhQhCGqYPDqPodaus1tNxCdDfTMKoebpRrPS72ptnjA8M8gon2CVJ7kZspX4zuXpq9j636vrud1L1CboWtuWR8x7yco7zTg3rwqgtejKNHiHc",
                     "datum": null,
@@ -13152,7 +13152,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003030406080005000401080200040002050802020706000405040406060500#94": {
                     "address": "addr1wx7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9sss79ahh",
                     "datum": null,
@@ -13464,7 +13464,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002080807000408000107030308010204080605030402020201050707020204#3": {
                     "address": "EqGAuA8vHnPD3Wc2Pnq6kfy6pNsHZrjGYR91Ei9MhzTgSdCwJo3bR1m8qv8qUGpMyjf3HKwEF2WidCmSDQBHdBCd6octdVK2mjMNvpKB5Ru84buJ6yBfckd",
                     "datum": null,
@@ -13488,7 +13488,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0205000507070402000006080104020301020201070100080108070301010404#29": {
                     "address": "EqGAuA8vHnP5pZ65SMjm3aeFiw3dh5oTDni5CqfBFypLk6UBzDhWvHpRMQV125xtG5kPqDarW5sHjhbz18Qx7GW3E3cnXcfo1bZaGSRCXvDvkqXwdvvBu7j",
                     "datum": null,
@@ -13536,7 +13536,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0708010005040106050008070702020105050605000204080801070007050503#25": {
                     "address": "addr_test1wq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8s24hsvh",
                     "datum": null,
@@ -13579,7 +13579,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008070105000305080404000703030502050806020500060606000307060408#10": {
                     "address": "addr1g9vwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpe7q0crq2rqskpn",
                     "datum": null,
@@ -13673,11 +13673,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0200070508060406020802030203000007080607050603060400050402010305#76": {
                     "address": "2RhQhCGqYPDnGBhjNiUNLuVe5hmh7NHCDTFE3VMTWoVdVa8yj8NP3BrJr3oeygiecsbFtuHhZnkh6NSBGD9Lzw8Awr16RTazPykZphQMVA3ZcU",
                     "datum": null,
@@ -13812,7 +13812,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006040508020108060007040001030606080807010202070104080206050500#38": {
                     "address": "addr1gy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8595yvsvpg5xmvqx",
                     "datum": null,
@@ -14321,7 +14321,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000010508030405040601020504000001000504020706070708050603040705#53": {
                     "address": "addr1v9mwvp7m9gcungkryasaysc6rp492rxry8meekxk4q4jnwq0eu8qv",
                     "datum": null,
@@ -14589,7 +14589,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003040503060607040507060602020202080402080008080800070002010706#62": {
                     "address": "addr1w9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dct6p9vg",
                     "datum": null,
@@ -14805,7 +14805,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007030806040302000303050508060006050301040500040000040308060300#75": {
                     "address": "2RhQhCGqYPDp1keUdFFRWom5XMmnQ7f6mX65mzEjVcUVpnpfszchMVw7KC4waqsc83BXB8e2KzMYtzsDqLY9ihpVv1EpsoM2DEhcERYNKkGatx",
                     "datum": null,
@@ -15018,7 +15018,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0304070201010300060303010707080607010603080301000501020002080808#57": {
                     "address": "addr_test1xq659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8j2eunh8ytu0d28c4m20lc3p5462ueuruw2nnwxtxh28ftqzp3ggy",
                     "datum": null,
@@ -15056,7 +15056,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002050208040306030803060108060703070606030708030801030000030807#75": {
                     "address": "EqGAuA8vHnNkBgPKAes9rKSTqqvneih2yFTqFa1C3qNgDMTAUTWKfU1PsrdBWJ3jjEVLsgUfP7JtvfbN6Km3mtXwz3cJRokL9w9T6SvjHFsTcJEG3sKPKxd",
                     "datum": null,
@@ -15342,7 +15342,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0604070804020808070506050103010305060602050505060807070800080303#1": {
                     "address": "2RhQhCGqYPDoRYtjbV6zPsEafWSpq3UNfTW5TJDRDZqCPZnAoWcfieQRfoLEUAjQSM9Rka38cAfudGXhxzcyV1sQUHTRaX16GktiQVysEd9Aca",
                     "datum": null,
@@ -15366,7 +15366,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003010500000706030307070403080607070503010806010807040100060004#43": {
                     "address": "EqGAuA8vHnP87kRP8Cif672bFCT9soR1PZQrkEUpZfQAb3RhLQiLpS16b8jUJ4soc2SX6tBVAjMoMiVbY8TAGGFXvshsoV5FUvfsdTVXHX8m9jXovruxFB7",
                     "datum": null,
@@ -15412,7 +15412,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0006050401050500030603000205040006070306050605050605050805080605#87": {
                     "address": "2RhQhCGqYPDqNfHoT64GV8KNiQ8B458geaAN7VbuArJS3F8NdhUrkeeUn2adKU8SrpuEeS9hm9Sn5RbBkRw2HX868knbN68ti1p8egg84U637R",
                     "datum": null,
@@ -15584,7 +15584,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002050102070503020301070603050108040507030406050100030506040005#72": {
                     "address": "addr1xyvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkj944enr4t4gu5qp277lfw406m6m5r89wk0he4qsrlqn9a2qr3hzyh",
                     "datum": null,
@@ -15690,11 +15690,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0608060406030100020700080808020102000207020601020803070702050702#0": {
                     "address": "Ae2tdPwUPEZ5gnYnwebKnyZCY3u7GiwH1qkEV6habcPR8V5HsaKkq42sBHw",
                     "datum": null,
@@ -15731,7 +15731,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0100010106010503060208080307040000000108010603020006000305010008#0": {
                     "address": "addr_test1wpvwrdjhrpf3ksjfgcgv2pkw7y8lqv06s9agla6up2ccpecfgpld0",
                     "datum": null,
@@ -15834,7 +15834,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0107030203080108070404030602010701080504020403030106080801080704#53": {
                     "address": "EqGAuA8vHnNjvFE2UGk1jdXVrFaJepJPTk97fPVc9QvLo9e8RyiFMFU4VsdV5qheWvvLPqFtwG7Z4fATfueq5wcCb1uLFYpUV3BeXTw6VBHqztK5T66o1CL",
                     "datum": null,
@@ -15900,7 +15900,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0004040105040003070403080702000602010602030507080702060602020703#11": {
                     "address": "EqGAuA8vHnP6som2YFpXoMYBFdNXer69zJBAYLaaQXPAmwBC2NbzsUJhNbXm4WBKuhTwAXKGicuKnzgfwYo98yCWpzNcGHePuuZ618LwPuzQCqMQvE2nEvP",
                     "datum": null,
@@ -16177,11 +16177,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0301020606020603010104070505000205000805000703050300040106020408#51": {
                     "address": "addr_test12znyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz5r649szpst2z2q7",
                     "datum": null,
@@ -16221,11 +16221,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0105020602030508030304010503080405030405040203000504040103070500#26": {
                     "address": "addr1yy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess843ddt0tmqxf0n2c09tvq67lt5xkdnvc0wy5r2hzcpawrjsu6xfkg",
                     "datum": null,
@@ -16297,7 +16297,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0204050105030708070303040300010303070303080400010508000203010507#12": {
                     "address": "addr12xnyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yz5y4fsqgpsh4gx0n",
                     "datum": null,
@@ -16373,7 +16373,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0000070708050702030208050004080201050600020702020607020304080703#71": {
                     "address": "2RhQhCGqYPDoJMeGPkA7vBTvZbCa9J5Jy1MX6vHBL4b9EW9fPFDDemmWVivz3RUDtQNcrvUQytU3BrEPyHGmkcARYouKPMDQdTZKACsY7qv6SP",
                     "datum": null,
@@ -16691,7 +16691,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0300010505010806050407080006030102020405050103000601020207010708#19": {
                     "address": "addr_test1gp9v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r5459cvzs2qsy0yld8",
                     "datum": null,
@@ -17001,7 +17001,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0208000503080708060805010108050808050603050406070400060600050301#28": {
                     "address": "addr128kvh76uvxt88ury3fpvctuz9jquhs62aeqjw33cazd84avzja3sypcg7c9wa",
                     "datum": null,
@@ -17178,7 +17178,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0003030506020603070801060206000307020105020807080808060702030506#57": {
                     "address": "addr1zyvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjqdjnshguewlx4ww0eet26y2pal4xpav5prcydf28cvxtjq4jrx6d",
                     "datum": null,
@@ -17215,7 +17215,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0103000305000807000503000002060207060205020702010003000205000302#13": {
                     "address": "addr_test1yz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj749xger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qwfszwe",
                     "datum": null,
@@ -17275,7 +17275,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0501070406060100070205000201000405040106020605010805080308040304#3": {
                     "address": "EqGAuA8vHnNjJoCVtdUe5VV5rLimkPnPemjsos65gbUtezwLgPGAAmDgGr9ExoUXfCqGJqfU9Q8JokTd919CP6wnzmbp4q5XVXyuQto5ngQ48WxJXjXUAwA",
                     "datum": null,
@@ -17319,11 +17319,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0105000105000202010207010400010802050106010308030301030308080705#28": {
                     "address": "2RhQhCGqYPDqUgu5HNZP1HTjzaPunLRh5N84smRCz7SjqQwoANYtXWnjxHAxJcSwinWfFQeYMzQMtFNDLV66gADT4MnJQLmcAWpnjG6TFckStM",
                     "datum": null,
@@ -17454,19 +17454,19 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0205010507070007050602050704010102000207040307060206030503050207#22": {
                     "address": "addr_test1qz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74zcuxm9wxznrdpyj3ssc5rvaug07qcl4qt63lm4cz43srnse9z8gd",
                     "datum": null,
@@ -17530,7 +17530,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0201010200070502050303070704020108080304020201060800060506020200#27": {
                     "address": "addr1wy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess8s3arvrj",
                     "datum": null,
@@ -17709,7 +17709,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0201020400020402060207010601010803050703050404010405030006050608#45": {
                     "address": "addr1w9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dct6p9vg",
                     "datum": null,
@@ -17837,7 +17837,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0102050303080701060804020505080102030200030408010201070503080601#97": {
                     "address": "EqGAuA8vHnPAuUbVvJ9kkHrcZA4MN9u8MRrJxh1QqnE6KfzgcYFHpL8eLm4EEUmqUZY3nQwre8Hq89ybme6vRNJmsLyNhbEzTShgT2EDmg1mGP6FeMF9Kzz",
                     "datum": null,
@@ -17987,7 +17987,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0002070708050601080603030506060107020401010703050101070001030707#26": {
                     "address": "2cWKMJemoBahJfbaQ29zHghvNZ34y78a9nKfmNunqgcb65HeKCWLCR5y3NsADsprkb3jF",
                     "datum": null,
@@ -18257,7 +18257,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0106020603070103070202020002030608030803040201010301000301050608#40": {
                     "address": "EqGAuA8vHnNw3VcSz3qkpFYvtKoqDuWNSeUEKFKpeowXvLZZjbHWnV9AWapYDXf9XbYU5mSr5nA87KgaTZrx1brnDmu6M4BsNJ2nq3WhDqJJGdzVmr7KBBF",
                     "datum": null,
@@ -18398,7 +18398,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007040701050208010202050007010204070805050203010103050301000007#67": {
                     "address": "EqGAuA8vHnPA8Pj2Fj2AaLUBppp6qFGhHUfa5T9FTuBC5vPfydJN6c1HrsRpAtd1E9nBt91jZHxHjbu4qNZh6jz2NmoxbJetWjjZCYhFmcmmvpCck6GXH38",
                     "datum": null,
@@ -18423,7 +18423,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0101020604040706020406010207040107020703050108010107000207040706#0": {
                     "address": "addr_test1gp9v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r5444tsqsvmvt8n4",
                     "datum": null,
@@ -18599,7 +18599,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0304010602010307050106010305010802010202030407050407040500020107#20": {
                     "address": "addr_test1vznyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yzsheg7x4",
                     "datum": null,
@@ -18688,7 +18688,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0004040803050808030705000600040602030402050006010205010104080304#59": {
                     "address": "EqGAuA8vHnP2LSy6DQonqYXvPRgrEYM4yqbDiYXgTpGvb6c76BMyLXuxxYMH9icPB723FBDUFfynt1WBS5rPEsDqyx71c2UzEAQz5MxEKTVMZACqaHZ643B",
                     "datum": null,
@@ -19054,11 +19054,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0007020601040000080005020604020201010308050500010204010704060801#44": {
                     "address": "Ae2tdPwUPEZ21iaFbFCD2kME9uupBcn7XRQMXCwDeAU75abc4o1aUaUKt9F",
                     "datum": null,
@@ -19073,11 +19073,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0207080201000101010006060304010607050804080405000604020106080300#14": {
                     "address": "addr129jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dupsygqszqjkyn04",
                     "datum": null,
@@ -19221,11 +19221,11 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {}
+            "utxos": {}
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0205000201040308000405010804040401020207000500000102030007050108#47": {
                     "address": "EqGAuA8vHnPF285GGcEZqTdubr8FK6iWQPshnVoVNSc8c9GUzXUBGVEV1dw1YLcKoy8vz7eYkpCmx1i1g1uyoVTArF2NzaHFND6TAB6AcjTvLfiHP84xwet",
                     "datum": null,
@@ -19388,7 +19388,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0306010305010300030505020108030501050701080704010605040603050308#61": {
                     "address": "addr_test1qrs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2s0q5u2rrxqjc0mh8wsya3wkk0lu6k4ds5qxspdsg7cgy4qsjryrus",
                     "datum": null,
@@ -19722,7 +19722,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0205010105030701070408060704080707030505020706050504060703010300#51": {
                     "address": "addr1w99v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r54smjvd9q",
                     "datum": null,
@@ -19927,7 +19927,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0204070805070305080106030707020705050001060000070005050508040005#9": {
                     "address": "addr1z99v7fmnj978k4ru2a48lugs62a9wv7p789fehr9nt4r54nkucrak233ex3vxfmp6fp35xr225xvxg0hnnvdd2pt9xuqnpdx8f",
                     "datum": null,
@@ -19981,7 +19981,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0208030201080200080006080008060804060403050804080005060003020101#30": {
                     "address": "addr1v9jlcuy6tcqehz46wmmfwlqusacwfvm05ah5xnhutzr50dczja9mg",
                     "datum": null,
@@ -20191,7 +20191,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0001070800060808040801080503000401060407020303060407040206010500#31": {
                     "address": "addr_test1zrs2w9p3nqfv8amnhgzwchtt8l7dt2kc2qrgqkcy0vyz2sgeyrnc9uzga8h49txcn3p5r2yu8yyvdczx4kruga8lldyq02gh6j",
                     "datum": null,
@@ -20216,7 +20216,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0104020002080506050003050405010608010005020600030701070208070803#30": {
                     "address": "addr1qy659t9n5excps5nqgnq6ckrhpa8g2k3f2lc2h4uvuess84xger5hr65xynp2p4kcfeaxp7826dyadkfddpd6j3f2g9qgykgc2",
                     "datum": null,
@@ -20311,7 +20311,7 @@
         },
         {
             "tag": "DraftCommitTxRequest",
-            "utxo": {
+            "utxos": {
                 "0008000604030804030700030605030101010003030308060700060101060806#15": {
                     "address": "2RhQhCGqYPDprXRMBko4WXfZFZToFv8Fh5YyYbaX4MeQ5WEtRynSJMWqyZuTDL622avyf8cVkTo2ksirZ4VStzbCHA2nMjxSqp3A5geu7dxP6o",
                     "datum": null,

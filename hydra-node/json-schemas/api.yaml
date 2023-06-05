@@ -149,7 +149,7 @@ channels:
             type: object
             required:
               - tag
-              - utxo
+              - utxos
             properties:
               tag:
                 type: string
