@@ -359,8 +359,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           }
 
       let userUtxo = utxos requestInput
-      eCommitTx <-
-        draftTx userUtxo
+      eCommitTx <- draftTx userUtxo
 
       respond $
         case eCommitTx of
@@ -368,7 +367,6 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
             -- Distinguish between errors users can actually benefit from and
             -- other errors that are turned into 500 responses.
             case e of
-              CannotFindOwnInitial _ -> return400 e
               CannotCommitReferenceScript -> return400 e
               CommittedTooMuchADAForMainnet _ _ -> return400 e
               UnsupportedLegacyOutput _ -> return400 e
