@@ -21,6 +21,12 @@ env:
   SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
   LD_LIBRARY_PATH: /usr/local/lib
 
+env:
+  # Modify this value to "invalidate" the secp cache.
+  SECP_CACHE_VERSION: "2023-06-06"
+  SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
+  LD_LIBRARY_PATH: /usr/local/lib
+
 jobs:
 
   build-all:
@@ -53,6 +59,12 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-master
 
+    - name: 'Check Secp256k1'
+      id: check_secp256k1
+      uses: thebinaryfelix/check-file-existence-action@v1
+      with:
+        files: '/usr/local/lib/libsecp256k1.so.0'
+
     - name: "LINUX: Install build environment (apt-get)"
       run: |
         sudo apt-get update
@@ -62,6 +74,7 @@ jobs:
         sudo apt-get -y autoremove
 
     - name: Install secp256k1
+      if: steps.check_secp256k1.outputs.exists != 'true'
       uses: input-output-hk/setup-secp256k1@v1
       with:
         git-ref: ${{ env.SECP256K1_REF }}
