@@ -594,7 +594,11 @@ simulatedChainAndNetwork initialChainState = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes history chainStateVar, draftTx = \_ -> error "draftTx not implemented"}
+              { oc =
+                  Chain
+                    { postTx = postTx nodes history chainStateVar
+                    , draftTx = \_ -> error "unexpected call to draftTx"
+                    }
               , hn = createMockNetwork node nodes
               }
       , tickThread
