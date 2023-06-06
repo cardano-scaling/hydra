@@ -165,7 +165,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Request to build a draft commit tx from hydra-node
       let clientPayload = DraftCommitTxRequest @Tx utxoToCommit
@@ -187,7 +187,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       let signedCommitTx = signWith externalSk commitTx
       submitTransaction networkId nodeSocket signedCommitTx
 
-      waitFor tracer 600 [n1] $
+      waitFor tracer 60 [n1] $
         output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
  where
   RunningNode{nodeSocket} = node
