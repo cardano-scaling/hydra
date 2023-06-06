@@ -124,17 +124,6 @@ channels:
         http:
           type: response
           method: POST
-          query:
-            type: object
-            required:
-              - tag
-              - commitTx
-            properties:
-              tag:
-                type: string
-              commitTx:
-                type: string
-            additionalProperties: false
           bindingVersion: '0.1.0'
     publish:
       summary: Requests sent to the Hydra node to draft a commit transactions.
@@ -145,17 +134,6 @@ channels:
         http:
           type: request
           method: POST
-          query:
-            type: object
-            required:
-              - tag
-              - utxos
-            properties:
-              tag:
-                type: string
-              utxos:
-                $ref: "#/components/schemas/UTxO"
-            additionalProperties: false
           bindingVersion: '0.1.0'
 components:
   messages:
