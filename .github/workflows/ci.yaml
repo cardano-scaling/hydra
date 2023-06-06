@@ -15,6 +15,12 @@ on:
     # Everyday at 4:00 AM
     - cron: "0 4 * * *"
 
+env:
+  # Modify this value to "invalidate" the secp cache.
+  SECP_CACHE_VERSION: "2023-06-06"
+  SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
+  LD_LIBRARY_PATH: /usr/local/lib
+
 jobs:
 
   build-all:
@@ -41,10 +47,31 @@ jobs:
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
+          /usr/local/.ghcup/
         key: |
           cabal-${{ runner.os }}-${{ github.ref_name }}
         restore-keys: |
           cabal-${{ runner.os }}-master
+
+    - name: "LINUX: Install build environment (apt-get)"
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install libsodium23 libsodium-dev
+        sudo apt-get -y install libsystemd0 libsystemd-dev
+        sudo apt-get -y remove --purge software-properties-common
+        sudo apt-get -y autoremove
+
+    - name: Install secp256k1
+      uses: input-output-hk/setup-secp256k1@v1
+      with:
+        git-ref: ${{ env.SECP256K1_REF }}
+        cache-version: ${{ env.SECP_CACHE_VERSION }}
+
+    - name: check install
+      run: |
+        echo $LD_LIBRARY_PATH
+        ls -l /usr/local/lib
+        set
 
     - name: prepare tools
       run: |
