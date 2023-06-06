@@ -16,6 +16,10 @@ on:
     - cron: "0 4 * * *"
 
 env:
+  LD_LIBRARY_PATH: /usr/local/lib
+  PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+
+env:
   # Modify this value to "invalidate" the secp cache.
   SECP_CACHE_VERSION: "2023-06-06"
   SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
@@ -59,38 +63,9 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-master
 
-    - name: 'Check Secp256k1'
-      id: check_secp256k1
-      uses: thebinaryfelix/check-file-existence-action@v1
-      with:
-        files: '/usr/local/lib/libsecp256k1.so.0'
-
-    - name: "LINUX: Install build environment (apt-get)"
+    - name: "Setup build environment"
       run: |
-        sudo apt-get update
-        sudo apt-get -y install libsodium23 libsodium-dev
-        sudo apt-get -y install libsystemd0 libsystemd-dev
-        sudo apt-get -y remove --purge software-properties-common
-        sudo apt-get -y autoremove
-
-    - name: Install secp256k1
-      if: steps.check_secp256k1.outputs.exists != 'true'
-      uses: input-output-hk/setup-secp256k1@v1
-      with:
-        git-ref: ${{ env.SECP256K1_REF }}
-        cache-version: ${{ env.SECP_CACHE_VERSION }}
-
-    - name: check install
-      run: |
-        echo $LD_LIBRARY_PATH
-        ls -l /usr/local/lib
-        set
-
-    - name: prepare tools
-      run: |
-        ghcup install ghc 8.10.7
-        ghcup set ghc 8.10.7
-        cabal update
+        .github/workflows/bin/setup_dev_ubuntu
 
     - name: Build
       run: |
