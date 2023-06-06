@@ -16,6 +16,46 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
+
+  build-all:
+    name: "Build all"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ github.ref_name }}
+        restore-keys: |
+          cabal-${{ runner.os }}-master
+
+    - name: prepare tools
+      run: |
+        ghcup install ghc 8.10.7
+        ghcup set ghc 8.10.7
+        cabal update
+
+    - name: Build
+      run: |
+        cabal build all
+
   build-test:
     name: "Build & test"
     runs-on: ubuntu-latest
