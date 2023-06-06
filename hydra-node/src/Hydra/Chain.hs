@@ -26,7 +26,6 @@ import Hydra.Cardano.Api (
   ScriptDatum,
   ScriptRedeemer,
   SerialiseAsRawBytes (..),
-  TxIn,
   UsingRawBytesHex (..),
   WitCtxTxIn,
  )
@@ -203,7 +202,6 @@ data Chain tx m = Chain
       ScriptDatum WitCtxTxIn ->
       ScriptRedeemer ->
       PlutusScript ->
-      [TxIn] ->
       m (Either (PostTxError tx) tx)
   }
 

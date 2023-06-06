@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (
   PlutusScriptV2,
   ProtocolParameters,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
+  ToScriptData,
   Tx,
   TxId,
   UTxO,
@@ -49,6 +50,15 @@ import Hydra.Cardano.Api (
   pattern ReferenceScriptNone,
  )
 import Hydra.Chain (HeadId)
+import Hydra.Chain.CardanoClient (
+  QueryPoint (QueryTip),
+  awaitTransaction,
+  buildTransaction,
+  queryProtocolParameters,
+  queryTip,
+  submitTransaction,
+ )
+import Hydra.Chain.Direct.Wallet (signWith)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
@@ -284,19 +294,17 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
 
       let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
           scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
+          reedemer = ()
+          datum = ()
+          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
+
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
       normalUTxO <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo <- createScriptOutput pparams scriptAddress someSk normalUTxO
-      colateralUTxO <- seedFromFaucet node someVk 20_000_000 Normal (contramap FromFaucet tracer)
+      scriptUtxo <- createScriptOutput pparams scriptAddress someSk normalUTxO datum
 
       -- Request to build a draft commit tx from hydra-node
-      let reedemer = toScriptData () -- ScriptDataBytes mempty
-          datum = toScriptData () -- ScriptDataBytes mempty
-          collateralTxIns = fst <$> UTxO.pairs colateralUTxO
-          scriptInfo = ScriptInfo reedemer datum script collateralTxIns
-          clientPayload = DraftCommitTxRequest @Tx scriptUtxo (Just scriptInfo)
-
+      let clientPayload = DraftCommitTxRequest @Tx scriptUtxo (Just scriptInfo)
       response <-
         runReq defaultHttpConfig $
           req
@@ -310,9 +318,8 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
 
       let DraftCommitTxResponse commitTx = responseBody response
 
-      -- sign and submit the tx with our external user key
-      let signedCommitTx = signWith someSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
+      -- submit the signed tx with our external user key
+      submitTransaction networkId nodeSocket commitTx
 
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= scriptUtxo, "headId" .= headId]
@@ -321,12 +328,14 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
 
   -- TODO: refactor into simpler
   createScriptOutput ::
+    ToScriptData a =>
     ProtocolParameters ->
     AddressInEra ->
     SigningKey PaymentKey ->
     UTxO ->
+    a ->
     IO UTxO
-  createScriptOutput pparams scriptAddress sk utxo = do
+  createScriptOutput pparams scriptAddress sk utxo datum = do
     let outputs = [scriptTxOut]
         totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
         someUTxO =
@@ -360,7 +369,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
         pparams
         scriptAddress
         mempty
-        (mkTxOutDatumHash ())
+        (mkTxOutDatumHash datum)
         ReferenceScriptNone
 
 -- | Initialize open and close a head on a real network and ensure contestation

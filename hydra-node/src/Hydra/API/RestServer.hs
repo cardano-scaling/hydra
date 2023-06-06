@@ -13,7 +13,6 @@ import Data.ByteString.Short ()
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Cardano.Api.Prelude (
   HashableScriptData,
-  TxIn,
  )
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Ledger.Cardano ()
@@ -60,7 +59,6 @@ data ScriptInfo = ScriptInfo
   { redeemer :: HashableScriptData
   , datum :: HashableScriptData
   , script :: PlutusScript
-  , collateralTxIns :: [TxIn]
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)

@@ -364,8 +364,8 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
       eCommitTx <- case scriptInfo requestInput of
         Nothing -> do
           draftTx userUtxo
-        Just (ScriptInfo redeemer datum script collateralTxIns) -> do
-          draftScriptTx userUtxo (ScriptDatumForTxIn datum) redeemer script collateralTxIns
+        Just (ScriptInfo redeemer datum script) -> do
+          draftScriptTx userUtxo (ScriptDatumForTxIn datum) redeemer script
       respond $
         case eCommitTx of
           Left e ->

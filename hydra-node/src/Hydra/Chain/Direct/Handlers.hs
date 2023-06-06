@@ -41,6 +41,7 @@ import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
+  InitialState (..),
   abort,
   close,
   collect,
@@ -53,6 +54,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Tx (InitialThreadOutput (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -165,10 +167,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
           Initial st ->
             sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
           _ -> pure $ Left FailedToDraftTxNotInitializing
-    , draftScriptTx = \scriptUtxo datum redeemer script collateralTxIns -> do
+    , draftScriptTx = \scriptUtxo datum redeemer script -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st ->
+          Initial st@InitialState{initialThreadOutput = InitialThreadOutput{initialThreadUTxO = (txIn, _, _)}} ->
             case commitScript ctx st scriptUtxo of
               Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
@@ -179,6 +181,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
                       BuildTxWith $
                         ScriptWitness ScriptWitnessForSpending $
                           mkScriptWitness script datum redeemer
+                    collateralTxIns = [txIn]
                 let commitScriptTx =
                       unsafeBuildTransaction $
                         commitScriptTxBody
