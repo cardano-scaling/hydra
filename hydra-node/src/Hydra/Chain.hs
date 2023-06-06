@@ -186,6 +186,11 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either (PostTxError tx) tx)
+  -- ^ Create a commit transaction using user provided utxos (zero or many).
+  -- Errors are handled at the call site. We are handling the following with 400
+  -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
+  -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
+  -- possible exceptions are turned into 500 errors
   }
 
 data ChainEvent tx

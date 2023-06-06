@@ -14,6 +14,7 @@ import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
+import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
@@ -31,13 +32,13 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Chain (Chain (..), IsChainState)
+import Hydra.Chain (Chain (..), IsChainState, PostTxError (CannotCommitReferenceScript, CannotFindOwnInitial, CommittedTooMuchADAForMainnet, UnsupportedLegacyOutput))
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Network.HTTP.Types (Method, status200, status400)
+import Network.HTTP.Types (Method, status200, status400, status500)
 import Network.Wai (Request (pathInfo), Response, ResponseReceived, consumeRequestBodyStrict, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
@@ -347,7 +348,8 @@ handleDraftCommitUtxo ::
   IO ResponseReceived
 handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
-    Left err -> respond $ responseLBS status400 [] (show err)
+    Left err ->
+      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput -> do
       traceWith tracer $
         APIRestInputReceived
@@ -357,12 +359,22 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           }
 
       let userUtxo = utxos requestInput
-      eCommitTx <- draftTx userUtxo
+      eCommitTx <-
+        draftTx userUtxo
 
       respond $
         case eCommitTx of
-          Left err -> responseLBS status400 [] (show err)
+          Left e ->
+            -- Distinguish between errors users can actually benefit from and
+            -- other errors that are turned into 500 responses.
+            case e of
+              CannotFindOwnInitial _ -> return400 e
+              CannotCommitReferenceScript -> return400 e
+              CommittedTooMuchADAForMainnet _ _ -> return400 e
+              UnsupportedLegacyOutput _ -> return400 e
+              _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
+  return400 = responseLBS status400 [] . Aeson.encode . toJSON
   Chain{draftTx} = directChain

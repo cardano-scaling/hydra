@@ -143,20 +143,13 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
             >>= finalizeTx wallet ctx chainState mempty
         submitTx vtx
-    , -- Handle that creates a draft commit tx using the user utxo. Here we
-      -- distinguish between errors users can do something about (eg.
-      -- 'CannotCommitReferenceScript' which are returned in Left ) and the
-      -- system errors that will show as 500 errors on the api server level.
+    , -- Handle that creates a draft commit tx using the user utxo.
+      -- Possible errors are handled at the api server level.
       draftTx = \utxo -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
-            case commit ctx st utxo of
-              Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
-              Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
-              Left e -> throwIO e
-              Right commitTx ->
-                Right <$> finalizeTx wallet ctx chainState utxo commitTx
+            sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
