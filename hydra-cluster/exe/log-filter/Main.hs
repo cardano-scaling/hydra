@@ -53,6 +53,6 @@ main = do
       Right line -> do
         case decode (LBS.fromStrict line) of
           Nothing -> go pending hdl
-          Just e -> case runState (tracePerformance e) pending of
-            (Nothing, pending') -> go pending' hdl
-            (Just v, pending') -> LBS.hPutStrLn stdout (LBS.toStrict $ encode v) >> go pending' hdl
+          Just e ->
+            let (evs, pending') = runState (tracePerformance e) pending
+             in mapM_ (LBS.hPutStrLn stdout . LBS.toStrict . encode) evs >> go pending' hdl
