@@ -17,6 +17,7 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.List as List
+import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   BuildTxWith (BuildTxWith),
@@ -27,6 +28,7 @@ import Hydra.Cardano.Api (
   TxId,
   addTxIn,
   chainPointToSlotNo,
+  fromLedgerTxIn,
   getChainPoint,
   getTxBody,
   getTxId,
@@ -36,12 +38,18 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
   pattern TxInsCollateral,
  )
-import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
+import Hydra.Chain (
+  Chain (..),
+  ChainCallback,
+  ChainEvent (..),
+  ChainStateType,
+  PostChainTx (..),
+  PostTxError (..),
+ )
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  InitialState (..),
   abort,
   close,
   collect,
@@ -54,7 +62,6 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (InitialThreadOutput (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -170,19 +177,20 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
     , draftScriptTx = \scriptUtxo datum redeemer script -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st@InitialState{initialThreadOutput = InitialThreadOutput{initialThreadUTxO = (txIn, _, _)}} ->
+          Initial st ->
             case commitScript ctx st scriptUtxo of
               Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
               Right commitScriptTxBody -> do
-                let scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
+                walletUtxo <- atomically $ getUTxO wallet
+                let collateralTxIns = fromLedgerTxIn <$> Map.keys walletUtxo
+                    scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
                     scriptWitness =
                       BuildTxWith $
                         ScriptWitness ScriptWitnessForSpending $
                           mkScriptWitness script datum redeemer
-                    collateralTxIns = [txIn]
-                let commitScriptTx =
+                    commitScriptTx =
                       unsafeBuildTransaction $
                         commitScriptTxBody
                           & addTxIn (scriptTxIn, scriptWitness)
