@@ -87,7 +87,7 @@ const config = {
         routeBasePath: "/",
         editUrl,
         editLocalizedFiles: true,
-        sidebarPath: false
+        sidebarPath: false,
       }),
     ],
     [
@@ -153,6 +153,26 @@ const config = {
             position: "left",
           },
           {
+            type: "docsVersionDropdown",
+            label: "User Manual",
+            position: "left",
+            dropdownItemsBefore: [{ type: "html", value: "Versions" }],
+          },
+          {
+            type: "html",
+            value: "|",
+          },
+          {
+            to: "/benchmarks",
+            label: "Benchmarks",
+            position: "left",
+          },
+          {
+            to: "/api-reference",
+            label: "API Reference",
+            position: "left",
+          },
+          {
             to: "/use-cases",
             label: "Use Cases",
             position: "left",
@@ -165,16 +185,6 @@ const config = {
           {
             to: "/topologies",
             label: "Topologies",
-            position: "left",
-          },
-          {
-            to: "/benchmarks",
-            label: "Benchmarks",
-            position: "left",
-          },
-          {
-            to: "/api-reference",
-            label: "API Reference",
             position: "left",
           },
           {
@@ -269,7 +279,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ['haskell'],
+        additionalLanguages: ["haskell"],
       },
       algolia: {
         appId: "YZTAF8IOVB",
@@ -284,8 +294,7 @@ const config = {
     mermaid: true,
   },
 
-  themes: ['@docusaurus/theme-mermaid'],
-
+  themes: ["@docusaurus/theme-mermaid"],
 };
 
 module.exports = config;
