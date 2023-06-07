@@ -20,6 +20,7 @@ import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  CtxUTxO,
   HasTypeProxy (..),
   Lovelace (..),
   PlutusScript,
@@ -27,6 +28,7 @@ import Hydra.Cardano.Api (
   ScriptRedeemer,
   SerialiseAsRawBytes (..),
   TxIn,
+  TxOut,
   UsingRawBytesHex (..),
   WitCtxTxIn,
  )
@@ -198,9 +200,9 @@ data Chain tx m = Chain
   -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
   -- possible exceptions are turned into 500 errors
   , draftScriptTx ::
-      (IsChainState tx, MonadThrow m) =>
+      (IsChainState tx, MonadThrow m, MonadIO m) =>
       UTxOType tx ->
-      [(TxIn, ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript)] ->
+      [(TxIn, TxOut CtxUTxO, ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript)] ->
       m (Either (PostTxError tx) tx)
   }
 

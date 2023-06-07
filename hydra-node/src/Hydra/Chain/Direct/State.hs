@@ -19,6 +19,7 @@ import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
   BuildTx,
+  BuildTxWith,
   ChainPoint (..),
   CtxUTxO,
   Hash,
@@ -36,6 +37,8 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   Value,
+  WitCtxTxIn,
+  Witness,
   chainPointToSlotNo,
   genTxIn,
   modifyTxOutValue,
@@ -332,10 +335,11 @@ commitScript ::
   ChainContext ->
   InitialState ->
   UTxO ->
+  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Either
     (PostTxError Tx)
     (TxBodyContent BuildTx)
-commitScript ctx st utxo = do
+commitScript ctx st utxo scriptInputs = do
   case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
@@ -343,7 +347,7 @@ commitScript ctx st utxo = do
       rejectByronAddress utxo
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
-      Right $ rawCommitTxBody networkId scriptRegistry headId ownParty utxo initial
+      Right $ rawCommitTxBody networkId scriptRegistry headId ownParty utxo initial scriptInputs
  where
   ChainContext{networkId, ownParty, scriptRegistry} = ctx
   InitialState{headId} = st

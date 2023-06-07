@@ -66,7 +66,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (genKeyPair)
+import Hydra.Ledger.Cardano (addVkInputs, genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -293,25 +293,29 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
-          scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
-          reedemer = ()
-          datum = ()
-          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
-
+      let script1 = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
+          script2 = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
+          scriptAddress1 = mkScriptAddress @PlutusScriptV2 networkId script1
+          scriptAddress2 = mkScriptAddress @PlutusScriptV2 networkId script2
+          reedemer = 1 :: Integer
+          datum = 2 :: Integer
+          scriptInfo1 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script1
+          scriptInfo2 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script2
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
       -- TODO: createScriptOutput spends from faucet directly
-      normalUTxO <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo1 <- createScriptOutput pparams scriptAddress someSk normalUTxO datum
-      someUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo2 <- createScriptOutput pparams scriptAddress someSk someUtxo2 datum
+      -- regularUtxo <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      normalUTxO1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      scriptUtxo1 <- createScriptOutput pparams scriptAddress1 someSk normalUTxO1 datum
+      normalUTxO2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      scriptUtxo2 <- createScriptOutput pparams scriptAddress2 someSk normalUTxO2 datum
+      let regularUtxo :: UTxO = mempty
       let scriptUtxos = scriptUtxo1 <> scriptUtxo2
-          scriptInfos = (\(txIn, txOut) -> (txIn, txOut, scriptInfo)) <$> UTxO.pairs scriptUtxos
+          scriptInfos = (\((txIn, txOut), scriptInfo) -> (txIn, txOut, scriptInfo)) <$> zip (UTxO.pairs scriptUtxos) [scriptInfo1, scriptInfo2]
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx scriptUtxos scriptInfos
+      let clientPayload = DraftCommitTxRequest @Tx regularUtxo scriptInfos
       response <-
         runReq defaultHttpConfig $
           req
@@ -328,8 +332,8 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       putTextLn . toText $ renderTxWithUTxO scriptUtxos commitTx
       submitTransaction networkId nodeSocket commitTx
 
-      waitFor tracer 600 [n1] $
-        output "HeadIsOpen" ["utxo" .= scriptUtxos, "headId" .= headId]
+      waitFor tracer 60 [n1] $
+        output "HeadIsOpen" ["utxo" .= regularUtxo, "headId" .= headId]
  where
   RunningNode{networkId, nodeSocket} = node
 
