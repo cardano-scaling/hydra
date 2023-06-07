@@ -408,7 +408,7 @@ dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
     , draftTx = \_ -> error "unexpected call to draftTx"
-    , draftScriptTx = \_ _ _ _ _ -> error "unexpected call to draftScriptTx"
+    , draftScriptTx = \_ _ _ _ -> error "unexpected call to draftScriptTx"
     }
 
 noop :: Applicative m => a -> m ()
