@@ -47,6 +47,9 @@ const config = {
           editUrl,
           editLocalizedFiles: true,
           editCurrentVersion: true,
+          versions: {
+            current: { label: "unstable", path: "unstable" },
+          },
         },
         blog: {
           path: "adr",
