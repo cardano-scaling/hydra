@@ -95,12 +95,12 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
-  forall r tx.
-  (IsChainState tx, Reifies r ServerOutputConfig) =>
+  forall tx.
+  (IsChainState tx) =>
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental r (TimedServerOutput r tx) IO ->
+  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
@@ -159,7 +159,7 @@ setupServerNotification = do
 
 runAPIServer ::
   forall r tx.
-  (IsChainState tx, Reifies r ServerOutputConfig) =>
+  (IsChainState tx) =>
   IP ->
   PortNumber ->
   Party ->

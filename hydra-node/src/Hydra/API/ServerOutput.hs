@@ -7,6 +7,7 @@ import Data.Aeson (Value (..), defaultOptions, genericParseJSON, genericToJSON, 
 import Data.Aeson.Key (fromText)
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
+import Data.Default (Default (def))
 import Data.Reflection
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
@@ -16,11 +17,10 @@ import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot (Snapshot, confirmed, number, utxo), SnapshotNumber)
-import Data.Default (Default (def))
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
-data TimedServerOutput r tx = TimedServerOutput
-  { output :: WrappedServerOutput r tx
+data TimedServerOutput tx = TimedServerOutput
+  { output :: ServerOutput tx
   , seq :: Natural
   , time :: UTCTime
   }
@@ -28,13 +28,13 @@ data TimedServerOutput r tx = TimedServerOutput
 
 instance
   (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ServerOutput tx)) =>
-  Arbitrary (TimedServerOutput r tx)
+  Arbitrary (TimedServerOutput tx)
   where
   arbitrary = genericArbitrary
 
 instance
-  (ToJSON tx, IsChainState tx, Reifies r ServerOutputConfig) =>
-  ToJSON (TimedServerOutput r tx)
+  (ToJSON tx, IsChainState tx) =>
+  ToJSON (TimedServerOutput tx)
   where
   toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
@@ -42,7 +42,7 @@ instance
         Object $ o <> KeyMap.fromList [("seq", toJSON seq), ("timestamp", toJSON time)]
       _NotAnObject -> error "expected ServerOutput to serialize to an Object"
 
-instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput r tx) where
+instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
@@ -275,10 +275,9 @@ data ServerOutputConfig = ServerOutputConfig
 instance Default ServerOutputConfig where
   def =
     ServerOutputConfig
-     { txOutputFormat = OutputJSON
-     , utxoInSnapshot = WithUTxO
-     }
-
+      { txOutputFormat = OutputJSON
+      , utxoInSnapshot = WithUTxO
+      }
 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
