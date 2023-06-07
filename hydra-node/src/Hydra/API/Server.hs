@@ -32,7 +32,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Chain (Chain (..), IsChainState, PostTxError (CannotCommitReferenceScript, CannotFindOwnInitial, CommittedTooMuchADAForMainnet, UnsupportedLegacyOutput))
+import Hydra.Chain (Chain (..), IsChainState, PostTxError (CannotCommitReferenceScript, CommittedTooMuchADAForMainnet, UnsupportedLegacyOutput))
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
