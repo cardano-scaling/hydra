@@ -1,16 +1,18 @@
 asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: '0.10.0'
+  version: '0.11.0'
   description: |
-    WebSocket API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
+    WebSocket/HTTP API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
 
-    Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
+    Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket/HTTP endpoints. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
     Therefore, once connected, clients receive a stream of outputs as they arrive. Clients get to decide (using query parameters) if they want to observe the history of outputs and the transaction format.
     For example if client provides a path that looks like this `/?history=no&tx-output=cbor&snapshot-utxo=no` the server will not serve prior history of server outputs, the transaction fields in the json will be encoded as CBOR (base16 encoded), and the utxo field in the json will be omitted.
 
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
     See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
+
+    Users can also use the HTTP endpoint to draft a commit tx using their own utxo.
 
     > By default, a Hydra node listens for TCP WebSocket connections on port `tcp/4001` . This can be changed using `--port`.
 
@@ -21,7 +23,7 @@ info:
 defaultContentType: application/json
 
 servers:
-  localhost:
+  localhost-ws:
     url: "{host}:{port}"
     protocol: ws
     description: |
@@ -32,12 +34,24 @@ servers:
       port:
         description: Port the Hydra node is listening for client connections.
         default: "4001"
+  localhost-http:
+    url: "{host}:{port}"
+    protocol: http
+    description: |
+    variables:
+      host:
+        description: Address at which the Hydra node is accepting the client requests.
+        default: '127.0.0.1'
+      port:
+        description: Port at which the Hydra node is accepting the client requests.
+        default: "4001"
+
 
 channels:
   /:
-    description: Main (and sole) entry point for the Hydra service.
+    description: Main entry point for Websockets server in Hydra service.
     servers:
-      - localhost
+      - localhost-ws
     bindings:
       ws:
         query:
@@ -97,6 +111,30 @@ channels:
           - $ref: "#/components/messages/Contest"
           - $ref: "#/components/messages/Fanout"
 
+  /commit:
+    description: Main entry point to draft commit transaction in Hydra service.
+    servers:
+      - localhost-http
+    subscribe:
+      summary: Hydra node drafted commit transaction responses.
+      operationId: draftCommitTxResponse
+      message:
+        $ref: "#/components/messages/DraftCommitTxResponse"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+    publish:
+      summary: Requests sent to the Hydra node to draft a commit transactions.
+      operationId: draftCommitTxRequest
+      message:
+        $ref: "#/components/messages/DraftCommitTxRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########
@@ -217,6 +255,22 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
+
+    DraftCommitTxRequest:
+      title: DraftCommitTxRequest
+      description: |
+        Provide a utxo that will be used to draft a commit transaction that will be sent back to the user.
+      payload:
+        type: object
+        required:
+          - tag
+          - utxos
+        properties:
+          tag:
+            type: string
+            enum: ["DraftCommitTxRequest"]
+          utxos:
+            $ref: "#/components/schemas/UTxO"
 
     ########
     #
@@ -700,6 +754,22 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
+      description: |
+        Emitted by the server after drafting a commit transaction with the user provided utxo. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        type: object
+        required:
+          - tag
+          - commitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DraftCommitTxResponse"]
+          commitTx:
+            $ref: "#/components/schemas/RawTransaction"
+
   ########
   #
   # Schemas
@@ -1164,6 +1234,17 @@ components:
             tag:
               type: string
               enum: ["CommittedTooMuchADAForMainnet"]
+        - title: FailedToDraftTxNotInitializing
+          description: |
+            Raised if the user tried to draft a commit tx while Head is not in Initializing state.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToDraftTxNotInitializing"]
 
     Signature:
       type: string
@@ -1497,7 +1578,7 @@ components:
       format: "date-time"
       description: |
         A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
-    
+
     ChainSlot:
       type: integer
       minimum: 0

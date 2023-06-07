@@ -5,27 +5,35 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip)
+import CardanoClient (queryTip, submitTransaction)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.Cardano.Api (Lovelace, TxId, selectLovelace)
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.Cardano.Api (
+  Lovelace,
+  TxId,
+  selectLovelace,
+ )
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Chain.Direct.Wallet (signWith)
+import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import Network.HTTP.Req
 import Test.Hspec.Expectations (shouldBe)
+import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -134,6 +142,55 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (actorVk, _) <- keysFor actor
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+singlePartyCommitsFromExternal ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+
+    -- these keys should mimic external wallet keys needed to sign the commit tx
+    (externalVk, externalSk) <- generate genKeyPair
+    -- submit the tx using our external user key to get a utxo to commit
+    utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+    let hydraNodeId = 1
+
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Request to build a draft commit tx from hydra-node
+      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit
+
+      response <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+            (port $ 4000 + hydraNodeId)
+
+      responseStatusCode response `shouldBe` 200
+
+      let DraftCommitTxResponse commitTx = responseBody response
+
+      -- sign and submit the tx with our external user key
+      let signedCommitTx = signWith externalSk commitTx
+      submitTransaction networkId nodeSocket signedCommitTx
+
+      waitFor tracer 60 [n1] $
+        output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
+ where
+  RunningNode{nodeSocket} = node
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that

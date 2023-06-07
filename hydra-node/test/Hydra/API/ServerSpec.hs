@@ -24,12 +24,21 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
-import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
+import Hydra.API.Server (APIServerLog, RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
-import Hydra.Chain (HeadId (HeadId), PostChainTx (CloseTx), PostTxError (NoSeedInput), confirmedSnapshot)
+import Hydra.Chain (
+  Chain (Chain),
+  HeadId (HeadId),
+  PostChainTx (CloseTx),
+  PostTxError (NoSeedInput),
+  confirmedSnapshot,
+  draftTx,
+  postTx,
+ )
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
+import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
@@ -45,7 +54,7 @@ spec = describe "ServerSpec" $
   parallel $ do
     it "should fail on port in use" $ do
       showLogsOnFailure $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withAPIServer @SimpleTx "127.0.0.1" p alice mockPersistence tracer noop
+        let withServerOnPort p = withTestAPIServer p alice mockPersistence tracer
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
@@ -58,7 +67,7 @@ spec = describe "ServerSpec" $
       failAfter 5 $
         showLogsOnFailure $ \tracer ->
           withFreePort $ \port ->
-            withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_ -> do
+            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
@@ -66,7 +75,7 @@ spec = describe "ServerSpec" $
       queue <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -92,14 +101,14 @@ spec = describe "ServerSpec" $
 
           persistence <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withAPIServer @SimpleTx "127.0.0.1" port alice persistence tracer noop $ \Server{sendOutput} -> do
+            withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
               sendOutput arbitraryMsg
 
           queue1 <- atomically newTQueue
           queue2 <- atomically newTQueue
           persistence' <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withAPIServer @SimpleTx "127.0.0.1" port alice persistence' tracer noop $ \Server{sendOutput} -> do
+            withTestAPIServer port alice persistence' tracer $ \Server{sendOutput} -> do
               semaphore <- newTVarIO 0
               withAsync
                 ( concurrently_
@@ -135,7 +144,7 @@ spec = describe "ServerSpec" $
         run $
           showLogsOnFailure $ \tracer ->
             withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- failAfter 5 $ replicateM (length outputs + 1) (receiveData conn)
@@ -155,7 +164,7 @@ spec = describe "ServerSpec" $
         run $
           showLogsOnFailure $ \tracer ->
             withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
                 mapM_ sendFromApiServer history
                 -- start client that doesn't want to see the history
@@ -179,7 +188,7 @@ spec = describe "ServerSpec" $
     it "outputs tx as cbor or json depending on the client" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
 
@@ -242,7 +251,7 @@ spec = describe "ServerSpec" $
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
@@ -263,7 +272,7 @@ spec = describe "ServerSpec" $
         run $
           showLogsOnFailure $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
-              withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
@@ -276,7 +285,7 @@ spec = describe "ServerSpec" $
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port -> do
-          withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \Server{sendOutput} -> do
+          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             let generateSnapshot =
                   generate $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
@@ -316,7 +325,7 @@ spec = describe "ServerSpec" $
               generateSnapshot
             let expectedUtxos = toJSON utxo
 
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \Server{sendOutput} -> do
+            withTestAPIServer port alice apiPersistence tracer $ \Server{sendOutput} -> do
               headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
 
               mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
@@ -325,7 +334,7 @@ spec = describe "ServerSpec" $
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
             -- expect the api server to load events from apiPersistence and project headStatus correctly
-            withAPIServer @SimpleTx "127.0.0.1" port alice apiPersistence tracer noop $ \_ -> do
+            withTestAPIServer port alice apiPersistence tracer $ \_ -> do
               waitForValue port $ \v -> do
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
@@ -344,7 +353,7 @@ strictlyMonotonic = \case
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure $ \tracer ->
-    withAPIServer @SimpleTx "127.0.0.1" port alice mockPersistence tracer noop $ \_server -> do
+    withTestAPIServer port alice mockPersistence tracer $ \_server -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
@@ -382,8 +391,25 @@ testClient queue semaphore cnx = do
       atomically (writeTQueue queue resp)
       testClient queue semaphore cnx
 
+dummyChainHandle :: Chain tx IO
+dummyChainHandle =
+  Chain
+    { postTx = \_ -> error "unexpected call to postTx"
+    , draftTx = \_ -> error "unexpected call to draftTx"
+    }
+
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
+
+withTestAPIServer ::
+  PortNumber ->
+  Party ->
+  PersistenceIncremental (TimedServerOutput SimpleTx) IO ->
+  Tracer IO APIServerLog ->
+  (Server SimpleTx IO -> IO ()) ->
+  IO ()
+withTestAPIServer port actor persistence tracer =
+  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle noop
 
 withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
 withClient port path action = do

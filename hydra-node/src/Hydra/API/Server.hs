@@ -13,8 +13,11 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as LBS
+import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -29,14 +32,14 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Chain (IsChainState)
+import Hydra.Chain (Chain (..), IsChainState, PostTxError (CannotCommitReferenceScript, CommittedTooMuchADAForMainnet, UnsupportedLegacyOutput))
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Network.HTTP.Types (status400)
-import Network.Wai (responseLBS)
+import Network.HTTP.Types (Method, status200, status400, status500)
+import Network.Wai (Request (pathInfo), Response, ResponseReceived, consumeRequestBodyStrict, requestMethod, responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -68,6 +71,7 @@ data APIServerLog
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   | APIConnectionError {reason :: String}
   | APIHandshakeError {reason :: String}
+  | APIRestInputReceived {method :: Text, paths :: [Text], requestInputBody :: Maybe Aeson.Value}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -79,6 +83,12 @@ instance Arbitrary APIServerLog where
       , pure $ APIOutputSent (Aeson.Object mempty)
       , pure $ APIInputReceived (Aeson.Object mempty)
       , APIInvalidInput <$> arbitrary <*> arbitrary
+      , APIConnectionError <$> arbitrary
+      , APIHandshakeError <$> arbitrary
+      , APIRestInputReceived
+          <$> arbitrary
+          <*> arbitrary
+          <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
       ]
 
 -- | Handle to provide a means for sending server outputs to clients.
@@ -101,8 +111,9 @@ withAPIServer ::
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
+  Chain tx IO ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- reverse <$> loadAll
 
@@ -115,7 +126,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cal
   history <- newTVarIO timedOutputEvents
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
     ( do
         waitForServerRunning
         action $
@@ -164,6 +175,7 @@ runAPIServer ::
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->
+  Chain tx IO ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -173,12 +185,12 @@ runAPIServer ::
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
   IO ()
-runAPIServer host port party tracer history callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp httpApp
+      websocketsOr defaultConnectionOptions wsApp (httpApp chain)
  where
   serverSettings =
     defaultSettings
@@ -209,8 +221,20 @@ runAPIServer host port party tracer history callback headStatusP snapshotUtxoP r
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  httpApp _ respond =
-    respond $ responseLBS status400 [] "only WebSocket connections supported"
+  -- Hydra HTTP server
+  httpApp directChain req respond =
+    case (requestMethod req, pathInfo req) of
+      ("POST", ["commit"]) -> do
+        body <- consumeRequestBodyStrict req
+        handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+      _ -> do
+        traceWith tracer $
+          APIRestInputReceived
+            { method = decodeUtf8 $ requestMethod req
+            , paths = pathInfo req
+            , requestInputBody = Nothing
+            }
+        respond $ responseLBS status400 [] "Resource not found"
 
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
@@ -310,3 +334,45 @@ data RunServerException = RunServerException
   deriving (Show)
 
 instance Exception RunServerException
+
+-- Handle user requests to obtain a draft commit tx
+handleDraftCommitUtxo ::
+  forall tx.
+  IsChainState tx =>
+  Chain tx IO ->
+  Tracer IO APIServerLog ->
+  LBS.ByteString ->
+  Method ->
+  [Text] ->
+  (Response -> IO ResponseReceived) ->
+  IO ResponseReceived
+handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
+  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
+    Left err ->
+      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right requestInput -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 reqMethod
+          , paths = reqPaths
+          , requestInputBody = Just $ toJSON requestInput
+          }
+
+      let userUtxo = utxos requestInput
+      eCommitTx <- draftTx userUtxo
+
+      respond $
+        case eCommitTx of
+          Left e ->
+            -- Distinguish between errors users can actually benefit from and
+            -- other errors that are turned into 500 responses.
+            case e of
+              CannotCommitReferenceScript -> return400 e
+              CommittedTooMuchADAForMainnet _ _ -> return400 e
+              UnsupportedLegacyOutput _ -> return400 e
+              _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+          Right commitTx ->
+            responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+ where
+  return400 = responseLBS status400 [] . Aeson.encode . toJSON
+  Chain{draftTx} = directChain

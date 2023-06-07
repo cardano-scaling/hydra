@@ -140,6 +140,8 @@ data PostTxError tx
   | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
+  | -- | We can only draft commit tx for the user when in Initializing state
+    FailedToDraftTxNotInitializing
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
@@ -174,7 +176,7 @@ class
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
 -- | Handle to interface with the main chain network
-newtype Chain tx m = Chain
+data Chain tx m = Chain
   { postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.
@@ -183,6 +185,12 @@ newtype Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
+  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either (PostTxError tx) tx)
+  -- ^ Create a commit transaction using user provided utxos (zero or many).
+  -- Errors are handled at the call site. We are handling the following with 400
+  -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
+  -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
+  -- possible exceptions are turned into 500 errors
   }
 
 data ChainEvent tx
