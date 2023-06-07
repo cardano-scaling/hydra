@@ -70,6 +70,7 @@ common project-config
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyDataDecls
     ExistentialQuantification
     FlexibleContexts
