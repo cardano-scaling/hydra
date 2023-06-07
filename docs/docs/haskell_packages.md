@@ -8,8 +8,8 @@ The Hydra project is divided into several Haskell packages fulfilling different 
 
 ## Public Packages
 
-| Package                                                                                        | Description                                                                         |
-| ---                                                                                            | ---                                                                                 |
+| Package                                                                 | Description                                                                         |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | [plutus-merkle-tree](pathname:///haddock/plutus-merkle-tree/index.html) | Implementation of Merkle Trees, compatible with on-chain Plutus validators.         |
 | [plutus-cbor](pathname:///haddock/plutus-cbor/index.html)               | Implementation of CBOR encoders, compatible with on-chain Plutus validators.        |
 | [hydra-prelude](pathname:///haddock/hydra-prelude/index.html)           | Custom Hydra Prelude used across other Hydra packages.                              |
@@ -17,8 +17,8 @@ The Hydra project is divided into several Haskell packages fulfilling different 
 
 ## Internal Packages
 
-| Package                                                                                    | Description                                                             |
-| ---                                                                                        | ---                                                                     |
+| Package                                                             | Description                                                             |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | [hydra-node](pathname:///haddock/hydra-node/index.html)             | The Hydra node.                                                         |
 | [hydra-node tests](pathname:///haddock/hydra-node/tests/index.html) | The Hydra node test code.                                               |
 | [hydra-tui](pathname:///haddock/hydra-tui/index.html)               | Terminal User Interface (TUI) for managing a Hydra node                 |

@@ -142,17 +142,6 @@ const config = {
         editLocalizedFiles: true,
       }),
     ],
-    [
-      "content-docs",
-      /** @type {import('@docusaurus/plugin-content-docs').Options} */
-      ({
-        id: "benchmarks",
-        path: "benchmarks",
-        routeBasePath: "benchmarks",
-        editUrl,
-        editLocalizedFiles: true,
-      }),
-    ],
   ],
 
   themeConfig:
@@ -168,9 +157,13 @@ const config = {
         items: Array.prototype.concat(
           [
             {
-              type: "docsVersion",
               to: "/docs/getting-started",
               label: "User Manual",
+              position: "left",
+            },
+            {
+              to: "/docs/benchmarks",
+              label: "Benchmarks",
               position: "left",
             },
           ],
@@ -188,11 +181,6 @@ const config = {
             {
               type: "html",
               value: "|",
-            },
-            {
-              to: "/benchmarks",
-              label: "Benchmarks",
-              position: "left",
             },
             {
               to: "/api-reference",

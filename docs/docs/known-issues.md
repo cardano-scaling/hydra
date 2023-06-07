@@ -1,3 +1,7 @@
+---
+sidebar_position: 10
+---
+
 # Known issues & limitations
 
 Please be aware of the following limitations before running hydra-node
@@ -15,7 +19,7 @@ The current transaction size on mainnet is limited to 16KB, a limitation which h
 
 - The protocol can only handle a maximum number of participants in a
   Head (see [cost of collectcom
-  transaction](/benchmarks/transaction-cost/#cost-of-collectcom-transaction)). Upon
+  transaction](./benchmarks/transaction-cost/#cost-of-collectcom-transaction)). Upon
   startup, the `hydra-node` will inform you of the current
   configured maximum when trying to configure too many peers.
 
@@ -26,7 +30,7 @@ Head is open:
 
 - The head cannot be _finalized_ if holding more than ~60 assets
   (see [cost of fanout
-  transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction)
+  transaction](./benchmarks/transaction-cost/#cost-of-fanout-transaction)
   for latest numbers), although it can be _closed_
 - Tokens minted and not burnt in an _open_ head will prevent it from being _finalized_
 - If one or more participants commit UTxO too large to be processed

@@ -10,7 +10,7 @@ contributors to the `hydra-node`.
 On every PR and also for the latest `master`, we do compute typical transaction
 costs in size, memory and cpu usage of the Hydra protocol transactions on
 Cardano. The latest results can be seen
-[here](/benchmarks/transaction-cost/).
+[here](./transaction-cost).
 
 Such benchmarks provide a great overview of what "fits" into a given transaction
 in terms of maximum transaction size, percent of maximum memory and cpu budget.
@@ -33,6 +33,7 @@ be profiled. For example, let's investigate what the `collectCom` transaction
 for `5` parties in the `tx-cost` benchmark is spending most time and memory on.
 
 The benchmark computes many transactions with growing number of participants in `computeCollectComCost`:
+
 ```haskell
 computeCollectComCost =
   catMaybes <$> mapM compute [1 .. 100]
@@ -45,8 +46,7 @@ computeCollectComCost =
 ```
 
 The `tx` here would be the transaction we want to profile, so we can "isolate"
-the transaction for `5` parties by changing the body of this function `maybe []
-pure <$> compute 5`.
+the transaction for `5` parties by changing the body of this function `maybe [] pure <$> compute 5`.
 
 ## Compiling a script for profiling
 

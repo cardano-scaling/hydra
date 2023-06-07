@@ -339,7 +339,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: benchmarks
-        path: docs/benchmarks
+        path: docs/docs/benchmarks
 
     - name: 📥 Download haddock documentation
       uses: actions/download-artifact@v3
@@ -351,7 +351,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: test-results
-        path: docs/benchmarks/tests
+        path: docs/docs/benchmarks/tests
 
     - name: 📥 Download specification PDF
       uses: actions/download-artifact@v3
