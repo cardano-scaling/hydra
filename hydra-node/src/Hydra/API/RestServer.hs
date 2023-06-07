@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -68,7 +67,6 @@ instance Arbitrary ScriptInfo where
 
 data DraftCommitTxRequest tx = DraftCommitTxRequest
   { utxo :: UTxOType tx
-  , scriptInfo :: Maybe ScriptInfo
   , toCommit :: [(TxIn, TxOut CtxUTxO, ScriptInfo)]
   }
   deriving (Generic)
@@ -77,11 +75,11 @@ deriving stock instance IsTx tx => Eq (DraftCommitTxRequest tx)
 deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
 
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
-  toJSON (DraftCommitTxRequest utxo scriptInfo toCommit) =
+  toJSON (DraftCommitTxRequest utxo toCommit) =
     object
       [ "tag" .= String "DraftCommitTxRequest" -- TODO: tag should be not needed
       , "utxos" .= toJSON utxo
-      , "scriptInfo" .= toJSON scriptInfo
+      , "toCommit" .= toJSON toCommit
       ]
 
 instance
@@ -93,12 +91,12 @@ instance
     case tag :: Text of
       "DraftCommitTxRequest" -> do
         utxos :: (UTxOType tx) <- o .: "utxos"
-        scriptInfo :: (Maybe ScriptInfo) <- o .: "scriptInfo"
-        pure $ DraftCommitTxRequest utxos scriptInfo undefined
+        toCommit :: [(TxIn, TxOut CtxUTxO, ScriptInfo)] <- o .: "toCommit"
+        pure $ DraftCommitTxRequest utxos toCommit
       _ -> fail "Expected tag to be DraftCommitTxRequest"
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    DraftCommitTxRequest xs si toCommit -> DraftCommitTxRequest <$> shrink xs <*> shrink si <*> shrink toCommit
+    DraftCommitTxRequest xs toCommit -> DraftCommitTxRequest <$> shrink xs <*> shrink toCommit

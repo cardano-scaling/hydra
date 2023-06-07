@@ -16,7 +16,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import qualified Data.List as List
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   BlockHeader,
@@ -174,7 +173,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
           Initial st ->
             sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
           _ -> pure $ Left FailedToDraftTxNotInitializing
-    , draftScriptTx = \scriptUtxo datum redeemer script -> do
+    , draftScriptTx = \scriptUtxo scriptInfos -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
@@ -185,18 +184,27 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
               Right commitScriptTxBody -> do
                 walletUtxo <- atomically $ getUTxO wallet
                 let collateralTxIns = fromLedgerTxIn <$> Map.keys walletUtxo
-                    scriptTxIn = List.head $ fst <$> UTxO.pairs scriptUtxo
-                    scriptWitness =
-                      BuildTxWith $
-                        ScriptWitness ScriptWitnessForSpending $
-                          mkScriptWitness script datum redeemer
                     commitScriptTx =
                       unsafeBuildTransaction $
                         commitScriptTxBody
-                          & addTxIn (scriptTxIn, scriptWitness)
+                          & addTxIns scriptInfos
                           & setTxInsCollateral (TxInsCollateral collateralTxIns)
                           & setTxProtocolParams (BuildTxWith $ Just pparams)
                 Right <$> finalizeTx wallet ctx chainState scriptUtxo commitScriptTx
+           where
+            addTxIns infos bodyTx =
+              case infos of
+                [] -> bodyTx
+                info : rest ->
+                  addTxIns
+                    rest
+                    (bodyTx & addTxIn (toScriptInput info))
+            toScriptInput (txIn, datum, redeemer, script) =
+              ( txIn
+              , BuildTxWith $
+                  ScriptWitness ScriptWitnessForSpending $
+                    mkScriptWitness script datum redeemer
+              )
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 

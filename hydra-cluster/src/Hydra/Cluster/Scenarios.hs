@@ -251,7 +251,7 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
       utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit Nothing
+      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit []
 
       response <-
         runReq defaultHttpConfig $
@@ -308,9 +308,10 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       someUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo2 <- createScriptOutput pparams scriptAddress someSk someUtxo2 datum
       let scriptUtxos = scriptUtxo1 <> scriptUtxo2
+          scriptInfos = (\(txIn, txOut) -> (txIn, txOut, scriptInfo)) <$> UTxO.pairs scriptUtxos
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx scriptUtxos (Just scriptInfo)
+      let clientPayload = DraftCommitTxRequest @Tx scriptUtxos scriptInfos
       response <-
         runReq defaultHttpConfig $
           req
@@ -322,7 +323,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       responseStatusCode response `shouldBe` 200
       let DraftCommitTxResponse commitTx = responseBody response
 
-      traceWith tracer $ SubmitCommitTx{commitTx}
+      traceWith tracer $ SubmitCommitTx commitTx
       -- TODO: remove render tx
       putTextLn . toText $ renderTxWithUTxO scriptUtxos commitTx
       submitTransaction networkId nodeSocket commitTx
