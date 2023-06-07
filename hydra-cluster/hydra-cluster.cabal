@@ -193,6 +193,7 @@ executable log-filter
     , hydra-prelude
     , lens
     , lens-aeson
+    , mtl
     , optparse-applicative
     , temporary
 

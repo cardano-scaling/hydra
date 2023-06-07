@@ -7,7 +7,6 @@ import Control.Lens (Traversal', at, (.~), (?~), (^..), (^?))
 import Data.Aeson (Value (Array, Null), decode, object, (.=))
 import Data.Aeson.Lens (key, values, _Object)
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Char as Char
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.API.ClientInput (ClientInput (NewTx))
@@ -19,28 +18,31 @@ import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNodeLog (BeginEvent, EndEvent))
 
-tracePerformance :: LBS.ByteString -> [Value]
-tracePerformance =
-  computeDuration . mapMaybe decode . LBS.splitWith ((== '\n') . toEnum . fromIntegral)
+tracePerformance :: Envelope (HydraLog Tx (Message Tx)) -> State (Map Word64 (TxIdType Tx, UTCTime)) (Maybe Value)
+tracePerformance entry = do
+  st <- get
+  let (newState, result) = analyse st entry
+  put newState
+  pure result
 
-computeDuration :: [Envelope (HydraLog Tx (Message Tx))] -> [Value]
-computeDuration = snd . foldl' analyse (mempty, mempty)
- where
-  analyse :: (Map Word64 (TxIdType Tx, UTCTime), [Value]) -> Envelope (HydraLog Tx (Message Tx)) -> (Map Word64 (TxIdType Tx, UTCTime), [Value])
-  analyse (pending, output) = \case
-    (Envelope ut n txt (Node (BeginEvent pa eventID (ClientEvent (NewTx tx))))) -> (Map.insert eventID (txId tx, ut) pending, output)
-    (Envelope ut n txt (Node (EndEvent pa eventID))) ->
-      let (txid, begin) = fromJust $ Map.lookup eventID pending
-       in ( Map.delete eventID pending
-          , object
+analyse :: Map Word64 (TxIdType Tx, UTCTime) -> Envelope (HydraLog Tx (Message Tx)) -> (Map Word64 (TxIdType Tx, UTCTime), Maybe Value)
+analyse pending = \case
+  (Envelope ut n txt (Node (BeginEvent pa eventID (ClientEvent (NewTx tx))))) ->
+    (Map.insert eventID (txId tx, ut) pending, Nothing)
+  (Envelope ut n txt (Node (EndEvent pa eventID))) ->
+    case Map.lookup eventID pending of
+      Just (txid, begin) ->
+        ( Map.delete eventID pending
+        , Just $
+            object
               [ "timestamp" .= begin
               , "id" .= txid
               , "event" .= ("NewTx" :: Text)
               , "us" .= (1_000_000 * diffUTCTime ut begin)
-              ] :
-            output
-          )
-    _ -> (pending, output)
+              ]
+        )
+      Nothing -> (pending, Nothing)
+  _ -> (pending, Nothing)
 
 -- | Generate "traces" for various events
 --

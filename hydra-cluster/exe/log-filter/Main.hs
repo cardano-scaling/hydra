@@ -5,7 +5,7 @@ module Main where
 import Data.Aeson (Value, decode, encode)
 import qualified Data.ByteString.Char8 as LBS
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.LogFilter (filterLog)
+import Hydra.LogFilter (filterLog, tracePerformance)
 import Hydra.Prelude
 import Options.Applicative (
   Parser,
@@ -36,24 +36,23 @@ logFilterOptions =
     (logFilterOptionsParser <**> helper)
     ( fullDesc
         <> progDesc
-          "Filter and trim down logs from a Hydra node. This filter \
-          \ keeps only the 'Node' messages, removes the networking layer ones, \
-          \ and replaces full transactions in the log entries by transaction ids."
-        <> header "log-filter - Raw Hydra-node logs filter"
+          "Filter logs and compute events duration per transaction"
+        <> header "log-filter - Hydra-node logs filter"
     )
 
 main :: IO ()
 main = do
   execParser logFilterOptions >>= \case
-    FileInput (Just logFile) -> withFile logFile ReadMode $ \hdl -> go hdl
-    FileInput Nothing -> go stdin
+    FileInput (Just logFile) -> withFile logFile ReadMode $ \hdl -> go mempty hdl
+    FileInput Nothing -> go mempty stdin
  where
-  go hdl =
+  go pending hdl =
     try (LBS.hGetLine hdl) >>= \case
       Left err | isEOFError err -> pure ()
       Left err -> throwIO err
       Right line -> do
-        case filterLog =<< decode @Value (LBS.fromStrict line) of
-          Nothing -> pure ()
-          Just v -> LBS.hPutStrLn stdout (LBS.toStrict $ encode v)
-        go hdl
+        case decode (LBS.fromStrict line) of
+          Nothing -> go pending hdl
+          Just e -> case runState (tracePerformance e) pending of
+            (Nothing, pending') -> go pending' hdl
+            (Just v, pending') -> LBS.hPutStrLn stdout (LBS.toStrict $ encode v) >> go pending' hdl
