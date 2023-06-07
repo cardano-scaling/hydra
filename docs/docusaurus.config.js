@@ -98,6 +98,7 @@ const config = {
       }),
     ],
     [
+      // TODO: use src/pages instead
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
