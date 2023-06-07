@@ -12,6 +12,17 @@ const customFields = {
 
 const editUrl = "https://github.com/input-output-hk/hydra/tree/master/docs";
 
+// NOTE: This is flipped in the docs build to create a versioned website
+const versioned = false;
+
+const extendIf = (original, predicate, override) => {
+  if (predicate) {
+    return Object.assign({ ...original }, override);
+  } else {
+    return original;
+  }
+};
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Hydra: Head Protocol",
@@ -43,14 +54,18 @@ const config = {
       "classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        docs: {
-          editUrl,
-          editLocalizedFiles: true,
-          editCurrentVersion: true,
-          versions: {
-            current: { label: "unstable", path: "unstable" },
+        docs: extendIf(
+          {
+            editUrl,
+            editLocalizedFiles: true,
           },
-        },
+          versioned,
+          {
+            versions: {
+              current: { label: "unstable", path: "unstable" },
+            },
+          }
+        ),
         blog: {
           path: "adr",
           routeBasePath: "/adr",
@@ -150,57 +165,66 @@ const config = {
           src: "img/hydra.png",
           srcDark: "img/hydra-white.png",
         },
-        items: [
-          {
-            to: "/docs/getting-started",
-            label: "User Manual",
-            position: "left",
-          },
-          {
-            type: "docsVersionDropdown",
-            label: "User Manual",
-            position: "left",
-            dropdownItemsBefore: [{ type: "html", value: "Versions" }],
-          },
-          {
-            type: "html",
-            value: "|",
-          },
-          {
-            to: "/benchmarks",
-            label: "Benchmarks",
-            position: "left",
-          },
-          {
-            to: "/api-reference",
-            label: "API Reference",
-            position: "left",
-          },
-          {
-            to: "/use-cases",
-            label: "Use Cases",
-            position: "left",
-          },
-          {
-            to: "/core-concepts",
-            label: "Core Concepts",
-            position: "left",
-          },
-          {
-            to: "/topologies",
-            label: "Topologies",
-            position: "left",
-          },
-          {
-            href: "https://github.com/input-output-hk/hydra",
-            label: "GitHub",
-            position: "right",
-          },
-          {
-            type: "localeDropdown",
-            position: "right",
-          },
-        ],
+        items: Array.prototype.concat(
+          [
+            {
+              type: "docsVersion",
+              to: "/docs/getting-started",
+              label: "User Manual",
+              position: "left",
+            },
+          ],
+          versioned
+            ? [
+                {
+                  type: "docsVersionDropdown",
+                  label: "User Manual",
+                  position: "left",
+                  dropdownItemsBefore: [{ type: "html", value: "Versions" }],
+                },
+              ]
+            : [],
+          [
+            {
+              type: "html",
+              value: "|",
+            },
+            {
+              to: "/benchmarks",
+              label: "Benchmarks",
+              position: "left",
+            },
+            {
+              to: "/api-reference",
+              label: "API Reference",
+              position: "left",
+            },
+            {
+              to: "/use-cases",
+              label: "Use Cases",
+              position: "left",
+            },
+            {
+              to: "/core-concepts",
+              label: "Core Concepts",
+              position: "left",
+            },
+            {
+              to: "/topologies",
+              label: "Topologies",
+              position: "left",
+            },
+            {
+              href: "https://github.com/input-output-hk/hydra",
+              label: "GitHub",
+              position: "right",
+            },
+            {
+              type: "localeDropdown",
+              position: "right",
+            },
+          ]
+        ),
       },
       footer: {
         style: "dark",
