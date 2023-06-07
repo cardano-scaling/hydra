@@ -10,10 +10,7 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
-import Hydra.Cardano.Api.Prelude (
-  HashableScriptData,
- )
+import Hydra.Cardano.Api (CtxUTxO, HashableScriptData, PlutusScript, TxIn, TxOut)
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Ledger.Cardano ()
 
@@ -28,7 +25,7 @@ deriving stock instance IsTx tx => Show (DraftCommitTxResponse tx)
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxResponse tx) where
   toJSON (DraftCommitTxResponse tx) =
     object
-      [ "tag" .= String "DraftCommitTxResponse"
+      [ "tag" .= String "DraftCommitTxResponse" -- TODO: tag should be not needed
       , "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialize' tx)
       ]
 
@@ -55,10 +52,13 @@ instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
   shrink = \case
     DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
 
+-- TODO: This should actually be isomorphic to ScriptWitness of cardano-api,
+-- i.e. we should support also native scripts, other versions of plutus and
+-- witnessing via reference inputs
 data ScriptInfo = ScriptInfo
   { redeemer :: HashableScriptData
   , datum :: HashableScriptData
-  , script :: PlutusScript
+  , plutusV2Script :: PlutusScript
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -69,6 +69,7 @@ instance Arbitrary ScriptInfo where
 data DraftCommitTxRequest tx = DraftCommitTxRequest
   { utxo :: UTxOType tx
   , scriptInfo :: Maybe ScriptInfo
+  , toCommit :: [(TxIn, TxOut CtxUTxO, ScriptInfo)]
   }
   deriving (Generic)
 
@@ -76,9 +77,9 @@ deriving stock instance IsTx tx => Eq (DraftCommitTxRequest tx)
 deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
 
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
-  toJSON (DraftCommitTxRequest utxo scriptInfo) =
+  toJSON (DraftCommitTxRequest utxo scriptInfo toCommit) =
     object
-      [ "tag" .= String "DraftCommitTxRequest"
+      [ "tag" .= String "DraftCommitTxRequest" -- TODO: tag should be not needed
       , "utxos" .= toJSON utxo
       , "scriptInfo" .= toJSON scriptInfo
       ]
@@ -93,17 +94,11 @@ instance
       "DraftCommitTxRequest" -> do
         utxos :: (UTxOType tx) <- o .: "utxos"
         scriptInfo :: (Maybe ScriptInfo) <- o .: "scriptInfo"
-        pure $ DraftCommitTxRequest utxos scriptInfo
+        pure $ DraftCommitTxRequest utxos scriptInfo undefined
       _ -> fail "Expected tag to be DraftCommitTxRequest"
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    DraftCommitTxRequest xs si -> DraftCommitTxRequest <$> shrink xs <*> shrink si
-
--- * Orphans
-instance Arbitrary PlutusScript where
-  arbitrary = do
-    word8 :: ShortByteString <- arbitrary
-    pure $ PlutusScriptSerialised word8
+    DraftCommitTxRequest xs si toCommit -> DraftCommitTxRequest <$> shrink xs <*> shrink si <*> shrink toCommit

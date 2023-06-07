@@ -6,7 +6,9 @@ import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
+import qualified Data.ByteString.Short as SBS
 import qualified PlutusLedgerApi.Common as Plutus
+import Test.QuickCheck (listOf)
 
 -- * Type Conversions
 
@@ -49,3 +51,7 @@ instance IsPlutusScriptLanguage lang => FromJSON (PlutusScript lang) where
     case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
       Left e -> fail $ show e
       Right a -> pure a
+
+instance Arbitrary (PlutusScript lang) where
+  arbitrary =
+    PlutusScriptSerialised . SBS.pack <$> listOf arbitrary
