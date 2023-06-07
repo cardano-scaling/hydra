@@ -49,6 +49,7 @@ import Hydra.Cardano.Api (
   txOutValue,
   pattern ReferenceScriptNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (HeadId)
 import Hydra.Chain.CardanoClient (
   QueryPoint (QueryTip),
@@ -300,11 +301,16 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
 
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+
+      -- TODO: createScriptOutput spends from faucet directly
       normalUTxO <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo <- createScriptOutput pparams scriptAddress someSk normalUTxO datum
+      scriptUtxo1 <- createScriptOutput pparams scriptAddress someSk normalUTxO datum
+      someUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      scriptUtxo2 <- createScriptOutput pparams scriptAddress someSk someUtxo2 datum
+      let scriptUtxos = scriptUtxo1 <> scriptUtxo2
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx scriptUtxo (Just scriptInfo)
+      let clientPayload = DraftCommitTxRequest @Tx scriptUtxos (Just scriptInfo)
       response <-
         runReq defaultHttpConfig $
           req
@@ -313,16 +319,16 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
             (ReqBodyJson clientPayload)
             (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
             (port $ 4000 + hydraNodeId)
-
       responseStatusCode response `shouldBe` 200
-
       let DraftCommitTxResponse commitTx = responseBody response
 
-      -- submit the signed tx with our external user key
+      traceWith tracer $ SubmitCommitTx{commitTx}
+      -- TODO: remove render tx
+      putTextLn . toText $ renderTxWithUTxO scriptUtxos commitTx
       submitTransaction networkId nodeSocket commitTx
 
       waitFor tracer 600 [n1] $
-        output "HeadIsOpen" ["utxo" .= scriptUtxo, "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= scriptUtxos, "headId" .= headId]
  where
   RunningNode{networkId, nodeSocket} = node
 

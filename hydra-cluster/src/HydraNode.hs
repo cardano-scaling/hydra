@@ -205,6 +205,7 @@ data EndToEndLog
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
+  | SubmitCommitTx {commitTx :: Tx}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
