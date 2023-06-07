@@ -3,12 +3,8 @@ module Hydra.LogFilter where
 
 import Hydra.Prelude
 
-import Control.Lens (Traversal', at, (.~), (?~), (^..), (^?))
-import Data.Aeson (Value (Array, Null), decode, object, (.=))
-import Data.Aeson.Lens (key, values, _Object)
-import qualified Data.ByteString.Lazy as LBS
+import Data.Aeson (Value, object, (.=))
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Cardano.Api (Tx)
 import Hydra.HeadLogic (Event (..))
@@ -19,122 +15,23 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNodeLog (BeginEvent, EndEvent))
 
 tracePerformance :: Envelope (HydraLog Tx (Message Tx)) -> State (Map Word64 (TxIdType Tx, UTCTime)) (Maybe Value)
-tracePerformance entry = do
-  st <- get
-  let (newState, result) = analyse st entry
-  put newState
-  pure result
-
-analyse :: Map Word64 (TxIdType Tx, UTCTime) -> Envelope (HydraLog Tx (Message Tx)) -> (Map Word64 (TxIdType Tx, UTCTime), Maybe Value)
-analyse pending = \case
-  (Envelope ut n txt (Node (BeginEvent pa eventID (ClientEvent (NewTx tx))))) ->
-    (Map.insert eventID (txId tx, ut) pending, Nothing)
-  (Envelope ut n txt (Node (EndEvent pa eventID))) ->
-    case Map.lookup eventID pending of
-      Just (txid, begin) ->
-        ( Map.delete eventID pending
-        , Just $
-            object
-              [ "timestamp" .= begin
-              , "id" .= txid
-              , "event" .= ("NewTx" :: Text)
-              , "us" .= (1_000_000 * diffUTCTime ut begin)
-              ]
-        )
-      Nothing -> (pending, Nothing)
-  _ -> (pending, Nothing)
-
--- | Generate "traces" for various events
---
--- @@
---  {
---    "timestamp": "....",
---    "event": "NewTx",
---    "id": "123123",
---    "duration": "42"
---  }
---  {
---    "timestamp": "....",
---    "event": "ReqTx",
---    "id": "123123",
---    "duration": "12"
---  }
--- @@
-filterEntry :: Envelope (HydraLog Tx (Message Tx)) -> Maybe Value
-filterEntry (Envelope ut n txt (Node (BeginEvent pa wo (ClientEvent (NewTx tx))))) = Nothing
-filterEntry (Envelope ut n txt (Node (BeginEvent pa wo (NetworkEvent nat mes)))) = Nothing
-filterEntry (Envelope ut n txt (Node (EndEvent pa wo))) = Nothing
-filterEntry _ = Nothing
-
-filterLog :: Value -> Maybe Value
-filterLog entry = do
-  guard (entry ^? key "message" . key "tag" == Just "Node")
-  node <- entry ^? key "message" . key "node"
-  result <- case node ^? key "tag" of
-    Just "BeginEvent" -> do
-      case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
-        Just "ReqTx" -> processReqTx node
-        Just "NewTx" -> replaceTransactionWithTxId node clientEvent
-        Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
-        _ -> pure node
-    Just "EndEvent" -> do
-      case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
-        Just "ReqTx" -> processReqTx node
-        Just "NewTx" -> replaceTransactionWithTxId node clientEvent
-        Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
-        _ -> pure node
-    Just "BeginEffect" -> do
-      case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
-        Just "SnapshotConfirmed" -> processSnapshotConfirmed node
-        Just "Committed" -> replaceUtxoWithNull node
-        Just "TxInvalid" -> replaceTransactionWithTxId node clientEffect >>= replaceUtxoWithNull
-        Just "TxValid" -> replaceTransactionWithTxId node clientEffect
-        Just "ReqTx" -> replaceTransactionWithTxId node networkEffect
-        Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
-        _ -> pure node
-    Just "EndEffect" -> do
-      case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
-        Just "SnapshotConfirmed" -> processSnapshotConfirmed node
-        Just "Committed" -> replaceUtxoWithNull node
-        Just "TxInvalid" -> replaceTransactionWithTxId node clientEffect >>= replaceUtxoWithNull
-        Just "TxValid" -> replaceTransactionWithTxId node clientEffect
-        Just "ReqTx" -> replaceTransactionWithTxId node networkEffect
-        Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
-        _ -> pure node
-    _ -> pure node
-  pure $ entry & _Object . at "message" ?~ result
- where
-  processReqTx node = do
-    txid <- node ^? networkMessage . key "transaction" . key "id"
-    pure $ node & networkMessage . key "transaction" .~ txid
-
-  replaceTransactionsWithTxIds :: Value -> Traversal' Value Value -> Maybe Value
-  replaceTransactionsWithTxIds node path = do
-    let txids = node ^.. path . key "transactions" . values . key "id"
-    pure $ node & path . key "transactions" .~ Array (fromList txids)
-
-  processSnapshotConfirmed node = do
-    let txids = node ^.. clientEffect . key "snapshot" . key "confirmedTransactions" . values . key "id"
-    pure $
-      node
-        & clientEffect . key "snapshot" . key "confirmedTransactions" .~ Array (fromList txids)
-        & clientEffect . key "snapshot" . key "utxo" .~ Null
-
-  replaceUtxoWithNull node = pure $ node & clientEffect . key "utxo" .~ Null
-
-  replaceTransactionWithTxId :: Value -> Traversal' Value Value -> Maybe Value
-  replaceTransactionWithTxId node path = do
-    txid <- node ^? path . key "transaction" . key "id"
-    pure $ node & path . key "transaction" .~ txid
-
-  networkMessage :: Traversal' Value Value
-  networkMessage = key "event" . key "message"
-
-  networkEffect :: Traversal' Value Value
-  networkEffect = key "effect" . key "message"
-
-  clientEvent :: Traversal' Value Value
-  clientEvent = key "event" . key "clientInput"
-
-  clientEffect :: Traversal' Value Value
-  clientEffect = key "effect" . key "serverOutput"
+tracePerformance envelope = do
+  pending <- get
+  case envelope of
+    (Envelope ut _n _txt (Node (BeginEvent _pa eventID (ClientEvent (NewTx tx))))) -> do
+      put (Map.insert eventID (txId tx, ut) pending)
+      pure Nothing
+    (Envelope ut _n _txt (Node (EndEvent _pa eventID))) ->
+      case Map.lookup eventID pending of
+        Just (txid, begin) -> do
+          put $ Map.delete eventID pending
+          pure $
+            Just $
+              object
+                [ "timestamp" .= begin
+                , "id" .= txid
+                , "event" .= ("NewTx" :: Text)
+                , "us" .= (1_000_000 * diffUTCTime ut begin)
+                ]
+        Nothing -> pure Nothing
+    _ -> pure Nothing
