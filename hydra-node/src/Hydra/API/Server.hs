@@ -73,7 +73,7 @@ data APIServerLog
   | APIHandshakeError {reason :: String}
   | APIRestInputReceived {method :: Text, paths :: [Text], requestInputBody :: Maybe Aeson.Value}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary APIServerLog where
   arbitrary =
@@ -93,8 +93,8 @@ instance Arbitrary APIServerLog where
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { sendOutput :: ServerOutput tx -> m ()
-  -- ^ Send some output to all connected clients.
+  { -- | Send some output to all connected clients.
+    sendOutput :: ServerOutput tx -> m ()
   }
 
 -- | Callback for receiving client inputs.
