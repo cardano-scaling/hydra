@@ -46,6 +46,7 @@ const config = {
         docs: {
           editUrl,
           editLocalizedFiles: true,
+          editCurrentVersion: true,
         },
         blog: {
           path: "adr",
