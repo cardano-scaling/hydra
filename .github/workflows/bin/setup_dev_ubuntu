@@ -52,11 +52,12 @@ sudo apt-get install -y \
   libtool \
   autoconf
 
+mkdir srv
 # Install libsodium
 (
-  cd /srv
+  cd srv
   git clone https://github.com/input-output-hk/libsodium
-  cd /srv/libsodium
+  cd libsodium
   git checkout 66f017f1
   ./autogen.sh
   ./configure
@@ -66,9 +67,9 @@ sudo apt-get install -y \
 
 # Install secp256k1
 (
-  cd /srv/
+  cd srv
   git clone https://github.com/bitcoin-core/secp256k1
-  cd /srv/secp256k1
+  cd secp256k1
   git checkout ac83be33
   ./autogen.sh
   ./configure --enable-module-schnorrsig --enable-experimental
