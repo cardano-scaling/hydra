@@ -50,6 +50,12 @@ jobs:
         restore-keys: |
           cabal-${{ runner.os }}-master
 
+    - name: "Check cabal install"
+      run: |
+        ls -l ~/.cabal/store/
+        ls -l ~/.cabal/packages/hackage.haskell.org
+        ls -l ~/.cabal/packages/cardano-haskell-packages/
+
     - name: "Setup build environment"
       run: |
         .github/workflows/bin/setup_dev_ubuntu
