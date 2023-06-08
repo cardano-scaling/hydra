@@ -5,9 +5,9 @@ set -euo pipefail
 set -x
 
 # Install netbase to work around https://github.com/input-output-hk/cardano-node/issues/2752
-apt-get install -y netbase
+sudo apt-get install -y netbase
 # Install ghcup dependencies
-apt-get install -y --no-install-recommends \
+sudo apt-get install -y --no-install-recommends \
     curl \
     libnuma-dev \
     zlib1g-dev \
@@ -32,7 +32,7 @@ ghcup -v install ghc --isolate /usr/local --force 8.10.7 && \
 ghcup -v install cabal --isolate /usr/local/bin --force 3.10.1.0
 
 # Install cardano-node dependencies see https://developers.cardano.org/docs/get-started/installing-cardano-node/#linux
-apt-get install -y \
+sudo apt-get install -y \
   automake \
   build-essential \
   pkg-config \
