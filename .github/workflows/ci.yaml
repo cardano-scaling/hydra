@@ -37,29 +37,49 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
-    - name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-      id: cache
+    - name: Cache environment setup
+      id: cache_env
       uses: actions/cache@v3
       with:
         path: |
-          ~/.cabal/packages
-          ~/.cabal/store
-          dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
-        restore-keys: ${{ runner.os }}-
+          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
 
-    - name: "Check cabal install"
-      if: ${{ steps.cache.outputs.cache-hit == 'true' }}
-      run: |
-        find ~/.cabal -type f
-      
     - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
       run: |
         .github/workflows/bin/setup_dev_ubuntu
 
-    - name: Build
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
       run: |
         cabal update
+
+    - name: Cache cabal compilation directory
+      id: cache_dist
+      uses: actions/cache@v3
+      with:
+        path: |
+          dist-newstyle
+        key: ${{ runner.os }}-dist-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-dist-
+
+    - name: cabal build
+      run: |
         cabal build all
 
   test:
@@ -89,21 +109,46 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
-    - name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+    - name: Cache environment setup
+      id: cache_env
       uses: actions/cache@v3
       with:
         path: |
-          ~/.cabal/packages
-          ~/.cabal/store
-          dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}-${{ matrix.package }}
-        restore-keys: |
-          ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}-
-          ${{ runner.os }}-
+          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
 
     - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
       run: |
         .github/workflows/bin/setup_dev_ubuntu
+
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
+      run: |
+        cabal update
+
+    - name: Cache cabal compilation directory
+      id: cache_dist
+      uses: actions/cache@v3
+      with:
+        path: |
+          dist-newstyle
+        key: ${{ runner.os }}-dist-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-dist-
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -211,20 +256,37 @@ jobs:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
 
-    - name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+    - name: Cache environment setup
+      id: cache_env
       uses: actions/cache@v3
       with:
         path: |
-          ~/.cabal/packages
-          ~/.cabal/store
-          dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
-        restore-keys: |
-          ${{ runner.os }}-    
+          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
 
     - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
       run: |
         .github/workflows/bin/setup_dev_ubuntu
+
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
+      run: |
+        cabal update
 
     - name: 📚 Documentation (Haddock)
       run: |
@@ -262,21 +324,46 @@ jobs:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
 
-    - name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+    - name: Cache environment setup
+      id: cache_env
       uses: actions/cache@v3
       with:
         path: |
-          ~/.cabal/packages
-          ~/.cabal/store
-          dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}-${{ matrix.package }}
-        restore-keys: |
-          ${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}-
-          ${{ runner.os }}-
+          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
 
     - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
       run: |
         .github/workflows/bin/setup_dev_ubuntu
+
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
+      run: |
+        cabal update
+
+    - name: Cache cabal compilation directory
+      id: cache_dist
+      uses: actions/cache@v3
+      with:
+        path: |
+          dist-newstyle
+        key: ${{ runner.os }}-dist-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-dist-
 
     - name: 📈 Benchmark
       run: |
