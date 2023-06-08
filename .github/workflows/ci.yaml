@@ -21,8 +21,8 @@ env:
 
 jobs:
 
-  build-all:
-    name: "Build all"
+  build:
+    name: "Build"
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -59,8 +59,9 @@ jobs:
         cabal update
         cabal build all
 
-  build-test:
-    name: "Build & test"
+  test:
+    name: "Test"
+    needs: [build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -85,19 +86,6 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v21
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
       with:
@@ -106,15 +94,19 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+          cabal-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.package }}
         restore-keys: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+          cabal-${{ runner.os }}-${{ github.ref_name }}
+          cabal-${{ runner.os }}-master
+
+    - name: "Setup build environment"
+      run: |
+        .github/workflows/bin/setup_dev_ubuntu
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        cd ${{ matrix.package }}
-        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
+        cabal test ${{ matrix.package }}
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -128,8 +120,7 @@ jobs:
       # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
       continue-on-error: true
       run: |
-        cd ${{ matrix.package  }}
-        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
+        cabal test ${{ matrix.package }}
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
@@ -146,7 +137,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: hydra-cluster-e2e-test-logs
-        path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
+        path: /tmp/hydra-cluster-e2e-*/logs/*
 
   build-executables:
     name: "Build static executables"
@@ -194,7 +185,7 @@ jobs:
 
   publish-test-results:
     name: Publish test results
-    needs: [build-test]
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download test results
@@ -388,7 +379,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock,benchmarks,build-test,build-specification]
+    needs: [haddock,benchmarks,test,build-specification]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
