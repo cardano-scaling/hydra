@@ -206,6 +206,7 @@ jobs:
 
   haddock:
     name: "Haddock"
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -213,20 +214,6 @@ jobs:
       with:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v21
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
       with:
@@ -235,15 +222,17 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+          cabal-${{ runner.os }}-${{ github.ref_name }}
+        restore-keys: |
+          cabal-${{ runner.os }}-master
 
-    - name: 🧰 Prepare tools
+    - name: "Setup build environment"
       run: |
-        nix develop .#ci --command bash -c 'cabal update'
+        .github/workflows/bin/setup_dev_ubuntu
 
     - name: 📚 Documentation (Haddock)
       run: |
-        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
+        .github/workflows/ci-haddock.sh
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
@@ -253,42 +242,30 @@ jobs:
 
   benchmarks:
     name: "Benchmarks"
+    needs: [build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - package: hydra-node
             bench: tx-cost
-            options: '--output-directory $(pwd)/../docs/benchmarks'
+            options: '--output-directory $(pwd)/docs/benchmarks'
           - package: hydra-node
             bench: micro
-            options: '-o $(pwd)/../docs/static/ledger-bench.html'
+            options: '-o $(pwd)/docs/static/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
             options: '--scaling-factor 1'
           - package: plutus-merkle-tree
             bench: on-chain-cost
-            options: '--output-directory $(pwd)/../docs/benchmarks'
+            options: '--output-directory $(pwd)/docs/benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
         repository: input-output-hk/hydra
         token: ${{ secrets.MY_TOKEN || github.token }}
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v21
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
+    
     - name: 🔁 Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
       with:
@@ -297,13 +274,19 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+          cabal-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.package }}
+        restore-keys: |
+          cabal-${{ runner.os }}-${{ github.ref_name }}
+          cabal-${{ runner.os }}-master
+
+    - name: "Setup build environment"
+      run: |
+        .github/workflows/bin/setup_dev_ubuntu
 
     - name: 📈 Benchmark
       run: |
-        cd ${{ matrix.package }}
-        nix develop .?submodules=1#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
-
+        cabal bench ${{ matrix.bench }} --benchmark-options="${{ matrix.options }}"
+        
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
