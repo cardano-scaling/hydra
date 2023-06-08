@@ -193,17 +193,16 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either (PostTxError tx) tx)
+  , draftTx ::
+      (IsChainState tx, MonadThrow m, MonadIO m) =>
+      UTxOType tx ->
+      [(TxIn, TxOut CtxUTxO, ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript)] ->
+      m (Either (PostTxError tx) tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many).
   -- Errors are handled at the call site. We are handling the following with 400
   -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
   -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
   -- possible exceptions are turned into 500 errors
-  , draftScriptTx ::
-      (IsChainState tx, MonadThrow m, MonadIO m) =>
-      UTxOType tx ->
-      [(TxIn, TxOut CtxUTxO, ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript)] ->
-      m (Either (PostTxError tx) tx)
   }
 
 data ChainEvent tx

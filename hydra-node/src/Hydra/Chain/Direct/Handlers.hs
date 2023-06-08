@@ -167,22 +167,8 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftTx = \utxo -> do
+      draftTx = \regularUtxo scriptInfos -> do
         chainState <- atomically getLatest
-        case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st ->
-            sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
-          _ -> pure $ Left FailedToDraftTxNotInitializing
-    , draftScriptTx = \regularUtxo scriptInfos -> do
-        chainState <- atomically getLatest
-        let utxos' = (\(a, b, _, _, _) -> (a, b)) <$> scriptInfos
-        let scriptUtxo = UTxO.fromPairs utxos'
-        let toScriptInput (txIn, _, datum, redeemer, script) =
-              ( txIn
-              , BuildTxWith $
-                  ScriptWitness ScriptWitnessForSpending $
-                    mkScriptWitness script datum redeemer
-              )
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
             case commitScript ctx st regularUtxo of
@@ -190,6 +176,15 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
               Right commitScriptTxBody -> do
+                let utxos' = (\(a, b, _, _, _) -> (a, b)) <$> scriptInfos
+                let scriptUtxo = UTxO.fromPairs utxos'
+                let toScriptInput (txIn, _, datum, redeemer, script) =
+                      ( txIn
+                      , BuildTxWith $
+                          ScriptWitness ScriptWitnessForSpending $
+                            mkScriptWitness script datum redeemer
+                      )
+                let addTxIns infos bodyTx = foldl' (\body info -> body & addTxIn (toScriptInput info)) bodyTx infos
                 walletUtxo <- atomically $ getUTxO wallet
                 let collateralTxIns = fromLedgerTxIn <$> Map.keys walletUtxo
                     commitScriptTx =
@@ -199,14 +194,6 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
                           & setTxInsCollateral (TxInsCollateral collateralTxIns)
                           & setTxProtocolParams (BuildTxWith $ Just pparams)
                 Right <$> finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) commitScriptTx
-           where
-            addTxIns infos bodyTx =
-              case infos of
-                [] -> bodyTx
-                info : rest ->
-                  addTxIns
-                    rest
-                    (bodyTx & addTxIn (toScriptInput info))
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 

@@ -32,7 +32,6 @@ import Hydra.Chain (
   PostChainTx (CloseTx),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
-  draftScriptTx,
   draftTx,
   postTx,
  )
@@ -408,7 +407,6 @@ dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
     , draftTx = \_ -> error "unexpected call to draftTx"
-    , draftScriptTx = \_ -> error "unexpected call to draftScriptTx"
     }
 
 noop :: Applicative m => a -> m ()

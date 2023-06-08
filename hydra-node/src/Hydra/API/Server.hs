@@ -362,14 +362,14 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           }
       let userUtxo = utxo requestInput
       eCommitTx <- case toCommit requestInput of
-        [] -> draftTx userUtxo
+        [] -> draftTx userUtxo []
         scriptsToCommit -> do
           let infos =
                 ( \(txIn, txOut, ScriptInfo{redeemer, datum, plutusV2Script}) ->
                     (txIn, txOut, ScriptDatumForTxIn datum, redeemer, plutusV2Script)
                 )
                   <$> scriptsToCommit
-          draftScriptTx userUtxo infos
+          draftTx userUtxo infos
       respond $
         case eCommitTx of
           Left e ->
@@ -384,4 +384,4 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
   return400 = responseLBS status400 [] . Aeson.encode . toJSON
-  Chain{draftTx, draftScriptTx} = directChain
+  Chain{draftTx} = directChain

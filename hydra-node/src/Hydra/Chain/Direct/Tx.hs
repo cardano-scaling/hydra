@@ -194,16 +194,13 @@ rawCommitTxBody ::
   (TxIn, TxOut ctx, Hash PaymentKey) ->
   TxBodyContent BuildTx
 rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
-  traceShow "here" $
-    emptyTxBody
-      & addInputs [(initialInput, initialWitness)]
-      & addReferenceInputs [initialScriptRef]
-      & addVkInputs committedTxIns
-      & addExtraRequiredSigners [vkh]
-      & addOutputs [commitOutput]
+  emptyTxBody
+    & addInputs [(initialInput, initialWitness)]
+    & addReferenceInputs [initialScriptRef]
+    & addVkInputs committedTxIns
+    & addExtraRequiredSigners [vkh]
+    & addOutputs [commitOutput]
  where
-  -- Filter out regular user utxo
-  -- utxo = UTxO.fromPairs $ filter (\(txIn, _) -> txIn `notElem` (fst <$> scriptInputs)) (UTxO.pairs utxo')
   initialWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
