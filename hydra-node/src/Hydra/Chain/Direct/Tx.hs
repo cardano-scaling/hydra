@@ -178,7 +178,7 @@ commitTx ::
   Tx
 commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
-    rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh) []
+    rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh)
 
 -- | Craft a commit transaction body which includes the "committed" utxo as a datum.
 rawCommitTxBody ::
@@ -192,17 +192,15 @@ rawCommitTxBody ::
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut ctx, Hash PaymentKey) ->
-  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   TxBodyContent BuildTx
-rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh) scriptInputs =
+rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
   traceShow "here" $
-    traceShow scriptInputs $
-      emptyTxBody
-        & addInputs ([(initialInput, initialWitness)] <> scriptInputs)
-        & addReferenceInputs [initialScriptRef]
-        & addVkInputs committedTxIns
-        & addExtraRequiredSigners [vkh]
-        & addOutputs [commitOutput]
+    emptyTxBody
+      & addInputs [(initialInput, initialWitness)]
+      & addReferenceInputs [initialScriptRef]
+      & addVkInputs committedTxIns
+      & addExtraRequiredSigners [vkh]
+      & addOutputs [commitOutput]
  where
   -- Filter out regular user utxo
   -- utxo = UTxO.fromPairs $ filter (\(txIn, _) -> txIn `notElem` (fst <$> scriptInputs)) (UTxO.pairs utxo')

@@ -37,7 +37,6 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
   pattern TxInsCollateral,
  )
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -69,7 +68,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
-import Hydra.Ledger.Cardano (unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -184,10 +183,9 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
                   ScriptWitness ScriptWitnessForSpending $
                     mkScriptWitness script datum redeemer
               )
-        let scriptInputs = toScriptInput <$> scriptInfos
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st ->
-            case commitScript ctx st regularUtxo scriptInputs of
+            case commitScript ctx st regularUtxo of
               Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
               Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
               Left e -> throwIO e
@@ -197,9 +195,9 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
                     commitScriptTx =
                       unsafeBuildTransaction $
                         commitScriptTxBody
-                -- & addTxIns scriptInfos
-                -- & setTxInsCollateral (TxInsCollateral collateralTxIns)
-                -- & setTxProtocolParams (BuildTxWith $ Just pparams)
+                          & addTxIns scriptInfos
+                          & setTxInsCollateral (TxInsCollateral collateralTxIns)
+                          & setTxProtocolParams (BuildTxWith $ Just pparams)
                 Right <$> finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) commitScriptTx
            where
             addTxIns infos bodyTx =
@@ -209,12 +207,6 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
                   addTxIns
                     rest
                     (bodyTx & addTxIn (toScriptInput info))
-            toScriptInput (txIn, _, datum, redeemer, script) =
-              ( txIn
-              , BuildTxWith $
-                  ScriptWitness ScriptWitnessForSpending $
-                    mkScriptWitness script datum redeemer
-              )
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
