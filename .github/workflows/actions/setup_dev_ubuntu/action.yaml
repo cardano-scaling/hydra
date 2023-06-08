@@ -1,0 +1,47 @@
+name: 'Setup dev environment'
+description: 'Setup a dev environment fo rgh-action Ubuntu'
+runs:
+  using: "composite"
+  steps:
+    - name: Cache environment setup
+      id: cache_env
+      uses: actions/cache@v3
+      with:
+        path: |
+          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
+
+    - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        .github/workflows/bin/setup_dev_ubuntu
+
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        cabal update
+
+    - name: Cache cabal compilation directory
+      id: cache_dist
+      uses: actions/cache@v3
+      with:
+        path: |
+          dist-newstyle
+        key: ${{ runner.os }}-dist-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-dist-
