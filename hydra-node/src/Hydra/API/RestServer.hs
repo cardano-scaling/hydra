@@ -24,8 +24,7 @@ deriving stock instance IsTx tx => Show (DraftCommitTxResponse tx)
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxResponse tx) where
   toJSON (DraftCommitTxResponse tx) =
     object
-      [ "tag" .= String "DraftCommitTxResponse" -- TODO: tag should be not needed
-      , "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialize' tx)
+      [ "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialize' tx)
       ]
 
 instance
@@ -33,17 +32,13 @@ instance
   FromJSON (DraftCommitTxResponse tx)
   where
   parseJSON = withObject "DraftCommitTxResponse" $ \o -> do
-    tag <- o .: "tag"
-    case tag :: Text of
-      "DraftCommitTxResponse" -> do
-        encodedTx :: Text <- o .: "commitTx"
-        case Base16.decode $ encodeUtf8 encodedTx of
-          Left e -> fail e
-          Right commitTx ->
-            case decodeFull' commitTx of
-              Left err -> fail $ show err
-              Right v -> pure $ DraftCommitTxResponse v
-      _ -> fail "Expected tag to be DraftCommitTxResponse"
+    encodedTx :: Text <- o .: "commitTx"
+    case Base16.decode $ encodeUtf8 encodedTx of
+      Left e -> fail e
+      Right commitTx ->
+        case decodeFull' commitTx of
+          Left err -> fail $ show err
+          Right v -> pure $ DraftCommitTxResponse v
 
 instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
   arbitrary = genericArbitrary
@@ -65,8 +60,22 @@ data ScriptInfo = ScriptInfo
 instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
+data DraftUTxO tx = DraftUTxO
+  { draftUTxO :: UTxOType tx
+  , draftScriptInfo :: Maybe ScriptInfo
+  }
+  deriving (Generic)
+
+deriving stock instance IsTx tx => Eq (DraftUTxO tx)
+deriving stock instance IsTx tx => Show (DraftUTxO tx)
+deriving anyclass instance IsTx tx => ToJSON (DraftUTxO tx)
+deriving anyclass instance IsTx tx => FromJSON (DraftUTxO tx)
+
+instance Arbitrary (UTxOType tx) => Arbitrary (DraftUTxO tx) where
+  arbitrary = genericArbitrary
+
 newtype DraftCommitTxRequest tx = DraftCommitTxRequest
-  { utxo :: [(UTxOType tx, Maybe ScriptInfo)]
+  { utxos :: [DraftUTxO tx]
   }
   deriving (Generic)
 
@@ -76,21 +85,15 @@ deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
   toJSON (DraftCommitTxRequest utxo) =
     object
-      [ "tag" .= String "DraftCommitTxRequest" -- TODO: tag should be not needed
-      , "utxo" .= toJSON utxo
+      [ "utxos" .= toJSON utxo
       ]
 
 instance
   (IsTx tx, FromCBOR tx) =>
   FromJSON (DraftCommitTxRequest tx)
   where
-  parseJSON = withObject "DraftCommitTxRequest" $ \o -> do
-    tag <- o .: "tag"
-    case tag :: Text of
-      "DraftCommitTxRequest" -> do
-        utxo :: [(UTxOType tx, Maybe ScriptInfo)] <- o .: "utxo"
-        pure $ DraftCommitTxRequest utxo
-      _ -> fail "Expected tag to be DraftCommitTxRequest"
+  parseJSON = withObject "DraftCommitTxRequest" $ \o ->
+    DraftCommitTxRequest <$> o .: "utxos"
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary

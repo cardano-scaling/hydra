@@ -258,20 +258,16 @@ components:
             enum: ["GetUTxO"]
 
     DraftCommitTxRequest:
+      type: object
       title: DraftCommitTxRequest
       description: |
-        Provide a utxo that will be used to draft a commit transaction that will be sent back to the user.
-      payload:
-        type: object
-        required:
-          - tag
-          - utxos
-        properties:
-          tag:
-            type: string
-            enum: ["DraftCommitTxRequest"]
-          utxos:
-            $ref: "#/components/schemas/UTxO"
+        Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
+      properties:
+        utxos:
+          type: string
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/DraftUTxO"
 
     ########
     #
@@ -758,16 +754,12 @@ components:
     DraftCommitTxResponse:
       title: DraftCommitTxResponse
       description: |
-        Emitted by the server after drafting a commit transaction with the user provided utxo. Transaction returned to the user is in it's cbor representation encoded as Base16.
+        Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         type: object
         required:
-          - tag
           - commitTx
         properties:
-          tag:
-            type: string
-            enum: ["DraftCommitTxResponse"]
           commitTx:
             $ref: "#/components/schemas/RawTransaction"
 
@@ -1611,6 +1603,59 @@ components:
                 }
             }
         }
+
+    DraftUTxO:
+      description: |
+        UTxO data needed to spend user provided utxo
+      required:
+        - draftUTxO
+      payload:
+        type: object
+        properties:
+          type: object
+          draftUTxO:
+            type: object
+            $ref: "#/components/schemas/UTxO"
+          draftScriptInfo:
+            oneOf:
+              - type: "null"
+              - type: object
+                $ref: "#/components/schemas/ScriptInfo"
+
+    ScriptInfo:
+      description: |
+        Script data needed to spend user provided utxo
+      required:
+      - redeemer
+      - datum
+      - plutusV2Script
+      payload:
+        type: object
+        properties:
+          redeemer:
+            type: string
+          datum:
+            type: string
+          plutusV2Script:
+            type: object
+            $ref: "#/components/schemas/PlutusV2Script"
+
+    PlutusV2Script:
+      type: object
+      description: |
+        Plutus V2 Script data
+      required:
+      - cborHex
+      - description
+      - type
+      properties:
+        cborHex:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: ["PlutusScriptV2"]
 
     Value:
       type: object

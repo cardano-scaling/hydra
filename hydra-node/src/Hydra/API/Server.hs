@@ -17,7 +17,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..), ScriptInfo (..))
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -353,13 +353,18 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right requestInput -> do
+    Right requestInput@DraftCommitTxRequest{utxos = draftUTxO'} -> do
       traceWith tracer $
         APIRestInputReceived
           { method = decodeUtf8 reqMethod
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
+      let utxos =
+            ( \DraftUTxO{draftUTxO, draftScriptInfo} ->
+                (draftUTxO, draftScriptInfo)
+            )
+              <$> draftUTxO'
       let
         utxoInput =
           ( \(utxo, maybeScriptInfo) ->
@@ -369,7 +374,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
                 Nothing ->
                   (utxo, Nothing)
           )
-            <$> utxo requestInput
+            <$> utxos
       eCommitTx <- draftTx utxoInput
       respond $
         case eCommitTx of
