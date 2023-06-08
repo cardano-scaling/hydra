@@ -28,8 +28,8 @@ sudo apt-get install -y --no-install-recommends \
 # ADD cardano-node.tar.gz /srv/cardano
 
 # Install ghc and cabal
-ghcup -v install ghc --isolate /usr/local --force 8.10.7 && \
-ghcup -v install cabal --isolate /usr/local/bin --force 3.10.1.0
+ghcup install ghc 8.10.7
+ghcup set ghc 8.10.7
 
 # Install cardano-node dependencies see https://developers.cardano.org/docs/get-started/installing-cardano-node/#linux
 sudo apt-get install -y \

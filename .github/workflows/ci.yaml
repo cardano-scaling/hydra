@@ -57,6 +57,7 @@ jobs:
 
     - name: Build
       run: |
+        cabal update
         cabal build all
 
   build-test:
