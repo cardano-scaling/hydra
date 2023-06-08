@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-apt-get update
+set -x
+
 # Install netbase to work around https://github.com/input-output-hk/cardano-node/issues/2752
 apt-get install -y netbase
 # Install ghcup dependencies
