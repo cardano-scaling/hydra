@@ -49,7 +49,6 @@ import Hydra.Cardano.Api (
   txOutValue,
   pattern ReferenceScriptNone,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (HeadId)
 import Hydra.Chain.CardanoClient (
   QueryPoint (QueryTip),
@@ -305,16 +304,17 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
       -- TODO: createScriptOutput spends from faucet directly
-      -- regularUtxo <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       normalUTxO1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo1 <- createScriptOutput pparams scriptAddress1 someSk normalUTxO1 datum
       normalUTxO2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo2 <- createScriptOutput pparams scriptAddress2 someSk normalUTxO2 datum
-      let regularUtxo :: UTxO = mempty
       let scriptUtxos = scriptUtxo1 <> scriptUtxo2
           scriptInfos = (\((txIn, txOut), scriptInfo) -> (txIn, txOut, scriptInfo)) <$> zip (UTxO.pairs scriptUtxos) [scriptInfo1, scriptInfo2]
 
       -- Request to build a draft commit tx from hydra-node
+      regularUtxo1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      regularUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      let regularUtxo = regularUtxo1 <> regularUtxo2
       let clientPayload = DraftCommitTxRequest @Tx regularUtxo scriptInfos
       response <-
         runReq defaultHttpConfig $
@@ -326,11 +326,8 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
             (port $ 4000 + hydraNodeId)
       responseStatusCode response `shouldBe` 200
       let DraftCommitTxResponse commitTx = responseBody response
-
-      traceWith tracer $ SubmitCommitTx commitTx
-      -- TODO: remove render tx
-      putTextLn . toText $ renderTxWithUTxO scriptUtxos commitTx
-      submitTransaction networkId nodeSocket commitTx
+      let signedCommitTx = signWith someSk commitTx
+      submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 60 [n1] $
         output "HeadIsOpen" ["utxo" .= regularUtxo, "headId" .= headId]
