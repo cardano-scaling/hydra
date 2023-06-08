@@ -19,18 +19,6 @@ env:
   LD_LIBRARY_PATH: /usr/local/lib
   PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
 
-env:
-  # Modify this value to "invalidate" the secp cache.
-  SECP_CACHE_VERSION: "2023-06-06"
-  SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
-  LD_LIBRARY_PATH: /usr/local/lib
-
-env:
-  # Modify this value to "invalidate" the secp cache.
-  SECP_CACHE_VERSION: "2023-06-06"
-  SECP256K1_REF: ac83be33d0956faf6b7f61a60ab524ef7d6a473a
-  LD_LIBRARY_PATH: /usr/local/lib
-
 jobs:
 
   build-all:
