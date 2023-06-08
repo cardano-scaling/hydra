@@ -9,7 +9,7 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import Hydra.Cardano.Api (CtxUTxO, HashableScriptData, PlutusScript, TxIn, TxOut)
+import Hydra.Cardano.Api (HashableScriptData, PlutusScript)
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Ledger.Cardano ()
 
@@ -65,9 +65,8 @@ data ScriptInfo = ScriptInfo
 instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
-data DraftCommitTxRequest tx = DraftCommitTxRequest
-  { regularUtxo :: UTxOType tx
-  , scriptUtxo :: [(TxIn, TxOut CtxUTxO, ScriptInfo)]
+newtype DraftCommitTxRequest tx = DraftCommitTxRequest
+  { utxo :: [(UTxOType tx, Maybe ScriptInfo)]
   }
   deriving (Generic)
 
@@ -75,11 +74,10 @@ deriving stock instance IsTx tx => Eq (DraftCommitTxRequest tx)
 deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
 
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
-  toJSON (DraftCommitTxRequest regularUtxo scriptUtxo) =
+  toJSON (DraftCommitTxRequest utxo) =
     object
       [ "tag" .= String "DraftCommitTxRequest" -- TODO: tag should be not needed
-      , "regularUtxo" .= toJSON regularUtxo
-      , "scriptUtxo" .= toJSON scriptUtxo
+      , "utxo" .= toJSON utxo
       ]
 
 instance
@@ -90,13 +88,12 @@ instance
     tag <- o .: "tag"
     case tag :: Text of
       "DraftCommitTxRequest" -> do
-        regularUtxo :: (UTxOType tx) <- o .: "regularUtxo"
-        scriptUtxo :: [(TxIn, TxOut CtxUTxO, ScriptInfo)] <- o .: "scriptUtxo"
-        pure $ DraftCommitTxRequest regularUtxo scriptUtxo
+        utxo :: [(UTxOType tx, Maybe ScriptInfo)] <- o .: "utxo"
+        pure $ DraftCommitTxRequest utxo
       _ -> fail "Expected tag to be DraftCommitTxRequest"
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
-    DraftCommitTxRequest rUTxO sUTxO -> DraftCommitTxRequest <$> shrink rUTxO <*> shrink sUTxO
+    DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u

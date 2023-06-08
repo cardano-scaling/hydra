@@ -250,7 +250,7 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
       utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit []
+      let clientPayload = DraftCommitTxRequest @Tx [(utxoToCommit, Nothing)]
 
       response <-
         runReq defaultHttpConfig $
@@ -300,22 +300,19 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           datum = 2 :: Integer
           scriptInfo1 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script1
           scriptInfo2 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script2
+      -- TODO: createScriptOutput spends from faucet directly
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-
-      -- TODO: createScriptOutput spends from faucet directly
       normalUTxO1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo1 <- createScriptOutput pparams scriptAddress1 someSk normalUTxO1 datum
       normalUTxO2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo2 <- createScriptOutput pparams scriptAddress2 someSk normalUTxO2 datum
-      let scriptUtxos = scriptUtxo1 <> scriptUtxo2
-          scriptInfos = (\((txIn, txOut), scriptInfo) -> (txIn, txOut, scriptInfo)) <$> zip (UTxO.pairs scriptUtxos) [scriptInfo1, scriptInfo2]
-
+      let scriptUtxosInfo = [(scriptUtxo1, Just scriptInfo1)] <> [(scriptUtxo2, Just scriptInfo2)]
       -- Request to build a draft commit tx from hydra-node
       regularUtxo1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       regularUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      let regularUtxo = regularUtxo1 <> regularUtxo2
-      let clientPayload = DraftCommitTxRequest @Tx regularUtxo scriptInfos
+      let regularUtxosInfo = [(regularUtxo1, Nothing)] <> [(regularUtxo2, Nothing)]
+      let clientPayload = DraftCommitTxRequest @Tx (regularUtxosInfo <> scriptUtxosInfo)
       response <-
         runReq defaultHttpConfig $
           req
@@ -330,7 +327,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 60 [n1] $
-        output "HeadIsOpen" ["utxo" .= regularUtxo, "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= (regularUtxo1 <> regularUtxo2), "headId" .= headId]
  where
   RunningNode{networkId, nodeSocket} = node
 

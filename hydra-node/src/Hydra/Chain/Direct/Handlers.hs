@@ -16,6 +16,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   BuildTxWith (BuildTxWith),
@@ -160,27 +161,41 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftTx = \regularUtxo scriptInfos -> do
+      draftTx = \utxoInputs -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st -> do
             sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitScriptTx
            where
-            scriptUtxo = UTxO.fromPairs $ (\(a, b, _, _, _) -> (a, b)) <$> scriptInfos
-            toScriptInput (txIn, _, datum, redeemer, script) =
-              ( txIn
-              , BuildTxWith $
-                  ScriptWitness ScriptWitnessForSpending $
-                    mkScriptWitness script datum redeemer
-              )
-            addTxIns infos bodyTx = foldl' (\body info -> body & addTxIn (toScriptInput info)) bodyTx infos
+            regularUtxo = foldMap (\(u, m) -> maybe u (const mempty) m) utxoInputs
+            scriptUtxoInput =
+              foldMap
+                ( \(u, m) ->
+                    case m of
+                      Just (d, r, s) -> [(u, d, r, s)]
+                      Nothing -> []
+                )
+                utxoInputs
+            scriptUtxo = foldMap (\(u, _, _, _) -> u) scriptUtxoInput
             buildCommitScriptTx = do
               commitScriptTxBody <- commitScript ctx st regularUtxo
               let commitScriptTx =
                     unsafeBuildTransaction $
                       commitScriptTxBody
-                        & addTxIns scriptInfos
+                        & addTxIns scriptUtxoInfo
               pure commitScriptTx
+            addTxIns scriptInputs bodyTx = foldl' (\body scriptInput -> body & addTxIn (toScriptInput scriptInput)) bodyTx scriptInputs
+            toScriptInput (txIn, datum, redeemer, script) =
+              ( txIn
+              , BuildTxWith $
+                  ScriptWitness ScriptWitnessForSpending $
+                    mkScriptWitness script datum redeemer
+              )
+            scriptUtxoInfo = concat $ do
+              (u, d, r, s) <- scriptUtxoInput
+              let txIns = Set.toList $ UTxO.inputSet u
+                  scriptUtxoInfos = (,d,r,s) <$> txIns
+              pure scriptUtxoInfos
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
