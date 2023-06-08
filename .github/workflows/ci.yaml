@@ -16,8 +16,8 @@ on:
     - cron: "0 4 * * *"
 
 env:
-  LD_LIBRARY_PATH: /usr/local/lib
-  PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+  LD_LIBRARY_PATH: ${{ github.workspace }}/srv/lib
+  PKG_CONFIG_PATH: ${{ github.workspace }}/srv/lib/pkgconfig
 
 jobs:
 
@@ -45,7 +45,6 @@ jobs:
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
-          /usr/local/.ghcup/
         key: |
           cabal-${{ runner.os }}-${{ github.ref_name }}
         restore-keys: |

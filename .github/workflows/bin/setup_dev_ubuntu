@@ -52,33 +52,34 @@ sudo apt-get install -y \
   libtool \
   autoconf
 
+mkdir src
 mkdir srv
 # Install libsodium
 (
-  cd srv
+  cd src
   git clone https://github.com/input-output-hk/libsodium
   cd libsodium
   git checkout 66f017f1
   ./autogen.sh
-  ./configure
+  ./configure --prefix="$(realpath $PWD/../../srv)"
   make
   make install
 )
 
 # Install secp256k1
 (
-  cd srv
+  cd src
   git clone https://github.com/bitcoin-core/secp256k1
   cd secp256k1
   git checkout ac83be33
   ./autogen.sh
-  ./configure --enable-module-schnorrsig --enable-experimental
+  ./configure --enable-module-schnorrsig --enable-experimental --prefix="$(realpath $PWD/../../srv)"
   make
   make install
 )
 
 cat <<EOF
 # Setup the following environment varialbles:
-LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
-PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}"
+LD_LIBRARY_PATH="$(realpath $PWD/../../srv)/lib:${LD_LIBRARY_PATH}"
+PKG_CONFIG_PATH="$(realpath $PWD/../../srv)/lib/pkgconfig:${PKG_CONFIG_PATH}"
 EOF
