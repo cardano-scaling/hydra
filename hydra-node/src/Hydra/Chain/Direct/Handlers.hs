@@ -16,26 +16,20 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   BuildTxWith (BuildTxWith),
   ChainPoint (..),
-  ProtocolParameters,
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
   TxId,
   addTxIn,
   chainPointToSlotNo,
-  fromLedgerTxIn,
   getChainPoint,
   getTxBody,
   getTxId,
   mkScriptWitness,
-  setTxInsCollateral,
-  setTxProtocolParams,
   pattern ScriptWitness,
-  pattern TxInsCollateral,
  )
 import Hydra.Chain (
   Chain (..),
@@ -143,9 +137,8 @@ mkChain ::
   ChainContext ->
   LocalChainState m ->
   SubmitTx m ->
-  ProtocolParameters ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pparams =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -170,30 +163,24 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx pp
       draftTx = \regularUtxo scriptInfos -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st ->
-            case commitScript ctx st regularUtxo of
-              Left CannotCommitReferenceScript -> pure $ Left CannotCommitReferenceScript
-              Left (CommittedTooMuchADAForMainnet l ml) -> pure $ Left $ CommittedTooMuchADAForMainnet l ml
-              Left e -> throwIO e
-              Right commitScriptTxBody -> do
-                let utxos' = (\(a, b, _, _, _) -> (a, b)) <$> scriptInfos
-                let scriptUtxo = UTxO.fromPairs utxos'
-                let toScriptInput (txIn, _, datum, redeemer, script) =
-                      ( txIn
-                      , BuildTxWith $
-                          ScriptWitness ScriptWitnessForSpending $
-                            mkScriptWitness script datum redeemer
-                      )
-                let addTxIns infos bodyTx = foldl' (\body info -> body & addTxIn (toScriptInput info)) bodyTx infos
-                walletUtxo <- atomically $ getUTxO wallet
-                let collateralTxIns = fromLedgerTxIn <$> Map.keys walletUtxo
-                    commitScriptTx =
-                      unsafeBuildTransaction $
-                        commitScriptTxBody
-                          & addTxIns scriptInfos
-                          & setTxInsCollateral (TxInsCollateral collateralTxIns)
-                          & setTxProtocolParams (BuildTxWith $ Just pparams)
-                Right <$> finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) commitScriptTx
+          Initial st -> do
+            sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitScriptTx
+           where
+            scriptUtxo = UTxO.fromPairs $ (\(a, b, _, _, _) -> (a, b)) <$> scriptInfos
+            toScriptInput (txIn, _, datum, redeemer, script) =
+              ( txIn
+              , BuildTxWith $
+                  ScriptWitness ScriptWitnessForSpending $
+                    mkScriptWitness script datum redeemer
+              )
+            addTxIns infos bodyTx = foldl' (\body info -> body & addTxIn (toScriptInput info)) bodyTx infos
+            buildCommitScriptTx = do
+              commitScriptTxBody <- commitScript ctx st regularUtxo
+              let commitScriptTx =
+                    unsafeBuildTransaction $
+                      commitScriptTxBody
+                        & addTxIns scriptInfos
+              pure commitScriptTx
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 

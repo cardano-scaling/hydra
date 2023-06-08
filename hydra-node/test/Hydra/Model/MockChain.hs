@@ -21,7 +21,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Data.Default (def)
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
@@ -239,9 +238,6 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
         ctx
         chainState
         submitTx
-        defaultProtocolParameters
- where
-  defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
 mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)

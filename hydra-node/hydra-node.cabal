@@ -329,7 +329,6 @@ test-suite tests
     , cborg
     , containers
     , contra-tracer
-    , data-default
     , directory
     , filepath
     , hspec

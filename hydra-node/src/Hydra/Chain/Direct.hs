@@ -200,7 +200,6 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateAt
-  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
   let chainHandle =
         mkChain
@@ -210,7 +209,6 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
           ctx
           localChainState
           (submitTx queue)
-          pparams
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-

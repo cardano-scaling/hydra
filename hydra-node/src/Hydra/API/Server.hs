@@ -360,16 +360,12 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      let userUtxo = utxo requestInput
-      eCommitTx <- case toCommit requestInput of
-        [] -> draftTx userUtxo []
-        scriptsToCommit -> do
-          let infos =
-                ( \(txIn, txOut, ScriptInfo{redeemer, datum, plutusV2Script}) ->
-                    (txIn, txOut, ScriptDatumForTxIn datum, redeemer, plutusV2Script)
-                )
-                  <$> scriptsToCommit
-          draftTx userUtxo infos
+      let scriptUtxoInput =
+            ( \(txIn, txOut, ScriptInfo{redeemer, datum, plutusV2Script}) ->
+                (txIn, txOut, ScriptDatumForTxIn datum, redeemer, plutusV2Script)
+            )
+              <$> scriptUtxo requestInput
+      eCommitTx <- draftTx (regularUtxo requestInput) scriptUtxoInput
       respond $
         case eCommitTx of
           Left e ->
@@ -379,7 +375,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
               CannotCommitReferenceScript -> return400 e
               CommittedTooMuchADAForMainnet _ _ -> return400 e
               UnsupportedLegacyOutput _ -> return400 e
-              _ -> traceShow e $ responseLBS status500 [] (Aeson.encode $ toJSON e)
+              _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
