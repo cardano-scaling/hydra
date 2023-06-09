@@ -5,7 +5,6 @@ cabal haddock --haddock-tests \
   plutus-cbor \
   plutus-merkle-tree \
   hydra-plutus \
-  hydra-tui \
   hydra-node \
   hydra-cluster
 
