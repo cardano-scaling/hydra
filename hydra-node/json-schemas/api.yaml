@@ -1246,6 +1246,18 @@ components:
             tag:
               type: string
               enum: ["FailedToDraftTxNotInitializing"]
+        - title: FailedToDraftTxWalletUtxoDetected
+          description: |
+            Raised if the user tried to draft a commit tx using internal wallet's utxo.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToDraftTxWalletUtxoDetected"]
+
 
     Signature:
       type: string

@@ -21,6 +21,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
+import qualified Data.ByteString as B
 import qualified Data.Set as Set
 import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..))
 import Hydra.Cardano.Api (
@@ -70,7 +71,10 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import qualified Network.HTTP.Client.Conduit as L
 import Network.HTTP.Req (
+  HttpException (VanillaHttpException),
   JsonResponse,
   POST (POST),
   ReqBodyJson (ReqBodyJson),
@@ -83,8 +87,9 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Types (status400)
 import qualified PlutusLedgerApi.Test.Examples as Plutus
-import Test.Hspec.Expectations (shouldBe)
+import Test.Hspec.Expectations (shouldBe, shouldThrow)
 import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
@@ -376,6 +381,55 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
         mempty
         (mkTxOutDatumHash datum)
         ReferenceScriptNone
+
+singlePartyCantCommitExternallyWalletUtxo ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCantCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      send n1 $ input "Init" []
+      _headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- these keys should mimic external wallet keys needed to sign the commit tx
+
+      -- internal wallet uses the actor keys internally so we need to use utxo
+      -- present at this public key
+      (userVk, _userSk) <- keysFor Alice
+      -- submit the tx using our external user key to get a utxo to commit
+      utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
+
+      -- Request to build a draft commit tx from hydra-node
+      let clientPayload = DraftCommitTxRequest @Tx [DraftUTxO utxoToCommit Nothing]
+
+      runReq
+        defaultHttpConfig
+        ( req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+            (port $ 4000 + hydraNodeId)
+        )
+        `shouldThrow` selector400
+ where
+  RunningNode{nodeSocket} = node
+  selector400 :: HttpException -> Bool
+  selector400
+    ( VanillaHttpException
+        ( L.HttpExceptionRequest
+            _
+            (L.StatusCodeException response chunk)
+          )
+      ) =
+      L.responseStatus response == status400 && not (B.null chunk)
+  selector400 _ = False
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that

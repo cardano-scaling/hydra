@@ -67,6 +67,7 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
+  singlePartyCantCommitExternallyWalletUtxo,
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalScript,
   singlePartyCommitsUsingFuel,
@@ -150,6 +151,11 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternalScript tracer tmpDir node
+      it "can't commit externally internal wallet utxo" $ \tracer -> do
+        withClusterTempDir "cant-commit-externally-internal-wallet-utxo" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCantCommitExternallyWalletUtxo tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

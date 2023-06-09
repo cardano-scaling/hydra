@@ -133,6 +133,8 @@ library
     , directory
     , filepath
     , hspec-expectations
+    , http-conduit
+    , http-types
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus

@@ -16,6 +16,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   BlockHeader,
@@ -30,7 +31,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   mkScriptWitness,
-  pattern ScriptWitness,
+  pattern ScriptWitness, fromLedgerTxIn,
  )
 import Hydra.Chain (
   Chain (..),
@@ -139,7 +140,7 @@ mkChain ::
   LocalChainState m ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -165,7 +166,13 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st -> do
-            sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitScriptTx
+            walletUtxos <- atomically getUTxO
+            let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
+            let userTxIns = Set.toList $ UTxO.inputSet regularUtxo
+            let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
+            if null matchedWalletUtxo
+              then sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitScriptTx
+              else pure $ Left FailedToDraftTxWalletUtxoDetected
            where
             regularUtxo = foldMap (\(u, m) -> maybe u (const mempty) m) utxoInputs
             scriptUtxoInput =
@@ -176,6 +183,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
                       Nothing -> []
                 )
                 utxoInputs
+
             scriptUtxo = foldMap (\(u, _, _, _) -> u) scriptUtxoInput
             buildCommitScriptTx = do
               commitScriptTxBody <- commitScript ctx st regularUtxo
@@ -184,7 +192,11 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
                       commitScriptTxBody
                         & addTxIns scriptUtxoInfo
               pure commitScriptTx
-            addTxIns scriptInputs bodyTx = foldl' (\body scriptInput -> body & addTxIn (toScriptInput scriptInput)) bodyTx scriptInputs
+            addTxIns scriptInputs bodyTx =
+              foldl'
+                (\body scriptInput -> body & addTxIn (toScriptInput scriptInput))
+                bodyTx
+                scriptInputs
             toScriptInput (txIn, datum, redeemer, script) =
               ( txIn
               , BuildTxWith $

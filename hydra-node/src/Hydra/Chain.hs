@@ -147,6 +147,8 @@ data PostTxError tx
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
+  | -- | User should not be able to draft a commit tx using the wallet utxo
+    FailedToDraftTxWalletUtxoDetected
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)

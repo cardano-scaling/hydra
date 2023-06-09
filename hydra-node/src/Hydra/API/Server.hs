@@ -38,7 +38,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   Chain (..),
   IsChainState,
-  PostTxError (CannotCommitReferenceScript, CommittedTooMuchADAForMainnet, UnsupportedLegacyOutput),
+  PostTxError (CannotCommitReferenceScript, CommittedTooMuchADAForMainnet, FailedToDraftTxWalletUtxoDetected, UnsupportedLegacyOutput),
  )
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
@@ -380,6 +380,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
               CannotCommitReferenceScript -> return400 e
               CommittedTooMuchADAForMainnet _ _ -> return400 e
               UnsupportedLegacyOutput _ -> return400 e
+              walletUtxoErr@FailedToDraftTxWalletUtxoDetected -> return400 walletUtxoErr
               _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
