@@ -46,5 +46,5 @@ runs:
       with:
         path: |
           dist-newstyle
-        key: ${{ runner.os }}-dist-${{ github.run_id }}
-        restore-keys: ${{ runner.os }}-dist-
+        key: dist-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: dist-${{ runner.os }}-
