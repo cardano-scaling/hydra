@@ -169,7 +169,7 @@ jobs:
 
   haddock:
     name: "Haddock"
-    needs: [build]
+    # needs: [build]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
