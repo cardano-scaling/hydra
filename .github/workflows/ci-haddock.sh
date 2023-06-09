@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 set -e
 
-cabal haddock --haddock-tests \
-  plutus-cbor \
+
+# public packages
+cabal haddock \
   plutus-merkle-tree \
+  plutus-cbor \
+  hydra-prelude \
+  hydra-cardano-api
+
+# Internal packages
+cabal haddock --haddock-tests \
+  hydra-node
+cabal haddock \
+  hydra-tui \
   hydra-plutus \
-  hydra-node \
   hydra-cluster
 
 [ ! -d docs/static/haddock ] && mkdir -p docs/static/haddock
