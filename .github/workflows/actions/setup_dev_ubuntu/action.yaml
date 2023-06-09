@@ -54,3 +54,9 @@ runs:
           dist-newstyle
         key: dist-${{ runner.os }}-${{ github.run_id }}
         restore-keys: dist-${{ runner.os }}-
+
+    - name: sanity check
+      shell: bash
+      run: |
+        echo $PATH
+        which cardano-node || echo no cardano-node found

@@ -39,11 +39,6 @@ jobs:
 
     - uses: ./.github/workflows/actions/setup_dev_ubuntu
 
-    - name: to_remove
-      run: |
-        echo $PATH
-        which cardano-node || echo KO
-
     - name: cabal build
       run: |
         cabal build all
