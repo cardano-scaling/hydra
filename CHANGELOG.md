@@ -20,8 +20,10 @@ changes.
   draft `commit` transaction. This transaction can be signed and submitted to
   the network by the user now instead of `hydra-node`.
 
-- Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` log items using a
-  numeric `eventId`.
+- Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` and
+  `BeginEffect`/`EndEffect` log items using numeric `eventId` and
+  `effectId`.
+  - Repurpose `log-filter` program to compute duration of events and effects
 
 - Make `hydra-node` support time bounded transactions.
   + Introduce time in the Hydra Head transactions.

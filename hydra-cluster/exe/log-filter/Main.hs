@@ -36,7 +36,18 @@ logFilterOptions =
     (logFilterOptionsParser <**> helper)
     ( fullDesc
         <> progDesc
-          "Filter logs and compute events duration per transaction"
+          ( toString $
+              unlines
+                [ "Filter logs and compute events duration per transaction."
+                , ""
+                , "This program reads hydra-node JSON formatted log entries,"
+                , "compute the duration (in micro-seconds), of each event and effect"
+                , "appearing in the logs, and then emit a new JSON object for each"
+                , "event/effect identified"
+                , ""
+                , "Without a FILE argument, it filters its standard input."
+                ]
+          )
         <> header "log-filter - Hydra-node logs filter"
     )
 
