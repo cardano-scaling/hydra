@@ -1,5 +1,5 @@
 name: 'Setup dev environment'
-description: 'Setup a dev environment fo rgh-action Ubuntu'
+description: 'Setup a dev environment for rgh-action Ubuntu'
 inputs:
   version_ghc:
     description: 'GHC version needed'
@@ -30,6 +30,11 @@ runs:
       run: |
         .github/workflows/bin/setup_dev_ubuntu
 
+    - name: "Setup PATH"
+      shell: bash
+      run: |
+        echo "$(realpath $PWD/srv)/bin" >> $GITHUB_PATH
+
     - name: Cache cabal storage
       id: cache_cabal
       uses: actions/cache@v3
@@ -54,9 +59,3 @@ runs:
           dist-newstyle
         key: dist-${{ runner.os }}-${{ github.run_id }}
         restore-keys: dist-${{ runner.os }}-
-
-    - name: sanity check
-      shell: bash
-      run: |
-        echo $PATH
-        which cardano-node || echo no cardano-node found

@@ -54,7 +54,6 @@ sudo apt-get install -y \
 
 mkdir -p src
 mkdir -p srv/bin
-echo "$(realpath $PWD/srv)/bin" >> $GITHUB_PATH
 # Install libsodium
 (
   cd src
@@ -85,7 +84,6 @@ echo "$(realpath $PWD/srv)/bin" >> $GITHUB_PATH
   curl https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.7-linux.tar.gz -o cardano-node.tar.gz
   cd ../srv/bin
   tar xfz ../../src/cardano-node.tar.gz
-
 )
 
 cat <<EOF
