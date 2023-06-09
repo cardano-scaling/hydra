@@ -51,7 +51,6 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
-  withNewClient,
  )
 import System.Directory (findExecutable)
 import System.FilePath ((</>))
@@ -255,12 +254,11 @@ processTransactions clients Dataset{clientDatasets} = do
     let numberOfTxs = length txSequence
     submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
     registry <- newRegistry
-    withNewClient client $ \client' -> do
-      atomically $ forM_ txSequence $ writeTBQueue submissionQ
-      submitTxs client' registry submissionQ
-        `concurrently_` waitForAllConfirmations client' registry submissionQ (Set.fromList $ map txId txSequence)
-        `concurrently_` progressReport (hydraNodeId client') clientId numberOfTxs submissionQ
-      readTVarIO (processedTxs registry)
+    atomically $ forM_ txSequence $ writeTBQueue submissionQ
+    submitTxs client registry submissionQ
+      `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId txSequence)
+      `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
+    readTVarIO (processedTxs registry)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
 progressReport nodeId clientId queueSize queue = do
@@ -364,18 +362,18 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
  where
   go remainingIds
     | Set.null remainingIds = do
-        putStrLn "All transactions confirmed. Sweet!"
+      putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
-        waitForSnapshotConfirmation >>= \case
-          TxValid{transaction} -> do
-            validTx processedTxs (txId transaction)
-            go remainingIds
-          TxInvalid{transaction} -> do
-            atomically $ writeTBQueue submissionQ transaction
-            go remainingIds
-          SnapshotConfirmed{transactions} -> do
-            confirmedIds <- mapM (confirmTx processedTxs) transactions
-            go $ remainingIds \\ Set.fromList confirmedIds
+      waitForSnapshotConfirmation >>= \case
+        TxValid{transaction} -> do
+          validTx processedTxs (txId transaction)
+          go remainingIds
+        TxInvalid{transaction} -> do
+          atomically $ writeTBQueue submissionQ transaction
+          go remainingIds
+        SnapshotConfirmed{transactions} -> do
+          confirmedIds <- mapM (confirmTx processedTxs) transactions
+          go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
