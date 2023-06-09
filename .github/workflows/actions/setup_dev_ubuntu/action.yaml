@@ -30,6 +30,12 @@ runs:
       run: |
         .github/workflows/bin/setup_dev_ubuntu
 
+    - name: "Reinstall apt packages"
+      shell: bash
+      run: |
+        .github/workflows/bin/setup_system_ubuntu
+
+
     - name: "Setup PATH"
       shell: bash
       run: |

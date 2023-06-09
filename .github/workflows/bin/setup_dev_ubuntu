@@ -24,9 +24,6 @@ sudo apt-get install -y --no-install-recommends \
     automake \
     build-essential
 
-# TODO install cardano-node
-# ADD cardano-node.tar.gz /srv/cardano
-
 # Install ghc and cabal
 ghcup install ghc 8.10.7
 ghcup set ghc 8.10.7
