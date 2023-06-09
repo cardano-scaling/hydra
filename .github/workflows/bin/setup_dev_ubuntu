@@ -52,8 +52,8 @@ sudo apt-get install -y \
   libtool \
   autoconf
 
-mkdir src
-mkdir srv
+mkdir -p src
+mkdir -p srv
 # Install libsodium
 (
   cd src
