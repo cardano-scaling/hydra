@@ -1,5 +1,8 @@
 name: 'Setup dev environment'
 description: 'Setup a dev environment fo rgh-action Ubuntu'
+env:
+  version_ghc: 8.10.7
+  version_cabal: 3.10.1.0
 runs:
   using: "composite"
   steps:
