@@ -1,8 +1,14 @@
 name: 'Setup dev environment'
 description: 'Setup a dev environment fo rgh-action Ubuntu'
-env:
-  version_ghc: 8.10.7
-  version_cabal: 3.10.1.0
+inputs:
+  version_ghc:
+    description: 'GHC version needed'
+    required: false
+    default: 8.10.7
+  version_cabal:
+    description: 'Cabal version needed'
+    required: false
+    default: 3.10.1.0
 runs:
   using: "composite"
   steps:
@@ -11,8 +17,8 @@ runs:
       uses: actions/cache@v3
       with:
         path: |
-          /usr/local/.ghcup/ghc/${{ env.version_ghc }}
-          /usr/local/.ghcup/bin/cabal-${{ env.version_cabal }}
+          /usr/local/.ghcup/ghc/${{ inputs.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ inputs.version_cabal }}
           /usr/local/.ghcup/bin/cabal
           /usr/local/.ghcup/bin/ghc
           ${{ github.workspace }}/srv/
