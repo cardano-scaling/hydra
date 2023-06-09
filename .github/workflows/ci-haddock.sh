@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-cabal haddock --haddock-tests all
+cabal haddock --haddock-tests \
+  plutus-cbor \
+  plutus-merkle-tree \
+  hydra-plutus \
+  hydra-tui \
+  hydra-node \
+  hydra-cluster
 
 [ ! -d docs/static/haddock ] && mkdir -p docs/static/haddock
 
