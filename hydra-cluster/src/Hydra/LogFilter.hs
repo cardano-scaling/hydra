@@ -8,73 +8,103 @@ import Hydra.Prelude hiding (id)
 
 import qualified Data.Map as Map
 import Hydra.API.ClientInput (ClientInput (NewTx))
-import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed, TxValid))
-import Hydra.Cardano.Api (Tx)
-import Hydra.HeadLogic (Effect (ClientEffect, NetworkEffect), Event (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.HeadLogic (Effect (..), Event (..))
 import Hydra.Ledger (IsTx (..))
-import Hydra.Logging (Envelope (Envelope))
+import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (Node))
-import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEffect, BeginEvent, EndEffect, EndEvent))
-import Hydra.Snapshot (Snapshot (Snapshot))
+import Hydra.Network.Message (Message (..))
+import Hydra.Node (HydraNodeLog (..))
+import Hydra.Snapshot (Snapshot (..))
 
-data Trace
+-- | A trace of an event or effect for a specific transaction.
+data Trace tx
   = TraceEvent
-      { timestamp :: UTCTime
-      , id :: TxIdType Tx
-      , us :: NominalDiffTime
-      , event :: Text
+      { -- | The starting point in time for this event.
+        timestamp :: UTCTime
+      , -- | The transaction id this event applies to.
+        txid :: TxIdType tx
+      , -- | The duration of the event, expressed as a number of
+        -- seconds with a $10^12$ precision.
+        us :: NominalDiffTime
+      , -- | A string identifying this event.
+        event :: Text
       }
   | TraceEffect
-      { timestamp :: UTCTime
-      , id :: TxIdType Tx
-      , us :: NominalDiffTime
-      , effect :: Text
+      { -- | The starting point in time for this effect.
+        timestamp :: UTCTime
+      , -- | The transaction id this effect applies to.
+        txid :: TxIdType tx
+      , -- | The duration of the effect, expressed as a number of
+        -- seconds with a $10^12$ precision.
+        us :: NominalDiffTime
+      , -- | A string identifying this effect.
+        effect :: Text
       }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving stock (Generic)
+
+deriving instance (IsTx tx) => Eq (Trace tx)
+deriving instance (IsTx tx) => Show (Trace tx)
+deriving instance (IsTx tx) => ToJSON (Trace tx)
 
 data TraceKey
   = EventKey Word64
   | EffectKey Word64 Word32
   deriving stock (Eq, Show, Ord)
 
-tracePerformance :: Envelope (HydraLog Tx (Message Tx)) -> State (Map TraceKey [Trace]) [Trace]
+-- | Compute duration of some `Event`s and `Effect`s from logs.
+--
+-- This function is meant to be used with a `sequence` in order to traverse a stream of
+-- log entries and output list of `Trace` as begin/end pairs are found and identified.
+-- Each `Trace` emitted is tied to a specific transaction id which provides an easy way to
+-- identify in which part of their journey through Hydra transactions are spending time.
+--
+-- It currently compute duration of:
+--  * `NewTx`, `ReqTx`, `ReqSn` events,
+--  * `ReqTx`,  `TxValid` and `SnapshotConfirmed` effects.
+--
+-- NOTE: Some potential improvements
+--  * Move this fuinction to `Monitoring` and expose an histogram kind of metric for each type of event / effect
+--  * Handle more events, in particular the `AckSn` which is slightly problematic as it does not contain
+--    a direct reference to a transaction id so we would need to carry around a secondary map to keep
+--    track of this link.
+tracePerformance :: IsTx tx => Envelope (HydraLog tx (Message tx)) -> State (Map TraceKey [Trace tx]) [Trace tx]
 tracePerformance envelope = do
   pending <- get
   case envelope of
-    (Envelope timestamp _n _txt (Node (BeginEvent _pa eventID (ClientEvent (NewTx tx))))) -> do
-      put (Map.insert (EventKey eventID) [TraceEvent{event = "NewTx", timestamp, id = txId tx, us = 0}] pending)
+    Envelope{timestamp, message = Node BeginEvent{eventId, event = ClientEvent (NewTx tx)}} -> do
+      put (Map.insert (EventKey eventId) [TraceEvent{event = "NewTx", timestamp, txid = txId tx, us = 0}] pending)
       pure []
-    (Envelope timestamp _n _txt (Node (BeginEvent _pa eventID (NetworkEvent _ (ReqTx _p tx))))) -> do
-      put (Map.insert (EventKey eventID) [TraceEvent{event = "ReqTx", timestamp, id = txId tx, us = 0}] pending)
+    Envelope{timestamp, message = Node BeginEvent{eventId, event = NetworkEvent{message = ReqTx{transaction}}}} -> do
+      put (Map.insert (EventKey eventId) [TraceEvent{event = "ReqTx", timestamp, txid = txId transaction, us = 0}] pending)
       pure []
-    (Envelope timestamp _n _txt (Node (BeginEvent _pa eventID (NetworkEvent _na (ReqSn _p sn txs))))) -> do
-      put (Map.insert (EventKey eventID) (map (\tx -> TraceEvent{event = "ReqSn", timestamp, id = txId tx, us = 0}) txs) pending)
+    Envelope{timestamp, message = Node BeginEvent{eventId, event = NetworkEvent{message = ReqSn{transactions}}}} -> do
+      put (Map.insert (EventKey eventId) (map (\tx -> TraceEvent{event = "ReqSn", timestamp, txid = txId tx, us = 0}) transactions) pending)
       pure []
-    -- (Envelope timestamp _n _txt (Node (BeginEvent _pa eventID (NetworkEvent _na (AckSn _p _ms sn))))) -> do
-    --   put (Map.insert eventID [TraceEvent{event = "AckSn", timestamp, id = show (toInteger sn), us = 0}] pending)
-    --   pure []
-    (Envelope ut _n _txt (Node (EndEvent _pa eventID))) ->
-      case Map.lookup (EventKey eventID) pending of
+    Envelope{timestamp, message = Node EndEvent{eventId}} ->
+      case Map.lookup (EventKey eventId) pending of
         Just es -> do
-          put $ Map.delete (EventKey eventID) pending
-          pure $ map (\e -> e{us = 1_000_000 * diffUTCTime ut (timestamp e)}) es
+          put $ Map.delete (EventKey eventId) pending
+          pure $ map (computeDuration timestamp) es
         Nothing -> pure []
-    (Envelope timestamp _n _txt (Node (BeginEffect pa eventId effectId (NetworkEffect (ReqTx pa' tx))))) -> do
-      put (Map.insert (EffectKey eventId effectId) [TraceEffect{effect = "ReqTx", timestamp, id = txId tx, us = 0}] pending)
+    Envelope{timestamp, message = Node BeginEffect{eventId, effectId, effect = NetworkEffect ReqTx{transaction}}} -> do
+      put (Map.insert (EffectKey eventId effectId) [TraceEffect{effect = "ReqTx", timestamp, txid = txId transaction, us = 0}] pending)
       pure []
-    (Envelope timestamp _n _txt (Node (BeginEffect pa eventId effectId (ClientEffect (TxValid hi tx))))) -> do
-      put (Map.insert (EffectKey eventId effectId) [TraceEffect{effect = "TxValid", timestamp, id = txId tx, us = 0}] pending)
+    Envelope{timestamp, message = Node BeginEffect{eventId, effectId, effect = ClientEffect TxValid{transaction}}} -> do
+      put (Map.insert (EffectKey eventId effectId) [TraceEffect{effect = "TxValid", timestamp, txid = txId transaction, us = 0}] pending)
       pure []
-    (Envelope timestamp _n _txt (Node (BeginEffect pa eventId effectId (ClientEffect (SnapshotConfirmed hi (Snapshot sn utot txs) ms))))) -> do
-      put (Map.insert (EffectKey eventId effectId) (map (\tx -> TraceEffect{effect = "SnapshotConfirmed", timestamp, id = txId tx, us = 0}) txs) pending)
+    Envelope{timestamp, message = Node BeginEffect{eventId, effectId, effect = ClientEffect SnapshotConfirmed{snapshot = Snapshot{confirmed}}}} -> do
+      put (Map.insert (EffectKey eventId effectId) (map (\tx -> TraceEffect{effect = "SnapshotConfirmed", timestamp, txid = txId tx, us = 0}) confirmed) pending)
       pure []
-    (Envelope ut _n _txt (Node (EndEffect _pa eventId effectId))) ->
+    Envelope{timestamp, message = Node EndEffect{eventId, effectId}} ->
       case Map.lookup (EffectKey eventId effectId) pending of
         Just es -> do
           put $ Map.delete (EffectKey eventId effectId) pending
-          pure $ map (\e -> e{us = 1_000_000 * diffUTCTime ut (timestamp e)}) es
+          pure $ fmap (computeDuration timestamp) es
         Nothing -> pure []
-    --      (ReqSn pa' sn txs) -> _wj
     _ -> pure []
+ where
+  computeDuration :: UTCTime -> Trace tx -> Trace tx
+  computeDuration endTime = \case
+    e@TraceEvent{timestamp = startTime} -> e{us = 1_000_000 * diffUTCTime endTime startTime}
+    e@TraceEffect{timestamp = startTime} -> e{us = 1_000_000 * diffUTCTime endTime startTime}
