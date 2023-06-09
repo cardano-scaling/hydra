@@ -69,7 +69,7 @@ import Text.Show (Show (..))
 -- * Hydra keys
 
 -- | Hydra keys (keyrole) which can be used to 'sign' and 'verify' messages, as
--- well as 'aggregate' multi-signatures.
+-- well as aggregate multi-signatures.
 data HydraKey
 
 instance HasTypeProxy HydraKey where
