@@ -75,7 +75,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
 
 -- | Uniquely identifies a Hydra Head.
 newtype HeadId = HeadId ByteString
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
 
 instance SerialiseAsRawBytes HeadId where
