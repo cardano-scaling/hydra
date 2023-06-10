@@ -35,6 +35,7 @@ import Hydra.Chain (
   draftTx,
   postTx,
  )
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -194,7 +195,7 @@ spec = describe "ServerSpec" $
 
             -- The three server output message types which contain transactions
             let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
-            let sn = generatedSnapshot{confirmed = [tx]}
+            let sn = generatedSnapshot{confirmed = [txId tx]}
             let snapShotConfirmedMessage =
                   SnapshotConfirmed
                     { headId = HeadId "some-head-id"
@@ -225,21 +226,19 @@ spec = describe "ServerSpec" $
 
               sendOutput snapShotConfirmedMessage
 
+              let expectedTxIds = Aeson.Array $ fromList [toJSON (txId tx)]
+
               waitMatch 5 conn $ \v ->
-                let expected =
-                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result =
+                let result =
                       Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expected
+                 in guard $ result == Just expectedTxIds
 
               sendOutput postTxFailedMessage
 
               waitMatch 5 conn $ \v ->
-                let expected =
-                      Aeson.Array $ fromList [Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx]
-                    result =
+                let result =
                       Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expected
+                 in guard $ result == Just expectedTxIds
 
             -- spawn another client but this one wants to see txs in json format
             withClient port "/?history=no" $ \conn -> do

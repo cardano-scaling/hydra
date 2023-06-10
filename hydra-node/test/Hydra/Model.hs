@@ -610,7 +610,7 @@ performNewTx party tx = do
   lift $
     waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
-        realTx `elem` Snapshot.confirmed snapshot
+        txId realTx `elem` Snapshot.confirmed snapshot
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
 

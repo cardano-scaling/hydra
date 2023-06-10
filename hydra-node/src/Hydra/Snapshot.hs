@@ -24,7 +24,7 @@ newtype SnapshotNumber
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
   , utxo :: UTxOType tx
-  , confirmed :: [tx]
+  , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
   }
   deriving (Generic)
@@ -35,7 +35,7 @@ deriving instance IsTx tx => Show (Snapshot tx)
 instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
+instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
@@ -68,11 +68,11 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
 
-instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Snapshot tx) where
+instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{number, utxo, confirmed} =
     toCBOR number <> toCBOR utxo <> toCBOR confirmed
 
-instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
+instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.

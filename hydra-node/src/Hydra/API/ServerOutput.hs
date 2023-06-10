@@ -204,7 +204,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
         handleTxOutput
           ( key "snapshot"
               . key "confirmedTransactions"
-              .~ toJSON (txToCbor <$> confirmed snapshot)
+              .~ toJSON (confirmed snapshot)
           )
           encodedResponse
     GetUTxOResponse{} -> encodedResponse
@@ -221,7 +221,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                     . key "confirmedSnapshot"
                     . key "snapshot"
                     . key "confirmedTransactions"
-                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                    .~ (toJSON $ confirmed snapshot)
                 )
                 encodedResponse
         ContestTx{confirmedSnapshot} ->
@@ -233,7 +233,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
                     . key "confirmedSnapshot"
                     . key "snapshot"
                     . key "confirmedTransactions"
-                    .~ (toJSON $ txToCbor <$> confirmed snapshot)
+                    .~ (toJSON $ confirmed snapshot)
                 )
                 encodedResponse
         _other -> encodedResponse

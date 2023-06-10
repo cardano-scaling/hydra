@@ -328,7 +328,7 @@ newTx registry client tx = do
 data WaitResult
   = TxInvalid {transaction :: Tx, reason :: Text}
   | TxValid {transaction :: Tx}
-  | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
+  | SnapshotConfirmed {txIds :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
   { processedTxs :: TVar IO (Map.Map TxId Event)
@@ -374,16 +374,16 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
     | Set.null remainingIds = do
         putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
-        waitForSnapshotConfirmation >>= \case
-          TxValid{transaction} -> do
-            validTx processedTxs (txId transaction)
-            go remainingIds
-          TxInvalid{transaction} -> do
-            atomically $ writeTBQueue submissionQ transaction
-            go remainingIds
-          SnapshotConfirmed{transactions} -> do
-            confirmedIds <- mapM (confirmTx processedTxs) transactions
-            go $ remainingIds \\ Set.fromList confirmedIds
+      waitForSnapshotConfirmation >>= \case
+        TxValid{transaction} -> do
+          validTx processedTxs (txId transaction)
+          go remainingIds
+        TxInvalid{transaction} -> do
+          atomically $ writeTBQueue submissionQ transaction
+          go remainingIds
+        SnapshotConfirmed{txIds} -> do
+          confirmedIds <- mapM (confirmTx processedTxs) txIds
+          go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
@@ -413,8 +413,8 @@ confirmTx ::
   Value ->
   IO TxId
 confirmTx registry tx = do
-  case fromJSON @TxId <$> tx ^? key "id" of
-    Just (Success identifier) -> do
+  case fromJSON @TxId tx of
+    Success identifier -> do
       now <- getCurrentTime
       atomically $
         modifyTVar registry $

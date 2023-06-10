@@ -33,7 +33,7 @@ spec =
         traceWith tracer (Node $ BeginEvent alice 0 (NetworkEvent defaultTTL (ReqTx alice (aValidTx 42))))
         traceWith tracer (Node $ BeginEvent alice 1 (NetworkEvent defaultTTL (ReqTx alice (aValidTx 43))))
         threadDelay 0.1
-        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) mempty)))
+        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (Snapshot 1 (utxoRefs [1]) [43, 42]) mempty)))
 
         metrics <-
           Text.lines . decodeUtf8 . responseBody

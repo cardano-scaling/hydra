@@ -62,7 +62,7 @@ spec = parallel $ do
                  , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx2}}
                  , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx3}}
                  ]
-          signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
+          signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [1]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
@@ -72,7 +72,7 @@ spec = parallel $ do
     showLogsOnFailure $ \tracer -> do
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           sn1 = Snapshot 1 (utxoRefs [1, 2, 3]) mempty
-          sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [tx1]
+          sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [1]
           events =
             eventsToOpenHead
               <> [ NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}

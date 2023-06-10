@@ -99,8 +99,7 @@ monitor transactionsMap metricsMap = \case
     tick "hydra_head_requested_tx"
   (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
     t <- getMonotonicTime
-    forM_ (confirmed snapshot) $ \tx -> do
-      let tid = txId tx
+    forM_ (confirmed snapshot) $ \tid -> do
       txsStartTime <- readTVarIO transactionsMap
       case Map.lookup tid txsStartTime of
         Just start -> do
