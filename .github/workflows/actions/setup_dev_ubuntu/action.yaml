@@ -12,6 +12,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+
+    - name: "Reinstall apt packages"
+      shell: bash
+      run: |
+        .github/workflows/bin/setup_system_ubuntu
+
     - name: Cache environment setup
       id: cache_env
       uses: actions/cache@v3
@@ -29,12 +35,6 @@ runs:
       shell: bash
       run: |
         .github/workflows/bin/setup_dev_ubuntu
-
-    - name: "Reinstall apt packages"
-      shell: bash
-      run: |
-        .github/workflows/bin/setup_system_ubuntu
-
 
     - name: "Setup PATH"
       shell: bash

@@ -1,27 +1,20 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -euxo pipefail
 
 set -x
 
 # Install netbase to work around https://github.com/input-output-hk/cardano-node/issues/2752
 sudo apt-get install -y netbase
-
-# Install cardano-node dependencies see https://developers.cardano.org/docs/get-started/installing-cardano-node/#linux
-sudo apt-get install -y \
-  libffi-dev \
-  libgmp-dev \
-  libssl-dev \
-  libtinfo-dev \
-  libsystemd-dev \
-  zlib1g-dev
-
 # Install ghcup dependencies
 sudo apt-get install -y --no-install-recommends \
+    curl \
     libnuma-dev \
     zlib1g-dev \
     libgmp-dev \
     libgmp10 \
+    git \
+    wget \
     lsb-release \
     software-properties-common \
     gnupg2 \
@@ -30,3 +23,24 @@ sudo apt-get install -y --no-install-recommends \
     autoconf \
     automake \
     build-essential
+
+# Install cardano-node dependencies see https://developers.cardano.org/docs/get-started/installing-cardano-node/#linux
+sudo apt-get install -y \
+  automake \
+  build-essential \
+  pkg-config \
+  libffi-dev \
+  libgmp-dev \
+  libssl-dev \
+  libtinfo-dev \
+  libsystemd-dev \
+  zlib1g-dev \
+  make \
+  g++ \
+  tmux \
+  git \
+  jq \
+  wget \
+  libncursesw5 \
+  libtool \
+  autoconf
