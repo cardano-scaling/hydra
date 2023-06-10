@@ -16,13 +16,16 @@ sudo apt-get install -y \
   libsystemd-dev \
   zlib1g-dev
 
-# Install hydra haddock generation dependencies
+# Install ghcup dependencies
 sudo apt-get install -y --no-install-recommends \
     libnuma-dev \
     zlib1g-dev \
     libgmp-dev \
     libgmp10 \
     lsb-release \
+    software-properties-common \
+    gnupg2 \
+    apt-transport-https \
     gcc \
     autoconf \
     automake \
