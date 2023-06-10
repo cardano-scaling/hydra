@@ -9,6 +9,10 @@ inputs:
     description: 'Cabal version needed'
     required: false
     default: 3.10.1.0
+  cache_prefix:
+    description: 'A prefix to insert to the cache id'
+    require: false
+    default: ''
 runs:
   using: "composite"
   steps:
@@ -28,7 +32,7 @@ runs:
           /usr/local/.ghcup/bin/cabal
           /usr/local/.ghcup/bin/ghc
           ${{ github.workspace }}/srv/
-        key: env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
+        key: ${{ inputs.prefix }}env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
 
     - name: "Setup build environment"
       if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
@@ -48,8 +52,8 @@ runs:
         path: |
           ~/.cache/cabal/packages
           ~/.local/state/cabal
-        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
-        restore-keys: cabal-${{ runner.os }}-
+        key: ${{inputs.prefix}}cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: ${{inputs.prefix}}cabal-${{ runner.os }}-
 
     - name: cabal update
       if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
@@ -63,5 +67,5 @@ runs:
       with:
         path: |
           dist-newstyle
-        key: dist-${{ runner.os }}-${{ github.run_id }}
-        restore-keys: dist-${{ runner.os }}-
+        key: ${{inputs.prefix}}dist-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: ${{inputs.prefix}}dist-${{ runner.os }}-

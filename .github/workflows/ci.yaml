@@ -179,6 +179,8 @@ jobs:
         token: ${{ secrets.MY_TOKEN || github.token }}
 
     - uses: ./.github/workflows/actions/setup_dev_ubuntu
+      with:
+        prefix: 'haddock'
 
     - name: 📚 Documentation (Haddock)
       run: |
