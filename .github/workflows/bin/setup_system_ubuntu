@@ -15,3 +15,15 @@ sudo apt-get install -y \
   libtinfo-dev \
   libsystemd-dev \
   zlib1g-dev
+
+# Install hydra haddock generation dependencies
+sudo apt-get install -y --no-install-recommends \
+    libnuma-dev \
+    zlib1g-dev \
+    libgmp-dev \
+    libgmp10 \
+    lsb-release \
+    gcc \
+    autoconf \
+    automake \
+    build-essential
