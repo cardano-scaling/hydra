@@ -13,10 +13,10 @@ runs:
   using: "composite"
   steps:
 
-    - name: "Reinstall apt packages"
+    - name: "Install packages"
       shell: bash
       run: |
-        .github/workflows/bin/setup_system_ubuntu
+        .github/workflows/actions/setup_dev_ubuntu/install_packages
 
     - name: Cache environment setup
       id: cache_env
@@ -34,7 +34,7 @@ runs:
       if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
-        .github/workflows/bin/setup_dev_ubuntu
+        .github/workflows/actions/setup_dev_ubuntu/install_libraries
 
     - name: "Setup PATH"
       shell: bash
