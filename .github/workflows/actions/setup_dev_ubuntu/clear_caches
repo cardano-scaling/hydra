@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
 
 main() {
   gh extension install --force actions/gh-actions-cache
@@ -31,7 +31,7 @@ delete_cache() {
 
   while read cache
   do
-    echo gh actions-cache delete "$cache" -R "$repo" -B "$branch" --confirm
+    gh actions-cache delete "$cache" -R "$repo" -B "$branch" --confirm
   done
 }
 
