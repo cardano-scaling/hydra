@@ -13,9 +13,22 @@ inputs:
     description: 'A prefix to insert to the cache id'
     require: false
     default: ''
+  clean_caches:
+    description: 'Should we clean old caches for this branch and keep only the last one?'
+    require: false
+    default: true
 runs:
   using: "composite"
   steps:
+
+    - name: "Clear old caches"
+      if: ${{ inputs.clean_caches == 'true' }}
+      shell: bash
+      run: |
+        .github/workflows/actions/setup_dev_ubuntu/clear_caches
+      env:
+          PREFIX: ${{ inputs.cache_prefix }}
+          GH_TOKEN: ${{ github.token }}
 
     - name: "Install packages"
       shell: bash
@@ -32,7 +45,7 @@ runs:
           /usr/local/.ghcup/bin/cabal
           /usr/local/.ghcup/bin/ghc
           ${{ github.workspace }}/srv/
-        key: ${{ inputs.prefix }}env-${{ hashFiles('.github/workflows/bin/setup_dev_ubuntu') }}
+        key: ${{ inputs.cache_prefix }}env-${{ hashFiles('.github/workflows/actions/setup_dev_ubuntu/install_libraries') }}
 
     - name: "Setup build environment"
       if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
@@ -52,8 +65,8 @@ runs:
         path: |
           ~/.cache/cabal/packages
           ~/.local/state/cabal
-        key: ${{inputs.prefix}}cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
-        restore-keys: ${{inputs.prefix}}cabal-${{ runner.os }}-
+        key: ${{inputs.cache_prefix}}cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: ${{inputs.cache_prefix}}cabal-${{ runner.os }}-
 
     - name: cabal update
       if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
@@ -67,5 +80,5 @@ runs:
       with:
         path: |
           dist-newstyle
-        key: ${{inputs.prefix}}dist-${{ runner.os }}-${{ github.run_id }}
-        restore-keys: ${{inputs.prefix}}dist-${{ runner.os }}-
+        key: ${{inputs.cache_prefix}}dist-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: ${{inputs.cache_prefix}}dist-${{ runner.os }}-

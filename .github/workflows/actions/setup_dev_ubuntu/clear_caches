@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+main() {
+  gh extension install --force actions/gh-actions-cache
+
+  local REPO="$GITHUB_REPOSITORY"
+  local BRANCH="refs/pull/${GITHUB_REF}/merge"
+
+  for cache in ${PREFIX}cabal ${PREFIX}dist ${PREFIX}env
+  do
+    list_caches $REPO $BRANCH $cache \
+    | all_but_the_first_one \
+    | delete_cache $BRANCH $REPO
+  done
+
+  echo "Done"
+}
+
+list_caches() {
+  local repo="$1"
+  local branch="$2"
+  local cache="$3"
+  gh actions-cache list -R "$repo" -B "$branch" --key "$cache" --order desc | cut -f 1
+}
+
+all_but_the_first_one() {
+  sed 1d
+}
+
+delete_cache() {
+  local repo="$1"
+  local branch="$2"
+
+  while read cache
+  do
+    echo gh actions-cache delete "$cache" -R "$repo" -B "$branch" --confirm
+  done
+}
+
+main "$@"

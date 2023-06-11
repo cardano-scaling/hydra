@@ -180,7 +180,7 @@ jobs:
 
     - uses: ./.github/workflows/actions/setup_dev_ubuntu
       with:
-        prefix: 'haddock'
+        cache_prefix: 'haddock'
 
     - name: 📚 Documentation (Haddock)
       run: |
