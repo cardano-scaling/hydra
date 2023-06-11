@@ -71,6 +71,8 @@ jobs:
         fetch-depth: 0
 
     - uses: ./.github/workflows/actions/setup_dev_ubuntu
+      with:
+        clean_caches: false
     
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -219,6 +221,8 @@ jobs:
         token: ${{ secrets.MY_TOKEN || github.token }}
 
     - uses: ./.github/workflows/actions/setup_dev_ubuntu
+      with:
+        clean_caches: false
 
     - name: 📈 Benchmark
       run: |
