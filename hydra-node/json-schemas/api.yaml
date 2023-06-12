@@ -256,18 +256,24 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
-
+    
     DraftCommitTxRequest:
-      type: object
       title: DraftCommitTxRequest
       description: |
         Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
-      properties:
-        utxos:
-          type: string
-          items:
-            oneOf:
-              - $ref: "#/components/schemas/DraftUTxO"
+      payload:
+        type: object
+        required:
+          - tag
+          - utxos
+        properties:
+          tag:
+            type: string
+            enum: ["DraftCommitTxRequest"]
+          utxos:
+            type: array
+            items:
+              $ref: "#/components/schemas/DraftUTxO"
 
     ########
     #
@@ -1605,22 +1611,17 @@ components:
         }
 
     DraftUTxO:
+      type: object
       description: |
         UTxO data needed to spend user provided utxo
       required:
         - draftUTxO
-      payload:
-        type: object
-        properties:
-          type: object
-          draftUTxO:
-            type: object
-            $ref: "#/components/schemas/UTxO"
-          draftScriptInfo:
-            oneOf:
-              - type: "null"
-              - type: object
-                $ref: "#/components/schemas/ScriptInfo"
+        - draftScriptInfo
+      properties:
+        draftUTxO:
+          $ref: "#/components/schemas/UTxO"
+        draftScriptInfo:
+          $ref: "#/components/schemas/ScriptInfo"
 
     ScriptInfo:
       description: |

@@ -85,18 +85,27 @@ deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
 instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
   toJSON (DraftCommitTxRequest utxo) =
     object
-      [ "utxos" .= toJSON utxo
+      [ -- XXX: tag should be not needed but is required
+        -- to validate its api aschema
+        "tag" .= String "DraftCommitTxRequest" 
+      , "utxos" .= toJSON utxo
       ]
 
 instance
   (IsTx tx, FromCBOR tx) =>
   FromJSON (DraftCommitTxRequest tx)
   where
-  parseJSON = withObject "DraftCommitTxRequest" $ \o ->
-    DraftCommitTxRequest <$> o .: "utxos"
+  parseJSON = withObject "DraftCommitTxRequest" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "DraftCommitTxRequest" -> do
+        utxos :: [DraftUTxO tx] <- o .: "utxos"
+        pure $ DraftCommitTxRequest utxos
+      _ -> fail "Expected tag to be DraftCommitTxRequest"
 
 instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
+

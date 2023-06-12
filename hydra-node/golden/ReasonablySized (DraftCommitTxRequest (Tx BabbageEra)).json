@@ -1,6 +1,7 @@
 {
     "samples": [
         {
+            "tag": "DraftCommitTxRequest",
             "utxos": [
                 {
                     "draftScriptInfo": null,
@@ -515,6 +516,7 @@
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxos": [
                 {
                     "draftScriptInfo": {
@@ -1567,6 +1569,7 @@
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxos": [
                 {
                     "draftScriptInfo": {
@@ -1603,6 +1606,7 @@
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxos": [
                 {
                     "draftScriptInfo": {
@@ -2727,6 +2731,7 @@
             ]
         },
         {
+            "tag": "DraftCommitTxRequest",
             "utxos": []
         }
     ],
