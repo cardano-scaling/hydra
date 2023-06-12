@@ -72,7 +72,6 @@ channels:
               type: string
               enum: ["yes", "no"]
 
-
     subscribe:
       summary: Events emitted by the Hydra node.
       operationId: serverOutput
@@ -119,7 +118,17 @@ channels:
       summary: Hydra node drafted commit transaction responses.
       operationId: draftCommitTxResponse
       message:
-        $ref: "#/components/messages/DraftCommitTxResponse"
+        title: DraftCommitTxResponse
+        description: |
+          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+        payload:
+          type: object
+          required:
+            - commitTx
+          additionalProperties: false
+          properties:
+            commitTx:
+              $ref: "api.yaml#/components/schemas/RawTransaction"
       bindings:
         http:
           type: response
@@ -129,7 +138,19 @@ channels:
       summary: Requests sent to the Hydra node to draft a commit transactions.
       operationId: draftCommitTxRequest
       message:
-        $ref: "#/components/messages/DraftCommitTxRequest"
+        title: DraftCommitTxRequest
+        description: |
+          Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
+        payload:
+          type: object
+          required:
+            - utxos
+          additionalProperties: false
+          properties:
+            utxos:
+              type: array
+              items:
+                $ref: "api.yaml#/components/schemas/DraftUTxO"
       bindings:
         http:
           type: request
@@ -256,24 +277,6 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
-    
-    DraftCommitTxRequest:
-      title: DraftCommitTxRequest
-      description: |
-        Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
-      payload:
-        type: object
-        required:
-          - tag
-          - utxos
-        properties:
-          tag:
-            type: string
-            enum: ["DraftCommitTxRequest"]
-          utxos:
-            type: array
-            items:
-              $ref: "#/components/schemas/DraftUTxO"
 
     ########
     #
@@ -756,18 +759,6 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
-
-    DraftCommitTxResponse:
-      title: DraftCommitTxResponse
-      description: |
-        Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
-      payload:
-        type: object
-        required:
-          - commitTx
-        properties:
-          commitTx:
-            $ref: "#/components/schemas/RawTransaction"
 
   ########
   #

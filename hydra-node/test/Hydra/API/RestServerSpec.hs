@@ -25,12 +25,22 @@ spec = parallel $ do
   aroundAll withJsonSpecifications $
     -- XXX: It's unintuitive that dir/api.yaml is in fact a JSON file holding
     -- the JSON schema!
-    specify "DraftCommitTxRequest" $ \dir -> do
+    specify "Validate /commit publish api schema" $ \dir -> do
       property $
-        withMaxSuccess 1 $
+        withMaxSuccess 1 $ do
           conjoin
-            [ prop_validateJSONSchema @(DraftCommitTxRequest Tx) (dir </> "api.yaml") (key "channels" . key "/commit" . key "publish" . key "message")
+            [ prop_validateJSONSchema @(DraftCommitTxRequest Tx) (dir </> "api.yaml") (key "channels" . key "/commit" . key "publish" . key "message" . key "payload")
             , prop_specIsComplete @(ReasonablySized (DraftCommitTxRequest Tx)) (dir </> "api.yaml") apiSpecificationSelector
+            ]
+  aroundAll withJsonSpecifications $
+    -- XXX: It's unintuitive that dir/api.yaml is in fact a JSON file holding
+    -- the JSON schema!
+    specify "Validate /commit subscribe api schema" $ \dir -> do
+      property $
+        withMaxSuccess 1 $ do
+          conjoin
+            [ prop_validateJSONSchema @(DraftCommitTxResponse Tx) (dir </> "api.yaml") (key "channels" . key "/commit" . key "subscribe" . key "message" . key "payload")
+            , prop_specIsComplete @(ReasonablySized (DraftCommitTxResponse Tx)) (dir </> "api.yaml") apiSpecificationSelector
             ]
 
 apiSpecificationSelector :: SpecificationSelector

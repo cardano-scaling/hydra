@@ -6,7 +6,7 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens (Traversal', at, (?~), (^..))
+import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
@@ -23,8 +23,8 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
-import Test.Hydra.Prelude (createSystemTempDirectory, failure)
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, property, vectorOf)
+import Test.Hydra.Prelude (createSystemTempDirectory, failure, withTempDir)
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
 
@@ -49,7 +49,31 @@ prop_validateJSONSchema ::
   -- | Selector into the JSON file pointing to the schema to be validated.
   SpecificationSelector ->
   Property
-prop_validateJSONSchema _ _ = property False
+prop_validateJSONSchema specFile selector =
+  forAllShrink (resize 10 arbitrary) shrink $ \(samples :: [a]) ->
+    monadicIO $
+      -- XXX: it is cleaned up too much, even in case of error.
+      withTempDir "json-schema-validation" $ \dir -> do
+        run ensureSystemRequirements
+        mSpecs <- run $ Aeson.decodeFileStrict specFile
+        case mSpecs of
+          Nothing -> error "Failed to decode specFile to JSON"
+          Just specs -> do
+            monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
+            (exitCode, _out, err) <- run $ do
+              let jsonSchema = specs ^? selector
+              let jsonSchema' =
+                    Aeson.object
+                      [ "$id" .= ("file://" <> dir <> "/")
+                      , "type" .= Aeson.String "array"
+                      , "items" .= jsonSchema
+                      ]
+              writeFileLBS (dir </> "jsonInput") (Aeson.encode samples)
+              writeFileLBS (dir </> "jsonSchema") (Aeson.encode jsonSchema')
+              readFileLBS specFile >>= writeFileLBS (dir </> "api.yaml")
+              readProcessWithExitCode "jsonschema" ["-i", dir </> "jsonInput", dir </> "jsonSchema"] mempty
+            monitor $ counterexample err
+            pure (exitCode == ExitSuccess)
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
@@ -169,10 +193,10 @@ withJsonSpecifications action = do
       let spec' = addField "$id" ("file://" <> dir <> "/") spec
       Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec'
   action dir
- where
-  addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
-  addField k v = withObject (at k ?~ toJSON v)
 
+addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
+addField k v = withObject (at k ?~ toJSON v)
+ where
   withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
   withObject fn = \case
     Aeson.Object m -> Aeson.Object (fn m)
