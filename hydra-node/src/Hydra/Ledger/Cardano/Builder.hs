@@ -65,7 +65,7 @@ emptyTxBody =
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def) 
+    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def)
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone

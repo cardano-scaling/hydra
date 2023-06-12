@@ -48,7 +48,8 @@ import Hydra.Ledger (
   Ledger (..),
   UTxOType,
   ValidationError,
-  applyTransactions, txId,
+  applyTransactions,
+  txId,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))

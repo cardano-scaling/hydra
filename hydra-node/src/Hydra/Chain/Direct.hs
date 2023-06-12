@@ -211,7 +211,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
   res <-
     race
-      ( handle onIOException $ 
+      ( handle onIOException $
           connectToLocalNode
             connectInfo
             (clientProtocols chainPoint queue handler)

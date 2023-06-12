@@ -186,8 +186,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
-    handle onIOException $
-      withServerNode
+    handle onIOException
+      $ withServerNode
         (socketSnocket iomgr)
         makeSocketBearer
         notConfigureSocket
@@ -201,8 +201,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         acceptableVersion
         (unversionedProtocol (SomeResponderApplication app))
         nullErrorPolicies
-        $ \_addr serverAsync -> do
-          race_ (wait serverAsync) continuation
+      $ \_addr serverAsync -> do
+        race_ (wait serverAsync) continuation
    where
     notConfigureSocket _ _ = pure ()
 
