@@ -6,7 +6,7 @@
     "docusaurus": "docusaurus",
     "prepare": "yarn enrich-document-metadata && yarn regenerate-plantuml",
     "build": "yarn prepare && docusaurus build",
-    "build-dev": "yarn prepare && docusaurus build --no-minify",
+    "build-dev": "yarn prepare && docusaurus build --no-minify -l en",
     "start": "yarn dummy-spec && docusaurus start",
     "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx BabbageEra)).json'",
     "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (TimedServerOutput (Tx BabbageEra)).json'",
