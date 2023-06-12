@@ -165,7 +165,7 @@ jobs:
         junit_files: ./**/test-results.xml
 
   haddock:
-    name: "Haddock"
+    name: "Build haddock using nix"
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -203,9 +203,11 @@ jobs:
 
     - name: 📚 Documentation (Haddock)
       run: |
-        nix develop .#ci --command bash -c '.github/workflows/ci-haddock.sh'
+        nix build .?submodules=1#haddocks
+        mkdir -p docs/static/haddock
+        cp -aL result/* docs/static/haddock/
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload haddock artifact
       uses: actions/upload-artifact@v3
       with:
         name: haddocks
