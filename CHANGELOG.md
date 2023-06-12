@@ -24,7 +24,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new
 head again.
 
 - **BREAKING** Server outputs only transaction ids when issueing a
-  `SnpshotConfirmed` notification to clients
+  `SnapshotConfirmed` notification to clients
 
 - **BREAKING** Allow to commit multiple `UTxO`:
   + This changes `hydra-plutus` scripts to allow commit transactions which spend
