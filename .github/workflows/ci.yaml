@@ -178,14 +178,14 @@ jobs:
     - name: 📚 Documentation (Haddock)
       run: |
         nix build .?submodules=1#haddocks
-        mkdir -p docs/static/haddock
-        cp -aL result/* docs/static/haddock/
+        mkdir -p haddocks
+        cp -aL result/* haddocks
 
     - name: 💾 Upload haddock artifact
       uses: actions/upload-artifact@v3
       with:
         name: haddocks
-        path: ./docs/static/haddock
+        path: haddocks/*
 
   benchmarks:
     name: "Benchmarks"
