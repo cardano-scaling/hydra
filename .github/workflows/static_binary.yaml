@@ -1,0 +1,60 @@
+# This workflow builds a static executable for the hydra-node and its tools
+name: Static executable
+
+# Limit concurrent runs of this workflow within a single PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "*.*.*" ]
+  pull_request:
+    branches:
+      - 'master'
+
+jobs:
+  build-executables:
+    name: "Build static executables"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        # On pull_request events, we want to check out the latest commit of the
+        # PR, which is different to github.ref (the default, which would point
+        # to a "fake merge" commit). On push events, the default is fine as it
+        # refers to the pushed commit.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v21
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Build static executables
+      run: |
+        mkdir -p bin/
+        nix build .#hydra-node-static && cp result/bin/* bin/
+        nix build .#hydra-tools-static && cp result/bin/* bin/
+        nix build .#hydra-tui-static && cp result/bin/* bin/
+
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-x86_64-unknown-linux-musl
+        path: |
+          ./bin
