@@ -122,8 +122,7 @@ data PostTxError tx
   | -- | Comitting reference scripts is not supported right now.
     CannotCommitReferenceScript
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
-  | NotEnoughFuel
-  | NoFuelUTXOFound
+  | NotEnoughFunds
   | -- | Script execution failed when finalizing a transaction in the wallet.
     -- XXX: Ideally we want a cardano-api type with corresonding JSON instance
     -- here. But the wallet still uses ledger types and we don't want to copy the

@@ -9,16 +9,15 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, referenceInputs, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
+import Cardano.Ledger.Babbage.TxBody (collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -53,19 +52,25 @@ import Hydra.Cardano.Api (
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
+  ShelleyBasedEra (ShelleyBasedEraBabbage),
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   UTxO,
   VerificationKey,
+  fromLedgerPParams,
   fromLedgerTx,
+  fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
   makeShelleyKeyWitness,
   makeSignedTransaction,
+  minUTxOValue,
+  selectLovelace,
   shelleyAddressInEra,
   toLedgerAddr,
+  toLedgerCoin,
   toLedgerTx,
   toLedgerUTxO,
   verificationKeyHash,
@@ -144,7 +149,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
@@ -224,7 +229,6 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
-  | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure StandardCrypto)}
   | ErrTranslationError (TranslationError StandardCrypto)
@@ -297,9 +301,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       , wits = wits{txrdmrs = adjustedRedeemers}
       }
  where
-  findUTxOToPayFees utxo = case findFuelUTxO utxo of
+  findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
-      Left ErrNoFuelUTxOFound
+      -- create 'ChangeError' but for this we need to resolve the utxo inputs
+      let utxoAsList = Map.toList utxo
+          ins = traverse resolveInput (fst <$> utxoAsList)
+          totalIns = Coin $ sum $ either (const [0]) (fmap (unCoin . getAdaValue)) ins
+          totalOuts = foldMap getAdaValue (snd <$> utxoAsList)
+       in Left (ErrNotEnoughFunds ChangeError{inputBalance = totalIns, outputBalance = totalOuts})
     Just (i, o) ->
       Right (i, o)
 
@@ -365,21 +374,15 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
             (floor (maxMem * approxMem % totalMem))
             (floor (maxCpu * approxCpu % totalCpu))
 
-findFuelUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
-findFuelUTxO utxo =
-  let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo
+findLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
+findLargestUTxO utxo =
+  let availableUtxo = Map.toList utxo
       sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
-      sortedByValue = sortOn sortingCriteria utxosWithDatum
+      sortedByValue = sortOn sortingCriteria availableUtxo
    in case sortedByValue of
         [] -> Nothing
         as -> Just (List.last as)
  where
-  hasMarkerDatum :: TxOut -> Bool
-  hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
-    NoDatum -> False
-    DatumHash dh ->
-      dh == hashData (Data @LedgerEra markerDatum)
-    Datum{} -> False -- Marker is not stored inline
   fst' (a, _, _) = a
 
 -- | Estimate cost of script executions on the transaction. This is only an

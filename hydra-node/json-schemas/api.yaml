@@ -1086,9 +1086,9 @@ components:
               description: >-
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
-        - title: NotEnoughFuel
+        - title: NotEnoughFunds
           description: |
-            Raised if the internal wallet could not find a fuel output with
+            Raised if the internal wallet could not find output with
             enough lovelace to balance a transaction. See user manual how to
             fuel up the internal wallet.
           type: object
@@ -1098,19 +1098,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["NotEnoughFuel"]
-        - title: NoFuelUTXOFound
-          description: |
-            Raised if the internal wallet could not find a fuel output. See user
-            manual how to fuel up the internal wallet.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          properties:
-            tag:
-              type: string
-              enum: ["NoFuelUTXOFound"]
+              enum: ["NotEnoughFunds"]
         - title: CannotFindOwnInitial
           type: object
           additionalProperties: false
