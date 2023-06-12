@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson.Lens (key)
 import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse)
 import Hydra.Chain.Direct.State ()
-import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
+import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateJSONSchema, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -22,12 +22,14 @@ spec = parallel $ do
   roundtripAndGoldenSpecs
     (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
 
-  aroundAll withJsonSpecifications $ do
+  aroundAll withJsonSpecifications $
+    -- XXX: It's unintuitive that dir/api.yaml is in fact a JSON file holding
+    -- the JSON schema!
     specify "DraftCommitTxRequest" $ \dir -> do
       property $
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ReasonablySized (DraftCommitTxRequest Tx)) (dir </> "api.yaml") "messages" (dir </> "DraftCommitTxRequest")
+            [ prop_validateJSONSchema @(DraftCommitTxRequest Tx) (dir </> "api.yaml") (key "channels" . key "/commit" . key "publish" . key "message")
             , prop_specIsComplete @(ReasonablySized (DraftCommitTxRequest Tx)) (dir </> "api.yaml") apiSpecificationSelector
             ]
 

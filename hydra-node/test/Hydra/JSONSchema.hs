@@ -24,9 +24,32 @@ import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
 import Test.Hydra.Prelude (createSystemTempDirectory, failure)
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, vectorOf)
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, property, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
+
+-- | Validate an 'Arbitrary' value against a JSON schema.
+--
+-- The second argument is a lens that says which part of the JSON file to use to
+-- do the validation, for example:
+--
+-- @@
+-- key "components" . key "schemas" . key "Address"
+-- @@
+--
+-- which selects the JSON schema for "Address" types in a bigger specification,
+-- say an asyncapi description.
+--
+-- TODO: Maybe do the same trick as prop_validateToJSON to avoid slow runs.
+prop_validateJSONSchema ::
+  forall a.
+  (ToJSON a, Arbitrary a, Show a) =>
+  -- | Path to the JSON file holding the schema.
+  FilePath ->
+  -- | Selector into the JSON file pointing to the schema to be validated.
+  SpecificationSelector ->
+  Property
+prop_validateJSONSchema _ _ = property False
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
@@ -34,6 +57,7 @@ import qualified Prelude
 -- the specification. Note this, because this uses an external tool each
 -- property iteration is pretty slow. So instead, we run the property only
 -- once, but on a list of 100 elements all arbitrarily generated.
+-- TODO: This should be replacable by 'prop_validateJSONSchema'
 prop_validateToJSON ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
@@ -137,6 +161,7 @@ withJsonSpecifications ::
 withJsonSpecifications action = do
   specDir <- (</> "json-schemas") . normalise <$> Pkg.getDataDir
   specFiles <- listDirectory specDir
+  -- XXX: No clean up of these files
   dir <- createSystemTempDirectory "Hydra_APISpec"
   forM_ specFiles $ \file -> do
     when (takeExtension file == ".yaml") $ do
