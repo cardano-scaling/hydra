@@ -20,26 +20,26 @@ import Hydra.Snapshot (Snapshot (..))
 -- | A trace of an event or effect for a specific transaction.
 data Trace tx
   = TraceEvent
-      { -- | The starting point in time for this event.
-        timestamp :: UTCTime
-      , -- | The transaction id this event applies to.
-        txid :: TxIdType tx
-      , -- | The duration of the event, expressed as a number of
-        -- seconds with a $10^12$ precision.
-        us :: NominalDiffTime
-      , -- | A string identifying this event.
-        event :: Text
+      { timestamp :: UTCTime
+      -- ^ The starting point in time for this event.
+      , txid :: TxIdType tx
+      -- ^ The transaction id this event applies to.
+      , us :: NominalDiffTime
+      -- ^ The duration of the event, expressed as a number of
+      -- seconds with a $10^12$ precision.
+      , event :: Text
+      -- ^ A string identifying this event.
       }
   | TraceEffect
-      { -- | The starting point in time for this effect.
-        timestamp :: UTCTime
-      , -- | The transaction id this effect applies to.
-        txid :: TxIdType tx
-      , -- | The duration of the effect, expressed as a number of
-        -- seconds with a $10^12$ precision.
-        us :: NominalDiffTime
-      , -- | A string identifying this effect.
-        effect :: Text
+      { timestamp :: UTCTime
+      -- ^ The starting point in time for this effect.
+      , txid :: TxIdType tx
+      -- ^ The transaction id this effect applies to.
+      , us :: NominalDiffTime
+      -- ^ The duration of the effect, expressed as a number of
+      -- seconds with a $10^12$ precision.
+      , effect :: Text
+      -- ^ A string identifying this effect.
       }
   deriving stock (Generic)
 
