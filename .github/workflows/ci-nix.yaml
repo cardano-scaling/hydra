@@ -319,8 +319,8 @@ jobs:
       if: github.ref_name != 'master' && github.ref_name != 'release'
       working-directory: docs
       run: |
-        yarn && yarn build-dev
-
+        yarn
+        yarn build-dev
 
     - name: 📚 Documentation
       if: github.ref_name == 'master' || github.ref_name == 'release'
