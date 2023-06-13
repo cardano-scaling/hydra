@@ -252,9 +252,10 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
       (externalVk, externalSk) <- generate genKeyPair
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+      let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx [(utxoToCommit, Nothing)]
+      let clientPayload = DraftCommitTxRequest @Tx draftUTxos
 
       response <-
         runReq defaultHttpConfig $
@@ -311,11 +312,16 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       scriptUtxo1 <- createScriptOutput pparams scriptAddress1 someSk normalUTxO1 datum
       normalUTxO2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       scriptUtxo2 <- createScriptOutput pparams scriptAddress2 someSk normalUTxO2 datum
-      let scriptUtxosInfo = [(scriptUtxo1, Just scriptInfo1)] <> [(scriptUtxo2, Just scriptInfo2)]
+      let scriptUTxO1 = mkDraftUTxOs scriptUtxo1 (Just scriptInfo1)
+      let scriptUTxO2 = mkDraftUTxOs scriptUtxo2 (Just scriptInfo2)
+      let scriptUtxosInfo = scriptUTxO1 <> scriptUTxO2
       -- Request to build a draft commit tx from hydra-node
       regularUtxo1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       regularUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      let regularUtxosInfo = [(regularUtxo1, Nothing)] <> [(regularUtxo2, Nothing)]
+
+      let regularUTxO1 = mkDraftUTxOs regularUtxo1 Nothing
+      let regularUTxO2 = mkDraftUTxOs regularUtxo2 Nothing
+      let regularUtxosInfo = regularUTxO1 <> regularUTxO2
       let clientPayload = DraftCommitTxRequest @Tx (regularUtxosInfo <> scriptUtxosInfo)
       response <-
         runReq defaultHttpConfig $
@@ -403,9 +409,9 @@ singlePartyCantCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
       (userVk, _userSk) <- keysFor Alice
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
-
+      let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx [DraftUTxO utxoToCommit Nothing]
+      let clientPayload = DraftCommitTxRequest @Tx draftUTxos
 
       runReq
         defaultHttpConfig
@@ -468,6 +474,10 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (actorVk, _) <- keysFor actor
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> [DraftUTxO tx]
+mkDraftUTxOs utxo mScriptInfo =
+  (\(txin, txout) -> DraftUTxO txin txout mScriptInfo) <$> UTxO.pairs utxo
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

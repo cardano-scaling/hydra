@@ -1606,11 +1606,14 @@ components:
       description: |
         UTxO data needed to spend user provided utxo
       required:
-        - draftUTxO
+        - draftTxIn
+        - draftTxOut
         - draftScriptInfo
       properties:
-        draftUTxO:
-          $ref: "#/components/schemas/UTxO"
+        draftTxIn:
+          $ref: "#/components/schemas/TxIn"
+        draftTxOut:
+          $ref: "#/components/schemas/TxOut"
         draftScriptInfo:
           $ref: "#/components/schemas/ScriptInfo"
 

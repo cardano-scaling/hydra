@@ -20,12 +20,15 @@ import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  CtxUTxO,
   HasTypeProxy (..),
   Lovelace (..),
   PlutusScript,
   ScriptDatum,
   ScriptRedeemer,
   SerialiseAsRawBytes (..),
+  TxIn,
+  TxOut,
   UsingRawBytesHex (..),
   WitCtxTxIn,
  )
@@ -194,13 +197,14 @@ data Chain tx m = Chain
   -- Does at least throw 'PostTxError'.
   , draftTx ::
       (IsChainState tx, MonadThrow m, MonadIO m) =>
-      [(UTxOType tx, Maybe (ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript))] ->
+      [(TxIn, TxOut CtxUTxO, Maybe (ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript))] ->
       m (Either (PostTxError tx) tx)
-  -- ^ Create a commit transaction using user provided utxos (zero or many).
-  -- Errors are handled at the call site. We are handling the following with 400
-  -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
-  -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
-  -- possible exceptions are turned into 500 errors
+  -- ^ Create a commit transaction using user provided utxos (zero or many) and
+  -- information to spend from a script. Errors are handled at the call site. We
+  -- are handling the following with 400 responses: 'CannotFindOwnInitial',
+  -- 'CannotCommitReferenceScript', 'CommittedTooMuchADAForMainnet',
+  -- 'UnsupportedLegacyOutput' and other possible exceptions are turned into 500
+  -- errors
   }
 
 data ChainEvent tx

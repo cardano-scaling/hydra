@@ -1,5 +1,4 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.API.RestServer where
 
@@ -9,7 +8,7 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import Hydra.Cardano.Api (HashableScriptData, PlutusScript)
+import Hydra.Cardano.Api (HashableScriptData, PlutusScript, TxIn, TxOut, CtxUTxO)
 import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Ledger.Cardano ()
 
@@ -61,7 +60,8 @@ instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
 data DraftUTxO tx = DraftUTxO
-  { draftUTxO :: UTxOType tx
+  { draftTxIn :: TxIn
+  , draftTxOut :: TxOut CtxUTxO
   , draftScriptInfo :: Maybe ScriptInfo
   }
   deriving (Generic)

@@ -27,11 +27,12 @@ import Hydra.Cardano.Api (
   TxId,
   addTxIn,
   chainPointToSlotNo,
+  fromLedgerTxIn,
   getChainPoint,
   getTxBody,
   getTxId,
   mkScriptWitness,
-  pattern ScriptWitness, fromLedgerTxIn,
+  pattern ScriptWitness,
  )
 import Hydra.Chain (
   Chain (..),
@@ -174,12 +175,17 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
               then sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitScriptTx
               else pure $ Left FailedToDraftTxWalletUtxoDetected
            where
-            regularUtxo = foldMap (\(u, m) -> maybe u (const mempty) m) utxoInputs
+            regularUtxo =
+              foldMap
+                ( \(txin, txout, m) ->
+                    maybe (UTxO.singleton (txin, txout)) (const mempty) m
+                )
+                utxoInputs
             scriptUtxoInput =
               foldMap
-                ( \(u, m) ->
+                ( \(txin, txout, m) ->
                     case m of
-                      Just (d, r, s) -> [(u, d, r, s)]
+                      Just (d, r, s) -> [(UTxO.singleton (txin, txout), d, r, s)]
                       Nothing -> []
                 )
                 utxoInputs

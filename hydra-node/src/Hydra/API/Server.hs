@@ -361,18 +361,18 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           , requestInputBody = Just $ toJSON requestInput
           }
       let utxos =
-            ( \DraftUTxO{draftUTxO, draftScriptInfo} ->
-                (draftUTxO, draftScriptInfo)
+            ( \DraftUTxO{draftTxIn, draftTxOut, draftScriptInfo} ->
+                (draftTxIn, draftTxOut, draftScriptInfo)
             )
               <$> draftUTxO'
       let
         utxoInput =
-          ( \(utxo, maybeScriptInfo) ->
+          ( \(txin, txout, maybeScriptInfo) ->
               case maybeScriptInfo of
                 Just ScriptInfo{redeemer, datum, plutusV2Script} ->
-                  (utxo, Just (ScriptDatumForTxIn datum, redeemer, plutusV2Script))
+                  (txin, txout, Just (ScriptDatumForTxIn datum, redeemer, plutusV2Script))
                 Nothing ->
-                  (utxo, Nothing)
+                  (txin, txout, Nothing)
           )
             <$> utxos
       eCommitTx <- draftTx utxoInput
