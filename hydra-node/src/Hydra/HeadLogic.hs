@@ -992,10 +992,12 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
-  ( Open openState
-    , OnChainEvent Observation{observedTx = OnCloseTx{snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
-    ) ->
+  ( Open openState@OpenState{headId = ourHeadId}
+    , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
+    ) | ourHeadId == headId ->
       onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
+      | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
