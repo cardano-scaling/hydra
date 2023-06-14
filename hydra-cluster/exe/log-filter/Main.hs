@@ -5,6 +5,7 @@ module Main where
 import Data.Aeson (decode, encode)
 import qualified Data.ByteString.Char8 as LBS
 import qualified Data.ByteString.Lazy as LBS
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.LogFilter (tracePerformance)
 import Hydra.Prelude
 import Options.Applicative (
@@ -65,5 +66,5 @@ main = do
         case decode (LBS.fromStrict line) of
           Nothing -> go pending hdl
           Just e ->
-            let (evs, pending') = runState (tracePerformance e) pending
+            let (evs, pending') = runState (tracePerformance @Tx e) pending
              in mapM_ (LBS.hPutStrLn stdout . LBS.toStrict . encode) evs >> go pending' hdl
