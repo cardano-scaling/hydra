@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Cluster.Scenarios where
@@ -25,42 +24,25 @@ import qualified Data.ByteString as B
 import qualified Data.Set as Set
 import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..))
 import Hydra.Cardano.Api (
-  AddressInEra,
-  Key (SigningKey, getVerificationKey),
   Lovelace (..),
-  PaymentKey,
   PlutusScriptV2,
-  ProtocolParameters,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  ToScriptData,
   Tx,
   TxId,
   UTxO,
   fromPlutusScript,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
   mkScriptAddress,
-  mkTxOutAutoBalance,
-  mkTxOutDatumHash,
-  mkVkAddress,
   selectLovelace,
-  throwErrorAsException,
   toScriptData,
-  txOutAddress,
-  txOutValue,
-  pattern ReferenceScriptNone,
  )
 import Hydra.Chain (HeadId)
 import Hydra.Chain.CardanoClient (
   QueryPoint (QueryTip),
-  awaitTransaction,
-  buildTransaction,
   queryProtocolParameters,
   queryTip,
   submitTransaction,
  )
 import Hydra.Chain.Direct.Wallet (signWith)
-import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (Marked (Fuel, Normal), createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -305,13 +287,10 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           datum = 2 :: Integer
           scriptInfo1 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script1
           scriptInfo2 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script2
-      -- TODO: createScriptOutput spends from faucet directly
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-      normalUTxO1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo1 <- createScriptOutput pparams scriptAddress1 someSk normalUTxO1 datum
-      normalUTxO2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      scriptUtxo2 <- createScriptOutput pparams scriptAddress2 someSk normalUTxO2 datum
+      scriptUtxo1 <- createOutputAtAddress node pparams scriptAddress1 datum
+      scriptUtxo2 <- createOutputAtAddress node pparams scriptAddress2 datum
       let scriptUTxO1 = mkDraftUTxOs scriptUtxo1 (Just scriptInfo1)
       let scriptUTxO2 = mkDraftUTxOs scriptUtxo2 (Just scriptInfo2)
       let scriptUtxosInfo = scriptUTxO1 <> scriptUTxO2
@@ -340,52 +319,6 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= (regularUtxo1 <> regularUtxo2), "headId" .= headId]
  where
   RunningNode{networkId, nodeSocket} = node
-
-  -- TODO: refactor into simpler
-  createScriptOutput ::
-    ToScriptData a =>
-    ProtocolParameters ->
-    AddressInEra ->
-    SigningKey PaymentKey ->
-    UTxO ->
-    a ->
-    IO UTxO
-  createScriptOutput pparams scriptAddress sk utxo datum = do
-    let outputs = [scriptTxOut]
-        totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
-        someUTxO =
-          maybe mempty UTxO.singleton $
-            UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-    buildTransaction
-      networkId
-      nodeSocket
-      changeAddress
-      someUTxO
-      collateralTxIns
-      outputs
-      >>= \case
-        Left e ->
-          throwErrorAsException e
-        Right body -> do
-          let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-          submitTransaction networkId nodeSocket tx
-          newUtxo <- awaitTransaction networkId nodeSocket tx
-          let scriptUtxo = UTxO.filter (\out -> txOutAddress out == scriptAddress) newUtxo
-          pure scriptUtxo
-   where
-    collateralTxIns = mempty
-
-    vk = getVerificationKey sk
-
-    changeAddress = mkVkAddress networkId vk
-
-    scriptTxOut =
-      mkTxOutAutoBalance
-        pparams
-        scriptAddress
-        mempty
-        (mkTxOutDatumHash datum)
-        ReferenceScriptNone
 
 singlePartyCantCommitExternallyWalletUtxo ::
   Tracer IO EndToEndLog ->
