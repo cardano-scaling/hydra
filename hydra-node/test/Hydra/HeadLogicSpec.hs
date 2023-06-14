@@ -342,7 +342,7 @@ spec = do
         assertOnlyEffects s1
 
       it "ignores closeTx for another head" $ do
-        let otherHeadId = undefined
+        let otherHeadId = HeadId "other head"
         let openState = inOpenState threeParties ledger
         let closeOtherHead = observationEvent $ OnCloseTx 1 (generateWith arbitrary 42)
 
