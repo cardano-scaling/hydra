@@ -5,6 +5,7 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -15,7 +16,6 @@ import Hydra.Options (
   Command (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
   defaultChainConfig,
@@ -25,6 +25,11 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
+import Options.Applicative (
+  ParserResult (..),
+  renderFailure,
+ )
+import Paths_hydra_node (version)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 
@@ -71,7 +76,7 @@ spec = parallel $
         `shouldParse` Run defaultRunOptions{port = 0}
       shouldNotParse ["--port", "-42"]
 
-    -- TODO(SN): Move thes examples rather into a 'instance Read Host' test and
+    -- TODO(SN): Move these examples rather into a 'instance Read Host' test and
     -- only check for correct format / wiring here using a single test case This
     -- became evident when realizing that the 'hydra-tui' is also relying on this
     -- Read instance for parsing, but in a different command line flag.
@@ -96,9 +101,13 @@ spec = parallel $
       setFlags ["--monitoring-port", "65535"]
         `shouldParse` Run defaultRunOptions{monitoringPort = Just 65535}
 
-    it "parses --version flag as a parse error" $
-      shouldNotParse ["--version"]
-
+    it "flag --version returns version with base version from cabal" $ do
+      case parseHydraCommandFromArgs ["--version"] of
+        Failure theFailure ->
+          let (v, _ExitCode) = renderFailure theFailure "test"
+           in v
+                `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(:?-[a-zA-Z0-9]+)" :: String))
+        _ -> failure "expected a version but did get something else"
     it "parses --hydra-verification-key option as a filepath" $ do
       setFlags ["--hydra-verification-key", "./alice.vk"]
         `shouldParse` Run defaultRunOptions{hydraVerificationKeys = ["./alice.vk"]}

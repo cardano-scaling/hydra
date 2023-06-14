@@ -1,10 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Options (
-  module Hydra.Options,
-  ParserResult (..),
-) where
+module Hydra.Options
+where
 
 import Hydra.Prelude
 
