@@ -173,7 +173,7 @@ createHydraNode signingKey otherParties contestationPeriod events = do
       , oc =
           Chain
             { postTx = \_ -> pure ()
-            , draftTx = \_ -> error "draftTx not implemented"
+            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             }
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger
@@ -221,6 +221,6 @@ throwExceptionOnPostTx exception node =
       { oc =
           Chain
             { postTx = \_ -> throwIO exception
-            , draftTx = \_ -> error "draftTx not implemented"
+            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             }
       }

@@ -163,7 +163,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftTx = \utxoInputs -> do
+      draftCommitTx = \utxoInputs -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st -> do

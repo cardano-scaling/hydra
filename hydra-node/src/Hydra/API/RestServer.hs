@@ -8,8 +8,8 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import Hydra.Cardano.Api (HashableScriptData, PlutusScript, TxIn, TxOut, CtxUTxO)
-import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Cardano.Api (CtxUTxO, HashableScriptData, PlutusScript, ScriptDatum (..), TxIn, TxOut, WitCtxTxIn)
+import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano ()
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
@@ -59,45 +59,35 @@ data ScriptInfo = ScriptInfo
 instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
-data DraftUTxO tx = DraftUTxO
+data DraftUTxO = DraftUTxO
   { draftTxIn :: TxIn
   , draftTxOut :: TxOut CtxUTxO
   , draftScriptInfo :: Maybe ScriptInfo
   }
-  deriving (Generic)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-deriving stock instance IsTx tx => Eq (DraftUTxO tx)
-deriving stock instance IsTx tx => Show (DraftUTxO tx)
-deriving anyclass instance IsTx tx => ToJSON (DraftUTxO tx)
-deriving anyclass instance IsTx tx => FromJSON (DraftUTxO tx)
-
-instance Arbitrary (UTxOType tx) => Arbitrary (DraftUTxO tx) where
+instance Arbitrary DraftUTxO where
   arbitrary = genericArbitrary
 
-newtype DraftCommitTxRequest tx = DraftCommitTxRequest
-  { utxos :: [DraftUTxO tx]
+newtype DraftCommitTxRequest = DraftCommitTxRequest
+  { utxos :: [DraftUTxO]
   }
-  deriving (Generic)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-deriving stock instance IsTx tx => Eq (DraftCommitTxRequest tx)
-deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
-
-instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxRequest tx) where
-  toJSON (DraftCommitTxRequest utxo) =
-    object
-      [ "utxos" .= toJSON utxo
-      ]
-
-instance
-  (IsTx tx, FromCBOR tx) =>
-  FromJSON (DraftCommitTxRequest tx)
-  where
-  parseJSON = withObject "DraftCommitTxRequest" $ \o -> do
-    utxos :: [DraftUTxO tx] <- o .: "utxos"
-    pure $ DraftCommitTxRequest utxos
-
-instance Arbitrary (UTxOType tx) => Arbitrary (DraftCommitTxRequest tx) where
+instance Arbitrary DraftCommitTxRequest where
   arbitrary = genericArbitrary
 
   shrink = \case
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
+
+convertDraftUTxO ::
+  DraftUTxO ->
+  (TxIn, TxOut CtxUTxO, Maybe (ScriptDatum WitCtxTxIn, HashableScriptData, PlutusScript))
+convertDraftUTxO (DraftUTxO txin txout maybeScriptInfo) =
+  case maybeScriptInfo of
+    Just ScriptInfo{redeemer, datum, plutusV2Script} ->
+      (txin, txout, Just (ScriptDatumForTxIn datum, redeemer, plutusV2Script))
+    Nothing ->
+      (txin, txout, Nothing)

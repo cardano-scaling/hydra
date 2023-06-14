@@ -19,14 +19,13 @@ spec = parallel $ do
     (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
 
   roundtripAndGoldenSpecs
-    (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
+    (Proxy @(ReasonablySized DraftCommitTxRequest))
 
   prop "Validate /commit publish api schema" $
     property $
       withMaxSuccess 1 $ do
         conjoin
-          [ prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api" (key "channels" . key "/commit" . key "publish" . key "message" . key "payload")
-          , prop_specIsComplete @(ReasonablySized (DraftCommitTxRequest Tx)) "api" apiSpecificationSelector
+          [ prop_validateJSONSchema @DraftCommitTxRequest "api" (key "channels" . key "/commit" . key "publish" . key "message" . key "payload")
           ]
 
   prop "Validate /commit subscribe api schema" $

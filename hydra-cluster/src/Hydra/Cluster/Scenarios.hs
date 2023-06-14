@@ -255,7 +255,7 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
       let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx draftUTxos
+      let clientPayload = DraftCommitTxRequest draftUTxos
 
       response <-
         runReq defaultHttpConfig $
@@ -322,7 +322,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       let regularUTxO1 = mkDraftUTxOs regularUtxo1 Nothing
       let regularUTxO2 = mkDraftUTxOs regularUtxo2 Nothing
       let regularUtxosInfo = regularUTxO1 <> regularUTxO2
-      let clientPayload = DraftCommitTxRequest @Tx (regularUtxosInfo <> scriptUtxosInfo)
+      let clientPayload = DraftCommitTxRequest (regularUtxosInfo <> scriptUtxosInfo)
       response <-
         runReq defaultHttpConfig $
           req
@@ -411,7 +411,7 @@ singlePartyCantCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx draftUTxos
+      let clientPayload = DraftCommitTxRequest draftUTxos
 
       runReq
         defaultHttpConfig
@@ -475,7 +475,7 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
-mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> [DraftUTxO tx]
+mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> [DraftUTxO]
 mkDraftUTxOs utxo mScriptInfo =
   (\(txin, txout) -> DraftUTxO txin txout mScriptInfo) <$> UTxO.pairs utxo
 

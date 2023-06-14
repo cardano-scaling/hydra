@@ -195,7 +195,7 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftTx ::
+  , draftCommitTx ::
       (IsChainState tx, MonadThrow m, MonadIO m) =>
       [(TxIn, TxOut CtxUTxO, Maybe (ScriptDatum WitCtxTxIn, ScriptRedeemer, PlutusScript))] ->
       m (Either (PostTxError tx) tx)

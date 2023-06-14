@@ -17,7 +17,11 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..), ScriptInfo (..))
+import Hydra.API.RestServer (
+  DraftCommitTxRequest (..),
+  DraftCommitTxResponse (..),
+  convertDraftUTxO,
+ )
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
@@ -32,13 +36,15 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Cardano.Api (
-  ScriptDatum (ScriptDatumForTxIn),
- )
 import Hydra.Chain (
   Chain (..),
   IsChainState,
-  PostTxError (CannotCommitReferenceScript, CommittedTooMuchADAForMainnet, FailedToDraftTxWalletUtxoDetected, UnsupportedLegacyOutput),
+  PostTxError (
+    CannotCommitReferenceScript,
+    CommittedTooMuchADAForMainnet,
+    FailedToDraftTxWalletUtxoDetected,
+    UnsupportedLegacyOutput
+  ),
  )
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
@@ -46,7 +52,14 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (Method, status200, status400, status500)
-import Network.Wai (Request (pathInfo), Response, ResponseReceived, consumeRequestBodyStrict, requestMethod, responseLBS)
+import Network.Wai (
+  Request (pathInfo),
+  Response,
+  ResponseReceived,
+  consumeRequestBodyStrict,
+  requestMethod,
+  responseLBS,
+ )
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -78,7 +91,11 @@ data APIServerLog
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   | APIConnectionError {reason :: String}
   | APIHandshakeError {reason :: String}
-  | APIRestInputReceived {method :: Text, paths :: [Text], requestInputBody :: Maybe Aeson.Value}
+  | APIRestInputReceived
+      { method :: Text
+      , paths :: [Text]
+      , requestInputBody :: Maybe Aeson.Value
+      }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -350,7 +367,7 @@ handleDraftCommitUtxo ::
   (Response -> IO ResponseReceived) ->
   IO ResponseReceived
 handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
-  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
+  case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@DraftCommitTxRequest{utxos = draftUTxO'} -> do
@@ -360,22 +377,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      let utxos =
-            ( \DraftUTxO{draftTxIn, draftTxOut, draftScriptInfo} ->
-                (draftTxIn, draftTxOut, draftScriptInfo)
-            )
-              <$> draftUTxO'
-      let
-        utxoInput =
-          ( \(txin, txout, maybeScriptInfo) ->
-              case maybeScriptInfo of
-                Just ScriptInfo{redeemer, datum, plutusV2Script} ->
-                  (txin, txout, Just (ScriptDatumForTxIn datum, redeemer, plutusV2Script))
-                Nothing ->
-                  (txin, txout, Nothing)
-          )
-            <$> utxos
-      eCommitTx <- draftTx utxoInput
+      eCommitTx <- draftCommitTx $ convertDraftUTxO <$> draftUTxO'
       respond $
         case eCommitTx of
           Left e ->
@@ -391,4 +393,4 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
   return400 = responseLBS status400 [] . Aeson.encode . toJSON
-  Chain{draftTx} = directChain
+  Chain{draftCommitTx} = directChain

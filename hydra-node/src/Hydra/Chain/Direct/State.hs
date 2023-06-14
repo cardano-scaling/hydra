@@ -319,13 +319,7 @@ commit ctx st utxo = do
   ChainContext{networkId, ownParty, scriptRegistry} = ctx
   InitialState{headId} = st
 
-  InitialState
-    { initialInitials
-    , seedTxIn
-    , headId
-    } = st
-
--- | Construct a commit a script transaction based on the 'InitialState'.
+-- | Construct a commit script transaction based on the 'InitialState'.
 --  This does look for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
 commitScript ::
