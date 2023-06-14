@@ -160,7 +160,7 @@ spec = do
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         update bobEnv ledger s2 (ackFrom carolSk carol)
           `shouldSatisfy` \case
-            Error (RequireFailed (SnapshotAlreadySigned {receivedSignature})) -> receivedSignature == carol
+            Error (RequireFailed (SnapshotAlreadySigned{receivedSignature})) -> receivedSignature == carol
             _ -> False
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
@@ -340,6 +340,14 @@ spec = do
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
+
+      it "ignores closeTx for another head" $ do
+        let otherHeadId = undefined
+        let openState = inOpenState threeParties ledger
+        let closeOtherHead = observationEvent $ OnCloseTx 1 (generateWith arbitrary 42)
+
+        update bobEnv ledger openState closeOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> do

@@ -329,6 +329,7 @@ data LogicError tx
   | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
   | RequireFailed RequirementFailure
+  | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
 instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
