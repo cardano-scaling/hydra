@@ -57,7 +57,7 @@ import Test.Hydra.Fixture (alice, aliceSk, allVKeys, bob, bobSk, carol, carolSk,
 import Test.QuickCheck (generate)
 
 spec :: Spec
-spec = do
+spec =
   parallel $ do
     describe "Types" $ do
       roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
@@ -295,7 +295,8 @@ spec = do
             observeCloseTx =
               observationEvent
                 OnCloseTx
-                  { snapshotNumber
+                  { headId = testHeadId
+                  , snapshotNumber
                   , contestationDeadline
                   }
             clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
@@ -323,7 +324,7 @@ spec = do
                   , seenSnapshot = NoSeenSnapshot
                   }
             deadline = arbitrary `generateWith` 42
-            closeTxEvent = observationEvent $ OnCloseTx 0 deadline
+            closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
@@ -344,7 +345,13 @@ spec = do
       it "ignores closeTx for another head" $ do
         let otherHeadId = HeadId "other head"
         let openState = inOpenState threeParties ledger
-        let closeOtherHead = observationEvent $ OnCloseTx 1 (generateWith arbitrary 42)
+        let closeOtherHead =
+              observationEvent $
+                OnCloseTx
+                  { headId = otherHeadId
+                  , snapshotNumber = 1
+                  , contestationDeadline = generateWith arbitrary 42
+                  }
 
         update bobEnv ledger openState closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})

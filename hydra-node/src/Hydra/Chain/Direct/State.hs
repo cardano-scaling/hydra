@@ -636,7 +636,8 @@ observeClose st tx = do
   let ClosedThreadOutput{closedContestationDeadline} = threadOutput
   let event =
         OnCloseTx
-          { snapshotNumber
+          { headId = closeObservationHeadId
+          , snapshotNumber
           , contestationDeadline = posixToUTCTime closedContestationDeadline
           }
   let st' =
