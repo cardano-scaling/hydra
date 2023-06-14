@@ -70,6 +70,7 @@ common project-config
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyDataDecls
     ExistentialQuantification
     FlexibleContexts
@@ -149,8 +150,8 @@ library
     , process
     , QuickCheck
     , random-shuffle
-    , retry
     , req
+    , retry
     , say
     , streaming-commons
     , temporary
@@ -190,11 +191,9 @@ executable log-filter
     , bytestring
     , contra-tracer
     , hydra-cluster
+    , hydra-node
     , hydra-prelude
-    , lens
-    , lens-aeson
     , optparse-applicative
-    , temporary
 
 test-suite tests
   import:             project-config

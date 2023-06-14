@@ -432,6 +432,7 @@ data TinyWalletLog
   deriving (Eq, Generic, Show)
 
 deriving instance ToJSON TinyWalletLog
+deriving instance FromJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary

@@ -73,7 +73,7 @@ data APIServerLog
   | APIHandshakeError {reason :: String}
   | APIRestInputReceived {method :: Text, paths :: [Text], requestInputBody :: Maybe Aeson.Value}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary APIServerLog where
   arbitrary =
