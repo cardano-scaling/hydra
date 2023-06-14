@@ -18,6 +18,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import Hydra.API.RestServer (prepareCommitTxInputs)
 import Hydra.Cardano.Api (
   BlockHeader,
   BuildTxWith (BuildTxWith),
@@ -25,7 +26,6 @@ import Hydra.Cardano.Api (
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
   TxId,
-  addTxIn,
   chainPointToSlotNo,
   fromLedgerTxIn,
   getChainPoint,
@@ -64,7 +64,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
-import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (addInputs, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -168,47 +168,21 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
           Initial st -> do
             walletUtxos <- atomically getUTxO
             let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
-            let userTxIns = Set.toList $ UTxO.inputSet regularUtxo
+            let userTxIns = Set.toList $ UTxO.inputSet regularUTxO
             let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
             if null matchedWalletUtxo
-              then sequenceA $ finalizeTx wallet ctx chainState (regularUtxo <> scriptUtxo) <$> buildCommitTx
+              then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> buildCommitTx
               else pure $ Left FailedToDraftTxWalletUtxoDetected
            where
-            regularUtxo =
-              foldMap
-                ( \(txin, txout, m) ->
-                    maybe (UTxO.singleton (txin, txout)) (const mempty) m
-                )
-                utxoInputs
-            scriptUtxoInput =
-              foldMap
-                ( \(txin, txout, m) ->
-                    case m of
-                      Just w -> [(UTxO.singleton (txin, txout), w)]
-                      Nothing -> []
-                )
-                utxoInputs
-
-            scriptUtxo = foldMap fst scriptUtxoInput
+            (regularUTxO, scriptUTxO, scriptWitnesses) = prepareCommitTxInputs utxoInputs
             buildCommitTx = do
-              commitScriptTxBody <- commitTxBody ctx st regularUtxo
-              let commitScriptTx =
-                    unsafeBuildTransaction $
-                      commitScriptTxBody
-                        & addTxIns scriptUtxoInfo
-              pure commitScriptTx
-            addTxIns scriptInputs bodyTx =
-              foldl'
-                ( \body (txIn, scriptWitness) ->
-                    body & addTxIn (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending scriptWitness)
-                )
-                bodyTx
-                scriptInputs
-            scriptUtxoInfo = concat $ do
-              (u, w) <- scriptUtxoInput
-              let txIns = Set.toList $ UTxO.inputSet u
-                  scriptUtxoInfos = (,w) <$> txIns
-              pure scriptUtxoInfos
+              txBody <- commitTxBody ctx st regularUTxO
+              pure . unsafeBuildTransaction $
+                txBody
+                  & addInputs
+                    ( second (BuildTxWith . ScriptWitness ScriptWitnessForSpending)
+                        <$> scriptWitnesses
+                    )
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 

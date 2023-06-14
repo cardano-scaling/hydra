@@ -4,6 +4,7 @@ module Hydra.API.RestServer where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
@@ -103,3 +104,17 @@ convertDraftUTxO (DraftUTxO txin txout maybeScriptInfo) =
       (txin, txout, Just (mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer))
     Nothing ->
       (txin, txout, Nothing)
+
+prepareCommitTxInputs :: [(TxIn, TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))] -> (UTxO.UTxO, UTxO.UTxO, [(TxIn, ScriptWitness WitCtxTxIn Era)])
+prepareCommitTxInputs =
+  foldl'
+    ( \(regularUtxo, scriptUtxo, witnesses) (txin, txout, m) ->
+        case m of
+          Just w ->
+            ( regularUtxo
+            , scriptUtxo <> UTxO.singleton (txin, txout)
+            , witnesses <> [(txin, w)]
+            )
+          Nothing -> (regularUtxo <> UTxO.singleton (txin, txout), scriptUtxo, witnesses)
+    )
+    (mempty, mempty, [])
