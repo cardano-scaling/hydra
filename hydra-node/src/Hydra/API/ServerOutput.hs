@@ -16,7 +16,7 @@ import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (utxo), SnapshotNumber, confirmed)
+import Hydra.Snapshot (Snapshot (utxo), SnapshotNumber)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -199,44 +199,12 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
       handleTxOutput
         (key "transaction" .~ txToCbor tx)
         encodedResponse
-    SnapshotConfirmed{Hydra.API.ServerOutput.snapshot} ->
-      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) $
-        handleTxOutput
-          ( key "snapshot"
-              . key "confirmedTransactions"
-              .~ toJSON (confirmed snapshot)
-          )
-          encodedResponse
+    SnapshotConfirmed{} ->
+      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
-    PostTxOnChainFailed{postChainTx} ->
-      case postChainTx of
-        CloseTx{confirmedSnapshot} ->
-          case confirmedSnapshot of
-            InitialSnapshot{} -> encodedResponse
-            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              handleTxOutput
-                ( key "postChainTx"
-                    . key "confirmedSnapshot"
-                    . key "snapshot"
-                    . key "confirmedTransactions"
-                    .~ (toJSON $ confirmed snapshot)
-                )
-                encodedResponse
-        ContestTx{confirmedSnapshot} ->
-          case confirmedSnapshot of
-            InitialSnapshot{} -> encodedResponse
-            ConfirmedSnapshot{Hydra.Snapshot.snapshot} ->
-              handleTxOutput
-                ( key "postChainTx"
-                    . key "confirmedSnapshot"
-                    . key "snapshot"
-                    . key "confirmedTransactions"
-                    .~ (toJSON $ confirmed snapshot)
-                )
-                encodedResponse
-        _other -> encodedResponse
+    PostTxOnChainFailed{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
