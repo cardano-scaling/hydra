@@ -206,7 +206,7 @@ To write such an update:
      calendars to collect
 
    - **What are the goals of next week**: a short look-out onto the backlog and/or
-     roadmap; ask each contributor what they would like to get done next week
+     roadmap; ask each contributor what they would like to get done next week; always start from scratch and don't carry over things from last week.
 
 2. Enrich the content with useful links and write a high-level summary. This
    should use a passive or "they"-style of writing. Tip: check out older updates
