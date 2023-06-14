@@ -150,7 +150,7 @@ data PostTxError tx
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
   | -- | User should not be able to draft a commit tx using the wallet utxo
-    FailedToDraftTxWalletUtxoDetected
+    SpendingNodeUtxoForbidden
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)

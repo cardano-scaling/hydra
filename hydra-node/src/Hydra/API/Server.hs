@@ -42,7 +42,7 @@ import Hydra.Chain (
   PostTxError (
     CannotCommitReferenceScript,
     CommittedTooMuchADAForMainnet,
-    FailedToDraftTxWalletUtxoDetected,
+    SpendingNodeUtxoForbidden,
     UnsupportedLegacyOutput
   ),
  )
@@ -387,7 +387,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
               CannotCommitReferenceScript -> return400 e
               CommittedTooMuchADAForMainnet _ _ -> return400 e
               UnsupportedLegacyOutput _ -> return400 e
-              walletUtxoErr@FailedToDraftTxWalletUtxoDetected -> return400 walletUtxoErr
+              walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
               _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)

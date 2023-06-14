@@ -118,17 +118,13 @@ channels:
       summary: Hydra node drafted commit transaction responses.
       operationId: draftCommitTxResponse
       message:
-        title: DraftCommitTxResponse
-        description: |
-          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
-        payload:
-          type: object
-          required:
-            - commitTx
-          additionalProperties: false
-          properties:
-            commitTx:
-              $ref: "api.yaml#/components/schemas/RawTransaction"
+        oneOf:
+          - $ref: "api.yaml#/components/schemas/DraftCommitTxResponse"
+          - $ref: "api.yaml#/components/schemas/PostTxError/CannotCommitReferenceScript"
+          - $ref: "api.yaml#/components/schemas/PostTxError/CommittedTooMuchADAForMainnet"
+          - $ref: "api.yaml#/components/schemas/PostTxError/UnsupportedLegacyOutput"
+          - $ref: "api.yaml#/components/schemas/PostTxError/SpendingNodeUtxoForbidden"
+
       bindings:
         http:
           type: response
@@ -1235,7 +1231,7 @@ components:
             tag:
               type: string
               enum: ["FailedToDraftTxNotInitializing"]
-        - title: FailedToDraftTxWalletUtxoDetected
+        - title: SpendingNodeUtxoForbidden
           description: |
             Raised if the user tried to draft a commit tx using internal wallet's utxo.
           type: object
@@ -1245,7 +1241,7 @@ components:
           properties:
             tag:
               type: string
-              enum: ["FailedToDraftTxWalletUtxoDetected"]
+              enum: ["SpendingNodeUtxoForbidden"]
 
 
     Signature:
@@ -1600,6 +1596,19 @@ components:
                 }
             }
         }
+
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
+      description: |
+        Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        type: object
+        required:
+          - commitTx
+        additionalProperties: false
+        properties:
+          commitTx:
+            $ref: "api.yaml#/components/schemas/RawTransaction"
 
     DraftUTxO:
       type: object

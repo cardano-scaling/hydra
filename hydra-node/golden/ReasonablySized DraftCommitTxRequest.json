@@ -1,0 +1,236 @@
+{
+    "samples": [
+        {
+            "utxos": [
+                {
+                    "draftScriptInfo": null,
+                    "draftTxIn": "0204040504050508020708010007050207000204070401030505010204030206#15",
+                    "draftTxOut": {
+                        "address": "addr_test1vzyz0qytqrzmnw5qajhs6kz2gmlcc0u7pcwcs4t8w2nlwec70zy98",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": "508f79"
+                        },
+                        "inlineDatumhash": "1385251a9f34708234fae5ccf2556dd1b2bc7d3fcb495a108495741f83825643",
+                        "referenceScript": null,
+                        "value": {
+                            "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                                "040f0b010a0e03060a": 123
+                            },
+                            "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                                "0209080b0d": 31
+                            },
+                            "lovelace": 17
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "utxos": [
+                {
+                    "draftScriptInfo": {
+                        "datum": "21",
+                        "plutusV2Script": {
+                            "cborHex": "4101",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "redeemer": "05"
+                    },
+                    "draftTxIn": "0801030306070705000701000008000201040601030604000604020605070506#81",
+                    "draftTxOut": {
+                        "address": "addr_test1vznyv36t3a2rzfs4q6mvyu7nqlr4dxjwkmykkskafg54yzsheg7x4",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                                "0005030606": 19
+                            },
+                            "lovelace": 7
+                        }
+                    }
+                },
+                {
+                    "draftScriptInfo": {
+                        "datum": "00",
+                        "plutusV2Script": {
+                            "cborHex": "450406000403",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "redeemer": "01"
+                    },
+                    "draftTxIn": "0701050208010507010702050306040708000000040802010206010805000207#58",
+                    "draftTxOut": {
+                        "address": "addr_test1vqvjpeuz7pywnm6j4nvfcs6p4zwrjzxxupr2mp7ywnllkjqkqps0m",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                                "": 117
+                            },
+                            "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
+                                "": 74
+                            },
+                            "65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7": {
+                                "100306": 7
+                            },
+                            "e36cac9d067342ad1d24bbcff93669c0d19d1d5b5cc80df3a8227a9e": {
+                                "00010d0d06": 90
+                            },
+                            "f13c4681b1f7244a587a1360411d82fda760b29c74d547b6b6a22644": {
+                                "06040009080e": 41
+                            },
+                            "lovelace": 35
+                        }
+                    }
+                },
+                {
+                    "draftScriptInfo": {
+                        "datum": "23",
+                        "plutusV2Script": {
+                            "cborHex": "4103",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "redeemer": "04"
+                    },
+                    "draftTxIn": "0103060503050400010304080705030707030205020206000406000407000803#68",
+                    "draftTxOut": {
+                        "address": "addr_test1wz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74qvf8474",
+                        "datum": null,
+                        "datumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                                "0807010302": 12
+                            },
+                            "lovelace": 8
+                        }
+                    }
+                },
+                {
+                    "draftScriptInfo": null,
+                    "draftTxIn": "0705020102040106020708060306070707080404020104050202070007040008#27",
+                    "draftTxOut": {
+                        "address": "addr_test1xz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj748383rgrv0hy399s7snvpq3mqha5ast98r564rmdd4zyezq08hk4k",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8": {
+                                "0605": 29
+                            },
+                            "bd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2": {
+                                "0304070005": 17
+                            },
+                            "lovelace": 30
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "utxos": []
+        },
+        {
+            "utxos": []
+        },
+        {
+            "utxos": [
+                {
+                    "draftScriptInfo": null,
+                    "draftTxIn": "0101010403030400020200060008000608030400060303040208040106060306#20",
+                    "draftTxOut": {
+                        "address": "addr_test1wz7s88u4da9nqte6km78cjavxdg22s85ftup4pyjr9xa9sstk3pcj",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "1920e782f048e9ef52acd89c4341a89c3908c6e046ad87c474fffb48": {
+                                "060006": 7
+                            },
+                            "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                                "070102": 9
+                            },
+                            "b16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e5": {
+                                "010305": 3
+                            },
+                            "b5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54": {
+                                "04030608": 9
+                            },
+                            "lovelace": 7
+                        }
+                    }
+                },
+                {
+                    "draftScriptInfo": {
+                        "datum": "01",
+                        "plutusV2Script": {
+                            "cborHex": "4402000203",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "redeemer": "24"
+                    },
+                    "draftTxIn": "0105070807040608070808050003020305010002010501010504070606020205#7",
+                    "draftTxOut": {
+                        "address": "addr_test1zz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74r9l3cf5hspnw9t5ahkja7pepmsujeklfm0gd80cky8g7msc58c6u",
+                        "datum": null,
+                        "datumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4": {
+                                "030203": 6
+                            },
+                            "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
+                                "": 12
+                            },
+                            "58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7": {
+                                "030805": 6
+                            },
+                            "lovelace": 6
+                        }
+                    }
+                },
+                {
+                    "draftScriptInfo": {
+                        "datum": "02",
+                        "plutusV2Script": {
+                            "cborHex": "420606",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "redeemer": "21"
+                    },
+                    "draftTxIn": "0406060506030602040508060506060306050406020207000508040704040203#89",
+                    "draftTxOut": {
+                        "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": -4
+                        },
+                        "inlineDatumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
+                        "referenceScript": null,
+                        "value": {
+                            "e0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541": {
+                                "0005": 5
+                            },
+                            "lovelace": 1
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "seed": 1370395110
+}

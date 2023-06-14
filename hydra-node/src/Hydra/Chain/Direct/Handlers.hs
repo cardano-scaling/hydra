@@ -172,7 +172,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
             let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
             if null matchedWalletUtxo
               then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> buildCommitTx
-              else pure $ Left FailedToDraftTxWalletUtxoDetected
+              else pure $ Left SpendingNodeUtxoForbidden
            where
             (regularUTxO, scriptUTxO, scriptWitnesses) = prepareCommitTxInputs utxoInputs
             buildCommitTx = do
