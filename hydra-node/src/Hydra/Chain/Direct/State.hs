@@ -322,14 +322,14 @@ commit ctx st utxo = do
 -- | Construct a commit script transaction based on the 'InitialState'.
 --  This does look for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
-commitScript ::
+commitTxBody ::
   ChainContext ->
   InitialState ->
   UTxO ->
   Either
     (PostTxError Tx)
     (TxBodyContent BuildTx)
-commitScript ctx st utxo = do
+commitTxBody ctx st utxo = do
   case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})

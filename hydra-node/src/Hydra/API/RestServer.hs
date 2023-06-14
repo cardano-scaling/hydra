@@ -8,7 +8,16 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import Hydra.Cardano.Api (CtxUTxO, HashableScriptData, PlutusScript, ScriptDatum (..), TxIn, TxOut, WitCtxTxIn)
+import Hydra.Cardano.Api (
+  CtxUTxO,
+  HashableScriptData,
+  PlutusScript,
+  TxIn,
+  TxOut,
+  WitCtxTxIn,
+  mkScriptWitness,
+ )
+import Hydra.Cardano.Api.Prelude (Era, ScriptDatum (ScriptDatumForTxIn), ScriptWitness)
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano ()
 
@@ -84,10 +93,13 @@ instance Arbitrary DraftCommitTxRequest where
 
 convertDraftUTxO ::
   DraftUTxO ->
-  (TxIn, TxOut CtxUTxO, Maybe (ScriptDatum WitCtxTxIn, HashableScriptData, PlutusScript))
+  ( TxIn
+  , TxOut CtxUTxO
+  , Maybe (ScriptWitness WitCtxTxIn Era)
+  )
 convertDraftUTxO (DraftUTxO txin txout maybeScriptInfo) =
   case maybeScriptInfo of
     Just ScriptInfo{redeemer, datum, plutusV2Script} ->
-      (txin, txout, Just (ScriptDatumForTxIn datum, redeemer, plutusV2Script))
+      (txin, txout, Just (mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer))
     Nothing ->
       (txin, txout, Nothing)
