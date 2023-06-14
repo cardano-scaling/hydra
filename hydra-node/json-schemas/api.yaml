@@ -1638,7 +1638,8 @@ components:
     PlutusV2Script:
       type: object
       description: |
-        Plutus V2 Script data
+        Plutus V2 Script wrapped in a text-envelope.
+      additionalProperties: false
       required:
       - cborHex
       - description
