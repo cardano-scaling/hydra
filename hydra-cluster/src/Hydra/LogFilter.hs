@@ -64,7 +64,7 @@ data TraceKey
 --  * `ReqTx`,  `TxValid` and `SnapshotConfirmed` effects.
 --
 -- NOTE: Some potential improvements
---  * Move this fuinction to `Monitoring` and expose an histogram kind of metric for each type of event / effect
+--  * Move this function to `Monitoring` and expose an histogram kind of metric for each type of event / effect
 --  * Handle more events, in particular the `AckSn` which is slightly problematic as it does not contain
 --    a direct reference to a transaction id so we would need to carry around a secondary map to keep
 --    track of this link.
