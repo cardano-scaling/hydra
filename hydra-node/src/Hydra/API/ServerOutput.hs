@@ -17,6 +17,8 @@ import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (utxo), SnapshotNumber, confirmed)
+-- Re-export `IsChainState Tx` instance used for `Show`
+import Hydra.Chain.Direct.State ()
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
