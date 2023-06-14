@@ -37,6 +37,12 @@ changes.
   + Changes to the logs:
     - Removed chain state from OnChainEffect.
 
+- **BREAKING** Change to the persisted state by removing the plutus scripts from
+  the internal chain state.
+  - Only the `seedTxIn` parameter is stored and the `hydra-node` will use the
+    script compiled into it instead.
+  - This substantially decreases the size of persisted and logged data. 
+
 - **BREAKING** Change the hydra-node command line options:
 
   - Removed `--ledger-genesis` argument. Hydra-node queries this information

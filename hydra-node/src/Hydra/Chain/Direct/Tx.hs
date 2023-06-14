@@ -612,7 +612,7 @@ data InitObservation = InitObservation
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
-  , headTokenScript :: PlutusScript
+  , seedTxIn :: TxIn
   , contestationPeriod :: ContestationPeriod
   , parties :: [Party]
   }
@@ -692,7 +692,7 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
       , initials
       , commits = []
       , headId = mkHeadId headId
-      , headTokenScript = HeadTokens.mkHeadTokenScript seedTxIn
+      , seedTxIn
       , -- NOTE: we should look into why parties and cp are duplicated in the InitObservation.
         -- They are included: Once in the InitialThreadOutput in their on-chain form, once in
         -- InitObservation in their off-chain form and they are also included in the datum of
