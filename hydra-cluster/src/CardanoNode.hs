@@ -46,7 +46,7 @@ newtype NodeId = NodeId Int
 data RunningNode = RunningNode
   { nodeSocket :: FilePath
   , networkId :: NetworkId
-  }
+  } deriving stock (Eq, Show, Generic)
 
 -- | Configuration parameters for a single node devnet
 data DevnetConfig = DevnetConfig

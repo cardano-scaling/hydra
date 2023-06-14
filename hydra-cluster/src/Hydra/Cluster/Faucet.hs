@@ -36,6 +36,7 @@ import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
 
 data Marked = Fuel | Normal
+  deriving stock (Eq, Show, Generic)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
