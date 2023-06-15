@@ -353,8 +353,8 @@ ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
     pure (i, out, vkh)
 
 hasMatchingPT :: InitialState -> Hash PaymentKey -> Value -> Bool
-hasMatchingPT InitialState{initialHeadTokenScript} vkh val =
-  case headTokensFromValue initialHeadTokenScript val of
+hasMatchingPT InitialState{seedTxIn} vkh val =
+  case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
     [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
     _ -> False
 
