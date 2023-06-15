@@ -115,7 +115,7 @@ withAPIServer ::
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain callback action = do
   responseChannel <- newBroadcastTChanIO
-  timedOutputEvents <- reverse <$> loadAll
+  timedOutputEvents <- loadAll
 
   -- Intialize our read model from stored events
   headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
@@ -123,7 +123,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
 
   -- NOTE: we need to reverse the list because we store history in a reversed
   -- list in memory but in order on disk
-  history <- newTVarIO timedOutputEvents
+  history <- newTVarIO (reverse timedOutputEvents)
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
     (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)

@@ -25,7 +25,7 @@ import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Hydra.API.Server (APIServerLog, RunServerException (..), Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), input)
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
   HeadId (HeadId),
@@ -285,13 +285,25 @@ spec = describe "ServerSpec" $
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure $ \tracer ->
         withFreePort $ \port -> do
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+          -- Prime some relevant server outputs already into persistence to
+          -- check whether the latest headStatus is loaded correctly.
+          existingServerOutputs <-
+            generate $
+              mapM
+                (>>= genTimedServerOutput)
+                [ HeadIsInitializing <$> arbitrary <*> arbitrary
+                , HeadIsAborted <$> arbitrary <*> arbitrary
+                , HeadIsFinalized <$> arbitrary <*> arbitrary
+                ]
+          let persistence = mockPersistence' existingServerOutputs
+
+          withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
             let generateSnapshot =
                   generate $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Idle")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Final")
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
@@ -418,12 +430,17 @@ withClient port path action = do
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m
 mockPersistence =
+  mockPersistence' []
+
+-- | Mocked persistence which does not contain some constant elements.
+mockPersistence' :: Applicative m => [a] -> PersistenceIncremental a m
+mockPersistence' xs =
   PersistenceIncremental
     { append = \_ -> pure ()
-    , loadAll = pure []
+    , loadAll = pure xs
     }
 
-waitForValue :: PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
+waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
 waitForValue port f =
   withClient port "/?history=no" $ \conn ->
     waitMatch 5 conn f
