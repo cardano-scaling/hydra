@@ -118,14 +118,7 @@ channels:
       summary: Hydra node drafted commit transaction responses.
       operationId: draftCommitTxResponse
       message:
-        oneOf:
-          - $ref: "#/components/schemas/DraftCommitTxResponse"
-          - $ref: "#/components/schemas/PostTxError"
-          # - $ref: "#/components/schemas/PostTxError/CannotCommitReferenceScript"
-          # - $ref: "#/components/schemas/PostTxError/CommittedTooMuchADAForMainnet"
-          # - $ref: "#/components/schemas/PostTxError/UnsupportedLegacyOutput"
-          # - $ref: "#/components/schemas/PostTxError/SpendingNodeUtxoForbidden"
-
+        $ref: "#/components/messages/DraftCommitTxResponse"
       bindings:
         http:
           type: response
@@ -756,6 +749,19 @@ components:
             $ref: "#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
+
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
+      description: |
+          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        type: object
+        required:
+          - commitTx
+        additionalProperties: false
+        properties:
+          commitTx:
+            $ref: "#/components/schemas/RawTransaction"
 
   ########
   #
@@ -1597,19 +1603,6 @@ components:
                 }
             }
         }
-
-    DraftCommitTxResponse:
-      title: DraftCommitTxResponse
-      description: |
-        Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
-      payload:
-        type: object
-        required:
-          - commitTx
-        additionalProperties: false
-        properties:
-          commitTx:
-            $ref: "#/components/schemas/RawTransaction"
 
     DraftUTxO:
       type: object
