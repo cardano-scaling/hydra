@@ -117,7 +117,7 @@ This sections gives a detailed description of the artifacts mentioned above in t
 
 The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplifications have been introduced and generalizations removed.
 
-The [Hydra Head specification](https://www.overleaf.com/read/bbqzmptcxryj) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+The [Hydra Head specification](/core-concepts/specification) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
 ### Artifact 2: Hydra Head Protocol Implementation
 
