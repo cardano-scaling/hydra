@@ -41,32 +41,6 @@
         prefixAttrs = s: attrs:
           with pkgs.lib.attrsets;
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
-        haddocks = pkgs.runCommand "hydra-haddocks"
-          {
-            paths = [
-              hydraProject.hsPkgs.plutus-cbor.components.library.doc
-              hydraProject.hsPkgs.plutus-merkle-tree.components.library.doc
-              hydraProject.hsPkgs.hydra-prelude.components.library.doc
-              hydraProject.hsPkgs.hydra-cardano-api.components.library.doc
-              hydraProject.hsPkgs.hydra-plutus.components.library.doc
-              hydraProject.hsPkgs.hydra-node.components.library.doc
-              hydraProject.hsPkgs.hydra-node.components.tests.tests.doc
-              hydraProject.hsPkgs.hydra-cluster.components.library.doc
-              hydraProject.hsPkgs.hydra-tui.components.library.doc
-            ];
-          }
-          ''
-            set -ex
-            mkdir -p $out
-            for p in $paths; do
-              cd $p
-              for html in $(find $haddockRoot -name html -type d); do
-                package=$(basename $(dirname $html))
-                mkdir -p $out/$package
-                cp -a $html/* $out/$package/
-              done
-            done
-          '';
       in
       rec {
         inherit hydraProject;
@@ -75,8 +49,6 @@
           hydraPackages //
           prefixAttrs "docker-" hydraImages // {
             spec = import ./spec { inherit pkgs; };
-          } // {
-            inherit haddocks;
           };
 
         devShells = (import ./nix/hydra/shell.nix {
