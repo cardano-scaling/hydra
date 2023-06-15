@@ -117,8 +117,8 @@ withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
-  (RunningNode -> IO ()) ->
-  IO ()
+  (RunningNode -> IO a) ->
+  IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   createDirectoryIfMissing True stateDirectory
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
@@ -259,8 +259,8 @@ withCardanoNode ::
   NetworkId ->
   FilePath ->
   CardanoNodeArgs ->
-  (RunningNode -> IO ()) ->
-  IO ()
+  (RunningNode -> IO a) ->
+  IO a
 withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   traceWith tr $ MsgNodeStarting{stateDirectory}
@@ -268,9 +268,13 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
       \_stdin _stdout _stderr processHandle ->
-        race_
-          (checkProcessHasNotDied "cardano-node" processHandle)
-          waitForNode
+        ( race
+            (checkProcessHasNotDied "cardano-node" processHandle)
+            waitForNode
+            >>= \case
+              Left{} -> error "should never been reached"
+              Right a -> pure a
+        )
           `finally` cleanupSocketFile
  where
   process = cardanoNodeProcess (Just stateDirectory) args

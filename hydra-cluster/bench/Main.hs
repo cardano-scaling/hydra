@@ -3,7 +3,7 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench)
+import Bench.EndToEnd (Summary (..), bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
@@ -31,6 +31,7 @@ import Options.Applicative (
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
+import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 data Options = Options
@@ -124,9 +125,25 @@ main =
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
   run timeoutSeconds benchDir datasets clusterSize = do
     putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
-    withArgs [] . hspec $ bench timeoutSeconds benchDir datasets clusterSize
+    withArgs [] $
+      try (bench timeoutSeconds benchDir datasets clusterSize) >>= \case
+        Left (err :: HUnitFailure) ->
+          benchmarkFailedWith benchDir err
+        Right summary ->
+          benchmarkSucceeded benchDir summary
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"
     putStrLn $ "Writing dataset to: " <> txsFile
     encodeFile txsFile dataset
+
+benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
+benchmarkFailedWith _ (HUnitFailure _ reason) = do
+  putStrLn $ "Benchmark failed: " <> formatFailureReason reason
+  exitFailure
+
+benchmarkSucceeded :: FilePath -> Summary -> IO ()
+benchmarkSucceeded _ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms} = do
+  putTextLn $ "Confirmed txs: " <> show numberOfTxs
+  putTextLn $ "Average confirmation time (ms): " <> show averageConfirmationTime
+  putTextLn $ "Confirmed below 100ms: " <> show percentBelow100ms <> "%"
