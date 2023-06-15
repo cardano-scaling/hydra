@@ -25,7 +25,7 @@ spec = parallel $ do
     property $
       withMaxSuccess 1 $ do
         conjoin
-          [ prop_validateJSONSchema @DraftCommitTxRequest "api" (key "channels" . key "/commit" . key "publish" . key "message")
+          [ prop_validateJSONSchema @DraftCommitTxRequest "api" (key "components" . key "messages")
           ]
 
   prop "Validate /commit subscribe api schema" $
