@@ -122,7 +122,6 @@ main =
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run timeoutSeconds benchDir datasets clusterSize
 
-  -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
   run timeoutSeconds benchDir datasets clusterSize = do
     putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
     withArgs [] $
@@ -138,8 +137,9 @@ main =
     encodeFile txsFile dataset
 
 benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
-benchmarkFailedWith _ (HUnitFailure _ reason) = do
+benchmarkFailedWith benchDir (HUnitFailure _ reason) = do
   putStrLn $ "Benchmark failed: " <> formatFailureReason reason
+  putStrLn $ "To re-run, pass '--output-directory=" <> benchDir <> "' to the bench-e2e executable"
   exitFailure
 
 benchmarkSucceeded :: FilePath -> Summary -> IO ()
