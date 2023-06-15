@@ -5,11 +5,9 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host (Host))
-import Hydra.Options (networkIdParser)
 import Hydra.TUI.Options (
-  parseCardanoNodeSocket,
-  parseCardanoSigningKey,
-  parseNodeHost,
+  Options (..),
+  parseOptions,
  )
 import Options.Applicative (
   Parser,
@@ -22,13 +20,24 @@ import Options.Applicative (
 spec :: Spec
 spec = parallel $ do
   it "parses --connect option" $ do
-    shouldParseWith parseNodeHost ["--connect", "127.0.0.1:4002"] (Host "127.0.0.1" 4002)
+    shouldParseWith parseOptions ["--connect", "127.0.0.2:4002"] defaultOptions{hydraNodeHost = Host "127.0.0.2" 4002}
+  it "no arguments yield default options" $ do
+    shouldParseWith parseOptions [] defaultOptions
   it "parses --testnet-magic option" $ do
-    shouldParseWith networkIdParser ["--testnet-magic", "123"] (Testnet $ NetworkMagic 123)
+    shouldParseWith parseOptions ["--testnet-magic", "123"] defaultOptions{cardanoNetworkId = Testnet $ NetworkMagic 123}
   it "parses --cardano-signing-key option" $ do
-    shouldParseWith parseCardanoSigningKey ["--cardano-signing-key", "foo.sk"] "foo.sk"
+    shouldParseWith parseOptions ["--cardano-signing-key", "foo.sk"] defaultOptions{cardanoSigningKey = "foo.sk"}
   it "parses --node-socket option" $ do
-    shouldParseWith parseCardanoNodeSocket ["--node-socket", "something.socket"] "something.socket"
+    shouldParseWith parseOptions ["--node-socket", "something.socket"] defaultOptions{cardanoNodeSocket = "something.socket"}
+
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { hydraNodeHost = Host "127.0.0.1" 4001
+    , cardanoNetworkId = Testnet $ NetworkMagic 42
+    , cardanoNodeSocket = "node.socket"
+    , cardanoSigningKey = "me.sk"
+    }
 
 shouldParseWith :: (Show a, Eq a) => Parser a -> [String] -> a -> Expectation
 shouldParseWith parser args result =

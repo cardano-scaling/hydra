@@ -1,11 +1,6 @@
 module Hydra.TUI.Options where
 
-import Hydra.Prelude (
-  Applicative ((<*>)),
-  FilePath,
-  Semigroup ((<>)),
-  (<$>),
- )
+import Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Network (Host (Host))
@@ -29,6 +24,7 @@ data Options = Options
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
   }
+  deriving stock (Eq, Show)
 
 parseOptions :: Parser Options
 parseOptions =
@@ -55,7 +51,7 @@ parseNodeHost =
     ( long "connect"
         <> short 'c'
         <> help "Hydra-node to connect to in the form of <host>:<port>"
-        <> value (Host "0.0.0.0" 4001)
+        <> value (Host "127.0.0.1" 4001)
         <> showDefault
     )
 
