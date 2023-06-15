@@ -152,7 +152,7 @@ spec = around showLogsOnFailure $ do
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternalScript tracer tmpDir node
       it "can't commit externally with internal wallet utxo" $ \tracer -> do
-        withClusterTempDir "cant-commit-externally-internal-wallet-utxo" $ \tmpDir -> do
+        withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCantCommitExternallyWalletUtxo tracer tmpDir node
