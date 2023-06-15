@@ -56,12 +56,18 @@ let
       }
       # Inject the git revision into hydra-node --version
       # (see hydra-node/src/Hydra/Options.hs)
-      {
-        packages.hydra-node.preBuild = ''
-          echo ======= PATCHING --version to ${gitRev} =======
-          export GIT_REVISION=${gitRev}
-        '';
-      }
+      (
+        let
+          patchGitRevision = ''
+            echo ======= PATCHING --version to ${gitRev} =======
+            export GIT_REVISION=${gitRev}
+          '';
+        in
+        {
+          packages.hydra-node.preBuild = patchGitRevision;
+          packages.hydra-tui.preBuild = patchGitRevision;
+        }
+      )
       # Avoid plutus-tx errors in haddock (see also cabal.project)
       {
         packages.hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
