@@ -10,6 +10,19 @@ changes.
 
 ## [0.11.0] - UNRELEASED
 
+This release contains several breaking changes and you'll need to apply the
+following procedure to upgrade all the nodes running a head:
+
+1. Close the head
+2. Stop `hydra-node`
+3. Remove persistent files stored in `--persistence-dir`, in particular
+   `server-output` and `state`
+4. Upgrade `hydra-node` version
+5. Start new `hydra-node` version
+
+Only when this procedure has been applied to all Hydra nodes can you open a new
+head again.
+
 - **BREAKING** Allow to commit multiple `UTxO`:
   + This changes `hydra-plutus` scripts to allow commit transactions which spend
     multiple UTxOs into a Hydra head.
@@ -50,6 +63,10 @@ changes.
 
   - `hydra-node --version` always displays git revision (SHA) alongside the
     declared version.
+
+- **BREAKING** persisted state now contains the headId
+
+- **FIX** Hydra node resets head state when replaying close of another head [#927](https://github.com/input-output-hk/hydra/issues/927)
 
 ## [0.10.0] - 2023-05-11
 

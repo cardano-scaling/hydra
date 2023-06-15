@@ -742,6 +742,26 @@ definitions:
             enum: ["RequireFailed"]
           contents:
             $ref: "#/definitions/RequirementFailure"
+      - title: NotOurHead
+        description: >-
+          We just observed an on-chain event that does not apply to
+          our head so we will simply ignore it. This could sometime
+          happen if the hydra-node is started from an old L1 chain
+          point and observes a previous head that we are not
+          interested into anymore.
+        additionalProperties: false
+        required:
+          - tag
+          - ourHeadId
+          - otherHeadId
+        properties:
+          tag:
+            type: string
+            enum: ["NotOurHead"]
+          ourHeadId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          otherHeadId:
+            $ref: "api.yaml#/components/schemas/HeadId"
 
   ValidationError:
     type: object

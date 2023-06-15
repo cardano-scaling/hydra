@@ -97,7 +97,8 @@ data OnChainTx tx
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx
-      { snapshotNumber :: SnapshotNumber
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
       }
   | OnContestTx {snapshotNumber :: SnapshotNumber}

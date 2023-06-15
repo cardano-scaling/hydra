@@ -57,7 +57,7 @@ import Test.Hydra.Fixture (alice, aliceSk, allVKeys, bob, bobSk, carol, carolSk,
 import Test.QuickCheck (generate)
 
 spec :: Spec
-spec = do
+spec =
   parallel $ do
     describe "Types" $ do
       roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
@@ -160,7 +160,7 @@ spec = do
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         update bobEnv ledger s2 (ackFrom carolSk carol)
           `shouldSatisfy` \case
-            Error (RequireFailed (SnapshotAlreadySigned {receivedSignature})) -> receivedSignature == carol
+            Error (RequireFailed (SnapshotAlreadySigned{receivedSignature})) -> receivedSignature == carol
             _ -> False
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
@@ -295,7 +295,8 @@ spec = do
             observeCloseTx =
               observationEvent
                 OnCloseTx
-                  { snapshotNumber
+                  { headId = testHeadId
+                  , snapshotNumber
                   , contestationDeadline
                   }
             clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
@@ -323,7 +324,7 @@ spec = do
                   , seenSnapshot = NoSeenSnapshot
                   }
             deadline = arbitrary `generateWith` 42
-            closeTxEvent = observationEvent $ OnCloseTx 0 deadline
+            closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
@@ -340,6 +341,20 @@ spec = do
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertOnlyEffects s1
+
+      it "ignores closeTx for another head" $ do
+        let otherHeadId = HeadId "other head"
+        let openState = inOpenState threeParties ledger
+        let closeOtherHead =
+              observationEvent $
+                OnCloseTx
+                  { headId = otherHeadId
+                  , snapshotNumber = 1
+                  , contestationDeadline = generateWith arbitrary 42
+                  }
+
+        update bobEnv ledger openState closeOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> do
