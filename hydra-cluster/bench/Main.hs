@@ -35,7 +35,7 @@ import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 data Options = Options
-  { outputDirectory :: Maybe FilePath
+  { workDirectory :: Maybe FilePath
   , scalingFactor :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
@@ -46,9 +46,9 @@ benchOptionsParser =
   Options
     <$> optional
       ( strOption
-          ( long "output-directory"
+          ( long "work-directory"
               <> help
-                "Directory containing generated transactions and UTxO set. \
+                "Directory containing generated transactions, UTxO set, log files for spawned processes, etc. \
                 \ * If the directory exists, it's assumed to be used for replaying \
                 \   a previous benchmark and is expected to contain 'txs.json' and \
                 \   'utxo.json' files, \
@@ -98,7 +98,7 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    o@Options{outputDirectory = Just benchDir} -> do
+    o@Options{workDirectory = Just benchDir} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
         then replay o benchDir
@@ -139,7 +139,7 @@ main =
 benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
 benchmarkFailedWith benchDir (HUnitFailure _ reason) = do
   putStrLn $ "Benchmark failed: " <> formatFailureReason reason
-  putStrLn $ "To re-run, pass '--output-directory=" <> benchDir <> "' to the bench-e2e executable"
+  putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
   exitFailure
 
 benchmarkSucceeded :: FilePath -> Summary -> IO ()
