@@ -8,6 +8,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.Map.Strict as Map
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -24,7 +25,6 @@ import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
-import qualified Data.Map as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
@@ -68,7 +68,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
-    faucetUTxO <- findFaucetUTxO node faucetVk lovelace
+    faucetUTxO <- findFaucetUTxO node lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
@@ -88,8 +88,9 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
 
-findFaucetUTxO :: RunningNode -> VerificationKey PaymentKey -> Lovelace -> IO UTxO
-findFaucetUTxO RunningNode{networkId, nodeSocket} faucetVk lovelace = do
+findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
+findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
+  (faucetVk, _) <- keysFor Faucet
   faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
   let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
   when (null foundUTxO) $
@@ -153,7 +154,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
   (faucetVk, faucetSk) <- keysFor Faucet
   -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
   -- any present utxo
-  utxo <- findFaucetUTxO node faucetVk 0
+  utxo <- findFaucetUTxO node 0
   buildTransaction
     networkId
     nodeSocket
