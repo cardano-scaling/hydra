@@ -32,6 +32,7 @@ import Options.Applicative (
 import Paths_hydra_node (version)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
+import Text.Regex.TDFA ((=~))
 
 spec :: Spec
 spec = parallel $

@@ -241,7 +241,6 @@ test-suite tests
     , plutus-ledger-api
     , process
     , QuickCheck
-    , regex-tdfa
     , say
     , stm
     , strict-containers
