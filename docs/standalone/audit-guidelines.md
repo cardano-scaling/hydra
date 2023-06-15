@@ -123,8 +123,8 @@ The [Hydra Head specification](/core-concepts/specification) captures these devi
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
-* Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
-* Version ready to be audited: Any [release](https://github.com/input-output-hk/hydra/releases) after version 0.9.0
+- Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
+- Version ready to be audited: Any [release](https://github.com/input-output-hk/hydra/releases) after version 0.10.0
 
 The following parts are described below:
  - Hydra plutus scripts (on-chain code)
