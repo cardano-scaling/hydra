@@ -23,10 +23,24 @@ let
   };
 
   hsPkgs = pkgs.haskell-nix.project {
-    # TODO: probably should use flake.nix inputs.self here
-    src = pkgs.haskell-nix.haskellLib.cleanGit {
+    src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
       name = "hydra";
       src = ./../..;
+      filter = path: type:
+        # Blacklist of paths which do not affect the haskell build. The smaller
+        # the resulting list of files is, the less likely we have redundant
+        # rebuilds.
+        builtins.all (x: baseNameOf path != x) [
+          "flake.nix"
+          "flake.lock"
+          "nix"
+          ".github"
+          "demo"
+          "docs"
+          "sample-node-config"
+          "spec"
+          "testnets"
+        ];
     };
     projectFileName = "cabal.project";
     compiler-nix-name = compiler;
