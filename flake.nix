@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs";
-    haskellNix.url = "github:input-output-hk/haskell.nix";
+    haskellNix.url = "github:ch1bo/haskell.nix?ref=enable-haddock-tests";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-utils.url = "github:numtide/flake-utils";
     CHaP = {
@@ -30,10 +30,7 @@
         hydraProject = import ./nix/hydra/project.nix {
           inherit (inputs) haskellNix iohk-nix CHaP;
           inherit system nixpkgs;
-          gitRev =
-            if (builtins.hasAttr "rev" self)
-            then self.rev
-            else "dirty";
+          gitRev = self.rev or "dirty";
         };
         hydraPackages = import ./nix/hydra/packages.nix {
           inherit hydraProject system pkgs cardano-node;
@@ -52,8 +49,8 @@
               hydraProject.hsPkgs.hydra-prelude.components.library.doc
               hydraProject.hsPkgs.hydra-cardano-api.components.library.doc
               hydraProject.hsPkgs.hydra-plutus.components.library.doc
-              # TODO: haddocks for tests
               hydraProject.hsPkgs.hydra-node.components.library.doc
+              hydraProject.hsPkgs.hydra-node.components.tests.tests.doc
               hydraProject.hsPkgs.hydra-cluster.components.library.doc
               hydraProject.hsPkgs.hydra-tui.components.library.doc
             ];
