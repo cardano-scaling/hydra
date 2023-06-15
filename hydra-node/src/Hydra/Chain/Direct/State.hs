@@ -25,7 +25,6 @@ import Hydra.Cardano.Api (
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  PlutusScript,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
@@ -98,6 +97,7 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
@@ -231,7 +231,7 @@ data InitialState = InitialState
   , initialInitials :: [UTxOWithScript]
   , initialCommits :: [UTxOWithScript]
   , headId :: HeadId
-  , initialHeadTokenScript :: PlutusScript
+  , seedTxIn :: TxIn
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -252,7 +252,7 @@ instance HasKnownUTxO InitialState where
 data OpenState = OpenState
   { openThreadOutput :: OpenThreadOutput
   , headId :: HeadId
-  , openHeadTokenScript :: PlutusScript
+  , seedTxIn :: TxIn
   , openUtxoHash :: UTxOHash
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -268,7 +268,7 @@ instance HasKnownUTxO OpenState where
 data ClosedState = ClosedState
   { closedThreadOutput :: ClosedThreadOutput
   , headId :: HeadId
-  , closedHeadTokenScript :: PlutusScript
+  , seedTxIn :: TxIn
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -317,7 +317,7 @@ commit ctx st utxo = do
 
   InitialState
     { initialInitials
-    , initialHeadTokenScript
+    , seedTxIn
     , headId
     } = st
 
@@ -333,7 +333,7 @@ commit ctx st utxo = do
 
   hasMatchingPT :: Hash PaymentKey -> Value -> Bool
   hasMatchingPT vkh val =
-    case headTokensFromValue initialHeadTokenScript val of
+    case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
       [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
       _ -> False
 
@@ -378,7 +378,7 @@ abort ctx st committedUTxO = do
   let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o, dat) initialHeadTokenScript initials commits of
+   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o, dat) headTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
           -- the arguments of abortTx to make it impossible of having
@@ -387,13 +387,15 @@ abort ctx st committedUTxO = do
         Right tx ->
           tx
  where
+  headTokenScript = mkHeadTokenScript seedTxIn
+
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialThreadOutput
     , initialInitials
     , initialCommits
-    , initialHeadTokenScript
+    , seedTxIn
     } = st
 
   tripleToPair (a, b, c) = (a, (b, c))
@@ -489,11 +491,13 @@ fanout ::
   SlotNo ->
   Tx
 fanout ctx st utxo deadlineSlotNo = do
-  fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo closedHeadTokenScript
+  fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo headTokenScript
  where
+  headTokenScript = mkHeadTokenScript seedTxIn
+
   ChainContext{scriptRegistry} = ctx
 
-  ClosedState{closedThreadOutput, closedHeadTokenScript} = st
+  ClosedState{closedThreadOutput, seedTxIn} = st
 
   ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
 
@@ -536,13 +540,13 @@ observeInit ctx tx = do
   toEvent InitObservation{contestationPeriod, parties, headId} =
     OnInitTx{contestationPeriod, parties, headId}
 
-  toState InitObservation{threadOutput, initials, commits, headId, headTokenScript} =
+  toState InitObservation{threadOutput, initials, commits, headId, seedTxIn} =
     InitialState
       { initialThreadOutput = threadOutput
       , initialInitials = initials
       , initialCommits = commits
-      , headId = headId
-      , initialHeadTokenScript = headTokenScript
+      , headId
+      , seedTxIn
       }
 
   ChainContext{networkId, ownParty, otherParties} = ctx
@@ -595,15 +599,15 @@ observeCollect st tx = do
   let st' =
         OpenState
           { openThreadOutput = threadOutput
-          , headId = headId
-          , openHeadTokenScript = initialHeadTokenScript
+          , headId
+          , seedTxIn
           , openUtxoHash = utxoHash
           }
   pure (event, st')
  where
   InitialState
-    { headId = headId
-    , initialHeadTokenScript
+    { headId
+    , seedTxIn
     } = st
 
 -- | Observe an abort transition using a 'InitialState' and 'observeAbortTx'.
@@ -628,7 +632,7 @@ observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
   let CloseObservation{threadOutput, headId = closeObservationHeadId, snapshotNumber} = observation
-  guard (openHeadId == closeObservationHeadId)
+  guard (headId == closeObservationHeadId)
   let ClosedThreadOutput{closedContestationDeadline} = threadOutput
   let event =
         OnCloseTx
@@ -638,14 +642,14 @@ observeClose st tx = do
   let st' =
         ClosedState
           { closedThreadOutput = threadOutput
-          , headId = openHeadId
-          , closedHeadTokenScript = openHeadTokenScript
+          , headId
+          , seedTxIn
           }
   pure (event, st')
  where
   OpenState
-    { headId = openHeadId
-    , openHeadTokenScript
+    { headId
+    , seedTxIn
     } = st
 
 -- ** ClosedState transitions
