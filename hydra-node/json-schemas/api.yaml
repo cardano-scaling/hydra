@@ -119,11 +119,12 @@ channels:
       operationId: draftCommitTxResponse
       message:
         oneOf:
-          - $ref: "api.yaml#/components/schemas/DraftCommitTxResponse"
-          - $ref: "api.yaml#/components/schemas/PostTxError/CannotCommitReferenceScript"
-          - $ref: "api.yaml#/components/schemas/PostTxError/CommittedTooMuchADAForMainnet"
-          - $ref: "api.yaml#/components/schemas/PostTxError/UnsupportedLegacyOutput"
-          - $ref: "api.yaml#/components/schemas/PostTxError/SpendingNodeUtxoForbidden"
+          - $ref: "#/components/schemas/DraftCommitTxResponse"
+          - $ref: "#/components/schemas/PostTxError"
+          # - $ref: "#/components/schemas/PostTxError/CannotCommitReferenceScript"
+          # - $ref: "#/components/schemas/PostTxError/CommittedTooMuchADAForMainnet"
+          # - $ref: "#/components/schemas/PostTxError/UnsupportedLegacyOutput"
+          # - $ref: "#/components/schemas/PostTxError/SpendingNodeUtxoForbidden"
 
       bindings:
         http:
@@ -146,7 +147,7 @@ channels:
             utxos:
               type: array
               items:
-                $ref: "api.yaml#/components/schemas/DraftUTxO"
+                $ref: "#/components/schemas/DraftUTxO"
       bindings:
         http:
           type: request
@@ -1608,7 +1609,7 @@ components:
         additionalProperties: false
         properties:
           commitTx:
-            $ref: "api.yaml#/components/schemas/RawTransaction"
+            $ref: "#/components/schemas/RawTransaction"
 
     DraftUTxO:
       type: object
