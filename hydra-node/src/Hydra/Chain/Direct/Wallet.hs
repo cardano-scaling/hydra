@@ -52,25 +52,19 @@ import Hydra.Cardano.Api (
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
-  ShelleyBasedEra (ShelleyBasedEraBabbage),
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   UTxO,
   VerificationKey,
-  fromLedgerPParams,
   fromLedgerTx,
-  fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
   makeShelleyKeyWitness,
   makeSignedTransaction,
-  minUTxOValue,
-  selectLovelace,
   shelleyAddressInEra,
   toLedgerAddr,
-  toLedgerCoin,
   toLedgerTx,
   toLedgerUTxO,
   verificationKeyHash,
@@ -78,7 +72,6 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()

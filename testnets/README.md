@@ -3,6 +3,8 @@ Configurations to run hydra on the public testnets
 Includes scripts to launch a recent enough `cardano-node`, `hydra-node` and
 `hydra-tui`. Make sure they are in scope, e.g. by `cabal build hydra-node:exe:hydra-node` or using the `nix develop .#demo`.
 
+
+
 Let's assume you want to run a simple scenario on the `preview` testnet with a single actor. If you have multiple parties, the fueling needs to be done for each party's `hydra-node` and configuration needs to be adapted accordingly below.
 
 First start a cardano-node and see whether it synchronizes:
@@ -20,6 +22,10 @@ For `preview` we can use this faucet request:
 ```sh
 curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/sebastian.cardano.address)?api_key=oochuyai3ku4Fei4ahth9ooch9ohth7d"
 ```
+
+> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
+> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+
 
 With these available we can now mark them as fuel and fork of some ADA to be committable into a hydra head. In this example we prepare some 500ADA (minus fees):
 

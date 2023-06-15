@@ -57,14 +57,19 @@ These `"vkey"` fields are the Hydra keys of each party. Now Alice and Bob can co
 Here, we replace the field of the tag `"utxo"` with the utxo that each party wants to add. Using the commands
 ```
 cardano-cli query utxo --address $(cat ./test-head/Alice/AliceCardano.addr) --testnet-magic 2
-cat test-head/Alice/AliceCardano.addr 
+cat test-head/Alice/AliceCardano.addr
 cardano-cli query utxo --address $(cat ./test-head/Bob/BobCardano.addr) --testnet-magic 2
 cat test-head/Bob/BobCardano.addr
 ```
+
+
+> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
+> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+
 we extract the information needed to fill in the `"utxo"` fields for both parties. Do not commit the UTxO that is marked as fuel, it has a `TxOutDatumHash ScriptDataInBabbageEra` at its output. Currently, it also not possible to commit a UTxO partially, currently this action has to be done before initializing the wallets.
 
-Note that we can also commit no UTxO at all by leaving this field blank, in this case the party will still perform the protocol and sign checkpoints but without the initial commitment of any funds. 
-	
+Note that we can also commit no UTxO at all by leaving this field blank, in this case the party will still perform the protocol and sign checkpoints but without the initial commitment of any funds.
+
 So, for both Alice and Bob, we send a `"commit"` API call that adds funds to the head. It is necessary that both do this to open a head! Without all parties having done this action, the protocol cannot process. In such case, any party can abort, and retrieve their committed funds, via the abort API call
 ```json
 {

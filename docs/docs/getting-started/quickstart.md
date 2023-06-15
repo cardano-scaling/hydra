@@ -203,7 +203,17 @@ We provide existing files in [hydra-cluster/config](https://github.com/input-out
 Note that many of protocol-parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
 :::
 
+### External commits
+
+Hydra node allows the users to commit utxo using their own wallet. This removes the need to mark some specific utxo as _fuel_ to drive L1 transactions. Now it is the users obligation to provide enough funds for a key specified with the `--cardano-signing-key` hydra-node flag since this key is used to pay for all L1 transactions.
+
+The node provides the http endpoint at the `/commit` path of the internal api server which can accept multiple user utxos (belonging to public key or script address) to commit to a Head after the `Initialization` phase. Hydra-node sends back a draft transaction which is expected to be submitted to a network by the user. Please take a look at the [api documentation](https://hydra.family/head-protocol/api-reference) and specifically `DraftCommitTxRequest/Response` to get more insights.
+
 ### Fuel
+
+:::warning Fuel is deprecated and will be removed in future Hydra versions.
+Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+:::
 
 Finally, one last bit necessary to get Hydra nodes all working regards their _internal wallet_. Indeed, Hydra-nodes currently come with a rudimentary wallet which they use for fueling transactions driving the Head lifecycle (Init, Commit, Close, Fanout...). Since those transactions happen on the layer 1, they cost money!
 

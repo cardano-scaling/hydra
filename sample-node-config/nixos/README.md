@@ -16,7 +16,7 @@ To use this, copy or symlink the `hydraw.nix` module and import it into your `Ni
   imports = [
     ./hydraw.nix
   ];
-  
+
   # ... the rest of your configuration.nix
 }
 ```
@@ -67,6 +67,9 @@ ssh -t example docker run --rm -it \
 ```
 
 ## Fuel up and open a head
+
+> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
+> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
 
 To continue, you will need to have some "fuel" UTxO owned by the `--cardano-signing-key` available to the `hydra-node`. See [testnet instructions](../../testnets/README.md) on how to do that.
 

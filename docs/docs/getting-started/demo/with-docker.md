@@ -11,7 +11,7 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
 
 :::info Shortcut
-For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. 
+For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.
 :::
 
 :::info Context
@@ -55,6 +55,9 @@ As we use ad-hoc private devnets that start from the genesis block, you need to 
 You can verify that the node is up-and-running by checking the logs with `docker-compose logs cardano-node -f`. You should see traces containing `TraceAdoptedBlock`, which means that the devnet is producing blocks .. nice!
 
 ## Seeding The Network
+
+> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
+> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
 
 In the current stage of development, Hydra nodes need a specially crafted set of UTXO to drive the Head protocol ("fuel"), and of course, some UTXO to be committed to the Head.
 We include a script `seed-devnet.sh` that uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries to commit and some fuel UTXO.
