@@ -295,6 +295,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       , wits = wits{txrdmrs = adjustedRedeemers}
       }
  where
+  -- TODO: should unit test that this prefers fuel marked utxo, but falls back
+  -- on the biggest utxo
   findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
       -- create 'ChangeError' but for this we need to resolve the utxo inputs

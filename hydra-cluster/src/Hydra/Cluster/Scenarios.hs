@@ -140,7 +140,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
--- TODO: remove this now?
+-- TODO: remove this now? convert this to use the internal commit with fueled funds still
 singlePartyCommitsFromExternal ::
   Tracer IO EndToEndLog ->
   FilePath ->
