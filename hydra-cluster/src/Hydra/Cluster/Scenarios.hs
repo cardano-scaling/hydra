@@ -5,7 +5,7 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip, submitTransaction, submitTx)
+import CardanoClient (queryTip, signTx, submitTx)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   selectLovelace,
  )
 import Hydra.Chain (HeadId)
-import Hydra.Chain.Direct.Wallet (signWith)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
@@ -56,7 +55,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
-    send n1 $ input "Commit" ["utxo" .= object mempty]
+    externalCommit n1 mempty >>= submitTx cardanoNode
     waitFor tracer 10 [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
@@ -162,16 +161,15 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
     let hydraNodeId = 1
 
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Request to build a draft commit tx from hydra-node
-      commitTx <- externalCommit n1 utxoToCommit
-
-      -- sign and submit the tx with our external user key
-      let signedCommitTx = signWith externalSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
+      externalCommit n1 utxoToCommit
+        -- sign it
+        <&> signTx externalSk
+        -- and submit the transaction using the cardano-node
+        >>= submitTx node
 
       waitFor tracer 60 [n1] $
         output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
@@ -200,7 +198,7 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     send n1 $ input "Init" []
     headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
-    send n1 $ input "Commit" ["utxo" .= object mempty]
+    externalCommit n1 mempty >>= submitTx node
     waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head

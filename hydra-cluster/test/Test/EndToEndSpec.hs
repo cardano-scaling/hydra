@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, waitForUTxO)
+import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, signTx, submitTx, waitForUTxO)
 import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
@@ -80,6 +80,7 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   HydraClient,
+  externalCommit,
   getMetrics,
   input,
   output,
@@ -146,7 +147,7 @@ spec = around showLogsOnFailure $ do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               initAndClose tmpDir tracer 1 hydraScriptsTxId node
 
-      it "inits a Head and closes it immediately " $ \tracer ->
+      it "inits a Head and closes it immediately" $ \tracer ->
         failAfter 60 $
           withClusterTempDir "three-init-close-immediately" $ \tmpDir -> do
             let clusterIx = 0
@@ -170,6 +171,7 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                 seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+                -- TODO: remove fuel marking
 
                 send n1 $ input "Init" []
                 headId <-
@@ -177,11 +179,15 @@ spec = around showLogsOnFailure $ do
                     headIsInitializingWith (Set.fromList [alice, bob, carol])
 
                 -- Get some UTXOs to commit to a head
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-                committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
-                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-                send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
-                send n3 $ input "Commit" ["utxo" .= Object mempty]
+                (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+                (bobExternalVk, bobExternalSk) <- generate genKeyPair
+                externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+                committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead Normal (contramap FromFaucet tracer)
+                externalCommit n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
+
+                externalCommit n3 mempty >>= submitTx node
 
                 let u0 = committedUTxOByAlice <> committedUTxOByBob
 
@@ -281,7 +287,8 @@ spec = around showLogsOnFailure $ do
 
                 committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
                 send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-                send n2 $ input "Commit" ["utxo" .= Object mempty]
+                externalCommit n2 mempty >>= submitTx node
+
                 waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 -- Create an arbitrary transaction using some input.
@@ -361,7 +368,7 @@ spec = around showLogsOnFailure $ do
                     output "HeadIsAborted" ["utxo" .= Object mempty, "headId" .= headIdAliceAndBob]
 
                   -- Alice should be able to continue working with her Head
-                  send n1 $ input "Commit" ["utxo" .= Object mempty]
+                  externalCommit n1 mempty >>= submitTx node
                   waitFor tracer 10 [n1] $
                     output "HeadIsOpen" ["utxo" .= Object mempty, "headId" .= headIdAliceOnly]
 
@@ -603,7 +610,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
     send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
     send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
-    send n3 $ input "Commit" ["utxo" .= Object mempty]
+    externalCommit n3 mempty >>= submitTx node
+
     waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
 
     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment

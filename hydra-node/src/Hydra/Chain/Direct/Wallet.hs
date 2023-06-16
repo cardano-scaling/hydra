@@ -179,6 +179,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
 
   ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
 
+-- TODO: This is very useful, put it into hydra-cardano-api
 signWith ::
   Api.SigningKey Api.PaymentKey ->
   Api.Tx ->
