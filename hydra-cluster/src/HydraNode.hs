@@ -20,6 +20,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -30,6 +31,8 @@ import Hydra.Network (Host (Host), NodeId (NodeId))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
+import Network.HTTP.Req (JsonResponse, POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
+import qualified Network.HTTP.Req as Req
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
@@ -111,7 +114,7 @@ waitForAllMatch delay nodes match = do
     failure "no clients to wait for"
   results <- forConcurrently nodes $ \n -> waitMatch delay n match
   case results of
-    [] -> failure $ "empty results, but " <> (show $ length nodes) <> " clients"
+    [] -> failure $ "empty results, but " <> show (length nodes) <> " clients"
     (r : rs) -> do
       unless (all (== r) rs) $
         failure $
@@ -161,6 +164,21 @@ waitForAll tracer delay nodes expected = do
         _ ->
           tryNext c msgs stillExpected
 
+-- | Create a commit tx using the hydra-node for later submission
+externalCommit :: HydraClient -> UTxO -> IO Tx
+externalCommit HydraClient{hydraNodeId} utxos =
+  runReq defaultHttpConfig request
+    <&> responseBody
+    >>= \DraftCommitTxResponse{commitTx} -> pure commitTx
+ where
+  request =
+    Req.req
+      POST
+      (Req.http "127.0.0.1" /: "commit")
+      (ReqBodyJson (DraftCommitTxRequest{utxos} :: DraftCommitTxRequest Tx))
+      (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+      (Req.port $ 4000 + hydraNodeId)
+
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
   response <-
@@ -170,10 +188,11 @@ getMetrics HydraClient{hydraNodeId} = do
 
 queryNode :: Int -> IO (Response ByteString)
 queryNode nodeId =
+  -- TODO: use 'req' library here as well
   parseRequest ("http://127.0.0.1:" <> show (6000 + nodeId) <> "/metrics") >>= loop
  where
-  loop req =
-    httpBS req `catch` onConnectionFailure (loop req)
+  loop request =
+    httpBS request `catch` onConnectionFailure (loop request)
 
   onConnectionFailure cont = \case
     (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
