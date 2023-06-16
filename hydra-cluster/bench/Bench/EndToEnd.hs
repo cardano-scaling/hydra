@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (awaitTransaction, submitTransaction, submitTx)
+import CardanoClient (awaitTransaction, signTx, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -35,7 +35,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
-import Hydra.Generator (ClientDataset (..), Dataset (..))
+import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, withTracerOutputTo)
 import Hydra.Party (deriveParty)
@@ -74,7 +74,24 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-type Percent = Double
+bench :: DiffTime -> FilePath -> Dataset -> Word64 -> Spec
+bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
+  specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
+    withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
+      withTracerOutputTo hdl "Test" $ \tracer ->
+        failAfter timeoutSeconds $ do
+          putTextLn "Starting benchmark"
+          let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
+          let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
+          let parties = Set.fromList (deriveParty <$> hydraKeys)
+          withOSStats workDir $
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
+              putTextLn "Seeding network"
+              hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
+              let contestationPeriod = UnsafeContestationPeriod 10
+              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+                let clients = leader : followers
+                waitForNodesConnected tracer clients
 
 data Summary = Summary
   { numberOfTxs :: Int
@@ -244,7 +261,7 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
     submitTransaction networkId nodeSocket fundingTransaction
     void $ awaitTransaction networkId nodeSocket fundingTransaction
 
-  fuelWith100Ada ClientDataset{signingKey} = do
+  fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
     seedFromFaucet node vk 100_000_000 Fuel tracer
 
@@ -254,8 +271,10 @@ commitUTxO :: RunningNode -> [HydraClient] -> Dataset -> IO UTxO
 commitUTxO node clients Dataset{clientDatasets} =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
-  doCommit (client, ClientDataset{initialUTxO}) = do
-    externalCommit client initialUTxO >>= submitTx node
+  doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
+    externalCommit client initialUTxO
+      <&> signTx externalSigningKey
+      >>= submitTx node
     pure initialUTxO
 
 processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)

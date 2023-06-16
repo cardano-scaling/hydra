@@ -96,6 +96,7 @@ genDatasetConstantUTxO ::
 genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   clientKeys <- replicateM nClients arbitrary
 
+  -- TODO: benchmark does fuelWith100Ada, could remove the signing key here again
   clientFunds <- fmap concat . forM clientKeys $ \ClientKeys{signingKey, externalSigningKey} -> do
     amount <- Lovelace <$> choose (1, availableNonFuelFunds `div` fromIntegral nClients)
     pure [(signingKey, Lovelace fuelAmount), (externalSigningKey, amount)]
@@ -117,22 +118,16 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
 
   thrd (_, _, c) = c
 
-  generateClientDataset fundingTransaction ClientKeys{externalSigningKey} = do
+  generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let vk = getVerificationKey externalSigningKey
         keyPair = (vk, externalSigningKey)
-    -- NOTE: The initialUTxO must contain only the UTXO we will later commit. We
-    -- know that by construction, the 'mkGenesisTx' will create outputs
-    -- addressed to recipient verification keys and only holding the requested
-    -- amount of lovelace (and a potential change output last).
-    let txIn = mkTxIn fundingTransaction index
-        txOut =
-          TxOut
-            (mkVkAddress networkId vk)
-            (lovelaceToValue amount)
-            TxOutDatumNone
-            ReferenceScriptNone
-        initialUTxO = UTxO.singleton (txIn, txOut)
+        -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
+        -- that everything owned by the externalSigningKey will get committed
+        -- into the head.
+        initialUTxO =
+          utxoProducedByTx fundingTransaction
+            & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
     txSequence <-
       reverse . thrd
         <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
-    pure ClientDataset{initialUTxO, txSequence}
+    pure ClientDataset{clientKeys, initialUTxO, txSequence}

@@ -147,7 +147,7 @@ singlePartyCommitsFromExternal ::
   RunningNode ->
   TxId ->
   IO ()
-singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
 
