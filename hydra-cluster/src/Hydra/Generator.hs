@@ -95,29 +95,22 @@ genDatasetConstantUTxO ::
   Gen Dataset
 genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   clientKeys <- replicateM nClients arbitrary
-
-  -- TODO: benchmark does fuelWith100Ada, could remove the signing key here again
-  clientFunds <- fmap concat . forM clientKeys $ \ClientKeys{signingKey, externalSigningKey} -> do
-    amount <- Lovelace <$> choose (1, availableNonFuelFunds `div` fromIntegral nClients)
-    pure [(signingKey, Lovelace fuelAmount), (externalSigningKey, amount)]
-
-  -- Prepare funding transaction as it will be posted
+  -- Prepare funding transaction which will give every client's
+  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
+  -- funded before the benchmar run.
+  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+    amount <- Lovelace <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
+    pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
         mkGenesisTx
           networkId
           pparams
           faucetSk
           (Lovelace availableInitialFunds)
-          (first getVerificationKey <$> clientFunds)
+          clientFunds
   clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, clientDatasets}
  where
-  fuelAmount = 20_000_000
-
-  availableNonFuelFunds = availableInitialFunds - fromIntegral nClients * fuelAmount
-
-  thrd (_, _, c) = c
-
   generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let vk = getVerificationKey externalSigningKey
         keyPair = (vk, externalSigningKey)
@@ -131,3 +124,5 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
       reverse . thrd
         <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
+
+  thrd (_, _, c) = c
