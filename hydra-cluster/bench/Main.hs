@@ -210,12 +210,14 @@ benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, 
   now :: UTCTime
   now = unsafePerformIO getCurrentTime
 
-  summaryTitle = "Benchmark (nodes=" <> show clusterSize <> ")"
+  summaryTitle = "Simple Benchmark"
 
   formattedSummary :: [Text]
   formattedSummary =
     [ "## " <> summaryTitle
     , ""
+    , "| Number of nodes |  " <> show clusterSize <> " | "
+    , "| -- | -- |"
     , "| _Number of txs_ | " <> show numberOfTxs <> " |"
     , "| _Avg. Confirmation Time (ms)_ | " <> show averageConfirmationTime <> " |"
     , "| _Share of Txs (%) < 100ms_ | " <> show percentBelow100ms <> " |"
