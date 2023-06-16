@@ -65,7 +65,7 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyCommitsFromExternal,
+  singlePartyCommitsUsingFuel,
   singlePartyHeadFullLifeCycle,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -133,11 +133,11 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
-      it "commits from external wallet" $ \tracer -> do
-        withClusterTempDir "single-commits-from-external" $ \tmpDir -> do
+      it "commits using fuel" $ \tracer -> do
+        withClusterTempDir "commits-using-fuel" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= singlePartyCommitsFromExternal tracer tmpDir node
+              >>= singlePartyCommitsUsingFuel tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

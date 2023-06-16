@@ -5,7 +5,7 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip, signTx, submitTx)
+import CardanoClient (queryTip, submitTx)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
@@ -24,13 +24,12 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (Tx, genKeyPair)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig, networkId, startChainFrom)
+import Hydra.Options (ChainConfig (cardanoSigningKey), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import Test.Hspec.Expectations (shouldBe)
-import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -140,36 +139,32 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
--- TODO: remove this now? convert this to use the internal commit with fueled funds still
-singlePartyCommitsFromExternal ::
+-- Make sure the _old_ way of committing (using Fuel) still works.
+singlePartyCommitsUsingFuel ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
   TxId ->
   IO ()
-singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
+singlePartyCommitsUsingFuel tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
 
-    -- these keys should mimic external wallet keys needed to sign the commit tx
-    (externalVk, externalSk) <- generate genKeyPair
-    -- submit the tx using our external user key to get a utxo to commit
-    utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+    (alicesVk, _) <- keysFor Alice
 
     let contestationPeriod = UnsafeContestationPeriod 100
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+
+    -- submit the tx using alice's public key to get a utxo to commit
+    utxoToCommit <- seedFromFaucet node alicesVk 2_000_000 Normal (contramap FromFaucet tracer)
+
     let hydraNodeId = 1
 
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit
-        -- sign it
-        <&> signTx externalSk
-        -- and submit the transaction using the cardano-node
-        >>= submitTx node
+      send n1 $ input "Commit" ["utxo" .= utxoToCommit]
 
       waitFor tracer 60 [n1] $
         output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
