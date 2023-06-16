@@ -74,7 +74,7 @@ import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
-import Hydra.Logging (Tracer, Verbosity (..), showLogsOnFailure, withTracer)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
 import HydraNode (

@@ -9,15 +9,16 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
+import Cardano.Ledger.Alonzo.Data (Data (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
 import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, referenceInputs, wits)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import Cardano.Ledger.Babbage.TxBody (collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
+import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -72,6 +73,7 @@ import Hydra.Cardano.Api (
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
@@ -142,7 +144,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelOrLargestUTxO <$> getUTxO
       , sign = signWith sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
@@ -297,7 +299,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
  where
   -- TODO: should unit test that this prefers fuel marked utxo, but falls back
   -- on the biggest utxo
-  findUTxOToPayFees utxo = case findLargestUTxO utxo of
+  findUTxOToPayFees utxo = case findFuelOrLargestUTxO utxo of
     Nothing ->
       -- create 'ChangeError' but for this we need to resolve the utxo inputs
       let utxoAsList = Map.toList utxo
@@ -370,15 +372,31 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
             (floor (maxMem * approxMem % totalMem))
             (floor (maxCpu * approxCpu % totalCpu))
 
-findLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
-findLargestUTxO utxo =
-  let availableUtxo = Map.toList utxo
-      sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
-      sortedByValue = sortOn sortingCriteria availableUtxo
-   in case sortedByValue of
-        [] -> Nothing
-        as -> Just (List.last as)
+findFuelOrLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
+findFuelOrLargestUTxO utxo =
+  case findFuelUTxO utxo of
+    Nothing -> do
+      let availableUtxo = Map.toList utxo
+          sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
+          sortedByValue = sortOn sortingCriteria availableUtxo
+       in case sortedByValue of
+            [] -> Nothing
+            as -> Just (List.last as)
+    Just fuelUTxO -> Just fuelUTxO
  where
+  findFuelUTxO utxo' =
+    let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo'
+        sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
+        sortedByValue = sortOn sortingCriteria utxosWithDatum
+     in case sortedByValue of
+          [] -> Nothing
+          as -> Just (List.last as)
+
+  hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
+    NoDatum -> False
+    DatumHash dh ->
+      dh == hashData (Data @LedgerEra markerDatum)
+    Datum{} -> False -- Marker is not stored inline
   fst' (a, _, _) = a
 
 -- | Estimate cost of script executions on the transaction. This is only an
