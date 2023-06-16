@@ -20,6 +20,7 @@ rec {
   hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
+
   tests = {
     plutus-cbor = pkgs.mkShellNoCC {
       name = "plutus-cbor-tests";
@@ -56,12 +57,14 @@ rec {
         ];
     };
   };
+
   benchs = {
     hydra-node = pkgs.mkShellNoCC {
       name = "bench-hydra-node";
-      buildInputs = [ nativePkgs.hydra-node.components.benchmarks.tx-cost
-                      nativePkgs.hydra-node.components.benchmarks.micro
-                    ];
+      buildInputs = [
+        nativePkgs.hydra-node.components.benchmarks.tx-cost
+        nativePkgs.hydra-node.components.benchmarks.micro
+      ];
     };
     hydra-cluster = pkgs.mkShellNoCC {
       name = "bench-hydra-cluster";
@@ -77,4 +80,31 @@ rec {
       buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
     };
   };
+
+  haddocks = pkgs.runCommand "hydra-haddocks"
+    {
+      paths = [
+        hydraProject.hsPkgs.plutus-cbor.components.library.doc
+        hydraProject.hsPkgs.plutus-merkle-tree.components.library.doc
+        hydraProject.hsPkgs.hydra-prelude.components.library.doc
+        hydraProject.hsPkgs.hydra-cardano-api.components.library.doc
+        hydraProject.hsPkgs.hydra-plutus.components.library.doc
+        hydraProject.hsPkgs.hydra-node.components.library.doc
+        hydraProject.hsPkgs.hydra-node.components.tests.tests.doc
+        hydraProject.hsPkgs.hydra-cluster.components.library.doc
+        hydraProject.hsPkgs.hydra-tui.components.library.doc
+      ];
+    }
+    ''
+      set -ex
+      mkdir -p $out
+      for p in $paths; do
+        cd $p
+        for html in $(find $haddockRoot -name html -type d); do
+          package=$(basename $(dirname $html))
+          mkdir -p $out/$package
+          cp -a $html/* $out/$package/
+        done
+      done
+    '';
 }
