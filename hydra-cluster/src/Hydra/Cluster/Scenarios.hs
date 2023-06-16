@@ -12,7 +12,6 @@ import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cardano.Api (
   Lovelace,
   TxId,
@@ -31,7 +30,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
-import Network.HTTP.Req
 import Test.Hspec.Expectations (shouldBe)
 import Test.QuickCheck (generate)
 
@@ -143,6 +141,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
+-- TODO: remove this now?
 singlePartyCommitsFromExternal ::
   Tracer IO EndToEndLog ->
   FilePath ->
@@ -168,20 +167,7 @@ singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraS
       headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit
-
-      response <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-            (port $ 4000 + hydraNodeId)
-
-      responseStatusCode response `shouldBe` 200
-
-      let DraftCommitTxResponse commitTx = responseBody response
+      commitTx <- externalCommit n1 utxoToCommit
 
       -- sign and submit the tx with our external user key
       let signedCommitTx = signWith externalSk commitTx
