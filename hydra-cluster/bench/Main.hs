@@ -26,6 +26,7 @@ import Options.Applicative (
   metavar,
   option,
   progDesc,
+  short,
   strOption,
   value,
  )
@@ -42,6 +43,7 @@ data Options = Options
   , scalingFactor :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
+  , startingNodeId :: Int
   }
 
 benchOptionsParser :: Parser Options
@@ -91,6 +93,18 @@ benchOptionsParser =
           <> help
             "The number of Hydra nodes to start and connect (default: 3)"
       )
+    <*> option
+      auto
+      ( long "starting-node-id"
+          <> short 'i'
+          <> value 0
+          <> metavar "INT"
+          <> help
+            "The starting point for ids allocated to nodes in the cluster. This \
+            \ id controls TCP ports allocation for various servers run by the nodes, \
+            \ it's useful to change if local processes on the machine running the \
+            \ benchmark conflicts with default ports allocation scheme (default: 0)"
+      )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -135,10 +149,10 @@ main =
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run options benchDir datasets
 
-  run options@Options{timeoutSeconds, clusterSize} benchDir datasets = do
+  run options@Options{timeoutSeconds, clusterSize, startingNodeId} benchDir datasets = do
     putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
     withArgs [] $
-      try (bench timeoutSeconds benchDir datasets clusterSize) >>= \case
+      try (bench startingNodeId timeoutSeconds benchDir datasets clusterSize) >>= \case
         Left (err :: HUnitFailure) ->
           benchmarkFailedWith benchDir err
         Right summary ->

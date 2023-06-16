@@ -85,8 +85,8 @@ data Summary = Summary
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-bench :: DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
-bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
+bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
@@ -99,7 +99,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
             putTextLn "Seeding network"
             hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+            withHydraCluster tracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected tracer clients
 

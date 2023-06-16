@@ -202,6 +202,7 @@ withHydraCluster ::
   FilePath ->
   FilePath ->
   -- | First node id
+  -- This sets the starting point for assigning ports
   Int ->
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
