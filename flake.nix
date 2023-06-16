@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs";
-    haskellNix.url = "github:ch1bo/haskell.nix?ref=enable-haddock-tests";
+    haskellNix.url = "github:input-output-hk/haskell.nix";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-utils.url = "github:numtide/flake-utils";
     CHaP = {
