@@ -6,6 +6,8 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (Summary (..), bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Data.ByteString (hPut)
+import Data.Fixed (Nano)
+import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
@@ -33,7 +35,6 @@ import Options.Applicative (
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
@@ -164,29 +165,32 @@ main =
     encodeFile txsFile dataset
 
 benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
-benchmarkFailedWith benchDir (HUnitFailure _ reason) = do
-  putStrLn $ "Benchmark failed: " <> formatFailureReason reason
+benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
+  putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
   putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
   exitFailure
+ where
+  formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
 benchmarkSucceeded :: Options -> FilePath -> Summary -> IO ()
-benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms} =
-  maybe dumpToStdout writeMarkdownReportTo outputDirectory
+benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms} = do
+  now <- getCurrentTime
+  maybe dumpToStdout (writeMarkdownReportTo now) outputDirectory
  where
   dumpToStdout = do
     putTextLn $ "Confirmed txs: " <> show numberOfTxs
-    putTextLn $ "Average confirmation time (ms): " <> show averageConfirmationTime
+    putTextLn $ "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
     putTextLn $ "Confirmed below 100ms: " <> show percentBelow100ms <> "%"
 
-  writeMarkdownReportTo outputDir = do
+  writeMarkdownReportTo now outputDir = do
     existsDir <- doesDirectoryExist outputDir
     unless existsDir $ createDirectory outputDir
     withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
-      hPut hdl $ encodeUtf8 $ unlines pageHeader
-      hPut hdl $ encodeUtf8 $ unlines $ formattedSummary
+      hPut hdl $ encodeUtf8 $ unlines $ pageHeader now
+      hPut hdl $ encodeUtf8 $ unlines formattedSummary
 
-  pageHeader :: [Text]
-  pageHeader =
+  pageHeader :: UTCTime -> [Text]
+  pageHeader now =
     [ "--- "
     , "sidebar_label: 'End-to-End Benchmarks' "
     , "sidebar_position: 4 "
@@ -206,19 +210,22 @@ benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, 
     , ""
     ]
 
-  {-# NOINLINE now #-}
-  now :: UTCTime
-  now = unsafePerformIO getCurrentTime
-
-  summaryTitle = "Simple Benchmark"
-
   formattedSummary :: [Text]
   formattedSummary =
-    [ "## " <> summaryTitle
+    [ "## Baseline Scenario"
+    , ""
+    , -- TODO: make the description part of the Dataset
+      "This scenario represents a minimal case and as such is a good baseline against which \
+      \ to assess the overhead introduced by more complex setups. There is a single hydra-node \
+      \ with a single client submitting single input and single output transactions with a \
+      \ constant UTxO set of 1."
     , ""
     , "| Number of nodes |  " <> show clusterSize <> " | "
     , "| -- | -- |"
     , "| _Number of txs_ | " <> show numberOfTxs <> " |"
-    , "| _Avg. Confirmation Time (ms)_ | " <> show averageConfirmationTime <> " |"
+    , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
     , "| _Share of Txs (%) < 100ms_ | " <> show percentBelow100ms <> " |"
     ]
+
+  nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
+  nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds

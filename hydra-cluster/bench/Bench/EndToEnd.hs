@@ -27,7 +27,7 @@ import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
+import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
@@ -73,13 +73,11 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-type Milliseconds = Double
-
 type Percent = Double
 
 data Summary = Summary
   { numberOfTxs :: Int
-  , averageConfirmationTime :: Milliseconds
+  , averageConfirmationTime :: NominalDiffTime
   , percentBelow100ms :: Percent
   }
   deriving stock (Generic, Eq, Show)
@@ -142,11 +140,10 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
 
               writeResultsCsv (workDir </> "results.csv") aggregates
 
-              -- TODO: Create a proper summary
               let confTimes = map (\(_, _, a) -> a) res
                   numberOfTxs = length confTimes
                   below100ms = filter (< 0.1) confTimes
-                  averageConfirmationTime = double (nominalDiffTimeToSeconds $ sum confTimes * 1000) / double numberOfTxs
+                  averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
                   percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
               pure $ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}
 
@@ -179,7 +176,7 @@ withOSStats workDir action =
           (collectStats out $ workDir </> "system.csv")
           action
           >>= \case
-            Left () -> failure "stats collection process failed unexpectedly"
+            Left () -> failure "dstat process failed unexpectedly"
             Right a -> pure a
  where
   process exePath = (proc exePath ["-cm", "-n", "-N", "lo", "--integer", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
