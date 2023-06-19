@@ -83,9 +83,7 @@ jobs:
       run: |
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
-        # TODO: redirect /benchmarks.html -> /docs/benchmarks
-        # TODO: redirect /core-concepts/* -> /docs/core-concepts/*
-        # TODO: redirect /core-concepts/faq -> /docs/faq
+        # TODO: redirect /docs/* -> /*
 
     - name: 🚢 Publish Documentation
       uses: peaceiris/actions-gh-pages@v3

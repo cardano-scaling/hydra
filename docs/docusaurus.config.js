@@ -56,6 +56,7 @@ const config = {
       ({
         docs: extendIf(
           {
+            routeBasePath: "/",
             editUrl,
             editLocalizedFiles: true,
           },
@@ -147,18 +148,18 @@ const config = {
         items: Array.prototype.concat(
           [
             {
-              to: "/docs/getting-started",
+              to: "/getting-started",
               label: "User Manual",
               position: "left",
             },
             {
-              to: "/docs/benchmarks",
-              label: "Benchmarks",
+              to: "/core-concepts",
+              label: "Core Concepts",
               position: "left",
             },
             {
-              to: "/docs/core-concepts",
-              label: "Core Concepts",
+              to: "/benchmarks",
+              label: "Benchmarks",
               position: "left",
             },
           ],
