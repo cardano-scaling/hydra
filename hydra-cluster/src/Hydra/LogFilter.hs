@@ -94,7 +94,7 @@ tracePerformance envelope = do
       put (Map.insert (EffectKey eventId effectId) [TraceEffect{effect = "TxValid", timestamp, txid = txId transaction, us = 0}] pending)
       pure []
     Envelope{timestamp, message = Node BeginEffect{eventId, effectId, effect = ClientEffect SnapshotConfirmed{snapshot = Snapshot{confirmed}}}} -> do
-      put (Map.insert (EffectKey eventId effectId) (map (\tx -> TraceEffect{effect = "SnapshotConfirmed", timestamp, txid = txId tx, us = 0}) confirmed) pending)
+      put (Map.insert (EffectKey eventId effectId) (map (\txid -> TraceEffect{effect = "SnapshotConfirmed", timestamp, txid, us = 0}) confirmed) pending)
       pure []
     Envelope{timestamp, message = Node EndEffect{eventId, effectId}} ->
       case Map.lookup (EffectKey eventId effectId) pending of

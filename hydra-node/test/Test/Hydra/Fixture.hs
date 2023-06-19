@@ -8,7 +8,6 @@ import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Party (Party (vkey), deriveParty)
 
-
 alice, bob, carol :: Party
 alice = deriveParty aliceSk
 bob = deriveParty bobSk

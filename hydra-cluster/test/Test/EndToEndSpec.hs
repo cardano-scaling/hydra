@@ -534,19 +534,18 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
 
     -- Create a transaction which is only valid in 5 seconds
-    let
-      secondsToAwait = 5
-      slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
-      futureSlot = currentSlot + slotsToAwait
-      lovelaceToSend = lovelaceBalanceValue - 90_000_000
+    let secondsToAwait = 5
+        slotsToAwait = SlotNo . truncate $ fromInteger secondsToAwait / slotLengthSec
+        futureSlot = currentSlot + slotsToAwait
+        lovelaceToSend = lovelaceBalanceValue - 90_000_000
 
-      -- TODO (later) use time in a script (as it is using POSIXTime)
-      Right tx =
-        mkRangedTx
-          firstCommittedUTxO
-          (inHeadAddress aliceCardanoVk, lovelaceToValue lovelaceToSend)
-          aliceCardanoSk
-          (Just $ TxValidityLowerBound futureSlot, Nothing)
+        -- TODO (later) use time in a script (as it is using POSIXTime)
+        Right tx =
+          mkRangedTx
+            firstCommittedUTxO
+            (inHeadAddress aliceCardanoVk, lovelaceToValue lovelaceToSend)
+            aliceCardanoSk
+            (Just $ TxValidityLowerBound futureSlot, Nothing)
 
     -- First submission: invalid
     send n1 $ input "NewTx" ["transaction" .= tx]
@@ -564,7 +563,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     confirmedTransactions <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       v ^? key "snapshot" . key "confirmedTransactions"
-    confirmedTransactions ^.. values . key "id" `shouldBe` [toJSON $ txId tx]
+    confirmedTransactions ^.. values `shouldBe` [toJSON $ txId tx]
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
@@ -652,7 +651,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
           object
             [ "snapshotNumber" .= int expectedSnapshotNumber
             , "utxo" .= newUTxO
-            , "confirmedTransactions" .= [tx]
+            , "confirmedTransactions" .= [txId tx]
             ]
         expectedSnapshotNumber = 1
 

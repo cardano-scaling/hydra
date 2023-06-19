@@ -49,6 +49,7 @@ import Hydra.Ledger (
   UTxOType,
   ValidationError,
   applyTransactions,
+  txId,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
@@ -661,7 +662,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
       -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
       waitApplyTxs $ \u -> do
         -- NOTE: confSn == seenSn == sn here
-        let nextSnapshot = Snapshot (confSn + 1) u requestedTxs
+        let nextSnapshot = Snapshot (confSn + 1) u (txId <$> requestedTxs)
         -- Spec: σᵢ
         let snapshotSignature = sign signingKey nextSnapshot
         -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂

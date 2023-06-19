@@ -262,7 +262,7 @@ spec = parallel $ do
                 send n1 (NewTx (aValidTx 42))
                 waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [42]
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -276,7 +276,7 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead n1 n2
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
-                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 send n1 (NewTx firstTx)
@@ -284,14 +284,14 @@ spec = parallel $ do
                 -- Expect a snapshot of the firstTx transaction
                 waitUntil [n1, n2] $ TxValid testHeadId firstTx
                 waitUntil [n1, n2] $ do
-                  let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
+                  let snapshot = Snapshot 1 (utxoRefs [2, 3]) [1]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
                 waitUntil [n1, n2] $ TxValid testHeadId secondTx
                 waitUntil [n1, n2] $ do
-                  let snapshot = Snapshot 2 (utxoRefs [2, 4]) [secondTx]
+                  let snapshot = Snapshot 2 (utxoRefs [2, 4]) [2]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
@@ -335,7 +335,7 @@ spec = parallel $ do
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
                 waitUntil [n1, n2] $ do
-                  let snapshot = Snapshot 1 (utxoRefs [2, 10]) [tx']
+                  let snapshot = Snapshot 1 (utxoRefs [2, 10]) [1]
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
                 waitUntilMatch [n1, n2] $ \case
@@ -356,7 +356,7 @@ spec = parallel $ do
                 waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
                 waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
 
-                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
+                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [42, 43]
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
@@ -370,7 +370,7 @@ spec = parallel $ do
                 let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
                 send n1 (NewTx newTx)
 
-                let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
+                let snapshot = Snapshot 1 (utxoRefs [2, 42]) [42]
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
