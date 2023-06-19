@@ -1,3 +1,8 @@
+---
+sidebar_position: 1000
+sidebar_label: F.A.Q.
+---
+
 # Frequently Asked Questions
 
 > And their answers!
@@ -5,7 +10,7 @@
 <details>
 <summary>When Hydra?</summary>
 
-Our <a href="https://github.com/orgs/input-output-hk/projects/21/">roadmap</a> is publicly available on Github. Note that there are multiple sections behind tabs to view it from different angles (as release packages, as quarters, etc...)  
+Our <a href="https://github.com/orgs/input-output-hk/projects/21/">roadmap</a> is publicly available on Github. Note that there are multiple sections behind tabs to view it from different angles (as release packages, as quarters, etc...)
 
 </details>
 
@@ -26,13 +31,14 @@ Yes! Transactions running between head participants are full-blown Alonzo transa
 <details>
 <summary>Can a third-party run a Hydra node on behalf of a wallet owners (e.g. running managed Hydra Heads)?</summary>
 
-Totally! This is similar for instance to [Phoenix](https://phoenix.acinq.co/) in Bitcoin Lightning: a non-custodial managed lightning node. As an end-user, one still have full control on the keys and funds, but the underlying infrastructure is managed on one's behalf (provided fees). This however implies some form of trust between the service provider and the user. Indeed, the user implicitly trusts the service provider to, for instance, properly handle contestations and closure of a head.   
+Totally! This is similar for instance to [Phoenix](https://phoenix.acinq.co/) in Bitcoin Lightning: a non-custodial managed lightning node. As an end-user, one still have full control on the keys and funds, but the underlying infrastructure is managed on one's behalf (provided fees). This however implies some form of trust between the service provider and the user. Indeed, the user implicitly trusts the service provider to, for instance, properly handle contestations and closure of a head.
+
 </details>
 
 <details>
 <summary>What is the relationship between Hydra heads and Hydra nodes?</summary>
 
-It is (at least\*) a **one-to-many** relationship. Each Hydra head is comprised of several Hydra nodes. We are currently aiming for up to 100 nodes per head as a stretch goal. Heads are independent and form an isolated network. It is possible to have infinitely many heads running in parallel. 
+It is (at least\*) a **one-to-many** relationship. Each Hydra head is comprised of several Hydra nodes. We are currently aiming for up to 100 nodes per head as a stretch goal. Heads are independent and form an isolated network. It is possible to have infinitely many heads running in parallel.
 
 _(\*) It is possible to make Hydra nodes support multiple heads making it a many-to-many relationship._
 
@@ -43,9 +49,9 @@ _(\*) It is possible to make Hydra nodes support multiple heads making it a many
 
 No it isn't. In fact, there are two crucial facts that discards heads from being seen as side-chains:
 
-  1. There's no guaranteed data availability on Hydra. Said differently, transactions are (a) only known of the head participants, and (b) typically forgotten as soon as they're processed. Indeed, there's no block in a Hydra head and also no incentive for participants to either keep the history around or make it available to users outside of the head.
+1. There's no guaranteed data availability on Hydra. Said differently, transactions are (a) only known of the head participants, and (b) typically forgotten as soon as they're processed. Indeed, there's no block in a Hydra head and also no incentive for participants to either keep the history around or make it available to users outside of the head.
 
-  2. A head network is static, new participants cannot join and have to be decided upfront. The network is thus very much isolated / private, and not reachable by any peer. Hydra heads are really channels between a set of well-known participants.
+2. A head network is static, new participants cannot join and have to be decided upfront. The network is thus very much isolated / private, and not reachable by any peer. Hydra heads are really channels between a set of well-known participants.
 
 </details>
 
@@ -63,9 +69,9 @@ In principle, yes! The ledger used for L2 transactions is configurable and can u
 
 Let's look at two examples:
 
-  1. `minUTxOValue = 0`: Outputs with no "ADA" in their value in the L2 would be disallowed on L1 -> this makes fanout not possible. Using partial fanout as also considered within [this feature](https://github.com/input-output-hk/hydra/issues/190) would only disallow fanout of affected UTxOs.
-  2. `maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`: Outputs payed to scripts which are too expensive to validate on L1 -> will be fanned out, but become unspendable.
-  
-With great power, comes great responsibility. 
+1. `minUTxOValue = 0`: Outputs with no "ADA" in their value in the L2 would be disallowed on L1 -> this makes fanout not possible. Using partial fanout as also considered within [this feature](https://github.com/input-output-hk/hydra/issues/190) would only disallow fanout of affected UTxOs.
+2. `maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`: Outputs payed to scripts which are too expensive to validate on L1 -> will be fanned out, but become unspendable.
+
+With great power, comes great responsibility.
 
 </details>
