@@ -84,7 +84,6 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
@@ -201,7 +200,7 @@ jobs:
             options: '-o $(pwd)/../benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: '--scaling-factor 1 --output-directory $(pwd)/../benchmarks'
+            options: '--scaling-factor 1 --timeout 800s --output-directory $(pwd)/../benchmarks'
           - package: plutus-merkle-tree
             bench: on-chain-cost
             options: '--output-directory $(pwd)/../benchmarks'
@@ -230,6 +229,14 @@ jobs:
         mkdir -p benchmarks
         cd ${{ matrix.package }}
         nix develop .?submodules=1#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
+
+    # NOTE: This depends on the path used in hydra-cluster bench-e2e tests
+    - name: 💾 Upload logs
+      if: always() && ${{ matrix.bench == 'bench-e2e' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-cluster-e2e-test-logs
+        path: /tmp/nix-shell.*/bench-*/logs/*
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
