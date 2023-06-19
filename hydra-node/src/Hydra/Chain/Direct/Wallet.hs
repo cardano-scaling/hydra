@@ -7,6 +7,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Data (Data (..))
@@ -59,6 +60,7 @@ import Hydra.Cardano.Api (
   UTxO,
   VerificationKey,
   fromLedgerTx,
+  fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
@@ -67,6 +69,8 @@ import Hydra.Cardano.Api (
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
+  toLedgerTxIn,
+  toLedgerTxOut,
   toLedgerUTxO,
   verificationKeyHash,
  )
@@ -297,8 +301,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       , wits = wits{txrdmrs = adjustedRedeemers}
       }
  where
-  -- TODO: should unit test that this prefers fuel marked utxo, but falls back
-  -- on the biggest utxo
   findUTxOToPayFees utxo = case findFuelOrLargestUTxO utxo of
     Nothing ->
       -- create 'ChangeError' but for this we need to resolve the utxo inputs
@@ -375,22 +377,25 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 findFuelOrLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
 findFuelOrLargestUTxO utxo =
   case findFuelUTxO utxo of
-    Nothing -> do
-      let availableUtxo = Map.toList utxo
-          sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
-          sortedByValue = sortOn sortingCriteria availableUtxo
-       in case sortedByValue of
-            [] -> Nothing
-            as -> Just (List.last as)
+    Nothing ->
+      case UTxO.pairs $ UTxO.maxLovelaceUTxO apiUtxo of
+        [] -> Nothing
+        as ->
+          -- NOTE: pick the **FIRST** value from the sorted list.
+          Just $ bimap toLedgerTxIn toLedgerTxOut (List.head as)
     Just fuelUTxO -> Just fuelUTxO
  where
+  apiUtxo = UTxO.fromPairs $ bimap fromLedgerTxIn fromLedgerTxOut <$> Map.toList utxo
   findFuelUTxO utxo' =
     let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo'
         sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
         sortedByValue = sortOn sortingCriteria utxosWithDatum
      in case sortedByValue of
           [] -> Nothing
-          as -> Just (List.last as)
+          as ->
+            -- NOTE: here we are picking the **LAST** entry we found for no
+            -- particular reason.
+            Just (List.last as)
 
   hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
     NoDatum -> False
