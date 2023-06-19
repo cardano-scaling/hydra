@@ -1,4 +1,4 @@
-# NFT Auction
+# Hydra for Auctions
 
 > Layer 1 redeemable vouchers negotiated on layer 2.
 
