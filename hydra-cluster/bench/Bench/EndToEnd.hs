@@ -74,24 +74,7 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-bench :: DiffTime -> FilePath -> Dataset -> Word64 -> Spec
-bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
-  specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
-    withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-      withTracerOutputTo hdl "Test" $ \tracer ->
-        failAfter timeoutSeconds $ do
-          putTextLn "Starting benchmark"
-          let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
-          let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
-          let parties = Set.fromList (deriveParty <$> hydraKeys)
-          withOSStats workDir $
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-              putTextLn "Seeding network"
-              hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
-              let contestationPeriod = UnsafeContestationPeriod 10
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
-                let clients = leader : followers
-                waitForNodesConnected tracer clients
+type Percent = Double
 
 data Summary = Summary
   { numberOfTxs :: Int
@@ -107,7 +90,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
-        let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
+        let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         withOSStats workDir $
@@ -126,7 +109,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
                   headIsInitializingWith parties
 
               putTextLn "Comitting initialUTxO from dataset"
-              expectedUTxO <- commitUTxO clients dataset
+              expectedUTxO <- commitUTxO node clients dataset
 
               waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                 output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
