@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, signTx, submitTx, waitForUTxO)
+import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
 import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
@@ -39,7 +39,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   writeFileTextEnvelope,
-  pattern TxValidityLowerBound,
+  pattern TxValidityLowerBound, signTx,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (

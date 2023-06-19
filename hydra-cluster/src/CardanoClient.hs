@@ -19,7 +19,6 @@ import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, 
 import CardanoNode (NodeLog (..), RunningNode (..))
 import qualified Data.Map as Map
 import qualified Hydra.Chain.CardanoClient as CardanoClient
-import qualified Hydra.Chain.Direct.Wallet as Wallet
 import Hydra.Logging (Tracer, traceWith)
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
@@ -76,10 +75,6 @@ sign signingKey body =
   makeSignedTransaction
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
-
--- | Sign a transaction with given signing key.
-signTx :: SigningKey PaymentKey -> Tx -> Tx
-signTx = Wallet.signWith
 
 -- | Submit a transaction to a 'RunningNode'
 submitTx :: RunningNode -> Tx -> IO ()

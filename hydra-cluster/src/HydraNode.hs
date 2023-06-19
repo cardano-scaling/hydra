@@ -30,10 +30,8 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
-import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure))
 import Network.HTTP.Req (JsonResponse, POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import qualified Network.HTTP.Req as Req
-import Network.HTTP.Simple (HttpException (HttpExceptionRequest))
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)

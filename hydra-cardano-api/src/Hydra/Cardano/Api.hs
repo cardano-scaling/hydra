@@ -708,11 +708,11 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
     ScriptWitness = Cardano.Api.ScriptWitness
 
 -- | Sign transaction using the provided secret key
-signUsingKey ::
+signTx ::
   SigningKey PaymentKey ->
   Tx ->
   Tx
-signUsingKey signingKey (Tx body wits) =
+signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
   witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)

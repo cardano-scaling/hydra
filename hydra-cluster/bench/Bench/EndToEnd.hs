@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (awaitTransaction, signTx, submitTransaction, submitTx)
+import CardanoClient (awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -29,7 +29,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (headIsInitializingWith)
