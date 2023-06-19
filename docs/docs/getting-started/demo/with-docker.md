@@ -8,7 +8,7 @@ sidebar_position: 2
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
 
-We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
+We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](./without-docker) if you feel like doing it the hard way.
 
 :::info Shortcut
 For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.

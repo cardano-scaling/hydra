@@ -8,7 +8,7 @@ sidebar_position: 2
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
 
-この項では [Docker](https://www.docker.com/get-started) と [compose](https://www.docker.com/get-started) を使ってデモを実行します。高度な方法で実行したい場合は [Docker を使用しないデモの実行](/docs/getting-started/demo/without-docker) へ移動してください。
+この項では [Docker](https://www.docker.com/get-started) と [compose](https://www.docker.com/get-started) を使ってデモを実行します。高度な方法で実行したい場合は [Docker を使用しないデモの実行](./without-docker) へ移動してください。
 
 :::info Shortcut
 便宜上、上記の手順をまとめたスクリプト `./run-docker.sh` を用意しており、サニティーチェックを行うことができます。

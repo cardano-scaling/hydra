@@ -183,7 +183,7 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 :::warning Old fuel
 Marking fuel using datum hashes is not needed anymore as support for committing
 directly from it will be removed in future Hydra versions.
-Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
+Please take a look at [external-commits](/getting-started/quickstart#external-commits).
 :::
 
 To distinguish fuel from outputs to be committable by the `hydra-node`, we used
@@ -220,4 +220,4 @@ While the `hydra-node` holds funds to fuel protocol transactions, any wallet can
 
 Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. We publish the hydra scripts on each new release and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
 
-Please be sure to read the [relevant section](/docs/known-issues) section to fully understand the limitations and consequences of running Hydra nodes on mainnet.
+Please be sure to read the [relevant section](/known-issues) section to fully understand the limitations and consequences of running Hydra nodes on mainnet.

@@ -8,7 +8,7 @@ sidebar_position: 2
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
 
-Nous utiliserons [Docker](https://www.docker.com/get-started) et [compose](https://www.docker.com/get-started) pour cette démo, assurez-vous de les avoir disponibles dans votre terminal de commandes. Si vous ne souhaitez pas utiliser ou installer Docker, vous pouvez directement vous rendre sur [Démo: Sans Docker](/docs/getting-started/demo/without-docker) et mettre les mains dans le cambouis.
+Nous utiliserons [Docker](https://www.docker.com/get-started) et [compose](https://www.docker.com/get-started) pour cette démo, assurez-vous de les avoir disponibles dans votre terminal de commandes. Si vous ne souhaitez pas utiliser ou installer Docker, vous pouvez directement vous rendre sur [Démo: Sans Docker](./without-docker) et mettre les mains dans le cambouis.
 
 :::info Shortcut
 Toutes ces étapes sont combinées dans un unique script `./run-docker.sh`. Ce script contient aussi quelques petites vérifications pour éviter de vous tirer une balle dans le pied avec certaines commandes.

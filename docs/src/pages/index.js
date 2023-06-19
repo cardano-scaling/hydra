@@ -24,7 +24,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
-            to="/docs/getting-started">
+            to="/getting-started">
               <Translate
                 id="homepage.gettingStarted"
                 description="'Getting Started' button in the home header."
