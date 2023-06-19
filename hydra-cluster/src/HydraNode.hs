@@ -202,6 +202,7 @@ withHydraCluster ::
   FilePath ->
   FilePath ->
   -- | First node id
+  -- This sets the starting point for assigning ports
   Int ->
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
@@ -209,8 +210,8 @@ withHydraCluster ::
   -- | Transaction id at which Hydra scripts should have been published.
   TxId ->
   ContestationPeriod ->
-  (NonEmpty HydraClient -> IO ()) ->
-  IO ()
+  (NonEmpty HydraClient -> IO a) ->
+  IO a
 withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
@@ -253,7 +254,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
--- config/. 
+-- config/.
 withHydraNode ::
   Tracer IO EndToEndLog ->
   ChainConfig ->

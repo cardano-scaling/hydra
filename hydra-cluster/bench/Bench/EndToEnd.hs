@@ -27,7 +27,7 @@ import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
+import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
@@ -70,75 +70,82 @@ data Event = Event
   , validAt :: Maybe UTCTime
   , confirmedAt :: Maybe UTCTime
   }
-  deriving (Generic, Eq, Show, ToJSON)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
 
-bench :: DiffTime -> FilePath -> Dataset -> Word64 -> Spec
-bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
-  specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
-    withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-      withTracerOutputTo hdl "Test" $ \tracer ->
-        failAfter timeoutSeconds $ do
-          putTextLn "Starting benchmark"
-          let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
-          let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
-          let parties = Set.fromList (deriveParty <$> hydraKeys)
-          withOSStats workDir $
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-              putTextLn "Seeding network"
-              hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
-              let contestationPeriod = UnsafeContestationPeriod 10
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
-                let clients = leader : followers
-                waitForNodesConnected tracer clients
+type Percent = Double
 
-                putTextLn "Initializing Head"
-                send leader $ input "Init" []
-                headId <-
-                  waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-                    headIsInitializingWith parties
+data Summary = Summary
+  { numberOfTxs :: Int
+  , averageConfirmationTime :: NominalDiffTime
+  , percentBelow100ms :: Percent
+  }
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
 
-                putTextLn "Comitting initialUTxO from dataset"
-                expectedUTxO <- commitUTxO clients dataset
+bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
+  withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
+    withTracerOutputTo hdl "Test" $ \tracer ->
+      failAfter timeoutSeconds $ do
+        putTextLn "Starting benchmark"
+        let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
+        let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
+        let parties = Set.fromList (deriveParty <$> hydraKeys)
+        withOSStats workDir $
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
+            putTextLn "Seeding network"
+            hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
+            let contestationPeriod = UnsafeContestationPeriod 10
+            withHydraCluster tracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+              let clients = leader : followers
+              waitForNodesConnected tracer clients
 
-                waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
-                  output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
+              putTextLn "Initializing Head"
+              send leader $ input "Init" []
+              headId <-
+                waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
+                  headIsInitializingWith parties
 
-                putTextLn "HeadIsOpen"
-                processedTransactions <- processTransactions clients dataset
+              putTextLn "Comitting initialUTxO from dataset"
+              expectedUTxO <- commitUTxO clients dataset
 
-                putTextLn "Closing the Head"
-                send leader $ input "Close" []
+              waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
+                output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
 
-                deadline <- waitMatch 300 leader $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsClosed"
-                  guard $ v ^? key "headId" == Just (toJSON headId)
-                  v ^? key "contestationDeadline" . _JSON
+              putTextLn "HeadIsOpen"
+              processedTransactions <- processTransactions clients dataset
 
-                -- Expect to see ReadyToFanout within 3 seconds after deadline
-                remainingTime <- diffUTCTime deadline <$> getCurrentTime
-                waitFor tracer (remainingTime + 3) [leader] $
-                  output "ReadyToFanout" ["headId" .= headId]
+              putTextLn "Closing the Head"
+              send leader $ input "Close" []
 
-                putTextLn "Finalizing the Head"
-                send leader $ input "Fanout" []
-                waitMatch 100 leader $ \v -> do
-                  guard (v ^? key "tag" == Just "HeadIsFinalized")
-                  guard $ v ^? key "headId" == Just (toJSON headId)
+              deadline <- waitMatch 300 leader $ \v -> do
+                guard $ v ^? key "tag" == Just "HeadIsClosed"
+                guard $ v ^? key "headId" == Just (toJSON headId)
+                v ^? key "contestationDeadline" . _JSON
 
-                let res = mapMaybe analyze . Map.toList $ processedTransactions
-                    aggregates = movingAverage res
+              -- Expect to see ReadyToFanout within 3 seconds after deadline
+              remainingTime <- diffUTCTime deadline <$> getCurrentTime
+              waitFor tracer (remainingTime + 3) [leader] $
+                output "ReadyToFanout" ["headId" .= headId]
 
-                writeResultsCsv (workDir </> "results.csv") aggregates
+              putTextLn "Finalizing the Head"
+              send leader $ input "Fanout" []
+              waitMatch 100 leader $ \v -> do
+                guard (v ^? key "tag" == Just "HeadIsFinalized")
+                guard $ v ^? key "headId" == Just (toJSON headId)
 
-                -- TODO: Create a proper summary
-                let confTimes = map (\(_, _, a) -> a) res
-                    below1Sec = filter (< 1) confTimes
-                    avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-                    percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-                putTextLn $ "Confirmed txs: " <> show (length confTimes)
-                putTextLn $ "Average confirmation time: " <> show avgConfirmation
-                putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-                percentBelow1Sec `shouldSatisfy` (> 90)
+              let res = mapMaybe analyze . Map.toList $ processedTransactions
+                  aggregates = movingAverage res
+
+              writeResultsCsv (workDir </> "results.csv") aggregates
+
+              let confTimes = map (\(_, _, a) -> a) res
+                  numberOfTxs = length confTimes
+                  below100ms = filter (< 0.1) confTimes
+                  averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
+                  percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
+              pure $ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}
 
 -- | Collect OS-level stats while running some 'IO' action.
 --
@@ -159,15 +166,18 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
 -- @@
 --
 -- TODO: add more data points for memory and network consumption
-withOSStats :: FilePath -> IO () -> IO ()
+withOSStats :: FilePath -> IO a -> IO a
 withOSStats workDir action =
   findExecutable "dstat" >>= \case
     Nothing -> action
     Just exePath ->
       withCreateProcess (process exePath){std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
-        race_
+        race
           (collectStats out $ workDir </> "system.csv")
           action
+          >>= \case
+            Left () -> failure "dstat process failed unexpectedly"
+            Right a -> pure a
  where
   process exePath = (proc exePath ["-cm", "-n", "-N", "lo", "--integer", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
 
@@ -362,18 +372,18 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
  where
   go remainingIds
     | Set.null remainingIds = do
-      putStrLn "All transactions confirmed. Sweet!"
+        putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
-      waitForSnapshotConfirmation >>= \case
-        TxValid{transaction} -> do
-          validTx processedTxs (txId transaction)
-          go remainingIds
-        TxInvalid{transaction} -> do
-          atomically $ writeTBQueue submissionQ transaction
-          go remainingIds
-        SnapshotConfirmed{transactions} -> do
-          confirmedIds <- mapM (confirmTx processedTxs) transactions
-          go $ remainingIds \\ Set.fromList confirmedIds
+        waitForSnapshotConfirmation >>= \case
+          TxValid{transaction} -> do
+            validTx processedTxs (txId transaction)
+            go remainingIds
+          TxInvalid{transaction} -> do
+            atomically $ writeTBQueue submissionQ transaction
+            go remainingIds
+          SnapshotConfirmed{transactions} -> do
+            confirmedIds <- mapM (confirmTx processedTxs) transactions
+            go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
