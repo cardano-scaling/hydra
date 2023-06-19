@@ -27,7 +27,7 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 -- * Extras
 
 -- | Get the UTxO that are produced by some transaction.
--- NOTE: Defined here to avoid cyclic module dependency
+-- XXX: Defined here to avoid cyclic module dependency
 utxoProducedByTx :: Tx Era -> UTxO
 utxoProducedByTx tx =
   UTxO.fromPairs $

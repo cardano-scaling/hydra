@@ -212,7 +212,7 @@ The node provides the http endpoint at the `/commit` path of the internal api se
 ### Fuel
 
 :::warning Fuel is deprecated and will be removed in future Hydra versions.
-Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
 :::
 
 Finally, one last bit necessary to get Hydra nodes all working regards their _internal wallet_. Indeed, Hydra-nodes currently come with a rudimentary wallet which they use for fueling transactions driving the Head lifecycle (Init, Commit, Close, Fanout...). Since those transactions happen on the layer 1, they cost money!

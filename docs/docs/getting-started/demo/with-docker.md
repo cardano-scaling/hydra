@@ -56,8 +56,9 @@ You can verify that the node is up-and-running by checking the logs with `docker
 
 ## Seeding The Network
 
-> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
-> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+:::warning Fuel is deprecated and will be removed in future Hydra versions.
+Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
+:::
 
 In the current stage of development, Hydra nodes need a specially crafted set of UTXO to drive the Head protocol ("fuel"), and of course, some UTXO to be committed to the Head.
 We include a script `seed-devnet.sh` that uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries to commit and some fuel UTXO.

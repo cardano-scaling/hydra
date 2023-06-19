@@ -11,7 +11,6 @@ module Cardano.Api.UTxO where
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import qualified Cardano.Api
 import Data.Coerce (coerce)
-import Data.List (sortOn)
 import qualified Data.List as List
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -89,7 +88,7 @@ maxLovelaceUTxO :: UTxO -> UTxO
 maxLovelaceUTxO utxo =
   case Map.toList $ toMap utxo of
     [] -> error "Empty UTxO has no maximum value."
-    as -> fromPairs [List.head $ sortOn sortingCriteria as]
+    as -> fromPairs [List.head $ List.sortOn sortingCriteria as]
  where
   sortingCriteria (_, TxOut _ v _ _) = txOutValueToLovelace v
 

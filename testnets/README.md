@@ -24,7 +24,7 @@ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat c
 ```
 
 > **Warning** Fuel is deprecated and will be removed in future Hydra versions.
-> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+> Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
 
 
 With these available we can now mark them as fuel and fork of some ADA to be committable into a hydra head. In this example we prepare some 500ADA (minus fees):

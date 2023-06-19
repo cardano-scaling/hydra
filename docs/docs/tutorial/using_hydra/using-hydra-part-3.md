@@ -63,8 +63,9 @@ cat test-head/Bob/BobCardano.addr
 ```
 
 
-> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
-> Please take a look at [external-commits](https://hydra.family/getting-started/quickstart#external-commits)
+:::warning Fuel is deprecated and will be removed in future Hydra versions.
+Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
+:::
 
 we extract the information needed to fill in the `"utxo"` fields for both parties. Do not commit the UTxO that is marked as fuel, it has a `TxOutDatumHash ScriptDataInBabbageEra` at its output. Currently, it also not possible to commit a UTxO partially, currently this action has to be done before initializing the wallets.
 

@@ -708,6 +708,8 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
     ScriptWitness = Cardano.Api.ScriptWitness
 
 -- | Sign transaction using the provided secret key
+-- It only works for tx not containing scripts.
+-- You can't sign a script utxo with this.
 signTx ::
   SigningKey PaymentKey ->
   Tx ->
