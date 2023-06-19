@@ -348,12 +348,6 @@ jobs:
         name: benchmarks
         path: docs/docs/benchmarks
 
-    - name: 📥 Download haddock documentation
-      uses: actions/download-artifact@v3
-      with:
-        name: haddocks
-        path: docs/docs/haddock
-
     - name: 📥 Download test results
       uses: actions/download-artifact@v3
       with:
@@ -365,6 +359,14 @@ jobs:
       with:
         name: hydra-spec
         path: docs/docs/
+
+    - name: 📥 Download haddock documentation
+      uses: actions/download-artifact@v3
+      with:
+        name: haddocks
+        # NOTE: Haddocks are external links in the docs, hence they need to be
+        # built into the page via the static directory
+        path: docs/static/haddock
 
     - name: 📚 Documentation sanity check
       working-directory: docs

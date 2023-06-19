@@ -34,16 +34,16 @@ $ yarn build
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
-Note that this will have quite some broken links as we are referring to
-generated documentation, test data and benchmarks. To put these artifacts at the
-right place before, you can use these `nix` builds from the repository root:
+Note that this will have quite some broken links as we are referring to generated documentation, test data and benchmarks. To put these artifacts at the right place before, you can use these `nix` builds from the repository root:
 
-```console
-nix build .#spec && ln -s $(readlink result)/hydra-spec.pdf docs/docs/hydra-spec.pdf
-nix build ".?submodules=1#haddocks" -o docs/docs/haddock
+```sh
+nix build .#spec && ln -sf $(readlink result)/hydra-spec.pdf docs/docs/hydra-spec.pdf
 
 (cd hydra-node; nix develop ".?submodules=1#benchs.hydra-node" --command tx-cost --output-directory $(pwd)/../docs/docs/benchmarks)
+
 (cd hydra-cluster; nix develop ".?submodules=1#benchs.hydra-cluster" --command bench-e2e --scaling-factor 1 --output-directory $(pwd)/../docs/docs/benchmarks)
+
+nix build ".?submodules=1#haddocks" -o docs/static/haddock
 ```
 
 # Translating
