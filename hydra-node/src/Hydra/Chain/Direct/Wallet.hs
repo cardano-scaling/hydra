@@ -54,7 +54,6 @@ import Hydra.Cardano.Api (
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   UTxO,
@@ -64,8 +63,6 @@ import Hydra.Cardano.Api (
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
@@ -149,7 +146,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
     TinyWallet
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelOrLargestUTxO <$> getUTxO
-      , sign = signWith sk
+      , sign = Api.signUsingKey sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
           -- wrong fee estimation should they change in between.
@@ -184,16 +181,6 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
   ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
-
--- TODO: This is very useful, put it into hydra-cardano-api
-signWith ::
-  Api.SigningKey Api.PaymentKey ->
-  Api.Tx ->
-  Api.Tx
-signWith signingKey (Api.Tx body wits) =
-  makeSignedTransaction (witness : wits) body
- where
-  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.

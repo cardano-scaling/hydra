@@ -30,10 +30,10 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
-import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
+import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure))
 import Network.HTTP.Req (JsonResponse, POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import qualified Network.HTTP.Req as Req
-import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
+import Network.HTTP.Simple (HttpException (HttpExceptionRequest))
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -181,22 +181,33 @@ externalCommit HydraClient{hydraNodeId} utxos =
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
-  response <-
-    failAfter 3 $ queryNode hydraNodeId
-  when (getResponseStatusCode response /= 200) $ failure ("Request for Hydra-node metrics failed :" <> show (getResponseBody response))
-  pure $ getResponseBody response
+  response <- failAfter 3 $ queryNode hydraNodeId
+  let respBody = Req.responseBody response
+  when (Req.responseStatusCode response /= 200) $
+    failure ("Request for Hydra-node metrics failed :" <> show respBody)
+  pure respBody
 
-queryNode :: Int -> IO (Response ByteString)
+queryNode :: Int -> IO Req.BsResponse
 queryNode nodeId =
-  -- TODO: use 'req' library here as well
-  parseRequest ("http://127.0.0.1:" <> show (6000 + nodeId) <> "/metrics") >>= loop
+  request >>= loop
  where
-  loop request =
-    httpBS request `catch` onConnectionFailure (loop request)
+  request =
+    pure $
+      runReq
+        defaultHttpConfig
+        ( Req.req
+            Req.GET
+            (Req.http "127.0.0.1" /: "metrics")
+            Req.NoReqBody
+            Req.bsResponse
+            (Req.port $ 6000 + nodeId)
+        )
+  loop r =
+    r `catch` onConnectionFailure (loop r)
 
   onConnectionFailure cont = \case
-    (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
-    e -> throwIO e
+    (Req.VanillaHttpException _) -> threadDelay 100_000 >> cont
+    (Req.JsonHttpException _) -> threadDelay 100_000 >> cont
 
 data EndToEndLog
   = NodeStarted {nodeId :: Int}

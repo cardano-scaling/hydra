@@ -706,3 +706,13 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
   Cardano.Api.ScriptWitness scriptWitnessInCtx scriptWitness
   where
     ScriptWitness = Cardano.Api.ScriptWitness
+
+-- | Sign transaction using the provided secret key
+signUsingKey ::
+  SigningKey PaymentKey ->
+  Tx ->
+  Tx
+signUsingKey signingKey (Tx body wits) =
+  makeSignedTransaction (witness : wits) body
+ where
+  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)

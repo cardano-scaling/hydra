@@ -171,7 +171,6 @@ spec = around showLogsOnFailure $ do
                 seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                 seedFromFaucet_ node bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
                 seedFromFaucet_ node carolCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-                -- TODO: remove fuel marking
 
                 send n1 $ input "Init" []
                 headId <-

@@ -26,7 +26,8 @@ head again.
 - **BREAKING** Server outputs only transaction ids when issueing a `SnapshotConfirmed` notification to clients.
 
 - Fuel removal - we no longer require marking of some utxo as `Fuel`. Internal
-  hydra transactions are paid using one of the present internal wallet utxos.
+  hydra transactions are paid either by using the largest internal wallet utxo
+  or existing fuel marked utxo (deprecated).
 
 - **BREAKING** Allow to commit multiple `UTxO`:
   + This changes `hydra-plutus` scripts to allow commit transactions which spend

@@ -18,7 +18,7 @@ import Hydra.Cardano.Api (
   selectLovelace,
  )
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -156,7 +156,7 @@ singlePartyCommitsUsingFuel tracer workDir node hydraScriptsTxId =
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
 
     -- submit the tx using alice's public key to get a utxo to commit
-    utxoToCommit <- seedFromFaucet node alicesVk 2_000_000 Normal (contramap FromFaucet tracer)
+    utxoToCommit <- seedFromFaucet node alicesVk 2_000_000 Fuel (contramap FromFaucet tracer)
 
     let hydraNodeId = 1
 
