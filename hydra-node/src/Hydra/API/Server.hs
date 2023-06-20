@@ -377,7 +377,7 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      eCommitTx <- draftCommitTx $ convertDraftUTxO <$> draftUTxO'
+      eCommitTx <- draftCommitTx $ convertDraftUTxO draftUTxO'
       respond $
         case eCommitTx of
           Left e ->
@@ -393,4 +393,5 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
   return400 = responseLBS status400 [] . Aeson.encode . toJSON
+
   Chain{draftCommitTx} = directChain

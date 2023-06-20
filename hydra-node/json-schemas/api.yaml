@@ -751,7 +751,7 @@ components:
           utxos:
             type: array
             items:
-              $ref: "#/components/schemas/DraftUTxO"
+              $ref: "#/components/schemas/UTxO"
 
     DraftCommitTxResponse:
       title: DraftCommitTxResponse
@@ -1606,22 +1606,6 @@ components:
                 }
             }
         }
-
-    DraftUTxO:
-      type: object
-      description: |
-        UTxO data needed to spend user provided utxo
-      required:
-        - draftTxIn
-        - draftTxOut
-        - draftScriptInfo
-      properties:
-        draftTxIn:
-          $ref: "#/components/schemas/TxIn"
-        draftTxOut:
-          $ref: "#/components/schemas/TxOut"
-        draftScriptInfo:
-          $ref: "#/components/schemas/ScriptInfo"
 
     ScriptInfo:
       description: |
