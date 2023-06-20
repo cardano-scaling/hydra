@@ -1,0 +1,52 @@
+openapi: 3.0.0
+
+info:
+  version: 0.9.0
+  title: Hydra REST Api
+  description: Hydra node REST api documentation
+
+servers:
+  - url: https://0.0.0.0:4001
+
+paths:
+  /commit:
+    post:
+      description: Draft a commit transaction using user provided utxo.
+      summary: Draft a commit transaction using user provided utxo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - utxos
+                - tag
+              properties:
+                tag:
+                  type: string
+                utxos:
+                  type: object
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commitTx:
+                    type: string
+                  tag:
+                    type: string
+        '400':
+          description: User error occurred.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tag:
+                    type: string
+        '500':
+          description: Internal Error occurred.

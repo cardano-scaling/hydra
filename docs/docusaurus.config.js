@@ -134,6 +134,29 @@ const config = {
         editLocalizedFiles: true,
       }),
     ],
+    [
+      "content-docs",
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: "openapi",
+        path: "openapi",
+        routeBasePath: "openapi",
+        editUrl,
+        editLocalizedFiles: true,
+      }),
+    ],
+    [ "docusaurus-plugin-openapi-docs",
+      {
+        id: "apiDocs",
+        docsPluginId: "classic",
+        config: {
+          petstore: {
+            specPath: "../hydra-node/json-schemas/openapi.yaml", // Path to designated spec file
+            outputDir: "./openapi", // Output directory for generated .mdx docs
+          },
+        }
+      }
+    ]
   ],
 
   themeConfig:
