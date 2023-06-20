@@ -68,9 +68,6 @@ ssh -t example docker run --rm -it \
 
 ## Fuel up and open a head
 
-> **Warning** Fuel is deprecated and will be removed in future Hydra versions.
-> Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
-
 To continue, you will need to have some "fuel" UTxO owned by the `--cardano-signing-key` available to the `hydra-node`. See [testnet instructions](../../testnets/README.md) on how to do that.
 
 Then, we can open the Head usin the TUI and commit some funds into it. If you have other participants in the head with you, they will need to commit something (or opt for nothing).
