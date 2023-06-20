@@ -59,7 +59,7 @@ off-chain protocol logic relies on these assumptions:
 	      need to consider these situations (i.e.\ potential for DoS). A valid reaction
         to this would be to just drop these events. Note that, from a security standpoint,
         these situations are identical to a non-collaborative peer and closing the head
-        is also a possible reaction. 
+        is also a possible reaction.
 	\item The lifecycle of a Hydra head on-chain does not cross (hard fork)
 	      protocol update boundaries. Note that these events are announced in
 	      advance hence it should be possible for implementations to react in such
@@ -162,7 +162,7 @@ client of the protocol can submit a new transaction $\tx$ to the head, which
 results in it being sent out to all parties as a $(\hpRT,\tx)$ message.\\
 
 \dparagraph{$\hpRT$.}\quad Upon receiving request $(\hpRT,\tx)$, the transaction
-gets recorded in $\barmT$ and applied to the local \emph{seen} ledger state
+gets recorded in $\hatmT$ and applied to the local \emph{seen} ledger state
 $\hatmL \applytx \tx$. If there is no current snapshot ``in flight''
 ($\hats = \bars$) and the receiving party $\party_{i}$ is the next snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
@@ -171,9 +171,9 @@ leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 party $\party_j$, the receiver $\party_i$ checks that $s$ is the next snapshot
 number and that party $\party_j$ is responsible for leading its
 creation.\todo{define $\hpLdr$} Party $\party_i$ then waits until the previous
-snapshot is confirmed ($\bars = \hats$) and all requested transactions
-$\mT_{res}$ are applicable to $\barmU$. % XXX: this is pointless as we would
-% have all the transaction submitted and needs to be applicable
+snapshot is confirmed ($\bars = \hats$), all requested transactions
+$\mT_{res}$ are applicable to $\barmU$, and all requested transactions have
+been seen ($\mT_{res} \subseteq \hatmT$).
 Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets the
 signature accumulator $\hatSigma$, and computes the UTxO set $\hatmU$ of the new
 (seen) snapshot as $\hatmU \gets \barmU \applytx \mT_{res}$. Then, $\party_i$
