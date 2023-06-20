@@ -133,7 +133,6 @@ library
     , directory
     , filepath
     , hspec-expectations
-    , http-conduit
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
@@ -263,30 +262,30 @@ benchmark bench-e2e
   type:               exitcode-stdio-1.0
   other-modules:      Bench.EndToEnd
   build-depends:
-                  HUnit
-                , QuickCheck
-                , aeson
-                , base                  >=4.7 && <5
-                , bytestring
-                , cardano-crypto-class
-                , containers
-                , directory
-                , filepath
-                , hspec
-                , hydra-cardano-api
-                , hydra-cluster
-                , hydra-node
-                , hydra-prelude
-                , hydra-test-utils
-                , io-classes
-                , lens
-                , lens-aeson
-                , optparse-applicative
-                , process
-                , regex-tdfa
-                , scientific
-                , strict-containers
-                , time
+    , aeson
+    , base                  >=4.7 && <5
+    , bytestring
+    , cardano-crypto-class
+    , containers
+    , directory
+    , filepath
+    , hspec
+    , HUnit
+    , hydra-cardano-api
+    , hydra-cluster
+    , hydra-node
+    , hydra-prelude
+    , hydra-test-utils
+    , io-classes
+    , lens
+    , lens-aeson
+    , optparse-applicative
+    , process
+    , QuickCheck
+    , regex-tdfa
+    , scientific
+    , strict-containers
+    , time
 
   build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

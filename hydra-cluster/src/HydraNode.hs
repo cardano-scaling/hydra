@@ -30,7 +30,7 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import qualified Hydra.Network as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
-import Network.HTTP.Req (JsonResponse, POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
+import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import qualified Network.HTTP.Req as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
@@ -179,33 +179,18 @@ externalCommit HydraClient{hydraNodeId} utxos =
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
-  response <- failAfter 3 $ queryNode hydraNodeId
-  let respBody = Req.responseBody response
-  when (Req.responseStatusCode response /= 200) $
-    failure ("Request for Hydra-node metrics failed :" <> show respBody)
-  pure respBody
-
-queryNode :: Int -> IO Req.BsResponse
-queryNode nodeId =
-  request >>= loop
+  failAfter 3 $
+    try (runReq defaultHttpConfig request) >>= \case
+      Left (e :: HttpException) -> failure $ "Request for hydra-node metrics failed: " <> show e
+      Right body -> pure $ Req.responseBody body
  where
   request =
-    pure $
-      runReq
-        defaultHttpConfig
-        ( Req.req
-            Req.GET
-            (Req.http "127.0.0.1" /: "metrics")
-            Req.NoReqBody
-            Req.bsResponse
-            (Req.port $ 6000 + nodeId)
-        )
-  loop r =
-    r `catch` onConnectionFailure (loop r)
-
-  onConnectionFailure cont = \case
-    (Req.VanillaHttpException _) -> threadDelay 100_000 >> cont
-    (Req.JsonHttpException _) -> threadDelay 100_000 >> cont
+    Req.req
+      GET
+      (Req.http "127.0.0.1" /: "metrics")
+      NoReqBody
+      Req.bsResponse
+      (Req.port $ 6000 + hydraNodeId)
 
 data EndToEndLog
   = NodeStarted {nodeId :: Int}
