@@ -117,14 +117,14 @@ This sections gives a detailed description of the artifacts mentioned above in t
 
 The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplifications have been introduced and generalizations removed.
 
-The [Hydra Head specification](https://www.overleaf.com/read/bbqzmptcxryj) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+The [Hydra Head specification](/core-concepts/specification) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
 
 ### Artifact 2: Hydra Head Protocol Implementation
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
-* Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
-* Version ready to be audited: Any [release](https://github.com/input-output-hk/hydra/releases) after version 0.9.0
+- Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
+- Version ready to be audited: Any [release](https://github.com/input-output-hk/hydra/releases) after version 0.10.0
 
 The following parts are described below:
  - Hydra plutus scripts (on-chain code)
