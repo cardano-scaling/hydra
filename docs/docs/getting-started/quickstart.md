@@ -23,7 +23,7 @@ This image contains both `cardano-node` and `cardano-cli`. The latter is handy t
 The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use the `--help` option to get a description of all options:
 
 ```
-
+hydra-node - Implementation of the Hydra Head protocol
 
 Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
@@ -86,8 +86,10 @@ Available options:
                            (default: "node.socket")
   --cardano-signing-key FILE
                            Cardano signing key of our hydra-node. This will be
-                           used to 'fuel' and sign Hydra protocol transactions,
-                           as well as commit UTxOs from. (default: "cardano.sk")
+                           used to authorize Hydra protocol transactions for
+                           heads the node takes part in and any funds owned by
+                           this key will be used as 'fuel'.
+                           (default: "cardano.sk")
   --cardano-verification-key FILE
                            Cardano verification key of another party in the
                            Head. Can be provided multiple times, once for each
@@ -122,9 +124,6 @@ Available commands:
                             ┃    This costs money. About 50 Ada.    ┃
                             ┃ Spent using the provided signing key. ┃
                             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-
-
 ```
 
 :::info Dynamic Configuration
@@ -203,40 +202,50 @@ We provide existing files in [hydra-cluster/config](https://github.com/input-out
 Note that many of protocol-parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
 :::
 
-### External commits
-
-Hydra node allows the users to commit utxo using their own wallet. This removes the need to mark some specific utxo as _fuel_ to drive L1 transactions. Now it is the users obligation to provide enough funds for a key specified with the `--cardano-signing-key` hydra-node flag since this key is used to pay for all L1 transactions.
-
-The node provides the http endpoint at the `/commit` path of the internal api server which can accept multiple user utxos (belonging to public key or script address) to commit to a Head after the `Initialization` phase. Hydra-node sends back a draft transaction which is expected to be submitted to a network by the user. Please take a look at the [api documentation](https://hydra.family/head-protocol/api-reference) and specifically `DraftCommitTxRequest/Response` to get more insights.
-
 ### Fuel
 
-:::warning Fuel is deprecated and will be removed in future Hydra versions.
-Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits)
+Finally, one last bit necessary to get Hydra nodes up and running is to fuel them up! All the transactions driving the Head lifecycle (Init, Commit, Close, ...) need to be submitted to the layer 1, and hence they cost money!
+
+For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of the this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
+
+<TerminalWindow>
+
+```sh
+cardano-cli address build --verification-key-file cardano.vk --mainnet
+# addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
+```
+
+</TerminalWindow>
+
+:::warning Old fuel
+Marking fuel using datum hashes is not needed anymore as support for committing
+directly from it will be removed in future Hydra versions.
+Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits).
 :::
 
-Finally, one last bit necessary to get Hydra nodes all working regards their _internal wallet_. Indeed, Hydra-nodes currently come with a rudimentary wallet which they use for fueling transactions driving the Head lifecycle (Init, Commit, Close, Fanout...). Since those transactions happen on the layer 1, they cost money!
+To distinguish fuel from outputs to be committable by the `hydra-node`, we used
+to mark one output with a specific datum hash:
 
-For now, this is managed internally by the Hydra's wallet, but it needs some help. The Cardano keys provided to the node are expected to hold funds. More specifically, at least one UTxO entry, marked with a specific datum hash:
-
-```bash title="Fuel datum hash"
+```sh title="Fuel datum hash"
 a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3
 ```
 
-Conveniently (at least, as much as it can possibly be right now), we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO. Note that the marker is necessary because, the Cardano keys are expected to hold funds necessary for commits as well, however unmarked.
+To create such an output, we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO.
 
 For easy scripting purpose, `hydra-tools` provide a dedicated command to output the current marker datum hash:
 
-```mdx-code-block
 <TerminalWindow>
+
+```sh
 hydra-tools marker-hash
-> "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
-</TerminalWindow>
+# "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
 ```
 
-:::info About commits
-In the long-run, we'll [move commits outside of the Hydra node](https://github.com/input-output-hk/hydra/issues/215) to be done by external wallets (likely through wallets following the [CIP-0030](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0030) standard).
-:::
+</TerminalWindow>
+
+## External commits
+
+While the `hydra-node` holds funds to fuel protocol transactions, any wallet can be used to commit funds into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify multiple UTxO (belonging to public key or script address) and returns a draft transaction. This transaction is already balanced and all fees are paid by the funds held by the `hydra-node`, but is missing witnesses for the public key outputs to commit. Hence, an integrated wallet would need to sign this transaction and submit it to the Cardano network. See the [api documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
 ## Generating transactions for the WebSocket API
 

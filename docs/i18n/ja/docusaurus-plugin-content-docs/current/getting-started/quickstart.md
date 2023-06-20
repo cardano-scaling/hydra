@@ -23,6 +23,7 @@ Cardano ノードの実行には、コンテナや[公式 Docker イメージ](h
 `hydra-node` の構成全体は、コマンドライン オプションを使用して提供されます。 オプションは、ネットワーク、API、チェーン接続、および使用される台帳のさまざまな要素を構成するために使用されます。 `--help` オプションを使用して、すべてのオプションの説明を取得できます。
 
 ```
+hydra-node - Implementation of the Hydra Head protocol
 
 Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
                     [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
@@ -85,8 +86,10 @@ Available options:
                            (default: "node.socket")
   --cardano-signing-key FILE
                            Cardano signing key of our hydra-node. This will be
-                           used to 'fuel' and sign Hydra protocol transactions,
-                           as well as commit UTxOs from. (default: "cardano.sk")
+                           used to authorize Hydra protocol transactions for
+                           heads the node takes part in and any funds owned by
+                           this key will be used as 'fuel'.
+                           (default: "cardano.sk")
   --cardano-verification-key FILE
                            Cardano verification key of another party in the
                            Head. Can be provided multiple times, once for each
@@ -121,7 +124,6 @@ Available commands:
                             ┃    This costs money. About 50 Ada.    ┃
                             ┃ Spent using the provided signing key. ┃
                             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
 ```
 
 :::info Dynamic Configuration
@@ -163,24 +165,59 @@ cardano-cli address key-gen --verification-key-file cardano.vk --signing-key-fil
 ほとんどのプロトコルパラメータは、まず第一に Genesis パラメータであるため、2 つのファイルの間に少し重複があることに注意してください。さらに、これらのパラメーターの多くは、Hydra のコンテキストでは実際には無関係です（たとえば、Head の中に金庫やステークプールがないため、報酬インセンティブまたは委任ルールを構成するパラメーターは使用できません）。
 :::
 
-### 燃料
+### Fuel
 
-最後に、Hydra ノードがすべて動作するために必要なもう 1 つのことは、内部ウォレットについてです。実際、Hydra ノードには現在初歩的なウォレットが付属しており、Head ライフサイクル（Init, Commit, Close, Fanout...）を駆動するトランザクションの燃料として利用されています。これらのトランザクションはレイヤー 1 で発生するので、お金がかかります。
+Finally, one last bit necessary to get Hydra nodes up and running is to fuel them up! All the transactions driving the Head lifecycle (Init, Commit, Close, ...) need to be submitted to the layer 1, and hence they cost money!
 
-今のところ、これは Hydra のウォレットによって内部的に管理されていますが、いくつかの助けが必要です。ノードに提供される Cardano キーは、資金を保持することが期待されています。具体的には、特定のデータムハッシュでマークされた、少なくとも 1 つの UTxO エントリーがあります。
+For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of the this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
 
-```bash title="Fuel datum hash"
+<TerminalWindow>
+
+```sh
+cardano-cli address build --verification-key-file cardano.vk --mainnet
+# addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
+```
+
+</TerminalWindow>
+
+:::warning Old fuel
+Marking fuel using datum hashes is not needed anymore as support for committing
+directly from it will be removed in future Hydra versions.
+Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits).
+:::
+
+To distinguish fuel from outputs to be committable by the `hydra-node`, we used
+to mark one output with a specific datum hash:
+
+```sh title="Fuel datum hash"
 a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3
 ```
 
-便利なことに（少なくとも、今できる限り）、cardano-cli を使用して通常の UTxO をマークされた燃料 UTxO に変換する[create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh)というスクリプトが用意されています。マーカーが必要な理由は、Cardano の鍵はコミットに必要な資金も保持することが期待されるからです（ただし、マークされていません）
+To create such an output, we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO.
 
-:::info About commits
-長期的には、私たちは[Hydra ノード外のコミットを移動](https://github.com/input-output-hk/hydra/issues/215)して、外部のウォレット（おそらく[CIP-0030](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0030)標準に従うウォレットを通じて）で行われるようにします。
-:::
+For easy scripting purpose, `hydra-tools` provide a dedicated command to output the current marker datum hash:
+
+<TerminalWindow>
+
+```sh
+hydra-tools marker-hash
+# "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
+```
+
+</TerminalWindow>
+
+## External commits
+
+While the `hydra-node` holds funds to fuel protocol transactions, any wallet can be used to commit funds into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify multiple UTxO (belonging to public key or script address) and returns a draft transaction. This transaction is already balanced and all fees are paid by the funds held by the `hydra-node`, but is missing witnesses for the public key outputs to commit. Hence, an integrated wallet would need to sign this transaction and submit it to the Cardano network. See the [api documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
 ## セットアップ例
 
 ### Google クラウドと Terraform
 
 クラウド上の仮想マシン上で Hydra ノードをホストするためのサンプルノード構成を[sample-node-config/](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/gcp/)ディレクトリに提供しています。 特に、このセットアップには [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) という仕様があり、cardano-node + hydra-node サービスを設定するための良いテンプレートが提供されています。また、クラスタをセットアップするための様々な便利なスクリプトも提供されています。
+
+## Running on Mainnet
+
+Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. We publish the hydra scripts on each new release and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
+
+Please be sure to read the [relevant section](/docs/known-issues) section to fully understand the limitations and consequences of running Hydra nodes on mainnet.

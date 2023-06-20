@@ -11,7 +11,7 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 Nous utiliserons [Docker](https://www.docker.com/get-started) et [compose](https://www.docker.com/get-started) pour cette démo, assurez-vous de les avoir disponibles dans votre terminal de commandes. Si vous ne souhaitez pas utiliser ou installer Docker, vous pouvez directement vous rendre sur [Démo: Sans Docker](/docs/getting-started/demo/without-docker) et mettre les mains dans le cambouis.
 
 :::info Shortcut
-Toutes ces étapes sont combinées dans un unique script `./run-docker.sh`. Ce script contient aussi quelques petites vérifications pour éviter de vous tirer une balle dans le pied avec certaines commandes. 
+Toutes ces étapes sont combinées dans un unique script `./run-docker.sh`. Ce script contient aussi quelques petites vérifications pour éviter de vous tirer une balle dans le pied avec certaines commandes.
 :::
 
 :::info Contexte
@@ -54,20 +54,13 @@ Le noeud Cardano crée un "réseau" privé et local qui démarre depuis un bloc 
 
 ## Générer des fonds
 
-En l'état actuel, les noeuds Hydra requièrent des UTxO dans une forme assez spécifique afin de pouvoir payer les transactions nécessaires au protocole (on appelle ces UTxO: "carburant"), ainsi que des fonds à consigner dans le contrat pour chaque participant. Parmi les fichiers, vous trouverez un script `./seed-devnet.sh` qui s'occupe de générer ces UTxOs pour chaque participant en utilisant la `cardano-cli`. 
+Parmi les fichiers, vous trouverez un script `./seed-devnet.sh` qui s'occupe de générer ces UTxOs pour chaque participant en utilisant la `cardano-cli`.
 
 ```mdx-code-block
 <TerminalWindow>
 ./seed-devnet.sh
 </TerminalWindow>
 ```
-
-:::info
-Les transactions générées par seed-devnet.sh n'ont rien de particulier, ce sont des transactions Cardano. Toutefois si vous deviez les générer vous-même, assurez vous qu'à chaque addresse générée à partir de la paire publique/privée associée à l'option `--cardano-signing-key` de chaque participant soient envoyés deux UTxOs :
-
-- Un UTxO simple, contenant des Ada ou actifs natifs;
-- Un UTxO ne contenant que des Ada et avec le datum hash suivant: `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3` (ce datum identifie les UTxOs réservés au "carburant").
-:::
 
 ## Démarrage des nœuds Hydra
 
