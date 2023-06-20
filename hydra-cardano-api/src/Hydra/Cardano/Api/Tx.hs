@@ -26,6 +26,19 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras
 
+-- | Sign transaction using the provided secret key
+-- It only works for tx not containing scripts.
+-- You can't sign a script utxo with this.
+signTx ::
+  IsShelleyBasedEra era =>
+  SigningKey PaymentKey ->
+  Tx era ->
+  Tx era
+signTx signingKey (Tx body wits) =
+  makeSignedTransaction (witness : wits) body
+ where
+  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
+
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency
 utxoProducedByTx :: Tx Era -> UTxO

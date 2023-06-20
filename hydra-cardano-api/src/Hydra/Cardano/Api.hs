@@ -706,15 +706,3 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
   Cardano.Api.ScriptWitness scriptWitnessInCtx scriptWitness
   where
     ScriptWitness = Cardano.Api.ScriptWitness
-
--- | Sign transaction using the provided secret key
--- It only works for tx not containing scripts.
--- You can't sign a script utxo with this.
-signTx ::
-  SigningKey PaymentKey ->
-  Tx ->
-  Tx
-signTx signingKey (Tx body wits) =
-  makeSignedTransaction (witness : wits) body
- where
-  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
