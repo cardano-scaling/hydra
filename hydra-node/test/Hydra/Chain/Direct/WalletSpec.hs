@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Data (Data (Data), Datum (DatumHash), hashData)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
@@ -33,11 +32,15 @@ import Hydra.Cardano.Api (
   SlotNo,
   VerificationKey,
   fromLedgerTx,
+  fromLedgerTxOut,
+  fromLedgerUTxO,
   genTxIn,
+  selectLovelace,
   shelleyBasedEra,
   toLedgerPParams,
   toLedgerTxIn,
   toLedgerUTxO,
+  txOutValue,
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
@@ -75,6 +78,7 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
+  (===),
  )
 import qualified Prelude
 
@@ -234,34 +238,33 @@ ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
 
 prop_picksCorrectUTxOToPayTheFees :: Property
 prop_picksCorrectUTxOToPayTheFees =
-  forAllBlind genUTxO $ \lookupUTxO ->
-    forAllBlind genMarkedUTxO $ \fuelUTxO ->
-      case findFuelOrLargestUTxO (Map.union lookupUTxO fuelUTxO) of
+  forAllBlind genUTxO $ \unmarked ->
+    forAllBlind genMarkedUTxO $ \marked -> do
+      let combinedUTxO = Map.union unmarked marked
+      case findFuelOrLargestUTxO combinedUTxO of
         Nothing ->
           property False
-            & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
-            & counterexample ("Fuel UTXO: \n" <> decodeUtf8 (encodePretty fuelUTxO))
-        Just (txin, txout) -> property $ Map.singleton txin txout == fuelUTxO
+            & counterexample ("No fuel in combined UTxO: \n" <> decodeUtf8 (encodePretty combinedUTxO))
+        Just (txin, txout) ->
+          Map.singleton txin txout === marked
 
 prop_picksLargestUTxOToPayTheFees :: Property
 prop_picksLargestUTxOToPayTheFees =
   forAllBlind genUTxO $ \utxo1 ->
     forAllBlind genUTxO $ \utxo2 -> do
-      let combinedUtxO = Map.union utxo1 utxo2
-      case findFuelOrLargestUTxO combinedUtxO of
+      let combinedUTxO = Map.union utxo1 utxo2
+      case findFuelOrLargestUTxO combinedUTxO of
         Nothing ->
           property False
-            & counterexample ("Sample UTXO: \n" <> decodeUtf8 (encodePretty combinedUtxO))
-        Just (txin, txout) ->
+            & counterexample ("No Fuel in combined UTxO: " <> decodeUtf8 (encodePretty combinedUTxO))
+        Just (_, txout) -> do
+          let foundLovelace = selectLovelace $ txOutValue (fromLedgerTxOut txout)
+              mapToLovelace = fmap (selectLovelace . txOutValue) . fromLedgerUTxO . Ledger.UTxO
           property $
-            largestUTxO == expectedLargestUTxO
-              & counterexample ("Sample UTXO: \n" <> decodeUtf8 (encodePretty combinedUtxO))
-              & counterexample ("Max found UTXO: \n" <> decodeUtf8 (encodePretty largestUTxO))
-              & counterexample ("findFuelOrLargestUTxO found UTXO: \n" <> decodeUtf8 (encodePretty expectedLargestUTxO))
-         where
-          fromLedgerUTxO = bimap Api.fromLedgerTxIn Api.fromLedgerTxOut
-          largestUTxO = UTxO.maxLovelaceUTxO $ UTxO.fromPairs $ fromLedgerUTxO <$> Map.toList combinedUtxO
-          expectedLargestUTxO = UTxO.singleton $ fromLedgerUTxO (txin, txout)
+            all (foundLovelace >=) (mapToLovelace utxo1)
+              && all (foundLovelace >=) (mapToLovelace utxo2)
+              & counterexample ("Found lovelace: " <> show foundLovelace)
+              & counterexample ("Found lovelace not greater than all of: " <> decodeUtf8 (encodePretty combinedUTxO))
 
 --
 -- Generators

@@ -28,7 +28,6 @@ import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import Cardano.Ledger.Mary.Value (gettriples')
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Serialization (mkSized)
 import Cardano.Ledger.Shelley.API (unUTxO)
@@ -63,6 +62,7 @@ import Hydra.Cardano.Api (
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
+  selectLovelace,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
@@ -363,33 +363,26 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
 findFuelOrLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
 findFuelOrLargestUTxO utxo =
-  case findFuelUTxO utxo of
-    Nothing ->
-      case UTxO.pairs $ UTxO.maxLovelaceUTxO apiUtxo of
-        [] -> Nothing
-        as ->
-          -- NOTE: pick the **FIRST** value from the sorted list.
-          Just $ bimap toLedgerTxIn toLedgerTxOut (List.head as)
-    Just fuelUTxO -> Just fuelUTxO
+  findFuelUTxO utxo <|> maxLovelaceUTxO apiUtxo
  where
   apiUtxo = UTxO.fromPairs $ bimap fromLedgerTxIn fromLedgerTxOut <$> Map.toList utxo
+
+  maxLovelaceUTxO =
+    fmap (bimap toLedgerTxIn toLedgerTxOut)
+      . listToMaybe
+      . List.sortOn (Down . selectLovelace . Api.txOutValue . snd)
+      . UTxO.pairs
+
   findFuelUTxO utxo' =
     let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo'
-        sortingCriteria (_, Babbage.BabbageTxOut _ v _ _) = fst' (gettriples' v)
-        sortedByValue = sortOn sortingCriteria utxosWithDatum
-     in case sortedByValue of
-          [] -> Nothing
-          as ->
-            -- NOTE: here we are picking the **LAST** entry we found for no
-            -- particular reason.
-            Just (List.last as)
+        lovelaceOfLedgerTxOut = \(Babbage.BabbageTxOut _ v _ _) -> coin v
+     in listToMaybe $ sortOn (Down . lovelaceOfLedgerTxOut . snd) utxosWithDatum
 
   hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
     NoDatum -> False
     DatumHash dh ->
       dh == hashData (Data @LedgerEra markerDatum)
     Datum{} -> False -- Marker is not stored inline
-  fst' (a, _, _) = a
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new

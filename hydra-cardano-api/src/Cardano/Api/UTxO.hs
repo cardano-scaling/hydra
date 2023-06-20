@@ -80,18 +80,6 @@ render (k, TxOut _ (txOutValueToValue -> v) _ _) =
 min :: UTxO -> UTxO
 min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 
--- | Select the maximum utxo entry (comparing on lovelace) from the UTxO map
--- after sorting the values.
---
--- NOTE: This function is partial.
-maxLovelaceUTxO :: UTxO -> UTxO
-maxLovelaceUTxO utxo =
-  case Map.toList $ toMap utxo of
-    [] -> error "Empty UTxO has no maximum value."
-    as -> fromPairs [List.head $ List.sortOn sortingCriteria as]
- where
-  sortingCriteria (_, TxOut _ v _ _) = txOutValueToLovelace v
-
 -- * Type Conversions
 
 fromApi :: Cardano.Api.UTxO Era -> UTxO
