@@ -69,7 +69,7 @@ cat test-head/Bob/BobCardano.addr
 ```
 
 :::warning Fuel is deprecated and will be removed in future Hydra versions.
-Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits).
+Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
 
 TODO: update tutorial and this section to commit from external wallet
 :::

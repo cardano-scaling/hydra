@@ -79,7 +79,7 @@ cardano-cli query utxo --address $(cat ./test-head/Bob/BobCardano.addr) --testne
 ```
 
 :::warning Fuel is deprecated and will be removed in future Hydra versions.
-Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits).
+Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
 :::
 
 Next we will mark some funds at each address so that the hydra-node can use these to pay for the hydra transactions and make sure that these are not committed in the head. Besides preventing having no funds left to close the head or contest to a false checkpoint, it also acts as the fuel for other stages of the protocol. These commands and script will make an output with a specific datum that the hydra node recognizes as fuel. Before we use the script make sure that `jq` is in your path, if not use

@@ -220,7 +220,7 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 :::warning Old fuel
 Marking fuel using datum hashes is not needed anymore as support for committing
 directly from it will be removed in future Hydra versions.
-Please take a look at [external-commits](/head-protocol/docs/getting-started/quickstart#external-commits).
+Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
 :::
 
 To distinguish fuel from outputs to be committable by the `hydra-node`, we used
