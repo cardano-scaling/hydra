@@ -184,6 +184,7 @@ setupNodeAndTUI' lovelace action =
           -- Fuel to pay hydra transactions
           seedFromFaucet_ node aliceCardanoVk lovelace Fuel (contramap FromFaucet tracer)
           -- Some ADA to commit
+          -- TODO: use commit from external wallet in TUI
           seedFromFaucet_ node aliceCardanoVk 42_000_000 Normal (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

@@ -351,8 +351,9 @@ cardanoSigningKeyFileParser =
         <> showDefault
         <> value "cardano.sk"
         <> help
-          "Cardano signing key of our hydra-node. This will be used to 'fuel' \
-          \and sign Hydra protocol transactions, as well as commit UTxOs from."
+          "Cardano signing key of our hydra-node. This will be used to authorize \
+          \Hydra protocol transactions for heads the node takes part in and any \
+          \funds owned by this key will be used as 'fuel'."
     )
 
 cardanoVerificationKeyFileParser :: Parser FilePath
@@ -553,7 +554,7 @@ hydraNodeCommand =
     )
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
-        <> header "hydra-node - A prototype of Hydra Head protocol"
+        <> header "hydra-node - Implementation of the Hydra Head protocol"
     )
  where
   versionInfo =

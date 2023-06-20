@@ -5,35 +5,31 @@ module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
 
-import CardanoClient (queryTip, submitTransaction)
+import CardanoClient (queryTip, submitTx)
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cardano.Api (
   Lovelace,
   TxId,
   selectLovelace,
  )
 import Hydra.Chain (HeadId)
-import Hydra.Chain.Direct.Wallet (signWith)
-import Hydra.Cluster.Faucet (Marked (Fuel, Normal), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (Marked (Fuel), queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (Tx, genKeyPair)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
-import Network.HTTP.Req
+import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import Test.Hspec.Expectations (shouldBe)
-import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -58,7 +54,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
-    send n1 $ input "Commit" ["utxo" .= object mempty]
+    externalCommit n1 mempty >>= submitTx cardanoNode
     waitFor tracer 10 [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
@@ -117,7 +113,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
       -- Commit nothing for now
-      send n1 $ input "Commit" ["utxo" .= object mempty]
+      externalCommit n1 mempty >>= submitTx node
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       -- Close head
@@ -143,49 +139,32 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
-singlePartyCommitsFromExternal ::
+-- | Ensures the _old_ way of committing (using Fuel) still works.
+singlePartyCommitsUsingFuel ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
   TxId ->
   IO ()
-singlePartyCommitsFromExternal tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+singlePartyCommitsUsingFuel tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
 
-    -- these keys should mimic external wallet keys needed to sign the commit tx
-    (externalVk, externalSk) <- generate genKeyPair
-    -- submit the tx using our external user key to get a utxo to commit
-    utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
+    (alicesVk, _) <- keysFor Alice
 
     let contestationPeriod = UnsafeContestationPeriod 100
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+
+    -- submit the tx using alice's public key to get a utxo to commit
+    utxoToCommit <- seedFromFaucet node alicesVk 2_000_000 Fuel (contramap FromFaucet tracer)
+
     let hydraNodeId = 1
 
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest @Tx utxoToCommit
-
-      response <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-            (port $ 4000 + hydraNodeId)
-
-      responseStatusCode response `shouldBe` 200
-
-      let DraftCommitTxResponse commitTx = responseBody response
-
-      -- sign and submit the tx with our external user key
-      let signedCommitTx = signWith externalSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
+      send n1 $ input "Commit" ["utxo" .= utxoToCommit]
 
       waitFor tracer 60 [n1] $
         output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
@@ -214,7 +193,7 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     send n1 $ input "Init" []
     headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
-    send n1 $ input "Commit" ["utxo" .= object mempty]
+    externalCommit n1 mempty >>= submitTx node
     waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head

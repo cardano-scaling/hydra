@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- | A cardano-node client used in end-to-end tests and benchmarks.
 --
 -- This modules contains some more functions besides the re-exported basic
@@ -13,8 +15,11 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
+import CardanoNode (NodeLog (..), RunningNode (..))
 import qualified Data.Map as Map
 import qualified Hydra.Chain.CardanoClient as CardanoClient
+import Hydra.Logging (Tracer, traceWith)
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 
@@ -70,6 +75,11 @@ sign signingKey body =
   makeSignedTransaction
     [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
+
+-- | Submit a transaction to a 'RunningNode'
+submitTx :: RunningNode -> Tx -> IO ()
+submitTx RunningNode{networkId, nodeSocket} =
+  submitTransaction networkId nodeSocket
 
 waitForPayment ::
   NetworkId ->
@@ -152,3 +162,25 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
         (lovelaceToValue ll)
         TxOutDatumNone
         ReferenceScriptNone
+
+-- | Wait until the node is fully caught up with the network. This can take a
+-- while!
+waitForFullySynchronized ::
+  Tracer IO NodeLog ->
+  RunningNode ->
+  IO ()
+waitForFullySynchronized tracer RunningNode{nodeSocket, networkId} = do
+  systemStart <- querySystemStart networkId nodeSocket QueryTip
+  check systemStart
+ where
+  check systemStart = do
+    targetTime <- toRelativeTime systemStart <$> getCurrentTime
+    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
+    tipSlotNo <- queryTipSlotNo networkId nodeSocket
+    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
+    let timeDifference = diffRelativeTime targetTime tipTime
+    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
+    traceWith tracer $ MsgSynchronizing{percentDone}
+    if timeDifference < 20 -- TODO: derive from known network and block times
+      then pure ()
+      else threadDelay 3 >> check systemStart

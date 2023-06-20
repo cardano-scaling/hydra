@@ -12,15 +12,42 @@ import Hydra.Cardano.Api.KeyWitness (
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Babbage.PParams as Ledger (_prices)
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
 import qualified Cardano.Ledger.Core as Ledger (PParams, Tx, hashScript)
+import Data.Bifunctor (bimap)
+import Data.Functor ((<&>))
 import qualified Data.Map as Map
+import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras
+
+-- | Sign transaction using the provided secret key
+-- It only works for tx not containing scripts.
+-- You can't sign a script utxo with this.
+signTx ::
+  IsShelleyBasedEra era =>
+  SigningKey PaymentKey ->
+  Tx era ->
+  Tx era
+signTx signingKey (Tx body wits) =
+  makeSignedTransaction (witness : wits) body
+ where
+  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
+
+-- | Get the UTxO that are produced by some transaction.
+-- XXX: Defined here to avoid cyclic module dependency
+utxoProducedByTx :: Tx Era -> UTxO
+utxoProducedByTx tx =
+  UTxO.fromPairs $
+    zip [0 ..] (txOuts body)
+      <&> bimap (mkTxIn tx) toCtxUTxOTxOut
+ where
+  TxBody body = getTxBody tx
 
 -- | Get explicit fees allocated to a transaction.
 --

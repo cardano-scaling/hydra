@@ -73,10 +73,6 @@ implemented has the following consequences:
   only commit up to 100 ADA into the Hydra head. This is only a safety
   precaution and is going to be increased as we gain more experience
   in running Hydra heads on the mainnet.
-- The internal wallet of `hydra-node` which is used to drive Hydra
-  protocol transactions requires a UTXO to be marked as "fuel" (see
-  [user
-  manual](/docs/getting-started/demo/with-docker/#seeding-the-network)
 
 ### hydra-tui
 

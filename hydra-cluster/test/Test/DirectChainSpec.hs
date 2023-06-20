@@ -119,6 +119,9 @@ spec = around showLogsOnFailure $ do
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 let aliceCommitment = 66_000_000
+                -- NOTE: This is still mimicking an "internal commit". It does
+                -- not matter at this level, but this could also use a different
+                -- keypair than the one given to the hydra-node/chain layer.
                 aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment Normal (contramap FromFaucet tracer)
 
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
@@ -181,6 +184,9 @@ spec = around showLogsOnFailure $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
+            -- NOTE: This is still mimicking an "internal commit". It does
+            -- not matter at this level, but this could also use a different
+            -- keypair than the one given to the hydra-node/chain layer.
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
@@ -351,6 +357,9 @@ spec = around showLogsOnFailure $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
+            -- NOTE: This is still mimicking an "internal commit". It does
+            -- not matter at this level, but this could also use a different
+            -- keypair than the one given to the hydra-node/chain layer.
             someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 Normal (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]

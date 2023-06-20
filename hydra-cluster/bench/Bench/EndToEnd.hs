@@ -7,6 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import CardanoClient (awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -28,20 +29,20 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
-import Hydra.Chain.CardanoClient (awaitTransaction, submitTransaction)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
-import Hydra.Generator (ClientDataset (..), Dataset (..))
+import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, withTracerOutputTo)
 import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (FromCardanoNode, FromFaucet),
   HydraClient,
+  externalCommit,
   hydraNodeId,
   input,
   output,
@@ -89,7 +90,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
-        let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
+        let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         withOSStats workDir $
@@ -108,7 +109,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
                   headIsInitializingWith parties
 
               putTextLn "Comitting initialUTxO from dataset"
-              expectedUTxO <- commitUTxO clients dataset
+              expectedUTxO <- commitUTxO node clients dataset
 
               waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                 output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
@@ -243,17 +244,21 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
     submitTransaction networkId nodeSocket fundingTransaction
     void $ awaitTransaction networkId nodeSocket fundingTransaction
 
-  fuelWith100Ada ClientDataset{signingKey} = do
+  fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
     seedFromFaucet node vk 100_000_000 Fuel tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
-commitUTxO :: [HydraClient] -> Dataset -> IO UTxO
-commitUTxO clients Dataset{clientDatasets} =
+commitUTxO :: RunningNode -> [HydraClient] -> Dataset -> IO UTxO
+commitUTxO node clients Dataset{clientDatasets} =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
-  doCommit (client, ClientDataset{initialUTxO}) = commit client initialUTxO
+  doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
+    externalCommit client initialUTxO
+      <&> signTx externalSigningKey
+      >>= submitTx node
+    pure initialUTxO
 
 processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)
 processTransactions clients Dataset{clientDatasets} = do
@@ -284,11 +289,6 @@ progressReport nodeId clientId queueSize queue = do
 --
 -- Helpers
 --
-
-commit :: HydraClient -> UTxO -> IO UTxO
-commit client initialUTxO = do
-  send client $ input "Commit" ["utxo" .= initialUTxO]
-  pure initialUTxO
 
 assignUTxO :: (UTxO, Int) -> Map.Map Int (HydraClient, UTxO) -> Map.Map Int (HydraClient, UTxO)
 assignUTxO (utxo, clientId) = Map.adjust appendUTxO clientId

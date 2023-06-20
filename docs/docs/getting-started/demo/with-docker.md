@@ -11,7 +11,7 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 We'll be using [Docker](https://www.docker.com/get-started) and [compose](https://www.docker.com/get-started) to get the demo running, so make sure you have them in scope or, jump right away to [Running The Demo: Without Docker](/docs/getting-started/demo/without-docker) if you feel like doing it the hard way.
 
 :::info Shortcut
-For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves. 
+For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.
 :::
 
 :::info Context
@@ -56,20 +56,15 @@ You can verify that the node is up-and-running by checking the logs with `docker
 
 ## Seeding The Network
 
-In the current stage of development, Hydra nodes need a specially crafted set of UTXO to drive the Head protocol ("fuel"), and of course, some UTXO to be committed to the Head.
-We include a script `seed-devnet.sh` that uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries to commit and some fuel UTXO.
+We include a script `seed-devnet.sh` that uses the `cardano-cli` in the already
+running `cardano-node` container to give Alice, Bob, and Carol some UTXO entries
+to commit and some fuel UTXO.
 
 ```mdx-code-block
 <TerminalWindow>
 ./seed-devnet.sh
 </TerminalWindow>
 ```
-
-:::info
-The seed transactions are just normal transactions, so one could use any other Cardano client to create them. Yet, they must have the following characteristics:
-Must pay outputs to commit to the key used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of hydra-node executable,
-One of the outputs must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`, as this is our "fuel" marker.
-:::
 
 ## Starting Hydra Nodes
 

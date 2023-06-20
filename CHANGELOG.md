@@ -23,8 +23,12 @@ following procedure to upgrade all the nodes running a head:
 Only when this procedure has been applied to all Hydra nodes can you open a new
 head again.
 
-- **BREAKING** Server outputs only transaction ids when issueing a
-  `SnapshotConfirmed` notification to clients
+- Fuel removal: 
+  + We no longer require marking of some utxo as `Fuel`.
+  + Internal hydra transactions are paid either by using the largest internal
+  wallet utxo or existing fuel marked utxo (deprecated).
+
+- **BREAKING** Server outputs only transaction ids when issueing a `SnapshotConfirmed` notification to clients.
 
 - **BREAKING** Allow to commit multiple `UTxO`:
   + This changes `hydra-plutus` scripts to allow commit transactions which spend

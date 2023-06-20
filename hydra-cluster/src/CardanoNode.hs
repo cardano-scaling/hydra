@@ -8,8 +8,6 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
-import CardanoClient (QueryPoint (QueryTip), queryEraHistory, querySystemStart, queryTipSlotNo)
 import Control.Lens ((^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
@@ -18,7 +16,7 @@ import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Aeson.Lens (key, _Number)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getProgress, getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
@@ -188,7 +186,6 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
   copyKnownNetworkFiles
   withCardanoNode tracer networkId workDir args $ \node -> do
-    waitForFullySynchronized tracer node
     traceWith tracer MsgNodeIsReady
     action node
  where
@@ -231,28 +228,6 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 
   knownNetworkPath =
     "cardano-configurations" </> "network" </> knownNetworkName
-
--- | Wait until the node is fully caught up with the network. This can take a
--- while!
-waitForFullySynchronized ::
-  Tracer IO NodeLog ->
-  RunningNode ->
-  IO ()
-waitForFullySynchronized tracer RunningNode{nodeSocket, networkId} = do
-  systemStart <- querySystemStart networkId nodeSocket QueryTip
-  check systemStart
- where
-  check systemStart = do
-    targetTime <- toRelativeTime systemStart <$> getCurrentTime
-    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
-    tipSlotNo <- queryTipSlotNo networkId nodeSocket
-    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
-    let timeDifference = diffRelativeTime targetTime tipTime
-    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
-    traceWith tracer $ MsgSynchronizing{percentDone}
-    if timeDifference < 20 -- TODO: derive from known network and block times
-      then pure ()
-      else threadDelay 3 >> check systemStart
 
 withCardanoNode ::
   Tracer IO NodeLog ->

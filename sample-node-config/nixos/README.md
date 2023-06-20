@@ -16,7 +16,7 @@ To use this, copy or symlink the `hydraw.nix` module and import it into your `Ni
   imports = [
     ./hydraw.nix
   ];
-  
+
   # ... the rest of your configuration.nix
 }
 ```

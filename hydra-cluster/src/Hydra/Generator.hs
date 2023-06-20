@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Generator where
 
@@ -13,7 +12,7 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, generateOneTransfer)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneTransfer)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -33,31 +32,40 @@ instance Arbitrary Dataset where
     sk <- genSigningKey
     genDatasetConstantUTxO sk defaultProtocolParameters (n `div` 10) n
 
-data ClientDataset = ClientDataset
+data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
-  , initialUTxO :: UTxO
-  , txSequence :: [Tx]
+  -- ^ Key used by the hydra-node to authorize hydra transactions and holding fuel.
+  , externalSigningKey :: SigningKey PaymentKey
+  -- ^ Key holding funds to commit.
   }
-  deriving (Show, Generic)
+  deriving (Show)
 
-instance ToJSON ClientDataset where
-  toJSON ClientDataset{initialUTxO, txSequence, signingKey} =
+instance ToJSON ClientKeys where
+  toJSON ClientKeys{signingKey, externalSigningKey} =
     object
       [ "signingKey" .= serialiseToBech32 signingKey
-      , "initialUTxO" .= initialUTxO
-      , "txSequence" .= txSequence
+      , "externalSigningKey" .= serialiseToBech32 externalSigningKey
       ]
 
-instance FromJSON ClientDataset where
+instance FromJSON ClientKeys where
   parseJSON =
-    withObject "ClientDataset" $ \o ->
-      ClientDataset
+    withObject "ClientKeys" $ \o ->
+      ClientKeys
         <$> (decodeSigningKey =<< o .: "signingKey")
-        <*> o .: "initialUTxO"
-        <*> o .: "txSequence"
+        <*> (decodeSigningKey =<< o .: "externalSigningKey")
    where
     decodeSigningKey =
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
+
+instance Arbitrary ClientKeys where
+  arbitrary = ClientKeys <$> genSigningKey <*> genSigningKey
+
+data ClientDataset = ClientDataset
+  { clientKeys :: ClientKeys
+  , initialUTxO :: UTxO
+  , txSequence :: [Tx]
+  }
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 defaultProtocolParameters :: ProtocolParameters
 defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
@@ -86,39 +94,35 @@ genDatasetConstantUTxO ::
   Int ->
   Gen Dataset
 genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
-  clientFunds <- replicateM nClients $ do
-    (_vk, sk) <- genKeyPair
-    amount <- Lovelace . fromIntegral <$> choose (1, availableInitialFunds `div` nClients)
-    pure (sk, amount)
-  -- Prepare funding transaction as it will be posted
+  clientKeys <- replicateM nClients arbitrary
+  -- Prepare funding transaction which will give every client's
+  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
+  -- funded in the beginning of the benchmark run.
+  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+    amount <- Lovelace <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
+    pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
         mkGenesisTx
           networkId
           pparams
           faucetSk
           (Lovelace availableInitialFunds)
-          (first getVerificationKey <$> clientFunds)
-  clientDatasets <- forM (zip clientFunds [0 ..]) (generateClientDataset fundingTransaction)
+          clientFunds
+  clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, clientDatasets}
  where
-  thrd (_, _, c) = c
-
-  generateClientDataset fundingTransaction ((sk, amount), index) = do
-    let vk = getVerificationKey sk
-        keyPair = (vk, sk)
-    -- NOTE: The initialUTxO must contain only the UTXO we will later commit. We
-    -- know that by construction, the 'mkGenesisTx' will create outputs
-    -- addressed to recipient verification keys and only holding the requested
-    -- amount of lovelace (and a potential change output last).
-    let txIn = mkTxIn fundingTransaction index
-        txOut =
-          TxOut
-            (mkVkAddress networkId vk)
-            (lovelaceToValue amount)
-            TxOutDatumNone
-            ReferenceScriptNone
-        initialUTxO = UTxO.singleton (txIn, txOut)
+  generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
+    let vk = getVerificationKey externalSigningKey
+        keyPair = (vk, externalSigningKey)
+        -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
+        -- that everything owned by the externalSigningKey will get committed
+        -- into the head.
+        initialUTxO =
+          utxoProducedByTx fundingTransaction
+            & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
     txSequence <-
       reverse . thrd
         <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
-    pure ClientDataset{signingKey = sk, initialUTxO, txSequence}
+    pure ClientDataset{clientKeys, initialUTxO, txSequence}
+
+  thrd (_, _, c) = c
