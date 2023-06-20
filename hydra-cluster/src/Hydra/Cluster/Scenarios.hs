@@ -139,7 +139,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
--- Make sure the _old_ way of committing (using Fuel) still works.
+-- | Ensures the _old_ way of committing (using Fuel) still works.
 singlePartyCommitsUsingFuel ::
   Tracer IO EndToEndLog ->
   FilePath ->
