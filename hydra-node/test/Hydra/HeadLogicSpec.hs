@@ -174,16 +174,23 @@ spec =
             Error (RequireFailed SnapshotAlreadySigned{receivedSignature}) -> receivedSignature == carol
             _ -> False
 
-      it "waits if we receive a snapshot with not-yet-applicable transactions" $ do
-        let event = NetworkEvent defaultTTL alice $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
-        update bobEnv ledger (inOpenState threeParties ledger) event
+      it "waits if we receive a snapshot with transaction not applicable on previous snapshot" $ do
+        let reqTx42 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
+            reqTx1 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
+            event = NetworkEvent defaultTTL alice $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
+            s0 = inOpenState threeParties ledger
+
+        s1 <- assertNewState $ update bobEnv ledger s0 reqTx42
+        s2 <- assertNewState $ update bobEnv ledger s1 reqTx1
+
+        update bobEnv ledger s2 event
           `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
 
-      it "waits if we receive a snapshot with not-yet-seen (but applicable) transactions" $ do
+      it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties ledger
             reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [SimpleTx 1 mempty (utxoRef 1)]
         update bobEnv ledger s0 reqSn
-          `shouldBe` Wait (WaitOnSeenTx 1)
+          `shouldBe` Wait (WaitOnSeenTxs [1])
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = Snapshot 1 mempty []
@@ -262,13 +269,19 @@ spec =
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice
             nextSN = 1
+            firstReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 42)
             firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [aValidTx 42]
+            secondReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 51)
             secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [aValidTx 51]
         receivedReqSn <-
           assertUpdateState bobEnv ledger firstReqSn
             `evalStateT` inOpenState threeParties ledger
 
-        update bobEnv ledger receivedReqSn secondReqSn `shouldSatisfy` \case
+        s1 <- assertNewState $ update bobEnv ledger s0 firstReqTx
+        s2 <- assertNewState $ update bobEnv ledger s1 firstReqSn
+        s3 <- assertNewState $ update bobEnv ledger s2 secondReqTx
+
+        update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True
           _ -> False
 

@@ -47,8 +47,8 @@ import Hydra.Ledger (
   ChainSlot,
   IsTx,
   Ledger (..),
-  UTxOType,
   TxIdType,
+  UTxOType,
   ValidationError,
   applyTransactions,
   txId,
@@ -377,7 +377,7 @@ data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
-  | WaitOnSeenTx {unseenTxId :: TxIdType tx}
+  | WaitOnSeenTxs {unseenTxId :: [TxIdType tx]}
   | WaitOnContestationDeadline
   deriving stock (Generic)
 
@@ -675,26 +675,31 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
-      waitApplyTxs $ \u -> do
-        -- NOTE: confSn == seenSn == sn here
-        let nextSnapshot = Snapshot (confSn + 1) u (txId <$> requestedTxs)
-        -- Spec: σᵢ
-        let snapshotSignature = sign signingKey nextSnapshot
-        -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
-        let (seenTxs', seenUTxO') = pruneTransactions u
-        NewState
-          ( Open
-              st
-                { coordinatedHeadState =
-                    coordinatedHeadState
-                      { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                      , seenTxs = seenTxs'
-                      , seenUTxO = seenUTxO'
-                      }
-                }
-          )
-          `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
+      -- TODO: add to spec?
+      -- All transactions in the snapshot must have been seen before, eg.
+      -- the node has received a ReqTx message containing those txs such
+      -- that they can be applied to latest seenUTxO
+      waitSeenTxs $
+        -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
+        waitApplyTxs $ \u -> do
+          -- NOTE: confSn == seenSn == sn here
+          let nextSnapshot = Snapshot (confSn + 1) u (txId <$> requestedTxs)
+          -- Spec: σᵢ
+          let snapshotSignature = sign signingKey nextSnapshot
+          -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
+          let (seenTxs', seenUTxO') = pruneTransactions u
+          NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      coordinatedHeadState
+                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                        , seenTxs = seenTxs'
+                        , seenUTxO = seenUTxO'
+                        }
+                  }
+            )
+            `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
  where
   requireReqSn continue =
     if
@@ -706,6 +711,13 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
     if confSn == seenSn
       then continue
       else Wait $ WaitOnSnapshotNumber seenSn
+
+  notSeenTxs = fromList (txId <$> requestedTxs) `Set.difference` fromList (txId <$> seenTxs)
+
+  waitSeenTxs continue =
+    if null notSeenTxs
+    then continue
+    else Wait $ WaitOnSeenTxs $ toList notSeenTxs
 
   -- XXX: Wait for these transactions to apply is actually not needed. They must
   -- be applicable already. This is a bit of a precursor for only submitting
