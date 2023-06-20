@@ -675,7 +675,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- TODO: add to spec?
+      -- Spec: wait T ⊆ \hatT
       -- All transactions in the snapshot must have been seen before, eg.
       -- the node has received a ReqTx message containing those txs such
       -- that they can be applied to latest seenUTxO
