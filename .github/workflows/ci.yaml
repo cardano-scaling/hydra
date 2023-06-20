@@ -189,7 +189,7 @@ jobs:
 
   benchmarks:
     name: "Benchmarks"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cardano]
     strategy:
       matrix:
         include:
