@@ -216,6 +216,7 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
+  | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure StandardCrypto)}
   | ErrTranslationError (TranslationError StandardCrypto)
@@ -290,12 +291,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
  where
   findUTxOToPayFees utxo = case findFuelOrLargestUTxO utxo of
     Nothing ->
-      -- create 'ChangeError' but for this we need to resolve the utxo inputs
-      let utxoAsList = Map.toList utxo
-          ins = traverse resolveInput (fst <$> utxoAsList)
-          totalIns = Coin $ sum $ either (const [0]) (fmap (unCoin . getAdaValue)) ins
-          totalOuts = foldMap getAdaValue (snd <$> utxoAsList)
-       in Left (ErrNotEnoughFunds ChangeError{inputBalance = totalIns, outputBalance = totalOuts})
+      Left ErrNoFuelUTxOFound
     Just (i, o) ->
       Right (i, o)
 

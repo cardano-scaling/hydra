@@ -165,8 +165,10 @@ finalizeTx ::
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState <> userUTxO
   coverFee headUTxO partialTx >>= \case
+    Left ErrNoFuelUTxOFound ->
+      throwIO (NoFuelUTXOFound :: PostTxError Tx)
     Left ErrNotEnoughFunds{} ->
-      throwIO (NotEnoughFunds :: PostTxError Tx)
+      throwIO (NotEnoughFuel :: PostTxError Tx)
     Left ErrScriptExecutionFailed{scriptFailure = (redeemerPtr, scriptFailure)} ->
       throwIO
         ( ScriptFailedInWallet
