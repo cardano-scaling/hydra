@@ -15,18 +15,16 @@ import Hydra.Options (
   Command (..),
   InvalidOptions (..),
   LedgerConfig (..),
+  ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
   maximumNumberOfParties,
   parseHydraCommandFromArgs,
+  renderFailure,
   toArgs,
   validateRunOptions,
- )
-import Options.Applicative (
-  ParserResult (..),
-  renderFailure,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))

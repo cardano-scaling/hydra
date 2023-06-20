@@ -1,8 +1,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Options
-where
+module Hydra.Options (
+  module Hydra.Options,
+  ParserResult (..),
+  renderFailure,
+) where
 
 import Hydra.Prelude
 
@@ -61,6 +64,7 @@ import Options.Applicative (
   option,
   progDesc,
   progDescDoc,
+  renderFailure,
   short,
   showDefault,
   strOption,
