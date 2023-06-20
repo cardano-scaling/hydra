@@ -97,7 +97,7 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   clientKeys <- replicateM nClients arbitrary
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
-  -- funded before the benchmar run.
+  -- funded in the beginning of the benchmark run.
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Lovelace <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
     pure (getVerificationKey externalSigningKey, amount)

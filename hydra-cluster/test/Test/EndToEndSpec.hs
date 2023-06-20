@@ -38,8 +38,9 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
+  signTx,
   writeFileTextEnvelope,
-  pattern TxValidityLowerBound, signTx,
+  pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
 import Hydra.Cluster.Faucet (
@@ -180,9 +181,9 @@ spec = around showLogsOnFailure $ do
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-                (bobExternalVk, bobExternalSk) <- generate genKeyPair
                 externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
+                (bobExternalVk, bobExternalSk) <- generate genKeyPair
                 committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead Normal (contramap FromFaucet tracer)
                 externalCommit n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
@@ -257,7 +258,7 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
             seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
@@ -284,8 +285,11 @@ spec = around showLogsOnFailure $ do
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
-                committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-                send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+                (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+                externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+                (bobExternalVk, _bobExternalSk) <- generate genKeyPair
                 externalCommit n2 mempty >>= submitTx node
 
                 waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
@@ -295,8 +299,8 @@ spec = around showLogsOnFailure $ do
                 let Right tx =
                       mkSimpleTx
                         firstCommittedUTxO
-                        (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
-                        aliceCardanoSk
+                        (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
+                        aliceExternalSk
                 send n1 $ input "NewTx" ["transaction" .= tx]
 
                 waitMatch 10 n1 $ \v -> do
@@ -510,7 +514,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
-  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+  (aliceCardanoVk, _) <- keysFor Alice
   let aliceSk = generateSigningKey "alice-timed"
   let alice = deriveParty aliceSk
   let contestationPeriod = UnsafeContestationPeriod 2
@@ -527,8 +531,10 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
         headIsInitializingWith (Set.fromList [alice])
 
     -- Get some UTXOs to commit to a head
-    committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-    send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
+    (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+    externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
     waitFor tracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
@@ -549,8 +555,8 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
         Right tx =
           mkRangedTx
             firstCommittedUTxO
-            (inHeadAddress aliceCardanoVk, lovelaceToValue lovelaceToSend)
-            aliceCardanoSk
+            (inHeadAddress aliceExternalVk, lovelaceToValue lovelaceToSend)
+            aliceExternalSk
             (Just $ TxValidityLowerBound futureSlot, Nothing)
 
     -- First submission: invalid
@@ -573,7 +579,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do
-  aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
 
@@ -605,10 +611,14 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
         headIsInitializingWith (Set.fromList [alice, bob, carol])
 
     -- Get some UTXOs to commit to a head
-    committedUTxOByAlice <- seedFromFaucet node aliceCardanoVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
-    committedUTxOByBob <- seedFromFaucet node bobCardanoVk bobCommittedToHead Normal (contramap FromFaucet tracer)
-    send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
-    send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
+    (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead Normal (contramap FromFaucet tracer)
+    externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+    (bobExternalVk, bobExternalSk) <- generate genKeyPair
+    committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead Normal (contramap FromFaucet tracer)
+    externalCommit n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
+
     externalCommit n3 mempty >>= submitTx node
 
     waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
@@ -618,8 +628,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     let Right tx =
           mkSimpleTx
             firstCommittedUTxO
-            (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
-            aliceCardanoSk
+            (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
+            aliceExternalSk
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor tracer 10 [n1, n2, n3] $
       output "TxValid" ["transaction" .= tx, "headId" .= headId]
@@ -632,7 +642,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             [
               ( TxIn (txId tx) (toEnum 0)
               , object
-                  [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
+                  [ "address" .= String (serialiseAddress $ inHeadAddress bobExternalVk)
                   , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
                   , "datum" .= Null
                   , "datumhash" .= Null
@@ -643,7 +653,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             ,
               ( TxIn (txId tx) (toEnum 1)
               , object
-                  [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
+                  [ "address" .= String (serialiseAddress $ inHeadAddress aliceExternalVk)
                   , "value" .= object ["lovelace" .= int (aliceCommittedToHead - paymentFromAliceToBob)]
                   , "datum" .= Null
                   , "datumhash" .= Null
