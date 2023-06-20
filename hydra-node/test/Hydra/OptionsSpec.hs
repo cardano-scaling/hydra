@@ -5,7 +5,6 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Version (showVersion)
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -29,7 +28,6 @@ import Options.Applicative (
   ParserResult (..),
   renderFailure,
  )
-import Paths_hydra_node (version)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
