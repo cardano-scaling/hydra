@@ -200,11 +200,17 @@ benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, 
     , ""
     , "This page is intended to collect the latest end-to-end benchmarks \
       \ results produced by Hydra's Continuous Integration system from \
-      \ the latest `master` code. Please take those results with a grain of \
-      \ salt as they are produced from basic cloud VMs and not controlled \
+      \ the latest `master` code."
+    , ""
+    , ":::caution"
+    , ""
+    , "Please take those results with a grain of \
+      \ salt as they are currently produced from very limited cloud VMs and not controlled \
       \ hardware. Instead of focusing on the _absolute_ results, the emphasis \
       \ should be on relative results, eg. how the timings for a scenario \
       \ evolve as the code changes."
+    , ""
+    , ":::"
     , ""
     , "_Generated at_  " <> show now
     , ""
