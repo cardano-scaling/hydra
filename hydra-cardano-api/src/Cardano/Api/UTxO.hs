@@ -36,6 +36,8 @@ newtype UTxO' out = UTxO
     , Foldable
     , Semigroup
     , Monoid
+    , ToJSON
+    , FromJSON
     )
 
 instance Traversable UTxO' where

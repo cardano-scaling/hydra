@@ -426,10 +426,6 @@ instance Arbitrary (Hash PaymentKey) where
   arbitrary = do
     unsafePaymentKeyHashFromBytes . BS.pack <$> vectorOf 28 arbitrary
 
-deriving newtype instance ToJSON UTxO
-
-deriving newtype instance FromJSON UTxO
-
 instance ToCBOR UTxO where
   toCBOR = toCBOR . toLedgerUTxO
   encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))

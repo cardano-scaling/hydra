@@ -9,10 +9,8 @@ import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (Object, String), object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
-import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -75,38 +73,36 @@ data ScriptInfo = ScriptInfo
 instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
+data DraftUTxO = DraftUTxO
+  { txOut :: TxOut CtxUTxO
+  , witness :: Maybe ScriptInfo
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance ToJSON DraftUTxO where
+  toJSON DraftUTxO{txOut, witness} =
+    case toJSON txOut of
+      Object km ->
+        Object $ km & "witness" `KeyMap.insert` toJSON witness
+      x -> x
+
+instance FromJSON DraftUTxO where
+  parseJSON v = do
+    txOut <- parseJSON v
+    flip (withObject "DraftUTxO") v $ \o -> do
+      witness <- o .: "witness"
+      pure $ DraftUTxO{txOut, witness}
+
+instance Arbitrary DraftUTxO where
+  arbitrary = genericArbitrary
+
+deriving newtype instance Arbitrary (UTxO' DraftUTxO)
+
 newtype DraftCommitTxRequest = DraftCommitTxRequest
-  { utxos :: UTxO' (TxOut CtxUTxO, Maybe ScriptInfo)
+  { utxos :: UTxO' DraftUTxO
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-deriving newtype instance Arbitrary (UTxO' (TxOut CtxUTxO, Maybe ScriptInfo))
-
-instance ToJSON (UTxO' (TxOut CtxUTxO, Maybe ScriptInfo)) where
-  toJSON =
-    toJSON . Map.fromList . UTxO.pairs . fmap utxoWithWitness
-   where
-    utxoWithWitness (txOut, scriptInfo) =
-      case toJSON txOut of
-        Object km ->
-          Object $ km & "witness" `KeyMap.insert` toJSON scriptInfo
-        x -> x
-
-instance FromJSON (UTxO' (TxOut CtxUTxO, Maybe ScriptInfo)) where
-  parseJSON =
-    withObject "DraftUTxO" $ \o ->
-      KeyMap.toList o
-        & mapM (uncurry parseDraftUTxO)
-        <&> UTxO.fromPairs
-   where
-    parseDraftUTxO :: Aeson.Key -> Value -> Parser (TxIn, (TxOut CtxUTxO, Maybe ScriptInfo))
-    parseDraftUTxO k v = do
-      txIn <- parseJSON $ toJSON k
-      txOut <- parseJSON v
-      flip (withObject "DraftUTxO") v $ \o -> do
-        scriptInfo <- o .: "witness"
-        pure (txIn, (txOut, scriptInfo))
 
 instance Arbitrary DraftCommitTxRequest where
   arbitrary = genericArbitrary
@@ -115,15 +111,15 @@ instance Arbitrary DraftCommitTxRequest where
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
 
 convertDraftUTxO ::
-  UTxO' (TxOut CtxUTxO, Maybe ScriptInfo) ->
+  UTxO' DraftUTxO ->
   [ ( TxIn
     , TxOut CtxUTxO
     , Maybe (ScriptWitness WitCtxTxIn Era)
     )
   ]
 convertDraftUTxO utxo' =
-  ( \(txin, (txout, maybeScriptInfo)) ->
-      (txin, txout, toScriptWitness <$> maybeScriptInfo)
+  ( \(txIn, DraftUTxO{txOut, witness}) ->
+      (txIn, txOut, toScriptWitness <$> witness)
   )
     <$> UTxO.pairs utxo'
  where
@@ -133,13 +129,13 @@ convertDraftUTxO utxo' =
 prepareCommitTxInputs :: [(TxIn, TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))] -> (UTxO.UTxO, UTxO.UTxO, [(TxIn, ScriptWitness WitCtxTxIn Era)])
 prepareCommitTxInputs =
   foldl'
-    ( \(regularUtxo, scriptUtxo, witnesses) (txin, txout, m) ->
-        case m of
+    ( \(regularUtxo, scriptUtxo, witnesses) (txIn, txOut, maybeWitness) ->
+        case maybeWitness of
           Just w ->
             ( regularUtxo
-            , scriptUtxo <> UTxO.singleton (txin, txout)
-            , witnesses <> [(txin, w)]
+            , scriptUtxo <> UTxO.singleton (txIn, txOut)
+            , witnesses <> [(txIn, w)]
             )
-          Nothing -> (regularUtxo <> UTxO.singleton (txin, txout), scriptUtxo, witnesses)
+          Nothing -> (regularUtxo <> UTxO.singleton (txIn, txOut), scriptUtxo, witnesses)
     )
     (mempty, mempty, [])
