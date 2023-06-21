@@ -6,7 +6,8 @@ Node -> db : getState
 db --> Node : state: HeadState
 Node -> HeadLogic: update(state)
 HeadLogic --> Node : [st:StateEffect, ot:OtherEffect]
-db \\- Node: handle(st)
-Other \\- Node : handle(ot)
+Node -> db: handle(st)
 db -> db: persist(st)
+db --> Node: ok
+Other \\- Node : handle(ot)
 @enduml
