@@ -1,19 +1,20 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Hydra.TUI.Options where
 
-import Hydra.Prelude (
-  Applicative ((<*>)),
-  FilePath,
-  Semigroup ((<>)),
-  (<$>),
- )
+import Hydra.Prelude
 
+import Data.Version (Version (Version), showVersion)
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Network (Host (Host))
 import Hydra.Options (networkIdParser)
+import Hydra.Version (gitRevision)
+import Language.Haskell.TH.Env (envQ)
 import Options.Applicative (
   Parser,
   auto,
   help,
+  infoOption,
   long,
   metavar,
   option,
@@ -22,6 +23,7 @@ import Options.Applicative (
   strOption,
   value,
  )
+import Paths_hydra_tui (version)
 
 data Options = Options
   { hydraNodeHost :: Host
@@ -29,14 +31,31 @@ data Options = Options
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
   }
+  deriving stock (Eq, Show)
 
 parseOptions :: Parser Options
 parseOptions =
-  Options
-    <$> parseNodeHost
-    <*> parseCardanoNodeSocket
-    <*> networkIdParser
-    <*> parseCardanoSigningKey
+  ( Options
+      <$> parseNodeHost
+      <*> parseCardanoNodeSocket
+      <*> networkIdParser
+      <*> parseCardanoSigningKey
+  )
+    <**> versionInfo
+ where
+  versionInfo :: Parser (Options -> Options)
+  versionInfo =
+    infoOption
+      (showVersion ourVersion)
+      (long "version" <> help "Show version")
+
+  ourVersion =
+    version & \(Version semver _) -> Version semver revision
+
+  revision =
+    maybeToList $
+      ($$(envQ "GIT_REVISION") :: Maybe String)
+        <|> gitRevision
 
 parseCardanoNodeSocket :: Parser FilePath
 parseCardanoNodeSocket =
@@ -55,7 +74,7 @@ parseNodeHost =
     ( long "connect"
         <> short 'c'
         <> help "Hydra-node to connect to in the form of <host>:<port>"
-        <> value (Host "0.0.0.0" 4001)
+        <> value (Host "127.0.0.1" 4001)
         <> showDefault
     )
 

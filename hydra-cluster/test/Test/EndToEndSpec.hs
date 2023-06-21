@@ -97,11 +97,9 @@ import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
-import System.Process (CreateProcess (..), StdStream (..), proc, readCreateProcess, withCreateProcess)
+import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
 import System.Timeout (timeout)
 import Test.QuickCheck (generate, suchThat)
-import Text.Regex.TDFA ((=~))
-import Text.Regex.TDFA.Text ()
 import qualified Prelude
 
 allNodeIds :: [Int]
@@ -129,7 +127,7 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
-      it "can submmit a timed tx" $ \tracer -> do
+      it "can submit a timed tx" $ \tracer -> do
         withClusterTempDir "timed-tx" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
@@ -398,11 +396,6 @@ spec = around showLogsOnFailure $ do
                     metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
 
     describe "hydra-node executable" $ do
-      it "display proper semantic version given it is passed --version argument" $ \_ ->
-        failAfter 5 $ do
-          version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
-          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-
       it "logs its command line arguments" $ \tracer -> do
         withClusterTempDir "logs-options" $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do

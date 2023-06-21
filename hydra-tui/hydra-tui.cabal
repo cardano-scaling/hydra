@@ -97,6 +97,7 @@ library
     , optparse-applicative
     , QuickCheck
     , text
+    , th-env
     , time
     , vty
     , websockets
@@ -136,6 +137,7 @@ test-suite tests
     , hydra-tui
     , io-classes
     , optparse-applicative
+    , regex-tdfa
     , temporary
     , unix
     , vty

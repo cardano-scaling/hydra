@@ -4,6 +4,7 @@
 module Hydra.Options (
   module Hydra.Options,
   ParserResult (..),
+  renderFailure,
 ) where
 
 import Hydra.Prelude
@@ -63,6 +64,7 @@ import Options.Applicative (
   option,
   progDesc,
   progDescDoc,
+  renderFailure,
   short,
   showDefault,
   strOption,

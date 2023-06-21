@@ -352,6 +352,7 @@ test-suite tests
     , QuickCheck
     , quickcheck-dynamic                                                >=3.0.3
     , quickcheck-instances
+    , regex-tdfa
     , req
     , silently
     , text
