@@ -66,7 +66,7 @@ spec = parallel $ do
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 1 [tx1], AckSn signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
@@ -75,7 +75,7 @@ spec = parallel $ do
           sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [1]
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactions = mempty}}
+              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
                  , NetworkEvent{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
@@ -85,7 +85,7 @@ spec = parallel $ do
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
-      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [tx1], AckSn (sign bobSk sn2) 2]
+      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
 
   it "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
@@ -95,7 +95,7 @@ spec = parallel $ do
           events =
             eventsToOpenHead
               <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactions = []}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
                  ]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node

@@ -7,15 +7,19 @@ import Hydra.Prelude
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Hydra.Crypto (Signature)
-import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Ledger (IsTx (TxIdType), UTxOType)
 import Hydra.Network (NodeId)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
+
+deriving instance (IsTx tx) => Eq (Message tx)
+deriving instance (IsTx tx) => Show (Message tx)
+deriving instance (IsTx tx) => ToJSON (Message tx)
+deriving instance (IsTx tx) => FromJSON (Message tx)
 
 data Message tx
   = ReqTx {transaction :: tx}
@@ -35,13 +39,13 @@ data Message tx
 instance IsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
-instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Message tx) where
+instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     ReqSn sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
 
-instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Message tx) where
+instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR

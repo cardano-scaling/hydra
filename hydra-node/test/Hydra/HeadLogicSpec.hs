@@ -177,7 +177,7 @@ spec =
       it "waits if we receive a snapshot with transaction not applicable on previous snapshot" $ do
         let reqTx42 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
             reqTx1 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            event = NetworkEvent defaultTTL alice $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
+            event = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
             s0 = inOpenState threeParties ledger
 
         s1 <- assertNewState $ update bobEnv ledger s0 reqTx42
@@ -188,7 +188,7 @@ spec =
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties ledger
-            reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [SimpleTx 1 mempty (utxoRef 1)]
+            reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [1]
         update bobEnv ledger s0 reqSn
           `shouldBe` Wait (WaitOnSeenTxs [1])
 
@@ -270,9 +270,9 @@ spec =
         let theLeader = alice
             nextSN = 1
             firstReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 42)
-            firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [aValidTx 42]
+            firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [42]
             secondReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 51)
-            secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [aValidTx 51]
+            secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51]
         receivedReqSn <-
           assertUpdateState bobEnv ledger firstReqSn
             `evalStateT` inOpenState threeParties ledger

@@ -1193,20 +1193,20 @@ definitions:
         required:
           - tag
           - snapshotNumber
-          - transactions
+          - transactionIds
         description: >-
           Request from the current snapshot leader to sign some snapshot, eg. a
-          bunch of transactions.
+          bunch of transaction ids.
         properties:
           tag:
             type: string
             enum: ["ReqSn"]
           snapshotNumber:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          transactions:
+          transactionIds:
             type: array
             items:
-              $ref: "api.yaml#/components/schemas/Transaction"
+              $ref: "api.yaml#/components/schemas/TxId"
       - title: AckSn
         type: object
         additionalProperties: false
@@ -1617,6 +1617,22 @@ definitions:
           tag:
             type: string
             enum: ["WaitOnContestationDeadline"]
+      - title: WaitOnSeenTxs
+        description: >-
+          Some transactions from a proposed snapshot have not been seen yet
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - unseenTxId
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnSeenTxs"]
+          unseenTxId:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
 
   IP:
     type: object

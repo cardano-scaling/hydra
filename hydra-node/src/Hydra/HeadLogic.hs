@@ -609,6 +609,7 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
+  IsTx tx =>
   Environment ->
   Ledger tx ->
   OpenState tx ->
@@ -665,9 +666,9 @@ onOpenNetworkReqSn ::
   -- | Requested snapshot number.
   SnapshotNumber ->
   -- | List of transactions to snapshot.
-  [tx] ->
+  [TxIdType tx] ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
+onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
 
@@ -683,7 +684,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
         -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
         waitApplyTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot (confSn + 1) u (txId <$> requestedTxs)
+          let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
           -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
@@ -712,18 +713,19 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
       then continue
       else Wait $ WaitOnSnapshotNumber seenSn
 
-  notSeenTxs = fromList (txId <$> requestedTxs) `Set.difference` fromList (txId <$> seenTxs)
-
   waitSeenTxs continue =
-    if null notSeenTxs
-    then continue
-    else Wait $ WaitOnSeenTxs $ toList notSeenTxs
+    if fromList requestedTxIds `Set.isSubsetOf` fromList (txId <$> seenTxs)
+      then continue
+      else Wait $ WaitOnSeenTxs $ toList $ fromList requestedTxIds `Set.difference` fromList (txId <$> seenTxs)
+
+  resolvedTxs =
+    mapMaybe (\txid -> find (\tx -> txId tx == txid) seenTxs) requestedTxIds
 
   -- XXX: Wait for these transactions to apply is actually not needed. They must
   -- be applicable already. This is a bit of a precursor for only submitting
   -- transaction ids/hashes .. which we really should do.
   waitApplyTxs cont =
-    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
+    case applyTransactions ledger currentSlot confirmedUTxO resolvedTxs of
       Left (_, err) ->
         Wait $ WaitOnNotApplicableTx err
       Right u -> cont u
@@ -1015,9 +1017,9 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkEvent ttl _ (ReqTx tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkEvent _ otherParty (ReqSn sn txs)) ->
+  (Open openState, NetworkEvent _ otherParty (ReqSn sn txIds)) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState otherParty sn txs
+    onOpenNetworkReqSn env ledger openState otherParty sn txIds
   (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
@@ -1130,7 +1132,7 @@ emitSnapshot env outcome =
                   , currentSlot
                   }
             )
-            `Combined` Effects [NetworkEffect (ReqSn sn txs)]
+            `Combined` Effects [NetworkEffect (ReqSn sn (txId <$> txs))]
         _ -> outcome
     Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
     _ -> outcome

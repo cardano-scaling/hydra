@@ -113,7 +113,7 @@ spec = do
                   coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
 
           emitSnapshot (envFor aliceSk) (NewState st)
-            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [tx]])
+            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [1]])
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
