@@ -26,6 +26,12 @@
   background-color: rgba(0, 0, 0, 0.3);
 }
 
+/* XXX: For some reason, docusaurus is showing all links as active when using
+   the versioning-supported navabar items */
+.navbar__link--active {
+  color: var(--ifm-navbar-link-color);
+}
+
 /* Ensure footer is drawn over api reference side bar. */
 .footer {
   z-index: 20;
@@ -91,7 +97,7 @@
   }
 }
 
-svg.architecture{
+svg.architecture {
   width: 100% !important;
   height: 100% !important;
 }

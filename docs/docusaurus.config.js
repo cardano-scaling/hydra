@@ -148,22 +148,26 @@ const config = {
         items: Array.prototype.concat(
           [
             {
-              to: "/getting-started",
+              type: "doc",
+              docId: "getting-started/index",
               label: "User Manual",
               position: "left",
             },
             {
-              to: "/core-concepts",
+              type: "doc",
+              docId: "core-concepts/index",
               label: "Core Concepts",
               position: "left",
             },
             {
-              to: "/benchmarks",
+              type: "doc",
+              docId: "benchmarks/index",
               label: "Benchmarks",
               position: "left",
             },
             {
-              to: "/api-reference",
+              type: "doc",
+              docId: "api-reference",
               label: "API Reference",
               position: "left",
             },
