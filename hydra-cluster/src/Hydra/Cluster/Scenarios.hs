@@ -8,8 +8,6 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
-  awaitTransaction,
-  buildTransaction,
   queryProtocolParameters,
   queryTip,
   submitTransaction,
@@ -22,26 +20,21 @@ import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..), ScriptInfo (..))
 import Hydra.Cardano.Api (
   Lovelace (..),
   PlutusScriptV2,
   Tx,
   TxId,
   UTxO,
+  UTxO',
   fromPlutusScript,
   mkScriptAddress,
   selectLovelace,
+  signTx,
   toScriptData,
  )
 import Hydra.Chain (HeadId)
-import Hydra.Chain.CardanoClient (
-  QueryPoint (QueryTip),
-  queryProtocolParameters,
-  queryTip,
-  submitTransaction,
- )
-import Hydra.Chain.Direct.Wallet (signWith)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
@@ -253,7 +246,7 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
       let DraftCommitTxResponse commitTx = responseBody response
 
       -- sign and submit the tx with our external user key
-      let signedCommitTx = signWith externalSk commitTx
+      let signedCommitTx = signTx externalSk commitTx
       submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 60 [n1] $
@@ -312,7 +305,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
             (port $ 4000 + hydraNodeId)
       responseStatusCode response `shouldBe` 200
       let DraftCommitTxResponse commitTx = responseBody response
-      let signedCommitTx = signWith someSk commitTx
+      let signedCommitTx = signTx someSk commitTx
       submitTransaction networkId nodeSocket signedCommitTx
 
       waitFor tracer 60 [n1] $
@@ -408,9 +401,9 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
-mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> [DraftUTxO]
+mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> UTxO' DraftUTxO
 mkDraftUTxOs utxo mScriptInfo =
-  (\(txin, txout) -> DraftUTxO txin txout mScriptInfo) <$> UTxO.pairs utxo
+  UTxO.fromPairs $ (\(txIn, txOut) -> (txIn, DraftUTxO txOut mScriptInfo)) <$> UTxO.pairs utxo
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

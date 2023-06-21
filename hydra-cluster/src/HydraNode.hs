@@ -20,7 +20,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -163,6 +163,7 @@ waitForAll tracer delay nodes expected = do
           tryNext c msgs stillExpected
 
 -- | Create a commit tx using the hydra-node for later submission
+-- Only works for non-script utxos
 externalCommit :: HydraClient -> UTxO -> IO Tx
 externalCommit HydraClient{hydraNodeId} utxos =
   runReq defaultHttpConfig request
@@ -173,7 +174,7 @@ externalCommit HydraClient{hydraNodeId} utxos =
     Req.req
       POST
       (Req.http "127.0.0.1" /: "commit")
-      (ReqBodyJson (DraftCommitTxRequest{utxos} :: DraftCommitTxRequest Tx))
+      (ReqBodyJson (DraftCommitTxRequest ((`DraftUTxO` Nothing) <$> utxos)))
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port $ 4000 + hydraNodeId)
 
