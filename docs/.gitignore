@@ -8,10 +8,6 @@
 .docusaurus
 .cache-loader
 /static/docs-metadata.json
-/docs/hydra-spec.pdf
-/docs/haddock
-/docs/benchmarks/end-to-end-benchmarks.md
-/docs/benchmarks/transaction-cost.md
 
 # Misc
 .DS_Store

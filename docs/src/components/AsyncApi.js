@@ -1,17 +1,31 @@
 import React, { useEffect } from "react";
 import Layout from "@theme/Layout";
+import { useLocation } from "@docusaurus/router";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import {
+  useVersions,
+  useActiveDocContext,
+} from "@docusaurus/plugin-content-docs/client";
 
-// NOTE: I have *really* tried. But Webpack, react, babel,
-// preloaders, polyfills and all are just a pain in the
-// *** to work with. Nothing makes sense, installing AND
-// NOT USING dependencies has effect on the build outcome
-// and so do completely unrelated plugins. Frontend JS, fix
-// yourself.
+// A react component to render the AsyncAPI associated with the currently loaded
+// documentation version.
 //
-// I've lost already 3h on that, so here is the sledge-hammer.
+// NOTE: This is really a sledge-hammer approach to get async api rendered in
+// docusaurus. Other approaches via webpack and more idiomatic inclusion of
+// react components did not work well.
+//
+// XXX: Seems like this should be done via a plugin in the first place like it
+// is done by https://github.com/rohit-gohri/redocusaurus for OpenAPI specs
 export default function AsyncApi() {
   const { siteConfig } = useDocusaurusContext();
+  const activeDocContext = useActiveDocContext();
+
+  const docsPath = activeDocContext.activeVersion.path;
+  const apiSpec =
+    docsPath +
+    (docsPath.endsWith("/") ? "" : "/") +
+    siteConfig.customFields.apiSpecUrl;
+  console.log("Loading api spec: ", apiSpec);
 
   useEffect(() => {
     const lib = document.createElement("script");
@@ -22,7 +36,7 @@ export default function AsyncApi() {
     scriptTag.innerHTML = `(() => {
       AsyncApiStandalone.render({
         schema: {
-          url: '${siteConfig.baseUrl}${siteConfig.customFields.apiSpecUrl}',
+          url: '${apiSpec}',
         },
         config: {
           show: {
@@ -48,18 +62,41 @@ export default function AsyncApi() {
   }, []);
 
   return (
-    <Layout title={`${siteConfig.title}`}>
-      <main>
-        <div id="asyncapi"></div>
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.47/styles/default.min.css"
-        />
-        <style>{darkThemeSupport()}</style>
-        <div className="loader"></div>
-      </main>
-    </Layout>
+    <main>
+      <div id="asyncapi"></div>
+      <link
+        rel="stylesheet"
+        href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.47/styles/default.min.css"
+      />
+      <style>
+        {overrideDocusaurusPageBounds()}
+        {darkThemeSupport()}
+      </style>
+      <div className="loader"></div>
+    </main>
   );
+}
+
+function overrideDocusaurusPageBounds() {
+  // Use full width of non-navigation space
+  return Array.prototype.concat([
+    `
+    #__docusaurus .container,
+    #__docusaurus .container .col,
+    #__docusaurus .container .col article {
+      max-width: inherit !important;
+    }
+  `,
+    // Add some space to bottom of sidebar to overflow less with footer and remove shadow
+    `
+    #asyncapi .sidebar--content {
+      margin-bottom: 500px;
+    }
+    #asyncapi .aui-root .shadow {
+      --tw-shadow: inherit;
+    }
+  `,
+  ]);
 }
 
 // Strawman dark-theme support for AsyncApi
