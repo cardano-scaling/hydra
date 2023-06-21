@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.RestServer where
@@ -12,15 +13,20 @@ import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
 import Hydra.Cardano.Api (
+  BuildTx,
+  BuildTxWith (..),
   CtxUTxO,
   HashableScriptData,
   PlutusScript,
   ScriptDatum (ScriptDatumForTxIn),
+  ScriptWitnessInCtx (ScriptWitnessForSpending),
   TxIn,
   TxOut,
   UTxO',
   WitCtxTxIn,
+  Witness,
   mkScriptWitness,
+  pattern ScriptWitness,
  )
 import Hydra.Cardano.Api.Prelude (Era, ScriptWitness)
 import Hydra.Ledger (IsTx)
@@ -112,30 +118,30 @@ instance Arbitrary DraftCommitTxRequest where
 
 convertDraftUTxO ::
   UTxO' DraftUTxO ->
-  [ ( TxIn
-    , TxOut CtxUTxO
-    , Maybe (ScriptWitness WitCtxTxIn Era)
-    )
-  ]
+  UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))
 convertDraftUTxO utxo' =
-  ( \(txIn, DraftUTxO{txOut, witness}) ->
-      (txIn, txOut, toScriptWitness <$> witness)
-  )
-    <$> UTxO.pairs utxo'
+  (\DraftUTxO{txOut, witness} -> (txOut, toScriptWitness <$> witness)) <$> utxo'
  where
   toScriptWitness ScriptInfo{redeemer, datum, plutusV2Script} =
     mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
 
-prepareCommitTxInputs :: [(TxIn, TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))] -> (UTxO.UTxO, UTxO.UTxO, [(TxIn, ScriptWitness WitCtxTxIn Era)])
+prepareCommitTxInputs ::
+  UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era)) ->
+  (UTxO.UTxO, UTxO.UTxO, [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))])
 prepareCommitTxInputs =
   foldl'
-    ( \(regularUtxo, scriptUtxo, witnesses) (txIn, txOut, maybeWitness) ->
+    ( \(regularUtxo, scriptUtxo, witnesses) (txIn, (txOut, maybeWitness)) ->
         case maybeWitness of
           Just w ->
             ( regularUtxo
             , scriptUtxo <> UTxO.singleton (txIn, txOut)
-            , witnesses <> [(txIn, w)]
+            , witnesses <> [(txIn, BuildTxWith . ScriptWitness ScriptWitnessForSpending $ w)]
             )
-          Nothing -> (regularUtxo <> UTxO.singleton (txIn, txOut), scriptUtxo, witnesses)
+          Nothing ->
+            ( regularUtxo <> UTxO.singleton (txIn, txOut)
+            , scriptUtxo
+            , witnesses
+            )
     )
     (mempty, mempty, [])
+    . UTxO.pairs

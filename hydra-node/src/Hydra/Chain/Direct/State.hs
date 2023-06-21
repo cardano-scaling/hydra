@@ -19,6 +19,7 @@ import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
   BuildTx,
+  BuildTxWith,
   ChainPoint (..),
   CtxUTxO,
   Hash,
@@ -30,12 +31,13 @@ import Hydra.Cardano.Api (
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
-  TxBodyContent,
   TxIn,
   TxOut,
   UTxO,
   UTxO' (UTxO),
   Value,
+  WitCtxTxIn,
+  Witness,
   chainPointToSlotNo,
   genTxIn,
   modifyTxOutValue,
@@ -104,7 +106,7 @@ import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano (addInputs, genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Options (maximumNumberOfParties)
@@ -322,15 +324,14 @@ commit ctx st utxo = do
 -- | Construct a commit script transaction based on the 'InitialState'.
 --  This does look for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
-commitTxBody ::
+draftCommitTxBody ::
   ChainContext ->
   InitialState ->
   UTxO ->
-  Either
-    (PostTxError Tx)
-    (TxBodyContent BuildTx)
-commitTxBody ctx st utxo = do
-  case ownInitial ctx st of
+  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
+  Either (PostTxError Tx) Tx
+draftCommitTxBody ctx st utxo scriptWitnesses = do
+  txBody <- case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial -> do
@@ -338,6 +339,7 @@ commitTxBody ctx st utxo = do
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
       Right $ rawCommitTxBody networkId scriptRegistry headId ownParty utxo initial
+  pure . unsafeBuildTransaction $ txBody & addInputs scriptWitnesses
  where
   ChainContext{networkId, ownParty, scriptRegistry} = ctx
   InitialState{headId} = st

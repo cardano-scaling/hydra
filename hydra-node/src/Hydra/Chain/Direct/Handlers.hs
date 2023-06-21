@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -21,9 +20,7 @@ import qualified Data.Set as Set
 import Hydra.API.RestServer (prepareCommitTxInputs)
 import Hydra.Cardano.Api (
   BlockHeader,
-  BuildTxWith (BuildTxWith),
   ChainPoint (..),
-  ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
   TxId,
   chainPointToSlotNo,
@@ -31,7 +28,6 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
-  pattern ScriptWitness,
  )
 import Hydra.Chain (
   Chain (..),
@@ -49,8 +45,8 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
-  commitTxBody,
   contest,
+  draftCommitTxBody,
   fanout,
   getKnownUTxO,
   initialize,
@@ -64,7 +60,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
-import Hydra.Ledger.Cardano.Builder (addInputs, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -171,18 +166,11 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
             let userTxIns = Set.toList $ UTxO.inputSet regularUTxO
             let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
             if null matchedWalletUtxo
-              then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> buildCommitTx
+              then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> commitTxBody
               else pure $ Left SpendingNodeUtxoForbidden
            where
             (regularUTxO, scriptUTxO, scriptWitnesses) = prepareCommitTxInputs utxoInputs
-            buildCommitTx = do
-              txBody <- commitTxBody ctx st regularUTxO
-              pure . unsafeBuildTransaction $
-                txBody
-                  & addInputs
-                    ( second (BuildTxWith . ScriptWitness ScriptWitnessForSpending)
-                        <$> scriptWitnesses
-                    )
+            commitTxBody = draftCommitTxBody ctx st regularUTxO scriptWitnesses
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
