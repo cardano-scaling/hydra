@@ -752,16 +752,17 @@ components:
           utxos:
             type: array
             items:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "#/components/schemas/UTxOWithWitness"
         example:
           {
-            "utxos": [
+            "utxos":
               {
                 "0406060506030602040508060506060306050406020207000508040704040203#89": {
                   "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
                   "value": {
                     "lovelace": 7620669
-                  }
+                  },
+                  "witness": null
                 },
                 "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
                   "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
@@ -779,7 +780,6 @@ components:
                   }
                 }
               }
-            ]
           }
 
     DraftCommitTxResponse:
@@ -1600,6 +1600,65 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
+    
+    TxOutWithWitness:
+      type: object
+      description: |
+        A single transaction output
+      required:
+      - address
+      - value
+      - witness
+      additionalProperties: false
+      properties:
+        address:
+          $ref: "#/components/schemas/Address"
+        value:
+          $ref: "#/components/schemas/Value"
+        referenceScript:
+          oneOf:
+            - $ref: "#/components/schemas/Script"
+            - type: "null"
+        datumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        inlineDatum:
+          oneOf:
+            - type: object
+            - type: "null"
+        inlineDatumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        datum:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        witness:
+          oneOf:
+            - $ref: "#/components/schemas/Witness"
+            - type: "null"
+    
+    Witness:
+      type: object
+      description: |
+        A script witness
+      required:
+      - datum
+      - plutusV2Script
+      - redeemer
+      additionalProperties: false
+      properties:
+        datum:
+          type: string
+        plutusV2Script:
+          $ref: "#/components/schemas/PlutusV2Script"
+        redeemer:
+          type: string
 
     SequenceNumber:
       type: integer
@@ -1632,6 +1691,31 @@ components:
                 "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
                 "value": {
                     "lovelace": 7620669
+                }
+            }
+        }
+    
+    UTxOWithWitness:
+      type: object
+      propertyNames:
+        pattern: "^[0-9a-f]{64}#[0-9]+$"
+      items:
+        $ref: "#/components/schemas/TxOutWithWitness"
+      example:
+        {
+            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+                "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+                "value": {
+                    "lovelace": 7620669
+                },
+                "witness": {
+                  "datum": "02",
+                  "plutusV2Script": {
+                      "cborHex": "420606",
+                      "description": "",
+                      "type": "PlutusScriptV2"
+                  },
+                  "redeemer": "21"
                 }
             }
         }
