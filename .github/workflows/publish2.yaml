@@ -1,0 +1,138 @@
+name: "Publish Docs (new)"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-docs:
+    name: Build & publish website
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: input-output-hk/hydra
+        token: ${{ secrets.MY_TOKEN || github.token }}
+        ref: release
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
+
+    - name: 📥 Download released hydra-spec
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: release
+        name: hydra-spec
+        path: docs/docs/
+
+    - name: 📥 Download released benchmarks
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: release
+        name: benchmarks
+        path: docs/docs/benchmarks
+
+    - name: 📥 Download released test-results
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: release
+        name: test-results
+        path: docs/docs/benchmarks/tests
+
+    - name: 📥 Download released haddock documentation
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: release
+        name: haddocks
+        path: docs/static/haddock
+
+    - name: Tag released version with docusaurus
+      run: |
+        cd docs
+        yarn
+        ./node_modules/.bin/docusaurus docs:version $(git describe HEAD)
+
+    - name: Checkout master
+      run: |
+        git checkout master
+
+    - name: 📥 Download latest hydra-spec
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: master
+        name: hydra-spec
+        path: docs/docs/
+
+    - name: 📥 Download latest benchmarks
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: master
+        name: benchmarks
+        path: docs/docs/benchmarks
+
+    - name: 📥 Download latest test-results
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: master
+        name: test-results
+        path: docs/docs/benchmarks/tests
+
+    - name: Build website with docusaurus
+      run: |
+        sed -i 's/versioned = false/versioned = true/' docusaurus.config.js
+        # TODO: remove debugging
+        git diff
+        yarn build
+
+    # NOTE: We only do this after the build as html pages cannot be easily
+    # versioned, however external link in the docs allow us to refer to them
+    # relatively
+    # XXX: This is using the hard-coded 'unstable' version name
+    - name: 📥 Download latest haddock documentation
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yaml
+        workflow_conclusion: success
+        branch: master
+        name: haddocks
+        path: docs/build/unstable/haddock
+
+    # XXX: This is using the hard-coded 'unstable' version name
+    - name: Copy latest json-schemas
+      run: |
+        cp hydra-node/json-schemas/* docs/build/unstable
+
+    - name: 👉 Create redirect
+      run: |
+        echo "hydra.family" > docs/build/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > docs/build/index.html
+        # TODO: redirect /docs/* -> /*
+
+    - name: Not publish, yet..
+      uses: actions/upload-artifact@v3
+      with:
+        name: website
+        path: docs/build
+
+    # TODO: enable publishing
+    # - name: 🚢 Publish Documentation
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/build
+    #     enable_jekyll: true
+    #     force_orphan: true
