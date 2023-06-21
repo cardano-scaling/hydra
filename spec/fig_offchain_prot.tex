@@ -93,7 +93,7 @@
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \; %
 
 							% Wait for snapshot no snapshot in flight anymore and all txs applicable
-							\Wait{$\bars = \hats ~ \land ~ \barmU \applytx \mT_{res} \not= \bot$}{ %
+							\Wait{$\bars = \hats ~ \land ~ \barmU \applytx \mT_{res} \not= \bot ~ \and ~ \mT_{res} \subseteq \hatmT$}{ %
 								$\hats \gets \bars + 1$ \; %
 
 								$\hatmU \gets \barmU \applytx \mT_{res}$ \; %
