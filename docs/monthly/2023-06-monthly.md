@@ -129,4 +129,4 @@ these [slides][slides] and here is the [recording][recording].
 TODO @ch1bo
 
 [slides]: https://docs.google.com/presentation/d/1TVzjaFKXBi9DAugSd2L8MSUSZGIU9EjTmwf6yccckPI
-[recording]: https://hydra.family
+[recording]: https://drive.google.com/file/d/1_N6b4RDe579TgLawiJzbE0NLofD3ljE6/view
