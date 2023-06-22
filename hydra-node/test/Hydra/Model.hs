@@ -71,7 +71,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (createNodeState, runHydraNode)
+import Hydra.Node (runHydraNode)
 import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
@@ -520,10 +520,9 @@ seedWorld seedKeys seedCP = do
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
-      node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
+      node <- createHydraNode ledger hsk otherParties outputs outputHistory mockChain seedCP
       let testClient = createTestHydraClient outputs outputHistory node
-      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
+      nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) (HeadState.Idle IdleState{chainState = initialChainState}) node
       link nodeThread
       pure (testClient, nodeThread)
     pushThread nodeThread

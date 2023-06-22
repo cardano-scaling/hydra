@@ -35,7 +35,6 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog,
-  createNodeState,
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
@@ -142,15 +141,17 @@ eventsToOpenHead =
       }
 
 runToCompletion ::
-  (IsChainState tx) =>
-  Tracer IO (HydraNodeLog tx) ->
-  HydraNode tx IO ->
+  (IsChainState SimpleTx) =>
+  Tracer IO (HydraNodeLog SimpleTx) ->
+  HydraNode SimpleTx IO ->
   IO ()
-runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
+runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = do
+  _ <- go startingHeadState
+  pure ()
  where
-  go =
+  go headState =
     unlessM isEmpty $
-      stepHydraNode tracer node >> go
+      stepHydraNode tracer node headState >>= go
 
 createHydraNode ::
   (MonadSTM m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
@@ -162,12 +163,10 @@ createHydraNode ::
 createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState startingHeadState
   pure $
     HydraNode
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
-      , nodeState
       , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> error "draftTx not implemented"}
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger

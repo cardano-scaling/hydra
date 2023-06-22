@@ -96,7 +96,6 @@ main = do
                       <> persistenceDir
                       <> " against provided command line options."
               pure headState
-        nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
@@ -108,8 +107,8 @@ main = do
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
-                runHydraNode (contramap Node tracer) $
-                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
+                runHydraNode (contramap Node tracer) hs $
+                  HydraNode{eq, hn, oc = chain, server, ledger, env, persistence}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)

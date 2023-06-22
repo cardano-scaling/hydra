@@ -48,7 +48,6 @@ import Hydra.HeadLogic (
   Event (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.HeadState (HeadState (Idle), IdleState (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
@@ -56,8 +55,6 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
-  NodeState,
-  createNodeState,
   runHydraNode,
   waitDelay,
  )
@@ -720,9 +717,8 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState startingHeadState
-  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
-  withAsync (runHydraNode traceInIOSim node) $ \_ ->
+  node <- createHydraNode simpleLedger signingKey otherParties outputs outputHistory chain testContestationPeriod
+  withAsync (runHydraNode traceInIOSim startingHeadState node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)
 
 createTestHydraClient ::
@@ -742,7 +738,6 @@ createTestHydraClient outputs outputHistory HydraNode{eq} =
 createHydraNode ::
   (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   Ledger tx ->
-  NodeState tx m ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
@@ -750,7 +745,7 @@ createHydraNode ::
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   m (HydraNode tx m)
-createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
+createHydraNode ledger signingKey otherParties outputs outputHistory chain cp = do
   eq <- createEventQueue
   persistenceVar <- newTVarIO Nothing
   labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
@@ -758,7 +753,6 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
     HydraNode
       { eq
       , hn = Network{broadcast = \_ -> pure ()}
-      , nodeState
       , ledger
       , oc = Chain{postTx = \_ -> pure (), draftTx = \_ -> error "draftTx not implemented"}
       , server =

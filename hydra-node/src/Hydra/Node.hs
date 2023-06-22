@@ -11,13 +11,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (
-  MonadLabelledSTM,
-  MonadSTM (writeTVar),
-  labelTVarIO,
-  newTVarIO,
-  stateTVar,
- )
+import Control.Monad.Loops (iterateM_)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
@@ -63,7 +57,6 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (Message tx)
-  , nodeState :: NodeState tx m
   , oc :: Chain tx m
   , server :: Server tx m
   , ledger :: Ledger tx
@@ -94,12 +87,14 @@ runHydraNode ::
   , IsChainState tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
+  HeadState tx ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node =
+runHydraNode tracer initialHeadState node = do
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode tracer node
+  forever $ do
+    iterateM_ (stepHydraNode tracer node) initialHeadState
 
 stepHydraNode ::
   ( MonadThrow m
@@ -109,30 +104,30 @@ stepHydraNode ::
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
-  m ()
-stepHydraNode tracer node = do
+  HeadState tx ->
+  m (HeadState tx)
+stepHydraNode tracer node headState = do
   e@Queued{eventId, queuedEvent} <- nextEvent eq
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
-  s <- atomically $ queryHeadState nodeState
-  let outcome = Logic.update env ledger s queuedEvent
+  let outcome = Logic.update env ledger headState queuedEvent
   traceWith tracer (LogicOutcome party outcome)
-  effs <- case outcome of
+  (effs, newHeadState) <- case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error _ -> do
-      pure []
+      pure ([], headState)
     Wait _reason -> do
       putEventAfter eq waitDelay (decreaseTTL e)
-      pure []
+      pure ([], headState)
     NewState stateChange effs -> do
-      let s' = updateState stateChange s
+      let s' = updateState stateChange headState
       save s'
-      atomically $ setHeadState nodeState s'
-      pure effs
+      pure (effs, s')
     OnlyEffects effs -> do
-      pure effs
+      pure (effs, headState)
   mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
   traceWith tracer EndEvent{by = party, eventId}
+  pure newHeadState
  where
   decreaseTTL =
     \case
@@ -145,7 +140,7 @@ stepHydraNode tracer node = do
 
   Persistence{save} = persistence
 
-  HydraNode{nodeState, ledger, persistence, eq, env} = node
+  HydraNode{ledger, persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -171,24 +166,3 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
   traceWith tracer $ EndEffect party eventId effectId
-
--- ** Manage state
-
--- | Handle to access and modify the state in the Hydra Node.
-data NodeState tx m = NodeState
-  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
-  , queryHeadState :: STM m (HeadState tx)
-  , setHeadState :: HeadState tx -> STM m ()
-  }
-
--- | Initialize a new 'NodeState'.
-createNodeState :: (MonadSTM m, MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
-createNodeState initialState = do
-  tv <- newTVarIO initialState
-  labelTVarIO tv "node-state"
-  pure
-    NodeState
-      { modifyHeadState = stateTVar tv
-      , queryHeadState = readTVar tv
-      , setHeadState = writeTVar tv
-      }

@@ -157,6 +157,7 @@ library
     , lens
     , lens-aeson
     , modern-uri
+    , monad-loops
     , network
     , network-mux
     , optparse-applicative
