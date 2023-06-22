@@ -9,12 +9,10 @@ import Test.Hydra.Prelude
 import qualified Data.List as List
 import Hydra.Chain (HeadParameters (..))
 import Hydra.HeadLogic (
-  CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
   NoSnapshotReason (..),
   Outcome (..),
-  SeenSnapshot (..),
   SnapshotOutcome (..),
   emitSnapshot,
   isLeader,
@@ -31,6 +29,7 @@ import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
 import Test.QuickCheck (Property, counterexample, forAll, label, oneof, (===), (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 import qualified Prelude
+import Hydra.HeadLogic.HeadState (CoordinatedHeadState(..), SeenSnapshot (..), StateChanged (..))
 
 spec :: Spec
 spec = do
@@ -113,8 +112,8 @@ spec = do
                 inOpenState' threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
 
-          emitSnapshot (envFor aliceSk) (NewState st [])
-            `shouldBe` NewState st' [NetworkEffect $ ReqSn alice 1 [tx]]
+          emitSnapshot (envFor aliceSk) (NewState (StateChanged st) [])
+            `shouldBe` NewState (StateChanged st') [NetworkEffect $ ReqSn alice 1 [tx]]
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do

@@ -94,6 +94,7 @@ library
     Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadLogic
+    Hydra.HeadLogic.HeadState
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder

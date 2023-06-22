@@ -25,8 +25,6 @@ import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
-  HeadState (..),
-  IdleState (..),
   defaultTTL,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot))
@@ -45,7 +43,7 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, startingHeadState)
 
 spec :: Spec
 spec = parallel $ do
@@ -164,7 +162,7 @@ createHydraNode ::
 createHydraNode signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState startingHeadState
   pure $
     HydraNode
       { eq

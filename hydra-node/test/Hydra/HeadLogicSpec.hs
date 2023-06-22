@@ -27,21 +27,23 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.HeadLogic (
-  ClosedState (..),
-  CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
   Event (..),
-  HeadState (..),
-  InitialState (..),
   LogicError (..),
-  OpenState (..),
   Outcome (..),
   RequirementFailure (..),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   defaultTTL,
   update,
+ )
+import Hydra.HeadLogic.HeadState (
+  ClosedState (..),
+  CoordinatedHeadState (..),
+  HeadState (..),
+  InitialState (..),
+  OpenState (..),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot), StateChanged (..),
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
@@ -329,7 +331,7 @@ spec =
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          NewState (Closed ClosedState{}) _ -> True
+          NewState (StateChanged (Closed ClosedState{})) _ -> True
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -536,7 +538,7 @@ assertNewState ::
   Outcome tx ->
   IO (HeadState tx)
 assertNewState = \case
-  NewState st _ -> pure st
+  NewState (StateChanged st) _ -> pure st
   OnlyEffects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
@@ -567,7 +569,7 @@ assertStateUnchangedFrom ::
   Outcome tx ->
   Expectation
 assertStateUnchangedFrom st = \case
-  NewState st' eff -> do
+  NewState (StateChanged st') eff -> do
     st' `shouldBe` st
     eff `shouldBe` []
   anything -> failure $ "unexpected outcome: " <> show anything

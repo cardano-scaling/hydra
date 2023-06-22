@@ -59,12 +59,12 @@ import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (
+import Hydra.HeadLogic.HeadState (
   Committed (),
   IdleState (..),
   PendingCommits,
  )
-import qualified Hydra.HeadLogic as HeadState
+import qualified Hydra.HeadLogic.HeadState as HeadState
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
@@ -101,10 +101,10 @@ data WorldState = WorldState
 -- stem from the consensus built into the Head protocol. In other words, this
 -- state is what each node's local state should be /eventually/.
 data GlobalState
-  = -- |Start of the "world".
-    -- This state is left implicit in the node's logic as it
-    -- represents that state where the node does not even
-    -- exist.
+  = -- | Start of the "world".
+    --  This state is left implicit in the node's logic as it
+    --  represents that state where the node does not even
+    --  exist.
     Start
   | Idle
       { idleParties :: [Party]
@@ -364,8 +364,8 @@ genPayment WorldState{hydraParties, hydraState} =
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
 
--- |Generate a list of pairs of Hydra/Cardano signing keys.
--- All the keys in this list are guaranteed to be unique.
+-- | Generate a list of pairs of Hydra/Cardano signing keys.
+--  All the keys in this list are guaranteed to be unique.
 partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
 partyKeys =
   sized $ \len -> do

@@ -7,6 +7,9 @@ import Hydra.Cardano.Api (SigningKey, VerificationKey, getVerificationKey)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Party (Party (vkey), deriveParty)
+import Hydra.HeadLogic.HeadState (IdleState(..), HeadState(Idle))
+import Hydra.Ledger.Simple (SimpleChainState(..), SimpleTx)
+import Hydra.Ledger (ChainSlot(..))
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk
@@ -28,3 +31,6 @@ allVKeys = vkey <$> [alice, bob, carol]
 
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 42
+
+startingHeadState :: HeadState SimpleTx
+startingHeadState = Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}

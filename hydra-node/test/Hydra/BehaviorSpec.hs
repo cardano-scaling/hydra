@@ -46,10 +46,9 @@ import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
   Event (..),
-  HeadState (..),
-  IdleState (..),
   defaultTTL,
  )
+import Hydra.HeadLogic.HeadState (HeadState (Idle), IdleState (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
@@ -67,7 +66,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, startingHeadState)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -721,7 +720,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState startingHeadState
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)
