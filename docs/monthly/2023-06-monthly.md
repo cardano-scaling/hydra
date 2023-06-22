@@ -54,11 +54,45 @@ TODO @ch1bo
 
 #### Commits from external wallet [#215](https://github.com/input-output-hk/hydra/issues/215)
 
-TODO @v0d1ch/@ffakenz?
+The team introduced `Fuel` some time ago as it was an easy workaround but the
+intention was to remove it and have a proper way of choosing which utxos can be
+spent inside of a Head. After the work of being able to commit multiple utxos is
+done we wanted to tackle first committing _regular_ utxos externaly and build
+upon that to also include script utxos.
 
-- Break this down into it's constituents
-- Option A/B?
-- Explain what is already done and what not
+The new REST server was introduced for the purpose of _drafting_ a commit
+transaction. The clients would request such draft transaction by sending a POST
+request at `/commit` path and hydra-node would respond with a transaction
+already signed by the internal wallet. Now the responsibility of signing and
+submitting this transaction has shifted from hydra-node to the client.
+
+This reduces the custodial aspect of hydra-node since now the clients can use
+whatever key they own, not known by the hydra-node, to do a commit step and
+hydra-node no longer has the access to all user funds used in the Head
+protocol.
+
+Outcome of this chunk of work is that:
+
+ - The `Fuel` is now deprecated with the intention of completely removing it in
+   the future.
+
+ - Hydra clients can submit one or multiple utxos sitting at public key address
+   using Hydra REST server.
+
+ - There is a PR in review that enables the same for script utxos and makes
+   sure clients are not trying to commit one of the internal wallet's utxos.
+
+Further developments:
+
+- Use OpenAPI for the REST server documentation since AsyncAPI is not the right
+  tool to describe synchronous requests.
+
+- Update the TUI client and the demo instructions
+
+- Update the documentation to remove `Fuel` completely
+
+- ADR to cover potential architecture changes
+
 
 #### Benchmark performance of Hydra Head [#186](https://github.com/input-output-hk/hydra/issues/215)
 
