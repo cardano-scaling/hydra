@@ -30,7 +30,7 @@
         hydraProject = import ./nix/hydra/project.nix {
           inherit (inputs) haskellNix iohk-nix CHaP;
           inherit system nixpkgs;
-          gitRev = self.rev or "dirty";
+          gitRev = "dirty"; # TODO: disabled self.rev
         };
         hydraPackages = import ./nix/hydra/packages.nix {
           inherit hydraProject system pkgs cardano-node;

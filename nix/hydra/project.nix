@@ -56,6 +56,7 @@ let
       }
       # Inject the git revision into hydra-node --version
       # (see hydra-node/src/Hydra/Options.hs)
+      # FIXME: disabled git revision injection to avoid rebuilds
       (
         let
           patchGitRevision = ''
