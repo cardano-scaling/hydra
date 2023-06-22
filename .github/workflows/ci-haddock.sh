@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-cabal haddock --haddock-tests all
+# without --disable-documentation haddock will recompile all the things
+# See https://github.com/haskell/cabal/issues/8707
+cabal haddock --disable-documentation --haddock-tests all
 
 [ ! -d docs/static/haddock ] && mkdir -p docs/static/haddock
 
