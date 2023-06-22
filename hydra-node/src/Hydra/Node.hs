@@ -13,6 +13,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
+  MonadSTM (writeTVar),
   labelTVarIO,
   newTVarIO,
   stateTVar,
@@ -30,7 +31,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.HeadLogic.HeadState (HeadState (..), StateChanged (..), updateState)
+import Hydra.HeadLogic.HeadState (HeadState (..), updateState)
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
@@ -112,7 +113,8 @@ stepHydraNode ::
 stepHydraNode tracer node = do
   e@Queued{eventId, queuedEvent} <- nextEvent eq
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
-  outcome <- atomically (processNextEvent node queuedEvent)
+  s <- atomically $ queryHeadState nodeState
+  let outcome = Logic.update env ledger s queuedEvent
   traceWith tracer (LogicOutcome party outcome)
   effs <- case outcome of
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
@@ -122,9 +124,10 @@ stepHydraNode tracer node = do
     Wait _reason -> do
       putEventAfter eq waitDelay (decreaseTTL e)
       pure []
-    NewState (StateChanged s) effs -> do
-      -- TODO: move save to the HeadState management logic
-      save s
+    NewState stateChange effs -> do
+      let s' = updateState stateChange s
+      save s'
+      atomically $ setHeadState nodeState s'
       pure effs
     OnlyEffects effs -> do
       pure effs
@@ -142,27 +145,11 @@ stepHydraNode tracer node = do
 
   Persistence{save} = persistence
 
-  HydraNode{persistence, eq, env} = node
+  HydraNode{nodeState, ledger, persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
 waitDelay = 0.1
-
--- | Monadic interface around 'Hydra.Logic.update'.
-processNextEvent ::
-  (IsChainState tx) =>
-  HydraNode tx m ->
-  Event tx ->
-  STM m (Outcome tx)
-processNextEvent HydraNode{nodeState, ledger, env} e =
-  modifyHeadState $ \s ->
-    case Logic.update env ledger s e of
-      OnlyEffects effects -> (OnlyEffects effects, s)
-      NewState s' effects -> (NewState s' effects, updateState s' s)
-      Error err -> (Error err, s)
-      Wait reason -> (Wait reason, s)
- where
-  NodeState{modifyHeadState} = nodeState
 
 processEffect ::
   ( MonadAsync m
@@ -191,6 +178,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
 data NodeState tx m = NodeState
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
   , queryHeadState :: STM m (HeadState tx)
+  , setHeadState :: HeadState tx -> STM m ()
   }
 
 -- | Initialize a new 'NodeState'.
@@ -202,4 +190,5 @@ createNodeState initialState = do
     NodeState
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
+      , setHeadState = writeTVar tv
       }
