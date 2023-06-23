@@ -1749,7 +1749,7 @@ components:
       - type
       properties:
         cborHex:
-          type: string
+          $ref: "#/components/schemas/Cbor"
         description:
           type: string
         type:
