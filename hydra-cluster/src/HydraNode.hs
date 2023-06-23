@@ -20,7 +20,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -174,7 +174,7 @@ externalCommit HydraClient{hydraNodeId} utxos =
     Req.req
       POST
       (Req.http "127.0.0.1" /: "commit")
-      (ReqBodyJson (DraftCommitTxRequest ((`DraftUTxO` Nothing) <$> utxos)))
+      (ReqBodyJson (DraftCommitTxRequest ((`TxOutWithWitness` Nothing) <$> utxos)))
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port $ 4000 + hydraNodeId)
 
@@ -206,7 +206,6 @@ data EndToEndLog
   | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
-  | SubmitCommitTx {commitTx :: Tx}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

@@ -10,9 +10,11 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String))
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified PlutusLedgerApi.V2 as Plutus
+import Test.QuickCheck (oneof, resize, sized, vectorOf)
 
 -- * Extras
 
@@ -96,10 +98,28 @@ instance FromJSON ScriptData where
       bytes <- Base16.decode (encodeUtf8 text)
       left show $ deserialiseOrFail $ fromStrict bytes
 
--- NOTE: We are okay with storing the data and re-serializing + hashing it into
--- 'HashableScriptData' in these ToJSON/FromJSON instances as the serialization
--- ambiguity addressed by 'HashableScriptData' is long overboard if we are
--- dealing with JSON.
+instance Arbitrary ScriptData where
+  arbitrary =
+    oneof
+      [ sized
+          ( \n ->
+              ScriptDataConstructor (fromIntegral (n - 1)) <$> resize (n - 1) arbitrary
+          )
+      , ScriptDataNumber <$> arbitrary
+      , ScriptDataBytes <$> arbitraryBS
+      , sized
+          ( \n -> do
+              ScriptDataList <$> resize (n - 1) arbitrary
+          )
+      , sized
+          ( \n -> do
+              ScriptDataMap <$> resize (n - 1) arbitrary
+          )
+      ]
+   where
+    -- XXX: ScriptDataBytes expects utf-8 words
+    arbitraryBS =
+      BS.pack <$> vectorOf 8 arbitrary
 
 instance ToJSON HashableScriptData where
   toJSON = toJSON . getScriptData
@@ -107,7 +127,6 @@ instance ToJSON HashableScriptData where
 instance FromJSON HashableScriptData where
   parseJSON = fmap unsafeHashableScriptData . parseJSON
 
--- XXX: Incomplete arbitrary instance
 instance Arbitrary HashableScriptData where
-  arbitrary = do
-    unsafeHashableScriptData . ScriptDataNumber <$> arbitrary
+  arbitrary =
+    unsafeHashableScriptData <$> arbitrary

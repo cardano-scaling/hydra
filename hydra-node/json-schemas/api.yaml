@@ -761,8 +761,7 @@ components:
                   "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
                   "value": {
                     "lovelace": 7620669
-                  },
-                  "witness": null
+                  }
                 },
                 "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
                   "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
@@ -1731,9 +1730,9 @@ components:
         type: object
         properties:
           redeemer:
-            type: string
+            $ref: "#/components/schemas/Cbor"
           datum:
-            type: string
+            $ref: "#/components/schemas/Cbor"
           plutusV2Script:
             type: object
             $ref: "#/components/schemas/PlutusV2Script"

@@ -20,7 +20,7 @@ import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), DraftUTxO (..), ScriptInfo (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..), TxOutWithWitness (..))
 import Hydra.Cardano.Api (
   Lovelace (..),
   PlutusScriptV2,
@@ -207,54 +207,6 @@ singlePartyCommitsUsingFuel tracer workDir node hydraScriptsTxId =
   RunningNode{nodeSocket} = node
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
--- verification key.
-singlePartyCommitsFromExternal ::
-  Tracer IO EndToEndLog ->
-  FilePath ->
-  RunningNode ->
-  TxId ->
-  IO ()
-singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
-    let hydraNodeId = 1
-    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      -- these keys should mimic external wallet keys needed to sign the commit tx
-      (externalVk, externalSk) <- generate genKeyPair
-      -- submit the tx using our external user key to get a utxo to commit
-      utxoToCommit <- seedFromFaucet node externalVk 2_000_000 Normal (contramap FromFaucet tracer)
-      let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
-
-      -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest draftUTxos
-
-      response <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-            (port $ 4000 + hydraNodeId)
-
-      responseStatusCode response `shouldBe` 200
-
-      let DraftCommitTxResponse commitTx = responseBody response
-
-      -- sign and submit the tx with our external user key
-      let signedCommitTx = signTx externalSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
-
-      waitFor tracer 60 [n1] $
-        output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
- where
-  RunningNode{networkId, nodeSocket} = node
-
--- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
 -- signing the transaction.
 singlePartyCommitsFromExternalScript ::
@@ -313,13 +265,13 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
  where
   RunningNode{networkId, nodeSocket} = node
 
-singlePartyCantCommitExternallyWalletUtxo ::
+singlePartyCannotCommitExternallyWalletUtxo ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
   TxId ->
   IO ()
-singlePartyCantCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
+singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
@@ -401,9 +353,9 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
-mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> UTxO' DraftUTxO
+mkDraftUTxOs :: UTxO -> Maybe ScriptInfo -> UTxO' TxOutWithWitness
 mkDraftUTxOs utxo mScriptInfo =
-  UTxO.fromPairs $ (\(txIn, txOut) -> (txIn, DraftUTxO txOut mScriptInfo)) <$> UTxO.pairs utxo
+  UTxO.fromPairs $ (\(txIn, txOut) -> (txIn, TxOutWithWitness txOut mScriptInfo)) <$> UTxO.pairs utxo
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

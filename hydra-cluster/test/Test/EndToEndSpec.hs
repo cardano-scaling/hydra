@@ -67,8 +67,7 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyCantCommitExternallyWalletUtxo,
-  singlePartyCommitsFromExternal,
+  singlePartyCannotCommitExternallyWalletUtxo,
   singlePartyCommitsFromExternalScript,
   singlePartyCommitsUsingFuel,
   singlePartyHeadFullLifeCycle,
@@ -141,11 +140,6 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsUsingFuel tracer tmpDir node
-      it "commits from external with regular utxo" $ \tracer -> do
-        withClusterTempDir "single-commits-from-external" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartyCommitsFromExternal tracer tmpDir node
       it "commits from external with script utxo" $ \tracer -> do
         withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
@@ -155,7 +149,7 @@ spec = around showLogsOnFailure $ do
         withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= singlePartyCantCommitExternallyWalletUtxo tracer tmpDir node
+              >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

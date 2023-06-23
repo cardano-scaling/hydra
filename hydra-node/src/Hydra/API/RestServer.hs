@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
-import Data.Aeson (Value (Object, String), object, withObject, (.:), (.=))
+import Data.Aeson (Value (Object, String), object, withObject, (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
@@ -79,33 +79,33 @@ data ScriptInfo = ScriptInfo
 instance Arbitrary ScriptInfo where
   arbitrary = genericArbitrary
 
-data DraftUTxO = DraftUTxO
+data TxOutWithWitness = TxOutWithWitness
   { txOut :: TxOut CtxUTxO
   , witness :: Maybe ScriptInfo
   }
   deriving stock (Show, Eq, Generic)
 
-instance ToJSON DraftUTxO where
-  toJSON DraftUTxO{txOut, witness} =
+instance ToJSON TxOutWithWitness where
+  toJSON TxOutWithWitness{txOut, witness} =
     case toJSON txOut of
-      Object km ->
+      Object km | isJust witness ->
         Object $ km & "witness" `KeyMap.insert` toJSON witness
       x -> x
 
-instance FromJSON DraftUTxO where
+instance FromJSON TxOutWithWitness where
   parseJSON v = do
     txOut <- parseJSON v
-    flip (withObject "DraftUTxO") v $ \o -> do
-      witness <- o .: "witness"
-      pure $ DraftUTxO{txOut, witness}
+    flip (withObject "TxOutWithWitness") v $ \o -> do
+      witness <- o .:? "witness"
+      pure $ TxOutWithWitness{txOut, witness}
 
-instance Arbitrary DraftUTxO where
+instance Arbitrary TxOutWithWitness where
   arbitrary = genericArbitrary
 
-deriving newtype instance Arbitrary (UTxO' DraftUTxO)
+deriving newtype instance Arbitrary (UTxO' TxOutWithWitness)
 
 newtype DraftCommitTxRequest = DraftCommitTxRequest
-  { utxos :: UTxO' DraftUTxO
+  { utxos :: UTxO' TxOutWithWitness
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -117,10 +117,10 @@ instance Arbitrary DraftCommitTxRequest where
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
 
 convertDraftUTxO ::
-  UTxO' DraftUTxO ->
+  UTxO' TxOutWithWitness ->
   UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))
 convertDraftUTxO utxo' =
-  (\DraftUTxO{txOut, witness} -> (txOut, toScriptWitness <$> witness)) <$> utxo'
+  (\TxOutWithWitness{txOut, witness} -> (txOut, toScriptWitness <$> witness)) <$> utxo'
  where
   toScriptWitness ScriptInfo{redeemer, datum, plutusV2Script} =
     mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
