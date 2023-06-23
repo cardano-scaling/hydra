@@ -48,9 +48,24 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-#### Commits with multiple UTxO [#774](https://github.com/input-output-hk/hydra/issues/774)
+#### Commits with multiple UTxO [#774](https://github.com/input-output-hk/hydra/pull/774)
 
-TODO @ch1bo
+One of the early adopting projects is exploring how to move scripts from layer 1
+to layer 2. For that purpose, it was necessary to not only commit the actual
+script UTxO, but also a "regular" UTxO holding only ADA to be used as collateral
+(the `cardano-ledger` always requires collateral although it would not be
+necessary on a layer 2).
+
+To enable this, the specification and on-chain protocol needed updating. Before
+a protocol participant could commit zero or one UTxO, which changed now to a
+list of UTxO. As we have the specification now [part of the
+repository](/monthly/2023-04#versioned-docs-and-specification), it could be kept
+consistent within the same pull request.
+
+Despite being a **breaking change**, leading to new Hydra script hashes to be
+published and used starting with version 0.11.0, this change was suprisingly
+easy to do and demonstrated the amenability of the Head protocol and our system
+architecture.
 
 #### Commits from external wallet [#215](https://github.com/input-output-hk/hydra/issues/215)
 
