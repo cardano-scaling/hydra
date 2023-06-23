@@ -27,8 +27,8 @@ spec = do
     property $
       withMaxSuccess 1 $
         conjoin
-          [ prop_validateToJSON @(Envelope (HydraLog Tx ())) "logs" "messages" "HydraLog"
-          , prop_specIsComplete @(HydraLog Tx ()) "logs" apiSpecificationSelector
+          [ prop_validateToJSON @(Envelope (HydraLog Tx ())) "logs.json" "messages" "HydraLog"
+          , prop_specIsComplete @(HydraLog Tx ()) "logs.json" apiSpecificationSelector
           ]
 
 apiSpecificationSelector :: SpecificationSelector

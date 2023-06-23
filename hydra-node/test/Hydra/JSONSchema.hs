@@ -54,7 +54,7 @@ prop_validateJSONSchema specFileName selector =
         run ensureSystemRequirements
         let jsonInput = tmpDir </> "jsonInput"
         let jsonSchema = tmpDir </> "jsonSchema"
-        let specJsonFile = tmpDir </> (specFileName <> ".json")
+        let specJsonFile = tmpDir </> specFileName
         mSpecs <- run $ Aeson.decodeFileStrict specJsonFile
         case mSpecs of
           Nothing -> error "Failed to decode specFile to JSON"
@@ -91,7 +91,7 @@ prop_validateToJSON specFileName selector inputFileName =
   forAllShrink (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $
       withJsonSpecifications $ \tmpDir -> do
-        let specFile = tmpDir </> (specFileName <> ".json")
+        let specFile = tmpDir </> specFileName
         run ensureSystemRequirements
         let obj = Aeson.encode $ Aeson.object [selector .= a]
         (exitCode, _out, err) <- run $ do
@@ -141,7 +141,7 @@ prop_specIsComplete specFileName typeSpecificationSelector =
   forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
     monadicIO $ do
       withJsonSpecifications $ \tmpDir -> do
-        let specFile = tmpDir </> (specFileName <> ".json")
+        let specFile = tmpDir </> specFileName
         specs <- run $ Aeson.decodeFileStrict specFile
         let knownKeys = classify specFile specs a
         let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
@@ -194,7 +194,7 @@ withJsonSpecifications action = do
         spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
         let spec' = addField "$id" ("file://" <> dir <> "/") spec
         liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
-        -- XXX: We need to write the specFile as .yaml although it is a JSON document now, 
+        -- XXX: We need to write the specFile as .yaml although it is a JSON document now,
         -- because internally the spec reference elements using the original .yaml file name.
         liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec
     action dir

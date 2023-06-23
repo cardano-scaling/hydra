@@ -25,15 +25,15 @@ spec = parallel $ do
     property $
       withMaxSuccess 1 $ do
         conjoin
-          [ prop_validateJSONSchema @DraftCommitTxRequest "api" (key "components" . key "messages")
+          [ prop_validateJSONSchema @DraftCommitTxRequest "api.json" (key "components" . key "messages")
           ]
 
   prop "Validate /commit subscribe api schema" $
     property $
       withMaxSuccess 1 $ do
         conjoin
-          [ prop_validateJSONSchema @(DraftCommitTxResponse Tx) "api" (key "channels" . key "/commit" . key "subscribe")
-          , prop_specIsComplete @(DraftCommitTxResponse Tx) "api" apiSpecificationSelector
+          [ prop_validateJSONSchema @(DraftCommitTxResponse Tx) "api.json" (key "channels" . key "/commit" . key "subscribe")
+          , prop_specIsComplete @(DraftCommitTxResponse Tx) "api.json" apiSpecificationSelector
           ]
 
 apiSpecificationSelector :: SpecificationSelector
