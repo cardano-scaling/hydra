@@ -369,6 +369,10 @@ jobs:
         # built into the page via the static directory
         path: docs/static/haddock
 
+    # TODO: debugging
+    - run: |
+        find docs
+
     - name: 📚 Documentation sanity check
       working-directory: docs
       run: |
