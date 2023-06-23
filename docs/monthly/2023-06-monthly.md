@@ -106,14 +106,42 @@ describe synchronous requests well.
 
 #### Benchmark performance of Hydra Head [#186](https://github.com/input-output-hk/hydra/issues/215)
 
-TODO @abailly / @pgrange?
+Low confirmation time is a key feature of Hydra Head protocol and is
+needed for some use cases. We revived our existing end-to-end
+benchmarks and tailored them for a _baseline scenario_, one with a
+single hydra-node and a single client. While this scenario is not
+representative of target deployments, it's interesting as it gives us
+an upper bound on the performance of a Hydra Head network.
 
-- What did we do here? What's the result?
-- Including new "Event source persistence" outcome
+The results have been somewhat disappointing, and further investigations lead us to a few insights:
+* There was a misconfiguration in the RTS of the hydra-node executable
+  which was therefore not taking advantage of parallelism
+* We identified the main bottleneck to be persistence of the node's
+  state, which is currently done by overwriting a single file with the
+  JSON content of the _full_ state on _state change_ which is pretty
+  inefficient. As a consequence, we will work on improving the
+  persistence strategy as described in [this
+  ADR](https://github.com/input-output-hk/hydra/pull/940)
+* We've also started publishing more benchmarks:
+  * The aforementioned [End-to-end benchmarks](/unstable/benchmarks/end-to-end-benchmarks),
+  * [Ledger Micro-benchmarks](/unstable/benchmarks/ledger) as a comparison basis.
 
 #### Operating hydra nodes
 
-TODO @abailly / @pgrange?
+As a "dogfooding" exercise, the Hydra team is operating a Hydra Head
+on mainnet on top of which is running our `hydraw` application. We
+have observed the Head protocol got stuck a couple of times and
+post-mortem investigations lead us to a few improvements in how to
+operate a hydra-node and network:
+* Better reporting on the version of executable `hydra-node` and
+  `hydra-tui` which now report the Git SHA1 at which they were built
+* Reduction in the volume of logs emitted by hydra-node by removing
+  some chatty network-related logs and using ids to link `Begin/End`
+  pairs
+* Rework the
+  [log-filter](https://github.com/input-output-hk/hydra/blob/35f2964ba6d4a780a5f8e669f1afce565a492cec/hydra-cluster/exe/log-filter/Main.hs#L34)
+  tool to provide timings for various events and effects keyed by
+  transactions
 
 ## Community
 
