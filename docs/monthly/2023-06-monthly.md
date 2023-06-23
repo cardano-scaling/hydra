@@ -155,12 +155,20 @@ The code is fully open source and available on Github
 The monthly review meeting for May was held on 2023-06-21 via Google Meet with
 these [slides][slides] and here is the [recording][recording].
 
-TODO @ch1bo
+It was a fairly straight-forward month and consequently unexcited review meeting
+this month. Unfortunately, we could not release 0.11.0 yet, but we wanted to get
+the quite significant change of supporting commits from external wallets done
+first. This feature in particular was more involved than expected, but as the
+demonstration in the meeting showed, we are in the final stages of getting this
+over the line.
 
-- Fairly straight-forward meeting
-- Unexcited / cool show of features
-- Some demos / announcements not ready just yet - next updates going to be more interesting again
-- Holiday season approaching, but we march on, steadily
+Besides some nice findings to potential performance improvements for layer 2
+transaction processing, there was not much to announce this time around. Behind
+the scenes, however, there have been great progress on the Hydra for Payments
+project and the next updates are going to be more interesting again.
+
+Dispite holiday season approaching, we will march on, steadily adding features
+and enabling more and more use cases to scale through Hydra.
 
 [slides]: https://docs.google.com/presentation/d/1TVzjaFKXBi9DAugSd2L8MSUSZGIU9EjTmwf6yccckPI
 [recording]: https://drive.google.com/file/d/1_N6b4RDe579TgLawiJzbE0NLofD3ljE6/view
