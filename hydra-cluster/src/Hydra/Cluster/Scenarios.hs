@@ -237,15 +237,14 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       scriptUtxo2 <- createOutputAtAddress node pparams scriptAddress2 datum
       let scriptUTxO1 = mkDraftUTxOs scriptUtxo1 (Just scriptInfo1)
       let scriptUTxO2 = mkDraftUTxOs scriptUtxo2 (Just scriptInfo2)
-      let scriptUtxosInfo = scriptUTxO1 <> scriptUTxO2
       -- Request to build a draft commit tx from hydra-node
       regularUtxo1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
       regularUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
 
       let regularUTxO1 = mkDraftUTxOs regularUtxo1 Nothing
       let regularUTxO2 = mkDraftUTxOs regularUtxo2 Nothing
-      let regularUtxosInfo = regularUTxO1 <> regularUTxO2
-      let clientPayload = DraftCommitTxRequest (regularUtxosInfo <> scriptUtxosInfo)
+      let clientPayload =
+            DraftCommitTxRequest (regularUTxO1 <> regularUTxO2 <> scriptUTxO1 <> scriptUTxO2)
       response <-
         runReq defaultHttpConfig $
           req
@@ -288,7 +287,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 draftUTxos  `shouldThrow` selector400
+      externalCommit n1 draftUTxos `shouldThrow` selector400
  where
   RunningNode{nodeSocket} = node
   selector400 :: HttpException -> Bool
