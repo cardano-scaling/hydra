@@ -1,7 +1,7 @@
 ---
 title: June 2023
 slug: 2023-06
-authors: [ch1bo]
+authors: [v0d1ch, ch1bo]
 tags: [monthly]
 ---
 
