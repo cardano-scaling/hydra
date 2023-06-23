@@ -12,34 +12,42 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-While there was not a release this month, we implemented some notable features,
-which will be released soon as version 0.11.0:
+While there was no release this month, we implemented several notable
+features, which will be released soon as version 0.11.0:
 
 ![The roadmap without idea items](./img/2023-06-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
 
 #### Notable roadmap updates
 
-TODO @ch1bo
+- Realized [allowing commit txs with multiple UTxO
+  #774](https://github.com/input-output-hk/hydra/pull/774) as dedicated roadmap
+  item separate from the related [commit from external wallet
+  #215](https://github.com/input-output-hk/hydra/issues/215) (which grew too
+  big).
 
-- Factored out commits of multiple UTxO #774
+- Revisited [off-chain performance by doing benchmarks
+  #186](https://github.com/input-output-hk/hydra/issues/186). Identified a
+  bottleneck, groomed and planned a follow-up performance improvement feature
+  for [Event sourced persistence"
+  #913](https://github.com/input-output-hk/hydra/issues/913)
 
-- Revisited off-chain performance by doing benchmarks #186
+- Plan to release 0.11.0 without [Authenticate network messages
+  #727](https://github.com/input-output-hk/hydra/issues/727) to deliver enabling
+  featues earlier.
 
-- Identified a bottleneck, groomed and planned in performance improvement "Event sourced persistence" #913
-
-- Will release 0.11.0 without "Authenticate network messages #727"
-
-- API improvements and exploring batched transactions on L2 showed that "ReqSN
-  only sends transaction IDs #728" is in demand, front-loads further API changes
-  and is estimated to be a low-hanging fruit.
+- API improvements and exploring batched transactions on L2 showed that [ReqSN
+  only sends transaction IDs
+  #728](https://github.com/input-output-hk/hydra/issues/728) is in demand,
+  front-loads further API changes and is estimated to be a low-hanging fruit.
 
 - Reprioritized items in `<= 1.0.0` column to do items with on-chain protocol
   impact earlier and we have not had much feedback on snapshotting items. In
-  fact, if we do "Support larger # of UTxO via split-fanout #190" slightly
+  fact, if we do [Support larger # of UTxO via split-fanout
+  #190](https://github.com/input-output-hk/hydra/issues/190) slightly
   differently, we should avoid some of the problems of impossible to finalize
   snapshots.
 
-![The latest roadmap with features and ideas](./img/2023-06-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
+![The latest roadmap with features and ideas](./img/2023-06-roadmap.png) <small><center>The latest roadmap with featuresand ideas</center></small>
 
 ## Development
 
@@ -109,19 +117,38 @@ TODO @abailly / @pgrange?
 
 ## Community
 
-TODO @ch1bo
+#### Hydra hackathon / workshop
 
-- Hydra / Mithril talk proposal for Cardano Summit 2023?
-- Hydra hackathon on Rare Evo?
+The Hydra team is considering holding a workshop at/around Rare Evo at the end
+of August and is in contact with the event teams at IOG and the Rare Evo
+organizers. The concrete format, scope and agenda is still a bit unclear as we
+are contemplating whether to do a workshop/tutorial style or rather a
+introduction + challenge setting event. If it does not work out for Rare Evo, we
+will find another event or do it ourselves.
+
+If you are reading this and would be interested in joining such an event please
+drop us a line on [discord](https://discord.gg/Qq5vNTg9PT) or DM
+[@ch1bo](https://twitter.com/ch1bo_)! Ideally along with some thoughts on
+preferred format or what you would be interested in.
 
 #### Hydra for Auctions contributions and closing of project
 
-TODO @ch1bo/@nebojsa?
+One of the Hydra lighthouse projects is slowly coming to an end. The
+collaboration project between IOG and MLabs on using Hydra for auctions is
+currently finalizing documentation and creating demonstration running the whole
+thing on a public testnet. Although the demo video was not available at the copy
+deadline of this report, we are confident to be showing more about this next
+month.
 
-- Include demo video
-- Yielded multiple github issues for ideas
-- Demonstrated how to move scripts from L1 -> L2
-- Nice example of establishing crucial state on L1 and achieving scalability through L2
+The project yielded multiple github issues containing ideas and sparked great
+discussions on improving Hydra like [reported last
+month](https://hydra.family/head-protocol/monthly/2023-05#hydrozoa-850). It is
+also the first project which demonstrates how to move smart contracts from the
+layer 1 (L1) to the layer 2 (L2)! Overall it is a great example of establishing
+crucial state on L1 and achieving scalability through Hydra as L2.
+
+The code is fully open source and available on Github
+[hydra-auction](https://github.com/mlabs-haskell/hydra-auction/).
 
 ## Conclusion
 
@@ -129,6 +156,11 @@ The monthly review meeting for May was held on 2023-06-21 via Google Meet with
 these [slides][slides] and here is the [recording][recording].
 
 TODO @ch1bo
+
+- Fairly straight-forward meeting
+- Unexcited / cool show of features
+- Some demos / announcements not ready just yet - next updates going to be more interesting again
+- Holiday season approaching, but we march on, steadily
 
 [slides]: https://docs.google.com/presentation/d/1TVzjaFKXBi9DAugSd2L8MSUSZGIU9EjTmwf6yccckPI
 [recording]: https://drive.google.com/file/d/1_N6b4RDe579TgLawiJzbE0NLofD3ljE6/view
