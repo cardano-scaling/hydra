@@ -377,7 +377,7 @@ data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
-  | WaitOnSeenTxs {unseenTxId :: [TxIdType tx]}
+  | WaitOnSeenTxs {unseenTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   deriving stock (Generic)
 

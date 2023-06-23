@@ -1624,12 +1624,12 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - unseenTxId
+          - unseenTxIds
         properties:
           tag:
             type: string
             enum: ["WaitOnSeenTxs"]
-          unseenTxId:
+          unseenTxIds:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
