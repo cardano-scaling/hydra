@@ -742,7 +742,7 @@ components:
       title: DraftCommitTxRequest
       description: |
         Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
-        Script utxos must provide a witness, regulars can ommit this.
+        Script utxos must provide a witness, regulars can omit this.
       payload:
         type: object
         required:
