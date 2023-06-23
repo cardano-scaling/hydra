@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module HydraNode where
 
@@ -12,6 +13,7 @@ import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
+import qualified Control.Monad.Catch as Catch
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
@@ -164,19 +166,26 @@ waitForAll tracer delay nodes expected = do
 
 -- | Create a commit tx using the hydra-node for later submission
 -- Only works for non-script utxos
-externalCommit :: HydraClient -> UTxO -> IO Tx
+externalCommit :: HasCallStack => HydraClient -> UTxO' TxOutWithWitness -> IO Tx
 externalCommit HydraClient{hydraNodeId} utxos =
   runReq defaultHttpConfig request
     <&> responseBody
     >>= \DraftCommitTxResponse{commitTx} -> pure commitTx
  where
   request =
-    Req.req
-      POST
-      (Req.http "127.0.0.1" /: "commit")
-      (ReqBodyJson (DraftCommitTxRequest ((`TxOutWithWitness` Nothing) <$> utxos)))
-      (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-      (Req.port $ 4000 + hydraNodeId)
+    catchIt $
+      Req.req
+        POST
+        (Req.http "127.0.0.1" /: "commit")
+        (ReqBodyJson $ DraftCommitTxRequest utxos)
+        (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+        (Req.port $ 4000 + hydraNodeId)
+
+  catchIt action =
+    -- we should re-use 'failure' here but it's 'MonadCatch' constraint comes
+    -- from 'Control.Monad.Class.MonadThrow' and 'req' uses 'MonadThrow' from
+    -- 'Control.Monad.Catch'
+    action `Catch.catch` (\(e :: HttpException) -> Catch.throwM e)
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do

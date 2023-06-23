@@ -288,18 +288,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       let draftUTxos = mkDraftUTxOs utxoToCommit Nothing
       -- Request to build a draft commit tx from hydra-node
-      let clientPayload = DraftCommitTxRequest draftUTxos
-
-      runReq
-        defaultHttpConfig
-        ( req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-            (port $ 4000 + hydraNodeId)
-        )
-        `shouldThrow` selector400
+      externalCommit n1 draftUTxos  `shouldThrow` selector400
  where
   RunningNode{nodeSocket} = node
   selector400 :: HttpException -> Bool
