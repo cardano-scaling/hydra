@@ -55,7 +55,6 @@ import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
 import Hydra.Chain (HeadId, PostTxError (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..), mkCardanoClient)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
@@ -224,7 +223,7 @@ handleEvent ::
   State ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
-handleEvent client cardanoClient s = \case
+handleEvent client@Client{sendInput} cardanoClient s = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -248,17 +247,17 @@ handleEvent client cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
                 halt s
             | c `elem` ['i', 'I'] ->
-                sendInputAndTransition client s Init
+                sendInputAndTransition sendInput s Init
             | c `elem` ['a', 'A'] ->
-                sendInputAndTransition client s Abort
+                sendInputAndTransition sendInput s Abort
             | c `elem` ['f', 'F'] ->
-                sendInputAndTransition client s Fanout
+                sendInputAndTransition sendInput s Fanout
             | c `elem` ['c', 'C'] ->
                 case s ^? headStateL of
                   Just Initializing{} ->
                     showCommitDialog client cardanoClient s
                   Just Open{} ->
-                    sendInputAndTransition client s Close
+                    sendInputAndTransition sendInput s Close
                   _ ->
                     continue s
             | c `elem` ['n', 'N'] ->
@@ -276,12 +275,12 @@ handleEvent client cardanoClient s = \case
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
 
-sendInputAndTransition :: Client tx IO -> State -> ClientInput tx -> EventM n (Next State)
-sendInputAndTransition Client{sendInput} s input = case s ^? pendingL of
+sendInputAndTransition :: (a -> IO ()) -> State -> a -> EventM n (Next State)
+sendInputAndTransition sendAction s input = case s ^? pendingL of
   Just Pending -> do
     continue $ s & info "Transition already pending"
   Just NotPending -> do
-    liftIO $ sendInput input
+    liftIO $ sendAction input
     continue $ s & initPending
   -- XXX: Not connected is impossible here (smell -> refactor)
   Nothing -> continue s
@@ -446,12 +445,11 @@ showCommitDialog ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-showCommitDialog client@Client{sk} CardanoClient{queryUTxOByAddress, networkId} s = do
+showCommitDialog Client{sk, externalCommit} CardanoClient{queryUTxOByAddress, networkId} s = do
   utxo <- liftIO $ queryUTxOByAddress [ourAddress]
   -- XXX(SN): this is a hydra implementation detail and should be moved
   -- somewhere hydra specific
-  let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
-  continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
+  continue $ s & dialogStateL .~ commitDialog (UTxO.toMap utxo)
  where
   ourAddress =
     makeShelleyAddress
@@ -466,14 +464,7 @@ showCommitDialog client@Client{sk} CardanoClient{queryUTxOByAddress, networkId} 
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
-      if length commitUTxO > 1
-        then
-          continue $
-            s'
-              & warn "Cannot commit more than 1 entry."
-              & dialogStateL .~ NoDialog
-        else do
-          sendInputAndTransition client (s' & dialogStateL .~ NoDialog) (Commit commitUTxO)
+      sendInputAndTransition externalCommit (s' & dialogStateL .~ NoDialog) commitUTxO
 
 handleNewTxEvent ::
   Client Tx IO ->

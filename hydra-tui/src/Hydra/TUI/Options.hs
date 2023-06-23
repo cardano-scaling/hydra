@@ -84,7 +84,7 @@ parseCardanoSigningKey =
     ( long "cardano-signing-key"
         <> short 'k'
         <> metavar "FILE"
-        <> help "The path to the signing key file used for selecting, committing  UTxO and signing off-chain transactions. This file used the same 'Envelope' format than cardano-cli."
+        <> help "The path to the user signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli."
         <> value "me.sk"
         <> showDefault
     )
