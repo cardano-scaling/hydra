@@ -1604,7 +1604,7 @@ components:
     TxOutWithWitness:
       type: object
       description: |
-        A single transaction output
+        A single transaction output with optional witness to spend it.
       required:
       - address
       - value
