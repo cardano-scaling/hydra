@@ -56,6 +56,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Data.Set ((\\))
 
 -- * Types
 
@@ -331,30 +332,35 @@ data LogicError tx
   | InvalidState (HeadState tx)
   | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
-  | RequireFailed RequirementFailure
+  | RequireFailed (RequirementFailure tx)
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
-instance (Typeable tx, Show (Event tx), Show (HeadState tx)) => Exception (LogicError tx)
+instance (Typeable tx, Show (Event tx), Show (HeadState tx), Show (RequirementFailure tx)) => Exception (LogicError tx)
 
-instance (Arbitrary (Event tx), Arbitrary (HeadState tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary (Event tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
-deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
-deriving instance (ToJSON (Event tx), ToJSON (HeadState tx)) => ToJSON (LogicError tx)
-deriving instance (FromJSON (Event tx), FromJSON (HeadState tx)) => FromJSON (LogicError tx)
+deriving instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
+deriving instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)
+deriving instance (ToJSON (HeadState tx), ToJSON (Event tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
+deriving instance (FromJSON (HeadState tx), FromJSON (Event tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
 
-data RequirementFailure
+data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid  :: TxIdType tx, error :: ValidationError }
+  deriving stock (Generic)
 
-instance Arbitrary RequirementFailure where
+deriving instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
+deriving instance (Show (TxIdType tx)) => Show (RequirementFailure tx)
+deriving instance (ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
+deriving instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
+
+instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
   arbitrary = genericArbitrary
 
 data Outcome tx
@@ -676,13 +682,11 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait T ⊆ \hatT
-      -- All transactions in the snapshot must have been seen before, eg.
-      -- the node has received a ReqTx message containing those txs such
-      -- that they can be applied to latest seenUTxO
-      waitSeenTxs $
+      -- Spec: wait T ⊆ T̂
+      waitSeenTxs $ \ resolvedTxs ->
         -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
-        waitApplyTxs $ \u -> do
+        -- FIXME: Need to change spec
+        requireApplyTxs resolvedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
           let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
           -- Spec: σᵢ
@@ -714,20 +718,19 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       else Wait $ WaitOnSnapshotNumber seenSn
 
   waitSeenTxs continue =
-    if fromList requestedTxIds `Set.isSubsetOf` fromList (txId <$> seenTxs)
-      then continue
-      else Wait $ WaitOnSeenTxs $ toList $ fromList requestedTxIds `Set.difference` fromList (txId <$> seenTxs)
+    case toList (fromList requestedTxIds \\ fromList (txId <$> seenTxs)) of
+      [] -> continue (mapMaybe (\txid -> find (\tx -> txId tx == txid) seenTxs) requestedTxIds)
+      unseen -> Wait $ WaitOnSeenTxs unseen
 
-  resolvedTxs =
-    mapMaybe (\txid -> find (\tx -> txId tx == txid) seenTxs) requestedTxIds
-
-  -- XXX: Wait for these transactions to apply is actually not needed. They must
-  -- be applicable already. This is a bit of a precursor for only submitting
-  -- transaction ids/hashes .. which we really should do.
-  waitApplyTxs cont =
+  -- NOTE: at this point we know those transactions apply on the seenUTxO because they
+  -- are part of the seenTxs. The snapshot can contain less transactions than the ones
+  -- we have seen at this stage, but they all _must_ apply correctly to the latest
+  -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
+  -- containing transactions that do not apply cleanly.
+  requireApplyTxs resolvedTxs cont =
     case applyTransactions ledger currentSlot confirmedUTxO resolvedTxs of
-      Left (_, err) ->
-        Wait $ WaitOnNotApplicableTx err
+      Left (tx, err) ->
+        Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
 
   pruneTransactions utxo = do
