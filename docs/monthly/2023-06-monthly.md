@@ -54,45 +54,32 @@ TODO @ch1bo
 
 #### Commits from external wallet [#215](https://github.com/input-output-hk/hydra/issues/215)
 
-The team introduced `Fuel` some time ago as it was an easy workaround but the
-intention was to remove it and have a proper way of choosing which utxos can be
-spent inside of a Head. After the work of being able to commit multiple utxos is
-done we wanted to tackle first committing _regular_ utxos externaly and build
-upon that to also include script utxos.
+The team started to mark _fuel_ some time ago as it was an easy workaround to
+distinguish UTxOs that can be committed into a head apart from regular outputs
+holding ADA to pay for fees - the socalled _fuel_. However, this required users
+to "send funds" they want to commit first to the `hydra-node`s internal wallet
+and involved additional steps in tagging such outputs with a special datum hash
 
-The new REST server was introduced for the purpose of _drafting_ a commit
-transaction. The clients would request such draft transaction by sending a POST
-request at `/commit` path and hydra-node would respond with a transaction
-already signed by the internal wallet. Now the responsibility of signing and
-submitting this transaction has shifted from hydra-node to the client.
+To commit from external wallets, a new API endpoint was introduced for the
+purpose of _drafting_ a commit transaction. The clients would request such draft
+transaction by sending a POST request to `/commit` and the `hydra-node` would
+respond with a transaction already authorized by the internal wallet. If the
+commit involved user funds (empty commits are still possible), then the client
+applicatin would need to sign the transaction using the corresponding signing
+key. Also, submitting this transaction has shifted from `hydra-node` to the
+client.
 
-This reduces the custodial aspect of hydra-node since now the clients can use
-whatever key they own, not known by the hydra-node, to do a commit step and
-hydra-node no longer has the access to all user funds used in the Head
+This removes direct custody of `hydra-node` over user funds since clients can
+now use whatever key they own, not known to the `hydra-node`, to do a commit
+step and no single `hydra-node` has access to user funds used in the Head
 protocol.
 
-Outcome of this chunk of work is that:
-
- - The `Fuel` is now deprecated with the intention of completely removing it in
-   the future.
-
- - Hydra clients can submit one or multiple utxos sitting at public key address
-   using Hydra REST server.
-
- - There is a PR in review that enables the same for script utxos and makes
-   sure clients are not trying to commit one of the internal wallet's utxos.
-
-Further developments:
-
-- Use OpenAPI for the REST server documentation since AsyncAPI is not the right
-  tool to describe synchronous requests.
-
-- Update the TUI client and the demo instructions
-
-- Update the documentation to remove `Fuel` completely
-
-- ADR to cover potential architecture changes
-
+Within this work package, _marking fuel_ became deprecated and all UTxOs owned
+by the internal wallet are considered fuel. Fuel marking wil be completely
+removed in the future. Furthermore, we started using a good old HTTP-based API
+for the new query (so far it was only WebSocket-based), which prompts a
+potential shift to using OpenAPI as API specification since AsyncAPI does not
+describe synchronous requests well.
 
 #### Benchmark performance of Hydra Head [#186](https://github.com/input-output-hk/hydra/issues/215)
 
