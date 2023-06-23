@@ -194,8 +194,8 @@ withJsonSpecifications action = do
         spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
         let spec' = addField "$id" ("file://" <> dir <> "/") spec
         liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
-        -- XXX: We need to write the specFile as .yaml as well because internally the
-        -- spec .json reference elements within the yaml file.
+        -- XXX: We need to write the specFile as .yaml although it is a JSON document now, 
+        -- because internally the spec reference elements using the original .yaml file name.
         liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec
     action dir
 
