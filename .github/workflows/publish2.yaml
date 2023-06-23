@@ -25,7 +25,7 @@ jobs:
         workflow_conclusion: success
         branch: release
         name: hydra-spec
-        path: docs/docs/
+        path: docs/static
 
     - name: 📥 Download released benchmarks
       uses: dawidd6/action-download-artifact@v2
@@ -71,7 +71,7 @@ jobs:
         workflow_conclusion: success
         branch: master
         name: hydra-spec
-        path: docs/docs/
+        path: docs/static
 
     - name: 📥 Download latest benchmarks
       uses: dawidd6/action-download-artifact@v2
