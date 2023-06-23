@@ -46,7 +46,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
-import qualified Network.HTTP.Client.Conduit as L
+import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
   JsonResponse,
@@ -61,7 +61,6 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import Network.HTTP.Types (status400)
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldThrow)
 import Test.QuickCheck (generate)
@@ -311,7 +310,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
             (L.StatusCodeException response chunk)
           )
       ) =
-      L.responseStatus response == status400 && not (B.null chunk)
+      L.responseStatus response == toEnum 400 && not (B.null chunk)
   selector400 _ = False
 
 -- | Initialize open and close a head on a real network and ensure contestation
