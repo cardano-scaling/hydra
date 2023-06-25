@@ -7,6 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Bench.Summary (Summary (..))
 import CardanoClient (awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -74,16 +75,6 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-type Percent = Double
-
-data Summary = Summary
-  { numberOfTxs :: Int
-  , averageConfirmationTime :: NominalDiffTime
-  , percentBelow100ms :: Percent
-  }
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
-
 bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
 bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
@@ -146,7 +137,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
                   below100ms = filter (< 0.1) confTimes
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
                   percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
-              pure $ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}
+              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms}
 
 -- | Collect OS-level stats while running some 'IO' action.
 --
@@ -405,8 +396,13 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
     SnapshotConfirmed
-      <$> snapshot ^? key "confirmedTransactions" . _Array . to toList
-      <*> snapshot ^? key "snapshotNumber" . _Number
+      <$> snapshot
+      ^? key "confirmedTransactions"
+      . _Array
+      . to toList
+      <*> snapshot
+      ^? key "snapshotNumber"
+      . _Number
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

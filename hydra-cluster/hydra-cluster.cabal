@@ -262,6 +262,8 @@ benchmark bench-e2e
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:      Bench.EndToEnd
+                    , Bench.Options
+                    , Bench.Summary
   build-depends:
     , aeson
     , base                  >=4.7 && <5
