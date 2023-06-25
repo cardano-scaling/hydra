@@ -18,114 +18,196 @@ import Options.Applicative (
   Parser,
   ParserInfo,
   auto,
+  command,
   execParser,
   fullDesc,
   header,
   help,
+  helpDoc,
   helper,
+  hsubparser,
   info,
   long,
   metavar,
   option,
   progDesc,
   short,
+  str,
   strOption,
   value,
  )
+import Options.Applicative.Builder (argument)
+import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
 import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
-data Options = Options
-  { workDirectory :: Maybe FilePath
-  , outputDirectory :: Maybe FilePath
-  , scalingFactor :: Int
-  , timeoutSeconds :: DiffTime
-  , clusterSize :: Word64
-  , startingNodeId :: Int
-  }
+data Options
+  = StandaloneOptions
+      { workDirectory :: Maybe FilePath
+      , outputDirectory :: Maybe FilePath
+      , scalingFactor :: Int
+      , timeoutSeconds :: DiffTime
+      , clusterSize :: Word64
+      , startingNodeId :: Int
+      }
+  | DatasetOptions
+      { datasetFiles :: [FilePath]
+      , outputDirectory :: Maybe FilePath
+      , scalingFactor :: Int
+      , timeoutSeconds :: DiffTime
+      , clusterSize :: Word64
+      , startingNodeId :: Int
+      }
 
-benchOptionsParser :: Parser Options
+benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
-  Options
-    <$> optional
-      ( strOption
-          ( long "work-directory"
-              <> help
-                "Directory containing generated transactions, UTxO set, log files for spawned processes, etc. \
-                \ * If the directory exists, it's assumed to be used for replaying \
-                \   a previous benchmark and is expected to contain 'txs.json' and \
-                \   'utxo.json' files, \
-                \ * If the directory does not exist, it will be created and \
-                \   populated with new transactions and UTxO set."
-          )
-      )
-    <*> optional
-      ( strOption
-          ( long "output-directory"
-              <> metavar "DIR"
-              <> help
-                "The directory where to output markdown-formatted benchmark results. \
-                \ If not set, raw text summary will be printed to the console. (default: none)"
-          )
-      )
-    <*> option
-      auto
-      ( long "scaling-factor"
-          <> value 100
-          <> metavar "INT"
-          <> help "The scaling factor to apply to transactions generator (default: 100)"
-      )
-    <*> option
-      auto
-      ( long "timeout"
-          <> value 600.0
-          <> metavar "SECONDS"
-          <> help
-            "The timeout for the run, in seconds (default: '600s')"
-      )
-    <*> option
-      auto
-      ( long "cluster-size"
-          <> value 3
-          <> metavar "INT"
-          <> help
-            "The number of Hydra nodes to start and connect (default: 3)"
-      )
-    <*> option
-      auto
-      ( long "starting-node-id"
-          <> short 'i'
-          <> value 0
-          <> metavar "INT"
-          <> help
-            "The starting point for ids allocated to nodes in the cluster. This \
-            \ id controls TCP ports allocation for various servers run by the nodes, \
-            \ it's useful to change if local processes on the machine running the \
-            \ benchmark conflicts with default ports allocation scheme (default: 0)"
-      )
-
-benchOptions :: ParserInfo Options
-benchOptions =
   info
-    (benchOptionsParser <**> helper)
+    ( hsubparser
+        ( command "single" standaloneOptionsInfo
+            <> command "datasets" datasetOptionsInfo
+        )
+        <**> helper
+    )
     ( fullDesc
         <> progDesc
           "Starts a cluster of Hydra nodes interconnected through a network and \
           \talking to a local cardano devnet, generates an initial UTxO set and a bunch \
           \of valid transactions, and send those transactions to the cluster as \
           \fast as possible.\n \
-          \Arguments can control various parameters of the run, like number of nodes, \
-          \and number of transactions generated"
+          \Arguments control various parameters of the run, like number of nodes, \
+          \number of transactions generated, or the 'scenarios' to run. See individual \
+          \help for each command for more usage info."
         <> header "bench - load tester for Hydra node cluster"
+    )
+
+standaloneOptionsInfo :: ParserInfo Options
+standaloneOptionsInfo =
+  info
+    standaloneOptionsParser
+    (progDesc "Run a single scenario, generating or reusing a previous dataset, into some directory.")
+
+standaloneOptionsParser :: Parser Options
+standaloneOptionsParser =
+  StandaloneOptions
+    <$> optional
+      ( strOption
+          ( long "work-directory"
+              <> helpDoc
+                ( Just $
+                    "Directory containing generated transactions, UTxO set, log files for spawned processes, etc."
+                      <> item
+                        [ "If the directory exists, it's assumed to be used for replaying"
+                        , "a previous benchmark and is expected to contain 'txs.json' and"
+                        , "'utxo.json' files,"
+                        ]
+                      <> item
+                        [ "If the directory does not exist, it will be created and"
+                        , "populated with new transactions and UTxO set."
+                        ]
+                )
+          )
+      )
+    <*> optional outputDirectoryParser
+    <*> scalingFactorParser
+    <*> timeoutParser
+    <*> clusterSizeParser
+    <*> startingNodeIdParser
+
+item :: [Doc] -> Doc
+item items = line <> ("* " <+> align (fillSep items))
+
+outputDirectoryParser :: Parser FilePath
+outputDirectoryParser =
+  strOption
+    ( long "output-directory"
+        <> metavar "DIR"
+        <> help
+          "The directory where to output markdown-formatted benchmark results. \
+          \ If not set, raw text summary will be printed to the console. (default: none)"
+    )
+
+scalingFactorParser :: Parser Int
+scalingFactorParser =
+  option
+    auto
+    ( long "scaling-factor"
+        <> value 100
+        <> metavar "INT"
+        <> help "The scaling factor to apply to transactions generator (default: 100)"
+    )
+
+timeoutParser :: Parser DiffTime
+timeoutParser =
+  option
+    auto
+    ( long "timeout"
+        <> value 600.0
+        <> metavar "SECONDS"
+        <> help
+          "The timeout for the run, in seconds (default: '600s')"
+    )
+
+clusterSizeParser :: Parser Word64
+clusterSizeParser =
+  option
+    auto
+    ( long "cluster-size"
+        <> value 3
+        <> metavar "INT"
+        <> help
+          "The number of Hydra nodes to start and connect (default: 3)"
+    )
+
+startingNodeIdParser :: Parser Int
+startingNodeIdParser =
+  option
+    auto
+    ( long "starting-node-id"
+        <> short 'i'
+        <> value 0
+        <> metavar "INT"
+        <> help
+          "The starting point for ids allocated to nodes in the cluster. This \
+          \ id controls TCP ports allocation for various servers run by the nodes, \
+          \ it's useful to change if local processes on the machine running the \
+          \ benchmark conflicts with default ports allocation scheme (default: 0)"
+    )
+
+datasetOptionsInfo :: ParserInfo Options
+datasetOptionsInfo =
+  info
+    datasetOptionsParser
+    ( progDesc
+        "Run scenarios from one or several dataset files, concatenating the \
+        \ output to single document. This is useful to produce a summary \
+        \ page describing alternative runs."
+    )
+
+datasetOptionsParser :: Parser Options
+datasetOptionsParser =
+  DatasetOptions
+    <$> many filepathParser
+    <*> optional outputDirectoryParser
+    <*> scalingFactorParser
+    <*> timeoutParser
+    <*> clusterSizeParser
+    <*> startingNodeIdParser
+
+filepathParser :: Parser FilePath
+filepathParser =
+  argument
+    str
+    ( metavar "FILE"
+        <> help "Path to a JSON-formatted dataset descriptor file."
     )
 
 main :: IO ()
 main =
-  execParser benchOptions >>= \case
-    o@Options{workDirectory = Just benchDir} -> do
+  execParser benchOptionsParser >>= \case
+    o@StandaloneOptions{workDirectory = Just benchDir} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
         then replay o benchDir
@@ -134,7 +216,7 @@ main =
       tmpDir <- createSystemTempDirectory "bench"
       play o tmpDir
  where
-  play options@Options{scalingFactor, clusterSize} benchDir = do
+  play options@StandaloneOptions{scalingFactor, clusterSize} benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
       eitherDecodeFileStrict' ("config" </> "devnet" </> "genesis-shelley.json") >>= \case
@@ -144,13 +226,14 @@ main =
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
     saveDataset benchDir dataset
     run options benchDir dataset
+  play _ _ = error "Not implemented"
 
   replay options benchDir = do
     datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run options benchDir datasets
 
-  run options@Options{timeoutSeconds, clusterSize, startingNodeId} benchDir datasets = do
+  run options@StandaloneOptions{timeoutSeconds, clusterSize, startingNodeId} benchDir datasets = do
     putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
     withArgs [] $
       try (bench startingNodeId timeoutSeconds benchDir datasets clusterSize) >>= \case
@@ -158,6 +241,7 @@ main =
           benchmarkFailedWith benchDir err
         Right summary ->
           benchmarkSucceeded options benchDir summary
+  run _ _ _ = error "Not implemented"
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"
@@ -173,7 +257,7 @@ benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
 benchmarkSucceeded :: Options -> FilePath -> Summary -> IO ()
-benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms} = do
+benchmarkSucceeded StandaloneOptions{outputDirectory, clusterSize} _ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms} = do
   now <- getCurrentTime
   maybe dumpToStdout (writeMarkdownReportTo now) outputDirectory
  where
@@ -235,3 +319,4 @@ benchmarkSucceeded Options{outputDirectory, clusterSize} _ Summary{numberOfTxs, 
 
   nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
   nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds
+benchmarkSucceeded _ _ _ = error "Not implemented"
