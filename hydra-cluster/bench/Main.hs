@@ -80,7 +80,7 @@ benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
 benchmarkSucceeded :: Options -> FilePath -> Summary -> IO ()
 benchmarkSucceeded StandaloneOptions{outputDirectory} _ summary = do
   now <- getCurrentTime
-  let report = markdownReport now summary
+  let report = markdownReport now [summary]
   maybe dumpToStdout (writeTo report) outputDirectory
  where
   dumpToStdout = mapM_ putTextLn (textReport summary)

@@ -137,7 +137,15 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
                   below100ms = filter (< 0.1) confTimes
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
                   percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
-              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms}
+                  summaryTitle = "Baseline Scenario"
+                  summaryDescription =
+                    -- TODO: make the description part of the Dataset
+                    "This scenario represents a minimal case and as such is a good baseline against which \
+                    \ to assess the overhead introduced by more complex setups. There is a single hydra-node \
+                    \ with a single client submitting single input and single output transactions with a \
+                    \ constant UTxO set of 1."
+
+              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription}
 
 -- | Collect OS-level stats while running some 'IO' action.
 --

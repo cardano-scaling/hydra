@@ -14,6 +14,8 @@ data Summary = Summary
   , numberOfTxs :: Int
   , averageConfirmationTime :: NominalDiffTime
   , percentBelow100ms :: Percent
+  , summaryTitle :: Text
+  , summaryDescription :: Text
   }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
@@ -25,9 +27,9 @@ textReport Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}  =
   , "Confirmed below 100ms: " <> show percentBelow100ms <> "%"
   ]
 
-markdownReport :: UTCTime -> Summary -> [Text]
-markdownReport now Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms} =
-  pageHeader <> formattedSummary
+markdownReport :: UTCTime -> [Summary] -> [Text]
+markdownReport now summaries =
+  pageHeader <> concatMap formattedSummary summaries
  where
   pageHeader :: [Text]
   pageHeader =
@@ -56,15 +58,11 @@ markdownReport now Summary{clusterSize, numberOfTxs, averageConfirmationTime, pe
     , ""
     ]
 
-  formattedSummary :: [Text]
-  formattedSummary =
-    [ "## Baseline Scenario"
+  formattedSummary :: Summary -> [Text]
+  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription} =
+    [ "## " <> summaryTitle
     , ""
-    , -- TODO: make the description part of the Dataset
-      "This scenario represents a minimal case and as such is a good baseline against which \
-      \ to assess the overhead introduced by more complex setups. There is a single hydra-node \
-      \ with a single client submitting single input and single output transactions with a \
-      \ constant UTxO set of 1."
+    , summaryDescription
     , ""
     , "| Number of nodes |  " <> show clusterSize <> " | "
     , "| -- | -- |"
