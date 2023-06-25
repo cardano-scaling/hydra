@@ -76,7 +76,7 @@ data Event = Event
   deriving anyclass (ToJSON)
 
 bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} clusterSize =
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
@@ -137,15 +137,13 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
                   below100ms = filter (< 0.1) confTimes
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
                   percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
-                  summaryTitle = "Baseline Scenario"
-                  summaryDescription =
-                    -- TODO: make the description part of the Dataset
-                    "This scenario represents a minimal case and as such is a good baseline against which \
-                    \ to assess the overhead introduced by more complex setups. There is a single hydra-node \
-                    \ with a single client submitting single input and single output transactions with a \
-                    \ constant UTxO set of 1."
+                  summaryTitle = fromMaybe "Baseline Scenario" title
+                  summaryDescription = fromMaybe defaultDescription description
 
               pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription}
+
+defaultDescription :: Text
+defaultDescription = ""
 
 -- | Collect OS-level stats while running some 'IO' action.
 --

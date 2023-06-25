@@ -19,11 +19,14 @@ networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
 
 -- | A 'Dataset' that can be run for testing purpose.
--- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUTxO'
--- set.
+-- Each `Dataset` represents a complete scenario where several `ClientDataset` are run concurrently
+-- against one or more `HydraNode`s. A dataset can optionally have a `title` and `description`
+-- which will be used to report results.
 data Dataset = Dataset
   { fundingTransaction :: Tx
   , clientDatasets :: [ClientDataset]
+  , title :: Maybe Text
+  , description :: Maybe Text
   }
   deriving (Show, Generic, ToJSON, FromJSON)
 
@@ -109,7 +112,7 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
           (Lovelace availableInitialFunds)
           clientFunds
   clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
-  pure Dataset{fundingTransaction, clientDatasets}
+  pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let vk = getVerificationKey externalSigningKey
