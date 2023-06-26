@@ -77,6 +77,15 @@ spec =
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
 
+      let coordinatedHeadState =
+            CoordinatedHeadState
+              { seenUTxO = mempty
+              , allTxs = mempty
+              , seenTxs = mempty
+              , confirmedSnapshot = InitialSnapshot mempty
+              , seenSnapshot = NoSeenSnapshot
+              }
+
       it "reports if a requested tx is expired" $ do
         let inputs = utxoRef 1
             tx = SimpleTx 2 inputs mempty
@@ -238,12 +247,7 @@ spec =
             snapshot = Snapshot 2 mempty []
             st =
               inOpenState' threeParties $
-                CoordinatedHeadState
-                  { seenUTxO = mempty
-                  , seenTxs = mempty
-                  , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
-                  , seenSnapshot = NoSeenSnapshot
-                  }
+                coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])}
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
@@ -252,10 +256,8 @@ spec =
             snapshot = Snapshot 2 mempty []
             st =
               inOpenState' threeParties $
-                CoordinatedHeadState
-                  { seenUTxO = mempty
-                  , seenTxs = mempty
-                  , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
+                coordinatedHeadState
+                  { confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
@@ -352,12 +354,7 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
             s0 =
               inOpenState' threeParties $
-                CoordinatedHeadState
-                  { seenUTxO = mempty
-                  , seenTxs = mempty
-                  , confirmedSnapshot = latestConfirmedSnapshot
-                  , seenSnapshot = NoSeenSnapshot
-                  }
+                coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
@@ -413,6 +410,7 @@ spec =
                   , coordinatedHeadState =
                       CoordinatedHeadState
                         { seenUTxO = UTxO.singleton utxo
+                        , allTxs = mempty
                         , seenTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
@@ -488,10 +486,17 @@ inOpenState ::
   Ledger SimpleTx ->
   HeadState SimpleTx
 inOpenState parties Ledger{initUTxO} =
-  inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
+  inOpenState' parties $
+    CoordinatedHeadState
+      { seenUTxO = u0
+      , allTxs = mempty
+      , seenTxs = mempty
+      , confirmedSnapshot
+      , seenSnapshot = NoSeenSnapshot
+      }
  where
   u0 = initUTxO
-  snapshot0 = InitialSnapshot u0
+  confirmedSnapshot = InitialSnapshot u0
 
 inOpenState' ::
   [Party] ->

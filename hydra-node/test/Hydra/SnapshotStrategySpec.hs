@@ -47,16 +47,19 @@ spec = do
 
     let params = HeadParameters cperiod threeParties
 
+    let coordinatedHeadState =
+          CoordinatedHeadState
+            { seenUTxO = initUTxO
+            , allTxs = mempty
+            , seenTxs = mempty
+            , confirmedSnapshot = InitialSnapshot initUTxO
+            , seenSnapshot = NoSeenSnapshot
+            }
+
     describe "New Snapshot Decision" $ do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
         let tx = aValidTx 1
-            st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = NoSeenSnapshot
-                }
+            st = coordinatedHeadState{seenTxs = [tx]}
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
@@ -65,52 +68,28 @@ spec = do
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
-            st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = NoSeenSnapshot
-                }
+            st = coordinatedHeadState{seenTxs = [tx]}
         newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
         let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
-            st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = SeenSnapshot sn1 mempty
-                }
+            st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
         newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
       it "do not send ReqSn when there's no seen transactions" $ do
-        let st =
-              CoordinatedHeadState
-                { seenUTxO = initUTxO
-                , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot initUTxO
-                , seenSnapshot = NoSeenSnapshot
-                } ::
-                CoordinatedHeadState SimpleTx
-        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
+        newSn (envFor aliceSk) params coordinatedHeadState
+          `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
           let tx = aValidTx 1
-              coordinatedState =
-                CoordinatedHeadState
-                  { seenUTxO = initUTxO
-                  , seenTxs = [tx]
-                  , confirmedSnapshot = InitialSnapshot initUTxO
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-              st =
-                inOpenState' threeParties coordinatedState
+              st = inOpenState' threeParties coordinatedHeadState{seenTxs = [tx]}
               st' =
                 inOpenState' threeParties $
-                  coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
+                  coordinatedHeadState
+                    { seenTxs = [tx]
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    }
 
           emitSnapshot (envFor aliceSk) (NewState st)
             `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [1]])
@@ -135,6 +114,7 @@ prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
       st =
         CoordinatedHeadState
           { seenUTxO = mempty
+          , allTxs = mempty
           , seenTxs = [tx]
           , confirmedSnapshot = sn
           , seenSnapshot

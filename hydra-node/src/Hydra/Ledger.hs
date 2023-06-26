@@ -4,6 +4,7 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
+import Data.Aeson (FromJSONKey, ToJSONKey)
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 
@@ -24,6 +25,8 @@ class
   , Arbitrary (TxIdType tx)
   , FromJSON (TxIdType tx)
   , ToJSON (TxIdType tx)
+  , FromJSONKey (TxIdType tx)
+  , ToJSONKey (TxIdType tx)
   , --
     Eq (UTxOType tx)
   , Show (UTxOType tx)

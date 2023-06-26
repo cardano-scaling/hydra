@@ -234,6 +234,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUTxO :: UTxOType tx
   -- ^ The latest UTxO resulting from applying 'seenTxs' to
   -- 'confirmedSnapshot'. Spec: L̂
+  , allTxs :: Map.Map (TxIdType tx) tx
   , seenTxs :: [tx]
   -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
   , confirmedSnapshot :: ConfirmedSnapshot tx
@@ -577,7 +578,13 @@ onInitialChainCollectTx st newChainState =
         OpenState
           { parameters
           , coordinatedHeadState =
-              CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
+              CoordinatedHeadState
+                { seenUTxO = u0
+                , allTxs = mempty
+                , seenTxs = mempty
+                , confirmedSnapshot
+                , seenSnapshot = NoSeenSnapshot
+                }
           , chainState = newChainState
           , headId
           , currentSlot = chainStateSlot newChainState
@@ -587,7 +594,7 @@ onInitialChainCollectTx st newChainState =
  where
   u0 = fold committed
 
-  initialSnapshot = InitialSnapshot u0
+  confirmedSnapshot = InitialSnapshot u0
 
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
@@ -626,16 +633,19 @@ onOpenNetworkReqTx ::
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions currentSlot seenUTxO [tx] of
+    -- FIXME handle the left case
     Left (_, err)
       | ttl <= 0 ->
           Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
-      | otherwise -> Wait $ WaitOnNotApplicableTx err
+      | otherwise ->
+          NewState (Open st{coordinatedHeadState = coordinatedHeadState'})
+            `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
       NewState
         ( Open
             st
               { coordinatedHeadState =
-                  coordinatedHeadState
+                  coordinatedHeadState'
                     { seenTxs = seenTxs <> [tx]
                     , seenUTxO = utxo'
                     }
@@ -646,9 +656,11 @@ onOpenNetworkReqTx env ledger st ttl tx =
  where
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{seenTxs, seenUTxO} = coordinatedHeadState
+  CoordinatedHeadState{allTxs, seenTxs, seenUTxO} = coordinatedHeadState
 
   OpenState{coordinatedHeadState, headId, currentSlot} = st
+
+  coordinatedHeadState' = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -718,8 +730,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       else Wait $ WaitOnSnapshotNumber seenSn
 
   waitSeenTxs continue =
-    case toList (fromList requestedTxIds \\ fromList (txId <$> seenTxs)) of
-      [] -> continue (mapMaybe (\txid -> find (\tx -> txId tx == txid) seenTxs) requestedTxIds)
+    case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
+      [] -> continue (mapMaybe (`Map.lookup` allTxs) requestedTxIds)
       unseen -> Wait $ WaitOnSeenTxs unseen
 
   -- NOTE: at this point we know those transactions apply on the seenUTxO because they
@@ -755,7 +767,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, allTxs} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
