@@ -750,9 +750,7 @@ components:
         additionalProperties: false
         properties:
           utxos:
-            type: array
-            items:
-              $ref: "#/components/schemas/UTxOWithWitness"
+            $ref: "#/components/schemas/UTxOWithWitness"
         example:
           {
             "utxos":
@@ -1599,7 +1597,7 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
-    
+
     TxOutWithWitness:
       type: object
       description: |
@@ -1641,7 +1639,7 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Witness"
             - type: "null"
-    
+
     Witness:
       type: object
       description: |
@@ -1693,7 +1691,7 @@ components:
                 }
             }
         }
-    
+
     UTxOWithWitness:
       type: object
       propertyNames:
