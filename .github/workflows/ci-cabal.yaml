@@ -53,7 +53,7 @@ jobs:
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
-    
+
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
@@ -115,7 +115,7 @@ jobs:
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
-      
+
     - name: 📚 Documentation (Haddock)
       run: |
         .github/workflows/ci-haddock.sh
@@ -141,7 +141,7 @@ jobs:
             options: '-o $(pwd)/docs/static/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: '--scaling-factor 1 --output-directory $(pwd)/docs/benchmarks'
+            options: 'datasets datasets/3-nodes.json datasets/1-node.json --output-directory $(pwd)/../docs/benchmarks'
           - package: plutus-merkle-tree
             bench: on-chain-cost
             options: '--output-directory $(pwd)/docs/benchmarks'
@@ -154,7 +154,7 @@ jobs:
     - name: 📈 Benchmark
       run: |
         cabal bench ${{ matrix.bench }} --benchmark-options="${{ matrix.options }}"
-        
+
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -319,4 +319,3 @@ jobs:
       with:
         name: docs-unstable
         path: docs/public
-
