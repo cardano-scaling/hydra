@@ -66,7 +66,6 @@ import Hydra.Chain.Direct.State (
   genFanoutTx,
   genHydraContext,
   genInitTx,
-  genScriptInputs,
   genStInitial,
   getContestationDeadline,
   getKnownUTxO,
@@ -197,12 +196,12 @@ spec = parallel $ do
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
-        null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
-          forAll2 (pickChainContext ctxA) (pickChainContext ctxB) $
-            \(cctxA, cctxB) ->
-              forAll genTxIn $ \seedInput ->
-                let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-                 in isLeft (observeInit cctxB tx)
+        null (ctxParties ctxA `intersect` ctxParties ctxB)
+          ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
+          $ \(cctxA, cctxB) ->
+            forAll genTxIn $ \seedInput ->
+              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+               in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -232,9 +231,8 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
-        scriptInputs <- pickBlind genScriptInputs
         pure $
-          case commit ctx stInitial utxo scriptInputs of
+          case commit ctx stInitial utxo of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
@@ -243,9 +241,8 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
-        scriptInputs <- pickBlind genScriptInputs
         pure $
-          case commit ctx stInitial utxo scriptInputs of
+          case commit ctx stInitial utxo of
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
@@ -255,9 +252,8 @@ spec = parallel $ do
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
-        scriptInputs <- pickBlind genScriptInputs
         pure $
-          case commit mainnetChainContext stInitial utxo scriptInputs of
+          case commit mainnetChainContext stInitial utxo of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
@@ -423,8 +419,8 @@ forAllCommit' action = do
   forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAll (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllShow genCommit renderUTxO $ \toCommit ->
-        -- TODO: generate script inputs here
-        let tx = unsafeCommit ctx stInitial toCommit []
+        -- TODO: generate script inputs here?
+        let tx = unsafeCommit ctx stInitial toCommit
          in action ctx stInitial toCommit tx
               & classify
                 (null toCommit)

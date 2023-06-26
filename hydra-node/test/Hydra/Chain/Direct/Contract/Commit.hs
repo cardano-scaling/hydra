@@ -20,7 +20,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (genScriptInputs)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (toErrorCode)
@@ -54,9 +53,8 @@ healthyCommitTx =
       scriptRegistry
       (mkHeadId Fixture.testPolicyId)
       commitParty
-      healthyCommittedUTxO
+      (healthyCommittedUTxO <&> (,KeyWitness KeyWitnessForSpending))
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
-      (generateWith genScriptInputs 42)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

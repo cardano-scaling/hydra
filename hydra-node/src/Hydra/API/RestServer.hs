@@ -12,25 +12,23 @@ import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
 import Hydra.Cardano.Api (
-  BuildTx,
-  BuildTxWith (..),
   CtxUTxO,
   HashableScriptData,
+  KeyWitnessInCtx (..),
   PlutusScript,
   ScriptDatum (ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   SerialiseAsCBOR (deserialiseFromCBOR, serialiseToCBOR),
   Tx,
-  TxIn,
   TxOut,
   UTxO',
   WitCtxTxIn,
   Witness,
   mkScriptWitness,
   proxyToAsType,
+  pattern KeyWitness,
   pattern ScriptWitness,
  )
-import Hydra.Cardano.Api.Prelude (Era, ScriptWitness)
 import Hydra.Ledger.Cardano ()
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
@@ -112,32 +110,13 @@ instance Arbitrary DraftCommitTxRequest where
   shrink = \case
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
 
-convertDraftUTxO ::
-  UTxO' TxOutWithWitness ->
-  UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era))
-convertDraftUTxO utxo' =
-  (\TxOutWithWitness{txOut, witness} -> (txOut, toScriptWitness <$> witness)) <$> utxo'
+fromTxOutWithWitness :: TxOutWithWitness -> (TxOut CtxUTxO, Witness WitCtxTxIn)
+fromTxOutWithWitness TxOutWithWitness{txOut, witness} =
+  (txOut, toScriptWitness witness)
  where
-  toScriptWitness ScriptInfo{redeemer, datum, plutusV2Script} =
-    mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
-
-prepareCommitTxInputs ::
-  UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era)) ->
-  (UTxO.UTxO, UTxO.UTxO, [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))])
-prepareCommitTxInputs =
-  foldl'
-    ( \(regularUtxo, scriptUtxo, witnesses) (txIn, (txOut, maybeWitness)) ->
-        case maybeWitness of
-          Just w ->
-            ( regularUtxo
-            , scriptUtxo <> UTxO.singleton (txIn, txOut)
-            , witnesses <> [(txIn, BuildTxWith . ScriptWitness ScriptWitnessForSpending $ w)]
-            )
-          Nothing ->
-            ( regularUtxo <> UTxO.singleton (txIn, txOut)
-            , scriptUtxo
-            , witnesses
-            )
-    )
-    (mempty, mempty, [])
-    . UTxO.pairs
+  toScriptWitness = \case
+    Nothing ->
+      KeyWitness KeyWitnessForSpending
+    Just ScriptInfo{redeemer, datum, plutusV2Script} ->
+      ScriptWitness ScriptWitnessForSpending $
+        mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer

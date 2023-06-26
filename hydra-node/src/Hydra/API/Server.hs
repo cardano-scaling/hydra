@@ -20,7 +20,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
-  convertDraftUTxO,
+  fromTxOutWithWitness,
  )
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
@@ -370,14 +370,14 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right requestInput@DraftCommitTxRequest{utxos = draftUTxO'} -> do
+    Right requestInput@DraftCommitTxRequest{utxos} -> do
       traceWith tracer $
         APIRestInputReceived
           { method = decodeUtf8 reqMethod
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      eCommitTx <- draftCommitTx $ convertDraftUTxO draftUTxO'
+      eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxos
       respond $
         case eCommitTx of
           Left e ->

@@ -16,21 +16,17 @@ import Cardano.Prelude (hush)
 import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Hydra.API.RestServer (ScriptInfo (..))
 import Hydra.Cardano.Api (
   AssetName (AssetName),
-  BuildTx,
-  BuildTxWith (BuildTxWith),
   ChainPoint (..),
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
+  KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
   Quantity (..),
-  ScriptDatum (ScriptDatumForTxIn),
-  ScriptWitnessInCtx (ScriptWitnessForSpending),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
@@ -43,7 +39,6 @@ import Hydra.Cardano.Api (
   Witness,
   chainPointToSlotNo,
   genTxIn,
-  mkScriptWitness,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -52,12 +47,12 @@ import Hydra.Cardano.Api (
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
+  pattern KeyWitness,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
-import qualified Hydra.Cardano.Api.Prelude as P
 import Hydra.Chain (
   ChainStateType,
   HeadId (..),
@@ -122,7 +117,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, sized, vector, vectorOf)
+import Test.QuickCheck (choose, frequency, oneof, sized, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -307,23 +302,39 @@ initialize ctx =
 -- | Construct a commit transaction based on the 'InitialState'. This does look
 -- for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
+--
+-- NOTE: This version of 'commit' does only commit outputs which are held by
+-- payment keys. For a variant which supports committing scripts, see `commit'`.
 commit ::
   ChainContext ->
   InitialState ->
-  UTxO ->
-  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
+  UTxO' (TxOut CtxUTxO) ->
   Either (PostTxError Tx) Tx
-commit ctx st utxo scriptInputs = do
+commit ctx st utxoToCommit =
+  commit' ctx st $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
+
+-- | Construct a commit transaction base on the 'InitialState' and some
+-- arbitrary UTxOs to commit.
+--
+-- NOTE: A simpler variant only supporting pubkey outputs is 'commit'.
+commit' ::
+  ChainContext ->
+  InitialState ->
+  UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+  Either (PostTxError Tx) Tx
+commit' ctx st utxoToCommit = do
   case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial -> do
+      let utxo = fst <$> utxoToCommit
       rejectByronAddress utxo
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
-      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial scriptInputs
+      Right $ commitTx networkId scriptRegistry headId ownParty utxoToCommit initial
  where
   ChainContext{networkId, ownParty, scriptRegistry} = ctx
+
   InitialState{headId} = st
 
 ownInitial :: ChainContext -> InitialState -> Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
@@ -748,9 +759,8 @@ genChainStateWithTx =
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
-    utxo <- genCommit
-    scriptInputs <- genScriptInputs
-    let tx = unsafeCommit cctx stInitial utxo scriptInputs
+    utxo <- genCommit -- TODO generate script utxo to commit?
+    let tx = unsafeCommit cctx stInitial utxo
     pure (cctx, Initial stInitial, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -890,17 +900,17 @@ genCommits' ::
   HydraContext ->
   Tx ->
   Gen [Tx]
-genCommits' genUTxOToCommit ctx txInit = do
+genCommits' genUTxO ctx txInit = do
   -- Prepare UTxO to commit. We need to scale down the quantities by number of
   -- committed UTxOs to ensure we are not as easily hitting overflows of the max
   -- bound (Word64) when collecting all the commits together later.
-  commitUTxOs <- forM (ctxParties ctx) $ const genUTxOToCommit
+  commitUTxOs <- forM (ctxParties ctx) $ const genUTxO
   let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
 
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial = unsafeObserveInit cctx txInit
-    unsafeCommit cctx stInitial toCommit <$> genScriptInputs
+    pure $ unsafeCommit cctx stInitial toCommit
  where
   scaleCommitUTxOs commitUTxOs =
     let numberOfUTxOs = length $ fold commitUTxOs
@@ -1002,21 +1012,6 @@ genStClosed ctx utxo = do
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
-genScriptInputs :: Gen [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
-genScriptInputs = do
-  n <- arbitrary
-  vectorOf n genScriptInput
- where
-  genScriptInput :: Gen (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-  genScriptInput = do
-    txIn <- arbitrary
-    ScriptInfo{redeemer, datum, plutusV2Script = script} <- arbitrary
-    let d = ScriptDatumForTxIn datum
-        witness =
-          BuildTxWith . P.ScriptWitness ScriptWitnessForSpending $
-            mkScriptWitness script d redeemer
-    pure (txIn, witness)
-
 -- ** Danger zone
 
 unsafeCommit ::
@@ -1024,10 +1019,9 @@ unsafeCommit ::
   ChainContext ->
   InitialState ->
   UTxO ->
-  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Tx
-unsafeCommit ctx st u scriptInputs =
-  either (error . show) id $ commit ctx st u scriptInputs
+unsafeCommit ctx st u =
+  either (error . show) id $ commit ctx st u
 
 unsafeObserveInit ::
   HasCallStack =>

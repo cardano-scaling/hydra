@@ -21,16 +21,16 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   CtxUTxO,
-  Era,
   HasTypeProxy (..),
   Lovelace (..),
   SerialiseAsRawBytes (..),
+  Tx,
   TxOut,
   UTxO',
   UsingRawBytesHex (..),
-  WitCtxTxIn, Tx,
+  WitCtxTxIn,
+  Witness,
  )
-import Hydra.Cardano.Api.Prelude (ScriptWitness)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
@@ -196,7 +196,7 @@ data Chain tx m = Chain
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
       (MonadThrow m, MonadIO m) =>
-      UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era)) ->
+      UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- information to spend from a script. Errors are handled at the call site.

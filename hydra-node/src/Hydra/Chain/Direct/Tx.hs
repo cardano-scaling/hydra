@@ -170,21 +170,18 @@ commitTx ::
   ScriptRegistry ->
   HeadId ->
   Party ->
-  -- | The UTxO to commit to the Head
-  UTxO ->
+  -- | The UTxO to commit to the Head along with witnesses.
+  UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
-  -- | Script inputs used when clients want to draft a commit tx using script
-  -- utxos
-  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Tx
-commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) scriptInputs =
+commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs ([(initialInput, initialWitness)] <> scriptInputs)
+      & addInputs [(initialInput, initialWitness)]
       & addReferenceInputs [initialScriptRef]
-      & addVkInputs committedTxIns
+      & addInputs committedTxIns
       & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
  where
@@ -192,27 +189,39 @@ commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) scr
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
+
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+
   initialScriptRef =
     fst (initialReference scriptRegistry)
+
   initialDatum =
     mkScriptDatum $ Initial.datum (headIdToCurrencySymbol headId)
+
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.ViaCommit (toPlutusTxOutRef <$> committedTxIns)
+      Initial.ViaCommit (toPlutusTxOutRef . fst <$> committedTxIns)
+
   committedTxIns =
-    Set.toList $ UTxO.inputSet utxo
+    map (\(i, (_, w)) -> (i, BuildTxWith w)) $ UTxO.pairs utxoToCommitWitnessed
+
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
+
   commitScript =
     fromPlutusScript Commit.validatorScript
+
   commitAddress =
     mkScriptAddress @PlutusScriptV2 networkId commitScript
+
   commitValue =
-    txOutValue out <> foldMap txOutValue utxo
+    txOutValue out <> foldMap txOutValue utxoToCommit
+
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party utxo (headIdToCurrencySymbol headId)
+    mkTxOutDatum $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
+
+  utxoToCommit = fst <$> utxoToCommitWitnessed
 
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =

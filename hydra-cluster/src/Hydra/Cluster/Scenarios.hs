@@ -258,8 +258,11 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       let signedCommitTx = signTx someSk commitTx
       submitTransaction networkId nodeSocket signedCommitTx
 
-      waitFor tracer 60 [n1] $
-        output "HeadIsOpen" ["utxo" .= (regularUtxo1 <> regularUtxo2), "headId" .= headId]
+      lockedUTxO <- waitMatch 60 n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON $ regularUtxo1 <> regularUtxo2 <> scriptUtxo1 <> scriptUtxo2)
  where
   RunningNode{networkId, nodeSocket} = node
 

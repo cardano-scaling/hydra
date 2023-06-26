@@ -17,7 +17,6 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.API.RestServer (prepareCommitTxInputs)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -45,6 +44,7 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
+  commit',
   contest,
   fanout,
   getKnownUTxO,
@@ -156,21 +156,21 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftCommitTx = \utxoInputs -> do
+      draftCommitTx = \utxoToCommit -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
           Initial st -> do
             walletUtxos <- atomically getUTxO
             let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
-            let userTxIns = Set.toList $ UTxO.inputSet regularUTxO
+            let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
             let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
             -- prevent trying to spend internal wallet's utxo
             if null matchedWalletUtxo
-              then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> commitTxBody
+              then
+                sequenceA $
+                  commit' ctx st utxoToCommit
+                    <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
-           where
-            (regularUTxO, scriptUTxO, scriptWitnesses) = prepareCommitTxInputs utxoInputs
-            commitTxBody = commit ctx st regularUTxO scriptWitnesses
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
@@ -325,9 +325,9 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
-      -- NOTE: eventually we will deprecate 'CommitTx' and only have external
-      -- commits. For now we pass the empty script inputs.
-      either throwIO pure (commit ctx st committed [])
+      -- NOTE: Eventually we will deprecate the internal 'CommitTx' command and
+      -- only have external commits via 'draftCommitTx'.
+      either throwIO pure (commit ctx st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
