@@ -20,6 +20,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (genScriptInputs)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (toErrorCode)
@@ -55,8 +56,7 @@ healthyCommitTx =
       commitParty
       healthyCommittedUTxO
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
-      -- TODO: generate script inputs here too
-      []
+      (generateWith genScriptInputs 42)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -80,12 +80,6 @@ healthyCommittedUTxO :: UTxO
 healthyCommittedUTxO =
   flip generateWith 42 $
     genUTxOAdaOnlyOfSize 2
-
-healthyScriptInputs :: [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
-healthyScriptInputs = do
-  txIn <- generateWith arbitrary
-  txOut <- generateWith arbitrary
-  undefined
 
 data CommitMutation
   = -- | The headId in the output datum must match the one from the input datum.

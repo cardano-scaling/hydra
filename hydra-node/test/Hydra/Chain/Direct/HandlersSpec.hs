@@ -42,6 +42,7 @@ import Hydra.Chain.Direct.State (
   genChainStateWithTx,
   genCommit,
   genHydraContext,
+  genScriptInputs,
   initialize,
   observeCommit,
   observeSomeTx,
@@ -371,8 +372,8 @@ genSequenceOfObservableBlocks = do
   stepCommit ctx initTx = do
     let stInitial = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
-    -- TODO: generate script inputs here too?
-    let commitTx = unsafeCommit ctx stInitial utxo []
+    scriptInputs <- lift genScriptInputs
+    let commitTx = unsafeCommit ctx stInitial utxo scriptInputs
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 

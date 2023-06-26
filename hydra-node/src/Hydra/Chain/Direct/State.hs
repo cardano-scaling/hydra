@@ -16,10 +16,11 @@ import Cardano.Prelude (hush)
 import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Hydra.API.RestServer (ScriptInfo (..))
 import Hydra.Cardano.Api (
   AssetName (AssetName),
   BuildTx,
-  BuildTxWith,
+  BuildTxWith (BuildTxWith),
   ChainPoint (..),
   CtxUTxO,
   Hash,
@@ -28,6 +29,8 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   Quantity (..),
+  ScriptDatum (ScriptDatumForTxIn),
+  ScriptWitnessInCtx (ScriptWitnessForSpending),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
@@ -40,6 +43,7 @@ import Hydra.Cardano.Api (
   Witness,
   chainPointToSlotNo,
   genTxIn,
+  mkScriptWitness,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -53,6 +57,7 @@ import Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
+import qualified Hydra.Cardano.Api.Prelude as P
 import Hydra.Chain (
   ChainStateType,
   HeadId (..),
@@ -117,7 +122,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, sized, vector)
+import Test.QuickCheck (choose, frequency, oneof, sized, vector, vectorOf)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -744,8 +749,8 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
-    -- TODO: generate script inputs too here?
-    let tx = unsafeCommit cctx stInitial utxo []
+    scriptInputs <- genScriptInputs
+    let tx = unsafeCommit cctx stInitial utxo scriptInputs
     pure (cctx, Initial stInitial, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -895,8 +900,7 @@ genCommits' genUTxOToCommit ctx txInit = do
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial = unsafeObserveInit cctx txInit
-    -- TODO: generate script inputs too here?
-    pure $ unsafeCommit cctx stInitial toCommit []
+    unsafeCommit cctx stInitial toCommit <$> genScriptInputs
  where
   scaleCommitUTxOs commitUTxOs =
     let numberOfUTxOs = length $ fold commitUTxOs
@@ -997,6 +1001,22 @@ genStClosed ctx utxo = do
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
+
+genScriptInputs :: Gen [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
+genScriptInputs = do
+  n <- arbitrary
+  vectorOf n genScriptInput
+ where
+  genScriptInput :: Gen (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
+  genScriptInput = do
+    txIn <- arbitrary
+    ScriptInfo{redeemer, datum, plutusV2Script = script} <- arbitrary
+    let d = ScriptDatumForTxIn datum
+        witness =
+          BuildTxWith . P.ScriptWitness ScriptWitnessForSpending $
+            mkScriptWitness script d redeemer
+    pure (txIn, witness)
+
 -- ** Danger zone
 
 unsafeCommit ::

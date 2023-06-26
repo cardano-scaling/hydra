@@ -325,6 +325,8 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
+      -- NOTE: eventually we will deprecate 'CommitTx' and only have external
+      -- commits. For now we pass the empty script inputs.
       either throwIO pure (commit ctx st committed [])
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,

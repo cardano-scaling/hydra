@@ -46,14 +46,15 @@ testSeedInput = generateWith arbitrary 42
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
 defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
 defaultLedgerEnv =
-  newLedgerEnv pparams'
- where
-  pparams' =
-    pparams
-      { protocolParamPrices = Just $ ExecutionUnitPrices 0 0
-      , protocolParamTxFeePerByte = 0
-      , protocolParamTxFeeFixed = 0
-      }
+  newLedgerEnv defaultPParams
+
+defaultPParams :: ProtocolParameters
+defaultPParams =
+  pparams
+    { protocolParamPrices = Just $ ExecutionUnitPrices 0 0
+    , protocolParamTxFeePerByte = 0
+    , protocolParamTxFeeFixed = 0
+    }
 
 defaultGlobals :: Ledger.Globals
 defaultGlobals =

@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.State (
   genFanoutTx,
   genHydraContext,
   genInitTx,
+  genScriptInputs,
   genStInitial,
   getContestationDeadline,
   getKnownUTxO,
@@ -231,9 +232,9 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
+        scriptInputs <- pickBlind genScriptInputs
         pure $
-          -- TODO: generate script inputs here too?
-          case commit ctx stInitial utxo [] of
+          case commit ctx stInitial utxo scriptInputs of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
@@ -242,9 +243,9 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+        scriptInputs <- pickBlind genScriptInputs
         pure $
-          -- TODO: generate script inputs here too?
-          case commit ctx stInitial utxo [] of
+          case commit ctx stInitial utxo scriptInputs of
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
@@ -254,9 +255,9 @@ spec = parallel $ do
         (ctx, stInitial) <- pickBlind $ genStInitial hctx
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
+        scriptInputs <- pickBlind genScriptInputs
         pure $
-          -- TODO: generate script inputs here too?
-          case commit mainnetChainContext stInitial utxo [] of
+          case commit mainnetChainContext stInitial utxo scriptInputs of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
