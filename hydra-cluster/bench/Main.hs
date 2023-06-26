@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -46,23 +47,26 @@ main =
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
     saveDataset benchDir dataset
-    run options benchDir dataset
+    run options [(dataset, benchDir)]
   play _ _ = error "Not implemented"
 
   replay options benchDir = do
-    datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
+    dataset <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run options benchDir datasets
+    run options [(dataset, benchDir)]
 
-  run options@StandaloneOptions{timeoutSeconds, clusterSize, startingNodeId} benchDir datasets = do
-    putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
-    withArgs [] $
-      try (bench startingNodeId timeoutSeconds benchDir datasets clusterSize) >>= \case
-        Left (err :: HUnitFailure) ->
-          benchmarkFailedWith benchDir err
-        Right summary ->
-          benchmarkSucceeded options benchDir summary
-  run _ _ _ = error "Not implemented"
+  run options@StandaloneOptions{timeoutSeconds, clusterSize, startingNodeId} targets = do
+    results <- forM targets $ \(dataset, dir) -> do
+      putStrLn $ "Test logs available in: " <> (dir </> "test.log")
+      withArgs [] $
+        try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset clusterSize) >>= \case
+          Left exc ->  pure $ Left (dataset, dir, exc)
+          Right summary -> pure $ Right summary
+    let (failures, summaries) = partitionEithers results
+    case failures of
+      [] -> benchmarkSucceeded options summaries
+      errs -> mapM_ (\ (_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
+  run _ _ = error "Not implemented"
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"
@@ -73,21 +77,20 @@ benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
 benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
   putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
   putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
-  exitFailure
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-benchmarkSucceeded :: Options -> FilePath -> Summary -> IO ()
-benchmarkSucceeded StandaloneOptions{outputDirectory} _ summary = do
+benchmarkSucceeded :: Options -> [Summary] -> IO ()
+benchmarkSucceeded StandaloneOptions{outputDirectory} summaries = do
   now <- getCurrentTime
-  let report = markdownReport now [summary]
+  let report = markdownReport now summaries
   maybe dumpToStdout (writeTo report) outputDirectory
  where
-  dumpToStdout = mapM_ putTextLn (textReport summary)
+  dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
   writeTo report outputDir = do
     existsDir <- doesDirectoryExist outputDir
     unless existsDir $ createDirectory outputDir
     withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
       hPut hdl $ encodeUtf8 $ unlines report
-benchmarkSucceeded _ _ _ = error "Not implemented"
+benchmarkSucceeded _ _ = error "Not implemented"
