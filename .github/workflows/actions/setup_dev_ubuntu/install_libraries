@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+mkdir -p src
+mkdir -p srv/bin
+# Install libsodium
+(
+  cd src
+  git clone https://github.com/input-output-hk/libsodium
+  cd libsodium
+  git checkout 66f017f1
+  ./autogen.sh
+  ./configure --prefix="$(realpath $PWD/../../srv)"
+  make
+  make install
+)
+
+# Install secp256k1
+(
+  cd src
+  git clone https://github.com/bitcoin-core/secp256k1
+  cd secp256k1
+  git checkout ac83be33
+  ./autogen.sh
+  ./configure --enable-module-schnorrsig --enable-experimental --prefix="$(realpath $PWD/../../srv)"
+  make
+  make install
+)
+
+# Install cardano
+curl https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.7-linux.tar.gz -o src/cardano-node.tar.gz
+tar xfz src/cardano-node.tar.gz -C srv/bin
+
+cat <<EOF
+# Setup the following environment variables:
+LD_LIBRARY_PATH="$(realpath $PWD/srv)/lib:${LD_LIBRARY_PATH:-}"
+PKG_CONFIG_PATH="$(realpath $PWD/srv)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+PATH="$(realpath $PWD/srv)/bin:${PATH:-}
+EOF

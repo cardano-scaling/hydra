@@ -1,0 +1,81 @@
+name: 'Setup dev environment'
+description: 'Setup a dev environment for gh-action Ubuntu'
+inputs:
+  version_ghc:
+    description: 'GHC version needed'
+    required: false
+    default: 8.10.7
+  version_cabal:
+    description: 'Cabal version needed'
+    required: false
+    default: 3.10.1.0
+  clean_caches:
+    description: 'Should we clean old caches for this branch and keep only the last one?'
+    require: false
+    default: false
+runs:
+  using: "composite"
+  steps:
+
+    - name: "Clear old caches"
+      if: ${{ inputs.clean_caches == 'true' }}
+      shell: bash
+      run: |
+        .github/workflows/actions/setup_dev_ubuntu/clear_caches
+      env:
+          GH_TOKEN: ${{ github.token }}
+
+    - name: Cache environment setup
+      id: cache_env
+      uses: actions/cache@v3
+      with:
+        path: |
+          /usr/local/.ghcup/ghc/${{ inputs.version_ghc }}
+          /usr/local/.ghcup/bin/cabal-${{ inputs.version_cabal }}
+          /usr/local/.ghcup/bin/cabal
+          /usr/local/.ghcup/bin/ghc
+          ${{ github.workspace }}/srv/
+        key: env-${{ runner.os }}-${{ hashFiles('.github/workflows/actions/setup_dev_ubuntu/install_libraries') }}
+
+    - name: Cache cabal storage
+      id: cache_cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/cabal/packages
+          ~/.local/state/cabal
+        key: cabal-${{ runner.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+        restore-keys: cabal-${{ runner.os }}-
+
+    - name: Cache cabal compilation directory
+      id: cache_dist
+      uses: actions/cache@v3
+      with:
+        path: |
+          dist-newstyle
+        key: dist-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: dist-${{ runner.os }}-
+
+    - name: "Install packages"
+      shell: bash
+      run: |
+        .github/workflows/actions/setup_dev_ubuntu/install_packages
+      env:
+        VERSION_GHC: ${{ inputs.version_ghc }}
+
+    - name: "Setup build environment"
+      if: ${{ steps.cache_env.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        .github/workflows/actions/setup_dev_ubuntu/install_libraries
+
+    - name: "Setup Environment"
+      shell: bash
+      run: |
+        echo "$(realpath $PWD/srv)/bin" >> $GITHUB_PATH
+
+    - name: cabal update
+      if: ${{ steps.cache_cabal.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        cabal update
