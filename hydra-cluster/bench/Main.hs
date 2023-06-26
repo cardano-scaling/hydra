@@ -32,17 +32,17 @@ main =
     StandaloneOptions{workDirectory = Just benchDir,  outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize } -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay outputDirectory timeoutSeconds clusterSize startingNodeId benchDir
+        then replay outputDirectory timeoutSeconds startingNodeId benchDir
         else createDirectory benchDir >> play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir
     StandaloneOptions{workDirectory = Nothing,  outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
       tmpDir <- createSystemTempDirectory "bench"
       play  outputDirectory timeoutSeconds scalingFactor clusterSize  startingNodeId tmpDir
-    DatasetOptions{datasetFiles,  outputDirectory, timeoutSeconds, startingNodeId, clusterSize} -> do
+    DatasetOptions{datasetFiles,  outputDirectory, timeoutSeconds, startingNodeId} -> do
       benchDir <- createSystemTempDirectory "bench"
       datasets <- mapM (eitherDecodeFileStrict' >=> either die pure) datasetFiles
       let targets = zip datasets $ (benchDir </>) . show <$> [1 .. length datasets]
       forM_ (snd <$> targets) (createDirectoryIfMissing True)
-      run outputDirectory timeoutSeconds clusterSize startingNodeId targets
+      run outputDirectory timeoutSeconds startingNodeId targets
 
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir = do
@@ -54,18 +54,18 @@ main =
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
     saveDataset benchDir dataset
-    run outputDirectory timeoutSeconds clusterSize startingNodeId [(dataset, benchDir)]
+    run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
-  replay outputDirectory timeoutSeconds clusterSize startingNodeId benchDir = do
+  replay outputDirectory timeoutSeconds startingNodeId benchDir = do
     dataset <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run outputDirectory timeoutSeconds clusterSize startingNodeId  [(dataset, benchDir)]
+    run outputDirectory timeoutSeconds startingNodeId  [(dataset, benchDir)]
 
-  run outputDirectory timeoutSeconds clusterSize startingNodeId targets = do
+  run outputDirectory timeoutSeconds startingNodeId targets = do
     results <- forM targets $ \(dataset, dir) -> do
       putStrLn $ "Test logs available in: " <> (dir </> "test.log")
       withArgs [] $
-        try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset clusterSize) >>= \case
+        try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
           Left exc ->  pure $ Left (dataset, dir, exc)
           Right summary -> pure $ Right summary
     let (failures, summaries) = partitionEithers results

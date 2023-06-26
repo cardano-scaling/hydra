@@ -39,7 +39,6 @@ data Options
       { datasetFiles :: [FilePath]
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: DiffTime
-      , clusterSize :: Word64
       , startingNodeId :: Int
       }
 
@@ -173,7 +172,6 @@ datasetOptionsParser =
     <$> many filepathParser
     <*> optional outputDirectoryParser
     <*> timeoutParser
-    <*> clusterSizeParser
     <*> startingNodeIdParser
 
 filepathParser :: Parser FilePath

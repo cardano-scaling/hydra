@@ -60,7 +60,8 @@ markdownReport now summaries =
 
   formattedSummary :: Summary -> [Text]
   formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription} =
-    [ "## " <> summaryTitle
+    [ ""
+    , "## " <> summaryTitle
     , ""
     , summaryDescription
     , ""

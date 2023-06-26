@@ -75,8 +75,8 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} clusterSize =
+bench :: Int -> DiffTime -> FilePath -> Dataset -> IO Summary
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} =
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
@@ -84,6 +84,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         let parties = Set.fromList (deriveParty <$> hydraKeys)
+        let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
