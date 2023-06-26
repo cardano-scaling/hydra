@@ -6,7 +6,6 @@ module Hydra.API.RestServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeFull', serialize')
 import Data.Aeson (Value (Object, String), object, withObject, (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
@@ -20,46 +19,42 @@ import Hydra.Cardano.Api (
   PlutusScript,
   ScriptDatum (ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
+  SerialiseAsCBOR (deserialiseFromCBOR, serialiseToCBOR),
+  Tx,
   TxIn,
   TxOut,
   UTxO',
   WitCtxTxIn,
   Witness,
   mkScriptWitness,
+  proxyToAsType,
   pattern ScriptWitness,
  )
 import Hydra.Cardano.Api.Prelude (Era, ScriptWitness)
-import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano ()
 
-newtype DraftCommitTxResponse tx = DraftCommitTxResponse
-  { commitTx :: tx
+newtype DraftCommitTxResponse = DraftCommitTxResponse
+  { commitTx :: Tx
   }
-  deriving (Generic)
+  deriving (Show, Generic)
 
-deriving stock instance IsTx tx => Eq (DraftCommitTxResponse tx)
-deriving stock instance IsTx tx => Show (DraftCommitTxResponse tx)
-
-instance (IsTx tx, ToCBOR tx) => ToJSON (DraftCommitTxResponse tx) where
+instance ToJSON DraftCommitTxResponse where
   toJSON (DraftCommitTxResponse tx) =
     object
-      [ "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialize' tx)
+      [ "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialiseToCBOR tx)
       ]
 
-instance
-  (IsTx tx, FromCBOR tx) =>
-  FromJSON (DraftCommitTxResponse tx)
-  where
+instance FromJSON DraftCommitTxResponse where
   parseJSON = Aeson.withObject "DraftCommitTxResponse" $ \o -> do
     encodedTx :: Text <- o .: "commitTx"
     case Base16.decode $ encodeUtf8 encodedTx of
       Left e -> fail e
-      Right commitTx ->
-        case decodeFull' commitTx of
+      Right bytes ->
+        case deserialiseFromCBOR (proxyToAsType Proxy) bytes of
           Left err -> fail $ show err
           Right v -> pure $ DraftCommitTxResponse v
 
-instance IsTx tx => Arbitrary (DraftCommitTxResponse tx) where
+instance Arbitrary DraftCommitTxResponse where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -88,8 +83,9 @@ data TxOutWithWitness = TxOutWithWitness
 instance ToJSON TxOutWithWitness where
   toJSON TxOutWithWitness{txOut, witness} =
     case toJSON txOut of
-      Object km | isJust witness ->
-        Object $ km & "witness" `KeyMap.insert` toJSON witness
+      Object km
+        | isJust witness ->
+            Object $ km & "witness" `KeyMap.insert` toJSON witness
       x -> x
 
 instance FromJSON TxOutWithWitness where

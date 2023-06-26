@@ -16,7 +16,7 @@ import Test.QuickCheck.Property (conjoin, property, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenSpecs
-    (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
+    (Proxy @(ReasonablySized DraftCommitTxResponse))
 
   roundtripAndGoldenSpecs
     (Proxy @(ReasonablySized DraftCommitTxRequest))
@@ -32,8 +32,8 @@ spec = parallel $ do
     property $
       withMaxSuccess 1 $ do
         conjoin
-          [ prop_validateJSONSchema @(DraftCommitTxResponse Tx) "api.json" (key "channels" . key "/commit" . key "subscribe")
-          , prop_specIsComplete @(DraftCommitTxResponse Tx) "api.json" apiSpecificationSelector
+          [ prop_validateJSONSchema @DraftCommitTxResponse "api.json" (key "channels" . key "/commit" . key "subscribe")
+          , prop_specIsComplete @DraftCommitTxResponse "api.json" apiSpecificationSelector
           ]
 
 apiSpecificationSelector :: SpecificationSelector

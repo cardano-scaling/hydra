@@ -46,6 +46,7 @@ import Hydra.Chain (
     UnsupportedLegacyOutput
   ),
  )
+import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -357,8 +358,7 @@ instance Exception RunServerException
 
 -- Handle user requests to obtain a draft commit tx
 handleDraftCommitUtxo ::
-  forall tx.
-  IsChainState tx =>
+  -- IsChainState tx =>
   Chain tx IO ->
   Tracer IO APIServerLog ->
   LBS.ByteString ->

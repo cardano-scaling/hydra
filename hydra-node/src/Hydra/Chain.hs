@@ -28,7 +28,7 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO',
   UsingRawBytesHex (..),
-  WitCtxTxIn,
+  WitCtxTxIn, Tx,
  )
 import Hydra.Cardano.Api.Prelude (ScriptWitness)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -195,9 +195,9 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
-      (IsChainState tx, MonadThrow m, MonadIO m) =>
+      (MonadThrow m, MonadIO m) =>
       UTxO' (TxOut CtxUTxO, Maybe (ScriptWitness WitCtxTxIn Era)) ->
-      m (Either (PostTxError tx) tx)
+      m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- information to spend from a script. Errors are handled at the call site.
   }
