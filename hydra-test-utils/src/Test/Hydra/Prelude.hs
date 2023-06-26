@@ -130,7 +130,7 @@ instance MonadMask m => MonadMask (StrictS.StateT s m) where
 failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => DiffTime -> m a -> m a
 failAfter seconds action =
   timeout seconds action >>= \case
-    Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
+    Nothing -> failure $ "Test timed out after " <> show seconds
     Just a -> pure a
 
 -- | Provides the source code location where this function is called.

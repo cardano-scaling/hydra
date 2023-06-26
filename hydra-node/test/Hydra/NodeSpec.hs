@@ -112,6 +112,27 @@ spec = parallel $ do
       outputs <- getServerOutputs
       outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters cperiod [alice, bob, carol]) NoSeedInput]
 
+  it "signs snapshot even if it has seen conflicting transactions" $
+    failAfter 1 $
+      showLogsOnFailure $ \tracer -> do
+        let snapshot = Snapshot 1 (utxoRefs [1, 3, 5]) [2]
+            sigBob = sign bobSk snapshot
+            events =
+              eventsToOpenHead
+                <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{party = bob, transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
+                   , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = bob, transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
+                   , NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactionIds = [2]}}
+                   ]
+        node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
+        (node', getNetworkMessages) <- recordNetwork node
+        runToCompletion tracer node'
+        getNetworkMessages `shouldReturn` [AckSn{party = bob, signed = sigBob, snapshotNumber = 1}]
+
+isReqSn :: Message tx -> Bool
+isReqSn = \case
+  ReqSn{} -> True
+  _ -> False
+
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
   [ observationEvent $ OnInitTx (HeadId "1234") cperiod [alice, bob, carol]
