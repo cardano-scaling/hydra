@@ -43,6 +43,7 @@ import Hydra.Cardano.Api (
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
+import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
@@ -108,7 +109,7 @@ allNodeIds = [1 .. 3]
 -- | Like 'withTempDir', busing a common prefix to keep hydra-cluster logs more
 -- easily on CI.
 --
--- NOTE: The ci.yaml workflow depends on this.
+-- NOTE: The ci-nix.yaml workflow depends on this.
 withClusterTempDir :: MonadIO m => String -> (FilePath -> m a) -> m a
 withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)

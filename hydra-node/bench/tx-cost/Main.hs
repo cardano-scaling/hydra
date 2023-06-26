@@ -97,7 +97,7 @@ writeTransactionCostMarkdown hdl = do
             ]
 
 -- NOTE: Github Actions CI depends on the number of header lines, see
--- .github/workflows/ci.yaml
+-- .github/workflows/ci-nix.yaml
 pageHeader :: [Text]
 pageHeader =
   [ "--- "
