@@ -43,6 +43,7 @@ import Hydra.Cardano.Api (
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain (HeadParameters (contestationPeriod, parties))
+import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
   publishHydraScriptsAs,
