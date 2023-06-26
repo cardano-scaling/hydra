@@ -20,7 +20,7 @@ import Hydra.Generator (generateConstantUTxODataset)
 import Options.Applicative (
   execParser,
  )
-import System.Directory (createDirectory, doesDirectoryExist)
+import System.Directory (createDirectory, doesDirectoryExist, createDirectoryIfMissing)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
 import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
@@ -29,16 +29,23 @@ import Test.QuickCheck (generate, getSize, scale)
 main :: IO ()
 main =
   execParser benchOptionsParser >>= \case
-    o@StandaloneOptions{workDirectory = Just benchDir} -> do
+    StandaloneOptions{workDirectory = Just benchDir,  outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize } -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay o benchDir
-        else createDirectory benchDir >> play o benchDir
-    o -> do
+        then replay outputDirectory timeoutSeconds clusterSize startingNodeId benchDir
+        else createDirectory benchDir >> play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir
+    StandaloneOptions{workDirectory = Nothing,  outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
       tmpDir <- createSystemTempDirectory "bench"
-      play o tmpDir
+      play  outputDirectory timeoutSeconds scalingFactor clusterSize  startingNodeId tmpDir
+    DatasetOptions{datasetFiles,  outputDirectory, timeoutSeconds, startingNodeId, clusterSize} -> do
+      benchDir <- createSystemTempDirectory "bench"
+      datasets <- mapM (eitherDecodeFileStrict' >=> either die pure) datasetFiles
+      let targets = zip datasets $ (benchDir </>) . show <$> [1 .. length datasets]
+      forM_ (snd <$> targets) (createDirectoryIfMissing True)
+      run outputDirectory timeoutSeconds clusterSize startingNodeId targets
+
  where
-  play options@StandaloneOptions{scalingFactor, clusterSize} benchDir = do
+  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
       eitherDecodeFileStrict' ("config" </> "devnet" </> "genesis-shelley.json") >>= \case
@@ -47,15 +54,14 @@ main =
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
     saveDataset benchDir dataset
-    run options [(dataset, benchDir)]
-  play _ _ = error "Not implemented"
+    run outputDirectory timeoutSeconds clusterSize startingNodeId [(dataset, benchDir)]
 
-  replay options benchDir = do
+  replay outputDirectory timeoutSeconds clusterSize startingNodeId benchDir = do
     dataset <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run options [(dataset, benchDir)]
+    run outputDirectory timeoutSeconds clusterSize startingNodeId  [(dataset, benchDir)]
 
-  run options@StandaloneOptions{timeoutSeconds, clusterSize, startingNodeId} targets = do
+  run outputDirectory timeoutSeconds clusterSize startingNodeId targets = do
     results <- forM targets $ \(dataset, dir) -> do
       putStrLn $ "Test logs available in: " <> (dir </> "test.log")
       withArgs [] $
@@ -64,9 +70,8 @@ main =
           Right summary -> pure $ Right summary
     let (failures, summaries) = partitionEithers results
     case failures of
-      [] -> benchmarkSucceeded options summaries
+      [] -> benchmarkSucceeded outputDirectory summaries
       errs -> mapM_ (\ (_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
-  run _ _ = error "Not implemented"
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"
@@ -80,8 +85,8 @@ benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-benchmarkSucceeded :: Options -> [Summary] -> IO ()
-benchmarkSucceeded StandaloneOptions{outputDirectory} summaries = do
+benchmarkSucceeded :: Maybe FilePath -> [Summary] -> IO ()
+benchmarkSucceeded outputDirectory summaries = do
   now <- getCurrentTime
   let report = markdownReport now summaries
   maybe dumpToStdout (writeTo report) outputDirectory
@@ -93,4 +98,3 @@ benchmarkSucceeded StandaloneOptions{outputDirectory} summaries = do
     unless existsDir $ createDirectory outputDir
     withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
       hPut hdl $ encodeUtf8 $ unlines report
-benchmarkSucceeded _ _ = error "Not implemented"
