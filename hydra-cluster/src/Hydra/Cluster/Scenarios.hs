@@ -10,7 +10,6 @@ import CardanoClient (
   QueryPoint (QueryTip),
   queryProtocolParameters,
   queryTip,
-  submitTransaction,
   submitTx,
  )
 import CardanoNode (RunningNode (..))
@@ -31,7 +30,6 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   mkScriptAddress,
   selectLovelace,
-  signTx,
   toScriptData,
  )
 import Hydra.Chain (HeadId)
@@ -41,7 +39,6 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -57,13 +54,11 @@ import Network.HTTP.Req (
   port,
   req,
   responseBody,
-  responseStatusCode,
   runReq,
   (/:),
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldThrow)
-import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -223,29 +218,28 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      let script1 = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
-          script2 = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
-          scriptAddress1 = mkScriptAddress @PlutusScriptV2 networkId script1
-          scriptAddress2 = mkScriptAddress @PlutusScriptV2 networkId script2
+      -- Prepare a script output on the network
+      let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
+          scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
           reedemer = 1 :: Integer
           datum = 2 :: Integer
-          scriptInfo1 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script1
-          scriptInfo2 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script2
-      (someVk, someSk) <- generate genKeyPair
+          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-      scriptUtxo1 <- createOutputAtAddress node pparams scriptAddress1 datum
-      scriptUtxo2 <- createOutputAtAddress node pparams scriptAddress2 datum
-      let scriptUTxO1 = mkDraftUTxOs scriptUtxo1 (Just scriptInfo1)
-      let scriptUTxO2 = mkDraftUTxOs scriptUtxo2 (Just scriptInfo2)
-      -- Request to build a draft commit tx from hydra-node
-      regularUtxo1 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
-      regularUtxo2 <- seedFromFaucet node someVk 10_000_000 Normal (contramap FromFaucet tracer)
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress datum
 
-      let regularUTxO1 = mkDraftUTxOs regularUtxo1 Nothing
-      let regularUTxO2 = mkDraftUTxOs regularUtxo2 Nothing
+      -- Commit the script output using known witness
       let clientPayload =
-            DraftCommitTxRequest (regularUTxO1 <> regularUTxO2 <> scriptUTxO1 <> scriptUTxO2)
-      response <-
+            DraftCommitTxRequest
+              { utxos =
+                  UTxO.singleton
+                    ( scriptTxIn
+                    , TxOutWithWitness
+                        { txOut = scriptTxOut
+                        , witness = Just scriptInfo
+                        }
+                    )
+              }
+      res <-
         runReq defaultHttpConfig $
           req
             POST
@@ -253,16 +247,15 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
             (ReqBodyJson clientPayload)
             (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
             (port $ 4000 + hydraNodeId)
-      responseStatusCode response `shouldBe` 200
-      let DraftCommitTxResponse commitTx = responseBody response
-      let signedCommitTx = signTx someSk commitTx
-      submitTransaction networkId nodeSocket signedCommitTx
+
+      let DraftCommitTxResponse{commitTx} = responseBody res
+      submitTx node commitTx
 
       lockedUTxO <- waitMatch 60 n1 $ \v -> do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "tag" == Just "HeadIsOpen"
         pure $ v ^? key "utxo"
-      lockedUTxO `shouldBe` Just (toJSON $ regularUtxo1 <> regularUtxo2 <> scriptUtxo1 <> scriptUtxo2)
+      lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
  where
   RunningNode{networkId, nodeSocket} = node
 

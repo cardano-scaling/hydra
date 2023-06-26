@@ -6,9 +6,9 @@ module Hydra.Cluster.Faucet where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.Map.Strict as Map
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -25,6 +25,7 @@ import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
+import qualified Data.Map.Strict as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
@@ -149,7 +150,7 @@ createOutputAtAddress ::
   ProtocolParameters ->
   AddressInEra ->
   a ->
-  IO UTxO
+  IO (TxIn, TxOut CtxUTxO)
 createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress datum = do
   (faucetVk, faucetSk) <- keysFor Faucet
   -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
@@ -169,7 +170,9 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
         submitTransaction networkId nodeSocket tx
         newUtxo <- awaitTransaction networkId nodeSocket tx
-        pure $ UTxO.filter (\out -> txOutAddress out == atAddress) newUtxo
+        case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
+          Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
+          Just u -> pure u
  where
   collateralTxIns = mempty
 

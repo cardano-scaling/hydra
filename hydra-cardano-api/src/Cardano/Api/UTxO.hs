@@ -48,7 +48,7 @@ fromPairs :: [(TxIn, out)] -> UTxO' out
 fromPairs = UTxO . Map.fromList
 
 -- | Create a 'UTxO' from a single unspent transaction output.
-singleton :: (TxIn, TxOut CtxUTxO Era) -> UTxO
+singleton :: (TxIn, out) -> UTxO' out
 singleton (i, o) = UTxO $ Map.singleton i o
 
 -- | Find an 'out' for a given 'TxIn'.
