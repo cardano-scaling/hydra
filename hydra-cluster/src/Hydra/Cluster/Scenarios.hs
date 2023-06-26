@@ -227,10 +227,10 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           script2 = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
           scriptAddress1 = mkScriptAddress @PlutusScriptV2 networkId script1
           scriptAddress2 = mkScriptAddress @PlutusScriptV2 networkId script2
-          redeemer = 1 :: Integer
+          reedemer = 1 :: Integer
           datum = 2 :: Integer
-          scriptInfo1 = ScriptInfo (toScriptData redeemer) (toScriptData datum) script1
-          scriptInfo2 = ScriptInfo (toScriptData redeemer) (toScriptData datum) script2
+          scriptInfo1 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script1
+          scriptInfo2 = ScriptInfo (toScriptData reedemer) (toScriptData datum) script2
       (someVk, someSk) <- generate genKeyPair
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
       scriptUtxo1 <- createOutputAtAddress node pparams scriptAddress1 datum
@@ -251,7 +251,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
             POST
             (http "127.0.0.1" /: "commit")
             (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+            (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
             (port $ 4000 + hydraNodeId)
       responseStatusCode response `shouldBe` 200
       let DraftCommitTxResponse commitTx = responseBody response

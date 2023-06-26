@@ -14,7 +14,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified PlutusLedgerApi.V2 as Plutus
-import Test.QuickCheck (oneof, resize, sized, vectorOf)
+import Test.QuickCheck (arbitrarySizedIntegral, choose, oneof, resize, sized, vector)
 
 -- * Extras
 
@@ -99,27 +99,16 @@ instance FromJSON ScriptData where
       left show $ deserialiseOrFail $ fromStrict bytes
 
 instance Arbitrary ScriptData where
-  arbitrary =
+  arbitrary = sized $ \n ->
     oneof
-      [ sized
-          ( \n ->
-              ScriptDataConstructor (fromIntegral (n - 1)) <$> resize (n - 1) arbitrary
-          )
+      [ ScriptDataConstructor <$> arbitrarySizedIntegral <*> resize (n - 1) arbitrary
       , ScriptDataNumber <$> arbitrary
       , ScriptDataBytes <$> arbitraryBS
-      , sized
-          ( \n -> do
-              ScriptDataList <$> resize (n - 1) arbitrary
-          )
-      , sized
-          ( \n -> do
-              ScriptDataMap <$> resize (n - 1) arbitrary
-          )
+      , ScriptDataList <$> resize (n - 1) arbitrary
+      , ScriptDataMap <$> resize (n - 1) arbitrary
       ]
    where
-    -- XXX: ScriptDataBytes expects utf-8 words
-    arbitraryBS =
-      BS.pack <$> vectorOf 8 arbitrary
+    arbitraryBS = BS.pack <$> (choose (0, 64) >>= vector)
 
 instance ToJSON HashableScriptData where
   toJSON = toJSON . getScriptData

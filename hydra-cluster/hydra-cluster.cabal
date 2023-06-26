@@ -131,7 +131,6 @@ library
     , contra-tracer
     , data-default
     , directory
-    , exceptions
     , filepath
     , hspec-expectations
     , http-client

@@ -26,15 +26,6 @@ mkTxOutDatumHash ::
 mkTxOutDatumHash =
   TxOutDatumHash (scriptDataSupportedInEra @era) . hashScriptDataBytes . toScriptData
 
--- | Construct a 'TxOutDatum' as a 'ScriptData' hash from some serialised data.
-mkTxOutDatumHash' ::
-  forall era ctx.
-  HasScriptData era =>
-  HashableScriptData ->
-  TxOutDatum ctx era
-mkTxOutDatumHash' =
-  TxOutDatumHash (scriptDataSupportedInEra @era) . hashScriptDataBytes
-
 -- | Construct an inline 'TxOutDatum' from some serialisable data.
 mkTxOutDatumInline ::
   forall era a ctx.

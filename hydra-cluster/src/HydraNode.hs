@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module HydraNode where
 
@@ -13,7 +12,6 @@ import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
-import qualified Control.Monad.Catch as Catch
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import qualified Data.Aeson as Aeson
@@ -167,25 +165,19 @@ waitForAll tracer delay nodes expected = do
 -- | Create a commit tx using the hydra-node for later submission
 -- Only works for non-script utxos
 externalCommit :: HasCallStack => HydraClient -> UTxO' TxOutWithWitness -> IO Tx
-externalCommit HydraClient{hydraNodeId} utxos =
-  runReq defaultHttpConfig request
-    <&> responseBody
-    >>= \DraftCommitTxResponse{commitTx} -> pure commitTx
+externalCommit HydraClient{hydraNodeId} utxos = do
+  eCommitTx <- try $ runReq defaultHttpConfig request <&> responseBody
+  case eCommitTx of
+    Left (e :: HttpException) -> failure $ "Failed to draft commit tx: " <> show e
+    Right DraftCommitTxResponse{commitTx} -> pure commitTx
  where
   request =
-    catchIt $
-      Req.req
-        POST
-        (Req.http "127.0.0.1" /: "commit")
-        (ReqBodyJson $ DraftCommitTxRequest utxos)
-        (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-        (Req.port $ 4000 + hydraNodeId)
-
-  catchIt action =
-    -- we should re-use 'failure' here but it's 'MonadCatch' constraint comes
-    -- from 'Control.Monad.Class.MonadThrow' and 'req' uses 'MonadThrow' from
-    -- 'Control.Monad.Catch'
-    action `Catch.catch` (\(e :: HttpException) -> Catch.throwM e)
+    Req.req
+      POST
+      (Req.http "127.0.0.1" /: "commit")
+      (ReqBodyJson $ DraftCommitTxRequest utxos)
+      (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
+      (Req.port $ 4000 + hydraNodeId)
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
