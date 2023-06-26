@@ -115,8 +115,15 @@ channels:
     servers:
       - localhost-http
     subscribe:
-      summary: Hydra node drafted commit transaction responses.
+      summary: Draft commit tx response
       operationId: draftCommitTxResponse
+      description: |
+        Possible responses of commit endpoint are:
+          * DraftCommitTxResponse - 200 ok
+          * CannotCommitReferenceScript - 400 bad request
+          * CommittedTooMuchADAForMainnet - 400 bad request
+          * UnsupportedLegacyOutput - 400 bad request
+          * SpendingNodeUtxoForbidden - 400 bad request
       message:
         $ref: "#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -125,7 +132,7 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
     publish:
-      summary: Requests sent to the Hydra node to draft a commit transactions.
+      summary: Draft commit tx request
       operationId: draftCommitTxRequest
       message:
         $ref: "#/components/messages/DraftCommitTxRequest"
