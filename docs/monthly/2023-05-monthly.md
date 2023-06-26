@@ -87,8 +87,9 @@ easier to configure and more isomorphic to L1.
 #### Improving CI runtime
 
 The Hydra project [embraces Test Driven Development](./adr/12) and implements
-[Continuous Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci.yaml) (CI),
-checking all these tests pass and more.
+[Continuous
+Integration](https://github.com/input-output-hk/hydra/actions/workflows/ci-nix.yaml)
+(CI), checking all these tests pass and more.
 
 The CI could sometimes take as long as an hour or
 more to run, which has a negative impact on the project's workflow.
@@ -213,7 +214,7 @@ drives feature development in both `hydra-pay` and `hydra` in the background.
 #### Spanish translation
 
 Last, but not least, we would like to thank @Agustinblockchain for their
-contribution of a [Spanish translation #866](<https://github.com/input-output-hk/hydra/pull/866>)
+contribution of a [Spanish translation #866](https://github.com/input-output-hk/hydra/pull/866)
 of the [hydra.family website](https://hydra.family/head-protocol/unstable/es/) 🇪🇸 🎉
 
 ## Conclusion

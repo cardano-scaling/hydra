@@ -17,7 +17,7 @@ jobs:
     - name: 📥 Download last released docs
       uses: dawidd6/action-download-artifact@v2
       with:
-        workflow: ci.yaml
+        workflow: ci-nix.yaml
         workflow_conclusion: success
         branch: release
         name: docs
@@ -36,7 +36,7 @@ jobs:
     - name: 📥 Download last released docs
       uses: dawidd6/action-download-artifact@v2
       with:
-        workflow: ci.yaml
+        workflow: ci-nix.yaml
         workflow_conclusion: success
         branch: release
         name: docs-stable
@@ -46,7 +46,7 @@ jobs:
     - name: 📥 Download latest /unstable docs
       uses: dawidd6/action-download-artifact@v2
       with:
-        workflow: ci.yaml
+        workflow: ci-nix.yaml
         workflow_conclusion: success
         branch: master
         name: docs-unstable
@@ -55,7 +55,7 @@ jobs:
     - name: 📥 Download latest / docs
       uses: dawidd6/action-download-artifact@v2
       with:
-        workflow: ci.yaml
+        workflow: ci-nix.yaml
         workflow_conclusion: success
         branch: master
         name: docs
