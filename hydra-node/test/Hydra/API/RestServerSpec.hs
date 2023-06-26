@@ -14,11 +14,8 @@ import Test.QuickCheck.Property (property, withMaxSuccess)
 
 spec :: Spec
 spec = parallel $ do
-  roundtripAndGoldenSpecs
-    (Proxy @(ReasonablySized DraftCommitTxResponse))
-
-  roundtripAndGoldenSpecs
-    (Proxy @(ReasonablySized DraftCommitTxRequest))
+  roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxResponse))
+  roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxRequest))
 
   prop "Validate /commit publish api schema" $
     property $

@@ -9,12 +9,12 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
-import Data.Aeson (Value (String))
+import Data.Aeson (Value (String), withText)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified PlutusLedgerApi.V2 as Plutus
-import Test.QuickCheck (arbitrarySizedIntegral, choose, oneof, resize, sized, vector)
+import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
 -- * Extras
 
@@ -99,23 +99,29 @@ instance FromJSON ScriptData where
       left show $ deserialiseOrFail $ fromStrict bytes
 
 instance Arbitrary ScriptData where
-  arbitrary = sized $ \n ->
-    oneof
-      [ ScriptDataConstructor <$> arbitrarySizedIntegral <*> resize (n - 1) arbitrary
-      , ScriptDataNumber <$> arbitrary
-      , ScriptDataBytes <$> arbitraryBS
-      , ScriptDataList <$> resize (n - 1) arbitrary
-      , ScriptDataMap <$> resize (n - 1) arbitrary
-      ]
+  arbitrary =
+    scale (`div` 2) $
+      oneof
+        [ ScriptDataConstructor <$> arbitrarySizedNatural <*> arbitrary
+        , ScriptDataNumber <$> arbitrary
+        , ScriptDataBytes <$> arbitraryBS
+        , ScriptDataList <$> arbitrary
+        , ScriptDataMap <$> arbitrary
+        ]
    where
-    arbitraryBS = BS.pack <$> (choose (0, 64) >>= vector)
+    arbitraryBS = sized $ \n ->
+      BS.pack <$> (choose (0, min n 64) >>= vector)
 
 instance ToJSON HashableScriptData where
-  toJSON = toJSON . getScriptData
+  toJSON = String . decodeUtf8 . Base16.encode . serialiseToCBOR
 
 instance FromJSON HashableScriptData where
-  parseJSON = fmap unsafeHashableScriptData . parseJSON
+  parseJSON =
+    withText "HashableScriptData" $ \text -> do
+      bytes <- either (fail . show) pure $ Base16.decode $ encodeUtf8 text
+      either (fail . show) pure $ deserialiseFromCBOR (proxyToAsType Proxy) bytes
 
 instance Arbitrary HashableScriptData where
   arbitrary =
+    -- NOTE: Safe to use here as the data was not available in serialized form.
     unsafeHashableScriptData <$> arbitrary
