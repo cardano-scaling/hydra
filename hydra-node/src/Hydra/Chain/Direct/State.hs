@@ -99,14 +99,13 @@ import Hydra.Chain.Direct.Tx (
   observeContestTx,
   observeFanoutTx,
   observeInitTx,
-  rawCommitTxBody,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
 import Hydra.Data.ContestationPeriod (posixToUTCTime)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (addInputs, genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Options (maximumNumberOfParties)
@@ -307,8 +306,9 @@ commit ::
   ChainContext ->
   InitialState ->
   UTxO ->
+  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Either (PostTxError Tx) Tx
-commit ctx st utxo = do
+commit ctx st utxo scriptInputs = do
   case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
@@ -316,30 +316,7 @@ commit ctx st utxo = do
       rejectByronAddress utxo
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
-      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial
- where
-  ChainContext{networkId, ownParty, scriptRegistry} = ctx
-  InitialState{headId} = st
-
--- | Construct a commit script transaction based on the 'InitialState'.
---  This does look for "our initial output" to spend and check the given 'UTxO' to be
--- compatible. Hence, this function does fail if already committed.
-draftCommitTxBody ::
-  ChainContext ->
-  InitialState ->
-  UTxO ->
-  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
-  Either (PostTxError Tx) Tx
-draftCommitTxBody ctx st utxo scriptWitnesses = do
-  txBody <- case ownInitial ctx st of
-    Nothing ->
-      Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
-    Just initial -> do
-      rejectByronAddress utxo
-      rejectReferenceScripts utxo
-      rejectMoreThanMainnetLimit networkId utxo
-      Right $ rawCommitTxBody networkId scriptRegistry headId ownParty utxo initial
-  pure . unsafeBuildTransaction $ txBody & addInputs scriptWitnesses
+      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial scriptInputs
  where
   ChainContext{networkId, ownParty, scriptRegistry} = ctx
   InitialState{headId} = st
@@ -767,7 +744,8 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
-    let tx = unsafeCommit cctx stInitial utxo
+    -- TODO: generate script inputs too here?
+    let tx = unsafeCommit cctx stInitial utxo []
     pure (cctx, Initial stInitial, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -911,13 +889,14 @@ genCommits' genUTxOToCommit ctx txInit = do
   -- Prepare UTxO to commit. We need to scale down the quantities by number of
   -- committed UTxOs to ensure we are not as easily hitting overflows of the max
   -- bound (Word64) when collecting all the commits together later.
-  commitUTxOs <- forM (ctxParties ctx) $ \_p -> genUTxOToCommit
+  commitUTxOs <- forM (ctxParties ctx) $ const genUTxOToCommit
   let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
 
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial = unsafeObserveInit cctx txInit
-    pure $ unsafeCommit cctx stInitial toCommit
+    -- TODO: generate script inputs too here?
+    pure $ unsafeCommit cctx stInitial toCommit []
  where
   scaleCommitUTxOs commitUTxOs =
     let numberOfUTxOs = length $ fold commitUTxOs
@@ -1025,9 +1004,10 @@ unsafeCommit ::
   ChainContext ->
   InitialState ->
   UTxO ->
+  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Tx
-unsafeCommit ctx st u =
-  either (error . show) id $ commit ctx st u
+unsafeCommit ctx st u scriptInputs =
+  either (error . show) id $ commit ctx st u scriptInputs
 
 unsafeObserveInit ::
   HasCallStack =>

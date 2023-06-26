@@ -175,31 +175,18 @@ commitTx ::
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
+  -- | Script inputs used when clients want to draft a commit tx using script
+  -- utxos
+  [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] ->
   Tx
-commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
+commitTx networkId scriptRegistry headId party utxo (initialInput, out, vkh) scriptInputs =
   unsafeBuildTransaction $
-    rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh)
-
--- | Craft a commit transaction body which includes the "committed" utxo as a datum.
-rawCommitTxBody ::
-  NetworkId ->
-  -- | Published Hydra scripts to reference.
-  ScriptRegistry ->
-  HeadId ->
-  Party ->
-  -- | The UTxO to commit to the Head
-  UTxO ->
-  -- | The initial output (sent to each party) which should contain the PT and is
-  -- locked by initial script
-  (TxIn, TxOut ctx, Hash PaymentKey) ->
-  TxBodyContent BuildTx
-rawCommitTxBody networkId scriptRegistry headId party utxo (initialInput, out, vkh) =
-  emptyTxBody
-    & addInputs [(initialInput, initialWitness)]
-    & addReferenceInputs [initialScriptRef]
-    & addVkInputs committedTxIns
-    & addExtraRequiredSigners [vkh]
-    & addOutputs [commitOutput]
+    emptyTxBody
+      & addInputs ([(initialInput, initialWitness)] <> scriptInputs)
+      & addReferenceInputs [initialScriptRef]
+      & addVkInputs committedTxIns
+      & addExtraRequiredSigners [vkh]
+      & addOutputs [commitOutput]
  where
   initialWitness =
     BuildTxWith $

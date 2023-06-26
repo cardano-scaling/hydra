@@ -55,6 +55,8 @@ healthyCommitTx =
       commitParty
       healthyCommittedUTxO
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
+      -- TODO: generate script inputs here too
+      []
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -78,6 +80,12 @@ healthyCommittedUTxO :: UTxO
 healthyCommittedUTxO =
   flip generateWith 42 $
     genUTxOAdaOnlyOfSize 2
+
+healthyScriptInputs :: [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
+healthyScriptInputs = do
+  txIn <- generateWith arbitrary
+  txOut <- generateWith arbitrary
+  undefined
 
 data CommitMutation
   = -- | The headId in the output datum must match the one from the input datum.

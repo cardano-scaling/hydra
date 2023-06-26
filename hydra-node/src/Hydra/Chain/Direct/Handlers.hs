@@ -46,7 +46,6 @@ import Hydra.Chain.Direct.State (
   collect,
   commit,
   contest,
-  draftCommitTxBody,
   fanout,
   getKnownUTxO,
   initialize,
@@ -165,12 +164,13 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
             let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
             let userTxIns = Set.toList $ UTxO.inputSet regularUTxO
             let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
+            -- prevent trying to spend internal wallet's utxo
             if null matchedWalletUtxo
               then sequenceA $ finalizeTx wallet ctx chainState (regularUTxO <> scriptUTxO) <$> commitTxBody
               else pure $ Left SpendingNodeUtxoForbidden
            where
             (regularUTxO, scriptUTxO, scriptWitnesses) = prepareCommitTxInputs utxoInputs
-            commitTxBody = draftCommitTxBody ctx st regularUTxO scriptWitnesses
+            commitTxBody = commit ctx st regularUTxO scriptWitnesses
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
@@ -325,7 +325,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
-      either throwIO pure (commit ctx st committed)
+      either throwIO pure (commit ctx st committed [])
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from

@@ -102,7 +102,9 @@ computeCommitCost = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
     (cctx, stInitial) <- genStInitial ctx
-    pure (commit cctx stInitial utxo, getKnownUTxO stInitial <> getKnownUTxO cctx)
+    -- TODO: should we generate script inputs to calculate the costs more
+    -- realistically or probably have a separate function to do that?
+    pure (commit cctx stInitial utxo [], getKnownUTxO stInitial <> getKnownUTxO cctx)
 
 computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =

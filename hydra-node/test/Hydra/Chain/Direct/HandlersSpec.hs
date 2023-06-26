@@ -371,7 +371,8 @@ genSequenceOfObservableBlocks = do
   stepCommit ctx initTx = do
     let stInitial = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx stInitial utxo
+    -- TODO: generate script inputs here too?
+    let commitTx = unsafeCommit ctx stInitial utxo []
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 
