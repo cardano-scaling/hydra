@@ -11,158 +11,150 @@ description: >
 
 type: object
 additionalProperties: false
-
+required:
+  - namespace
+  - timestamp
+  - threadId
+  - message
 properties:
-  messages:
-    type: array
-    additionalItems: false
-    items:
-      type: object
-      additionalProperties: false
-      required:
-        - namespace
-        - timestamp
-        - threadId
-        - message
-      properties:
-        namespace:
-          type: string
-          description: >-
-            An arbitrary string identifying the tracer generating this entry. For a
-            node, this is always 'HydraNode'.
+  namespace:
+    type: string
+    description: >-
+      An arbitrary string identifying the tracer generating this entry. For a
+      node, this is always 'HydraNode'.
 
-        timestamp:
-          type: string
-          format: "date-time"
-          description: >-
-            Timestamp denoting the wall-clock time at which this log entry was
-            recorded.
+  timestamp:
+    type: string
+    format: "date-time"
+    description: >-
+      Timestamp denoting the wall-clock time at which this log entry was
+      recorded.
 
-        threadId:
-          type: integer
-          description: >-
-            The id of the thread which produced the log entry.
+  threadId:
+    type: integer
+    description: >-
+      The id of the thread which produced the log entry.
 
-        message:
-          oneOf:
-            - title: APIServer
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - api
-              description: >-
-                A log entry produced by the API server.
-              properties:
-                tag:
-                  type: string
-                  enum: ["APIServer"]
-                api:
-                  $ref: "#/definitions/APIServer"
+  message:
+    oneOf:
+      - title: APIServer
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - api
+        description: >-
+          A log entry produced by the API server.
+        properties:
+          tag:
+            type: string
+            enum: ["APIServer"]
+          api:
+            $ref: "logs.yaml#/definitions/APIServer"
 
-            - title: Node
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - node
-              description: >-
-                A log entry denoting events and effects processed by the Node as part
-                of the Head protocol.
-              properties:
-                tag:
-                  type: string
-                  enum: ["Node"]
-                node:
-                  $ref: "#/definitions/Node"
+      - title: Node
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - node
+        description: >-
+          A log entry denoting events and effects processed by the Node as part
+          of the Head protocol.
+        properties:
+          tag:
+            type: string
+            enum: ["Node"]
+          node:
+            $ref: "logs.yaml#/definitions/Node"
 
-            - title: DirectChain
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - directChain
-              description: >-
-                A log entry produced by the chain component watching the chain.
-              properties:
-                tag:
-                  type: string
-                  enum: ["DirectChain"]
-                directChain:
-                  $ref: "#/definitions/DirectChain"
+      - title: DirectChain
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - directChain
+        description: >-
+          A log entry produced by the chain component watching the chain.
+        properties:
+          tag:
+            type: string
+            enum: ["DirectChain"]
+          directChain:
+            $ref: "logs.yaml#/definitions/DirectChain"
 
-            - title: Network
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - network
-              description: >-
-                A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
-              properties:
-                tag:
-                  type: string
-                  enum: ["Network"]
-                network:
-                  $ref: "#/definitions/Network"
+      - title: Network
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - network
+        description: >-
+          A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
+        properties:
+          tag:
+            type: string
+            enum: ["Network"]
+          network:
+            $ref: "logs.yaml#/definitions/Network"
 
-            - title: NodeOptions
-              description: >-
-                Hydra node parsed command line arguments
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - runOptions
-              properties:
-                tag:
-                  type: string
-                  enum: ["NodeOptions"]
-                runOptions:
-                  <<: { "$ref": "#/definitions/RunOptions" }
-                  description: >-
-                    Configuration needed to run the hydra node
+      - title: NodeOptions
+        description: >-
+          Hydra node parsed command line arguments
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - runOptions
+        properties:
+          tag:
+            type: string
+            enum: ["NodeOptions"]
+          runOptions:
+            "$ref": "logs.yaml#/definitions/RunOptions"
+            description: >-
+              Configuration needed to run the hydra node
 
-            - title: CreatedState
-              description: >-
-                Created new state in persistence (instead of loading)
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-              properties:
-                tag:
-                  type: string
-                  enum: ["CreatedState"]
+      - title: CreatedState
+        description: >-
+          Created new state in persistence (instead of loading)
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["CreatedState"]
 
-            - title: LoadedState
-              description: >-
-                Loaded state from persistence
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-              properties:
-                tag:
-                  type: string
-                  enum: ["LoadedState"]
+      - title: LoadedState
+        description: >-
+          Loaded state from persistence
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["LoadedState"]
 
-            - title: Misconfiguration
-              description: >-
-                Hydra node detected a difference between loaded state and the node arguments.
-              type: object
-              additionalProperties: false
-              required:
-                - tag
-                - misconfigurationErrors
-              properties:
-                tag:
-                  type: string
-                  enum: ["Misconfiguration"]
-                misconfigurationErrors:
-                  type: array
-                  items:
-                    $ref: "#definitions/ParamMismatch"
+      - title: Misconfiguration
+        description: >-
+          Hydra node detected a difference between loaded state and the node arguments.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - misconfigurationErrors
+        properties:
+          tag:
+            type: string
+            enum: ["Misconfiguration"]
+          misconfigurationErrors:
+            type: array
+            items:
+              $ref: "logs.yaml#/definitions/ParamMismatch"
 
 definitions:
   APIServer:
@@ -409,7 +401,7 @@ definitions:
             type: string
             enum: ["Wallet"]
           contents:
-            $ref: "#/definitions/Wallet"
+            $ref: "logs.yaml#/definitions/Wallet"
 
   Wallet:
     oneOf:
@@ -507,11 +499,11 @@ definitions:
             type: string
             enum: ["ContestationPeriodMismatch"]
           loadedCp:
-            <<: { "$ref": "api.yaml#/components/schemas/ContestationPeriod" }
+            "$ref": "api.yaml#/components/schemas/ContestationPeriod"
             description: >-
               Contestation period present in the node state.
           configuredCp:
-            <<: { "$ref": "api.yaml#/components/schemas/ContestationPeriod" }
+            "$ref": "api.yaml#/components/schemas/ContestationPeriod"
             description: >-
               Contestation period configured as the node argument.
       - title: PartiesMismatch
@@ -529,12 +521,14 @@ definitions:
             enum: ["PartiesMismatch"]
           loadedParties:
             type: array
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            items:
+              "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               Parties present in the node state.
           configuredParties:
             type: array
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            items:
+              "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               Parties configured as the node argument.
 
@@ -559,7 +553,7 @@ definitions:
             type: string
             enum: ["BeginEvent"]
           by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
           eventId:
@@ -570,7 +564,7 @@ definitions:
               the stream of events from this node. This is useful to correlate with
               `EndEvent`.
           event:
-            <<: { "$ref": "#/definitions/Event" }
+            "$ref": "logs.yaml#/definitions/Event"
       - title: EndEvent
         description: >-
           Head has succesfully finished processing an event.
@@ -585,7 +579,7 @@ definitions:
             type: string
             enum: ["EndEvent"]
           by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
           eventId:
@@ -608,7 +602,7 @@ definitions:
             type: string
             enum: ["BeginEffect"]
           by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
           eventId:
@@ -626,7 +620,7 @@ definitions:
               the span of a specific `eventId`. This number along with the `eventId`
               field is used to correlate the beginning and end of an effect.
           effect:
-            $ref: "#/definitions/Effect"
+            $ref: "logs.yaml#/definitions/Effect"
       - title: EndEffect
         description: >-
           Head has finished processing an effect produced by some transition in
@@ -643,7 +637,7 @@ definitions:
             type: string
             enum: ["EndEffect"]
           by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
           eventId:
@@ -666,11 +660,11 @@ definitions:
             type: string
             enum: ["LogicOutcome"]
           by:
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
           outcome:
-            $ref: "#/definitions/Outcome"
+            $ref: "logs.yaml#/definitions/Outcome"
 
   LogicError:
     oneOf:
@@ -686,8 +680,8 @@ definitions:
           contents:
             type: array
             prefixItems:
-              - $ref: "#/definitions/Event"
-              - $ref: "#/definitions/HeadState"
+              - $ref: "logs.yaml#/definitions/Event"
+              - $ref: "logs.yaml#/definitions/HeadState"
       - title: InvalidState
         additionalProperties: false
         required:
@@ -698,7 +692,7 @@ definitions:
             type: string
             enum: ["InvalidState"]
           contents:
-            $ref: "#/definitions/HeadState"
+            $ref: "logs.yaml#/definitions/HeadState"
       - title: InvalidSnapshot
         additionalProperties: false
         required:
@@ -723,7 +717,7 @@ definitions:
             type: string
             enum: ["LedgerError"]
           contents:
-            $ref: "#/definitions/ValidationError"
+            $ref: "logs.yaml#/definitions/ValidationError"
       - title: RequireFailed
         description: >-
           A precondition for some state transition within the Hydra
@@ -741,7 +735,7 @@ definitions:
             type: string
             enum: ["RequireFailed"]
           contents:
-            $ref: "#/definitions/RequirementFailure"
+            $ref: "logs.yaml#/definitions/RequirementFailure"
       - title: NotOurHead
         description: >-
           We just observed an on-chain event that does not apply to
@@ -871,7 +865,7 @@ definitions:
             type: string
             enum: ["Idle"]
           contents:
-            $ref: "#/definitions/IdleState"
+            $ref: "logs.yaml#/definitions/IdleState"
       - title: "Initial"
         additionalProperties: false
         required:
@@ -882,7 +876,7 @@ definitions:
             type: string
             enum: ["Initial"]
           contents:
-            $ref: "#/definitions/InitialState"
+            $ref: "logs.yaml#/definitions/InitialState"
       - title: "Open"
         additionalProperties: false
         required:
@@ -893,7 +887,7 @@ definitions:
             type: string
             enum: ["Open"]
           contents:
-            $ref: "#/definitions/OpenState"
+            $ref: "logs.yaml#/definitions/OpenState"
       - title: "Closed"
         additionalProperties: false
         required:
@@ -904,7 +898,7 @@ definitions:
             type: string
             enum: ["Closed"]
           contents:
-            $ref: "#/definitions/ClosedState"
+            $ref: "logs.yaml#/definitions/ClosedState"
 
   IdleState:
     type: object
@@ -953,7 +947,7 @@ definitions:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
       coordinatedHeadState:
-        $ref: "#/definitions/CoordinatedHeadState"
+        $ref: "logs.yaml#/definitions/CoordinatedHeadState"
       chainState:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
@@ -1003,7 +997,7 @@ definitions:
       confirmedSnapshot:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
-        $ref: "#/definitions/SeenSnapshot"
+        $ref: "logs.yaml#/definitions/SeenSnapshot"
 
   SeenSnapshot:
     oneOf:
@@ -1106,7 +1100,7 @@ definitions:
             type: string
             enum: ["NetworkEvent"]
           message:
-            $ref: "#/definitions/Message"
+            $ref: "logs.yaml#/definitions/Message"
           ttl:
             type: number
       - title: OnChainEvent
@@ -1123,7 +1117,7 @@ definitions:
             type: string
             enum: ["OnChainEvent"]
           chainEvent:
-            $ref: "#/definitions/OnChainEvent"
+            $ref: "logs.yaml#/definitions/OnChainEvent"
       - title: ShouldPostFanout
         type: object
         additionalProperties: false
@@ -1267,7 +1261,7 @@ definitions:
             type: string
             enum: ["Observation"]
           observedTx:
-            $ref: "#/definitions/OnChainTx"
+            $ref: "logs.yaml#/definitions/OnChainTx"
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
 
@@ -1428,7 +1422,7 @@ definitions:
             type: string
             enum: ["ClientEffect"]
           serverOutput:
-            $ref: "#/definitions/ServerOutput"
+            $ref: "logs.yaml#/definitions/ServerOutput"
 
       - title: NetworkEffect
         type: object
@@ -1444,7 +1438,7 @@ definitions:
             type: string
             enum: ["NetworkEffect"]
           message:
-            $ref: "#/definitions/Message"
+            $ref: "logs.yaml#/definitions/Message"
       - title: OnChainEffect
         type: object
         additionalProperties: false
@@ -1485,9 +1479,9 @@ definitions:
             description: >-
               The length of the delay, in seconds.
           reason:
-            $ref: "#/definitions/WaitReason"
+            $ref: "logs.yaml#/definitions/WaitReason"
           event:
-            $ref: "#/definitions/Event"
+            $ref: "logs.yaml#/definitions/Event"
 
   Outcome:
     description: >-
@@ -1510,7 +1504,7 @@ definitions:
             type: array
             items:
               type: object
-              $ref: "#/definitions/Effect"
+              $ref: "logs.yaml#/definitions/Effect"
       - title: NewState
         type: object
         additionalProperties: false
@@ -1527,12 +1521,12 @@ definitions:
             enum: ["NewState"]
           headState:
             type: object
-            $ref: "#/definitions/HeadState"
+            $ref: "logs.yaml#/definitions/HeadState"
           effects:
             type: array
             items:
               type: object
-              $ref: "#/definitions/Effect"
+              $ref: "logs.yaml#/definitions/Effect"
       - title: Wait
         type: object
         additionalProperties: false
@@ -1548,7 +1542,7 @@ definitions:
             enum: ["Wait"]
           reason:
             type: object
-            $ref: "#/definitions/WaitReason"
+            $ref: "logs.yaml#/definitions/WaitReason"
       - title: Error
         type: object
         additionalProperties: false
@@ -1564,7 +1558,7 @@ definitions:
             enum: ["Error"]
           error:
             type: object
-            $ref: "#/definitions/LogicError"
+            $ref: "logs.yaml#/definitions/LogicError"
 
   WaitReason:
     oneOf:
@@ -1581,7 +1575,7 @@ definitions:
             type: string
             enum: ["WaitOnNotApplicableTx"]
           validationError:
-            <<: { "$ref": "#/definitions/ValidationError" }
+            "$ref": "logs.yaml#/definitions/ValidationError"
             description: >-
               Description of the cause of the validation failure.
       - title: WaitOnSnapshotNumber
@@ -1598,7 +1592,7 @@ definitions:
             type: string
             enum: ["WaitOnSnapshotNumber"]
           waitingFor:
-            <<: { "$ref": "api.yaml#/components/schemas/SnapshotNumber" }
+            "$ref": "api.yaml#/components/schemas/SnapshotNumber"
             description: >-
               The expected number.
       - title: WaitOnSeenSnapshot
@@ -1679,16 +1673,15 @@ definitions:
         type: string
       host:
         type: object
-        $ref: "#/definitions/IP"
+        $ref: "logs.yaml#/definitions/IP"
       port:
         type: integer
       peers:
         type: array
         items:
-          $ref: "api.yaml#/components/schemas/Host"
+          $ref: "api.yaml#/components/schemas/Peer"
       apiHost:
-        type: object
-        $ref: "#/definitions/IP"
+        $ref: "logs.yaml#/definitions/IP"
       apiPort:
         type: integer
       monitoringPort:

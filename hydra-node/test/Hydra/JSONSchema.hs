@@ -73,36 +73,6 @@ prop_validateJSONSchema specFileName selector =
         monitor $ counterexample err
         assert (exitCode == ExitSuccess)
 
--- | Generate arbitrary serializable (JSON) value, and check their validity
--- against a known JSON schema.
--- This property ensures that JSON instances we produce abide by
--- the specification. Note this, because this uses an external tool each
--- property iteration is pretty slow. So instead, we run the property only
--- once, but on a list of 100 elements all arbitrarily generated.
--- TODO: This should be replacable by 'prop_validateJSONSchema'
-prop_validateToJSON ::
-  forall a.
-  (ToJSON a, Arbitrary a, Show a) =>
-  String ->
-  Aeson.Key ->
-  String ->
-  Property
-prop_validateToJSON specFileName selector inputFileName =
-  forAllShrink (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
-    monadicIO $
-      withJsonSpecifications $ \tmpDir -> do
-        let specFile = tmpDir </> specFileName
-        run ensureSystemRequirements
-        let obj = Aeson.encode $ Aeson.object [selector .= a]
-        (exitCode, _out, err) <- run $ do
-          let inputFile = tmpDir </> inputFileName
-          writeFileLBS inputFile obj
-          readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
-
-        monitor $ counterexample err
-        monitor $ counterexample (decodeUtf8 obj)
-        assert (exitCode == ExitSuccess)
-
 -- | Check specification is complete wr.t. to generated data
 -- This second sub-property ensures that any key found in the
 -- specification corresponds to a constructor in the corresponding
