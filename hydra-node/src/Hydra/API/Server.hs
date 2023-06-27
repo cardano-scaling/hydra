@@ -358,7 +358,6 @@ instance Exception RunServerException
 
 -- Handle user requests to obtain a draft commit tx
 handleDraftCommitUtxo ::
-  -- IsChainState tx =>
   Chain tx IO ->
   Tracer IO APIServerLog ->
   LBS.ByteString ->
