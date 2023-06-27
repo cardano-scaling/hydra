@@ -47,10 +47,11 @@ prop_validateToJSON specFile selector inputFile =
       do
         run ensureSystemRequirements
         let obj = Aeson.encode $ Aeson.object [selector .= a]
-        (exitCode, _out, err) <- run $ do
+        (exitCode, out, err) <- run $ do
           writeFileLBS inputFile obj
           readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
 
+        monitor $ counterexample out
         monitor $ counterexample err
         monitor $ counterexample (decodeUtf8 obj)
         assert (exitCode == ExitSuccess)
