@@ -150,7 +150,7 @@ spec =
 
         update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == allVKeys
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == [vkey bob]
             _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
@@ -165,7 +165,7 @@ spec =
 
         update bobEnv ledger waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
           `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == allVKeys
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == [vkey bob]
             _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
@@ -183,7 +183,7 @@ spec =
 
         update bobEnv ledger waitingForLastAck (ackFrom aliceSk alice)
           `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == allVKeys
+            Error (RequireFailed (InvalidMultisignature{vkeys})) -> vkeys == [vkey bob]
             _ -> False
 
       it "rejects last AckSn if already received signature from this party" $ do
