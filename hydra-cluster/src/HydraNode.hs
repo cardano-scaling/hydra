@@ -163,12 +163,9 @@ waitForAll tracer delay nodes expected = do
           tryNext c msgs stillExpected
 
 -- | Create a commit tx using the hydra-node for later submission
-externalCommit' :: HasCallStack => HydraClient -> UTxO' TxOutWithWitness -> IO Tx
-externalCommit' HydraClient{hydraNodeId} utxos = do
-  eCommitTx <- try $ runReq defaultHttpConfig request <&> responseBody
-  case eCommitTx of
-    Left (e :: HttpException) -> failure $ "Failed to draft commit tx: " <> show e
-    Right DraftCommitTxResponse{commitTx} -> pure commitTx
+externalCommit' :: HydraClient -> UTxO' TxOutWithWitness -> IO Tx
+externalCommit' HydraClient{hydraNodeId} utxos =
+  runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
     Req.req
@@ -179,7 +176,7 @@ externalCommit' HydraClient{hydraNodeId} utxos = do
       (Req.port $ 4000 + hydraNodeId)
 
 -- | Helper to make it easy to externally commit non-script utxo
-externalCommit :: HasCallStack => HydraClient -> UTxO -> IO Tx
+externalCommit :: HydraClient -> UTxO -> IO Tx
 externalCommit client =
   externalCommit' client . fmap (`TxOutWithWitness` Nothing)
 
