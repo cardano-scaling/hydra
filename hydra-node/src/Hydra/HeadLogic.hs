@@ -18,6 +18,7 @@ import Hydra.Prelude
 
 import Data.List (elemIndex)
 import qualified Data.Map.Strict as Map
+import Data.Set ((\\))
 import qualified Data.Set as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
@@ -356,8 +357,7 @@ instance Arbitrary RequirementFailure where
   arbitrary = genericArbitrary
 
 data Outcome tx
-  = NoOutcome
-  | Effects {effects :: [Effect tx]}
+  = Effects {effects :: [Effect tx]}
   | NewState {headState :: HeadState tx}
   | Wait {reason :: WaitReason}
   | Error {error :: LogicError tx}
