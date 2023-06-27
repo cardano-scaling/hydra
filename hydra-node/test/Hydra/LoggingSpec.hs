@@ -13,7 +13,7 @@ import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
 import System.FilePath ((</>))
 import System.IO.Silently (capture_)
-import Test.QuickCheck.Property (conjoin, property, withMaxSuccess)
+import Test.QuickCheck.Property (property, withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -25,13 +25,14 @@ spec = do
     captured `shouldContain` "{\"foo\":42}"
 
   aroundAll withJsonSpecifications $ do
-    specify "HydraLog" $ \dir -> do
+    specify "HydraLog validate ToJSON" $ \dir -> do
       property $
         withMaxSuccess 1 $
-          conjoin
-            [ prop_validateToJSON @(Envelope (HydraLog Tx ())) (dir </> "logs.yaml") "messages" (dir </> "HydraLog")
-            , prop_specIsComplete @(HydraLog Tx ()) (dir </> "logs.yaml") apiSpecificationSelector
-            ]
+          prop_validateToJSON @(Envelope (HydraLog Tx ())) (dir </> "logs.yaml") "messages" (dir </> "HydraLog")
+    specify "HydraLog spec is complete" $ \dir -> do
+      property $
+        withMaxSuccess 1 $
+          prop_specIsComplete @(HydraLog Tx ()) (dir </> "logs.yaml") apiSpecificationSelector
 
 apiSpecificationSelector :: SpecificationSelector
 apiSpecificationSelector = key "properties" . key "message"

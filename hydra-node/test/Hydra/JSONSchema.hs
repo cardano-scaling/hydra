@@ -24,7 +24,7 @@ import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
 import Test.Hydra.Prelude (createSystemTempDirectory, failure)
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, vectorOf)
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, forAllShrinkBlind, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
 
@@ -42,7 +42,7 @@ prop_validateToJSON ::
   FilePath ->
   Property
 prop_validateToJSON specFile selector inputFile =
-  forAllShrink (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
+  forAllShrinkBlind (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $
       do
         run ensureSystemRequirements
@@ -51,9 +51,10 @@ prop_validateToJSON specFile selector inputFile =
           writeFileLBS inputFile obj
           readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
 
+        monitor $ counterexample $ "Property failed when encoding: " <> show a
+        monitor $ counterexample $ "JSON encoded value: " <> (decodeUtf8 obj)
         monitor $ counterexample out
         monitor $ counterexample err
-        monitor $ counterexample (decodeUtf8 obj)
         assert (exitCode == ExitSuccess)
 
 -- | Check specification is complete wr.t. to generated data

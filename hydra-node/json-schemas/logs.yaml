@@ -1687,7 +1687,7 @@ definitions:
       peers:
         type: array
         items:
-          $ref: "api.yaml#/components/schemas/Host"
+          $ref: "api.yaml#/components/schemas/Peer"
       apiHost:
         type: object
         $ref: "#/definitions/IP"
