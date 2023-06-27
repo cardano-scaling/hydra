@@ -8,6 +8,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
@@ -20,6 +22,7 @@ module Test.Hydra.Prelude (
   genericCoverTable,
   forAll2,
   pickBlind,
+  orElse,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -51,6 +54,7 @@ import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFi
 import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
+import qualified Control.Monad.Trans.State.Strict as StrictS
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -96,6 +100,30 @@ withLogFile filepath io = do
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =
   throwIO (HUnitFailure location $ Reason msg)
+
+orElse :: (MonadCatch m) => m a -> m a -> m a
+orElse m n =
+  m `catch` \(_ :: HUnitFailure) -> n
+
+-- XXX: shamelessly stolen from https://hackage.haskell.org/package/exceptions-0.10.7/docs/src/Control.Monad.Catch.html#MonadCatch
+-- because these instances are not implemented in io-classes
+instance MonadMask m => MonadThrow (StrictS.StateT s m) where
+  throwIO e = lift $ throwIO e
+
+instance (MonadMask m) => MonadCatch (StrictS.StateT s m) where
+  catch = StrictS.liftCatch catch
+
+instance MonadMask m => MonadMask (StrictS.StateT s m) where
+
+  mask a = StrictS.StateT $ \s -> mask $ \u -> StrictS.runStateT (a $ q u) s
+    where q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
+          q u (StrictS.StateT b) = StrictS.StateT (u . b)
+
+  uninterruptibleMask a =
+    StrictS.StateT $ \s -> uninterruptibleMask $ \u -> StrictS.runStateT (a $ q u) s
+      where q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
+            q u (StrictS.StateT b) = StrictS.StateT (u . b)
+
 
 -- | Fail some monadic action if it does not complete within given timeout.
 -- A 'DiffTime' can be represented as a decimal number of seconds.

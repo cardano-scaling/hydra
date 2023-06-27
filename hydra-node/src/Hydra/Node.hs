@@ -114,7 +114,11 @@ stepHydraNode tracer node = do
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  effs <- case outcome of
+  effs <- handleOutcome e outcome
+  mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
+  traceWith tracer EndEvent{by = party, eventId}
+ where
+  handleOutcome e = \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Error _ -> do
@@ -122,14 +126,16 @@ stepHydraNode tracer node = do
     Wait _reason -> do
       putEventAfter eq waitDelay (decreaseTTL e)
       pure []
-    NewState s effs -> do
+    NewState s -> do
       save s
+      pure []
+    Effects effs -> do
       pure effs
-    OnlyEffects effs -> do
-      pure effs
-  mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
-  traceWith tracer EndEvent{by = party, eventId}
- where
+    Combined l r -> do
+      effl <- handleOutcome e l
+      effr <- handleOutcome e r
+      pure $ effl <> effr
+
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
@@ -155,13 +161,19 @@ processNextEvent ::
   STM m (Outcome tx)
 processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
-    case Logic.update env ledger s e of
-      OnlyEffects effects -> (OnlyEffects effects, s)
-      NewState s' effects -> (NewState s' effects, s')
-      Error err -> (Error err, s)
-      Wait reason -> (Wait reason, s)
+    handleOutcome s $ Logic.update env ledger s e
  where
   NodeState{modifyHeadState} = nodeState
+
+  handleOutcome s = \case
+    Effects effects -> (Effects effects, s)
+    NewState s' -> (NewState s', s')
+    Error err -> (Error err, s)
+    Wait reason -> (Wait reason, s)
+    Combined l r ->
+      let (leftOutcome, leftState) = handleOutcome s l
+          (rightOutcome, rightState) = handleOutcome leftState r
+       in (Combined leftOutcome rightOutcome, rightState)
 
 processEffect ::
   ( MonadAsync m

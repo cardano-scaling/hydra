@@ -70,6 +70,7 @@ library
     , QuickCheck
     , relude
     , temporary
+    , transformers
 
 test-suite hydra-test-util-tests
   import:             package-config

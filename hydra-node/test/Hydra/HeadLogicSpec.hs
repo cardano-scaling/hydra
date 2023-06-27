@@ -294,7 +294,7 @@ spec =
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
-          runEvents  bobEnv ledger (inInitialState threeParties) $
+          runEvents bobEnv ledger (inInitialState threeParties) $
             step (observationEvent OnAbortTx)
 
         let invalidEvent = observationEvent OnCollectComTx
@@ -342,7 +342,7 @@ spec =
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          NewState (Closed ClosedState{}) _ -> True
+          Combined (NewState (Closed ClosedState{})) _ -> True
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -353,7 +353,7 @@ spec =
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
-        assertOnlyEffects s1
+        assertEffects s1
 
       it "ignores closeTx for another head" $ do
         let otherHeadId = HeadId "other head"
@@ -449,27 +449,33 @@ observationEvent observedTx =
     }
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect (NewState _ effects) effect
-  | effect `elem` effects = pure ()
-  | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
-hasEffect (OnlyEffects effects) effect
-  | effect `elem` effects = pure ()
-  | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
-hasEffect o _ = failure $ "Unexpected outcome: " <> show o
+hasEffect outcome effect =
+  case outcome of
+    Effects effects
+      | effect `elem` effects -> pure ()
+      | otherwise -> failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
+    Combined l r ->
+      hasEffect l effect `orElse` hasEffect r effect
+    _ -> failure $ "Unexpected outcome: " <> show outcome
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasEffectSatisfying outcome match =
+hasEffectSatisfying outcome predicate =
   case outcome of
-    NewState _ effects
-      | any match effects -> pure ()
-    OnlyEffects effects
-      | any match effects -> pure ()
+    Effects effects
+      | any predicate effects -> pure ()
+    Combined l r ->
+      hasNoEffectSatisfying l predicate `orElse` hasNoEffectSatisfying r predicate
     _ -> failure $ "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying (NewState _ effects) predicate
-  | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
-hasNoEffectSatisfying _ _ = pure ()
+hasNoEffectSatisfying outcome predicate =
+  case outcome of
+    Effects effects
+      | any predicate effects -> failure $ "Found unwanted effect in: " <> show effects
+    Combined l r -> do
+      hasNoEffectSatisfying l predicate
+      hasNoEffectSatisfying r predicate
+    _ -> pure ()
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
@@ -542,7 +548,12 @@ getConfirmedSnapshot = \case
     Nothing
 
 -- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState :: (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) => Environment -> Ledger tx -> Event tx -> m (HeadState tx)
+assertUpdateState ::
+  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx, MonadCatch m) =>
+  Environment ->
+  Ledger tx ->
+  Event tx ->
+  m (HeadState tx)
 assertUpdateState env ledger event = do
   st <- get
   st' <- assertNewState $ update env ledger st event
@@ -556,32 +567,39 @@ data StepState tx = StepState
   }
 
 -- | Asserts that the update function will update the state (return a NewState) for this Event
-step :: (MonadState (StepState tx) m, HasCallStack, IsChainState tx) => Event tx -> m (HeadState tx)
+step ::
+  (MonadState (StepState tx) m, HasCallStack, IsChainState tx, MonadCatch m) =>
+  Event tx ->
+  m (HeadState tx)
 step event = do
-  StepState{ headState, env, ledger} <- get
+  StepState{headState, env, ledger} <- get
   headState' <- assertNewState $ update env ledger headState event
-  put StepState{ env, ledger, headState = headState' }
+  put StepState{env, ledger, headState = headState'}
   pure headState'
 
 assertNewState ::
-  (HasCallStack, IsChainState tx, Applicative m) =>
+  (HasCallStack, IsChainState tx, MonadCatch m) =>
   Outcome tx ->
   m (HeadState tx)
 assertNewState = \case
-  NewState st _ -> pure st
-  OnlyEffects effects -> Hydra.Prelude.error $ "Unexpected 'OnlyEffects' outcome: " <> show effects
-  Error e -> Hydra.Prelude.error $ "Unexpected 'Error' outcome: " <> show e
-  Wait r -> Hydra.Prelude.error $ "Unexpected 'Wait' outcome with reason: " <> show r
+  NewState st -> pure st
+  Effects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
+  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
+  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
+  Combined l r -> assertNewState l `orElse` assertNewState r
 
-assertOnlyEffects ::
+assertEffects ::
   (HasCallStack, IsChainState tx) =>
   Outcome tx ->
   IO ()
-assertOnlyEffects = \case
-  NewState st _ -> failure $ "Unexpected 'NewState' outcome: " <> show st
-  OnlyEffects _ -> pure ()
+assertEffects = \case
+  NewState st -> failure $ "Unexpected 'NewState' outcome: " <> show st
+  Effects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
+  Combined l r -> do
+    assertEffects l
+    assertEffects r
 
 testHeadId :: HeadId
 testHeadId = HeadId "1234"
