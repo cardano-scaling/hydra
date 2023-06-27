@@ -269,7 +269,7 @@ processTransactions clients Dataset{clientDatasets} = do
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
     submitTxs client registry submissionQ
-      `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId txSequence)
+      `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
       `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
     readTVarIO (processedTxs registry)
 
@@ -362,10 +362,9 @@ submitTxs client registry@Registry{processedTxs} submissionQ = do
 waitForAllConfirmations ::
   HydraClient ->
   Registry Tx ->
-  TBQueue IO Tx ->
   Set TxId ->
   IO ()
-waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
+waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   go allIds
  where
   go remainingIds
@@ -377,8 +376,8 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
             validTx processedTxs (txId transaction)
             go remainingIds
           TxInvalid{transaction} -> do
-            atomically $ writeTBQueue submissionQ transaction
-            go remainingIds
+            -- NOTE: This should never happen
+            error $ "Transaction invalid:  " <> show transaction
           SnapshotConfirmed{txIds} -> do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
