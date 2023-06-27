@@ -217,3 +217,56 @@ To write such an update:
    putting other Hydra contributors as reviewers.
    
    - Don't forget to add yourself as author in the `authors.yml`.
+
+### Monthly review & report
+
+To keep our users and stakeholders up-to-date regularly, we organize a review
+meeting and publish a report every month to [the project
+website](https://hydra.family/head-protocol/monthly/).
+
+To conduct this meeting and write this report:
+
+1. Monthly meeting slides & report preparation:
+    - Ensure the Google Meet invitation exists for this month and check stakeholder attendance, e.g. with @J.J. from IOG
+
+    - Copy monthly slides, change title and template accordingly to `<Month> <Year>`
+    - Remove old "content" slides and mark the regular slides to be updated
+
+    - Decide what to demonstrate (this is not optional!), either from the core
+      development or an invited demo/showcase from the community
+
+    - Update delivered / current / next features
+    - Expand some of those into interesting "Development" topics
+    - Summarize what happened in the Hydra "Community"
+      + Reach out to individuals from the community whether they want to contribute something to the monthly
+
+    - Update roadmap for this month
+      + Use the grooming/planning session before latest monthly to get an updated [roadmap](https://github.com/orgs/input-output-hk/projects/21)
+      + Store latest roadmap screenshot in slides and on [miro](https://miro.com/app/board/uXjVMA4bSao=/), with and without 💭 **idea** items
+      + Check milestones and versions are consistent
+      + Mark up and summarize notable changes in the roadmap to last month to support slides
+    - Update repository status in slides using <https://github.com/input-output-hk/hydra/pulse/monthly>
+
+    - Prepare invitation, by
+      + have @MatthewCapps create an `AddEvent` invite and
+      + update https://docs.google.com/document/d/1IFNxaJx08fIVjbYDzQgZvwfBNGflAM0bCV09gdD2ziQ
+    - Send invitation to (update this list when outdated)
+      + #announcements on IOG discord
+      + #hydra on Cardano builders discord
+      + #hydra on TxPipe discord
+      + The obsidian guys
+      + #mlabs-hydra, #snet-cardano, #meld-hydra, #rnd-hydra and #announcements on IOG slack
+
+2. Conduct the meeting
+    - Do not forget to record the meeting!
+    - Ask for sharing rights after the meeting, by requesting sharing in Google Drive with yourself, and/or ask for making it publicly available.
+
+3. Write the report
+  - Copy monthly report from last month, update dates, links to slides and closed issues
+  - Use slides as starting point, to provide a short and sweet written account of what happened
+    + The previous reports should serve as a guideline
+    + Distribute write-up between relevant contributors
+  - Cross-link slides, recording and report
+  - Pull request, review and merge to publish the report
+
+NOTE: Drafting the report (step 3) is also a good preparation for presenting the individual sections.
