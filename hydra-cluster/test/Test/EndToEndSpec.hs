@@ -67,6 +67,8 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
+  singlePartyCannotCommitExternallyWalletUtxo,
+  singlePartyCommitsFromExternalScript,
   singlePartyCommitsUsingFuel,
   singlePartyHeadFullLifeCycle,
  )
@@ -115,7 +117,7 @@ withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)
 
 spec :: Spec
-spec = around showLogsOnFailure $ do
+spec = around showLogsOnFailure $
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
@@ -138,6 +140,16 @@ spec = around showLogsOnFailure $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsUsingFuel tracer tmpDir node
+      it "commits from external with script utxo" $ \tracer -> do
+        withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCommitsFromExternalScript tracer tmpDir node
+      it "can't commit externally with internal wallet utxo" $ \tracer -> do
+        withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

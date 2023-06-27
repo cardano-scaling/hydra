@@ -231,7 +231,13 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , reset = pure ()
           , update = \_ _ -> pure ()
           }
-   in mkChain tracer timeHandle wallet ctx chainState submitTx
+   in mkChain
+        tracer
+        timeHandle
+        wallet
+        ctx
+        chainState
+        submitTx
 
 mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
 mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)

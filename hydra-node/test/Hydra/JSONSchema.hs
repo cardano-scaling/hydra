@@ -6,7 +6,7 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens (Traversal', at, (?~), (^..))
+import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
@@ -23,36 +23,54 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
-import Test.Hydra.Prelude (createSystemTempDirectory, failure)
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, vectorOf)
+import Test.Hydra.Prelude (failure, withTempDir)
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
 
--- | Generate arbitrary serializable (JSON) value, and check their validity
--- against a known JSON schema.
--- This property ensures that JSON instances we produce abide by
--- the specification. Note this, because this uses an external tool each
--- property iteration is pretty slow. So instead, we run the property only
--- once, but on a list of 100 elements all arbitrarily generated.
-prop_validateToJSON ::
+-- | Validate an 'Arbitrary' value against a JSON schema.
+--
+-- The second argument is a lens that says which part of the JSON file to use to
+-- do the validation, for example:
+--
+-- @@
+-- key "components" . key "schemas" . key "Address"
+-- @@
+--
+-- which selects the JSON schema for "Address" types in a bigger specification,
+-- say an asyncapi description.
+prop_validateJSONSchema ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
-  FilePath ->
-  Aeson.Key ->
-  FilePath ->
+  -- | Path to the JSON file holding the schema.
+  String ->
+  -- | Selector into the JSON file pointing to the schema to be validated.
+  SpecificationSelector ->
   Property
-prop_validateToJSON specFile selector inputFile =
-  forAllShrink (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
-    monadicIO $
-      do
+prop_validateJSONSchema specFileName selector =
+  forAllShrink (resize 10 arbitrary) shrink $ \(samples :: [a]) ->
+    monadicIO $ do
+      withJsonSpecifications $ \tmpDir -> do
         run ensureSystemRequirements
-        let obj = Aeson.encode $ Aeson.object [selector .= a]
+        let jsonInput = tmpDir </> "jsonInput"
+        let jsonSchema = tmpDir </> "jsonSchema"
+        let specJsonFile = tmpDir </> specFileName
+        mSpecs <- run $ Aeson.decodeFileStrict specJsonFile
+        case mSpecs of
+          Nothing -> error "Failed to decode specFile to JSON"
+          Just specs -> run $ do
+            let jsonSpecSchema =
+                  Aeson.object
+                    [ "$id" .= ("file://" <> tmpDir <> "/")
+                    , "type" .= Aeson.String "array"
+                    , "items" .= (specs ^? selector)
+                    ]
+            writeFileLBS jsonInput (Aeson.encode samples)
+            writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
+        monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
         (exitCode, _out, err) <- run $ do
-          writeFileLBS inputFile obj
-          readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
-
+          readProcessWithExitCode "jsonschema" ["-i", jsonInput, jsonSchema] mempty
         monitor $ counterexample err
-        monitor $ counterexample (decodeUtf8 obj)
         assert (exitCode == ExitSuccess)
 
 -- | Check specification is complete wr.t. to generated data
@@ -86,32 +104,34 @@ prop_validateToJSON specFile selector inputFile =
 prop_specIsComplete ::
   forall a.
   (Arbitrary a, Show a) =>
-  FilePath ->
+  String ->
   SpecificationSelector ->
   Property
-prop_specIsComplete specFile typeSpecificationSelector =
+prop_specIsComplete specFileName typeSpecificationSelector =
   forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
     monadicIO $ do
-      specs <- run $ Aeson.decodeFileStrict specFile
-      let knownKeys = classify specs a
-      let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
+      withJsonSpecifications $ \tmpDir -> do
+        let specFile = tmpDir </> specFileName
+        specs <- run $ Aeson.decodeFileStrict specFile
+        let knownKeys = classify specFile specs a
+        let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
 
-      when (null knownKeys) $ do
-        monitor $ counterexample "No keys found in given specification fragment"
-        assert False
+        when (null knownKeys) $ do
+          monitor $ counterexample "No keys found in given specification fragment"
+          assert False
 
-      unless (null unknownConstructors) $ do
-        let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
-        monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
-        monitor $ counterexample $ show a
-        assert False
+        unless (null unknownConstructors) $ do
+          let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
+          monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
+          monitor $ counterexample $ show a
+          assert False
  where
   -- Like Generics, if you squint hard-enough.
   poormansGetConstr :: a -> Text
   poormansGetConstr = toText . Prelude.head . words . show
 
-  classify :: Maybe Aeson.Value -> [a] -> Map Text Integer
-  classify (Just specs) =
+  classify :: FilePath -> Maybe Aeson.Value -> [a] -> Map Text Integer
+  classify _ (Just specs) =
     let ks = specs ^.. typeSpecificationSelector . key "oneOf" . _Array . traverse . key "title" . _String
 
         knownKeys = Map.fromList $ zip ks (repeat @Integer 0)
@@ -119,7 +139,7 @@ prop_specIsComplete specFile typeSpecificationSelector =
         countMatch (poormansGetConstr -> tag) =
           Map.alter (Just . maybe 1 (+ 1)) tag
      in foldr countMatch knownKeys
-  classify _ =
+  classify specFile _ =
     error $ "Invalid specification file. Does not decode to an object: " <> show specFile
 
 -- | An alias for a traversal selecting some part of a 'Value'
@@ -132,22 +152,26 @@ type SpecificationSelector = Traversal' Aeson.Value Aeson.Value
 -- But tools (and in particular jsonschema) only works from JSON, so this
 -- function makes sure to also convert our local yaml into JSON.
 withJsonSpecifications ::
-  (FilePath -> IO ()) ->
-  IO ()
+  MonadIO m =>
+  (FilePath -> m r) ->
+  m r
 withJsonSpecifications action = do
-  specDir <- (</> "json-schemas") . normalise <$> Pkg.getDataDir
-  specFiles <- listDirectory specDir
-  dir <- createSystemTempDirectory "Hydra_APISpec"
-  forM_ specFiles $ \file -> do
-    when (takeExtension file == ".yaml") $ do
-      spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
-      let spec' = addField "$id" ("file://" <> dir <> "/") spec
-      Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec'
-  action dir
- where
-  addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
-  addField k v = withObject (at k ?~ toJSON v)
+  specDir <- (</> "json-schemas") . normalise <$> liftIO Pkg.getDataDir
+  specFiles <- liftIO $ listDirectory specDir
+  withTempDir "Hydra_APISpec" $ \dir -> do
+    forM_ specFiles $ \file -> do
+      when (takeExtension file == ".yaml") $ do
+        spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
+        let spec' = addField "$id" ("file://" <> dir <> "/") spec
+        liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
+        -- XXX: We need to write the specFile as .yaml although it is a JSON document now,
+        -- because internally the spec reference elements using the original .yaml file name.
+        liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec
+    action dir
 
+addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
+addField k v = withObject (at k ?~ toJSON v)
+ where
   withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
   withObject fn = \case
     Aeson.Object m -> Aeson.Object (fn m)
@@ -177,5 +201,5 @@ ensureSystemRequirements = do
         pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
       Left (err :: IOError)
         | ioeGetErrorType err == OtherError ->
-            pure (Left $ "Check jsonschema is installed and in $PATH")
+            pure (Left "Check jsonschema is installed and in $PATH")
       Left err -> pure (Left $ show err)

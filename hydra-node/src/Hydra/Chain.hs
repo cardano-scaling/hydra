@@ -20,10 +20,16 @@ import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  CtxUTxO,
   HasTypeProxy (..),
   Lovelace (..),
   SerialiseAsRawBytes (..),
+  Tx,
+  TxOut,
+  UTxO',
   UsingRawBytesHex (..),
+  WitCtxTxIn,
+  Witness,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
@@ -143,6 +149,8 @@ data PostTxError tx
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
+  | -- | Committing UTxO addressed to the internal wallet is forbidden.
+    SpendingNodeUtxoForbidden
   deriving (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
@@ -186,12 +194,12 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftTx :: (IsChainState tx, MonadThrow m) => UTxOType tx -> m (Either (PostTxError tx) tx)
-  -- ^ Create a commit transaction using user provided utxos (zero or many).
-  -- Errors are handled at the call site. We are handling the following with 400
-  -- responses: 'CannotFindOwnInitial', 'CannotCommitReferenceScript',
-  -- 'CommittedTooMuchADAForMainnet', 'UnsupportedLegacyOutput' and other
-  -- possible exceptions are turned into 500 errors
+  , draftCommitTx ::
+      (MonadThrow m, MonadIO m) =>
+      UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+      m (Either (PostTxError Tx) Tx)
+  -- ^ Create a commit transaction using user provided utxos (zero or many) and
+  -- information to spend from a script. Errors are handled at the call site.
   }
 
 data ChainEvent tx

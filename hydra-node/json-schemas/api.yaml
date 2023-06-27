@@ -72,7 +72,6 @@ channels:
               type: string
               enum: ["yes", "no"]
 
-
     subscribe:
       summary: Events emitted by the Hydra node.
       operationId: serverOutput
@@ -116,8 +115,15 @@ channels:
     servers:
       - localhost-http
     subscribe:
-      summary: Hydra node drafted commit transaction responses.
+      summary: Draft commit tx response
       operationId: draftCommitTxResponse
+      description: |
+        Possible responses of commit endpoint are:
+          * DraftCommitTxResponse - 200 ok
+          * CannotCommitReferenceScript - 400 bad request
+          * CommittedTooMuchADAForMainnet - 400 bad request
+          * UnsupportedLegacyOutput - 400 bad request
+          * SpendingNodeUtxoForbidden - 400 bad request
       message:
         $ref: "#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -126,7 +132,7 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
     publish:
-      summary: Requests sent to the Hydra node to draft a commit transactions.
+      summary: Draft commit tx request
       operationId: draftCommitTxRequest
       message:
         $ref: "#/components/messages/DraftCommitTxRequest"
@@ -256,22 +262,6 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
-
-    DraftCommitTxRequest:
-      title: DraftCommitTxRequest
-      description: |
-        Provide a utxo that will be used to draft a commit transaction that will be sent back to the user.
-      payload:
-        type: object
-        required:
-          - tag
-          - utxos
-        properties:
-          tag:
-            type: string
-            enum: ["DraftCommitTxRequest"]
-          utxos:
-            $ref: "#/components/schemas/UTxO"
 
     ########
     #
@@ -755,19 +745,57 @@ components:
           timestamp:
             $ref: "#/components/schemas/UTCTime"
 
-    DraftCommitTxResponse:
-      title: DraftCommitTxResponse
+    DraftCommitTxRequest:
+      title: DraftCommitTxRequest
       description: |
-        Emitted by the server after drafting a commit transaction with the user provided utxo. Transaction returned to the user is in it's cbor representation encoded as Base16.
+        Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
+        Script utxos must provide a witness, regulars can omit this.
       payload:
         type: object
         required:
-          - tag
-          - commitTx
+          - utxos
+        additionalProperties: false
         properties:
-          tag:
-            type: string
-            enum: ["DraftCommitTxResponse"]
+          utxos:
+            $ref: "#/components/schemas/UTxOWithWitness"
+        example:
+          {
+            "utxos":
+              {
+                "0406060506030602040508060506060306050406020207000508040704040203#89": {
+                  "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
+                  "value": {
+                    "lovelace": 7620669
+                  }
+                },
+                "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+                  "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+                  "value": {
+                    "lovelace": 7620669
+                  },
+                  "witness": {
+                      "datum": "02",
+                      "plutusV2Script": {
+                          "cborHex": "420606",
+                          "description": "",
+                          "type": "PlutusScriptV2"
+                      },
+                      "redeemer": "21"
+                  }
+                }
+              }
+          }
+
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
+      description: |
+          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        type: object
+        required:
+          - commitTx
+        additionalProperties: false
+        properties:
           commitTx:
             $ref: "#/components/schemas/RawTransaction"
 
@@ -1246,6 +1274,18 @@ components:
             tag:
               type: string
               enum: ["FailedToDraftTxNotInitializing"]
+        - title: SpendingNodeUtxoForbidden
+          description: |
+            Raised if the user tried to draft a commit tx using internal wallet's utxo.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["SpendingNodeUtxoForbidden"]
+
 
     Signature:
       type: string
@@ -1565,6 +1605,65 @@ components:
               contentEncoding: base16
             - type: "null"
 
+    TxOutWithWitness:
+      type: object
+      description: |
+        A single transaction output with optional witness to spend it.
+      required:
+      - address
+      - value
+      - witness
+      additionalProperties: false
+      properties:
+        address:
+          $ref: "#/components/schemas/Address"
+        value:
+          $ref: "#/components/schemas/Value"
+        referenceScript:
+          oneOf:
+            - $ref: "#/components/schemas/Script"
+            - type: "null"
+        datumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        inlineDatum:
+          oneOf:
+            - type: object
+            - type: "null"
+        inlineDatumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        datum:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        witness:
+          oneOf:
+            - $ref: "#/components/schemas/Witness"
+            - type: "null"
+
+    Witness:
+      type: object
+      description: |
+        A script witness
+      required:
+      - datum
+      - plutusV2Script
+      - redeemer
+      additionalProperties: false
+      properties:
+        datum:
+          type: string
+        plutusV2Script:
+          $ref: "#/components/schemas/PlutusV2Script"
+        redeemer:
+          type: string
+
     SequenceNumber:
       type: integer
       minimum: 0
@@ -1599,6 +1698,67 @@ components:
                 }
             }
         }
+
+    UTxOWithWitness:
+      type: object
+      propertyNames:
+        pattern: "^[0-9a-f]{64}#[0-9]+$"
+      items:
+        $ref: "#/components/schemas/TxOutWithWitness"
+      example:
+        {
+            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+                "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+                "value": {
+                    "lovelace": 7620669
+                },
+                "witness": {
+                  "datum": "02",
+                  "plutusV2Script": {
+                      "cborHex": "420606",
+                      "description": "",
+                      "type": "PlutusScriptV2"
+                  },
+                  "redeemer": "21"
+                }
+            }
+        }
+
+    ScriptInfo:
+      description: |
+        Script data needed to spend user provided utxo
+      required:
+      - redeemer
+      - datum
+      - plutusV2Script
+      payload:
+        type: object
+        properties:
+          redeemer:
+            $ref: "#/components/schemas/Cbor"
+          datum:
+            $ref: "#/components/schemas/Cbor"
+          plutusV2Script:
+            type: object
+            $ref: "#/components/schemas/PlutusV2Script"
+
+    PlutusV2Script:
+      type: object
+      description: |
+        Plutus V2 Script wrapped in a text-envelope.
+      additionalProperties: false
+      required:
+      - cborHex
+      - description
+      - type
+      properties:
+        cborHex:
+          $ref: "#/components/schemas/Cbor"
+        description:
+          type: string
+        type:
+          type: string
+          enum: ["PlutusScriptV2"]
 
     Value:
       type: object

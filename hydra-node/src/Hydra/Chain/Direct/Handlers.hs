@@ -15,17 +15,27 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   Tx,
   TxId,
   chainPointToSlotNo,
+  fromLedgerTxIn,
   getChainPoint,
   getTxBody,
   getTxId,
  )
-import Hydra.Chain (Chain (..), ChainCallback, ChainEvent (..), ChainStateType, PostChainTx (..), PostTxError (..))
+import Hydra.Chain (
+  Chain (..),
+  ChainCallback,
+  ChainEvent (..),
+  ChainStateType,
+  PostChainTx (..),
+  PostTxError (..),
+ )
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ChainState (Closed, Idle, Initial, Open),
@@ -34,6 +44,7 @@ import Hydra.Chain.Direct.State (
   close,
   collect,
   commit,
+  commit',
   contest,
   fanout,
   getKnownUTxO,
@@ -123,7 +134,7 @@ mkChain ::
   LocalChainState m ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -145,11 +156,21 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftTx = \utxo -> do
+      draftCommitTx = \utxoToCommit -> do
         chainState <- atomically getLatest
         case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st ->
-            sequenceA $ finalizeTx wallet ctx chainState utxo <$> commit ctx st utxo
+          Initial st -> do
+            walletUtxos <- atomically getUTxO
+            let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
+            let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
+            let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
+            -- prevent trying to spend internal wallet's utxo
+            if null matchedWalletUtxo
+              then
+                sequenceA $
+                  commit' ctx st utxoToCommit
+                    <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
+              else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
     }
 
@@ -177,7 +198,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO part
             } ::
             PostTxError Tx
         )
-    Left e ->
+    Left e -> do
       throwIO
         ( InternalWalletError
             { headUTxO
@@ -304,6 +325,8 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, Initial st) ->
+      -- NOTE: Eventually we will deprecate the internal 'CommitTx' command and
+      -- only have external commits via 'draftCommitTx'.
       either throwIO pure (commit ctx st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,

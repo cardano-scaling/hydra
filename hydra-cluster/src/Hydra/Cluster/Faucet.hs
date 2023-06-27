@@ -6,6 +6,7 @@ module Hydra.Cluster.Faucet where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
@@ -24,7 +25,7 @@ import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
@@ -62,26 +63,18 @@ seedFromFaucet ::
   Marked ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
+seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
-    faucetUTxO <- findUTxO faucetVk
+    faucetUTxO <- findFaucetUTxO node lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submitTransaction networkId nodeSocket (sign faucetSk body)
-
-  findUTxO faucetVk = do
-    faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-    let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
-    when (null foundUTxO) $
-      throwIO $
-        FaucetHasNotEnoughFunds{faucetUTxO}
-    pure foundUTxO
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
@@ -95,6 +88,16 @@ seedFromFaucet RunningNode{networkId, nodeSocket} receivingVerificationKey lovel
   theOutputDatum = case marked of
     Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
+
+findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
+findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
+  (faucetVk, _) <- keysFor Faucet
+  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
+  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
+  when (null foundUTxO) $
+    throwIO $
+      FaucetHasNotEnoughFunds{faucetUTxO}
+  pure foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
@@ -139,6 +142,49 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
      in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
           Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
           Right body -> pure body
+
+-- Use the Faucet utxo to create the output at specified address
+createOutputAtAddress ::
+  ToScriptData a =>
+  RunningNode ->
+  ProtocolParameters ->
+  AddressInEra ->
+  a ->
+  IO (TxIn, TxOut CtxUTxO)
+createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress datum = do
+  (faucetVk, faucetSk) <- keysFor Faucet
+  -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
+  -- any present utxo
+  utxo <- findFaucetUTxO node 0
+  buildTransaction
+    networkId
+    nodeSocket
+    (changeAddress faucetVk)
+    utxo
+    collateralTxIns
+    [output]
+    >>= \case
+      Left e ->
+        throwErrorAsException e
+      Right body -> do
+        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
+        submitTransaction networkId nodeSocket tx
+        newUtxo <- awaitTransaction networkId nodeSocket tx
+        case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
+          Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
+          Just u -> pure u
+ where
+  collateralTxIns = mempty
+
+  changeAddress vk = mkVkAddress networkId vk
+
+  output =
+    mkTxOutAutoBalance
+      pparams
+      atAddress
+      mempty
+      (mkTxOutDatumHash datum)
+      ReferenceScriptNone
 
 -- | Build and sign tx and return the calculated fee.
 -- - Signing key should be the key of a sender

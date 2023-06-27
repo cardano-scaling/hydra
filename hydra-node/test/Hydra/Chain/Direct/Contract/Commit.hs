@@ -53,7 +53,7 @@ healthyCommitTx =
       scriptRegistry
       (mkHeadId Fixture.testPolicyId)
       commitParty
-      healthyCommittedUTxO
+      (healthyCommittedUTxO <&> (,KeyWitness KeyWitnessForSpending))
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42

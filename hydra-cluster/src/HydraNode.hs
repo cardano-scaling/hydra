@@ -20,7 +20,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -163,19 +163,22 @@ waitForAll tracer delay nodes expected = do
           tryNext c msgs stillExpected
 
 -- | Create a commit tx using the hydra-node for later submission
-externalCommit :: HydraClient -> UTxO -> IO Tx
-externalCommit HydraClient{hydraNodeId} utxos =
-  runReq defaultHttpConfig request
-    <&> responseBody
-    >>= \DraftCommitTxResponse{commitTx} -> pure commitTx
+externalCommit' :: HydraClient -> UTxO' TxOutWithWitness -> IO Tx
+externalCommit' HydraClient{hydraNodeId} utxos =
+  runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
     Req.req
       POST
       (Req.http "127.0.0.1" /: "commit")
-      (ReqBodyJson (DraftCommitTxRequest{utxos} :: DraftCommitTxRequest Tx))
-      (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+      (ReqBodyJson $ DraftCommitTxRequest utxos)
+      (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
       (Req.port $ 4000 + hydraNodeId)
+
+-- | Helper to make it easy to externally commit non-script utxo
+externalCommit :: HydraClient -> UTxO -> IO Tx
+externalCommit client =
+  externalCommit' client . fmap (`TxOutWithWitness` Nothing)
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do

@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
+  KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -34,6 +35,8 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   Value,
+  WitCtxTxIn,
+  Witness,
   chainPointToSlotNo,
   genTxIn,
   modifyTxOutValue,
@@ -44,6 +47,7 @@ import Hydra.Cardano.Api (
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
+  pattern KeyWitness,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
@@ -298,72 +302,84 @@ initialize ctx =
 -- | Construct a commit transaction based on the 'InitialState'. This does look
 -- for "our initial output" to spend and check the given 'UTxO' to be
 -- compatible. Hence, this function does fail if already committed.
+--
+-- NOTE: This version of 'commit' does only commit outputs which are held by
+-- payment keys. For a variant which supports committing scripts, see `commit'`.
 commit ::
   ChainContext ->
   InitialState ->
-  UTxO ->
+  UTxO' (TxOut CtxUTxO) ->
   Either (PostTxError Tx) Tx
-commit ctx st utxo = do
-  case ownInitial of
+commit ctx st utxoToCommit =
+  commit' ctx st $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
+
+-- | Construct a commit transaction base on the 'InitialState' and some
+-- arbitrary UTxOs to commit.
+--
+-- NOTE: A simpler variant only supporting pubkey outputs is 'commit'.
+commit' ::
+  ChainContext ->
+  InitialState ->
+  UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+  Either (PostTxError Tx) Tx
+commit' ctx st utxoToCommit = do
+  case ownInitial ctx st of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial -> do
+      let utxo = fst <$> utxoToCommit
       rejectByronAddress utxo
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
-      Right $ commitTx networkId scriptRegistry headId ownParty utxo initial
+      Right $ commitTx networkId scriptRegistry headId ownParty utxoToCommit initial
  where
-  ChainContext{networkId, ownParty, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{networkId, ownParty, scriptRegistry} = ctx
 
-  InitialState
-    { initialInitials
-    , seedTxIn
-    , headId
-    } = st
+  InitialState{headId} = st
 
-  ownInitial :: Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
-  ownInitial =
-    foldl' go Nothing initialInitials
-   where
-    go (Just x) _ = Just x
-    go Nothing (i, out, _) = do
-      let vkh = verificationKeyHash ownVerificationKey
-      guard $ hasMatchingPT vkh (txOutValue out)
-      pure (i, out, vkh)
+ownInitial :: ChainContext -> InitialState -> Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
+ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
+  foldl' go Nothing initialInitials
+ where
+  go (Just x) _ = Just x
+  go Nothing (i, out, _) = do
+    let vkh = verificationKeyHash ownVerificationKey
+    guard $ hasMatchingPT st vkh (txOutValue out)
+    pure (i, out, vkh)
 
-  hasMatchingPT :: Hash PaymentKey -> Value -> Bool
-  hasMatchingPT vkh val =
-    case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
-      [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
-      _ -> False
+hasMatchingPT :: InitialState -> Hash PaymentKey -> Value -> Bool
+hasMatchingPT InitialState{seedTxIn} vkh val =
+  case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
+    [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
+    _ -> False
 
-  rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
-  rejectByronAddress u = do
-    forM_ u $ \case
-      (TxOut (ByronAddressInEra addr) _ _ _) ->
-        Left (UnsupportedLegacyOutput addr)
-      (TxOut ShelleyAddressInEra{} _ _ _) ->
-        Right ()
+rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
+rejectByronAddress u = do
+  forM_ u $ \case
+    (TxOut (ByronAddressInEra addr) _ _ _) ->
+      Left (UnsupportedLegacyOutput addr)
+    (TxOut ShelleyAddressInEra{} _ _ _) ->
+      Right ()
 
-  rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
-  rejectReferenceScripts u =
-    when (any hasReferenceScript u) $
-      Left CannotCommitReferenceScript
-   where
-    hasReferenceScript out =
-      case txOutReferenceScript out of
-        ReferenceScript{} -> True
-        ReferenceScriptNone -> False
+rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
+rejectReferenceScripts u =
+  when (any hasReferenceScript u) $
+    Left CannotCommitReferenceScript
+ where
+  hasReferenceScript out =
+    case txOutReferenceScript out of
+      ReferenceScript{} -> True
+      ReferenceScriptNone -> False
 
-  -- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
-  -- NOTE: Remove this limit once we have more experiments on mainnet.
-  rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
-  rejectMoreThanMainnetLimit network u = do
-    when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
-      Left $
-        CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
-   where
-    lovelaceAmt = foldMap (selectLovelace . txOutValue) u
+-- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
+-- NOTE: Remove this limit once we have more experiments on mainnet.
+rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
+rejectMoreThanMainnetLimit network u = do
+  when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
+    Left $
+      CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
+ where
+  lovelaceAmt = foldMap (selectLovelace . txOutValue) u
 
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
@@ -884,11 +900,11 @@ genCommits' ::
   HydraContext ->
   Tx ->
   Gen [Tx]
-genCommits' genUTxOToCommit ctx txInit = do
+genCommits' genUTxO ctx txInit = do
   -- Prepare UTxO to commit. We need to scale down the quantities by number of
   -- committed UTxOs to ensure we are not as easily hitting overflows of the max
   -- bound (Word64) when collecting all the commits together later.
-  commitUTxOs <- forM (ctxParties ctx) $ \_p -> genUTxOToCommit
+  commitUTxOs <- forM (ctxParties ctx) $ const genUTxO
   let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
 
   allChainContexts <- deriveChainContexts ctx
@@ -995,6 +1011,7 @@ genStClosed ctx utxo = do
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
+
 -- ** Danger zone
 
 unsafeCommit ::

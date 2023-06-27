@@ -32,7 +32,7 @@ import Hydra.Chain (
   PostChainTx (CloseTx),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
-  draftTx,
+  draftCommitTx,
   postTx,
  )
 import Hydra.Ledger (txId)
@@ -406,7 +406,7 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
-    , draftTx = \_ -> error "unexpected call to draftTx"
+    , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     }
 
 noop :: Applicative m => a -> m ()
