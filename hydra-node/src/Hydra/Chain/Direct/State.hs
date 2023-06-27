@@ -759,7 +759,7 @@ genChainStateWithTx =
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
-    utxo <- genCommit -- TODO generate script utxo to commit?
+    utxo <- genCommit
     let tx = unsafeCommit cctx stInitial utxo
     pure (cctx, Initial stInitial, tx, Commit)
 

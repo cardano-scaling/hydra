@@ -32,7 +32,7 @@ import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Scenarios (headIsInitializingWith, mkDraftUTxOs)
+import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
@@ -255,7 +255,7 @@ commitUTxO node clients Dataset{clientDatasets} =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
-    externalCommit client (mkDraftUTxOs initialUTxO Nothing)
+    externalCommit client initialUTxO
       <&> signTx externalSigningKey
       >>= submitTx node
     pure initialUTxO
