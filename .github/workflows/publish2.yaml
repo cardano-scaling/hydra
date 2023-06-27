@@ -17,6 +17,8 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
+    - run: git describe HEAD
+
     - name: 📥 Download released benchmarks/haddocks
       uses: dawidd6/action-download-artifact@v2
       with:
