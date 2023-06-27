@@ -529,12 +529,14 @@ definitions:
             enum: ["PartiesMismatch"]
           loadedParties:
             type: array
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            items:
+              $ref: "api.yaml#/components/schemas/Party"
             description: >-
               Parties present in the node state.
           configuredParties:
             type: array
-            <<: { "$ref": "api.yaml#/components/schemas/Party" }
+            items:
+              $ref: "api.yaml#/components/schemas/Party"
             description: >-
               Parties configured as the node argument.
 
