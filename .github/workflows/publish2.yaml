@@ -2,6 +2,8 @@ name: "Publish Docs (new)"
 
 on:
   workflow_dispatch:
+  # TODO: remove this
+  push:
 
 jobs:
   publish-docs:
@@ -12,12 +14,10 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repo: input-output-hk/hydra
+        repository: input-output-hk/hydra
         ref: release
         # Also ensure we have all history with all tags
         fetch-depth: 0
-
-    - run: git describe HEAD
 
     - name: 📥 Download released benchmarks/haddocks
       uses: dawidd6/action-download-artifact@v2
