@@ -103,7 +103,7 @@ spec =
             s0 = inOpenState threeParties ledger
 
         update bobEnv ledger s0 reqTx
-          `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
+          `hasWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
