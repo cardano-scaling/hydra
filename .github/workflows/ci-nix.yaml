@@ -32,14 +32,12 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
         # On pull_request events, we want to check out the latest commit of the
         # PR, which is different to github.ref (the default, which would point
         # to a "fake merge" commit). On push events, the default is fine as it
         # refers to the pushed commit.
         ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
+        # Also ensure we have all history with all commits
         fetch-depth: 0
 
     - name: ❄ Prepare nix
@@ -114,9 +112,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v22
@@ -164,9 +159,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v22
@@ -238,8 +230,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v22
@@ -273,8 +263,6 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
         # Ensure we have all history with all commits
         fetch-depth: 0
 
