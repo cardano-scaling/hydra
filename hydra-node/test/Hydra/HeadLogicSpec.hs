@@ -13,6 +13,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.Map (notMember)
 import qualified Data.Set as Set
 import qualified GHC.Base as Hydra.Test.Prelude
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -46,7 +47,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
@@ -123,7 +124,7 @@ spec =
         let s0 = inOpenState threeParties ledger
             t1 = SimpleTx 1 mempty (utxoRef 1)
             reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [1]
-            snapshot1 = Snapshot 1 mempty [1]
+            snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
             ackFrom sk vk = NetworkEvent defaultTTL $ AckSn vk (sign sk snapshot1) 1
 
         sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL $ ReqTx alice t1
@@ -132,9 +133,10 @@ spec =
         s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
         s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
         s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom bobSk bob)
-        getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
-        update bobEnv ledger s4 reqSn `shouldBe` Wait (WaitOnTxs [1])
+        s4 `shouldSatisfy` \case
+          (Open (OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}})) -> txId t1 `notMember` allTxs
+          _ -> False
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
