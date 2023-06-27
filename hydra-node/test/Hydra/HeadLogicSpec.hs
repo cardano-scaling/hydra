@@ -119,6 +119,23 @@ spec =
         snapshotConfirmed <- runEvents bobEnv ledger snapshotInProgress $ step (ackFrom bobSk bob)
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
 
+      it "removes transactions from allTxs when included in a acked snapshot" $ do
+        let s0 = inOpenState threeParties ledger
+            t1 = SimpleTx 1 mempty (utxoRef 1)
+            reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [1]
+            snapshot1 = Snapshot 1 mempty [1]
+            ackFrom sk vk = NetworkEvent defaultTTL $ AckSn vk (sign sk snapshot1) 1
+
+        sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL $ ReqTx alice t1
+
+        s1 <- assertNewState $ update bobEnv ledger sa reqSn
+        s2 <- assertNewState $ update bobEnv ledger s1 (ackFrom carolSk carol)
+        s3 <- assertNewState $ update bobEnv ledger s2 (ackFrom aliceSk alice)
+        s4 <- assertNewState $ update bobEnv ledger s3 (ackFrom bobSk bob)
+        getConfirmedSnapshot s4 `shouldBe` Just snapshot1
+
+        update bobEnv ledger s4 reqSn `shouldBe` Wait (WaitOnTxs [1])
+
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
             snapshot = Snapshot 1 mempty []
@@ -199,7 +216,7 @@ spec =
         let s0 = inOpenState threeParties ledger
             reqSn = NetworkEvent defaultTTL $ ReqSn alice 1 [1]
         update bobEnv ledger s0 reqSn
-          `shouldBe` Wait (WaitOnSeenTxs [1])
+          `shouldBe` Wait (WaitOnTxs [1])
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = Snapshot 1 mempty []

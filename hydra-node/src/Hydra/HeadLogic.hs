@@ -234,9 +234,10 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUTxO :: UTxOType tx
   -- ^ The latest UTxO resulting from applying 'seenTxs' to
   -- 'confirmedSnapshot'. Spec: L̂
-  , allTxs :: Map.Map (TxIdType tx) tx
   , seenTxs :: [tx]
   -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
+  , allTxs :: Map.Map (TxIdType tx) tx
+  -- ^ Map containing all the transactions ever seen by this node and not yet included in a snapshot
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
   , seenSnapshot :: SeenSnapshot tx
@@ -384,7 +385,7 @@ data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
   | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
-  | WaitOnSeenTxs {unseenTxIds :: [TxIdType tx]}
+  | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   deriving stock (Generic)
 
@@ -732,7 +733,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   waitSeenTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
       [] -> continue (mapMaybe (`Map.lookup` allTxs) requestedTxIds)
-      unseen -> Wait $ WaitOnSeenTxs unseen
+      unseen -> Wait $ WaitOnTxs unseen
 
   -- NOTE: at this point we know those transactions apply on the seenUTxO because they
   -- are part of the seenTxs. The snapshot can contain less transactions than the ones
