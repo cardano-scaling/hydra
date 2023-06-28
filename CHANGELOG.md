@@ -43,6 +43,9 @@ head again.
   draft `commit` transaction. This transaction can be signed and submitted to
   the network by the user now instead of `hydra-node`.
 
+- Make the draft `commit` transaction response json body a tx babbage era text
+envelope so clients can submit it directly to cardano-cli.
+
 - Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` and
   `BeginEffect`/`EndEffect` log items using numeric `eventId` and
   `effectId`.

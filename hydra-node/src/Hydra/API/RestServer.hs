@@ -6,10 +6,8 @@ module Hydra.API.RestServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.Aeson (Value (Object, String), object, withObject, (.:), (.:?), (.=))
-import qualified Data.Aeson as Aeson
+import Data.Aeson (Value (Object), withObject, (.:?))
 import qualified Data.Aeson.KeyMap as KeyMap
-import qualified Data.ByteString.Base16 as Base16
 import Data.ByteString.Short ()
 import Hydra.Cardano.Api (
   CtxUTxO,
@@ -18,14 +16,15 @@ import Hydra.Cardano.Api (
   PlutusScript,
   ScriptDatum (ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
-  SerialiseAsCBOR (deserialiseFromCBOR, serialiseToCBOR),
   Tx,
   TxOut,
   UTxO',
   WitCtxTxIn,
   Witness,
+  deserialiseFromTextEnvelope,
   mkScriptWitness,
   proxyToAsType,
+  serialiseToTextEnvelope,
   pattern KeyWitness,
   pattern ScriptWitness,
  )
@@ -38,19 +37,14 @@ newtype DraftCommitTxResponse = DraftCommitTxResponse
 
 instance ToJSON DraftCommitTxResponse where
   toJSON (DraftCommitTxResponse tx) =
-    object
-      [ "commitTx" .= (String . decodeUtf8 . Base16.encode $ serialiseToCBOR tx)
-      ]
+    toJSON $ serialiseToTextEnvelope (Just "Tx Babbage") tx
 
 instance FromJSON DraftCommitTxResponse where
-  parseJSON = Aeson.withObject "DraftCommitTxResponse" $ \o -> do
-    encodedTx :: Text <- o .: "commitTx"
-    case Base16.decode $ encodeUtf8 encodedTx of
-      Left e -> fail e
-      Right bytes ->
-        case deserialiseFromCBOR (proxyToAsType Proxy) bytes of
-          Left err -> fail $ show err
-          Right v -> pure $ DraftCommitTxResponse v
+  parseJSON v = do
+    env <- parseJSON v
+    case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
+      Left e -> fail $ show e
+      Right tx -> pure $ DraftCommitTxResponse tx
 
 instance Arbitrary DraftCommitTxResponse where
   arbitrary = genericArbitrary

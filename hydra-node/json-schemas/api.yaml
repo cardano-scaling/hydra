@@ -791,13 +791,14 @@ components:
       description: |
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
-        type: object
-        required:
-          - commitTx
+        $ref: "#/components/schemas/RawTransaction"
         additionalProperties: false
-        properties:
-          commitTx:
-            $ref: "#/components/schemas/RawTransaction"
+        example:
+          {
+              "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+              "description": "Tx Babbage",
+              "type": "Tx BabbageEra"
+          }
 
   ########
   #
