@@ -96,6 +96,7 @@ library
     , microlens-th
     , optparse-applicative
     , QuickCheck
+    , req
     , text
     , th-env
     , time
@@ -128,6 +129,7 @@ test-suite tests
     , base
     , blaze-builder
     , bytestring
+    , filepath
     , hspec
     , hydra-cardano-api
     , hydra-cluster

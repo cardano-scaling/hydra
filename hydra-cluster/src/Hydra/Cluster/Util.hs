@@ -13,13 +13,16 @@ import Hydra.Cardano.Api (
   SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   deserialiseFromTextEnvelope,
+  textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), defaultChainConfig)
 import qualified Paths_hydra_cluster as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
+import Test.QuickCheck (generate)
 
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
@@ -46,6 +49,14 @@ keysFor actor = do
  where
   asSigningKey :: AsType (SigningKey PaymentKey)
   asSigningKey = AsSigningKey AsPaymentKey
+
+-- | Create and save new signing key at the provided path.
+-- NOTE: Uses 'TextEnvelope' format.
+createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+createAndSaveSigningKey path = do
+  sk <- generate genSigningKey
+  writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
+  pure sk
 
 chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> ContestationPeriod -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them cp = do

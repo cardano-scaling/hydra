@@ -4,20 +4,26 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Control.Concurrent.Async (link)
 import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.RestServer (DraftCommitTxRequest (DraftCommitTxRequest), DraftCommitTxResponse (..), TxOutWithWitness (TxOutWithWitness))
 import Hydra.API.ServerOutput (TimedServerOutput)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
+  signTx,
  )
+import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))
+import Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
+import qualified Network.HTTP.Req as Req
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 
 data HydraEvent tx
@@ -35,6 +41,7 @@ data Client tx m = Client
   { sendInput :: ClientInput tx -> m ()
   -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
+  , externalCommit :: UTxO.UTxO -> m ()
   }
 
 -- | Callback for receiving server outputs.
@@ -48,8 +55,8 @@ withClient ::
   (ToJSON (ClientInput tx), FromJSON (TimedServerOutput tx)) =>
   Options ->
   ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} callback action = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoNodeSocket} callback action = do
+  sk <- readExternalSk
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
     -- NOTE(SN): if message formats are not compatible, this will terminate the TUI
@@ -59,8 +66,10 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} call
       Client
         { sendInput = atomically . writeTBQueue q
         , sk
+        , externalCommit = externalCommit' sk
         }
  where
+  readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   -- TODO(SN): ping thread?
   client q = runClient (toString hostname) (fromIntegral port) "/" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?
@@ -85,6 +94,20 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} call
 
   handleDisconnect f =
     callback ClientDisconnected >> threadDelay 1 >> reconnect f
+
+  externalCommit' sk payload =
+    runReq defaultHttpConfig request
+      <&> responseBody
+      >>= \DraftCommitTxResponse{commitTx} ->
+        submitTransaction cardanoNetworkId cardanoNodeSocket $ signTx sk commitTx
+   where
+    request =
+      Req.req
+        Req.POST
+        (Req.http hostname Req./: "commit")
+        (Req.ReqBodyJson . DraftCommitTxRequest $ (`TxOutWithWitness` Nothing) <$> payload)
+        Req.jsonResponse
+        (Req.port $ fromIntegral port)
 
 data ClientError = ClientJSONDecodeError String ByteString
   deriving (Eq, Show, Generic)

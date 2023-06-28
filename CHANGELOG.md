@@ -23,7 +23,10 @@ following procedure to upgrade all the nodes running a head:
 Only when this procedure has been applied to all Hydra nodes can you open a new
 head again.
 
-- Fuel removal: 
+- **BREAKING** Hydra TUI now uses `--cardano-signing-key` flag to specify a user
+  key used to select UTxO and submit a commit transaction.
+
+- Fuel removal:
   + We no longer require marking of some utxo as `Fuel`.
   + Internal hydra transactions are paid either by using the largest internal
   wallet utxo or existing fuel marked utxo (deprecated).
