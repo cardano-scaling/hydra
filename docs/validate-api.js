@@ -8,7 +8,7 @@ const { customFields } = require('./docusaurus.config.js')
 
 async function main() {
   const specFile = path.join(customFields.apiSpecDir, customFields.apiSpecUrl);
-  const validator = await AsyncApiValidator.fromSource(specFile, { msgIdentifier: 'title' });
+  const validator = await AsyncApiValidator.fromSource(specFile, { msgIdentifier: 'title', path: specFile });
   const [_node, _script, operation, channel, golden, stopAtFirst] = process.argv;
   const examples = JSON.parse(fs.readFileSync(golden));
 
