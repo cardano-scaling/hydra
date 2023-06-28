@@ -543,12 +543,12 @@ getConfirmedSnapshot = \case
     Nothing
 
 -- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState :: IsChainState tx => Environment -> Ledger tx -> Event tx -> HeadState tx -> IO (HeadState tx)
+assertUpdateState :: (HasCallStack, IsChainState tx) => Environment -> Ledger tx -> Event tx -> HeadState tx -> IO (HeadState tx)
 assertUpdateState env ledger event st =
   assertNewState $ update env ledger st event
 
 assertNewState ::
-  (IsChainState tx) =>
+  (HasCallStack, IsChainState tx) =>
   Outcome tx ->
   IO (HeadState tx)
 assertNewState = \case
@@ -558,7 +558,7 @@ assertNewState = \case
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
 assertOnlyEffects ::
-  (IsChainState tx) =>
+  (HasCallStack, IsChainState tx) =>
   Outcome tx ->
   IO ()
 assertOnlyEffects = \case
