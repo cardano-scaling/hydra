@@ -14,16 +14,12 @@ import Hydra.Snapshot (Snapshot, SnapshotNumber)
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
-  deriving stock (Generic)
-
-deriving instance (IsTx tx) => Eq (Message tx)
-deriving instance (IsTx tx) => Show (Message tx)
-deriving instance (IsTx tx) => ToJSON (Message tx)
-deriving instance (IsTx tx) => FromJSON (Message tx)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 data Message tx
   = ReqTx {transaction :: tx}
-  | ReqSn {snapshotNumber :: SnapshotNumber, transactions :: [tx]}
+  | ReqSn {snapshotNumber :: SnapshotNumber, transactionIds :: [TxIdType tx]}
   | -- NOTE: We remove the party from the ackSn but, it would make sense to put it
     -- back as the signed snapshot is tied to the party and we should not
     -- consider which party sent this message to validate this snapshot signature.
@@ -33,8 +29,12 @@ data Message tx
     -- good idea to introduce the party in AckSn again or, maybe better, only
     -- the verification key of the party.
     AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving stock (Generic)
+
+deriving instance (IsTx tx) => Eq (Message tx)
+deriving instance (IsTx tx) => Show (Message tx)
+deriving instance (IsTx tx) => ToJSON (Message tx)
+deriving instance (IsTx tx) => FromJSON (Message tx)
 
 instance IsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary

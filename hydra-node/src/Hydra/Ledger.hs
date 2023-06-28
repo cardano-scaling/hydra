@@ -25,6 +25,8 @@ class
   , Arbitrary (TxIdType tx)
   , FromJSON (TxIdType tx)
   , ToJSON (TxIdType tx)
+  , FromCBOR (TxIdType tx)
+  , ToCBOR (TxIdType tx)
   , FromJSONKey (TxIdType tx)
   , ToJSONKey (TxIdType tx)
   , --

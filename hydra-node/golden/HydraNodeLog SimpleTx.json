@@ -2,616 +2,175 @@
     "samples": [
         {
             "by": {
-                "vkey": "ca7d5f3f09f1fd5bf4e88e8dc3e01ba416cb851570f24ede243b249f16a06856"
+                "vkey": "39d6c5c677fba074cec7cb70dcb62b23363b71ea17d05b94647d96e7244a5a7e"
+            },
+            "effectId": 4466,
+            "eventId": 9692026,
+            "tag": "EndEffect"
+        },
+        {
+            "by": {
+                "vkey": "301effc51173ca2fcf5456bad12129e614b75301779b576337a631550dec59d4"
             },
             "event": {
-                "postChainTx": {
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": []
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "snapshotNumber": 8,
-                            "utxo": [
-                                -27,
-                                -20,
-                                -18,
-                                -17,
-                                -14,
-                                -10,
-                                -9,
-                                -2,
-                                2,
-                                6,
-                                8,
-                                13,
-                                18,
-                                19,
-                                21,
-                                22,
-                                25,
-                                27
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
-                    },
-                    "tag": "CloseTx"
-                },
-                "postTxError": {
-                    "headUTxO": [
-                        -17,
-                        -14,
-                        -5,
-                        11,
-                        13,
-                        14,
-                        20,
-                        25,
-                        27
-                    ],
-                    "reason": "\u0004D\u0015j3&1M",
-                    "tag": "InternalWalletError",
-                    "tx": {
-                        "id": 19,
+                "clientInput": {
+                    "tag": "NewTx",
+                    "transaction": {
+                        "id": -15,
                         "inputs": [
-                            -1,
-                            10
-                        ],
-                        "outputs": [
+                            -30,
+                            -27,
                             -26,
-                            -24,
                             -22,
-                            -19,
-                            -18,
-                            -14,
-                            -13,
+                            -21,
                             -12,
+                            -11,
                             -9,
-                            -7,
-                            -1,
+                            -3,
+                            2,
                             5,
                             6,
-                            8,
-                            9,
                             12,
+                            14,
                             19,
-                            23,
-                            27,
-                            28
+                            24,
+                            26,
+                            29
+                        ],
+                        "outputs": [
+                            -24,
+                            -14,
+                            -10,
+                            1,
+                            6,
+                            11,
+                            16,
+                            17,
+                            21,
+                            24,
+                            28,
+                            29,
+                            30
                         ]
                     }
                 },
-                "tag": "PostTxError"
+                "tag": "ClientEvent"
             },
-            "eventId": 1558038,
+            "eventId": 484256,
             "tag": "BeginEvent"
         },
         {
             "by": {
-                "vkey": "4d66349e75f6b2cf08a5a544daab3558a935bb29071b01a8b3ec994fa99f0ede"
+                "vkey": "28fc28361db4c32c8514cf246ec3236d441ad5e8a41cc340338a8dfe77184c91"
             },
-            "outcome": {
-                "left": {
-                    "error": {
-                        "contents": {
-                            "contents": {
-                                "chainState": {
-                                    "slot": 5
-                                },
-                                "coordinatedHeadState": {
-                                    "confirmedSnapshot": {
-                                        "signatures": {
-                                            "multiSignature": [
-                                                "7994c149390f36d4bd91df66bd604f7bbbc0fd20ebda674d94cdf1def4d550f58e34003151c36c1d5d49e7ab6aec14a1de2d80534c8cb71f6f160cc0ad020d09",
-                                                "d54e48c5bdbb880a009abe3a29589ac72bd499cc4b65e1f342470024c074f256845a46bef3ba6c7c229d20c824b14156223084716249f4b78625fd38b01cc908",
-                                                "9679e5c8722e8c4bb053ab652314e2d28af2db316313d0a6b7f3d681d84dbf768ac3705adfbc38f50be2fdf8909022bfe63f70701ad08f6f289d190a9c82ae02",
-                                                "5613654c775f0b4f12c6bb541da67b4edf9ad603d39ebcc0c51d2e90ecd8d652a03c0452c09b29cc66128abf8f659871ff8821c181afbf68c7d9ffa9e18a0604",
-                                                "77379c76b91efbf62f319fef42dc7960cabf8dca37bf79f8a419bd8115b0cb271e3f94450fb168709f05466b4f3c6d595a27dd71359bc721dbea7ef438fa570b",
-                                                "d53922668e00b740594e7b9909fbd7e3a6d3752b3fc893a216da4a3504efbc76db7d7b2ea15cdf2cbecc4d34bfbfd17d2055800c8ea81ea16d3071029bd7ac03",
-                                                "9a003dd02914bc18b7587635106647fcb02e7c3ed847f63edd42ab420223bfd0fd77ed9208df394fb619da3af2924ea94774f099ef139895d6212f245c68ec0a",
-                                                "bd9116d494595e8dfcecb7c03b7b2e5a163960dc59e30f5c0e97f9a7537b40912bef8bb0fe65464da8b21eb710e067f90c4b2e8336487b6cf46d23f49980f10c",
-                                                "42131c8e79f63414d41d8bcca5cd55ef11720f9c01b63d550c32e4c62321c8f6a25c41e58b4ca740bb392f92a0748db7d8c27c7fd76249d59a9f0ba2cf918d05",
-                                                "0425fd120c95011bf33f459c733200713ff855f9764ba65dffec1bf106703d8840380411d0373a97cfdf70c6fcc6d7a0427c431e7b847555cbfb70ec7fff8e0c",
-                                                "379507d2c2f682615bf996f41563613c87dada7f330453b72fed3e60ec81d672fba4374da5b016247c18be87545a15ab929f7ad5485203a8b9a560fcdc82fe01",
-                                                "5f67227658d7f22afdd17bf22b3ac37c10070ca48cf5c07541e193db8dde5ef5394ba0a9f578425e906bad24f2457bbc3f1b1c769bd037e4d5aee680a03e9b02",
-                                                "0582a1a724c5a0b0bacf81998590818adc8c6f15dee65c37c7986e5bbe28e4af5ad0dc4d94f9c5ddd6b6eac1fa2320a82bf7aea767bf3ce9abbc5aa4f2d94b0a",
-                                                "f424133689e65966d8345dff9394aea493dd239a01a49be7297d9d1fa2fe5887cb3d122aad82eb74d8d26d8356a25718dbf80960378bbb2b77ec051b312be805",
-                                                "4d73fcc81842d49c713b1f42eb7373fe1a5c3ef4992282a8fd9aa4f29384a5ad7d310058143f4019bde11c97ea03fc6c09f278e98a64625b4c7a7a37987f1504",
-                                                "15abfc3538bd2a618c08798143c52d712a48281b9643db769393dae0982d2f3e4539febe0eface47c668ab0b439fa1933a81463b039541fdf4cde89259af4300",
-                                                "dcc64fe58030a60c85f494d5b312b8152e8b8161c496d4b936414afa91eb21b770e5886312babe8b2b9d25b13c90555c1d5aff574a53b91d03c0f73cdddb960f",
-                                                "e68fbe3cd06c31360968277d0e932ab49c6476a6c8e4ef9d865c1d5ae34da182c6ccd6785a10c80df00c6962b768ec3ece7c43c26d54fc2c89797d8e5ccc7405",
-                                                "2532dbfc595bedb3536871ff033f3322ac75fad8fcfeca72e95f41a32ea7753f956c152049819151a62ffd8da634ba708b7b6e051b828d2f019fc29239a7ce0f",
-                                                "baeeb945b8112273891de19e8f8afa6e8749627c96a5bef18e820471916ca3306fbc49d80912d6f4b82362b40a3db7e4c3a26ae9d784a3d5d328013e10d4af0a",
-                                                "4b2dee47d9165f674c2abce3b8ffe9087a95aab68b17963b10755ff48add69d5a5ef4cada479efeae672071c2b3594acdfb93e99822f47e7d2161d45a7bdb70f",
-                                                "3b40a2f88fd7a7120c92d7c51094545bdd3e83deb9295eec60f33a28dfd8839dd20b0573c9894f0ee61ba7dd381bb9a31036c79afa21138ea8723cebf422a907",
-                                                "7428d38e97bb5dfc838b4eb8c8ce77279d46a121450fc27ac2a350912cdb56def85017a0174ba167e65636a8ba18d3454aa4ae446c26b8ce6df59a0f4935ec02",
-                                                "815b0f66690678008f47e4d86da40e5ef9c6a31e3397645ad28a307107fae9e9ed755e4bbe6f20d53889fae474c78f622e1896620eb1a9b32ecbfca8374fd001"
-                                            ]
-                                        },
-                                        "snapshot": {
-                                            "confirmedTransactions": [],
-                                            "snapshotNumber": 17,
-                                            "utxo": [
-                                                -18,
-                                                -17,
-                                                -1,
-                                                0,
-                                                1,
-                                                6,
-                                                16,
-                                                25,
-                                                26,
-                                                29
-                                            ]
-                                        },
-                                        "tag": "ConfirmedSnapshot"
-                                    },
-                                    "seenSnapshot": {
-                                        "lastSeen": 7,
-                                        "requested": 6,
-                                        "tag": "RequestedSnapshot"
-                                    },
-                                    "seenTxs": [
-                                        {
-                                            "id": -30,
-                                            "inputs": [
-                                                -30,
-                                                -28,
-                                                -26,
-                                                -25,
-                                                -23,
-                                                -22,
-                                                -20,
-                                                -19,
-                                                -17,
-                                                -11,
-                                                -4,
-                                                -2,
-                                                1,
-                                                3,
-                                                4,
-                                                5,
-                                                10,
-                                                17,
-                                                19,
-                                                22,
-                                                30
-                                            ],
-                                            "outputs": [
-                                                -25,
-                                                1,
-                                                4,
-                                                19
-                                            ]
-                                        },
-                                        {
-                                            "id": 28,
-                                            "inputs": [
-                                                -28,
-                                                -3,
-                                                -2,
-                                                -1,
-                                                9,
-                                                23,
-                                                28
-                                            ],
-                                            "outputs": [
-                                                -14,
-                                                -13,
-                                                -9,
-                                                -7,
-                                                -2,
-                                                13,
-                                                14,
-                                                17,
-                                                24,
-                                                27
-                                            ]
-                                        },
-                                        {
-                                            "id": 17,
-                                            "inputs": [
-                                                -28,
-                                                -26,
-                                                -25,
-                                                -21,
-                                                -11,
-                                                -8,
-                                                -5,
-                                                3,
-                                                5,
-                                                9,
-                                                11,
-                                                12,
-                                                25,
-                                                29
-                                            ],
-                                            "outputs": [
-                                                -28,
-                                                -25,
-                                                -23,
-                                                -19,
-                                                -14,
-                                                -12,
-                                                -11,
-                                                -10,
-                                                -9,
-                                                -8,
-                                                -6,
-                                                1,
-                                                2,
-                                                3,
-                                                4,
-                                                9,
-                                                11,
-                                                13,
-                                                15,
-                                                19,
-                                                20,
-                                                27,
-                                                28
-                                            ]
-                                        },
-                                        {
-                                            "id": -27,
-                                            "inputs": [
-                                                -30,
-                                                -19,
-                                                -18,
-                                                -12,
-                                                -9,
-                                                -7,
-                                                -6,
-                                                -5,
-                                                -3,
-                                                -2,
-                                                -1,
-                                                0,
-                                                2,
-                                                6,
-                                                9,
-                                                12,
-                                                13,
-                                                14,
-                                                23,
-                                                27,
-                                                28
-                                            ],
-                                            "outputs": [
-                                                -14,
-                                                6,
-                                                7,
-                                                9,
-                                                18,
-                                                23,
-                                                27,
-                                                29
-                                            ]
-                                        },
-                                        {
-                                            "id": -18,
-                                            "inputs": [
-                                                -29,
-                                                -23,
-                                                -21,
-                                                -20,
-                                                -19,
-                                                -14,
-                                                -6,
-                                                -2,
-                                                4,
-                                                8,
-                                                9,
-                                                10,
-                                                16,
-                                                17,
-                                                20,
-                                                23,
-                                                24,
-                                                28,
-                                                30
-                                            ],
-                                            "outputs": []
-                                        },
-                                        {
-                                            "id": -30,
-                                            "inputs": [
-                                                -30,
-                                                -26,
-                                                -25,
-                                                -24,
-                                                -21,
-                                                -19,
-                                                -15,
-                                                -14,
-                                                -11,
-                                                -7,
-                                                -5,
-                                                -3,
-                                                -1,
-                                                1,
-                                                15,
-                                                22,
-                                                30
-                                            ],
-                                            "outputs": [
-                                                -29,
-                                                -23,
-                                                -18,
-                                                -10,
-                                                -7,
-                                                -6,
-                                                -5,
-                                                3,
-                                                11,
-                                                15,
-                                                18
-                                            ]
-                                        },
-                                        {
-                                            "id": 24,
-                                            "inputs": [
-                                                -24,
-                                                -22,
-                                                12,
-                                                13
-                                            ],
-                                            "outputs": [
-                                                -26,
-                                                -22,
-                                                -20,
-                                                -19,
-                                                -16,
-                                                -13,
-                                                -5,
-                                                3,
-                                                13,
-                                                18,
-                                                21,
-                                                26,
-                                                29,
-                                                30
-                                            ]
-                                        },
-                                        {
-                                            "id": 1,
-                                            "inputs": [
-                                                -20,
-                                                -16,
-                                                -13,
-                                                -12,
-                                                -11,
-                                                -4,
-                                                -1,
-                                                2,
-                                                11,
-                                                16,
-                                                19,
-                                                27,
-                                                29
-                                            ],
-                                            "outputs": [
-                                                -29,
-                                                -27,
-                                                -23,
-                                                -19,
-                                                -17,
-                                                -16,
-                                                -5,
-                                                1,
-                                                2,
-                                                3,
-                                                4,
-                                                6,
-                                                11,
-                                                13,
-                                                14,
-                                                15,
-                                                18,
-                                                22,
-                                                25,
-                                                26,
-                                                29,
-                                                30
-                                            ]
-                                        },
-                                        {
-                                            "id": 16,
-                                            "inputs": [
-                                                -30,
-                                                -29,
-                                                -25,
-                                                -22,
-                                                -16,
-                                                -15,
-                                                -13,
-                                                -10,
-                                                -9,
-                                                -8,
-                                                -7,
-                                                -5,
-                                                -3,
-                                                0,
-                                                3,
-                                                4,
-                                                5,
-                                                9,
-                                                15,
-                                                17,
-                                                22,
-                                                25
-                                            ],
-                                            "outputs": [
-                                                -24,
-                                                -23,
-                                                -19,
-                                                -16,
-                                                -12,
-                                                -11,
-                                                -10,
-                                                -8,
-                                                -7,
-                                                -2,
-                                                -1,
-                                                2,
-                                                4,
-                                                8,
-                                                9,
-                                                10,
-                                                13,
-                                                14,
-                                                19,
-                                                20,
-                                                25,
-                                                27,
-                                                29,
-                                                30
-                                            ]
-                                        }
-                                    ],
-                                    "seenUTxO": [
-                                        -26,
-                                        -23,
-                                        -16,
-                                        -15,
-                                        -8,
-                                        -4,
-                                        -3,
-                                        -2,
-                                        1,
-                                        2,
-                                        5,
-                                        7,
-                                        8,
-                                        9,
-                                        11,
-                                        18,
-                                        26,
-                                        28,
-                                        29
-                                    ]
-                                },
-                                "currentSlot": 16,
-                                "headId": "4c294fa2459eb2477fb77429d6f8aea4",
-                                "parameters": {
-                                    "contestationPeriod": 43200,
-                                    "parties": [
-                                        {
-                                            "vkey": "86c3ac9fb011aaf17cdb57b591cfa920f8b3f805453f28d1aa87f569863edc46"
-                                        },
-                                        {
-                                            "vkey": "f59a4672f324f35eec3604b5acd728d6b2af56c32e477e88ca66d1f81c3d404f"
-                                        },
-                                        {
-                                            "vkey": "57063cf8ab989a471a51751588e85936d7b105b36d0bb718a7431967a42c5d05"
-                                        },
-                                        {
-                                            "vkey": "8cccb34937d64c6b72ddc0a26264398ee8c2856b45e42d0e8f803d1a4c0f08b6"
-                                        },
-                                        {
-                                            "vkey": "b6ae9a304e12bc1ebd94e37f18af646c24b2555b172f407dee25ec84328a6d0d"
-                                        },
-                                        {
-                                            "vkey": "a8a3574f9522e89c09ff3c181847aa0a9250c271321d26dd60bb64fb96c56a88"
-                                        },
-                                        {
-                                            "vkey": "80eeaef701dbe805caa792b5676725a20eeaff3b64b1cb4d4b08a8754fa460f7"
-                                        },
-                                        {
-                                            "vkey": "12f0c4cac7d0cb5af8814957c826052b8b0fbce44875935b17cc46c752fc4c4f"
-                                        },
-                                        {
-                                            "vkey": "00f023cff3a940b436f76ef55c234f20098a4baedc953dcdf338c31c83ed2fdb"
-                                        },
-                                        {
-                                            "vkey": "34d2724c61c8aad4bb92c04276d4dcfac62fa28778b080698c6d53e1d123e690"
-                                        },
-                                        {
-                                            "vkey": "898a827f88b01a705d3a480328dd2a8f396167646bff4639b8179e9a044f8fe7"
-                                        },
-                                        {
-                                            "vkey": "d2acab41be963e738a537a6d441836f4445c3909db04e570e966281545ba71e3"
-                                        },
-                                        {
-                                            "vkey": "ef5460aa574dd7b4b9e285e0bc11c3022ac6c91f03ba5a5c086580119568fdf6"
-                                        },
-                                        {
-                                            "vkey": "c5fd522007d33ff5c824abb21a4c42e6220c431b01c91f77238941ecc6c74a70"
-                                        },
-                                        {
-                                            "vkey": "de3dbee611512ee40e623e9a4f29cca39f51f0199ddfbd4f35ca2d8a1b6b70df"
-                                        },
-                                        {
-                                            "vkey": "dfe4914edb6aa8ea87e73d9fe8879838818445e0f402c6635fc8a0c0536c6914"
-                                        },
-                                        {
-                                            "vkey": "8d5526bc06040d32f11bae05b56655bbbdd9700262c0e6b5252089254d650a0e"
-                                        },
-                                        {
-                                            "vkey": "866dec5804ebb21e16646e802e7dba1d18f6985164f355a0114d1b5c0bcf3a82"
-                                        },
-                                        {
-                                            "vkey": "fd1f93254990e5977e45209d02272ea50309ebb7fd2b15c8125b4e701939f306"
-                                        },
-                                        {
-                                            "vkey": "85fe58d18aa9887354cd1ecd08dc6d8797e65b484a4ae837d85245c228d053f7"
-                                        },
-                                        {
-                                            "vkey": "0679aa083ea180baf81fb968b7df7c838c5b4459f49c0c7aadbd39884bef1e58"
-                                        },
-                                        {
-                                            "vkey": "ef6d6f77e66412c09824c2f3667602ea308519904a4a291ab6094bc260ef97e8"
-                                        },
-                                        {
-                                            "vkey": "88e82afb4e961122168911da6d01133fae074f6c7780f750e830e5ccf30e67e5"
-                                        }
-                                    ]
-                                }
-                            },
-                            "tag": "Open"
+            "effect": {
+                "postChainTx": {
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "1f94c8a5cc7356a0116a23b9f8da3da11b2bd2cda2a96ef93240b37d7346eae3bf6b5ce9924d03de12783cc5d2baa0090b2882bfd29c73c6903e12b43ec3d403",
+                                "ac30140af26b7199400fbf03ced912f862659bc28dd33b0eb683f6d1dc95353fbd119b78929a32cc814e8759559a54987856e9de023bde85345c37c30d10f308",
+                                "1d3d48c60b56c0fd3a7f71faf8c597020a549d272e8eccc4ce19e3cd67f4975e22308a520d516a14a5dd224b8e8a5bffbbd443243b69947dc805b8de72b7690e",
+                                "4648d285d3d5d6c7ca6e8b733d05e17461cbc84d0bb90ea6412704336eb05e43781ca107a210bdd78d5e14b3b611845c7b60e5ec1566663774af30412ed9370d",
+                                "b9b52a2c41c7016d04b590911a6d2dbeda8d1db3002de1a73a31a959ff93e5cbdf08b685d75c40084971c62288fcb9d726d9f763838da20d3f1081f1c4b08e0d",
+                                "160144388bb0a3e0a1aca76d0304d7c8b4616362f5f7f805bb88fd1e28c08e84b38333f65f36b58d828e1e276567e8661c8a081afa1157a1bcde0e9705889b01",
+                                "2d84e0d4cd81926917e38e8fdc69468e9fdb66c5a78823c77f74c8fd236486f31d036d8040555a9ee90880e342d7188380bcca9b72cc5f0e52474e8b92a08a0f",
+                                "bc120632453fdc12c2525fbcb2f488e6dd727cfdca111f4db6f991c9beee08962dd63ba6771e539c2b509da9198b08bbd28fabfdb59db88491b0ab0305df1404",
+                                "0d7dc983d83ab5e502c89a6e72148903a4c8dd8b6e46e38fc54c4984f57c20d50cf6ac97fde94dae7dbf41c6a139d8b19f72bb18fd2af8950cbfc8a1bde46301",
+                                "b46715747b6b4e957c9f1b3baf99fe3bbb7fb3249a546613fa5a2462abd304db63d0b68467d202644819894b079780433edc5119a4b5976cfb37caf1e2575a0f",
+                                "244d4520c79a33088e4a54f8094f7d04725db0bd6521ac0968e873f8a230e05e78701f3fe491251383986e6a6373cc7a400ff9f2ca7a3d188b6aa42036631203",
+                                "063a0a04bea3ac2d5d7715b519a6643b390833a1486291ef874ef2d18b62e02b98e5e2b041ea101a3b9ee585474e37f5c97a62d9004b868dca2441078853c201",
+                                "60f6bc184c461860725305337ee0858b389599259b4943a5c9d08d8628208622144635643b2bf6e0421d8b5bba8ec0aa37b64c9fc91b362578d8aeb74a7fa807",
+                                "3e0a1071556de558cc99942746c09f3a2bcdc51186421eed77812463ee08debec5354dfd3a5006b7a71a075daa2e0cd408f0c3be4e017a65fed55958c7d5d00b",
+                                "8636d9bf20602cc854c7f6728515529c2d06ed88e6d5acdbf9f93eb29f1f035ce4ee0855c390bb6c7c181e8ea15d6605470813fcd562e4dd124a308f3723510b",
+                                "2d57eb1b2238d507cf1089c690f41cb94c79992e9ecd7262e6d95c12e0c2e04b10f4da9c2878afe67b1792261ce62838df59d9bc0fa2c535efe730dad56dc807",
+                                "0c1e0cacda4aac07d6877b9da5e45e4a3c9a5b5de90503dbde27840648987923b464dbf338cf05e8ea0397953683261266bea9a974cae0c14b6bfa36e7085e06"
+                            ]
                         },
-                        "tag": "InvalidState"
-                    },
-                    "tag": "Error"
-                },
-                "right": {
-                    "error": {
-                        "contents": {
-                            "lastSeenSn": 27,
-                            "requestedSn": 0,
-                            "tag": "ReqSnNumberInvalid"
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "snapshotNumber": 4,
+                            "utxo": [
+                                -30,
+                                -27,
+                                -25,
+                                -24,
+                                -18,
+                                -17,
+                                -14,
+                                -8,
+                                -2,
+                                -1,
+                                1,
+                                3,
+                                7,
+                                11,
+                                13,
+                                19,
+                                21,
+                                24,
+                                30
+                            ]
                         },
-                        "tag": "RequireFailed"
+                        "tag": "ConfirmedSnapshot"
                     },
-                    "tag": "Error"
+                    "tag": "ContestTx"
                 },
-                "tag": "Combined"
+                "tag": "OnChainEffect"
             },
-            "tag": "LogicOutcome"
+            "effectId": 3756,
+            "eventId": 4349272,
+            "tag": "BeginEffect"
         },
         {
             "by": {
-                "vkey": "1f6cf975ecdfe84c15debec1a653a782f9db1ab328ba1dcb5fcac5580c7bf9a0"
+                "vkey": "47b433d58a5a69f8bd8a9d11a85b27713d3a08886d50fe2e6786260ccb652e6a"
             },
-            "eventId": 16464550,
-            "tag": "EndEvent"
-        },
-        {
-            "by": {
-                "vkey": "40e7dcb56fb81965549c6f7d81331235e5c508ce56ef80e026da9d141dc3e5ad"
-            },
-            "eventId": 12156412,
-            "tag": "EndEvent"
-        },
-        {
-            "by": {
-                "vkey": "c91f469d9937fcb7aa5fc2068dfca1ae3ebe8a337dc0612ec02c17fdb139af49"
-            },
-            "effectId": 18285,
-            "eventId": 1712310,
+            "effectId": 5083,
+            "eventId": 14686767,
             "tag": "EndEffect"
+        },
+        {
+            "by": {
+                "vkey": "5f610b0f6348d321cd4d09cb9ccb59010412aa40c51f3cf396069cc3f4c0cf95"
+            },
+            "effect": {
+                "serverOutput": {
+                    "headId": "88c5a4c729b24333a916f0d162aba6a3",
+                    "tag": "HeadIsFinalized",
+                    "utxo": [
+                        -30,
+                        -27,
+                        -26,
+                        -25,
+                        -22,
+                        -20,
+                        -19,
+                        -18,
+                        -17,
+                        -15,
+                        -11,
+                        -5,
+                        -3,
+                        -2,
+                        5,
+                        6,
+                        12,
+                        15,
+                        16,
+                        17,
+                        21,
+                        27,
+                        28,
+                        29
+                    ]
+                },
+                "tag": "ClientEffect"
+            },
+            "effectId": 19511,
+            "eventId": 8068792,
+            "tag": "BeginEffect"
         }
     ],
-    "seed": 1898351533
+    "seed": 2119679436
 }

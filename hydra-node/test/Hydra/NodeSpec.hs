@@ -119,14 +119,14 @@ spec = parallel $ do
             sigBob = sign bobSk snapshot
             events =
               eventsToOpenHead
-                <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{party = bob, transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
-                   , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = bob, transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
-                   , NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactionIds = [2]}}
+                <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
+                   , NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
+                   , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
                    ]
         node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
         (node', getNetworkMessages) <- recordNetwork node
         runToCompletion tracer node'
-        getNetworkMessages `shouldReturn` [AckSn{party = bob, signed = sigBob, snapshotNumber = 1}]
+        getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
