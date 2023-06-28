@@ -19,7 +19,12 @@ import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..), TxOutWithWitness (..))
+import Hydra.API.RestServer (
+  DraftCommitTxRequest (..),
+  DraftCommitTxResponse (..),
+  ScriptInfo (..),
+  TxOutWithWitness (..),
+ )
 import Hydra.Cardano.Api (
   Lovelace (..),
   PlutusScriptV2,
