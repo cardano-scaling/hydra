@@ -472,16 +472,6 @@ hasNoEffectSatisfying (NewState _ effects) predicate
   | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
 
-isReqSn :: Effect tx -> Bool
-isReqSn = \case
-  NetworkEffect ReqSn{} -> True
-  _ -> False
-
-isAckSn :: Effect tx -> Bool
-isAckSn = \case
-  NetworkEffect AckSn{} -> True
-  _ -> False
-
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
   Initial
@@ -576,27 +566,6 @@ assertOnlyEffects = \case
   OnlyEffects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
-
-applyEvent ::
-  (IsChainState tx) =>
-  (HeadState tx -> Event tx -> Outcome tx) ->
-  Event tx ->
-  StateT (HeadState tx) IO ()
-applyEvent action e = do
-  s <- get
-  s' <- lift $ assertNewState (action s e)
-  put s'
-
-assertStateUnchangedFrom ::
-  (IsChainState tx) =>
-  HeadState tx ->
-  Outcome tx ->
-  Expectation
-assertStateUnchangedFrom st = \case
-  NewState st' eff -> do
-    st' `shouldBe` st
-    eff `shouldBe` []
-  anything -> failure $ "unexpected outcome: " <> show anything
 
 testHeadId :: HeadId
 testHeadId = HeadId "1234"

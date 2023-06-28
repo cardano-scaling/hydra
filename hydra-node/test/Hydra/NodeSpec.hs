@@ -116,11 +116,6 @@ spec = parallel $ do
       outputs <- getServerOutputs
       outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters cperiod [alice, bob, carol]) NoSeedInput]
 
-isReqSn :: Message tx -> Bool
-isReqSn = \case
-  ReqSn{} -> True
-  _ -> False
-
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
   [ NetworkEvent{ttl = defaultTTL, message = Connected{nodeId = NodeId "NodeId1"}}
