@@ -37,7 +37,7 @@ newtype DraftCommitTxResponse = DraftCommitTxResponse
 
 instance ToJSON DraftCommitTxResponse where
   toJSON (DraftCommitTxResponse tx) =
-    toJSON $ serialiseToTextEnvelope (Just "Tx Babbage") tx
+    toJSON $ serialiseToTextEnvelope (Just "Hydra commit transaction") tx
 
 instance FromJSON DraftCommitTxResponse where
   parseJSON v = do
