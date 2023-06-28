@@ -81,10 +81,10 @@ benchOptionsParser =
     <*> option
       auto
       ( long "timeout"
-          <> value 600.0
+          <> value 700.0
           <> metavar "SECONDS"
           <> help
-            "The timeout for the run, in seconds (default: '600s')"
+            "The timeout for the run, in seconds (default: '700s')"
       )
     <*> option
       auto
