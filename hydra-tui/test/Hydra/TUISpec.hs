@@ -9,7 +9,6 @@ import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
-import System.FilePath ((</>))
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
@@ -27,10 +26,10 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
-import Hydra.Cardano.Api (Lovelace, Key (getVerificationKey))
+import Hydra.Cardano.Api (Key (getVerificationKey), Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
-  Marked (Normal, Fuel),
+  Marked (Fuel, Normal),
   publishHydraScriptsAs,
   seedFromFaucet_,
  )
@@ -38,13 +37,14 @@ import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, createAndSaveSecretKey)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, createAndSaveSigningKey)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.TUI (renderTime, runWithVty)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
+import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 tuiContestationPeriod :: ContestationPeriod
@@ -181,17 +181,18 @@ setupNodeAndTUI' lovelace action =
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
+
         -- create user key used for committing to a Head
-        let externalKeyFilePath = tmpDir </> "external.skey"
-        externalSKey <- createAndSaveSecretKey externalKeyFilePath
+        let externalKeyFilePath = tmpDir </> "external.sk"
+        externalSKey <- createAndSaveSigningKey externalKeyFilePath
+
         let externalVKey = getVerificationKey externalSKey
+        -- Some ADA to commit
+        seedFromFaucet_ node externalVKey 42_000_000 Normal (contramap FromFaucet tracer)
 
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
           seedFromFaucet_ node aliceCardanoVk lovelace Fuel (contramap FromFaucet tracer)
-          -- Some ADA to commit
-          seedFromFaucet_ node externalVKey 42_000_000 Normal (contramap FromFaucet tracer)
-
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
@@ -207,7 +208,6 @@ setupNodeAndTUI' lovelace action =
                         nodeSocket
                     , cardanoNetworkId =
                         networkId
-                      -- NOTE: TUI Client uses this key to do the external commit
                     , cardanoSigningKey = externalKeyFilePath
                     }
               )

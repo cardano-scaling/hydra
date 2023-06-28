@@ -30,6 +30,7 @@ data Options = Options
   , cardanoNodeSocket :: FilePath
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
+  -- ^ User key used by the tui client to commit
   }
   deriving stock (Eq, Show)
 

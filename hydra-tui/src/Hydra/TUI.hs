@@ -247,17 +247,17 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
             | c `elem` ['q', 'Q'] ->
                 halt s
             | c `elem` ['i', 'I'] ->
-                sendInputAndTransition sendInput s Init
+                liftIO (sendInput Init) >> setPending s
             | c `elem` ['a', 'A'] ->
-                sendInputAndTransition sendInput s Abort
+                liftIO (sendInput Abort) >> setPending s
             | c `elem` ['f', 'F'] ->
-                sendInputAndTransition sendInput s Fanout
+                liftIO (sendInput Fanout) >> setPending s
             | c `elem` ['c', 'C'] ->
                 case s ^? headStateL of
                   Just Initializing{} ->
                     showCommitDialog client cardanoClient s
                   Just Open{} ->
-                    sendInputAndTransition sendInput s Close
+                    liftIO (sendInput Close) >> setPending s
                   _ ->
                     continue s
             | c `elem` ['n', 'N'] ->
@@ -275,15 +275,15 @@ handleEvent client@Client{sendInput} cardanoClient s = \case
   e ->
     continue $ s & warn ("unhandled event: " <> show e)
 
-sendInputAndTransition :: (a -> IO ()) -> State -> a -> EventM n (Next State)
-sendInputAndTransition sendAction s input = case s ^? pendingL of
-  Just Pending -> do
-    continue $ s & info "Transition already pending"
-  Just NotPending -> do
-    liftIO $ sendAction input
-    continue $ s & initPending
-  -- XXX: Not connected is impossible here (smell -> refactor)
-  Nothing -> continue s
+setPending :: State -> EventM n (Next State)
+setPending s =
+  case s ^? pendingL of
+    Just Pending -> do
+      continue $ s & info "Transition already pending"
+    Just NotPending -> do
+      continue $ s & initPending
+    -- XXX: Not connected is impossible here (smell -> refactor)
+    Nothing -> continue s
 
 handleAppEvent ::
   State ->
@@ -447,8 +447,6 @@ showCommitDialog ::
   EventM n (Next State)
 showCommitDialog Client{sk, externalCommit} CardanoClient{queryUTxOByAddress, networkId} s = do
   utxo <- liftIO $ queryUTxOByAddress [ourAddress]
-  -- XXX(SN): this is a hydra implementation detail and should be moved
-  -- somewhere hydra specific
   continue $ s & dialogStateL .~ commitDialog (UTxO.toMap utxo)
  where
   ourAddress =
@@ -464,7 +462,7 @@ showCommitDialog Client{sk, externalCommit} CardanoClient{queryUTxOByAddress, ne
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
-      sendInputAndTransition externalCommit (s' & dialogStateL .~ NoDialog) commitUTxO
+      liftIO (externalCommit commitUTxO) >> setPending (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
   Client Tx IO ->

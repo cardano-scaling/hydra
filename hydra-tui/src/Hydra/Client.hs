@@ -66,7 +66,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
       Client
         { sendInput = atomically . writeTBQueue q
         , sk
-        , externalCommit
+        , externalCommit = externalCommit' sk
         }
  where
   readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
@@ -95,18 +95,17 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
   handleDisconnect f =
     callback ClientDisconnected >> threadDelay 1 >> reconnect f
 
-  externalCommit payload =
+  externalCommit' sk payload =
     runReq defaultHttpConfig request
       <&> responseBody
-      >>= \DraftCommitTxResponse{commitTx} -> do
-        sk <- readExternalSk
+      >>= \DraftCommitTxResponse{commitTx} ->
         submitTransaction cardanoNetworkId cardanoNodeSocket $ signTx sk commitTx
    where
     request =
       Req.req
         Req.POST
         (Req.http hostname Req./: "commit")
-        (Req.ReqBodyLbs . encode . DraftCommitTxRequest $ (`TxOutWithWitness` Nothing) <$> payload)
+        (Req.ReqBodyJson . DraftCommitTxRequest $ (`TxOutWithWitness` Nothing) <$> payload)
         Req.jsonResponse
         (Req.port $ fromIntegral port)
 
