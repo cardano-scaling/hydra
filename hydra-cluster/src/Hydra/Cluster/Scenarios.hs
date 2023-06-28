@@ -19,7 +19,12 @@ import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), ScriptInfo (..), TxOutWithWitness (..))
+import Hydra.API.RestServer (
+  DraftCommitTxRequest (..),
+  DraftCommitTxResponse (..),
+  ScriptInfo (..),
+  TxOutWithWitness (..),
+ )
 import Hydra.Cardano.Api (
   Lovelace (..),
   PlutusScriptV2,
@@ -228,7 +233,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       -- Commit the script output using known witness
       let clientPayload =
             DraftCommitTxRequest
-              { utxos =
+              { utxoToCommit =
                   UTxO.singleton
                     ( scriptTxIn
                     , TxOutWithWitness

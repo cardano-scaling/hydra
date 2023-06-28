@@ -68,8 +68,9 @@ prop_validateJSONSchema specFileName selector =
             writeFileLBS jsonInput (Aeson.encode samples)
             writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
         monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
-        (exitCode, _out, err) <- run $ do
+        (exitCode, out, err) <- run $ do
           readProcessWithExitCode "jsonschema" ["-i", jsonInput, jsonSchema] mempty
+        monitor $ counterexample out
         monitor $ counterexample err
         assert (exitCode == ExitSuccess)
 
