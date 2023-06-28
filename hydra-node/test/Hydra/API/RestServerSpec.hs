@@ -20,9 +20,11 @@ spec = parallel $ do
   prop "Validate /commit publish api schema" $
     property $
       withMaxSuccess 1 $
-        prop_validateJSONSchema @DraftCommitTxRequest "api.json" (key "components" . key "messages")
+        prop_validateJSONSchema @DraftCommitTxRequest "api.json" $
+          key "components" . key "messages" . key "DraftCommitTxRequest" . key "payload"
 
   prop "Validate /commit subscribe api schema" $
     property $
       withMaxSuccess 1 $
-        prop_validateJSONSchema @DraftCommitTxResponse "api.json" (key "channels" . key "/commit" . key "subscribe")
+        prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
+          key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
