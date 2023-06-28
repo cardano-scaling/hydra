@@ -369,14 +369,14 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right requestInput@DraftCommitTxRequest{utxos} -> do
+    Right requestInput@DraftCommitTxRequest{utxoToCommit} -> do
       traceWith tracer $
         APIRestInputReceived
           { method = decodeUtf8 reqMethod
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxos
+      eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxoToCommit
       respond $
         case eCommitTx of
           Left e ->

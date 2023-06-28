@@ -228,7 +228,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       -- Commit the script output using known witness
       let clientPayload =
             DraftCommitTxRequest
-              { utxos =
+              { utxoToCommit =
                   UTxO.singleton
                     ( scriptTxIn
                     , TxOutWithWitness

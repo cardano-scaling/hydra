@@ -93,10 +93,10 @@ instance Arbitrary TxOutWithWitness where
 deriving newtype instance Arbitrary (UTxO' TxOutWithWitness)
 
 newtype DraftCommitTxRequest = DraftCommitTxRequest
-  { utxos :: UTxO' TxOutWithWitness
+  { utxoToCommit :: UTxO' TxOutWithWitness
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving newtype (ToJSON, FromJSON)
 
 instance Arbitrary DraftCommitTxRequest where
   arbitrary = genericArbitrary

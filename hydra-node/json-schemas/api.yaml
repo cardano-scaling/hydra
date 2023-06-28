@@ -751,39 +751,30 @@ components:
         Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
         Script utxos must provide a witness, regulars can omit this.
       payload:
-        type: object
-        required:
-          - utxos
-        additionalProperties: false
-        properties:
-          utxos:
-            $ref: "api.yaml#/components/schemas/UTxOWithWitness"
+        $ref: "api.yaml#/components/schemas/UTxOWithWitness"
         example:
           {
-            "utxos":
-              {
-                "0406060506030602040508060506060306050406020207000508040704040203#89": {
-                  "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
-                  "value": {
-                    "lovelace": 7620669
-                  }
-                },
-                "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
-                  "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
-                  "value": {
-                    "lovelace": 7620669
-                  },
-                  "witness": {
-                      "datum": "02",
-                      "plutusV2Script": {
-                          "cborHex": "420606",
-                          "description": "",
-                          "type": "PlutusScriptV2"
-                      },
-                      "redeemer": "21"
-                  }
-                }
+            "0406060506030602040508060506060306050406020207000508040704040203#89": {
+              "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
+              "value": {
+                "lovelace": 7620669
               }
+            },
+            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+              "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+              "value": {
+                "lovelace": 7620669
+              },
+              "witness": {
+                  "datum": "02",
+                  "plutusV2Script": {
+                      "cborHex": "420606",
+                      "description": "",
+                      "type": "PlutusScriptV2"
+                  },
+                  "redeemer": "21"
+              }
+            }
           }
 
     DraftCommitTxResponse:
