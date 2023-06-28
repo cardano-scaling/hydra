@@ -1,28 +1,37 @@
 # Hydra for Auctions
 
-> Layer 1 redeemable vouchers negotiated on layer 2.
+> Using Hydra for Digital Asset Auctions
 
-NFT drops can be a real problem when run on L1, generating a lot of UTxO and transactions in a short amount of time, clogging the network and leading to congestion and general slowdowns. The problem seems to come not much from the NFTs themselves but from the large of number of bidding transactions people post to grab some.
+### Introduction: Using Hydra for Digital Asset Auctions 
+Cardano makes minting and sending non-fungible tokens (NFTs) cheap and easy, as the accounting system for non-ADA tokens is hosted in the ledger itself (alongside ADA) instead of complicated and bug-prone custom smart contracts. This has led to a vibrant NFT ecosystem on Cardano for art, music, identity, real estate, gaming, service subscriptions, etc.
+[Diagram showing all the icons for NFT projects]
+High-quality marketplaces now exist on Cardano to list, view, and purchase all sorts of NFTs. These NFT marketplaces have very friendly user interfaces that can neatly display images/animations, rarity charts, royalty terms, and other metadata for the NFTs, which can be purchased at the seller’s list price or via a buyer’s alternative offer. However, the novelty of the digital and non-digital assets being tokenized on Cardano and the relatively small market size makes price discovery a challenge in the NFT sector.
 
-We sketch a way to run NFT auctions inside Hydra Head that would alleviate that problem. Here is an outline of the sequence of transactions involved, both on-chain and off-chain:
-
-![](./diagram.png)
-
-- The auctioneer forges some "auction tokens" (a.k.a VT) representing participation in an auction for some NFT;
-- The auctioneer commits the ATs in a Head;
-- The Auction ATs can be "grabbed" by bidders to bid some amounts for a given NFT auction;
-- The bidders do not have to be Head parties<sup>1</sup>, they just do "normal" cardano transactions to grab a bid token and then possibly keep bidding until the auction ends;
-- The auctioneer posts a settlement transaction that consumes all current bids at some point, producing a voucher for the NFT to be sent to Bob if he pays V2'. The voucher is only valid if produced by this script, and there might be some reserve price to ensure price does not fall below some threshold;
-- Then Head is closed and the voucher is posted on-chain;
-- Bob can redeem his NFT, paying V2' to the auctioneer.
-
-The auctioneer runs the risk of opening/closing a Head with the winner not reclaiming his NFT. If it does not run the head itself, it runs the risk of the Head parties rigging the auction but in the worst case, the Head is closed with someone having a voucher to claim the NFT at a reserved price, or the NFTs themselves are paid back to auctioneer.
-
-The bidders run the same risk of bidding in a rigged auction but in the worst case, they can refuse to pay for the NFT. Anyhow, this setup would offer already a much better security story than all the fully custodial NFT drops done on Cardano today
-
-:::info NOTES 
-
-1. In this scenario, the Head is initialised by the auctioneer. It could be a "Managed Head" or "Head-as-a-Service", e.g. The auctioneer does not run a Hydra node but uses some third-party provider to run the node. A single-party head might not seem to make much sense but in this case it's just a way to do Cardano transactions with smart-contracts faster than on the mainchain.
-
-2. This use case is _extracted_ from a [conversation that happened on Github](https://github.com/input-output-hk/hydra/discussions/116). Have a look at the conversation for details and/or to comment.
+:::tip [Diagram of UI of a typical marketplace on Cardano]
 :::
+
+Auctions are an efficient mechanism for price discovery when the items being sold are novel or unique (e.g. artworks), when the most efficient allocations are hard to determine in advance (radio spectrum), or when there are concerns about insider trading and collusion (bankruptcy fire sales). In a traditional marketplace, a seller lists an item at a particular price and the first buyer to match it can purchase the item at that price – if the seller’s price was set too low, then the buyer will immediately re-list the item to sell it for an arbitrage profit. In an auction marketplace, the seller can instead wait for the price to settle in a competitive bidding process before selling the item to the highest bidder.
+
+:::tip [Diagram for how an auction works vs marketplace]
+:::
+
+Auctions should be lively and efficient – bidders enter auctions (often serendipitously) with limited time and attention spans, and they will leave if it takes too long for them to make their bids or observe other bidders’ bids. This bidder experience is hard to implement directly on Cardano’s main network (L1), where L1 transactions take time to be added to a block (~10–60 seconds) and confirmed with a sufficiently low probability of rollback (minutes to hours). 
+
+:::tip [Diagram for L1 transaction delays]
+:::
+
+However, the auction bidding mechanism is a perfect candidate for scaling on L2 via the Hydra technology, as transactions within a Hydra Head have short confirmation delays and immediate finality. A compelling L2-powered auction service can be built on Cardano if it is developed in a way that makes use of Hydra’s strengths.
+
+We envision that the Hydra-based auction framework will become a standard modular component that NFT marketplaces, games, and other Web 3.0 applications will plug into their architectures to add digital asset auctions to their product. Furthermore, it will stimulate a new business ecosystem for professional scalability providers to offer L2 hosting services to these applications, similar to the stakepool ecosystem and the emerging governance ecosystem.
+
+One possible path to realizing this vision could progress along the following set of milestones that we believe are feasible to implement using Hydra and its anticipated improvements:
+
+- Delegated voucher auction (invitational) – the first complete prototype of an auction that can host its bidding process on L2.
+
+- Delegated voucher auction (open + fully collateralized) – this would extend the initial prototype by enabling open auctions, where bidders can freely participate without permission from sellers. It would require bids to be fully collateralized upon submission.
+
+- Production-ready SDK for delegated voucher auctions – Prototypes could be made ready  for deployment as real-world services, wrapped in a software development kit (SDK).
+
+- Always-on delegated auction service (single-head) – This would allow a single persistent Hydra head to host multiple auctions over time without closing. Hydra Head operators would be able to build a business model offering L2-hosting services for auctions.
+
+- Always-on delegated auction service (multi-head) – This would allow an auction to split its bidding process among multiple Hydra Head hosts, reducing the reliance on any one Hydra Head.
