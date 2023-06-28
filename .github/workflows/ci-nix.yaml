@@ -304,46 +304,7 @@ jobs:
         path: docs/static/
 
     - name: 📚 Documentation sanity check
-      if: github.ref_name != 'master' && github.ref_name != 'release'
       working-directory: docs
       run: |
         yarn
         yarn build-dev
-
-    - name: 📚 Documentation
-      if: github.ref_name == 'master' || github.ref_name == 'release'
-      working-directory: docs
-      run: |
-        yarn && yarn build
-        rm -rf public
-        mkdir public
-        mv build/* public
-
-    - name: 💾 Upload docs artifact
-      if: github.ref_name == 'master' || github.ref_name == 'release'
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs
-        path: docs/public
-
-    - name: 📚 Prepare /unstable Documentation
-      if: github.ref_name == 'master'
-      working-directory: docs
-      run: |
-        sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
-
-    - name: 📚 /unstable Documentation
-      if: github.ref_name == 'master'
-      working-directory: docs
-      run: |
-        yarn && yarn build
-        rm -rf public
-        mkdir public
-        mv build/* public
-
-    - name: 💾 Upload /unstable docs artifact
-      if: github.ref_name == 'master'
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs-unstable
-        path: docs/public
