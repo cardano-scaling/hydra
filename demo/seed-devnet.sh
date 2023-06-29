@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
-# Seed a "devnet" by distributing some Ada to commit and also some marked as
-# "fuel" for the Hydra Head.
+# Seed a "devnet" by distributing fuel to hydra nodes and also some Ada to
+# commit to the Hydra Head.
 set -eo pipefail
 
-MARKER_DATUM_HASH="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
 SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
 NETWORK_ID=42
 
@@ -51,8 +50,7 @@ function hnode() {
 function seedFaucet() {
     ACTOR=${1}
     AMOUNT=${2}
-    MARKED=${3:-"normal"}
-    echo >&2 "Seeding a UTXO from faucet to ${ACTOR} with ${AMOUNT}Ł (${MARKED})"
+    echo >&2 "Seeding a UTXO from faucet to ${ACTOR} with ${AMOUNT}Ł"
 
     # Determine faucet address and just the **first** txin addressed to it
     FAUCET_ADDR=$(ccli address build --payment-verification-key-file ${DEVNET_DIR}/credentials/faucet.vk)
@@ -60,17 +58,10 @@ function seedFaucet() {
 
     ACTOR_ADDR=$(ccli address build --payment-verification-key-file ${DEVNET_DIR}/credentials/${ACTOR}.vk)
 
-    # Optionally mark output
-    MARKER=""
-    if [[ "${MARKED}" == "fuel" ]]; then
-        MARKER="--tx-out-datum-hash ${MARKER_DATUM_HASH}"
-    fi
-
     ccli transaction build --babbage-era --cardano-mode \
         --change-address ${FAUCET_ADDR} \
         --tx-in ${FAUCET_TXIN} \
         --tx-out ${ACTOR_ADDR}+${AMOUNT} \
-        ${MARKER} \
         --out-file ${DEVNET_DIR}/seed-${ACTOR}.draft >&2
     ccli transaction sign \
         --tx-body-file ${DEVNET_DIR}/seed-${ACTOR}.draft \
@@ -97,12 +88,14 @@ function publishReferenceScripts() {
     --cardano-signing-key devnet/credentials/faucet.sk
 }
 
-seedFaucet "alice" 1000000000 # 1000 Ada to commit
-seedFaucet "alice" 100000000 "fuel" # 100 Ada marked as "fuel"
-seedFaucet "bob" 500000000 # 500 Ada to commit
-seedFaucet "bob" 100000000 "fuel" # 100 Ada marked as "fuel"
-seedFaucet "carol" 250000000 # 250 Ada to commit
-seedFaucet "carol" 100000000 "fuel" # 100 Ada marked as "fuel"
+echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
+seedFaucet "alice" 20000000 # 20 Ada fuel available to the node
+seedFaucet "bob" 20000000 # 20 Ada fuel available to the node
+seedFaucet "carol" 20000000 # 20 Ada fuel available to the node
+echo >&2 "Distributing funds to alice, bob and carol..."
+seedFaucet "alice-funds" 100000000 # 100 Ada to commit
+seedFaucet "bob-funds" 50000000 # 50 Ada to commit
+seedFaucet "carol-funds" 25000000 # 25 Ada to commit
 echo "HYDRA_SCRIPTS_TX_ID=$(publishReferenceScripts)" > .env
 echo >&2 "Environment variable stored in '.env'"
 echo >&2 -e "\n\t$(cat .env)\n"

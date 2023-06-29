@@ -512,7 +512,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 
     form =
       -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
-      let field = editShowableFieldWithValidate (lens id const) "amount" (\n -> n > 0 && n <= limit)
+      let field = editShowableFieldWithValidate (lens id (\_ newValue -> newValue)) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
 
     submit s' amount = do

@@ -52,7 +52,7 @@ cardano-node run \
 
 ## Seeding The Network
 
-You can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
+From the `demo` folder you can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
 
 <TerminalWindow>
 
@@ -95,7 +95,7 @@ source .env && hydra-node \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
-  --persistence-dir persistence/alice
+  --persistence-dir devnet/persistence/alice
 ```
 
 </TerminalWindow>
@@ -119,7 +119,7 @@ source .env && hydra-node \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
-  --persistence-dir persistence/bob
+  --persistence-dir devnet/persistence/bob
 ```
 
 </TerminalWindow>
@@ -143,7 +143,7 @@ source .env && hydra-node \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
-  --persistence-dir persistence/carol
+  --persistence-dir devnet/persistence/carol
 ```
 
 </TerminalWindow>
@@ -168,7 +168,7 @@ Connect to the nodes using hydra-tui.
 ```
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key devnet/credentials/alice.sk \
+  --cardano-signing-key devnet/credentials/alice-funds.sk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```
@@ -182,7 +182,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4002 \
-  --cardano-signing-key devnet/credentials/bob.sk \
+  --cardano-signing-key devnet/credentials/bob-funds.sk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```
@@ -196,7 +196,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4003 \
-  --cardano-signing-key devnet/credentials/carol.sk \
+  --cardano-signing-key devnet/credentials/carol-funds.sk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
 ```

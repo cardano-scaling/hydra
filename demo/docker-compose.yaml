@@ -137,7 +137,7 @@ services:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/alice.sk"
+      , "--cardano-signing-key", "/devnet/credentials/alice-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet
@@ -156,7 +156,7 @@ services:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/bob.sk"
+      , "--cardano-signing-key", "/devnet/credentials/bob-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet
@@ -175,7 +175,7 @@ services:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/carol.sk"
+      , "--cardano-signing-key", "/devnet/credentials/carol-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet
