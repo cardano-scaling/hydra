@@ -82,7 +82,6 @@ jobs:
           ./**/test-results.xml
           ./**/hspec-results.md
 
-
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
@@ -129,14 +128,14 @@ jobs:
     - name: 📚 Documentation (Haddock)
       run: |
         nix build .?submodules=1#haddocks
-        mkdir -p docs/static/haddock
-        cp -aL result/* docs/static/haddock/
+        mkdir -p haddocks
+        cp -aL result/* haddocks/
 
     - name: 💾 Upload haddock artifact
       uses: actions/upload-artifact@v3
       with:
         name: haddocks
-        path: ./docs/static/haddock
+        path: haddocks
 
   benchmarks:
     name: "Benchmarks"
@@ -146,16 +145,16 @@ jobs:
         include:
           - package: hydra-node
             bench: tx-cost
-            options: '--output-directory $(pwd)/../docs/benchmarks'
+            options: '--output-directory $(pwd)/../benchmarks'
           - package: hydra-node
             bench: micro
-            options: '-o $(pwd)/../docs/static/ledger-bench.html'
+            options: '-o $(pwd)/../benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: 'datasets datasets/3-nodes.json datasets/1-node.json --output-directory $(pwd)/../docs/benchmarks --timeout 1000s'
+            options: 'datasets datasets/3-nodes.json datasets/1-node.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
           - package: plutus-merkle-tree
             bench: on-chain-cost
-            options: '--output-directory $(pwd)/../docs/benchmarks'
+            options: '--output-directory $(pwd)/../benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
@@ -175,6 +174,7 @@ jobs:
 
     - name: 📈 Benchmark
       run: |
+        mkdir -p benchmarks
         cd ${{ matrix.package }}
         nix develop .?submodules=1#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
 
@@ -182,7 +182,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: benchmarks
-        path: ./docs/benchmarks
+        path: benchmarks
 
   publish-benchmark-results:
     name: Publish benchmark results
