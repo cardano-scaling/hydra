@@ -776,7 +776,8 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  IsTx tx =>
+  IsTx tx
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   OpenState tx ->
@@ -795,19 +796,11 @@ onOpenNetworkReqTx env ledger st ttl tx =
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      NewState
-        ( Open
-            st
-              { coordinatedHeadState =
-                  trackTxInState
-                    { seenTxs = seenTxs <> [tx]
-                    , seenUTxO = utxo'
-                    }
-              }
-        )
-        [NewTxReceived{tx, utxo = utxo'}]
-        `Combined` Effects [ClientEffect $ TxValid headId tx]
-        & emitSnapshot env st
+      let event = NewTxReceived{tx, utxo = utxo'}
+          st' = updateHeadState (Open st) event
+       in NewState [event]
+            `Combined` Effects [ClientEffect $ TxValid headId tx]
+            & emitSnapshot env st'
  where
   Ledger{applyTransactions} = ledger
 
@@ -935,7 +928,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   OpenState tx ->
   -- | Party which sent the AckSn.
@@ -959,9 +952,11 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
           requireVerifiedMultisignature multisig snapshot $ do
-            NewState [AckSnConfirmed{snapshot, multisig, allTxs = allTxs'}]
-              `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-              & emitSnapshot env openState
+            let event = AckSnConfirmed{snapshot, multisig, allTxs = allTxs'}
+                st' = updateHeadState (Open openState) event
+             in NewState [event]
+                  `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+                  & emitSnapshot env st'
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -1254,11 +1249,16 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
-emitSnapshot :: Environment -> OpenState tx -> Outcome tx -> Outcome tx
+emitSnapshot :: Environment -> HeadState tx -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} openState outcome =
   case (openState, outcome) of
+<<<<<<< HEAD
     ( OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
       , NewState events
+=======
+    ( Open OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
+      , NewState events effects
+>>>>>>> 2cb5a3434 (Add tmp fix for emitSnapshot)
       ) ->
         case newSn env parameters csh of
           ShouldSnapshot sn txs -> do

@@ -11,7 +11,6 @@ import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
-  HeadState (Open),
   HeadStateEvent (..),
   NoSnapshotReason (..),
   Outcome (..),
@@ -94,17 +93,15 @@ spec = do
                   , confirmedSnapshot = initialSnapshot
                   , seenSnapshot = NoSeenSnapshot
                   }
+              ost = inOpenState' threeParties coordinatedState
+          let expectedEvent = SnapshotEmited{requested = 1, lastSeenSnapshot = NoSeenSnapshot}
+          emitSnapshot (envFor aliceSk) ost (NewState [])
+            `shouldBe` NewState [expectedEvent]
+            `Combined` Effects [NetworkEffect $ ReqSn alice 1 [tx]]
 
-          case inOpenState' threeParties coordinatedState of
-            Open ost -> do
-              let expectedEvent = SnapshotEmited{requested = 1, lastSeenSnapshot = NoSeenSnapshot}
-              emitSnapshot (envFor aliceSk) ost (NewState [])
-                `shouldBe` (NewState [expectedEvent] `Combined` Effects [NetworkEffect $ ReqSn alice 1 [tx]])
-
-              let seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
-                  st' = inOpenState' threeParties $ coordinatedState{seenSnapshot}
-              foldl' updateHeadState (Open ost) [expectedEvent] `shouldBe` st'
-            _ -> Hydra.Prelude.error "unexpected"
+          let seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+              st' = inOpenState' threeParties $ coordinatedState{seenSnapshot}
+          foldl' updateHeadState ost [expectedEvent] `shouldBe` st'
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
