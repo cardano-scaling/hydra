@@ -9,8 +9,6 @@
 , CHaP
 
 , nixpkgs ? iohk-nix.nixpkgs
-
-, gitRev ? ""
 }:
 let
   # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
@@ -54,20 +52,6 @@ let
         packages.hydra-tui.dontStrip = false;
         packages.hydraw.dontStrip = false;
       }
-      # Inject the git revision into hydra-node --version
-      # (see hydra-node/src/Hydra/Options.hs)
-      (
-        let
-          patchGitRevision = ''
-            echo ======= PATCHING --version to ${gitRev} =======
-            export GIT_REVISION=${gitRev}
-          '';
-        in
-        {
-          packages.hydra-node.preBuild = patchGitRevision;
-          packages.hydra-tui.preBuild = patchGitRevision;
-        }
-      )
       # Avoid plutus-tx errors in haddock (see also cabal.project)
       {
         packages.hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];

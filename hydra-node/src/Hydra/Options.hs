@@ -568,7 +568,8 @@ hydraNodeCommand =
     version & \(Version semver _) -> Version semver revision
 
   revision =
-    maybeToList $
+    pure . fromMaybe "unknown" $
+      -- TODO: gitRevision <|> patched in revision
       ($$(envQ "GIT_REVISION") :: Maybe String)
         <|> gitRevision
 

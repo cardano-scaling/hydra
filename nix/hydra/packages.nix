@@ -4,6 +4,7 @@
 , system ? builtins.currentSystem
 , pkgs
 , cardano-node
+, gitRev ? "unknown"
 }:
 let
   nativePkgs = hydraProject.hsPkgs;
@@ -15,9 +16,12 @@ in
 rec {
   hydra-node = nativePkgs.hydra-node.components.exes.hydra-node;
   hydra-node-static = musl64Pkgs.hydra-node.components.exes.hydra-node;
+
   hydra-tools-static = musl64Pkgs.hydra-node.components.exes.hydra-tools;
+
   hydra-tui = nativePkgs.hydra-tui.components.exes.hydra-tui;
   hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
+
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
