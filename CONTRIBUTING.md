@@ -172,12 +172,11 @@ During development
 
 To perform a release of next `<version>`:
 
-1. Publish hydra scripts onto `preview`, `pre-prod`, and `mainnet` using the
-   [smoke test][smoke-test] and update transaction ids in our documentation,
-   examples and `testnets/<network/hydra-scripts-tx-id` files. This will also be
-   the green light for the next step.
-2. Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) in CHANGELOG.md
-3. run `./release.sh` with `<version>` and the just published `hydra-scripts-tx-id` from step 1
+1. Publish hydra scripts onto `preview`, `preprod`, and `mainnet` using the
+   [smoke test][smoke-test] and take note of the transaction ids.
+2. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
+   [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
+3. Run `./release.sh <version>`
 4. Make branch *release* point to your release tag (so that the website is published)
 5. Create a github release page containing
    * The released changes (formatted) and giving credit where credit is due
