@@ -22,7 +22,17 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), collectEffects, defaultTTL)
+import Hydra.HeadLogic (
+  Effect (..),
+  Environment (..),
+  Event (..),
+  HeadState (..),
+  HeadStateEvent,
+  Outcome (..),
+  collectEffects,
+  defaultTTL,
+  updateHeadState,
+ )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -60,7 +70,7 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  , persistence :: Persistence (HeadStateEvent tx) m
   }
 
 data HydraNodeLog tx
@@ -118,7 +128,7 @@ stepHydraNode tracer node = do
     NoOutcome -> pure ()
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    NewState s -> save s
+    NewState events -> mapM_ save events
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -154,7 +164,9 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
   handleOutcome s = \case
     NoOutcome -> (NoOutcome, s)
     Effects effects -> (Effects effects, s)
-    NewState s' -> (NewState s', s')
+    NewState events ->
+      let s' = foldl' updateHeadState s events
+       in (NewState events, s')
     Error err -> (Error err, s)
     Wait reason -> (Wait reason, s)
     Combined l r ->
