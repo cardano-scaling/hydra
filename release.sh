@@ -55,7 +55,9 @@ prepare_release() {
 
   git tag -as "$version" -F <(changelog "$version")
 
-  git merge release "${version}" --ff-only
+  # Make branch release point to tag so that the website is published
+  git checkout release
+  git merge "${version}" --ff-only
 }
 
 publish_release() {
