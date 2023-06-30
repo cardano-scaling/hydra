@@ -7,6 +7,46 @@
 , gitRev ? "unknown"
 }:
 let
+  lib = pkgs.lib;
+
+  # Creates a fixed length string by padding with given filler as suffix.
+  padSuffix = width: filler: str:
+    let
+      strw = lib.stringLength str;
+      reqWidth = width - (lib.stringLength filler);
+    in
+    assert lib.assertMsg (strw <= width)
+      "padSuffix: requested string length (${toString width}) must not be shorter than actual length (${toString strw})";
+    if strw == width then str else padSuffix reqWidth filler str + filler;
+
+  paddedRevision = padSuffix 40 " " gitRev;
+
+  # Placeholder used to 'embedRevision'. See also hydra-prelude/cbits/revision.c
+  placeholder = "0000000000000000000000000000000000000000";
+
+  # Takes a derivation with a single executable and embeds the given revision
+  # into this executable.
+  embedRevision = drv: exe: rev:
+    assert lib.assertMsg
+      (lib.stringLength placeholder == lib.stringLength rev)
+      "Mismatching length of placeholder (${placeholder}) and rev (${rev})";
+
+    pkgs.runCommandCC "${exe}-with-revision" { } ''
+      set -e
+
+      echo "Patching embedded git revision in ${exe} to ${rev} ..."
+
+      # Ensure only one occurrence of placeholder
+      if [[ $(strings ${drv}/bin/${exe} | grep -c ${placeholder}) -ne 1 ]]; then
+        echo "Not exactly one occurrence of ${placeholder} in ${drv}/bin/${exe}!"
+        exit 1
+      fi
+
+      mkdir -p $out/bin
+      sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
+      chmod +x $out/bin/${exe}
+    '';
+
   nativePkgs = hydraProject.hsPkgs;
   # Allow reinstallation of terminfo as it's not installed with cross compilers.
   patchedForCrossProject = hydraProject.hsPkgs.appendModule
@@ -14,13 +54,30 @@ let
   musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 in
 rec {
-  hydra-node = nativePkgs.hydra-node.components.exes.hydra-node;
-  hydra-node-static = musl64Pkgs.hydra-node.components.exes.hydra-node;
+  hydra-node =
+    embedRevision
+      nativePkgs.hydra-node.components.exes.hydra-node
+      "hydra-node"
+      paddedRevision;
+
+  hydra-node-static =
+    embedRevision
+      musl64Pkgs.hydra-node.components.exes.hydra-node
+      "hydra-node"
+      paddedRevision;
 
   hydra-tools-static = musl64Pkgs.hydra-node.components.exes.hydra-tools;
 
-  hydra-tui = nativePkgs.hydra-tui.components.exes.hydra-tui;
-  hydra-tui-static = musl64Pkgs.hydra-tui.components.exes.hydra-tui;
+  hydra-tui =
+    embedRevision
+      nativePkgs.hydra-tui.components.exes.hydra-tui
+      "hydra-tui"
+      paddedRevision;
+  hydra-tui-static =
+    embedRevision
+      musl64Pkgs.hydra-tui.components.exes.hydra-tui
+      "hydra-tui"
+      paddedRevision;
 
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
