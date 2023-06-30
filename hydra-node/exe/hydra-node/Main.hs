@@ -22,6 +22,7 @@ import Hydra.HeadLogic (
   OpenState (..),
   defaultTTL,
   getChainState,
+  updateHeadState,
  )
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -56,7 +57,12 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (
+  Persistence (load),
+  PersistenceIncremental (loadAll),
+  createPersistence,
+  createPersistenceIncremental,
+ )
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -81,15 +87,18 @@ main = do
         eq@EventQueue{putEvent} <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
-        persistence <- createPersistence $ persistenceDir <> "/state"
+        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         hs <-
-          load persistence >>= \case
-            Nothing -> do
+          loadAll persistence >>= \case
+            [] -> do
               traceWith tracer CreatedState
               pure $ Idle IdleState{chainState = initialChainState}
-            Just headState -> do
+            events -> do
               traceWith tracer LoadedState
-              let paramsMismatch = checkParamsAgainstExistingState headState env
+              let
+                initialState = Idle IdleState{chainState = initialChainState}
+                headState = foldl' updateHeadState initialState events
+                paramsMismatch = checkParamsAgainstExistingState headState env
               unless (null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
                 throwIO $

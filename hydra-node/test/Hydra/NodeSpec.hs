@@ -43,7 +43,7 @@ import Hydra.Node (
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (Persistence (Persistence, load, save))
+import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 
@@ -195,9 +195,9 @@ createHydraNode signingKey otherParties contestationPeriod events = do
             , contestationPeriod
             }
       , persistence =
-          Persistence
-            { save = const $ pure ()
-            , load = failure "unexpected load"
+          PersistenceIncremental
+            { append = const $ pure ()
+            , loadAll = failure "unexpected loadAll"
             }
       }
  where
