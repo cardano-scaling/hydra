@@ -8,78 +8,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.11.0] - UNRELEASED
+## [0.11.0] - 2023-06-30
 
-This release contains several breaking changes and you'll need to apply the
-following procedure to upgrade all the nodes running a head:
+This release contains breaking changes of the persistence and on-chain scripts
+and you'll need to apply the following procedure to upgrade _all the nodes_
+running a head:
 
 1. Close the head
 2. Stop `hydra-node`
 3. Remove persistent files stored in `--persistence-dir`, in particular
    `server-output` and `state`
 4. Upgrade `hydra-node` version
-5. Start new `hydra-node` version
+5. Start new `hydra-node` version with new `--hydra-scriptx-tx-id` and updated
+   command line options.
+6. Open a new head
 
-Only when this procedure has been applied to all Hydra nodes can you open a new
-head again.
+---
 
-- **BREAKING** Hydra TUI now uses `--cardano-signing-key` flag to specify a user
-  key used to select UTxO and submit a commit transaction.
+- **BREAKING** Allow to commit multiple `UTxO` [#774](774)
+    - This changes `hydra-plutus` scripts to allow commit transactions which
+      spend multiple UTxOs into a Hydra head.
+    - Removes the `MoreThanOneUTxOCommitted` server output on the API.
 
-- Fuel removal:
-  + We no longer require marking of some utxo as `Fuel`.
-  + Internal hydra transactions are paid either by using the largest internal
-  wallet utxo or existing fuel marked utxo (deprecated).
+- Suport commits from external wallets [#215](215)
+    - Added the `/commit` HTTP endpoint to the `hydra-node` for creating a draft
+      `commit` transaction to commit requested UTxO into a head. This
+      transaction can be signed and submitted to the network by the hydra client
+      now instead of `hydra-node`.
+    - Commits via `/commit` also allow to commit scripts into a Hydra Head. For
+      that, the UTxO entry in the HTTP request needs to provide a `witness` with
+      scrpit, datum, and redeemer to be used.
+    - Removed the need to mark fuel when using external commits. Fees for Hydra
+      protocol transactions are paid the largest UTxO held by the internal
+      wallet if no marked fuel UTxO is present.
+    - **BREAKING** The `hydra-tui` now uses the `--cardano-signing-key` to
+      select and commit "external funds" to the Hydra Head. If you have used
+      this in the past, make sure to **not use the same key** as also given to
+      the `hydra-node`.
 
-- **BREAKING** Server outputs only transaction ids when issueing a `SnapshotConfirmed` notification to clients.
+- _DEPRECATED_ the `Commit` command to commit funds held by the `hydra-node`
+  internal wallet. Use the external commit feature instead.
 
-- **BREAKING** Allow to commit multiple `UTxO`:
-  + This changes `hydra-plutus` scripts to allow commit transactions which spend
-    multiple UTxOs into a Hydra head.
-  + Removes the `MoreThanOneUTxOCommitted` server output on the API.
+- Make `hydra-node` support time bounded transactions [#196](196)
+    - The `hydra-node` tracks time as seen on-chain and uses that to validate
+      any transactions, which can now use validity ranges the same way as on the
+      layer 1.
+    - Added current chain slot and time to log outputs.
 
-- Provide the option to commit utxo externally. `hydra-node` now has an http
-  endpoint for submitting the utxo user wants to commit which returns back a
-  draft `commit` transaction. This transaction can be signed and submitted to
-  the network by the user now instead of `hydra-node`.
+- **BREAKING** API output `SnapshotConfirmed` only includes transaction ids.
+  [#922](922)
 
-- Make the draft `commit` transaction response json body a tx babbage era text
-envelope so clients can submit it directly to cardano-cli.
+- **BREAKING** Changed to the persisted state by removing the plutus scripts
+  from the internal chain state and adding the `headId`.
+    - Only the `seedTxIn` parameter is stored and the `hydra-node` will use the
+      script compiled into it instead.
+    - This substantially decreases the size of persisted and logged data.
 
-- Decrease verbosity of logs by pairing `BeginEvent`/`EndEvent` and
-  `BeginEffect`/`EndEffect` log items using numeric `eventId` and
-  `effectId`.
-  - Repurpose `log-filter` program to compute duration of events and effects
+- **BREAKING** Changed the `hydra-node` command line options:
+    - Removed `--ledger-genesis` argument and query this information from
+      `cardano-node` now. [#863](863)
+    - `--version` always displays git revision (SHA) alongside the declared
+      version. [#849](849)
 
-- Make `hydra-node` support time bounded transactions.
-  + Introduce time in the Hydra Head transactions.
-  + Users have the option to submit transactions using time validity ranges.
-  + Changes to the logs:
-    - Added current chain slot in OpenState.
-    - Added current chain slot and time in chain Tick.
+- Fixed a bug where `hydra-node` resets head state when replaying close of
+  another head. [#927](927)
 
-- Simplify postTx interface, in chain handle, to not depend on chain state type.
-  + This removed the need to keep the chain state type as part of on-chain effects.
-  + Changes to the logs:
-    - Removed chain state from OnChainEffect.
+- Fixed a bug where `hydra-node` reports a wrong head status on `Greetings`
+  after restart. [#932](932)
 
-- **BREAKING** Change to the persisted state by removing the plutus scripts from
-  the internal chain state.
-  - Only the `seedTxIn` parameter is stored and the `hydra-node` will use the
-    script compiled into it instead.
-  - This substantially decreases the size of persisted and logged data.
+- Decreased verbosity of logs [#849](849)
+    - `BeginEvent`/`EndEvent` and `BeginEffect`/`EndEffect` log items are now
+      paired using a numeric `eventId` and `effectId`.
+    - Repurpose `log-filter` executable to compute duration of events and
+      effects.
 
-- **BREAKING** Change the hydra-node command line options:
-
-  - Removed `--ledger-genesis` argument. Hydra-node queries this information
-    from cardano-node.
-
-  - `hydra-node --version` always displays git revision (SHA) alongside the
-    declared version.
-
-- **BREAKING** persisted state now contains the headId
-
-- **FIX** Hydra node resets head state when replaying close of another head [#927](https://github.com/input-output-hk/hydra/issues/927)
+[#774]: https://github.com/input-output-hk/hydra/pull/774
+[#215]: https://github.com/input-output-hk/hydra/issues/215
+[#196]: https://github.com/input-output-hk/hydra/issues/196
+[#922]: https://github.com/input-output-hk/hydra/pull/922
+[#863]: https://github.com/input-output-hk/hydra/pull/863
+[#849]: https://github.com/input-output-hk/hydra/issues/849
+[#927]: https://github.com/input-output-hk/hydra/issues/927
+[#932]: https://github.com/input-output-hk/hydra/issues/932
+[#849]: https://github.com/input-output-hk/hydra/pull/859
 
 ## [0.10.0] - 2023-05-11
 
@@ -98,7 +109,7 @@ head again.
 
 ---
 
-- Make `hydra-node` compatible to mainnet [#713][713]
+- Make `hydra-node` compatible to mainnet [#713](713)
 
     - **BREAKING** Change to command line options: Replaced `--network-id` with
       `--mainnet` or `--testnet-magic`.
@@ -111,7 +122,7 @@ head again.
   does only rollback it's low level state and not report when a rollback
   happened, under the optimistic assumption that the Hydra protocol transactions
   are still applicable and the Head is unaffected by the rollback. This was
-  needed to avoid [#784][784] and will be further improved in [#185][185]. This
+  needed to avoid [#784](784) and will be further improved in [#185](185). This
   removes `RolledBack` server output from the API and also changes the log
   format of the internal `Rollback` event.
 
@@ -120,24 +131,24 @@ head again.
   outputs, but we would not be able to automatically finalize a head which was
   opened from commits with reference scripts. Reference scripts on the layer 2
   ledger (e.g. included in transactions via `NewTx`) are non-problematic.
-  [#766][766]
+  [#766](766)
 
-- All participants try to collect once seeing the last `commitTx`. [#786][786]
+- All participants try to collect once seeing the last `commitTx`. [#786](786)
   This may lead to misleading errors on the logs about not being able to post
-  collect transactions (see also [#839][839]).
+  collect transactions (see also [#839](839)).
 
 - The `hydra-node` detects misconfiguration and mismatch of command line options
-  with persisted state. [#764][764]
+  with persisted state. [#764](764)
 
 - Fixed a bug where the `hydra-node` would crash sometimes when the
   `cardano-node` switches onto a fork, which is a common event on mainnet.
-  [#560][560]
+  [#560](560)
 
 - **BREAKING** Hydra scripts changed, need to use new `--hydra-scripts-tx-id`
 
     - Check contract continuity of state machine, i.e. that the output with the
       state datum and ST is actually owned by vHead.
-      [#777][777]
+      [#777](777)
 
     - Collect the right value in `collect` transactions (had been dropped for cost
       reasons, but found a constant cost way to do it).
@@ -146,26 +157,26 @@ head again.
 
     - Updated `plutus-tx` tool-chain. This also resulted in changed return type
       of `validatorScript` functions of script modules to `SerialisedScript`.
-      [#826][826]
+      [#826](826)
 
     - Use of a custom script context for `vInitial` and `vCommit` validators to
       reduce cost of transactions again.
-      [#825][825]
+      [#825](825)
 
     - The hydra scripts are persisted in `hydra-plutus/scripts` and golden tests
       ensure they are not changed accidentally.
-      [#772][772]
+      [#772](772)
 
 - **BREAKING** Changes to `hydra-node` API
 
-    - Configurable API using query parameters. [#380][380] Clients can decide to:
+    - Configurable API using query parameters. [#380](380) Clients can decide to:
         - Skip observing history of events before they connected
         - View the transactions in the server output encoded as CBOR
         - Prevent utxo display in `SnapshotConfirmed` server outputs
-          [#808][808]
+          [#808](808)
 
     - `Greetings` message is now only sent last (after replaying history) on
-      connection and added additional information [#813][813]:
+      connection and added additional information [#813](813):
         - `headStatus` - representing current hydra head status
         - `snapshotUtxo` - containing UTxOs and updating on each `SnapshotConfirmed` message
 
@@ -179,20 +190,20 @@ head again.
 - Versioned the documentation website, now the last released, stable is the
   default available at https://hydra.family/head-protocol, while the
   bleeding-edge from `master` branch is available at
-  https://hydra.family/head-protocol/unstable. [#803][803] [#805][805] [#783][783]
+  https://hydra.family/head-protocol/unstable. [#803](803) [#805](805) [#783](783)
 
 - Add the
   [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
   the repository and
   [website](https://hydra.family/head-protocol/core-concepts/specification).
-  [#693][693]
+  [#693](693)
 
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
   also available.
 
-- Use the server-provided `timestamp` of messages in the `hydra-tui`. [#837][837]
+- Use the server-provided `timestamp` of messages in the `hydra-tui`. [#837](837)
 
-- **BREAKING** Changes to `hydra-cardano-api` [#826][826]:
+- **BREAKING** Changes to `hydra-cardano-api` [#826](826):
   - Removed `HasPlutusScriptVersion` and `plutusScriptVersion` with upstream version from `cardano-api`.
   - Renamed `getScriptData` to `txOutScriptData` to not conflict with the new function in `cardano-api`.
   - Changed `toScriptData`, `toLedgerData`, `fromLedgerData`,
