@@ -70,6 +70,7 @@ import Prelude (read)
 data Event = Event
   { submittedAt :: UTCTime
   , validAt :: Maybe UTCTime
+  , invalidAt :: Maybe UTCTime
   , confirmedAt :: Maybe UTCTime
   }
   deriving stock (Generic, Eq, Show)
@@ -135,13 +136,14 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
 
               let confTimes = map (\(_, _, a) -> a) res
                   numberOfTxs = length confTimes
+                  numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
                   below100ms = filter (< 0.1) confTimes
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
                   percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
                   summaryTitle = fromMaybe "Baseline Scenario" title
                   summaryDescription = fromMaybe defaultDescription description
 
-              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription}
+              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription, numberOfInvalidTxs}
 
 defaultDescription :: Text
 defaultDescription = ""
@@ -319,6 +321,7 @@ newTx registry client tx = do
         Event
           { submittedAt = now
           , validAt = Nothing
+          , invalidAt = Nothing
           , confirmedAt = Nothing
           }
   send client $ input "NewTx" ["transaction" .= tx]
@@ -376,8 +379,9 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
             validTx processedTxs (txId transaction)
             go remainingIds
           TxInvalid{transaction} -> do
-            -- NOTE: This should never happen
-            error $ "Transaction invalid:  " <> show transaction
+            let txid = txId transaction
+            invalidTx processedTxs txid
+            go $ Set.delete txid remainingIds
           SnapshotConfirmed{txIds} -> do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
@@ -433,6 +437,16 @@ validTx registry txid = do
   atomically $
     modifyTVar registry $
       Map.adjust (\e -> e{validAt = Just now}) txid
+
+invalidTx ::
+  TVar IO (Map.Map TxId Event) ->
+  TxId ->
+  IO ()
+invalidTx registry txid = do
+  now <- getCurrentTime
+  atomically $
+    modifyTVar registry $
+      Map.adjust (\e -> e{invalidAt = Just now}) txid
 
 analyze :: (TxId, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case

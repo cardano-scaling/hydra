@@ -67,8 +67,10 @@ main =
         -- XXX: Wait between each bench run to give the OS time to cleanup resources??
         threadDelay 10
         try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
-          Left exc -> pure $ Left (dataset, dir, exc)
-          Right summary -> pure $ Right summary
+          Left exc -> pure $ Left (dataset, dir, TestFailed exc)
+          Right summary@Summary{numberOfInvalidTxs}
+            | numberOfInvalidTxs == 0 -> pure $ Right summary
+            | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> benchmarkSucceeded outputDirectory summaries
@@ -79,10 +81,23 @@ main =
     putStrLn $ "Writing dataset to: " <> txsFile
     encodeFile txsFile dataset
 
-benchmarkFailedWith :: FilePath -> HUnitFailure -> IO ()
-benchmarkFailedWith benchDir (HUnitFailure sourceLocation reason) = do
-  putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
-  putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
+data BenchmarkFailed
+  = TestFailed HUnitFailure
+  | InvalidTransactions Int
+
+benchmarkFailedWith :: FilePath -> BenchmarkFailed -> IO ()
+benchmarkFailedWith benchDir = \case
+  (TestFailed (HUnitFailure sourceLocation reason)) -> do
+    putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
+    putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
+  (InvalidTransactions n) -> do
+    putStrLn $ "Benchmark has " <> show n <> " invalid transactions"
+    putStrLn $
+      "Check logs in "
+        <> benchDir
+        <> " or re-run with same dataset, passing '--work-directory="
+        <> benchDir
+        <> "' to the 'single' command"
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 

@@ -12,6 +12,7 @@ type Percent = Double
 data Summary = Summary
   { clusterSize :: Word64
   , numberOfTxs :: Int
+  , numberOfInvalidTxs :: Int
   , averageConfirmationTime :: NominalDiffTime
   , percentBelow100ms :: Percent
   , summaryTitle :: Text
@@ -21,10 +22,11 @@ data Summary = Summary
   deriving anyclass (ToJSON)
 
 textReport :: Summary -> [Text]
-textReport Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}  =
+textReport Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms, numberOfInvalidTxs}  =
   [ "Confirmed txs: " <> show numberOfTxs
   , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
   , "Confirmed below 100ms: " <> show percentBelow100ms <> "%"
+  , "Invalid txs: " <> show numberOfInvalidTxs
   ]
 
 markdownReport :: UTCTime -> [Summary] -> [Text]
@@ -59,7 +61,7 @@ markdownReport now summaries =
     ]
 
   formattedSummary :: Summary -> [Text]
-  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription} =
+  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription, numberOfInvalidTxs} =
     [ ""
     , "## " <> summaryTitle
     , ""
@@ -70,6 +72,7 @@ markdownReport now summaries =
     , "| _Number of txs_ | " <> show numberOfTxs <> " |"
     , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
     , "| _Share of Txs (%) < 100ms_ | " <> show percentBelow100ms <> " |"
+    , "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
     ]
 
 nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
