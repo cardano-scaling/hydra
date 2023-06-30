@@ -384,20 +384,41 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) wher
   arbitrary = genericArbitrary
 
 data HeadStateEvent tx
-  = HeadInitialized {headId :: HeadId, party :: [Party]}
-  | TxCommitted {headId :: HeadId, committer :: Party, utxo :: UTxOType tx}
-  | HeadAborted {headId :: HeadId, utxo :: UTxOType tx}
-  | HeadOpened {headId :: HeadId, initialSnapshot :: ConfirmedSnapshot tx}
-  | NewTxReceived {headId :: HeadId, tx :: tx}
+  = HeadInitialized
+      { headId :: HeadId
+      , contestationPeriod :: ContestationPeriod
+      , parties :: [Party]
+      , newChainState :: ChainStateType tx
+      }
+  | TxCommitted
+      { headId :: HeadId
+      , remainingParties :: Set Party
+      , newCommitted :: Committed tx
+      , newChainState :: ChainStateType tx
+      }
+  | HeadAborted
+      { headId :: HeadId
+      , newChainState :: ChainStateType tx
+      }
+  | HeadOpened
+      { headId :: HeadId
+      , coordinatedHeadState :: CoordinatedHeadState tx
+      , newChainState :: ChainStateType tx
+      }
+  | NewTxReceived
+      { headId :: HeadId
+      , tx :: tx
+      , utxo :: UTxOType tx
+      }
   | ReqSnReceived
       { headId :: HeadId
-      , seenSn :: Snapshot tx
+      , nextSnapshot :: Snapshot tx
       , seenTxs :: [tx]
       , seenUTxO :: UTxOType tx
       }
   | AckSnConfirmed
       { headId :: HeadId
-      , lastSeenSnapshot :: Snapshot tx
+      , snapshot :: Snapshot tx
       , multisig :: MultiSignature (Snapshot tx)
       }
   | AckSnPending
@@ -407,17 +428,131 @@ data HeadStateEvent tx
       }
   | HeadClosed
       { headId :: HeadId
-      , closedSnapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
+      , newChainState :: ChainStateType tx
       }
-  | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadFannedOut {headId :: HeadId, newChainState :: ChainStateType tx}
   | ReadyToFanoutReceived {headId :: HeadId}
-  | TickReceived {headId :: HeadId, chainSlot :: ChainSlot}
+  | TickReceived {headId :: HeadId, currentSlot :: ChainSlot}
   | SnapshotEmited
       { headId :: HeadId
-      , requester :: Party
-      , requestedSnapshot :: Snapshot tx
+      , requested :: SnapshotNumber
+      , lastSeenSnapshot :: SeenSnapshot tx
       }
+
+deriving instance IsChainState tx => Show (HeadStateEvent tx)
+
+updateHeadState ::
+  IsChainState tx =>
+  HeadState tx ->
+  HeadStateEvent tx ->
+  HeadState tx
+updateHeadState st evt = case (st, evt) of
+  (Idle _, HeadInitialized{headId, contestationPeriod, parties, newChainState}) ->
+    Initial
+      InitialState
+        { parameters = HeadParameters{contestationPeriod, parties}
+        , pendingCommits = Set.fromList parties
+        , committed = mempty
+        , chainState = newChainState
+        , headId
+        }
+  (Initial ist, TxCommitted{headId, remainingParties, newCommitted, newChainState}) ->
+    Initial
+      ist
+        { pendingCommits = remainingParties
+        , committed = newCommitted
+        , chainState = newChainState
+        , headId
+        }
+  (Initial _, HeadAborted{newChainState}) ->
+    Idle IdleState{chainState = newChainState}
+  (Initial InitialState{parameters}, HeadOpened{headId, coordinatedHeadState, newChainState}) ->
+    Open
+      OpenState
+        { parameters
+        , coordinatedHeadState
+        , chainState = newChainState
+        , headId
+        , currentSlot = chainStateSlot newChainState
+        }
+  ( Open ost@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{seenTxs}}
+    , NewTxReceived{tx, utxo}
+    ) ->
+      Open
+        ost
+          { coordinatedHeadState =
+              coordinatedHeadState
+                { seenTxs = seenTxs <> [tx]
+                , seenUTxO = utxo
+                }
+          }
+  (Open ost@OpenState{coordinatedHeadState}, ReqSnReceived{nextSnapshot, seenTxs, seenUTxO}) ->
+    Open
+      ost
+        { coordinatedHeadState =
+            coordinatedHeadState
+              { seenSnapshot = SeenSnapshot nextSnapshot mempty
+              , seenTxs
+              , seenUTxO
+              }
+        }
+  (Open ost@OpenState{coordinatedHeadState}, AckSnConfirmed{snapshot, multisig}) ->
+    Open
+      ost
+        { coordinatedHeadState =
+            coordinatedHeadState
+              { confirmedSnapshot =
+                  ConfirmedSnapshot
+                    { snapshot
+                    , signatures = multisig
+                    }
+              , seenSnapshot = LastSeenSnapshot (number snapshot)
+              }
+        }
+  (Open ost@OpenState{coordinatedHeadState}, AckSnPending{snapshot, sigs}) ->
+    Open
+      ost
+        { coordinatedHeadState =
+            coordinatedHeadState
+              { seenSnapshot = SeenSnapshot snapshot sigs
+              }
+        }
+  ( Open OpenState{parameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}
+    , HeadClosed{headId, contestationDeadline, newChainState}
+    ) ->
+      Closed
+        ClosedState
+          { parameters
+          , confirmedSnapshot
+          , contestationDeadline
+          , readyToFanoutSent = False
+          , chainState = newChainState
+          , headId
+          }
+  (Closed _, HeadFannedOut{newChainState}) ->
+    Idle IdleState{chainState = newChainState}
+  (Closed cst, ReadyToFanoutReceived{}) ->
+    Closed cst{readyToFanoutSent = True}
+  (Open ost, TickReceived{currentSlot}) ->
+    Open ost{currentSlot}
+  ( Open ost@OpenState{coordinatedHeadState}
+    , SnapshotEmited{requested, lastSeenSnapshot}
+    ) ->
+      Open
+        ost
+          { coordinatedHeadState =
+              coordinatedHeadState
+                { seenSnapshot =
+                    RequestedSnapshot
+                      { lastSeen = seenSnapshotNumber lastSeenSnapshot
+                      , requested
+                      }
+                }
+          }
+  _ ->
+    Hydra.Prelude.error $
+      "Invalid State Transition: " <> show evt <> " - " <> show st
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
