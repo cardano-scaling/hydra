@@ -11,6 +11,8 @@ import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
+  HeadState (Open),
+  HeadStateEvent (..),
   NoSnapshotReason (..),
   Outcome (..),
   SeenSnapshot (..),
@@ -18,6 +20,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
   isLeader,
   newSn,
+  updateHeadState,
  )
 import Hydra.HeadLogicSpec (inOpenState')
 import Hydra.Ledger (Ledger (..))
@@ -83,16 +86,25 @@ spec = do
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
           let tx = aValidTx 1
-              st = inOpenState' threeParties coordinatedHeadState{seenTxs = [tx]}
-              st' =
-                inOpenState' threeParties $
-                  coordinatedHeadState
-                    { seenTxs = [tx]
-                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
-                    }
+              initialSnapshot = InitialSnapshot initUTxO
+              coordinatedState =
+                CoordinatedHeadState
+                  { seenUTxO = initUTxO
+                  , seenTxs = [tx]
+                  , confirmedSnapshot = initialSnapshot
+                  , seenSnapshot = NoSeenSnapshot
+                  }
 
-          emitSnapshot (envFor aliceSk) (NewState st)
-            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [1]])
+          case inOpenState' threeParties coordinatedState of
+            Open ost -> do
+              let expectedEvent = SnapshotEmited{requested = 1, lastSeenSnapshot = NoSeenSnapshot}
+              emitSnapshot (envFor aliceSk) ost (NewState [])
+                `shouldBe` (NewState [expectedEvent] `Combined` Effects [NetworkEffect $ ReqSn alice 1 [tx]])
+
+              let seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                  st' = inOpenState' threeParties $ coordinatedState{seenSnapshot}
+              foldl' updateHeadState (Open ost) [expectedEvent] `shouldBe` st'
+            _ -> Hydra.Prelude.error "unexpected"
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do

@@ -47,6 +47,7 @@ import Hydra.HeadLogic (
   collectWaits,
   defaultTTL,
   update,
+  updateHeadState,
  )
 import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
@@ -393,7 +394,7 @@ spec =
         outcome1 `hasNoEffectSatisfying` \case
           ClientEffect (ReadyToFanout _) -> True
           _ -> False
-        s1 <- assertNewState outcome1
+        s1 <- assertNewState s0 outcome1
         let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
             someChainSlot = arbitrary `generateWith` 42
             stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline someChainSlot
@@ -412,7 +413,10 @@ spec =
             s1 = update bobEnv ledger s0 closeTxEvent
         s1 `hasEffect` contestTxEffect
         s1 `shouldSatisfy` \case
-          Combined (NewState (Closed ClosedState{})) _ -> True
+          Combined (NewState events) _ ->
+            case foldl' updateHeadState s0 events of
+              Closed ClosedState{} -> True
+              _ -> False
           _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
@@ -596,6 +600,19 @@ getConfirmedSnapshot = \case
   _ ->
     Nothing
 
+-- | Asserts that the update function will update the state (return a NewState) for this Event
+assertUpdateState ::
+  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
+  Environment ->
+  Ledger tx ->
+  Event tx ->
+  m (HeadState tx)
+assertUpdateState env ledger event = do
+  st <- get
+  st' <- assertNewState st $ update env ledger st event
+  put st'
+  pure st'
+
 data StepState tx = StepState
   { headState :: HeadState tx
   , env :: Environment
@@ -609,28 +626,16 @@ step ::
   m (HeadState tx)
 step event = do
   StepState{headState, env, ledger} <- get
-  headState' <- assertNewState $ update env ledger headState event
+  headState' <- assertNewState headState $ update env ledger headState event
   put StepState{env, ledger, headState = headState'}
   pure headState'
 
--- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState ::
-  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
-  Environment ->
-  Ledger tx ->
-  Event tx ->
-  m (HeadState tx)
-assertUpdateState env ledger event = do
-  st <- get
-  st' <- assertNewState $ update env ledger st event
-  put st'
-  pure st'
-
 assertNewState ::
   (HasCallStack, IsChainState tx, Monad m) =>
+  HeadState tx ->
   Outcome tx ->
   m (HeadState tx)
-assertNewState outcome =
+assertNewState s0 outcome =
   -- NewState is about to be superseded when we implement event-sourced persistency
   -- See https://github.com/input-output-hk/hydra/issues/913
   -- In the meantime, we are expecting for an Outcome to only contain one single NewState.
@@ -639,7 +644,9 @@ assertNewState outcome =
     Just newState -> pure newState
  where
   collectStateChanges = \case
-    NewState st -> Just st
+    NewState events ->
+      let st = foldl' updateHeadState s0 events
+       in Just st
     Combined l r -> collectStateChanges l <|> collectStateChanges r
     _ -> Nothing
 
