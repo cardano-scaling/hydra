@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Plot each transaction confirmation time using gnuplot
+# Plot interesting data from a benchmark run
+# - transaction confirmation time
+# - system level metrics
 
 set -e
 
