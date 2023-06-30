@@ -41,8 +41,9 @@ function hnode() {
       ${HYDRA_NODE_CMD} ${@}
   else
       docker run --rm -it \
+        --pull always \
         -v ${SCRIPT_DIR}/devnet:/devnet \
-        ghcr.io/input-output-hk/hydra-node:0.10.0 -- ${@}
+        ghcr.io/input-output-hk/hydra-node:unstable -- ${@}
   fi
 }
 
