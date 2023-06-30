@@ -15,6 +15,7 @@ source-repository head
 
 library
   hs-source-dirs:     src
+  c-sources:          cbits/revision.c
   exposed-modules:
     Hydra.Prelude
     Hydra.Version
