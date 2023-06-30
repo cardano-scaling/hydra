@@ -1252,13 +1252,8 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> HeadState tx -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} openState outcome =
   case (openState, outcome) of
-<<<<<<< HEAD
-    ( OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
-      , NewState events
-=======
     ( Open OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
-      , NewState events effects
->>>>>>> 2cb5a3434 (Add tmp fix for emitSnapshot)
+      , NewState events
       ) ->
         case newSn env parameters csh of
           ShouldSnapshot sn txs -> do
