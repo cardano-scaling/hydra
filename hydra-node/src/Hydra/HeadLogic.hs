@@ -705,10 +705,9 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait T ⊆ T̂
-      waitSeenTxs $ \ resolvedTxs ->
-        -- Spec: wait U̅ ◦ T /= ⊥ combined with Û ← Ū̅ ◦ T
-        -- FIXME: Need to change spec
+      -- Spec: wait T_res ⊆ T
+      waitSeenTxs $ \resolvedTxs ->
+        -- Spec: require U̅ ◦ T_res /= ⊥ combined with Û ← Ū̅ ◦ T_res
         requireApplyTxs resolvedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
           let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
