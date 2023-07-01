@@ -18,6 +18,7 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, values, _JSON)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -31,7 +32,6 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SlotNo (..),
-  Tx,
   TxId,
   TxIn (..),
   VerificationKey,
@@ -42,7 +42,7 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern TxValidityLowerBound,
  )
-import Hydra.Chain (HeadParameters (contestationPeriod, parties))
+import qualified Hydra.Chain.Direct as ChainState
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   Marked (Fuel, Normal),
@@ -75,7 +75,7 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
-import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
+import Hydra.HeadLogic (HeadStateEvent (..))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -437,28 +437,28 @@ spec = around showLogsOnFailure $
             void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
             void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
 
-            -- generate node state to save to a file
-            openState :: OpenState Tx <- generate arbitrary
-            let headParameters = parameters openState
-                stateContestationPeriod = Hydra.Chain.contestationPeriod headParameters
-
-            -- generate one value for CP different from what we have in the state
-            differentContestationPeriod <- generate $ arbitrary `suchThat` (/= stateContestationPeriod)
-
-            -- alter the state to trigger the errors
-            let alteredNodeState =
-                  Open
-                    ( openState
-                        { parameters =
-                            headParameters{contestationPeriod = differentContestationPeriod, parties = []}
-                        }
-                    )
-
-            -- save altered node state
+            let alice = deriveParty hydraSKey
+                -- we do not care about the chain state for this test
+                newChainState = ChainState.initialChainState
+            headId <- generate arbitrary
+            contestationPeriod <- generate arbitrary
+            initialSnapshot <- generate arbitrary
+            -- given a list of random events that leads to some Open state
+            let events =
+                  fromStrict . BS8.unlines $
+                    toStrict . Aeson.encode
+                      <$> [ HeadInitialized{headId, contestationPeriod, parties = [alice], newChainState}
+                          , TxCommitted{remainingParties = Set.empty, newCommitted = Map.empty, newChainState}
+                          , HeadOpened{initialSnapshot, u0 = mempty, newChainState}
+                          ]
+            -- persist the random events
             void $ do
               createDirectoryIfMissing True persistenceDir
-              BSL.writeFile (persistenceDir </> "state") (Aeson.encode alteredNodeState)
+              BSL.writeFile (persistenceDir </> "state") events
 
+            -- generate invalid node args to trigger the error
+            -- by using a different contestationPeriod
+            contestationPeriod' <- generate $ arbitrary `suchThat` (/= contestationPeriod)
             let nodeArgs =
                   toArgs
                     defaultRunOptions
@@ -466,7 +466,7 @@ spec = around showLogsOnFailure $
                           defaultChainConfig
                             { cardanoSigningKey = cardanoSK
                             , nodeSocket
-                            , contestationPeriod = Hydra.Chain.contestationPeriod headParameters
+                            , contestationPeriod = contestationPeriod'
                             }
                       , hydraSigningKey = hydraSK
                       , hydraScriptsTxId
@@ -477,7 +477,8 @@ spec = around showLogsOnFailure $
                             }
                       }
 
-            -- expecting misconfiguration
+            -- expecting misconfiguration because nodeArgs will missmatch
+            -- with the node head-state recovered from persisted events.
             withCreateProcess (proc "hydra-node" nodeArgs){std_out = CreatePipe, std_err = CreatePipe} $
               \_ (Just nodeStdout) (Just nodeStdErr) _ -> do
                 -- we should be able to observe the log
