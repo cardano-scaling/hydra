@@ -35,7 +35,7 @@ textReport Summary{numberOfTxs, averageConfirmationTime, quantiles, numberOfInva
   , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
   , "P99: " <> show (quantiles ! 99) <> "ms"
   , "P95: " <> show (quantiles ! 95) <> "ms"
-  , "P95: " <> show (quantiles ! 50) <> "ms"
+  , "P50: " <> show (quantiles ! 50) <> "ms"
   , "Invalid txs: " <> show numberOfInvalidTxs
   ]
 
