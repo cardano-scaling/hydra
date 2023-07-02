@@ -1,11 +1,15 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+
 module Bench.Summary where
 
 import Hydra.Prelude
 
-import Data.Time (nominalDiffTimeToSeconds)
 import Data.Fixed (Nano)
+import Data.Time (nominalDiffTimeToSeconds)
+import Data.Vector (Vector, (!))
+import Statistics.Quantile (def)
+import qualified Statistics.Quantile as Statistics
 
 type Percent = Double
 
@@ -14,18 +18,24 @@ data Summary = Summary
   , numberOfTxs :: Int
   , numberOfInvalidTxs :: Int
   , averageConfirmationTime :: NominalDiffTime
-  , percentBelow100ms :: Percent
   , summaryTitle :: Text
   , summaryDescription :: Text
+  , quantiles :: Vector Double
   }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
+makeQuantiles :: [NominalDiffTime] -> Vector Double
+makeQuantiles times =
+  Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
+
 textReport :: Summary -> [Text]
-textReport Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms, numberOfInvalidTxs}  =
+textReport Summary{numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs} =
   [ "Confirmed txs: " <> show numberOfTxs
   , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
-  , "Confirmed below 100ms: " <> show percentBelow100ms <> "%"
+  , "P99: " <> show (quantiles ! 99) <> "ms"
+  , "P95: " <> show (quantiles ! 95) <> "ms"
+  , "P95: " <> show (quantiles ! 50) <> "ms"
   , "Invalid txs: " <> show numberOfInvalidTxs
   ]
 
@@ -61,7 +71,7 @@ markdownReport now summaries =
     ]
 
   formattedSummary :: Summary -> [Text]
-  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription, numberOfInvalidTxs} =
+  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs} =
     [ ""
     , "## " <> summaryTitle
     , ""
@@ -71,7 +81,9 @@ markdownReport now summaries =
     , "| -- | -- |"
     , "| _Number of txs_ | " <> show numberOfTxs <> " |"
     , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
-    , "| _Share of Txs (%) < 100ms_ | " <> show percentBelow100ms <> " |"
+    , "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
+    , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
+    , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
     , "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
     ]
 

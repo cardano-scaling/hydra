@@ -7,7 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..))
+import Bench.Summary (Summary (..), makeQuantiles)
 import CardanoClient (awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -137,13 +137,12 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
               let confTimes = map (\(_, _, a) -> a) res
                   numberOfTxs = length confTimes
                   numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
-                  below100ms = filter (< 0.1) confTimes
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
-                  percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
+                  quantiles = makeQuantiles confTimes
                   summaryTitle = fromMaybe "Baseline Scenario" title
                   summaryDescription = fromMaybe defaultDescription description
 
-              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, percentBelow100ms, summaryTitle, summaryDescription, numberOfInvalidTxs}
+              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
 
 defaultDescription :: Text
 defaultDescription = ""

@@ -265,30 +265,32 @@ benchmark bench-e2e
                     , Bench.Options
                     , Bench.Summary
   build-depends:
-    , aeson
-    , base                  >=4.7 && <5
-    , bytestring
-    , cardano-crypto-class
-    , containers
-    , directory
-    , filepath
-    , hspec
-    , HUnit
-    , hydra-cardano-api
-    , hydra-cluster
-    , hydra-node
-    , hydra-prelude
-    , hydra-test-utils
-    , io-classes
-    , lens
-    , lens-aeson
-    , optparse-applicative
-    , process
-    , QuickCheck
-    , regex-tdfa
-    , scientific
-    , strict-containers
-    , time
+                    HUnit
+                , QuickCheck
+                , aeson
+                , base                  >=4.7 && <5
+                , bytestring
+                , cardano-crypto-class
+                , containers
+                , directory
+                , filepath
+                , hspec
+                , hydra-cardano-api
+                , hydra-cluster
+                , hydra-node
+                , hydra-prelude
+                , hydra-test-utils
+                , io-classes
+                , lens
+                , lens-aeson
+                , optparse-applicative
+                , process
+                , regex-tdfa
+                , scientific
+                , statistics
+                , strict-containers
+                , time
+                , vector
 
   build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts
