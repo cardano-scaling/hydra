@@ -9,6 +9,8 @@ import Hydra.Ledger (IsTx, UTxOType)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
+import Cardano.Binary (serialize')
 
 
 data Connectivity
@@ -43,3 +45,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Message tx) where
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
+instance IsTx tx => SignableRepresentation (Message tx) where
+  getSignableRepresentation = serialize'
+

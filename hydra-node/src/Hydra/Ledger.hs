@@ -31,6 +31,8 @@ class
   , FromJSON (UTxOType tx)
   , Monoid (UTxOType tx)
   , ToJSON (UTxOType tx)
+  , FromCBOR (UTxOType tx)
+  , ToCBOR (UTxOType tx)
   ) =>
   IsTx tx
   where
