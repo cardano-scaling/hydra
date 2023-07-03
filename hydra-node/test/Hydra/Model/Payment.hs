@@ -29,12 +29,6 @@ instance Show CardanoSigningKey where
 instance Eq CardanoSigningKey where
   CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
 
-instance ToJSON CardanoSigningKey where
-  toJSON = error "don't use"
-
-instance FromJSON CardanoSigningKey where
-  parseJSON = error "don't use"
-
 instance Arbitrary Value where
   arbitrary = genAdaValue
 
@@ -72,6 +66,24 @@ instance FromCBOR Payment where
 
 instance HasVariables Payment where
   getAllVariables _ = mempty
+
+instance ToJSON CardanoSigningKey where
+  toJSON = error "don't use"
+
+instance FromJSON CardanoSigningKey where
+  parseJSON = error "don't use"
+
+instance ToCBOR CardanoSigningKey where
+  toCBOR = error "don't use"
+
+instance FromCBOR CardanoSigningKey where
+  fromCBOR = error "don't use"
+
+instance ToCBOR Value where
+  toCBOR = error "don't use"
+
+instance FromCBOR Value where
+  fromCBOR = error "don't use"
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where

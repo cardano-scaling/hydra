@@ -295,6 +295,7 @@ test-suite tests
     Hydra.Model.MockChain
     Hydra.Model.Payment
     Hydra.ModelSpec
+    Hydra.Network.AuthenticateSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.Node.EventQueueSpec
