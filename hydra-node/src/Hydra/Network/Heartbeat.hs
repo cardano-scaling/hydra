@@ -58,6 +58,10 @@ instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
       1 -> Ping <$> fromCBOR
       other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
 
+instance ToCBOR msg => SignableRepresentation (Heartbeat msg) where
+  getSignableRepresentation = serialize'
+
+
 -- | Delay between each heartbeat check.
 heartbeatDelay :: DiffTime
 heartbeatDelay = 0.5

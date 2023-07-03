@@ -11,7 +11,13 @@ data Authenticated msg = Authenticated
   { payload :: msg
   , signature :: Signature msg
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance ToCBOR msg => ToCBOR (Authenticated msg) where
+  toCBOR (Authenticated msg sig) = toCBOR msg <> toCBOR sig
+
+instance FromCBOR msg => FromCBOR (Authenticated msg) where
+  fromCBOR = Authenticated <$> fromCBOR <*> fromCBOR
 
 withAuthentication ::
   ( MonadAsync m

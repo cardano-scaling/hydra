@@ -47,7 +47,7 @@ spec = parallel $ do
             [bob]
             ( \incoming _ -> do
                 incoming (Authenticated "1" (sign bobSk "1"))
-                incoming (Authenticated "2" (sign aliceSk "1"))
+                incoming (Authenticated "2" (sign aliceSk "2"))
             )
             (captureIncoming receivedMessages)
             $ \_ ->

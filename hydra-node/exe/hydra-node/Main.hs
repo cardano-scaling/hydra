@@ -56,6 +56,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
 import Hydra.API.ServerOutput (ServerOutput(PeerConnected, PeerDisconnected))
+import Hydra.Network.Authenticate (withAuthentication)
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -73,7 +74,7 @@ main = do
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
-    env@Environment{party, otherParties} <- initEnvironment opts
+    env@Environment{party, otherParties, signingKey} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
