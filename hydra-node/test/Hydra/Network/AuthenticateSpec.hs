@@ -3,15 +3,14 @@ module Hydra.Network.AuthenticateSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
-import Hydra.Network (Network (..), NetworkComponent)
+import Hydra.Crypto (sign)
+import Hydra.Network (Network (..))
 import Hydra.Network.HeartbeatSpec (noop)
-import Hydra.Party (Party (..))
 import Test.Hydra.Fixture (aliceSk, bob, bobSk)
 import Test.QuickCheck (generate)
+import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 
 spec :: Spec
 spec = parallel $ do
@@ -21,7 +20,7 @@ spec = parallel $ do
       captureIncoming receivedMessages msg =
         atomically $ modifyTVar' receivedMessages (msg :)
 
-  fit "pass the authenticated messages around" $ do
+  it "pass the authenticated messages around" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
@@ -39,7 +38,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` ["1"]
 
-  fit "drop unauthenticated messages" $ do
+  it "drop unauthenticated messages" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
@@ -58,7 +57,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` ["1"]
 
-  fit "authenticate the message to broadcast" $ do
+  it "authenticate the message to broadcast" $ do
     signingKey <- generate arbitrary
     let someMessage = "1"
         sentMsgs = runSimOrThrow $ do
@@ -73,25 +72,3 @@ spec = parallel $ do
 
     sentMsgs `shouldBe` [Authenticated "1" (sign signingKey "1")]
 
-data Authenticated msg = Authenticated
-  { payload :: msg
-  , signature :: Signature msg
-  }
-  deriving (Eq, Show)
-
-withAuthentication ::
-  ( MonadAsync m
-  , SignableRepresentation msg
-  ) =>
-  SigningKey HydraKey ->
-  [Party] ->
-  NetworkComponent m (Authenticated msg) a ->
-  NetworkComponent m msg a
-withAuthentication signingKey parties withRawNetwork callback action = do
-  withRawNetwork checkSignature authenticate
- where
-  checkSignature (Authenticated msg sig) = do
-    when (any (\Party{vkey} -> verify vkey sig msg) parties) $
-      callback msg
-  authenticate = \Network{broadcast} ->
-    action $ Network{broadcast = \msg -> broadcast (Authenticated msg (sign signingKey msg))}
