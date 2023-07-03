@@ -21,7 +21,7 @@ spec = parallel $ do
 
       otherNodeId = NodeId "node_id-2"
 
-  it "pass the messages around" $ do
+  fit "pass the messages around" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Integer])
 
@@ -42,7 +42,12 @@ withAuthentication ::
   NodeId ->
   NetworkComponent m (Authenticated msg) a ->
   NetworkComponent m msg a
-withAuthentication = undefined
+withAuthentication nodeId withRawNetwork callback action = do
+    withRawNetwork unpack pack
 
+  where
+    unpack = undefined
+    pack = \rawNetwork ->
+      undefined
 
 
