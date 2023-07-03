@@ -1,12 +1,11 @@
-
 module Hydra.Network.AuthenticateSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
-import Control.Monad.IOSim (runSimOrThrow, IOSim)
-import Hydra.Network (Network (..), NodeId (..), NetworkComponent)
+import Control.Monad.IOSim (IOSim, runSimOrThrow)
+import Hydra.Network (Network (..), NetworkComponent, NodeId (..))
 import Test.Hydra.Fixture (alice, bob)
 
 spec :: Spec
@@ -32,7 +31,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [1]
 
-newtype Authenticated msg = Authenticated { payload ::  msg }
+newtype Authenticated msg = Authenticated {payload :: msg}
 
 withAuthentication ::
   ( MonadAsync m
@@ -43,11 +42,8 @@ withAuthentication ::
   NetworkComponent m (Authenticated msg) a ->
   NetworkComponent m msg a
 withAuthentication nodeId withRawNetwork callback action = do
-    withRawNetwork unpack pack
-
-  where
-    unpack = undefined
-    pack = \rawNetwork ->
-      undefined
-
-
+  withRawNetwork unpack pack
+ where
+  unpack (Authenticated msg) = callback msg
+  pack = \rawNetwork ->
+    undefined
