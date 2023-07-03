@@ -5,12 +5,13 @@ import Test.Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
-import Control.Monad.IOSim (IOSim, runSimOrThrow)
-import Hydra.Crypto (Signature, sign, verify)
-import Hydra.Network (Network (..), NetworkComponent, NodeId (..))
+import Control.Monad.IOSim (runSimOrThrow)
+import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
+import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.HeartbeatSpec (noop)
-import Hydra.Party (Party(..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Hydra.Party (Party (..))
+import Test.Hydra.Fixture (aliceSk, bob, bobSk)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = parallel $ do
@@ -25,6 +26,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
           withAuthentication
+            aliceSk
             [bob]
             ( \incoming _ -> do
                 incoming (Authenticated "1" (sign bobSk "1"))
@@ -42,6 +44,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
           withAuthentication
+            aliceSk
             [bob]
             ( \incoming _ -> do
                 incoming (Authenticated "1" (sign bobSk "1"))
@@ -56,18 +59,19 @@ spec = parallel $ do
     receivedMsgs `shouldBe` ["1"]
 
   fit "authenticate the message to broadcast" $ do
+    signingKey <- generate arbitrary
     let someMessage = "1"
         sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Authenticated ByteString])
 
-          withAuthentication [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withAuthentication signingKey [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
 
           readTVarIO sentMessages
 
-    sentMsgs `shouldBe` [Authenticated "1" (sign bobSk "1")]
+    sentMsgs `shouldBe` [Authenticated "1" (sign signingKey "1")]
 
 data Authenticated msg = Authenticated
   { payload :: msg
@@ -77,18 +81,17 @@ data Authenticated msg = Authenticated
 
 withAuthentication ::
   ( MonadAsync m
-  , MonadDelay m
-  , MonadMonotonicTime m
   , SignableRepresentation msg
   ) =>
+  SigningKey HydraKey ->
   [Party] ->
   NetworkComponent m (Authenticated msg) a ->
   NetworkComponent m msg a
-withAuthentication parties withRawNetwork callback action = do
+withAuthentication signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where
   checkSignature (Authenticated msg sig) = do
     when (any (\Party{vkey} -> verify vkey sig msg) parties) $
       callback msg
   authenticate = \Network{broadcast} ->
-    action $ Network{broadcast = \msg -> broadcast (Authenticated msg (sign bobSk msg))}
+    action $ Network{broadcast = \msg -> broadcast (Authenticated msg (sign signingKey msg))}
