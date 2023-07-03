@@ -121,7 +121,7 @@ library
   build-depends:
     , aeson
     , async
-    , base                  >=4.7 && <5
+    , base                                                              >=4.7     && <5
     , base16
     , bytestring
     , cardano-crypto-class
@@ -147,6 +147,7 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-network
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , process
     , QuickCheck
     , random-shuffle
@@ -160,7 +161,6 @@ library
     , unix
     , unordered-containers
     , websockets
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
 
   ghc-options:     -haddock
 
@@ -216,7 +216,7 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base                       >=4.7 && <5
+    , base                                                              >=4.7     && <5
     , base16-bytestring
     , bytestring
     , cardano-crypto-class
@@ -261,7 +261,11 @@ benchmark bench-e2e
   hs-source-dirs:     bench
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
-  other-modules:      Bench.EndToEnd
+  other-modules:
+    Bench.EndToEnd
+    Bench.Options
+    Bench.Summary
+
   build-depends:
     , aeson
     , base                  >=4.7 && <5
@@ -285,8 +289,10 @@ benchmark bench-e2e
     , QuickCheck
     , regex-tdfa
     , scientific
+    , statistics
     , strict-containers
     , time
+    , vector
 
   build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

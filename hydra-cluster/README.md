@@ -109,22 +109,30 @@ Run the integration test suite with `cabal test`
 
 # Benchmarks
 
-The benchmark can be run using `cabal bench` and produces a `results.csv` file. To plot the transaction confirmation times you can use the `bench/plot.sh` script, passing it the directory containing the benchmark's results.
+The benchmark can be run using `cabal bench` and produces a
+`results.csv` file in a work directory. To plot the transaction
+confirmation times you can use the `bench/plot.sh` script, passing it
+the directory containing the benchmark's results.
 
 To run and plot results of the benchmark:
 
 ```sh
-$ cabal bench
+$ cabal bench --benchmark-options 'single'
 Running 1 benchmarks...
 Benchmark bench-e2e: RUNNING...
 Writing transactions to: /run/user/1000/bench-83d18973f95a554d/txs.json
 [...]
 Writing results to: /run/user/1000/bench-6b772589d08f82a5/results.csv
 Benchmark bench-e2e: FINISH
-$ bench/plot.sh /run/user/1000/bench-6b772589d08f82a5/results.csv
+$ bench/plot.sh /run/user/1000/bench-6b772589d08f82a5
 Created plot: /run/user/1000/bench-6b772589d08f82a5/results.png
 ```
 
-The benchmark provides several options for running, check `cabal bench --benchmark-options --help` for details.
+Note that if it's present in the environment, benchnark executable will gather basic system-level statistics about the RAM, CPU, and network bandwidth used. The `plot.sh` script then displays those alongside tx confirmation time in a single graph.
 
-See [this README](./bench/README.md) for more details on benchmark run results interpretation.
+The benchmark can be run in two modes corresponding to two different commands:
+
+* `single`: Runs a single _dataset_ either freshly generated in some temporary directory or pre-existing. This is useful to either generate data or to run experiments.
+* `datasets`: Runs one or more preexisting _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
+
+Check out `cabal bench --benchmark-options --help` for more details.

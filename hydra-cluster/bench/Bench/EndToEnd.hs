@@ -7,6 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Bench.Summary (Summary (..), makeQuantiles)
 import CardanoClient (awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -69,23 +70,14 @@ import Prelude (read)
 data Event = Event
   { submittedAt :: UTCTime
   , validAt :: Maybe UTCTime
+  , invalidAt :: Maybe UTCTime
   , confirmedAt :: Maybe UTCTime
   }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-type Percent = Double
-
-data Summary = Summary
-  { numberOfTxs :: Int
-  , averageConfirmationTime :: NominalDiffTime
-  , percentBelow100ms :: Percent
-  }
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
-
-bench :: Int -> DiffTime -> FilePath -> Dataset -> Word64 -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
+bench :: Int -> DiffTime -> FilePath -> Dataset -> IO Summary
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} =
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
@@ -93,6 +85,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
         let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         let parties = Set.fromList (deriveParty <$> hydraKeys)
+        let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
@@ -143,10 +136,16 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} clus
 
               let confTimes = map (\(_, _, a) -> a) res
                   numberOfTxs = length confTimes
-                  below100ms = filter (< 0.1) confTimes
+                  numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
                   averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
-                  percentBelow100ms = double (length below100ms) / double numberOfTxs * 100
-              pure $ Summary{numberOfTxs, averageConfirmationTime, percentBelow100ms}
+                  quantiles = makeQuantiles confTimes
+                  summaryTitle = fromMaybe "Baseline Scenario" title
+                  summaryDescription = fromMaybe defaultDescription description
+
+              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
+
+defaultDescription :: Text
+defaultDescription = ""
 
 -- | Collect OS-level stats while running some 'IO' action.
 --
@@ -271,7 +270,7 @@ processTransactions clients Dataset{clientDatasets} = do
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
     submitTxs client registry submissionQ
-      `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId txSequence)
+      `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
       `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
     readTVarIO (processedTxs registry)
 
@@ -321,6 +320,7 @@ newTx registry client tx = do
         Event
           { submittedAt = now
           , validAt = Nothing
+          , invalidAt = Nothing
           , confirmedAt = Nothing
           }
   send client $ input "NewTx" ["transaction" .= tx]
@@ -364,10 +364,9 @@ submitTxs client registry@Registry{processedTxs} submissionQ = do
 waitForAllConfirmations ::
   HydraClient ->
   Registry Tx ->
-  TBQueue IO Tx ->
   Set TxId ->
   IO ()
-waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
+waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   go allIds
  where
   go remainingIds
@@ -379,8 +378,9 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
             validTx processedTxs (txId transaction)
             go remainingIds
           TxInvalid{transaction} -> do
-            atomically $ writeTBQueue submissionQ transaction
-            go remainingIds
+            let txid = txId transaction
+            invalidTx processedTxs txid
+            go $ Set.delete txid remainingIds
           SnapshotConfirmed{txIds} -> do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
@@ -405,8 +405,13 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
     SnapshotConfirmed
-      <$> snapshot ^? key "confirmedTransactions" . _Array . to toList
-      <*> snapshot ^? key "snapshotNumber" . _Number
+      <$> snapshot
+      ^? key "confirmedTransactions"
+      . _Array
+      . to toList
+      <*> snapshot
+      ^? key "snapshotNumber"
+      . _Number
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->
@@ -431,6 +436,16 @@ validTx registry txid = do
   atomically $
     modifyTVar registry $
       Map.adjust (\e -> e{validAt = Just now}) txid
+
+invalidTx ::
+  TVar IO (Map.Map TxId Event) ->
+  TxId ->
+  IO ()
+invalidTx registry txid = do
+  now <- getCurrentTime
+  atomically $
+    modifyTVar registry $
+      Map.adjust (\e -> e{invalidAt = Just now}) txid
 
 analyze :: (TxId, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case
