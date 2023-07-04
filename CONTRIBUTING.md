@@ -177,7 +177,6 @@ To perform a release of next `<version>`:
 2. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
 3. Run `./release.sh <version>`
-4. Make branch *release* point to your release tag (so that the website is published)
 5. Create a github release page containing
    * The released changes (formatted) and giving credit where credit is due
    * Attach static binaries to the release (or link the CI artifact)
