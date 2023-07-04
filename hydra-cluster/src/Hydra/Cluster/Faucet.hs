@@ -127,18 +127,21 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
 
   retryOnExceptions tracer $ do
-    let allLovelace = selectLovelace $ balance @Tx utxo
+    let utxoValue = balance @Tx utxo
+    let allLovelace = selectLovelace utxoValue
+    -- select tokens other than ADA here so we can burn it afterwards
+    let otherTokens = filterValue (/= AdaAssetId) utxoValue
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
     fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
     let returnBalance = allLovelace - fee
-    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx
     void $ awaitTransaction networkId nodeSocket tx
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
  where
-  buildTxBody utxo faucetAddress lovelace =
-    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
+  buildTxBody utxo faucetAddress lovelace otherTokens =
+    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace <> negateValue otherTokens) TxOutDatumNone ReferenceScriptNone
      in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
           Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
           Right body -> pure body
