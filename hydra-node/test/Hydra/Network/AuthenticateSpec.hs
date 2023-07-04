@@ -14,7 +14,8 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
-import Test.Hydra.Fixture (aliceSk, bob, bobSk)
+import Hydra.Party (deriveParty)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (generate, listOf)
 
 spec :: Spec
@@ -33,7 +34,7 @@ spec = parallel $ do
             aliceSk
             [bob]
             ( \incoming _ -> do
-                incoming (Authenticated "1" (sign bobSk "1"))
+                incoming (Authenticated "1" (sign bobSk "1") bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -51,8 +52,8 @@ spec = parallel $ do
             aliceSk
             [bob]
             ( \incoming _ -> do
-                incoming (Authenticated "1" (sign bobSk "1"))
-                incoming (Authenticated "2" (sign aliceSk "2"))
+                incoming (Authenticated "1" (sign bobSk "1") bob)
+                incoming (Authenticated "2" (sign aliceSk "2") alice)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -62,7 +63,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` ["1"]
 
-  it "drop message comming from party with wrong signature" $
+  it "drop message comming from party with wrong signature" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
@@ -78,7 +79,7 @@ spec = parallel $ do
 
           readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` ["1"]
+    receivedMsgs `shouldBe` []
 
   it "authenticate the message to broadcast" $ do
     signingKey <- generate arbitrary
@@ -93,16 +94,14 @@ spec = parallel $ do
 
           readTVarIO sentMessages
 
-    sentMsgs `shouldBe` [Authenticated "1" (sign signingKey "1")]
+    sentMsgs `shouldBe` [Authenticated "1" (sign signingKey "1") (deriveParty signingKey)]
 
   describe "Serialization" $ do
     prop "can roundtrip CBOR encoding/decoding of Authenticated Hydra Message" $
       prop_canRoundtripCBOREncoding @(Authenticated Msg)
-
 
 newtype Msg = Msg ByteString
   deriving newtype (Eq, Show, ToCBOR, FromCBOR, SignableRepresentation)
 
 instance Arbitrary Msg where
   arbitrary = Msg . pack <$> listOf arbitrary
-
