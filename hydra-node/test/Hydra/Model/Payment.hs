@@ -29,8 +29,17 @@ instance Show CardanoSigningKey where
 instance Eq CardanoSigningKey where
   CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
 
-instance Arbitrary Value where
-  arbitrary = genAdaValue
+instance ToJSON CardanoSigningKey where
+  toJSON = error "don't use"
+
+instance FromJSON CardanoSigningKey where
+  parseJSON = error "don't use"
+
+instance ToCBOR CardanoSigningKey where
+  toCBOR = error "don't use"
+
+instance FromCBOR CardanoSigningKey where
+  fromCBOR = error "don't use"
 
 instance Arbitrary CardanoSigningKey where
   arbitrary = CardanoSigningKey . snd <$> genKeyPair
@@ -67,24 +76,6 @@ instance FromCBOR Payment where
 instance HasVariables Payment where
   getAllVariables _ = mempty
 
-instance ToJSON CardanoSigningKey where
-  toJSON = error "don't use"
-
-instance FromJSON CardanoSigningKey where
-  parseJSON = error "don't use"
-
-instance ToCBOR CardanoSigningKey where
-  toCBOR = error "don't use"
-
-instance FromCBOR CardanoSigningKey where
-  fromCBOR = error "don't use"
-
-instance ToCBOR Value where
-  toCBOR = error "don't use"
-
-instance FromCBOR Value where
-  fromCBOR = error "don't use"
-
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
   type TxIdType Payment = Int
@@ -100,3 +91,13 @@ applyTx utxo Payment{from, to, value} =
 
 genAdaValue :: Gen Value
 genAdaValue = lovelaceToValue . fromInteger <$> choose (1, 10000000000)
+
+-- * Orphans
+instance Arbitrary Value where
+  arbitrary = genAdaValue
+
+instance ToCBOR Value where
+  toCBOR = error "don't use"
+
+instance FromCBOR Value where
+  fromCBOR = error "don't use"
