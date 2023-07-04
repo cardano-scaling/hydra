@@ -43,7 +43,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` ["1"]
 
-  it "drop unauthenticated messages" $ do
+  it "drop message coming from unknown party" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [ByteString])
 
@@ -53,6 +53,24 @@ spec = parallel $ do
             ( \incoming _ -> do
                 incoming (Authenticated "1" (sign bobSk "1"))
                 incoming (Authenticated "2" (sign aliceSk "2"))
+            )
+            (captureIncoming receivedMessages)
+            $ \_ ->
+              threadDelay 1
+
+          readTVarIO receivedMessages
+
+    receivedMsgs `shouldBe` ["1"]
+
+  it "drop message comming from party with wrong signature" $
+    let receivedMsgs = runSimOrThrow $ do
+          receivedMessages <- newTVarIO ([] :: [ByteString])
+
+          withAuthentication
+            aliceSk
+            [bob, carol]
+            ( \incoming _ -> do
+                incoming (Authenticated "1" (sign carolSk "1") bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -80,6 +98,7 @@ spec = parallel $ do
   describe "Serialization" $ do
     prop "can roundtrip CBOR encoding/decoding of Authenticated Hydra Message" $
       prop_canRoundtripCBOREncoding @(Authenticated Msg)
+
 
 newtype Msg = Msg ByteString
   deriving newtype (Eq, Show, ToCBOR, FromCBOR, SignableRepresentation)
