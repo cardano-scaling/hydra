@@ -18,6 +18,10 @@ data Authenticated msg = Authenticated
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance (Arbitrary msg, SignableRepresentation msg) => Arbitrary (Authenticated msg) where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
 instance ToCBOR msg => ToCBOR (Authenticated msg) where
   toCBOR (Authenticated msg sig) = toCBOR msg <> toCBOR sig
 

@@ -1,16 +1,21 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Network.AuthenticateSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
+import Data.ByteString (pack)
 import Hydra.Crypto (sign)
 import Hydra.Network (Network (..))
-import Hydra.Network.HeartbeatSpec (noop)
-import Test.Hydra.Fixture (aliceSk, bob, bobSk)
-import Test.QuickCheck (generate)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
+import Hydra.Network.HeartbeatSpec (noop)
+import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
+import Test.Hydra.Fixture (aliceSk, bob, bobSk)
+import Test.QuickCheck (generate, listOf)
 
 spec :: Spec
 spec = parallel $ do
@@ -71,4 +76,14 @@ spec = parallel $ do
           readTVarIO sentMessages
 
     sentMsgs `shouldBe` [Authenticated "1" (sign signingKey "1")]
+
+  describe "Serialization" $ do
+    prop "can roundtrip CBOR encoding/decoding of Authenticated Hydra Message" $
+      prop_canRoundtripCBOREncoding @(Authenticated Msg)
+
+newtype Msg = Msg ByteString
+  deriving newtype (Eq, Show, ToCBOR, FromCBOR, SignableRepresentation)
+
+instance Arbitrary Msg where
+  arbitrary = Msg . pack <$> listOf arbitrary
 
