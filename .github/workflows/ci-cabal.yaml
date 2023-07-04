@@ -135,16 +135,16 @@ jobs:
         include:
           - package: hydra-node
             bench: tx-cost
-            options: '--output-directory $(pwd)/docs/benchmarks'
+            options: '--output-directory $(pwd)/benchmarks'
           - package: hydra-node
             bench: micro
-            options: '-o $(pwd)/docs/static/ledger-bench.html'
+            options: '-o $(pwd)/benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: 'datasets datasets/3-nodes.json datasets/1-node.json --output-directory $(pwd)/docs/benchmarks --timeout 1000s'
+            options: 'datasets datasets/3-nodes.json datasets/1-node.json --output-directory $(pwd)/benchmarks --timeout 1000s'
           - package: plutus-merkle-tree
             bench: on-chain-cost
-            options: '--output-directory $(pwd)/docs/benchmarks'
+            options: '--output-directory $(pwd)/benchmarks'
     steps:
     - uses: actions/checkout@v3
 
@@ -153,13 +153,14 @@ jobs:
 
     - name: 📈 Benchmark
       run: |
+        mkdir -p benchmarks
         cabal bench ${{ matrix.bench }} --benchmark-options="${{ matrix.options }}"
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
       with:
         name: benchmarks
-        path: ./docs/benchmarks
+        path: benchmarks
 
   publish-benchmark-results:
     name: Publish benchmark results
@@ -276,46 +277,7 @@ jobs:
         path: docs/static/
 
     - name: 📚 Documentation sanity check
-      if: github.ref_name != 'master' && github.ref_name != 'release'
       working-directory: docs
       run: |
-        yarn && yarn build-dev
-
-
-    - name: 📚 Documentation
-      if: github.ref_name == 'master' || github.ref_name == 'release'
-      working-directory: docs
-      run: |
-        yarn && yarn build
-        rm -rf public
-        mkdir public
-        mv build/* public
-
-    - name: 💾 Upload docs artifact
-      if: github.ref_name == 'master' || github.ref_name == 'release'
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs
-        path: docs/public
-
-    - name: 📚 Prepare /unstable Documentation
-      if: github.ref_name == 'master'
-      working-directory: docs
-      run: |
-        sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
-
-    - name: 📚 /unstable Documentation
-      if: github.ref_name == 'master'
-      working-directory: docs
-      run: |
-        yarn && yarn build
-        rm -rf public
-        mkdir public
-        mv build/* public
-
-    - name: 💾 Upload /unstable docs artifact
-      if: github.ref_name == 'master'
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs-unstable
-        path: docs/public
+        yarn
+        yarn build-dev

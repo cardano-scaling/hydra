@@ -34,6 +34,18 @@ $ yarn build
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
+Note that this will have quite some broken links as we are referring to
+generated documentation, test data and benchmarks. To put these artifacts at the
+right place before, you can use these `nix` builds from the repository root:
+
+```console
+nix build .#spec && ln -s $(readlink result)/hydra-spec.pdf docs/static/hydra-spec.pdf
+nix build ".?submodules=1#haddocks" -o docs/static/haddock
+
+(cd hydra-node; nix develop ".?submodules=1#benchs.hydra-node" --command tx-cost --output-directory $(pwd)/../docs/benchmarks)
+(cd hydra-cluster; nix develop ".?submodules=1#benchs.hydra-cluster" --command bench-e2e --scaling-factor 1 --output-directory $(pwd)/../docs/benchmarks)
+```
+
 # Translating
 
 Translations of the documentation are provided in the `i18n/{lang}` folder (for example `i18n/fr` for French). Translations of both the content and the various website elements (such as buttons, headers etc...) are needed. To initialize a new language translation (e.g. `fr`), run the following command:

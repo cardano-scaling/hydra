@@ -26,8 +26,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
         submodules: true
 
     - name: ❄ Prepare nix
