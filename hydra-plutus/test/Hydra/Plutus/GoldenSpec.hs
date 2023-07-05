@@ -1,6 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TypeApplications #-}
+
 
 -- | Golden tests of hydra-plutus scripts.
 --

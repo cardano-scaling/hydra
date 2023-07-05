@@ -2,111 +2,15 @@
     "samples": [
         {
             "party": {
-                "vkey": "be16e9244485db773c136410300b1a3fd2ee115845be4378de5dfe61ab69c967"
+                "vkey": "ce1b146c7461cad519b8308b0ce97a1105ce0c78e7e749d175e82fa037f77229"
             },
-            "snapshotNumber": 6,
-            "tag": "ReqSn",
-            "transactions": [
-                {
-                    "id": -23,
-                    "inputs": [
-                        -26,
-                        -20,
-                        -19,
-                        -14,
-                        -13,
-                        -7,
-                        -5,
-                        -2,
-                        1,
-                        4,
-                        8,
-                        10,
-                        12,
-                        16,
-                        18,
-                        19,
-                        20,
-                        24,
-                        27,
-                        28,
-                        30
-                    ],
-                    "outputs": [
-                        -7,
-                        14,
-                        23
-                    ]
-                },
-                {
-                    "id": -20,
-                    "inputs": [
-                        -27,
-                        -21,
-                        -14,
-                        -11,
-                        -10,
-                        -9,
-                        13,
-                        16,
-                        17,
-                        18,
-                        21,
-                        30
-                    ],
-                    "outputs": [
-                        -27,
-                        -23,
-                        -21,
-                        -19,
-                        -14,
-                        -12,
-                        11,
-                        13,
-                        15,
-                        18,
-                        20,
-                        21,
-                        23,
-                        24,
-                        28
-                    ]
-                },
-                {
-                    "id": 21,
-                    "inputs": [
-                        -30,
-                        -25,
-                        -20,
-                        -17,
-                        -16,
-                        -15,
-                        -13,
-                        -7,
-                        -2,
-                        0,
-                        2,
-                        5,
-                        6,
-                        7,
-                        9,
-                        11,
-                        12,
-                        15,
-                        22,
-                        28,
-                        30
-                    ],
-                    "outputs": [
-                        16,
-                        21
-                    ]
-                }
-            ]
+            "signed": "11c7c7edfcdf2fe63439d2c32f4bb9ca35c8063aab8ebaf85cc2e492b878d87b61c618ecc873994b3ad6256e8479181aab3bc051955381a72c2ceea5d554210e",
+            "snapshotNumber": 12,
+            "tag": "AckSn"
         },
         {
             "party": {
-                "vkey": "041a3b93c0a27de4d9a75ce616291db3e4fc5d3a4d0af4294a912e11ce8bff0b"
+                "vkey": "f11b24c8db59dfd768d6a0c71e44319662721c40ddebaaab55c4614ec4755dc9"
             },
             "snapshotNumber": 10,
             "tag": "ReqSn",
@@ -900,7 +804,7 @@
         },
         {
             "party": {
-                "vkey": "9663811e72361f9ec5ed78529c9263e91d8a59cbd6e899752f89d29211583c05"
+                "vkey": "d064917db1d03ca2cd885a7703a1352e9a55acd2d0d8d573f8e1831101eeb589"
             },
             "tag": "ReqTx",
             "transaction": {
@@ -924,14 +828,63 @@
             }
         },
         {
-            "nodeId": "aefcpxbckfphzuyukurpnvgqtu",
-            "tag": "Connected"
+            "party": {
+                "vkey": "f74c0b8b9619c9069d808e2a358ad497ecf5ebd03e369d5b2283dd2ba2246199"
+            },
+            "tag": "ReqTx",
+            "transaction": {
+                "id": -27,
+                "inputs": [
+                    -25,
+                    -22,
+                    -21,
+                    -19,
+                    -13,
+                    -9,
+                    -1,
+                    0,
+                    3,
+                    7,
+                    8,
+                    9,
+                    12,
+                    14,
+                    20,
+                    21,
+                    22,
+                    24,
+                    25,
+                    27,
+                    28,
+                    30
+                ],
+                "outputs": [
+                    -30,
+                    -25,
+                    -23,
+                    -19,
+                    -15,
+                    -14,
+                    -1,
+                    0,
+                    11,
+                    12,
+                    15,
+                    17,
+                    20,
+                    21,
+                    23,
+                    24,
+                    25,
+                    29
+                ]
+            }
         },
         {
             "party": {
-                "vkey": "c3e808e514e186f6d187e611f949bd33fcf172d59cf80c666ceaa97f1995c33d"
+                "vkey": "5409ed3708fd864186f0a487828abe38be2a486728687ccccd445b92f4e6988b"
             },
-            "signed": "0fab631ea716558b9c5a9417ea494d3739c62b5d14f0d47abb990be079a2232f4f24e09f3d3595c162adaafe7581bf1d5e385d12cf83625af765698cb032a305",
+            "signed": "c7200b59662f30be4446cf27059f15e2390673d5e51fc9e9c4dae4520189b689fd40b97bda72e3fde1412b13368150ba285c99019f2e645f95ae62b1a3f17e0f",
             "snapshotNumber": 15,
             "tag": "AckSn"
         }

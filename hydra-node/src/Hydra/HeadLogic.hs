@@ -1022,10 +1022,6 @@ update env ledger st ev = case (st, ev) of
     NewState (Open ost{currentSlot = chainSlot}) []
   (_, OnChainEvent Tick{}) ->
     OnlyEffects []
-  (_, NetworkEvent _ (Connected nodeId)) ->
-    OnlyEffects [ClientEffect $ PeerConnected{peer = nodeId}]
-  (_, NetworkEvent _ (Disconnected nodeId)) ->
-    OnlyEffects [ClientEffect $ PeerDisconnected{peer = nodeId}]
   (_, PostTxError{postChainTx, postTxError}) ->
     OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
