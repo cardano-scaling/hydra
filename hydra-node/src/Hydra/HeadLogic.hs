@@ -356,10 +356,12 @@ instance Arbitrary RequirementFailure where
   arbitrary = genericArbitrary
 
 data Outcome tx
-  = OnlyEffects {effects :: [Effect tx]}
-  | NewState {headState :: HeadState tx, effects :: [Effect tx]}
+  = NoOutcome
+  | Effects {effects :: [Effect tx]}
+  | NewState {headState :: HeadState tx}
   | Wait {reason :: WaitReason}
   | Error {error :: LogicError tx}
+  | Combined {left :: Outcome tx, right :: Outcome tx}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
@@ -391,6 +393,15 @@ data Environment = Environment
   , contestationPeriod :: ContestationPeriod
   }
 
+collectEffects :: Outcome tx -> [Effect tx]
+collectEffects = \case
+  NoOutcome -> []
+  Error _ -> []
+  Wait _ -> []
+  NewState _ -> []
+  Effects effs -> effs
+  Combined l r -> collectEffects l <> collectEffects r
+
 -- * The Coordinated Head protocol
 
 -- ** Opening the Head
@@ -403,7 +414,7 @@ onIdleClientInit ::
   Environment ->
   Outcome tx
 onIdleClientInit env =
-  OnlyEffects [OnChainEffect{postChainTx = InitTx parameters}]
+  Effects [OnChainEffect{postChainTx = InitTx parameters}]
  where
   parameters =
     HeadParameters
@@ -435,7 +446,7 @@ onIdleChainInitTx newChainState parties contestationPeriod headId =
           , headId
           }
     )
-    [ClientEffect $ HeadIsInitializing headId (fromList parties)]
+    `Combined` Effects [ClientEffect $ HeadIsInitializing headId (fromList parties)]
 
 -- | Client request to commit a UTxO entry to the head. Provided the client
 -- hasn't committed yet, this leads to a commit transaction on-chain containing
@@ -452,8 +463,8 @@ onInitialClientCommit env st clientInput =
     (Commit utxo)
       -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
       -- deal with it?
-      | canCommit -> OnlyEffects [OnChainEffect{postChainTx = CommitTx party utxo}]
-    _ -> OnlyEffects [ClientEffect $ CommandFailed clientInput]
+      | canCommit -> Effects [OnChainEffect{postChainTx = CommitTx party utxo}]
+    _ -> Effects [ClientEffect $ CommandFailed clientInput]
  where
   canCommit = party `Set.member` pendingCommits
 
@@ -477,9 +488,11 @@ onInitialChainCommitTx ::
   UTxOType tx ->
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
-  NewState newState $
-    notifyClient
-      : [postCollectCom | canCollectCom]
+  NewState newState
+    `Combined` Effects
+      ( notifyClient
+          : [postCollectCom | canCollectCom]
+      )
  where
   newState =
     Initial
@@ -515,7 +528,7 @@ onInitialClientAbort ::
   InitialState tx ->
   Outcome tx
 onInitialClientAbort st =
-  OnlyEffects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed}}]
+  Effects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed}}]
  where
   InitialState{committed} = st
 
@@ -533,7 +546,7 @@ onInitialChainAbortTx ::
 onInitialChainAbortTx newChainState committed headId =
   NewState
     (Idle IdleState{chainState = newChainState})
-    [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
+    `Combined` Effects [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
 -- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
@@ -558,7 +571,7 @@ onInitialChainCollectTx st newChainState =
           , currentSlot = chainStateSlot newChainState
           }
     )
-    [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
+    `Combined` Effects [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
  where
   u0 = fold committed
 
@@ -580,7 +593,7 @@ onOpenClientNewTx ::
   tx ->
   Outcome tx
 onOpenClientNewTx env tx =
-  OnlyEffects [NetworkEffect $ ReqTx party tx]
+  Effects [NetworkEffect $ ReqTx party tx]
  where
   Environment{party} = env
 
@@ -605,7 +618,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
   case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
-          OnlyEffects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+          Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise -> Wait $ WaitOnNotApplicableTx err
     Right utxo' ->
       NewState
@@ -618,7 +631,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
                     }
               }
         )
-        [ClientEffect $ TxValid headId tx]
+        `Combined` Effects [ClientEffect $ TxValid headId tx]
         & emitSnapshot env
  where
   Ledger{applyTransactions} = ledger
@@ -678,7 +691,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
                       }
                 }
           )
-          [NetworkEffect $ AckSn party snapshotSignature sn]
+          `Combined` Effects [NetworkEffect $ AckSn party snapshotSignature sn]
  where
   requireReqSn continue =
     if
@@ -774,7 +787,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
                     , seenSnapshot = LastSeenSnapshot (number snapshot)
                     }
               )
-              [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
               & emitSnapshot env
  where
   seenSn = seenSnapshotNumber seenSnapshot
@@ -805,7 +818,6 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
                 { seenSnapshot = SeenSnapshot snapshot sigs'
                 }
           )
-          []
 
   requireVerifiedMultisignature multisig msg cont =
     if verifyMultiSignature vkeys multisig msg
@@ -836,7 +848,7 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  OnlyEffects [OnChainEffect{postChainTx = CloseTx confirmedSnapshot}]
+  Effects [OnChainEffect{postChainTx = CloseTx confirmedSnapshot}]
  where
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
@@ -857,13 +869,15 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  NewState closedState $
-    notifyClient
-      : [ OnChainEffect
-          { postChainTx = ContestTx{confirmedSnapshot}
-          }
-        | doContest
-        ]
+  NewState closedState
+    `Combined` Effects
+      ( notifyClient
+          : [ OnChainEffect
+              { postChainTx = ContestTx{confirmedSnapshot}
+              }
+            | doContest
+            ]
+      )
  where
   doContest =
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -901,16 +915,16 @@ onClosedChainContestTx ::
   Outcome tx
 onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
-      OnlyEffects
+      Effects
         [ ClientEffect HeadIsContested{snapshotNumber, headId}
         , OnChainEffect{postChainTx = ContestTx{confirmedSnapshot}}
         ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
       -- TODO: A more recent snapshot number was succesfully contested, we will
       -- not be able to fanout! We might want to communicate that to the client!
-      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+      Effects [ClientEffect HeadIsContested{snapshotNumber, headId}]
   | otherwise =
-      OnlyEffects [ClientEffect HeadIsContested{snapshotNumber, headId}]
+      Effects [ClientEffect HeadIsContested{snapshotNumber, headId}]
  where
   ClosedState{confirmedSnapshot, headId} = closedState
 
@@ -922,7 +936,7 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  OnlyEffects
+  Effects
     [ OnChainEffect
         { postChainTx =
             FanoutTx{utxo, contestationDeadline}
@@ -945,8 +959,7 @@ onClosedChainFanoutTx ::
 onClosedChainFanoutTx closedState newChainState =
   NewState
     (Idle IdleState{chainState = newChainState})
-    [ ClientEffect $ HeadIsFinalized{headId, utxo}
-    ]
+    `Combined` Effects [ClientEffect $ HeadIsFinalized{headId, utxo}]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
 
@@ -979,7 +992,7 @@ update env ledger st ev = case (st, ev) of
   (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
     onInitialChainAbortTx newChainState committed headId
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
-    OnlyEffects [ClientEffect . GetUTxOResponse headId $ fold committed]
+    Effects [ClientEffect . GetUTxOResponse headId $ fold committed]
   -- Open
   (Open openState, ClientEvent Close) ->
     onOpenClientClose openState
@@ -995,14 +1008,15 @@ update env ledger st ev = case (st, ev) of
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
-    ) | ourHeadId == headId ->
-      onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
+    )
+      | ourHeadId == headId ->
+          onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+          Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
-    OnlyEffects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+    Effects [ClientEffect . GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
@@ -1010,22 +1024,22 @@ update env ledger st ev = case (st, ev) of
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         NewState
           (Closed cst{readyToFanoutSent = True})
-          [ClientEffect $ ReadyToFanout headId]
+          `Combined` Effects [ClientEffect $ ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
     onClosedChainFanoutTx closedState newChainState
   -- General
   (currentState, OnChainEvent Rollback{rolledBackChainState}) ->
-    NewState (setChainState rolledBackChainState currentState) []
+    NewState (setChainState rolledBackChainState currentState)
   (Open ost@OpenState{}, OnChainEvent Tick{chainSlot}) ->
-    NewState (Open ost{currentSlot = chainSlot}) []
+    NewState (Open ost{currentSlot = chainSlot})
   (_, OnChainEvent Tick{}) ->
-    OnlyEffects []
+    NoOutcome
   (_, PostTxError{postChainTx, postTxError}) ->
-    OnlyEffects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
+    Effects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
-    OnlyEffects [ClientEffect $ CommandFailed clientInput]
+    Effects [ClientEffect $ CommandFailed clientInput]
   _ ->
     Error $ InvalidEvent ev st
 
@@ -1080,7 +1094,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
 emitSnapshot env@Environment{party} outcome =
   case outcome of
-    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) effects ->
+    NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) ->
       case newSn env parameters coordinatedHeadState of
         ShouldSnapshot sn txs -> do
           let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
@@ -1101,6 +1115,7 @@ emitSnapshot env@Environment{party} outcome =
                   , currentSlot
                   }
             )
-            $ NetworkEffect (ReqSn party sn txs) : effects
+            `Combined` Effects [NetworkEffect (ReqSn party sn txs)]
         _ -> outcome
+    Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
     _ -> outcome

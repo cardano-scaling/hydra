@@ -1487,7 +1487,7 @@ definitions:
     description: >-
       The decision taken by the node logic after processing an Event.
     oneOf:
-      - title: OnlyEffects
+      - title: Effects
         type: object
         additionalProperties: false
         required:
@@ -1499,7 +1499,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["OnlyEffects"]
+            enum: ["Effects"]
           effects:
             type: array
             items:
@@ -1511,10 +1511,8 @@ definitions:
         required:
           - tag
           - headState
-          - effects
         description: >-
-          An outcome representing the list of actions to be taken by the node
-          to transition the protocol, and the new resulting state.
+          An outcome representing the new resulting state of the node.
         properties:
           tag:
             type: string
@@ -1558,7 +1556,26 @@ definitions:
             enum: ["Error"]
           error:
             type: object
-            $ref: "logs.yaml#/definitions/LogicError"
+            $ref: "#/definitions/LogicError"
+      - title: Combined
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - left 
+          - right
+        description: >-
+          A combination of two outcomes.
+        properties:
+          tag:
+            type: string
+            enum: ["Combined"]
+          left:
+            type: object
+            $ref: "logs.yaml#/definitions/Outcome"
+          right:
+            type: object
+            $ref: "logs.yaml#/definitions/Outcome"
 
   WaitReason:
     oneOf:

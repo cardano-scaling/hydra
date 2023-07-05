@@ -113,8 +113,8 @@ spec = do
                 inOpenState' threeParties $
                   coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
 
-          emitSnapshot (envFor aliceSk) (NewState st [])
-            `shouldBe` NewState st' [NetworkEffect $ ReqSn alice 1 [tx]]
+          emitSnapshot (envFor aliceSk) (NewState st)
+            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn alice 1 [tx]])
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
@@ -153,5 +153,6 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      length parties > 0 ==>
-        any (\p -> isLeader params p sn) parties
+      length parties
+        > 0
+        ==> any (\p -> isLeader params p sn) parties

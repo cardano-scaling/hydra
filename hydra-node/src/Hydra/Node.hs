@@ -22,14 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (
-  Effect (..),
-  Environment (..),
-  Event (..),
-  HeadState (..),
-  Outcome (..),
-  defaultTTL,
- )
+import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -114,22 +107,21 @@ stepHydraNode tracer node = do
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  effs <- case outcome of
-    -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
-    -- does trace and not throw!
-    Error _ -> do
-      pure []
-    Wait _reason -> do
-      putEventAfter eq waitDelay (decreaseTTL e)
-      pure []
-    NewState s effs -> do
-      save s
-      pure effs
-    OnlyEffects effs -> do
-      pure effs
+  handleOutcome e outcome
+  let effs = collectEffects outcome
   mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
   traceWith tracer EndEvent{by = party, eventId}
  where
+  handleOutcome e = \case
+    -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
+    -- does trace and not throw!
+    NoOutcome -> pure ()
+    Error _ -> pure ()
+    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
+    NewState s -> save s
+    Effects _ -> pure ()
+    Combined l r -> handleOutcome e l >> handleOutcome e r
+
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
@@ -155,13 +147,20 @@ processNextEvent ::
   STM m (Outcome tx)
 processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
-    case Logic.update env ledger s e of
-      OnlyEffects effects -> (OnlyEffects effects, s)
-      NewState s' effects -> (NewState s' effects, s')
-      Error err -> (Error err, s)
-      Wait reason -> (Wait reason, s)
+    handleOutcome s $ Logic.update env ledger s e
  where
   NodeState{modifyHeadState} = nodeState
+
+  handleOutcome s = \case
+    NoOutcome -> (NoOutcome, s)
+    Effects effects -> (Effects effects, s)
+    NewState s' -> (NewState s', s')
+    Error err -> (Error err, s)
+    Wait reason -> (Wait reason, s)
+    Combined l r ->
+      let (leftOutcome, leftState) = handleOutcome s l
+          (rightOutcome, rightState) = handleOutcome leftState r
+       in (Combined leftOutcome rightOutcome, rightState)
 
 processEffect ::
   ( MonadAsync m
