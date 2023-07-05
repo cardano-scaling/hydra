@@ -56,7 +56,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
 import Hydra.API.ServerOutput (ServerOutput(PeerConnected, PeerDisconnected))
-import Hydra.Network.Authenticate (withAuthentication)
+import Hydra.Network.Authenticate (withAuthentication, Authenticated (Authenticated))
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -104,15 +104,15 @@ main = do
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent = putEvent . NetworkEvent defaultTTL
+              putNetworkEvent (Authenticated msg _) = putEvent $ NetworkEvent defaultTTL msg
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
-            withNetwork (contramap Network tracer) server host port peers nodeId putNetworkEvent $ \hn -> do
+            withNetwork (contramap Network tracer) server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
-                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
+                  HydraNode{eq, hn = contramap (`Authenticated` party) hn, nodeState, oc = chain, server, ledger, env, persistence}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
@@ -120,12 +120,12 @@ main = do
     txId <- publishHydraScripts networkId nodeSocket sk
     putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
 
-  withNetwork tracer Server{sendOutput} host port peers nodeId =
+  withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
     let localhost = Host{hostname = show host, port}
         connectionMessages = \case
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withHeartbeat nodeId connectionMessages $ withOuroborosNetwork tracer localhost peers
+     in withAuthentication signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork tracer localhost peers
 
   withCardanoLedger ledgerConfig chainConfig action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
