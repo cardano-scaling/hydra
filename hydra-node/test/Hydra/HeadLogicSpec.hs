@@ -450,23 +450,6 @@ observationEvent observedTx =
           }
     }
 
-hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect outcome effect = hasEffectSatisfying outcome (== effect)
-
-hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasEffectSatisfying outcome predicate = do
-  let effects = collectEffects outcome
-  unless (any predicate effects) $
-    Hydra.Prelude.error $
-      "No effect matching predicate in produced effects: " <> show outcome
-
-hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying outcome predicate = do
-  let effects = collectEffects outcome
-  when (any predicate effects) $
-    Hydra.Prelude.error $
-      "Found unwanted effect in: " <> show effects
-
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
   Initial
@@ -537,19 +520,6 @@ getConfirmedSnapshot = \case
   _ ->
     Nothing
 
--- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState ::
-  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
-  Environment ->
-  Ledger tx ->
-  Event tx ->
-  m (HeadState tx)
-assertUpdateState env ledger event = do
-  st <- get
-  st' <- assertNewState $ update env ledger st event
-  put st'
-  pure st'
-
 data StepState tx = StepState
   { headState :: HeadState tx
   , env :: Environment
@@ -566,6 +536,19 @@ step event = do
   headState' <- assertNewState $ update env ledger headState event
   put StepState{env, ledger, headState = headState'}
   pure headState'
+
+-- | Asserts that the update function will update the state (return a NewState) for this Event
+assertUpdateState ::
+  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
+  Environment ->
+  Ledger tx ->
+  Event tx ->
+  m (HeadState tx)
+assertUpdateState env ledger event = do
+  st <- get
+  st' <- assertNewState $ update env ledger st event
+  put st'
+  pure st'
 
 assertNewState ::
   (HasCallStack, IsChainState tx, Monad m) =>
@@ -586,6 +569,23 @@ assertNewState outcome =
 
 assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
 assertEffects outcome = hasEffectSatisfying outcome (const True)
+
+hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
+hasEffect outcome effect = hasEffectSatisfying outcome (== effect)
+
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasEffectSatisfying outcome predicate = do
+  let effects = collectEffects outcome
+  unless (any predicate effects) $
+    Hydra.Prelude.error $
+      "No effect matching predicate in produced effects: " <> show outcome
+
+hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying outcome predicate = do
+  let effects = collectEffects outcome
+  when (any predicate effects) $
+    Hydra.Prelude.error $
+      "Found unwanted effect in: " <> show effects
 
 testHeadId :: HeadId
 testHeadId = HeadId "1234"
