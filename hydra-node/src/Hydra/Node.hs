@@ -121,6 +121,8 @@ stepHydraNode tracer node = do
   handleOutcome e = \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
+    NoOutcome -> do
+      pure []
     Error _ -> do
       pure []
     Wait _reason -> do
@@ -166,6 +168,7 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
   NodeState{modifyHeadState} = nodeState
 
   handleOutcome s = \case
+    NoOutcome -> (NoOutcome, s)
     Effects effects -> (Effects effects, s)
     NewState s' -> (NewState s', s')
     Error err -> (Error err, s)

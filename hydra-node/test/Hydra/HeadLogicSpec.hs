@@ -582,6 +582,7 @@ assertNewState ::
   Outcome tx ->
   m (HeadState tx)
 assertNewState = \case
+  NoOutcome -> failure $ "Expected an actual outcome"
   NewState st -> pure st
   Effects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
@@ -593,6 +594,7 @@ assertEffects ::
   Outcome tx ->
   IO ()
 assertEffects = \case
+  NoOutcome -> failure $ "Expected an actual outcome"
   NewState st -> failure $ "Unexpected 'NewState' outcome: " <> show st
   Effects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e

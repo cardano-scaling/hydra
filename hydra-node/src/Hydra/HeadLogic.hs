@@ -356,7 +356,8 @@ instance Arbitrary RequirementFailure where
   arbitrary = genericArbitrary
 
 data Outcome tx
-  = Effects {effects :: [Effect tx]}
+  = NoOutcome
+  | Effects {effects :: [Effect tx]}
   | NewState {headState :: HeadState tx}
   | Wait {reason :: WaitReason}
   | Error {error :: LogicError tx}
@@ -1025,7 +1026,7 @@ update env ledger st ev = case (st, ev) of
   (Open ost@OpenState{}, OnChainEvent Tick{chainSlot}) ->
     NewState (Open ost{currentSlot = chainSlot})
   (_, OnChainEvent Tick{}) ->
-    Effects []
+    NoOutcome
   (_, PostTxError{postChainTx, postTxError}) ->
     Effects [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
