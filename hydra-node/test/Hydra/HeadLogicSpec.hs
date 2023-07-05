@@ -451,11 +451,7 @@ observationEvent observedTx =
     }
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect outcome effect = do
-  let effects = collectEffects outcome
-  unless (effect `elem` effects) $
-    Hydra.Prelude.error $
-      "Missing effect " <> show effect <> " in produced outcome: " <> show outcome
+hasEffect outcome effect = hasEffectSatisfying outcome (== effect)
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate = do
@@ -465,14 +461,11 @@ hasEffectSatisfying outcome predicate = do
       "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying outcome predicate =
-  case outcome of
-    Effects effects
-      | any predicate effects -> failure $ "Found unwanted effect in: " <> show effects
-    Combined l r -> do
-      hasNoEffectSatisfying l predicate
-      hasNoEffectSatisfying r predicate
-    _ -> pure ()
+hasNoEffectSatisfying outcome predicate = do
+  let effects = collectEffects outcome
+  when (any predicate effects) $
+    Hydra.Prelude.error $
+      "Found unwanted effect in: " <> show effects
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
@@ -591,19 +584,8 @@ assertNewState outcome =
     Combined l r -> collectStateChanges l <|> collectStateChanges r
     _ -> Nothing
 
-assertEffects ::
-  (HasCallStack, IsChainState tx) =>
-  Outcome tx ->
-  IO ()
-assertEffects = \case
-  NoOutcome -> failure "Expected an actual outcome"
-  NewState st -> failure $ "Unexpected 'NewState' outcome: " <> show st
-  Effects _ -> pure ()
-  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
-  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
-  Combined l r -> do
-    assertEffects l
-    assertEffects r
+assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
+assertEffects outcome = hasEffectSatisfying outcome (const True)
 
 testHeadId :: HeadId
 testHeadId = HeadId "1234"
