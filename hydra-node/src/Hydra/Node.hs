@@ -114,29 +114,28 @@ stepHydraNode tracer node = do
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  effs <- handleOutcome e outcome
+  handleOutcome e outcome
+  let effs = collectEffect outcome
   mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
   traceWith tracer EndEvent{by = party, eventId}
  where
+  collectEffect = \case
+    NoOutcome -> []
+    Error _ -> []
+    Wait _ -> []
+    NewState _ -> []
+    Effects effs -> effs
+    Combined l r -> collectEffect l <> collectEffect r
+
   handleOutcome e = \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
-    NoOutcome -> do
-      pure []
-    Error _ -> do
-      pure []
-    Wait _reason -> do
-      putEventAfter eq waitDelay (decreaseTTL e)
-      pure []
-    NewState s -> do
-      save s
-      pure []
-    Effects effs -> do
-      pure effs
-    Combined l r -> do
-      effl <- handleOutcome e l
-      effr <- handleOutcome e r
-      pure $ effl <> effr
+    NoOutcome -> pure ()
+    Error _ -> pure ()
+    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
+    NewState s -> save s
+    Effects _ -> pure ()
+    Combined l r -> handleOutcome e l >> handleOutcome e r
 
   decreaseTTL =
     \case
