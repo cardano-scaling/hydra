@@ -73,8 +73,9 @@ withHeartbeat ::
   , MonadMonotonicTime m
   ) =>
   NodeId ->
-  NetworkComponent m (Heartbeat (Message tx)) a ->
-  NetworkComponent m (Message tx) a
+  ConnectionMessages m tx ->
+  NetworkComponent m (Heartbeat msg) a ->
+  NetworkComponent m msg a
 withHeartbeat nodeId connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
@@ -86,8 +87,8 @@ updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   ConnectionMessages m tx ->
-  NetworkCallback (Message tx) m ->
-  NetworkCallback (Heartbeat (Message tx)) m
+  NetworkCallback msg m ->
+  NetworkCallback (Heartbeat msg) m
 updateStateFromIncomingMessages heartbeatState connectionMessages callback = \case
   Data nodeId msg -> notifyAlive nodeId >> callback msg
   Ping nodeId -> notifyAlive nodeId
@@ -107,8 +108,8 @@ updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   NodeId ->
   TVar m HeartbeatState ->
-  Network m (Heartbeat (Message msg)) ->
-  Network m (Message msg)
+  Network m (Heartbeat msg) ->
+  Network m msg
 updateStateFromOutgoingMessages nodeId heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
@@ -125,7 +126,7 @@ checkHeartbeatState ::
   ) =>
   NodeId ->
   TVar m HeartbeatState ->
-  Network m (Heartbeat (Message msg)) ->
+  Network m (Heartbeat msg) ->
   m ()
 checkHeartbeatState nodeId heartbeatState Network{broadcast} =
   forever $ do
