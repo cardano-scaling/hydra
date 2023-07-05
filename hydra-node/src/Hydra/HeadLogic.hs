@@ -393,6 +393,15 @@ data Environment = Environment
   , contestationPeriod :: ContestationPeriod
   }
 
+collectEffects :: Outcome tx -> [Effect tx]
+collectEffects = \case
+  NoOutcome -> []
+  Error _ -> []
+  Wait _ -> []
+  NewState _ -> []
+  Effects effs -> effs
+  Combined l r -> collectEffects l <> collectEffects r
+
 -- * The Coordinated Head protocol
 
 -- ** Opening the Head

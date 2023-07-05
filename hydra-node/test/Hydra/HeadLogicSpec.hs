@@ -14,6 +14,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
+import qualified GHC.Base as Hydra.Test.Prelude
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
@@ -41,6 +42,7 @@ import Hydra.HeadLogic (
   RequirementFailure (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
+  collectEffects,
   defaultTTL,
   update,
  )
@@ -449,23 +451,18 @@ observationEvent observedTx =
     }
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect outcome effect =
-  case outcome of
-    Effects effects
-      | effect `elem` effects -> pure ()
-      | otherwise -> failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
-    Combined l r ->
-      hasEffect l effect `orElse` hasEffect r effect
-    _ -> failure $ "Unexpected outcome: " <> show outcome
+hasEffect outcome effect = do
+  let effects = collectEffects outcome
+  unless (effect `elem` effects) $
+    Hydra.Prelude.error $
+      "Missing effect " <> show effect <> " in produced outcome: " <> show outcome
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasEffectSatisfying outcome predicate =
-  case outcome of
-    Effects effects
-      | any predicate effects -> pure ()
-    Combined l r ->
-      hasNoEffectSatisfying l predicate `orElse` hasNoEffectSatisfying r predicate
-    _ -> failure $ "No effect matching predicate in produced effects: " <> show outcome
+hasEffectSatisfying outcome predicate = do
+  let effects = collectEffects outcome
+  unless (any predicate effects) $
+    Hydra.Prelude.error $
+      "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying outcome predicate =
@@ -549,7 +546,7 @@ getConfirmedSnapshot = \case
 
 -- | Asserts that the update function will update the state (return a NewState) for this Event
 assertUpdateState ::
-  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx, MonadCatch m) =>
+  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
   Environment ->
   Ledger tx ->
   Event tx ->
@@ -568,7 +565,7 @@ data StepState tx = StepState
 
 -- | Asserts that the update function will update the state (return a NewState) for this Event
 step ::
-  (MonadState (StepState tx) m, HasCallStack, IsChainState tx, MonadCatch m) =>
+  (MonadState (StepState tx) m, HasCallStack, IsChainState tx) =>
   Event tx ->
   m (HeadState tx)
 step event = do
@@ -578,23 +575,28 @@ step event = do
   pure headState'
 
 assertNewState ::
-  (HasCallStack, IsChainState tx, MonadCatch m) =>
+  (HasCallStack, IsChainState tx, Monad m) =>
   Outcome tx ->
   m (HeadState tx)
-assertNewState = \case
-  NoOutcome -> failure $ "Expected an actual outcome"
-  NewState st -> pure st
-  Effects effects -> failure $ "Unexpected 'OnlyEffects' outcome: " <> show effects
-  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
-  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
-  Combined l r -> assertNewState l `orElse` assertNewState r
+assertNewState outcome =
+  -- NewState is about to be superseded when we implement event-sourced persistency
+  -- See https://github.com/input-output-hk/hydra/issues/913
+  -- In the meantime, we are expecting for an Outcome to only contain one single NewState.
+  case collectStateChanges outcome of
+    Nothing -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
+    Just newState -> pure newState
+ where
+  collectStateChanges = \case
+    NewState st -> Just st
+    Combined l r -> collectStateChanges l <|> collectStateChanges r
+    _ -> Nothing
 
 assertEffects ::
   (HasCallStack, IsChainState tx) =>
   Outcome tx ->
   IO ()
 assertEffects = \case
-  NoOutcome -> failure $ "Expected an actual outcome"
+  NoOutcome -> failure "Expected an actual outcome"
   NewState st -> failure $ "Unexpected 'NewState' outcome: " <> show st
   Effects _ -> pure ()
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e

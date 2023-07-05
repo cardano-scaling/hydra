@@ -22,14 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (
-  Effect (..),
-  Environment (..),
-  Event (..),
-  HeadState (..),
-  Outcome (..),
-  defaultTTL,
- )
+import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -115,18 +108,10 @@ stepHydraNode tracer node = do
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
   handleOutcome e outcome
-  let effs = collectEffect outcome
+  let effs = collectEffects outcome
   mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
   traceWith tracer EndEvent{by = party, eventId}
  where
-  collectEffect = \case
-    NoOutcome -> []
-    Error _ -> []
-    Wait _ -> []
-    NewState _ -> []
-    Effects effs -> effs
-    Combined l r -> collectEffect l <> collectEffect r
-
   handleOutcome e = \case
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
