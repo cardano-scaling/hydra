@@ -75,26 +75,27 @@ withHeartbeat ::
   NodeId ->
   NetworkComponent m (Heartbeat (Message tx)) a ->
   NetworkComponent m (Message tx) a
-withHeartbeat nodeId withNetwork callback action = do
+withHeartbeat nodeId connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
-  withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
-    withAsync (checkRemoteParties heartbeat callback) $ \_ ->
+  withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
+    withAsync (checkRemoteParties heartbeat connectionMessages) $ \_ ->
       withAsync (checkHeartbeatState nodeId heartbeat network) $ \_ ->
         action (updateStateFromOutgoingMessages nodeId heartbeat network)
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
+  ConnectionMessages m tx ->
   NetworkCallback (Message tx) m ->
   NetworkCallback (Heartbeat (Message tx)) m
-updateStateFromIncomingMessages heartbeatState callback = \case
+updateStateFromIncomingMessages heartbeatState connectionMessages callback = \case
   Data nodeId msg -> notifyAlive nodeId >> callback msg
   Ping nodeId -> notifyAlive nodeId
  where
   notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (peer `Map.member` aliveSet) $ callback (Connected peer)
+    unless (peer `Map.member` aliveSet) $ connectionMessages (Connected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s
@@ -145,14 +146,14 @@ checkRemoteParties ::
   , MonadMonotonicTime m
   ) =>
   TVar m HeartbeatState ->
-  NetworkCallback (Message msg) m ->
+  ConnectionMessages m tx ->
   m ()
-checkRemoteParties heartbeatState callback =
+checkRemoteParties heartbeatState connectionMessages =
   forever $ do
     threadDelay (heartbeatDelay * 2)
     now <- getMonotonicTime
     updateSuspected heartbeatState now
-      >>= mapM_ (callback . Disconnected)
+      >>= mapM_ (connectionMessages . Disconnected)
 
 updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set NodeId)
 updateSuspected heartbeatState now =

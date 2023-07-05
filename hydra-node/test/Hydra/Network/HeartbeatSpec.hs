@@ -26,7 +26,7 @@ spec = parallel $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \_ ->
+          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \_ ->
             threadDelay 1.1
 
           readTVarIO sentMessages
@@ -37,7 +37,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Ping otherNodeId)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -48,23 +48,23 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId $ ReqTx bob 1)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId $ ReqTx bob 1)) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [ReqTx bob 1, Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [Connected otherNodeId]
 
   it "do not send Connected on subsequent messages from already Connected party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId $ ReqTx bob 1) >> incoming (Ping otherNodeId)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId $ ReqTx bob 1) >> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [ReqTx bob 1, Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [Connected otherNodeId]
 
   it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
@@ -75,7 +75,7 @@ spec = parallel $ do
                   (action (Network noop))
                   (incoming (Ping otherNodeId) >> threadDelay 4 >> incoming (Ping otherNodeId) >> threadDelay 7)
 
-          withHeartbeat nodeId component (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat nodeId (captureIncoming receivedMessages) component noop $ \_ ->
             threadDelay 20
 
           readTVarIO receivedMessages
@@ -87,7 +87,7 @@ spec = parallel $ do
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
@@ -101,7 +101,7 @@ spec = parallel $ do
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 3.6

@@ -101,7 +101,8 @@ main = do
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
-          withNetwork (contramap Network tracer) host port peers nodeId (putEvent . NetworkEvent defaultTTL) $ \hn -> do
+              putNetworkEvent = putEvent . NetworkEvent defaultTTL
+          withNetwork (contramap Network tracer) putNetworkEvent host port peers nodeId putNetworkEvent $ \hn -> do
             let RunOptions{apiHost, apiPort} = opts
 
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
@@ -117,9 +118,9 @@ main = do
     txId <- publishHydraScripts networkId nodeSocket sk
     putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
 
-  withNetwork tracer host port peers nodeId =
+  withNetwork tracer putNetworkEvent host port peers nodeId =
     let localhost = Host{hostname = show host, port}
-     in withHeartbeat nodeId $ withOuroborosNetwork tracer localhost peers
+     in withHeartbeat nodeId putNetworkEvent $ withOuroborosNetwork tracer localhost peers
 
   withCardanoLedger ledgerConfig chainConfig action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
