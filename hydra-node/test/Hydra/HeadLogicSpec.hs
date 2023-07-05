@@ -47,8 +47,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef)
-import Hydra.Network (NodeId (..))
-import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
+import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import qualified Hydra.Prelude as Prelude
@@ -268,11 +267,6 @@ spec =
         let s0 = inClosedState threeParties
             event = NetworkEvent defaultTTL $ ReqTx alice (aValidTx 42)
         update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
-
-      it "notifies client when it receives a ping" $ do
-        let nodeId = NodeId "My special node id"
-        update bobEnv ledger (inOpenState threeParties ledger) (NetworkEvent defaultTTL $ Connected nodeId)
-          `hasEffect` ClientEffect (PeerConnected nodeId)
 
       it "everyone does collect on last commit after collect com" $ do
         let aliceCommit = OnCommitTx alice (utxoRef 1)

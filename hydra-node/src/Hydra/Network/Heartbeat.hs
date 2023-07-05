@@ -23,7 +23,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
-import Hydra.Network.Message (Message (Connected, Disconnected))
+import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
 data HeartbeatState = HeartbeatState
   { alive :: Map NodeId Time
@@ -66,6 +66,8 @@ heartbeatDelay = 0.5
 livenessDelay :: DiffTime
 livenessDelay = 3
 
+type ConnectionMessages m = Connectivity -> m ()
+
 -- | Wrap a `NetworkComponent` and handle sending/receiving of heartbeats.
 withHeartbeat ::
   ( MonadAsync m
@@ -73,7 +75,7 @@ withHeartbeat ::
   , MonadMonotonicTime m
   ) =>
   NodeId ->
-  ConnectionMessages m tx ->
+  ConnectionMessages m ->
   NetworkComponent m (Heartbeat msg) a ->
   NetworkComponent m msg a
 withHeartbeat nodeId connectionMessages withNetwork callback action = do
@@ -86,7 +88,7 @@ withHeartbeat nodeId connectionMessages withNetwork callback action = do
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
-  ConnectionMessages m tx ->
+  ConnectionMessages m ->
   NetworkCallback msg m ->
   NetworkCallback (Heartbeat msg) m
 updateStateFromIncomingMessages heartbeatState connectionMessages callback = \case
@@ -147,7 +149,7 @@ checkRemoteParties ::
   , MonadMonotonicTime m
   ) =>
   TVar m HeartbeatState ->
-  ConnectionMessages m tx ->
+  ConnectionMessages m ->
   m ()
 checkRemoteParties heartbeatState connectionMessages =
   forever $ do

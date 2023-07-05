@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', ne
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Network (..), NodeId (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Message (Connected, Disconnected))
+import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
 spec :: Spec
 spec = parallel $ do
@@ -34,7 +34,7 @@ spec = parallel $ do
 
   it "sends Connected when Ping received from other peer" $ do
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [Message ()])
+          receivedMessages <- newTVarIO ([] :: [Connectivity])
 
           withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
@@ -45,7 +45,7 @@ spec = parallel $ do
 
   it "sends Connected when any message received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [Message ()])
+          receivedMessages <- newTVarIO ([] :: [Connectivity])
 
           withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId ())) noop $ \_ ->
             threadDelay 1
@@ -56,7 +56,7 @@ spec = parallel $ do
 
   it "do not send Connected on subsequent messages from already Connected party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [Message ()])
+          receivedMessages <- newTVarIO ([] :: [Connectivity])
 
           withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId ()) >> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
@@ -67,7 +67,7 @@ spec = parallel $ do
 
   it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [Message ()])
+          receivedMessages <- newTVarIO ([] :: [Connectivity])
 
           let component incoming action =
                 race_
