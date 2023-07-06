@@ -89,7 +89,7 @@ monitor ::
   HydraLog tx net ->
   m ()
 monitor transactionsMap metricsMap = \case
-  (Node BeginEvent{event = NetworkEvent _ (ReqTx tx)}) -> do
+  (Node BeginEvent{event = NetworkEvent _ _ (ReqTx tx)}) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
     -- forever in the transactions map which could lead to unbounded growth and

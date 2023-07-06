@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.SnapshotStrategySpec where
 
@@ -62,7 +61,7 @@ spec = do
 
       prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
 
-      prop "there's always a leader for every snapsnot number" prop_thereIsAlwaysALeader
+      prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
@@ -114,7 +113,7 @@ spec = do
                   coordinatedState{seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}}
 
           emitSnapshot (envFor aliceSk) (NewState st)
-            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn alice 1 [tx]])
+            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [tx]])
 
 prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do

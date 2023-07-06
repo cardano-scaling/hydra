@@ -5,6 +5,7 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -33,6 +34,7 @@ import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
+import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
@@ -55,8 +57,6 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
-import Hydra.API.ServerOutput (ServerOutput(PeerConnected, PeerDisconnected))
-import Hydra.Network.Authenticate (withAuthentication, Authenticated (Authenticated))
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -104,7 +104,7 @@ main = do
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent (Authenticated msg _) = putEvent $ NetworkEvent defaultTTL msg
+              putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do

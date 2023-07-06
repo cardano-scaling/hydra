@@ -58,15 +58,15 @@ spec = parallel $ do
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx1}}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx2}}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx3}}
+              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
                  ]
           signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [1]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn alice 1 [tx1], AckSn alice signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn 1 [tx1], AckSn signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
@@ -75,17 +75,17 @@ spec = parallel $ do
           sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [1]
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}
-                 , NetworkEvent{ttl = defaultTTL, message = AckSn alice (sign aliceSk sn1) 1}
-                 , NetworkEvent{ttl = defaultTTL, message = AckSn carol (sign carolSk sn1) 1}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx1}}
+              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactions = mempty}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
+                 , NetworkEvent{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
                  ]
 
       node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
-      getNetworkMessages `shouldReturn` [AckSn bob (sign bobSk sn1) 1, ReqSn bob 2 [tx1], AckSn bob (sign bobSk sn2) 2]
+      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [tx1], AckSn (sign bobSk sn2) 2]
 
   it "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
@@ -94,13 +94,13 @@ spec = parallel $ do
           sigAlice = sign aliceSk snapshot
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, message = AckSn{party = bob, signed = sigBob, snapshotNumber = 1}}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = []}}
+              <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactions = []}}
                  ]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [AckSn{party = alice, signed = sigAlice, snapshotNumber = 1}]
+      getNetworkMessages `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
 
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do

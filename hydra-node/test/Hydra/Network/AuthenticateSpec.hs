@@ -62,7 +62,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [Authenticated "1" bob]
 
-  it "drop message comming from party with wrong signature" $ do
+  it "drop message coming from party with wrong signature" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Authenticated ByteString])
 

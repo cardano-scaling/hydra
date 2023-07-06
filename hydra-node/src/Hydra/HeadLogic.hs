@@ -69,7 +69,7 @@ data Event tx
     --
     --  * `ttl` is a simple counter that's decreased every time the event is
     --    reenqueued due to a wait. It's default value is `defaultTTL`
-    NetworkEvent {ttl :: TTL, message :: Message tx}
+    NetworkEvent {ttl :: TTL, party :: Party, message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
@@ -688,7 +688,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
                       }
                 }
           )
-          `Combined` Effects [NetworkEffect $ AckSn party snapshotSignature sn]
+          `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
  where
   requireReqSn continue =
     if
@@ -736,7 +736,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxs =
 
   OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
-  Environment{party, signingKey} = env
+  Environment{signingKey} = env
 
 -- | Process a snapshot acknowledgement ('AckSn') from a party.
 --
@@ -995,12 +995,12 @@ update env ledger st ev = case (st, ev) of
     onOpenClientClose openState
   (Open{}, ClientEvent (NewTx tx)) ->
     onOpenClientNewTx tx
-  (Open openState, NetworkEvent ttl (ReqTx tx)) ->
+  (Open openState, NetworkEvent ttl _ (ReqTx tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
+  (Open openState, NetworkEvent _ otherParty (ReqSn sn txs)) ->
     -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txs
-  (Open openState, NetworkEvent _ (AckSn otherParty snapshotSignature sn)) ->
+  (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
@@ -1089,7 +1089,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
 emitSnapshot :: Environment -> Outcome tx -> Outcome tx
-emitSnapshot env@Environment{party} outcome =
+emitSnapshot env outcome =
   case outcome of
     NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) ->
       case newSn env parameters coordinatedHeadState of
@@ -1112,7 +1112,7 @@ emitSnapshot env@Environment{party} outcome =
                   , currentSlot
                   }
             )
-            `Combined` Effects [NetworkEffect (ReqSn party sn txs)]
+            `Combined` Effects [NetworkEffect (ReqSn sn txs)]
         _ -> outcome
     Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
     _ -> outcome
