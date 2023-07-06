@@ -155,7 +155,7 @@ properties:
             type: array
             items:
               $ref: "logs.yaml#/definitions/ParamMismatch"
-      
+
       - title: Authentication
         description: >-
           Hydra node detected a difference between the signer and the sender
@@ -1110,6 +1110,7 @@ definitions:
           - tag
           - ttl
           - message
+          - party
         description: >-
           An event representing some message received from peers in the network.
         properties:
@@ -1120,6 +1121,8 @@ definitions:
             $ref: "logs.yaml#/definitions/Message"
           ttl:
             type: number
+          party:
+            $ref: "api.yaml#/components/schemas/Party"
       - title: OnChainEvent
         type: object
         additionalProperties: false
@@ -1174,7 +1177,6 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - party
           - transaction
         description: >-
           Request to sign some transaction and add it to the confirmed Head
@@ -1183,8 +1185,6 @@ definitions:
           tag:
             type: string
             enum: ["ReqTx"]
-          party:
-            $ref: "api.yaml#/components/schemas/Party"
           transaction:
             $ref: "api.yaml#/components/schemas/Transaction"
       - title: ReqSn
@@ -1192,7 +1192,6 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - party
           - snapshotNumber
           - transactions
         description: >-
@@ -1202,8 +1201,6 @@ definitions:
           tag:
             type: string
             enum: ["ReqSn"]
-          party:
-            $ref: "api.yaml#/components/schemas/Party"
           snapshotNumber:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           transactions:
@@ -1215,7 +1212,6 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - party
           - signed
           - snapshotNumber
         description: >-
@@ -1224,8 +1220,6 @@ definitions:
           tag:
             type: string
             enum: ["AckSn"]
-          party:
-            $ref: "api.yaml#/components/schemas/Party"
           snapshotNumber:
             type: integer
             minimum: 0
@@ -1235,34 +1229,6 @@ definitions:
             description: >-
               Signature from given party of the snapshot. The bytes representing
               the signature are hex-encoded.
-      - title: Connected
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - nodeId
-        description: >-
-          Given party is known to be connected to the network.
-        properties:
-          tag:
-            type: string
-            enum: ["Connected"]
-          nodeId:
-            $ref: "api.yaml#/components/schemas/NodeId"
-      - title: Disconnected
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - nodeId
-        description: >-
-          Given peer is probably disconnected from the network.
-        properties:
-          tag:
-            type: string
-            enum: ["Disconnected"]
-          nodeId:
-            $ref: "api.yaml#/components/schemas/NodeId"
 
   OnChainEvent:
     oneOf:
@@ -1579,7 +1545,7 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - left 
+          - left
           - right
         description: >-
           A combination of two outcomes.
@@ -1739,7 +1705,7 @@ definitions:
         properties:
           cardanoLedgerProtocolParametersFile:
             type: string
-  
+
   AuthLog:
     type: object
     required:
