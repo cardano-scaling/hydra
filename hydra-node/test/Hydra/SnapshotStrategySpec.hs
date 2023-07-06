@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.SnapshotStrategySpec where
 
@@ -9,6 +8,12 @@ import Test.Hydra.Prelude
 import qualified Data.List as List
 import Hydra.Chain (HeadParameters (..))
 import Hydra.HeadLogic (
+  emitSnapshot,
+  isLeader,
+  newSn,
+ )
+import Hydra.HeadLogicSpec (inOpenState')
+import Hydra.HeadLogicTypes (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
@@ -16,11 +21,7 @@ import Hydra.HeadLogic (
   Outcome (..),
   SeenSnapshot (..),
   SnapshotOutcome (..),
-  emitSnapshot,
-  isLeader,
-  newSn,
  )
-import Hydra.HeadLogicSpec (inOpenState')
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))

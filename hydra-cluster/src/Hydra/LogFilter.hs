@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (id)
 import qualified Data.Map as Map
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.HeadLogic (Effect (..), Event (..))
+import Hydra.HeadLogicTypes (Effect (..), Event (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (Node))

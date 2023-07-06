@@ -22,7 +22,7 @@ import Hydra.Chain (
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Environment (..),
   Event (..),
   HeadState (..),

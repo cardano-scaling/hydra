@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import qualified Data.Text as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.BehaviorSpec (testHeadId)
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Effect (ClientEffect),
   Event (NetworkEvent),
   defaultTTL,

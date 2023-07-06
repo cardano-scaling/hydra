@@ -5,13 +5,15 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.HeadLogic (
+import Hydra.HeadLogic (getChainState)
+import Hydra.HeadLogicTypes (
   ClosedState (..),
   Environment (..),
   Event (..),
@@ -20,7 +22,6 @@ import Hydra.HeadLogic (
   InitialState (..),
   OpenState (..),
   defaultTTL,
-  getChainState,
  )
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -55,7 +56,6 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
-import Hydra.API.ServerOutput (ServerOutput(PeerConnected, PeerDisconnected))
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 

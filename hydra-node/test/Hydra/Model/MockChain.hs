@@ -46,7 +46,7 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Environment (Environment, otherParties, party),
   Event (..),
   defaultTTL,

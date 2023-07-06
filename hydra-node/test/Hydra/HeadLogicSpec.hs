@@ -27,7 +27,8 @@ import Hydra.Chain (
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (aggregate, generateSigningKey, sign)
-import Hydra.HeadLogic (
+import Hydra.HeadLogic (update)
+import Hydra.HeadLogicTypes (
   ClosedState (..),
   CoordinatedHeadState (..),
   Effect (..),
@@ -42,7 +43,6 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   defaultTTL,
-  update,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
@@ -294,7 +294,7 @@ spec =
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
-          runEvents  bobEnv ledger (inInitialState threeParties) $
+          runEvents bobEnv ledger (inInitialState threeParties) $
             step (observationEvent OnAbortTx)
 
         let invalidEvent = observationEvent OnCollectComTx
@@ -558,9 +558,9 @@ data StepState tx = StepState
 -- | Asserts that the update function will update the state (return a NewState) for this Event
 step :: (MonadState (StepState tx) m, HasCallStack, IsChainState tx) => Event tx -> m (HeadState tx)
 step event = do
-  StepState{ headState, env, ledger} <- get
+  StepState{headState, env, ledger} <- get
   headState' <- assertNewState $ update env ledger headState event
-  put StepState{ env, ledger, headState = headState' }
+  put StepState{env, ledger, headState = headState'}
   pure headState'
 
 assertNewState ::

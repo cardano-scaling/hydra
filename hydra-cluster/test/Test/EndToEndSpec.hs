@@ -75,7 +75,7 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey, generateSigningKey)
-import Hydra.HeadLogic (HeadState (Open), OpenState (parameters))
+import Hydra.HeadLogicTypes (HeadState (Open), OpenState (parameters))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)

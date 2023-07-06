@@ -59,12 +59,12 @@ import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Committed (),
   IdleState (..),
   PendingCommits,
  )
-import qualified Hydra.HeadLogic as HeadState
+import qualified Hydra.HeadLogicTypes as HeadState
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)

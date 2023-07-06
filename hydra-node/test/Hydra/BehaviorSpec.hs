@@ -42,7 +42,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Effect (..),
   Environment (..),
   Event (..),

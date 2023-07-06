@@ -18,7 +18,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Effect (ClientEffect),
   Event (NetworkEvent),
  )

@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (
+import Hydra.HeadLogicTypes (
   Effect (..),
   Environment (..),
   Event (..),
