@@ -125,8 +125,8 @@ stepHydraNode tracer node = do
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
-      Queued{eventId, queuedEvent = NetworkEvent ttl msg}
-        | ttl > 0 -> Queued{eventId, queuedEvent = NetworkEvent (ttl - 1) msg}
+      Queued{eventId, queuedEvent = NetworkEvent ttl aParty msg}
+        | ttl > 0 -> Queued{eventId, queuedEvent = NetworkEvent (ttl - 1) aParty msg}
       e -> e
 
   Environment{party} = env
@@ -176,7 +176,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
   traceWith tracer $ BeginEffect party eventId effectId e
   case e of
     ClientEffect i -> sendOutput server i
-    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL msg)
+    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL party msg)
     OnChainEffect{postChainTx} ->
       postTx postChainTx
         `catch` \(postTxError :: PostTxError tx) ->

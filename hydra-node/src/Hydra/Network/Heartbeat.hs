@@ -19,6 +19,8 @@ module Hydra.Network.Heartbeat where
 
 import Hydra.Prelude
 
+import Cardano.Binary (serialize')
+import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -57,6 +59,9 @@ instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
       (0 :: Int) -> Data <$> fromCBOR <*> fromCBOR
       1 -> Ping <$> fromCBOR
       other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
+
+instance ToCBOR msg => SignableRepresentation (Heartbeat msg) where
+  getSignableRepresentation = serialize'
 
 -- | Delay between each heartbeat check.
 heartbeatDelay :: DiffTime

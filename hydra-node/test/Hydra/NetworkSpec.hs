@@ -18,7 +18,7 @@ import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
-  property,
+  (===), Property,
  )
 import Test.QuickCheck.Instances.ByteString ()
 
@@ -49,7 +49,7 @@ spec = do
                 assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
 
   describe "Serialisation" $ do
-    it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+    prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b
@@ -77,7 +77,8 @@ shouldEventuallyReceive queue expectedValue = do
   unless (receivedValue == expectedValue) $ shouldEventuallyReceive queue expectedValue
 
 prop_canRoundtripCBOREncoding ::
-  (ToCBOR a, FromCBOR a, Eq a) => a -> Bool
+  (ToCBOR a, FromCBOR a, Eq a, Show a) => a -> Property
 prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
-   in (snd <$> deserialiseFromBytes fromCBOR encoded) == Right a
+   in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
+

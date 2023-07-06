@@ -105,6 +105,7 @@ library
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
     Hydra.Network
+    Hydra.Network.Authenticate
     Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Network.Ouroboros
@@ -295,6 +296,7 @@ test-suite tests
     Hydra.Model.MockChain
     Hydra.Model.Payment
     Hydra.ModelSpec
+    Hydra.Network.AuthenticateSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.Node.EventQueueSpec

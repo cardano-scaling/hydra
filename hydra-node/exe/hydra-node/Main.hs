@@ -5,6 +5,7 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -33,6 +34,7 @@ import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
+import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
@@ -55,7 +57,6 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
-import Hydra.API.ServerOutput (ServerOutput(PeerConnected, PeerDisconnected))
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -73,7 +74,7 @@ main = do
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
-    env@Environment{party, otherParties} <- initEnvironment opts
+    env@Environment{party, otherParties, signingKey} <- initEnvironment opts
     withTracer verbosity $ \tracer' ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
@@ -103,15 +104,15 @@ main = do
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent = putEvent . NetworkEvent defaultTTL
+              putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
-            withNetwork (contramap Network tracer) server host port peers nodeId putNetworkEvent $ \hn -> do
+            withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
-                  HydraNode{eq, hn, nodeState, oc = chain, server, ledger, env, persistence}
+                  HydraNode{eq, hn = contramap (`Authenticated` party) hn, nodeState, oc = chain, server, ledger, env, persistence}
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
@@ -119,12 +120,12 @@ main = do
     txId <- publishHydraScripts networkId nodeSocket sk
     putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
 
-  withNetwork tracer Server{sendOutput} host port peers nodeId =
+  withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
     let localhost = Host{hostname = show host, port}
         connectionMessages = \case
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withHeartbeat nodeId connectionMessages $ withOuroborosNetwork tracer localhost peers
+     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withCardanoLedger ledgerConfig chainConfig action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

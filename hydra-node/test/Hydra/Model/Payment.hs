@@ -35,8 +35,11 @@ instance ToJSON CardanoSigningKey where
 instance FromJSON CardanoSigningKey where
   parseJSON = error "don't use"
 
-instance Arbitrary Value where
-  arbitrary = genAdaValue
+instance ToCBOR CardanoSigningKey where
+  toCBOR = error "don't use"
+
+instance FromCBOR CardanoSigningKey where
+  fromCBOR = error "don't use"
 
 instance Arbitrary CardanoSigningKey where
   arbitrary = CardanoSigningKey . snd <$> genKeyPair
@@ -88,3 +91,13 @@ applyTx utxo Payment{from, to, value} =
 
 genAdaValue :: Gen Value
 genAdaValue = lovelaceToValue . fromInteger <$> choose (1, 10000000000)
+
+-- * Orphans
+instance Arbitrary Value where
+  arbitrary = genAdaValue
+
+instance ToCBOR Value where
+  toCBOR = error "don't use"
+
+instance FromCBOR Value where
+  fromCBOR = error "don't use"

@@ -23,7 +23,6 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import qualified Data.List as List
-import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -666,9 +665,9 @@ createMockNetwork node nodes =
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL
+  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL (getNodeId node)
 
-  getNodeId = getField @"party" . env
+  getNodeId HydraNode{env = Environment{party}} = party
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
