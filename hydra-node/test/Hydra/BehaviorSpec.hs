@@ -666,9 +666,9 @@ createMockNetwork node nodes =
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{eq, env = Environment{party}} = putEvent eq . NetworkEvent defaultTTL party
+  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL (getNodeId node)
 
-  getNodeId = getField @"party" . env
+  getNodeId HydraNode{env = Environment{party}} = party
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
