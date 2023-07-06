@@ -79,6 +79,7 @@ See [this wiki page](https://github.com/input-output-hk/hydra.wiki/blob/master/N
   - Due to the nature of the Hydra protocol, the lack of connection to a peer prevents any progress of the Head
 - A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
 - Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
+- Messages between peers are signed using party's hydra key and also validated upon receiving.
 
 ## Gossip diffusion network
 
