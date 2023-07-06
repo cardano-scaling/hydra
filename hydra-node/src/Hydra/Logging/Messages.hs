@@ -12,6 +12,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Options (ParamMismatch, RunOptions)
 
@@ -24,6 +25,7 @@ data HydraLog tx net
   | LoadedState
   | NodeOptions {runOptions :: RunOptions}
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
+  | Authentication {authentication :: AuthLog}
   deriving (Generic)
 
 deriving instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)

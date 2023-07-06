@@ -4,7 +4,9 @@ module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Tracer (Tracer)
+import qualified Data.Aeson as Aeson
 import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
+import Hydra.Logging (traceWith)
 import Hydra.Network (Network (Network, broadcast), NetworkComponent)
 import Hydra.Party (Party (Party, vkey))
 import Hydra.Prelude
@@ -44,8 +46,8 @@ instance FromCBOR msg => FromCBOR (Signed msg) where
 -- Only verified messages are pushed downstream to the internal network for the
 -- node to consume and process. Non-verified messages get discarded.
 withAuthentication ::
-  ( MonadAsync m
-  , SignableRepresentation msg
+  ( SignableRepresentation msg
+  , ToJSON msg
   ) =>
   Tracer m AuthLog ->
   -- The party signing key
@@ -59,12 +61,30 @@ withAuthentication ::
 withAuthentication tracer signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where
-  checkSignature (Signed msg sig party@Party{vkey = partyVkey}) = do
-    when (verify partyVkey sig msg && elem party parties) $
-      callback $
-        Authenticated msg party
-  authenticate = \Network{broadcast} ->
-    action $ Network{broadcast = \(Authenticated msg party) -> broadcast (Signed msg (sign signingKey msg) party)}
+  checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
+    if verify partyVkey sig msg && elem party parties
+      then callback $ Authenticated msg party
+      else traceWith tracer (mkAuthLog msg sig party)
 
-data AuthLog = AuthLog
-  deriving stock (Eq, Show)
+  authenticate = \Network{broadcast} ->
+    action $
+      Network
+        { broadcast = \(Authenticated msg party) ->
+            broadcast (Signed msg (sign signingKey msg) party)
+        }
+
+-- | Smart constructor for 'MessageDropped'
+mkAuthLog :: (ToJSON msg, Show signature) => msg -> signature -> Party -> AuthLog
+mkAuthLog message signature party =
+  MessageDropped
+    { message = decodeUtf8 $ Aeson.encode message
+    , signature = show signature
+    , party
+    }
+
+data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Party}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary AuthLog where
+  arbitrary = genericArbitrary

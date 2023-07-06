@@ -108,7 +108,7 @@ main = do
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
-            withNetwork (contramap Network tracer) server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+            withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
               let RunOptions{ledgerConfig} = opts
               withCardanoLedger ledgerConfig chainConfig $ \ledger ->
                 runHydraNode (contramap Node tracer) $
@@ -125,7 +125,7 @@ main = do
         connectionMessages = \case
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withAuthentication signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork tracer localhost peers
+     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withCardanoLedger ledgerConfig chainConfig action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

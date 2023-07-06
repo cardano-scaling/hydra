@@ -155,6 +155,23 @@ properties:
             type: array
             items:
               $ref: "logs.yaml#/definitions/ParamMismatch"
+      
+      - title: Authentication
+        description: >-
+          Hydra node detected a difference between the signer and the sender
+          of an authenticated message over the network.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - authentication
+        properties:
+          tag:
+            type: string
+            enum: ["Authentication"]
+          authentication:
+            type: object
+            $ref: "logs.yaml#/definitions/AuthLog"
 
 definitions:
   APIServer:
@@ -1722,3 +1739,17 @@ definitions:
         properties:
           cardanoLedgerProtocolParametersFile:
             type: string
+  
+  AuthLog:
+    type: object
+    required:
+      - message
+      - signature
+      - party
+    properties:
+      message:
+        type: string
+      signature:
+        type: string
+      party:
+        $ref: "api.yaml#/components/schemas/Party"
