@@ -2,7 +2,7 @@
 
 > Using Hydra for Digital Asset Auctions
 
-### Introduction: Using Hydra for Digital Asset Auctions 
+### Using Hydra for Digital Asset Auctions 
 Cardano makes minting and sending non-fungible tokens (NFTs) cheap and easy, as the accounting system for non-ADA tokens is hosted in the ledger itself (alongside ADA) instead of complicated and bug-prone custom smart contracts. This has led to a vibrant NFT ecosystem on Cardano for art, music, identity, real estate, gaming, service subscriptions, etc.
 [Diagram showing all the icons for NFT projects]
 High-quality marketplaces now exist on Cardano to list, view, and purchase all sorts of NFTs. These NFT marketplaces have very friendly user interfaces that can neatly display images/animations, rarity charts, royalty terms, and other metadata for the NFTs, which can be purchased at the seller’s list price or via a buyer’s alternative offer. However, the novelty of the digital and non-digital assets being tokenized on Cardano and the relatively small market size makes price discovery a challenge in the NFT sector.
