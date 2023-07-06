@@ -1,4 +1,4 @@
-# Hydra for Auctions
+# Hydra for Payment
 
 > Using Hydra for Peer-To-Peer Payments
 
