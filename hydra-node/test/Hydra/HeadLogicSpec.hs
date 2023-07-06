@@ -81,7 +81,7 @@ spec =
         let inputs = utxoRef 1
             tx = SimpleTx 2 inputs mempty
             ttl = 0
-            reqTx = NetworkEvent ttl $ ReqTx alice tx
+            reqTx = NetworkEvent ttl $ ReqTx tx
             s0 = inOpenState threeParties ledger
 
         update bobEnv ledger s0 reqTx `hasEffectSatisfying` \case
@@ -89,7 +89,7 @@ spec =
           _ -> False
 
       it "waits if a requested tx is not (yet) applicable" $ do
-        let reqTx = NetworkEvent defaultTTL $ ReqTx alice $ SimpleTx 2 inputs mempty
+        let reqTx = NetworkEvent defaultTTL $ ReqTx $ SimpleTx 2 inputs mempty
             inputs = utxoRef 1
             s0 = inOpenState threeParties ledger
 
@@ -267,7 +267,7 @@ spec =
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
-            event = NetworkEvent defaultTTL $ ReqTx alice (aValidTx 42)
+            event = NetworkEvent defaultTTL $ ReqTx (aValidTx 42)
         update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
       it "everyone does collect on last commit after collect com" $ do

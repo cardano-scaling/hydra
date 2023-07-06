@@ -58,9 +58,9 @@ spec = parallel $ do
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx1}}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx2}}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx3}}
+              <> [ NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx1}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx2}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx3}}
                  ]
           signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [1]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
@@ -78,7 +78,7 @@ spec = parallel $ do
               <> [ NetworkEvent{ttl = defaultTTL, message = ReqSn{party = alice, snapshotNumber = 1, transactions = mempty}}
                  , NetworkEvent{ttl = defaultTTL, message = AckSn alice (sign aliceSk sn1) 1}
                  , NetworkEvent{ttl = defaultTTL, message = AckSn carol (sign carolSk sn1) 1}
-                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{party = alice, transaction = tx1}}
+                 , NetworkEvent{ttl = defaultTTL, message = ReqTx{transaction = tx1}}
                  ]
 
       node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
@@ -104,7 +104,7 @@ spec = parallel $ do
 
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do
-      let events = [ ClientEvent Init ]
+      let events = [ClientEvent Init]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
       runToCompletion tracer node

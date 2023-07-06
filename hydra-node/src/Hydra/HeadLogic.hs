@@ -588,14 +588,11 @@ onInitialChainCollectTx st newChainState =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
-  Environment ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenClientNewTx env tx =
-  Effects [NetworkEffect $ ReqTx party tx]
- where
-  Environment{party} = env
+onOpenClientNewTx tx =
+  Effects [NetworkEffect $ ReqTx tx]
 
 -- | Process a transaction request ('ReqTx') from a party.
 --
@@ -997,8 +994,8 @@ update env ledger st ev = case (st, ev) of
   (Open openState, ClientEvent Close) ->
     onOpenClientClose openState
   (Open{}, ClientEvent (NewTx tx)) ->
-    onOpenClientNewTx env tx
-  (Open openState, NetworkEvent ttl (ReqTx _ tx)) ->
+    onOpenClientNewTx tx
+  (Open openState, NetworkEvent ttl (ReqTx tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
   (Open openState, NetworkEvent _ (ReqSn otherParty sn txs)) ->
     -- XXX: ttl == 0 not handled for ReqSn
