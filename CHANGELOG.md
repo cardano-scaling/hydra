@@ -11,8 +11,9 @@ changes.
 ## [0.12.0] - UNRELEASED
 
 - **BREAKING** Introduce authenticated network messages [#965](965).
-  - Peers will sign messages before broadcasting them to other peers and
-  verify its signature upon receving against its party members.
+  - Peers will sign messages before broadcasting them to other peers,
+    and verify signature of received messages is from a known party
+    and of course valid.
 
 ## [0.11.0] - 2023-06-30
 
