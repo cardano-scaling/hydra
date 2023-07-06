@@ -2,19 +2,19 @@
 
 module Hydra.Network.AuthenticateSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
-
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Data.ByteString (pack)
 import Hydra.Crypto (sign)
+import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
 import Hydra.Network (Network (..))
-import Hydra.Network.Authenticate (Authenticated (..), Signed (Signed), withAuthentication)
+import Hydra.Network.Authenticate (AuthLog (AuthLog), Authenticated (..), Signed (Signed), withAuthentication)
 import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
+import Hydra.Prelude
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
+import Test.Hydra.Prelude
 import Test.QuickCheck (listOf)
 
 spec :: Spec
@@ -30,6 +30,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO ([] :: [Authenticated ByteString])
 
           withAuthentication
+            nullTracer
             aliceSk
             [bob]
             ( \incoming _ -> do
@@ -48,6 +49,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO ([] :: [Authenticated ByteString])
 
           withAuthentication
+            nullTracer
             aliceSk
             [bob]
             ( \incoming _ -> do
@@ -67,6 +69,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO ([] :: [Authenticated ByteString])
 
           withAuthentication
+            nullTracer
             aliceSk
             [bob, carol]
             ( \incoming _ -> do
@@ -85,7 +88,7 @@ spec = parallel $ do
         sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Signed ByteString])
 
-          withAuthentication bobSk [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withAuthentication nullTracer bobSk [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
@@ -93,6 +96,17 @@ spec = parallel $ do
           readTVarIO sentMessages
 
     sentMsgs `shouldBe` [Signed "1" (sign bobSk "1") bob]
+
+  it "logs dropped messages" $ do
+    let traced = runSimOrThrow $ do
+          traces <- newTVarIO []
+          let tracer = traceInTVar traces
+          withAuthentication @_ @ByteString tracer aliceSk [bob, carol] (\incoming _ -> incoming (Signed "1" (sign carolSk "1") bob)) noop $ \_ ->
+            threadDelay 1
+
+          readTVarIO traces
+
+    (message <$> traced) `shouldContain` [AuthLog]
 
   describe "Serialization" $ do
     prop "can roundtrip CBOR encoding/decoding of Signed Hydra Message" $

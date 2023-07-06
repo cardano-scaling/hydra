@@ -3,6 +3,7 @@
 module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
+import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Hydra.Network (Network (Network, broadcast), NetworkComponent)
 import Hydra.Party (Party (Party, vkey))
@@ -46,6 +47,7 @@ withAuthentication ::
   ( MonadAsync m
   , SignableRepresentation msg
   ) =>
+  Tracer m AuthLog ->
   -- The party signing key
   SigningKey HydraKey ->
   -- Other party members
@@ -54,7 +56,7 @@ withAuthentication ::
   NetworkComponent m (Signed msg) a ->
   -- The node internal authenticated network.
   NetworkComponent m (Authenticated msg) a
-withAuthentication signingKey parties withRawNetwork callback action = do
+withAuthentication tracer signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) = do
@@ -63,3 +65,6 @@ withAuthentication signingKey parties withRawNetwork callback action = do
         Authenticated msg party
   authenticate = \Network{broadcast} ->
     action $ Network{broadcast = \(Authenticated msg party) -> broadcast (Signed msg (sign signingKey msg) party)}
+
+data AuthLog = AuthLog
+  deriving stock (Eq, Show)
