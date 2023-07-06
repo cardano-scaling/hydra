@@ -202,7 +202,7 @@ createMockNetwork myNode nodes =
     let otherNodes = filter (\n -> getNodeId n /= getNodeId myNode) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{eq, env = Environment{party}} = putEvent eq . NetworkEvent defaultTTL party
+  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL (getNodeId myNode)
 
   getNodeId HydraNode{env = Environment{party}} = party
 
