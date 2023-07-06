@@ -1,6 +1,11 @@
-# To be archived: NFT Auction
+# NFT Auction
 
 > Layer 1 redeemable vouchers negotiated on layer 2.
+
+:::warning This is a simple example use case
+
+To read about an ongoing project to develop a reference implementation of a similar use case, please check out the section [Hydra for Auctions](../../nft-auction/index.md)
+:::
 
 NFT drops can be a real problem when run on L1, generating a lot of UTxO and transactions in a short amount of time, clogging the network and leading to congestion and general slowdowns. The problem seems to come not much from the NFTs themselves but from the large of number of bidding transactions people post to grab some.
 

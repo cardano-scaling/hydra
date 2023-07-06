@@ -2,6 +2,12 @@
 
 > The first complete prototype of an auction that can host its bidding process on L2.
 
+:::tip This use case is under development
+
+This project is an ongoing effort in collaboration with MLabs. Source code and documentation can be found [here](https://github.com/mlabs-haskell/hydra-auction).
+
+:::
+
 ## Overview
 
 As the first building block of what might grow, with the help of the Cardano community, into a Hydra-based auction framework, we develop a first complete prototype of an auction that can host its bidding process on a Cardano Hydra Head. Among the design candidates considered in our [Jan 2023 paper](https://iohk.io/en/blog/posts/2023/01/20/implementing-auction-projects-using-hydra/), the delegated voucher auction makes the best use of the respective strengths of Cardano mainnet (L1) and the Hydra Head protocol (L2) while mitigating their weaknesses.
@@ -34,9 +40,6 @@ In this prototype, each auction would work as follows:
 8. Up to the voucher expiry time, the winning bidder can purchase the auction lot for the standing bid price.
 9. After the voucher expiry time, if the winning bidder has not purchased the auction lot, the seller can reclaim it and claim the winning bidder’s security deposit for the auction. Otherwise, the winning bidder can reclaim his security deposit.
 10. All other bidders can reclaim their security deposits at the end of the bidding phase.
-
-:::tip [Diagram showing the auction workflow]
-:::
 
 ## Prerequisites from Hydra technical roadmap
 

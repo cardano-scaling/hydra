@@ -9,6 +9,8 @@ We hope this section will trigger a discussion with those in the community inter
 
 We want to share the initial use cases where we consider Hydra can add significant value (by driving down related transaction costs and confirmation times and increasing transaction throughput) and actively engage the community to discuss and contribute to the use cases featured on the roadmap. Of course, we also want to encourage the community to raise additional use cases we inevitably omitted.
 
+We are currently exploring use cases in domains of payments, digital asset auctions, decentralized voting, and decentralized finance. The use case section will be updated as these use cases are worked out in more detail. So keep an eye out! 
+
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
 import {useDocsSidebar} from '@docusaurus/theme-common/internal';

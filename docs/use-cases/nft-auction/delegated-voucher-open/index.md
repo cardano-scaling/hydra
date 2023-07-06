@@ -7,8 +7,6 @@
 
 The private invitational auction from the initial prototype is a very common use case, but there is also demand for a more casual auction format, whereby bidders can freely participate in any public auction without any vetting from sellers.
 However, for sellers to be comfortable with this auction format, we need stronger backing for bids to mitigate the risk of bidders attempting to dishonor their bids – ideally, all bids should be fully collateralized by bidder deposits towards the auction. Thus, as a possible extension of the initial prototype auction design , we can replace the fixed security deposit from the prototype with a method that allows bidders to place sufficient deposits on L1 and then show proof of these deposits whenever they make bids on L2.
-:::tip [Diagram of public auction workflow]
-:::
 
 ## Workflow
 
