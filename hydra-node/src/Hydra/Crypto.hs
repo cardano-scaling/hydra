@@ -277,20 +277,29 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
 data Verified
   = Verified
   | FailedKeys {failedKeys :: [VerificationKey HydraKey]}
+  | KeyNumberMismatch
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Verify a given 'MultiSignature a' and value 'a' provided a list of
--- 'VerificationKey'. Note that order of keys is relevant.
+-- 'VerificationKey'.
+--
+-- Note that order of keys is relevant and that length of signature and
+-- multisignature list needs to be the same.
 verifyMultiSignature ::
   SignableRepresentation a =>
   [VerificationKey HydraKey] ->
   MultiSignature a ->
   a ->
   Verified
-verifyMultiSignature vks HydraMultiSignature{multiSignature} a =
-  (length vks == length multiSignature)
-    && all (\(vk, sig) -> verify vk sig a) (zip vks multiSignature)
+verifyMultiSignature vks HydraMultiSignature{multiSignature} a
+  | length vks == length multiSignature =
+      let verifications = zipWith (\vk s -> (vk, verify vk s a)) vks multiSignature
+          failures = fst <$> filter (not . snd) verifications
+      in if null failures
+           then Verified
+           else FailedKeys failures
+  | otherwise = KeyNumberMismatch
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =

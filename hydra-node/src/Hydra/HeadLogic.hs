@@ -875,6 +875,11 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
         Error $
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys = failures}
+      KeyNumberMismatch ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show multisig, vkeys}
+
 
   vkeys = vkey <$> parties
 

@@ -96,16 +96,15 @@ specMultiSignature =
 
     prop "verifyMultiSignature fails when signature is missing" $ \sks (msg :: ByteString) dummySig ->
       (length sks > 2) ==>
-        forAll (chooseInt (0, length sks - 1)) $ \i ->
-          let missingKeySig = sks !! i
+        forAll (elements sks) $ \missingKeySig ->
               sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
            in not (verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg)
 
-    prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) ->
+    prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) -> do
       (length sks > 1)
+      properPrefixes <- sublistOf sks
         ==> let sigs = aggregate $ map (`sign` msg) (toList sks)
-                properPrefixes = filter ((< length sks) . length) $ inits sks
-             in conjoin
+            conjoin
                   ( map
                       ( \prefix ->
                           not (verifyMultiSignature (map getVerificationKey prefix) sigs msg)
