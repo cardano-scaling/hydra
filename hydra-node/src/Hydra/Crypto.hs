@@ -279,7 +279,8 @@ verifyMultiSignature ::
   a ->
   Bool
 verifyMultiSignature vks HydraMultiSignature{multiSignature} a =
-  all (\(vk, sig) -> verify vk sig a) $ zip vks multiSignature
+  (length vks == length multiSignature)
+    && all (\(vk, sig) -> verify vk sig a) (zip vks multiSignature)
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =
