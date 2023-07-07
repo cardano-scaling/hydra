@@ -14,10 +14,17 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Map as Map
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.QuickCheck (counterexample, forAll, shuffle, (=/=), (===), (==>))
+import Test.QuickCheck (
+  conjoin,
+  counterexample,
+  forAll,
+  shuffle,
+  (=/=),
+  (==>), chooseInt,
+ )
 import Test.QuickCheck.Instances.UnorderedContainers ()
 import Test.Util (propCollisionResistant)
-import Hydra.Party (deriveParty, Party (vkey))
+import Data.List ((!!))
 
 spec :: Spec
 spec = do
@@ -85,3 +92,25 @@ specMultiSignature =
             not (null shuffled)
               ==> verifyMultiSignature (map vkey shuffled) (aggregateInOrder sigs shuffled) msg
               === Verified
+       in verifyMultiSignature vks msig msg
+
+    prop "verifyMultiSignature fails when signature is missing" $ \sks (msg :: ByteString) dummySig ->
+      (length sks > 2) ==>
+        forAll (chooseInt (0, length sks - 1)) $ \i ->
+          let missingKeySig = sks !! i
+              sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
+           in not (verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg)
+
+    prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) ->
+      (length sks > 1)
+        ==> let sigs = aggregate $ map (`sign` msg) (toList sks)
+                properPrefixes = filter ((< length sks) . length) $ inits sks
+             in conjoin
+                  ( map
+                      ( \prefix ->
+                          not (verifyMultiSignature (map getVerificationKey prefix) sigs msg)
+                            & counterexample ("Prefix: " <> show prefix)
+                            & counterexample ("Signature: " <> show sigs)
+                      )
+                      properPrefixes
+                  )
