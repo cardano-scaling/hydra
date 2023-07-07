@@ -644,19 +644,19 @@ onOpenNetworkReqTx ::
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions currentSlot seenUTxO [tx] of
-    -- FIXME handle the left case
     Left (_, err)
       | ttl <= 0 ->
-          Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+        NewState (Open st{coordinatedHeadState = untrackTxInState})
+          `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise ->
-          NewState (Open st{coordinatedHeadState = coordinatedHeadState'})
+          NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
       NewState
         ( Open
             st
               { coordinatedHeadState =
-                  coordinatedHeadState'
+                  trackTxInState
                     { seenTxs = seenTxs <> [tx]
                     , seenUTxO = utxo'
                     }
@@ -671,7 +671,9 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   OpenState{coordinatedHeadState, headId, currentSlot} = st
 
-  coordinatedHeadState' = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
+  trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
+
+  untrackTxInState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
