@@ -15,6 +15,10 @@ changes.
     and verify signature of received messages is from a known party
     and of course valid.
 
+- **BREAKING**Protocol change: Wait for all transactions requested in
+  a snapshot to be seen before acknowledging it, and only send
+  transaction ids in snapshot requests
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts

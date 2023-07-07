@@ -78,8 +78,8 @@ tracePerformance envelope = do
     Envelope{timestamp, message = Node BeginEvent{eventId, event = NetworkEvent{message = ReqTx{transaction}}}} -> do
       put (Map.insert (EventKey eventId) [TraceEvent{event = "ReqTx", timestamp, txid = txId transaction, us = 0}] pending)
       pure []
-    Envelope{timestamp, message = Node BeginEvent{eventId, event = NetworkEvent{message = ReqSn{transactions}}}} -> do
-      put (Map.insert (EventKey eventId) (map (\tx -> TraceEvent{event = "ReqSn", timestamp, txid = txId tx, us = 0}) transactions) pending)
+    Envelope{timestamp, message = Node BeginEvent{eventId, event = NetworkEvent{message = ReqSn{transactionIds}}}} -> do
+      put (Map.insert (EventKey eventId) (map (\txid -> TraceEvent{event = "ReqSn", timestamp, txid, us = 0}) transactionIds) pending)
       pure []
     Envelope{timestamp, message = Node EndEvent{eventId}} ->
       case Map.lookup (EventKey eventId) pending of

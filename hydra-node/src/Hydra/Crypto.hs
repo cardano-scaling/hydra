@@ -92,7 +92,7 @@ instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
-    deriving (Eq, Show)
+    deriving (Eq, Show, Ord)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -270,6 +270,16 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
       Nothing -> sigs
       Just sig -> sig : sigs
 
+-- | A result type for multisigs verification providing some information
+-- in case of failure.
+--
+-- This type is of course structurally equivalent to `Maybe [VerificationKey HydraKey]` but it's much more explicit.
+data Verified
+  = Verified
+  | FailedKeys {failedKeys :: [VerificationKey HydraKey]}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Verify a given 'MultiSignature a' and value 'a' provided a list of
 -- 'VerificationKey'. Note that order of keys is relevant.
 verifyMultiSignature ::
@@ -277,9 +287,13 @@ verifyMultiSignature ::
   [VerificationKey HydraKey] ->
   MultiSignature a ->
   a ->
-  Bool
+  Verified
 verifyMultiSignature vks HydraMultiSignature{multiSignature} a =
-  all (\(vk, sig) -> verify vk sig a) $ zip vks multiSignature
+  let verifications = zipWith (\vk s -> (vk, verify vk s a)) vks multiSignature
+      failures = fst <$> filter (not . snd) verifications
+   in if null failures
+        then Verified
+        else FailedKeys failures
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =
