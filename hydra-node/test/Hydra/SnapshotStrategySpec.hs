@@ -22,7 +22,10 @@ import Hydra.HeadLogic (
   updateHeadState,
  )
 import Hydra.HeadLogicSpec (inOpenState')
-import Hydra.Ledger (Ledger (..))
+import Hydra.Ledger (
+  Ledger (..),
+  txId,
+ )
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -61,7 +64,7 @@ spec = do
     describe "New Snapshot Decision" $ do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
         let tx = aValidTx 1
-            st = coordinatedHeadState{seenTxs = [tx]}
+            st :: CoordinatedHeadState SimpleTx = coordinatedHeadState{seenTxs = [tx]}
         newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
@@ -70,12 +73,12 @@ spec = do
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
-            st = coordinatedHeadState{seenTxs = [tx]}
+            st :: CoordinatedHeadState SimpleTx = coordinatedHeadState{seenTxs = [tx]}
         newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
         let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
-            st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
+            st :: CoordinatedHeadState SimpleTx = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
         newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
       it "do not send ReqSn when there's no seen transactions" $ do
@@ -90,6 +93,7 @@ spec = do
                 CoordinatedHeadState
                   { seenUTxO = initUTxO
                   , seenTxs = [tx]
+                  , allTxs = mempty
                   , confirmedSnapshot = initialSnapshot
                   , seenSnapshot = NoSeenSnapshot
                   }
@@ -97,7 +101,7 @@ spec = do
           let expectedEvent = SnapshotEmited{requested = 1, lastSeenSnapshot = NoSeenSnapshot}
           emitSnapshot (envFor aliceSk) ost (NewState [])
             `shouldBe` NewState [expectedEvent]
-            `Combined` Effects [NetworkEffect $ ReqSn alice 1 [tx]]
+            `Combined` Effects [NetworkEffect $ ReqSn 1 [txId tx]]
 
           let seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
               st' = inOpenState' threeParties $ coordinatedState{seenSnapshot}
@@ -141,6 +145,4 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      length parties
-        > 0
-        ==> any (\p -> isLeader params p sn) parties
+      length parties > 0 ==> any (\p -> isLeader params p sn) parties

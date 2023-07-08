@@ -403,6 +403,16 @@ data HeadStateEvent tx
       , u0 :: UTxOType tx
       , newChainState :: ChainStateType tx
       }
+  | TxReceived
+      { tx :: tx
+      , utxo :: UTxOType tx
+      }
+  | UntrackTxInState
+      { tx :: tx
+      }
+  | TrackTxInState
+      { tx :: tx
+      }
   | NewTxReceived
       { tx :: tx
       , utxo :: UTxOType tx
@@ -415,6 +425,7 @@ data HeadStateEvent tx
   | AckSnConfirmed
       { snapshot :: Snapshot tx
       , multisig :: MultiSignature (Snapshot tx)
+      , newAllTxs :: Map.Map (TxIdType tx) tx
       }
   | AckSnPending
       { snapshot :: Snapshot tx
@@ -471,11 +482,25 @@ updateHeadState st evt = case (st, evt) of
     Open
       OpenState
         { parameters
-        , coordinatedHeadState = CoordinatedHeadState u0 mempty initialSnapshot NoSeenSnapshot
+        , coordinatedHeadState = CoordinatedHeadState u0 mempty mempty initialSnapshot NoSeenSnapshot
         , chainState = newChainState
         , headId
         , currentSlot = chainStateSlot newChainState
         }
+  ( Open ost@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{allTxs}}
+    , UntrackTxInState{tx}
+    ) ->
+      Open
+        ost
+          { coordinatedHeadState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
+          }
+  ( Open ost@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{allTxs}}
+    , TrackTxInState{tx}
+    ) ->
+      Open
+        ost
+          { coordinatedHeadState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
+          }
   ( Open ost@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{seenTxs}}
     , NewTxReceived{tx, utxo}
     ) ->
@@ -497,16 +522,16 @@ updateHeadState st evt = case (st, evt) of
               , seenUTxO
               }
         }
-  (Open ost@OpenState{coordinatedHeadState}, AckSnConfirmed{snapshot, multisig, allTxs}) ->
+  (Open ost@OpenState{coordinatedHeadState}, AckSnConfirmed{snapshot, multisig, newAllTxs}) ->
     Open
       ost
         { coordinatedHeadState =
             coordinatedHeadState
-              { confirmedSnapshot =
+              { allTxs = newAllTxs
+              , confirmedSnapshot =
                   ConfirmedSnapshot
                     { snapshot
                     , signatures = multisig
-                    , allTxs
                     }
               , seenSnapshot = LastSeenSnapshot (number snapshot)
               }
@@ -743,7 +768,7 @@ onInitialChainCollectTx ::
   ChainStateType tx ->
   Outcome tx
 onInitialChainCollectTx st newChainState =
-  NewState [HeadOpened{initialSnapshot, u0, newChainState}]
+  NewState [HeadOpened{initialSnapshot = confirmedSnapshot, u0, newChainState}]
     `Combined` Effects [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
  where
   u0 = fold committed
@@ -776,7 +801,6 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  IsTx tx
   IsChainState tx =>
   Environment ->
   Ledger tx ->
@@ -790,27 +814,23 @@ onOpenNetworkReqTx env ledger st ttl tx =
   case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
-          NewState (Open st{coordinatedHeadState = untrackTxInState})
+          NewState [UntrackTxInState{tx}]
             `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise ->
-          NewState (Open st{coordinatedHeadState = trackTxInState})
+          NewState [TrackTxInState{tx}]
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      let event = NewTxReceived{tx, utxo = utxo'}
-          st' = updateHeadState (Open st) event
-       in NewState [event]
+      let events = [NewTxReceived{tx, utxo = utxo'}, TrackTxInState{tx}]
+          st' = foldl' updateHeadState (Open st) events
+       in NewState events
             `Combined` Effects [ClientEffect $ TxValid headId tx]
             & emitSnapshot env st'
  where
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{allTxs, seenTxs, seenUTxO} = coordinatedHeadState
+  CoordinatedHeadState{seenUTxO} = coordinatedHeadState
 
   OpenState{coordinatedHeadState, headId, currentSlot} = st
-
-  trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
-
-  untrackTxInState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -952,7 +972,7 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
           requireVerifiedMultisignature multisig snapshot $ do
-            let event = AckSnConfirmed{snapshot, multisig, allTxs = allTxs'}
+            let event = AckSnConfirmed{snapshot, multisig, newAllTxs = allTxs'}
                 st' = updateHeadState (Open openState) event
              in NewState [event]
                   `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
@@ -990,10 +1010,6 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
             InvalidMultisignature{multisig = show multisig, vkeys = failures}
 
   vkeys = vkey <$> parties
-
-  -- XXX: Data structures become unwieldy -> helper functions or lenses
-  onlyUpdateCoordinatedHeadState chs' =
-    Open openState{coordinatedHeadState = chs'}
 
   CoordinatedHeadState{seenSnapshot, allTxs} = coordinatedHeadState
 
@@ -1034,7 +1050,6 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  -- HeadStateEvent: HeadClosed
   NewState headStateEvents
     `Combined` Effects
       ( notifyClient
@@ -1187,10 +1202,8 @@ update env ledger st ev = case (st, ev) of
     onClosedChainFanoutTx closedState newChainState
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
-    -- HeadStateEvent: RolledBack ?
     NewState [RolledBack{rolledBackChainState}]
   (Open _, OnChainEvent Tick{chainSlot}) ->
-    -- HeadStateEvent: TickReceived
     NewState [TickReceived{currentSlot = chainSlot}]
   (_, OnChainEvent Tick{}) ->
     NoOutcome
@@ -1249,8 +1262,8 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
-emitSnapshot :: Environment -> HeadState tx -> Outcome tx -> Outcome tx
-emitSnapshot env@Environment{party} openState outcome =
+emitSnapshot :: IsTx tx => Environment -> HeadState tx -> Outcome tx -> Outcome tx
+emitSnapshot env openState outcome =
   case (openState, outcome) of
     ( Open OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
       , NewState events

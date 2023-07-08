@@ -58,9 +58,7 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (
-  Persistence (load),
   PersistenceIncremental (loadAll),
-  createPersistence,
   createPersistenceIncremental,
  )
 

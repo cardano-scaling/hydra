@@ -127,7 +127,7 @@ spec =
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
 
-          sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
+          sa <- assertNewState s0 $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
 
           sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
@@ -136,10 +136,9 @@ spec =
         it "keeps transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
 
-          sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
-          s1 <- assertNewState $ update bobEnv ledger sa reqSn
+          sa <- assertNewState s0 $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
+          s1 <- assertNewState sa $ update bobEnv ledger sa $ NetworkEvent defaultTTL alice $ ReqSn 1 [1]
 
           s1 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
@@ -163,7 +162,7 @@ spec =
               ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-            step $ NetworkEvent defaultTTL  alice $ ReqTx t1
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
@@ -243,8 +242,8 @@ spec =
             event = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
             s0 = inOpenState threeParties ledger
 
-        s1 <- assertNewState $ update bobEnv ledger s0 reqTx42
-        s2 <- assertNewState $ update bobEnv ledger s1 reqTx1
+        s1 <- assertNewState s0 $ update bobEnv ledger s0 reqTx42
+        s2 <- assertNewState s1 $ update bobEnv ledger s1 reqTx1
 
         update bobEnv ledger s2 event
           `shouldBe` Error (RequireFailed (SnapshotDoesNotApply 1 1 (ValidationError "cannot apply transaction")))
@@ -331,9 +330,9 @@ spec =
             secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51]
 
         s3 <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-           step firstReqTx
-           step firstReqSn
-           step secondReqTx
+          step firstReqTx
+          step firstReqSn
+          step secondReqTx
 
         update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True
@@ -599,19 +598,6 @@ getConfirmedSnapshot = \case
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing
-
--- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState ::
-  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
-  Environment ->
-  Ledger tx ->
-  Event tx ->
-  m (HeadState tx)
-assertUpdateState env ledger event = do
-  st <- get
-  st' <- assertNewState st $ update env ledger st event
-  put st'
-  pure st'
 
 data StepState tx = StepState
   { headState :: HeadState tx
