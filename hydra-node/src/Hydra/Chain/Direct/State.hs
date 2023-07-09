@@ -134,7 +134,6 @@ class HasKnownUTxO a where
 data ChainStateAt = ChainStateAt
   { chainState :: ChainState
   , recordedAt :: Maybe ChainPoint
-  , previous :: Maybe ChainStateAt
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 

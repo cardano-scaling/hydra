@@ -108,7 +108,7 @@ mockChainAndNetwork tr seedKeys cp = do
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let seedInput = genTxIn `generateWith` 42
-    let HydraNode{eq = EventQueue{putEvent}} = node
+    let HydraNode{eq = EventQueue{putEvent}, persistence} = node
     localChainState <- newLocalChainState initialChainState
     let chainHandle =
           createMockChain
@@ -125,6 +125,7 @@ mockChainAndNetwork tr seedKeys cp = do
             getTimeHandle
             ctx
             localChainState
+            persistence
     let node' =
           node
             { hn = createMockNetwork node nodes

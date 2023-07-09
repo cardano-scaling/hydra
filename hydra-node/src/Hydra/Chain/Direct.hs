@@ -90,9 +90,11 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
+import Hydra.HeadLogic (HeadStateEvent)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig (..))
 import Hydra.Party (Party)
+import Hydra.Persistence (PersistenceIncremental)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.NodeToClient (
@@ -117,7 +119,6 @@ initialChainState =
   ChainStateAt
     { chainState = Idle
     , recordedAt = Nothing
-    , previous = Nothing
     }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
@@ -185,10 +186,11 @@ withDirectChain ::
   ChainConfig ->
   ChainContext ->
   TinyWallet IO ->
+  PersistenceIncremental (HeadStateEvent Tx) IO ->
   -- | Last known chain state as loaded from persistence.
   ChainStateAt ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainStateAt callback action = do
+withDirectChain tracer config ctx wallet persistence chainStateAt callback action = do
   -- Last known point on chain as loaded from persistence.
   let persistedPoint = recordedAt chainStateAt
   queue <- newTQueueIO
@@ -210,7 +212,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
           localChainState
           (submitTx queue)
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState persistence
   res <-
     race
       ( handle onIOException $

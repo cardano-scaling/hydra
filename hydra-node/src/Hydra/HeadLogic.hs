@@ -703,7 +703,6 @@ onInitialChainCommitTx ::
   UTxOType tx ->
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
-  -- HeadStateEvent: TxCommitted
   NewState events
     `Combined` Effects
       ( notifyClient
@@ -874,7 +873,6 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           let snapshotSignature = sign signingKey nextSnapshot
           -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
           let (seenTxs', seenUTxO') = pruneTransactions u
-          -- HeadStateEvent: ReqSnReceived
           NewState [ReqSnReceived{nextSnapshot, seenTxs = seenTxs', seenUTxO = seenUTxO'}]
             `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
  where

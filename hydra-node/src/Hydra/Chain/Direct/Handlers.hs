@@ -9,8 +9,6 @@
 -- `PostChainTx` and `OnChainTx`, and maintainance of on-chain relevant state.
 module Hydra.Chain.Direct.Handlers where
 
-import Hydra.Prelude
-
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
@@ -37,7 +35,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
+  ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -51,6 +49,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
+import qualified Hydra.Chain.Direct.State as ChainState
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -58,8 +57,11 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.HeadLogic (HeadStateEvent (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Persistence (PersistenceIncremental, loadAll)
+import Hydra.Prelude
 import Plutus.Orphans ()
 import System.IO.Error (userError)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -68,7 +70,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 data LocalChainState m = LocalChainState
   { getLatest :: STM m ChainStateAt
   , pushNew :: ChainStateAt -> STM m ()
-  , rollback :: ChainPoint -> STM m ChainStateAt
+  , rollback :: ChainPoint -> [ChainStateAt] -> STM m ChainStateAt
   }
 
 -- | Initialize a new local chain state with given 'ChainStateAt' (see also
@@ -88,21 +90,23 @@ newLocalChainState chainStateAt = do
  where
   getLatest tv = readTVar tv
 
-  pushNew tv cs =
-    modifyTVar tv $ \prev ->
-      cs{previous = Just prev}
+  pushNew tv cs = modifyTVar tv (const cs)
 
-  rollback tv point = do
-    latest <- readTVar tv
-    let rolledBack = go point latest
+  rollback tv point events = do
+    let maybeChainState =
+          events
+            & find
+              ( \ChainStateAt{recordedAt} ->
+                  case recordedAt of
+                    Just recordPoint | recordPoint <= point -> True
+                    _ -> False
+              )
+    -- TODO: using the same as defined in Direct module due to cyclic dependnecy.
+    let initialChainState = ChainStateAt{chainState = Idle, recordedAt = Nothing}
+    let rolledBack = fromMaybe initialChainState maybeChainState
+    -- REVIEW: what should we do with persisted events? prune? replace?
     writeTVar tv rolledBack
     pure rolledBack
-
-  go rollbackChainPoint = \case
-    cs@ChainStateAt{recordedAt = Just recordPoint}
-      | recordPoint <= rollbackChainPoint -> cs
-    ChainStateAt{previous = Just prev} -> go rollbackChainPoint prev
-    cs -> cs
 
 -- * Posting Transactions
 
@@ -248,9 +252,10 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m ->
+  PersistenceIncremental (HeadStateEvent Tx) m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState persistence =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -258,10 +263,26 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
  where
   LocalChainState{rollback, getLatest, pushNew} = localChainState
 
+  loadChainStateEvents = do
+    events <- loadAll persistence
+    pure $
+      events
+        & mapMaybe
+          ( \case
+              HeadInitialized{newChainState} -> Just newChainState
+              TxCommitted{newChainState} -> Just newChainState
+              HeadAborted{newChainState} -> Just newChainState
+              HeadOpened{newChainState} -> Just newChainState
+              HeadClosed{newChainState} -> Just newChainState
+              HeadFannedOut{newChainState} -> Just newChainState
+              _ -> Nothing
+          )
+
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    rolledBackChainState <- atomically $ rollback point
+    chainStateEvents <- loadChainStateEvents
+    rolledBackChainState <- atomically $ rollback point chainStateEvents
     callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
@@ -290,7 +311,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
-    csa@ChainStateAt{chainState} <- getLatest
+    ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Nothing -> pure Nothing
       Just (observedTx, cs') -> do
@@ -298,7 +319,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
-                , previous = Just csa
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
@@ -357,7 +377,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 
   -- See ADR21 for context
   calculateTxUpperBoundFromContestationPeriod currentTime = do
-    let effectiveDelay = min (toNominalDiffTime $ contestationPeriod ctx) maxGraceTime
+    let effectiveDelay = min (toNominalDiffTime $ ChainState.contestationPeriod ctx) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)

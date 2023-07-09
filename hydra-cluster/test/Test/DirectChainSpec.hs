@@ -15,7 +15,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
-import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
+import Control.Concurrent.STM (modifyTVar, newEmptyTMVarIO, newTVarIO, readTVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
@@ -61,6 +61,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
+import Hydra.HeadLogic (HeadStateEvent)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -69,6 +70,7 @@ import Hydra.Options (
   toArgNetworkId,
  )
 import Hydra.Party (Party)
+import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
@@ -437,13 +439,19 @@ withDirectChainTest ::
   IO a
 withDirectChainTest tracer config ctx action = do
   eventMVar <- newEmptyTMVarIO
+  events <- newTVarIO []
 
   let callback = \event -> do
         atomically $ putTMVar eventMVar event
 
   wallet <- mkTinyWallet tracer config
-
-  withDirectChain tracer config ctx wallet initialChainState callback $ \Chain{postTx} -> do
+  let persistence :: PersistenceIncremental (HeadStateEvent Tx) IO =
+        PersistenceIncremental
+          { append = \event -> do
+              atomically $ modifyTVar events (event :)
+          , loadAll = readTVarIO events
+          }
+  withDirectChain tracer config ctx wallet persistence initialChainState callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx

@@ -49,10 +49,13 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.HeadLogic (HeadStateEvent (..))
 import Hydra.Ledger (
   ChainSlot (..),
  )
 import Hydra.Options (maximumNumberOfParties)
+import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -87,17 +90,31 @@ genTimeHandleWithSlotPastHorizon = do
 spec :: Spec
 spec = do
   describe "chainSyncHanlder" $ do
-    prop "roll forward results in Tick events" $
+    prop "roll forward results in Tick events" $ do
       monadicIO $ do
         (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
         TestBlock header txs <- pickBlind $ genBlockAt slot []
 
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
+        localChainState <- run $ newLocalChainState chainState
 
-        (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
+        chainStateEvents <- run $ newTVarIO []
+        let persistence =
+              PersistenceIncremental
+                { append = \event -> do
+                    atomically $ modifyTVar chainStateEvents (event :)
+                , loadAll = readTVarIO chainStateEvents
+                }
 
-        run $ onRollForward handler header txs
+        (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle) persistence
+
+        run $ do
+          onRollForward handler header txs
+          latest' <- atomically $ getLatest localChainState
+          -- XXX: Here we need to simulate events being persisted during onRollForward.
+          -- Also note that we do not care the head-state event wrapping the chain-state.
+          append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
 
         events <- run getEvents
         monitor $ counterexample ("events: " <> show events)
@@ -116,6 +133,15 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
+
+        chainStateEvents <- run $ newTVarIO []
+        let persistence =
+              PersistenceIncremental
+                { append = \event -> do
+                    atomically $ modifyTVar chainStateEvents (event :)
+                , loadAll = readTVarIO chainStateEvents
+                }
+
         let chainSyncCallback = \_cont -> failure "Unexpected callback"
             handler =
               chainSyncHandler
@@ -124,9 +150,14 @@ spec = do
                 (pure timeHandle)
                 chainContext
                 localChainState
-        run $
+                persistence
+        run $ do
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
+          latest' <- atomically $ getLatest localChainState
+          -- XXX: Here we need to simulate events being persisted during onRollForward.
+          -- Also note that we do not care the head-state event wrapping the chain-state.
+          append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
 
     prop "observes transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
@@ -139,7 +170,6 @@ spec = do
             ChainStateAt
               { chainState = st
               , recordedAt = Nothing
-              , previous = Nothing
               }
       timeHandle <- pickBlind arbitrary
       let callback = \case
@@ -151,6 +181,14 @@ spec = do
                 then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
                 else pure ()
 
+      chainStateEvents <- run $ newTVarIO []
+      let persistence =
+            PersistenceIncremental
+              { append = \event -> do
+                  atomically $ modifyTVar chainStateEvents (event :)
+              , loadAll = readTVarIO chainStateEvents
+              }
+
       let handler =
             chainSyncHandler
               nullTracer
@@ -158,7 +196,13 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-      run $ onRollForward handler header txs
+              persistence
+      run $ do
+        onRollForward handler header txs
+        latest' <- atomically $ getLatest localChainState
+        -- XXX: Here we need to simulate events being persisted during onRollForward.
+        -- Also note that we do not care the head-state event wrapping the chain-state.
+        append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
 
     prop "rollbacks state onRollBackward" . monadicIO $ do
       (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
@@ -173,6 +217,15 @@ spec = do
               atomically $ putTMVar rolledBackTo rolledBackChainState
             _ -> pure ()
       localChainState <- run $ newLocalChainState chainStateAt
+
+      chainStateEvents <- run $ newTVarIO []
+      let persistence =
+            PersistenceIncremental
+              { append = \event -> do
+                  atomically $ modifyTVar chainStateEvents (event :)
+              , loadAll = readTVarIO chainStateEvents
+              }
+
       let handler =
             chainSyncHandler
               nullTracer
@@ -180,9 +233,16 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
+              persistence
 
       -- Simulate some chain following
-      run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
+      run $ forM_ blocks $ \(TestBlock header txs) -> do
+        onRollForward handler header txs
+        latest' <- atomically $ getLatest localChainState
+        -- XXX: Here we need to simulate events being persisted during onRollForward.
+        -- Also note that we do not care the head-state event wrapping the chain-state.
+        append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
+
       -- Inject the rollback to somewhere between any of the previous state
       result <- run $ try @_ @SomeException $ onRollBackward handler rollbackPoint
       monitor . counterexample $ "try onRollBackward: " <> show result
@@ -196,9 +256,17 @@ spec = do
     prop "can resume from chain state" . monadicIO $ do
       (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks
       timeHandle <- pickBlind arbitrary
-
       -- Use the handler to evolve the chain state to some new, latest version
       localChainState <- run $ newLocalChainState chainStateAt
+
+      chainStateEvents <- run $ newTVarIO []
+      let persistence =
+            PersistenceIncremental
+              { append = \event -> do
+                  atomically $ modifyTVar chainStateEvents (event :)
+              , loadAll = readTVarIO chainStateEvents
+              }
+
       let handler =
             chainSyncHandler
               nullTracer
@@ -206,8 +274,17 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-      run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
+              persistence
+
+      run $ forM_ blocks $ \(TestBlock header txs) -> do
+        onRollForward handler header txs
+        latest' <- atomically $ getLatest localChainState
+        -- XXX: Here we need to simulate events being persisted during onRollForward.
+        -- Also note that we do not care the head-state event wrapping the chain-state.
+        append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
+
       latestChainState <- run . atomically $ getLatest localChainState
+
       assert $ latestChainState /= chainStateAt
 
       -- Provided the latest chain state the LocalChainState must be able to
@@ -220,6 +297,7 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
+              persistence
 
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
@@ -229,16 +307,27 @@ spec = do
       rolledBackChainState <- run . atomically $ getLatest resumedLocalChainState
       assert $ null blocksAfter || rolledBackChainState /= latestChainState
 
-      run $ forM_ blocksAfter $ \(TestBlock header txs) -> onRollForward resumedHandler header txs
+      run $ forM_ blocksAfter $ \(TestBlock header txs) -> do
+        onRollForward resumedHandler header txs
+        latest' <- atomically $ getLatest localChainState
+        -- XXX: Here we need to simulate events being persisted during onRollForward.
+        -- Also note that we do not care the head-state event wrapping the chain-state.
+        append persistence (HeadOpened (InitialSnapshot mempty) mempty latest')
+
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
 
 -- | Create a chain sync handler which records events as they are called back.
-recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
-recordEventsHandler ctx cs getTimeHandle = do
+recordEventsHandler ::
+  ChainContext ->
+  ChainStateAt ->
+  GetTimeHandle IO ->
+  PersistenceIncremental (HeadStateEvent Tx) IO ->
+  IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler ctx cs getTimeHandle persistence = do
   eventsVar <- newTVarIO []
   localChainState <- newLocalChainState cs
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState persistence
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO
