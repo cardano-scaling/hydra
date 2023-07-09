@@ -21,7 +21,7 @@ import Hydra.HeadLogic (
   newSn,
   updateHeadState,
  )
-import Hydra.HeadLogicSpec (inOpenState')
+import Hydra.HeadLogicSpec (headParameters, inOpenState')
 import Hydra.Ledger (
   Ledger (..),
   txId,
@@ -99,7 +99,7 @@ spec = do
                   }
               ost = inOpenState' threeParties coordinatedState
           let expectedEvent = SnapshotEmited{requested = 1, lastSeenSnapshot = NoSeenSnapshot}
-          emitSnapshot (envFor aliceSk) ost (NewState [])
+          emitSnapshot (envFor aliceSk) (headParameters threeParties) coordinatedState NoSeenSnapshot
             `shouldBe` NewState [expectedEvent]
             `Combined` Effects [NetworkEffect $ ReqSn 1 [txId tx]]
 

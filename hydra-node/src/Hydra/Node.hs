@@ -28,6 +28,8 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
   HeadStateEvent,
+  OffChainAction (..),
+  OffChainEvent (..),
   Outcome (..),
   collectEffects,
   defaultTTL,
@@ -193,6 +195,10 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
       postTx postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
+    OffChainEffect action ->
+      case action of
+        RqEmitSn -> putEvent eq (OffChainEvent EmitSn)
+
   traceWith tracer $ EndEffect party eventId effectId
 
 -- ** Manage state

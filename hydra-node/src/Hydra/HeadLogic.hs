@@ -78,6 +78,7 @@ data Event tx
     OnChainEvent {chainEvent :: ChainEvent tx}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | OffChainEvent {event :: OffChainEvent}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Event tx)
@@ -85,6 +86,21 @@ deriving instance (IsTx tx, IsChainState tx) => Show (Event tx)
 deriving instance (IsTx tx, IsChainState tx) => ToJSON (Event tx)
 deriving instance (IsTx tx, IsChainState tx) => FromJSON (Event tx)
 
+data OffChainEvent
+  = EmitSn
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary OffChainEvent where
+  arbitrary = genericArbitrary
+
+data OffChainAction
+  = RqEmitSn
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary OffChainAction where
+  arbitrary = genericArbitrary
 instance
   ( IsTx tx
   , Arbitrary (ChainStateType tx)
@@ -103,6 +119,8 @@ data Effect tx
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {postChainTx :: PostChainTx tx}
+  | -- | Effect to be handled by a "Hydra.HeadLogic", results in a 'Hydra.HeadLogic.update'.
+    OffChainEffect {action :: OffChainAction}
   deriving stock (Generic)
 
 deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
@@ -800,15 +818,13 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  IsChainState tx =>
-  Environment ->
   Ledger tx ->
   OpenState tx ->
   TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
+onOpenNetworkReqTx ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
@@ -819,11 +835,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
           NewState [TrackTxInState{tx}]
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      let events = [NewTxReceived{tx, utxo = utxo'}, TrackTxInState{tx}]
-          st' = foldl' updateHeadState (Open st) events
-       in NewState events
-            `Combined` Effects [ClientEffect $ TxValid headId tx]
-            & emitSnapshot env st'
+      NewState [NewTxReceived{tx, utxo = utxo'}, TrackTxInState{tx}]
+        `Combined` Effects [ClientEffect $ TxValid headId tx, OffChainEffect RqEmitSn]
  where
   Ledger{applyTransactions} = ledger
 
@@ -947,7 +960,6 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
   IsChainState tx =>
-  Environment ->
   OpenState tx ->
   -- | Party which sent the AckSn.
   Party ->
@@ -956,7 +968,7 @@ onOpenNetworkAckSn ::
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
   Outcome tx
-onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
+onOpenNetworkAckSn openState otherParty snapshotSignature sn =
   -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
@@ -969,12 +981,9 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
-          requireVerifiedMultisignature multisig snapshot $ do
-            let event = AckSnConfirmed{snapshot, multisig, newAllTxs = allTxs'}
-                st' = updateHeadState (Open openState) event
-             in NewState [event]
-                  `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-                  & emitSnapshot env st'
+          requireVerifiedMultisignature multisig snapshot $
+            NewState [AckSnConfirmed{snapshot, multisig, newAllTxs = allTxs'}]
+              `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig, OffChainEffect RqEmitSn]
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -1012,10 +1021,12 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   CoordinatedHeadState{seenSnapshot, allTxs} = coordinatedHeadState
 
   OpenState
-    { parameters = HeadParameters{parties}
+    { parameters
     , coordinatedHeadState
     , headId
     } = openState
+
+  HeadParameters{parties} = parameters
 
 -- ** Closing the Head
 
@@ -1168,14 +1179,16 @@ update env ledger st ev = case (st, ev) of
     onOpenClientClose openState
   (Open{}, ClientEvent (NewTx tx)) ->
     onOpenClientNewTx tx
+  (Open OpenState{parameters, coordinatedHeadState = chs@CoordinatedHeadState{seenSnapshot}}, OffChainEvent EmitSn) ->
+    emitSnapshot env parameters chs seenSnapshot
   (Open openState, NetworkEvent ttl _ (ReqTx tx)) ->
-    onOpenNetworkReqTx env ledger openState ttl tx
+    onOpenNetworkReqTx ledger openState ttl tx
   (Open openState, NetworkEvent _ otherParty (ReqSn sn txIds)) ->
     -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txIds
   (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
-    onOpenNetworkAckSn env openState otherParty snapshotSignature sn
+    onOpenNetworkAckSn openState otherParty snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
@@ -1260,16 +1273,16 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
-emitSnapshot :: IsTx tx => Environment -> HeadState tx -> Outcome tx -> Outcome tx
-emitSnapshot env openState outcome =
-  case (openState, outcome) of
-    ( Open OpenState{parameters, coordinatedHeadState = csh@CoordinatedHeadState{seenSnapshot}}
-      , NewState events
-      ) ->
-        case newSn env parameters csh of
-          ShouldSnapshot sn txs -> do
-            NewState (events <> [SnapshotEmited{requested = sn, lastSeenSnapshot = seenSnapshot}])
-              `Combined` Effects [NetworkEffect (ReqSn sn (txId <$> txs))]
-          _ -> outcome
-    (st, Combined l r) -> Combined (emitSnapshot env st l) (emitSnapshot env st r)
-    _ -> outcome
+emitSnapshot ::
+  IsTx tx =>
+  Environment ->
+  HeadParameters ->
+  CoordinatedHeadState tx ->
+  SeenSnapshot tx ->
+  Outcome tx
+emitSnapshot env params chs seenSnapshot =
+  case newSn env params chs of
+    ShouldSnapshot sn txs ->
+      NewState [SnapshotEmited{requested = sn, lastSeenSnapshot = seenSnapshot}]
+        `Combined` Effects [NetworkEffect (ReqSn sn (txId <$> txs))]
+    _ -> NoOutcome

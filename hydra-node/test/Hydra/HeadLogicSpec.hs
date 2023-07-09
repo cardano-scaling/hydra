@@ -552,6 +552,9 @@ inOpenState parties Ledger{initUTxO} =
   u0 = initUTxO
   confirmedSnapshot = InitialSnapshot u0
 
+headParameters :: [Party] -> HeadParameters
+headParameters = HeadParameters cperiod
+
 inOpenState' ::
   [Party] ->
   CoordinatedHeadState SimpleTx ->
@@ -566,7 +569,7 @@ inOpenState' parties coordinatedHeadState =
       , currentSlot = chainSlot
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = headParameters parties
 
   chainSlot = ChainSlot 0
 
