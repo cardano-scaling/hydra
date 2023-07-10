@@ -56,7 +56,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (Persistence (load), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (load), PersistenceIncremental (loadAll), createPersistence, createPersistenceIncremental)
 
 newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
 
@@ -81,15 +81,15 @@ main = do
         eq@EventQueue{putEvent} <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
-        persistence <- createPersistence $ persistenceDir <> "/state"
+        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         hs <-
-          load persistence >>= \case
-            Nothing -> do
+          loadAll persistence >>= \case
+            [] -> do
               traceWith tracer CreatedState
               pure $ Idle IdleState{chainState = initialChainState}
-            Just headState -> do
+            headStates -> do
               traceWith tracer LoadedState
-              let paramsMismatch = checkParamsAgainstExistingState headState env
+              let paramsMismatch = concat $ (flip checkParamsAgainstExistingState env) <$> headStates
               unless (null paramsMismatch) $ do
                 traceWith tracer (Misconfiguration paramsMismatch)
                 throwIO $
@@ -98,7 +98,7 @@ main = do
                       <> " Please check the state in: "
                       <> persistenceDir
                       <> " against provided command line options."
-              pure headState
+              pure $ last $ fromList headStates
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig

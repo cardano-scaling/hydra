@@ -31,7 +31,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (Persistence (..))
+import Hydra.Persistence (PersistenceIncremental (..))
 
 -- * Environment Handling
 
@@ -60,7 +60,7 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  , persistence :: PersistenceIncremental (HeadState tx) m
   }
 
 data HydraNodeLog tx
@@ -118,7 +118,7 @@ stepHydraNode tracer node = do
     NoOutcome -> pure ()
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    NewState s -> save s
+    NewState s -> append s
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -131,7 +131,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  Persistence{save} = persistence
+  PersistenceIncremental{append} = persistence
 
   HydraNode{persistence, eq, env} = node
 
