@@ -57,6 +57,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.QuickCheck (oneof)
 
 -- * Types
 
@@ -150,7 +151,7 @@ getChainState = \case
   Open OpenState{chainState} -> chainState
   Closed ClosedState{chainState} -> chainState
 
--- | Update the chain state in any 'HeadState'.
+-- | Update the chain st/ate in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
@@ -354,7 +355,7 @@ data RequirementFailure tx
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
-  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid  :: TxIdType tx, error :: ValidationError }
+  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   deriving stock (Generic)
 
 deriving instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
@@ -365,10 +366,47 @@ deriving instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
 instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
   arbitrary = genericArbitrary
 
+data StateChange tx
+  = TransactionApplied {tx :: tx, utxo :: UTxOType tx}
+  | HeadInitialized
+      { parameters :: HeadParameters
+      , pendingCommits :: PendingCommits
+      , committed :: Committed tx
+      , chainState :: ChainStateType tx
+      , headId :: HeadId
+      }
+  | PartyCommitted
+      { parameters :: HeadParameters
+      , pendingCommits :: PendingCommits
+      , committed :: Committed tx
+      , chainState :: ChainStateType tx
+      , headId :: HeadId
+      }
+  | HeadAborted {chainState :: ChainStateType tx}
+  deriving (Generic)
+
+deriving instance (IsTx tx, IsChainState tx) => Eq (StateChange tx)
+deriving instance (IsTx tx, IsChainState tx) => Show (StateChange tx)
+deriving instance (IsTx tx, IsChainState tx) => ToJSON (StateChange tx)
+deriving instance (IsTx tx, IsChainState tx) => FromJSON (StateChange tx)
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (StateChange tx) where
+  arbitrary =
+    oneof
+      [ TransactionApplied <$> arbitrary <*> arbitrary
+      , HeadInitialized
+          <$> arbitrary
+          <*> arbitrary
+          <*> arbitrary
+          <*> arbitrary
+          <*> arbitrary
+      ]
+
 data Outcome tx
   = NoOutcome
   | Effects {effects :: [Effect tx]}
   | NewState {headState :: HeadState tx}
+  | Change {change :: StateChange tx}
   | Wait {reason :: WaitReason tx}
   | Error {error :: LogicError tx}
   | Combined {left :: Outcome tx, right :: Outcome tx}
@@ -413,6 +451,7 @@ collectEffects = \case
   NoOutcome -> []
   Error _ -> []
   Wait _ -> []
+  Change _ -> []
   NewState _ -> []
   Effects effs -> effs
   Combined l r -> collectEffects l <> collectEffects r
@@ -422,6 +461,7 @@ collectWaits = \case
   NoOutcome -> []
   Error _ -> []
   Wait w -> [w]
+  Change _ -> []
   NewState _ -> []
   Effects _ -> []
   Combined l r -> collectWaits l <> collectWaits r
@@ -460,16 +500,24 @@ onIdleChainInitTx ::
   HeadId ->
   Outcome tx
 onIdleChainInitTx newChainState parties contestationPeriod headId =
-  NewState
-    ( Initial
-        InitialState
-          { parameters = HeadParameters{contestationPeriod, parties}
-          , pendingCommits = Set.fromList parties
-          , committed = mempty
-          , chainState = newChainState
-          , headId
-          }
-    )
+  Change
+    HeadInitialized
+      { parameters = HeadParameters{contestationPeriod, parties}
+      , pendingCommits = Set.fromList parties
+      , committed = mempty
+      , chainState = newChainState
+      , headId
+      }
+    `Combined` NewState
+      ( Initial
+          InitialState
+            { parameters = HeadParameters{contestationPeriod, parties}
+            , pendingCommits = Set.fromList parties
+            , committed = mempty
+            , chainState = newChainState
+            , headId
+            }
+      )
     `Combined` Effects [ClientEffect $ HeadIsInitializing headId (fromList parties)]
 
 -- | Client request to commit a UTxO entry to the head. Provided the client
@@ -512,7 +560,16 @@ onInitialChainCommitTx ::
   UTxOType tx ->
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
-  NewState newState
+  Change
+    ( PartyCommitted
+        { parameters
+        , pendingCommits = remainingParties
+        , committed = newCommitted
+        , chainState = newChainState
+        , headId
+        }
+    )
+    `Combined` NewState newState
     `Combined` Effects
       ( notifyClient
           : [postCollectCom | canCollectCom]
@@ -568,8 +625,9 @@ onInitialChainAbortTx ::
   HeadId ->
   Outcome tx
 onInitialChainAbortTx newChainState committed headId =
-  NewState
-    (Idle IdleState{chainState = newChainState})
+  Change (HeadAborted newChainState)
+    `Combined` NewState
+      (Idle IdleState{chainState = newChainState})
     `Combined` Effects [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -646,23 +704,25 @@ onOpenNetworkReqTx env ledger st ttl tx =
   case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
       | ttl <= 0 ->
-        NewState (Open st{coordinatedHeadState = untrackTxInState})
-          `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+          NewState (Open st{coordinatedHeadState = untrackTxInState})
+            `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
       | otherwise ->
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      NewState
-        ( Open
-            st
-              { coordinatedHeadState =
-                  trackTxInState
-                    { seenTxs = seenTxs <> [tx]
-                    , seenUTxO = utxo'
-                    }
-              }
-        )
-        `Combined` Effects [ClientEffect $ TxValid headId tx]
+      ( Change (TransactionApplied tx utxo')
+          `Combined` NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      trackTxInState
+                        { seenTxs = seenTxs <> [tx]
+                        , seenUTxO = utxo'
+                        }
+                  }
+            )
+          `Combined` Effects [ClientEffect $ TxValid headId tx]
+      )
         & emitSnapshot env
  where
   Ledger{applyTransactions} = ledger
@@ -1171,3 +1231,29 @@ emitSnapshot env outcome =
         _ -> outcome
     Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
     _ -> outcome
+
+data OffChainState tx = OffChainState
+  { seenUTxO :: UTxOType tx
+  , seenTxs :: [tx]
+  , allTransactions :: Map.Map (TxIdType tx) tx
+  , parameters :: HeadParameters
+  , pendingCommits :: PendingCommits
+  , committed :: Committed tx
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  }
+
+applyChange :: IsTx tx => OffChainState tx -> StateChange tx -> OffChainState tx
+applyChange st@OffChainState{seenTxs, allTransactions} = \case
+  TransactionApplied{tx, utxo} ->
+    st
+      { seenTxs = seenTxs <> [tx]
+      , seenUTxO = utxo
+      , allTransactions = Map.insert (txId tx) tx allTransactions
+      }
+  HeadInitialized{parameters, pendingCommits, committed, chainState, headId} ->
+    st{parameters, pendingCommits, committed, chainState, headId}
+  PartyCommitted{pendingCommits, committed, chainState} ->
+    st{pendingCommits, committed, chainState}
+  HeadAborted{chainState} ->
+    Nothing -- NOTE shouldn't we reset to Idle or something?

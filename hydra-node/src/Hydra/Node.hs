@@ -119,6 +119,7 @@ stepHydraNode tracer node = do
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
     NewState s -> append s
+    Change x -> pure ()
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
