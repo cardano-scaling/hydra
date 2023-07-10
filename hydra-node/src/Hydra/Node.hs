@@ -197,7 +197,7 @@ processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{pa
           putEvent eq $ PostTxError{postChainTx, postTxError}
     OffChainEffect action ->
       case action of
-        RqEmitSn -> putEvent eq (OffChainEvent EmitSn)
+        RqEmitSn -> prependEvent eq (OffChainEvent EmitSn)
 
   traceWith tracer $ EndEffect party eventId effectId
 

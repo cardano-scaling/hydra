@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- | The general event queue from which the Hydra head is fed with events.
 module Hydra.Node.EventQueue where
 
@@ -12,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  writeTQueue,
+  writeTQueue, MonadSTM (flushTQueue)
  )
 import Control.Monad.Class.MonadAsync (async)
 
@@ -22,6 +24,7 @@ import Control.Monad.Class.MonadAsync (async)
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
+  , prependEvent :: e -> m ()
   , putEventAfter :: DiffTime -> Queued e -> m ()
   , nextEvent :: m (Queued e)
   , isEmpty :: m Bool
@@ -49,6 +52,7 @@ createEventQueue = do
             eventId <- readTVar nextId
             writeTQueue q Queued{eventId, queuedEvent}
             modifyTVar' nextId succ
+      , prependEvent = prependEvent' nextId q
       , putEventAfter = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . async $ do
@@ -64,3 +68,15 @@ createEventQueue = do
             isEmpty' <- isEmptyTQueue q
             pure (isEmpty' && n == 0)
       }
+  where
+    prependEvent' nextId q = \event ->
+      atomically $ do
+        nextId' <- readTVar nextId
+        enqueuedEvents <- flushTQueue q
+        let eventIds = eventId <$> enqueuedEvents
+            queuedEvents = queuedEvent <$> enqueuedEvents
+            nextEventId = succ nextId'
+            toQueue = fmap (uncurry Queued) $
+               (eventIds <> [nextEventId]) `zip` (event : queuedEvents)
+        forM_ toQueue (writeTQueue q)
+        modifyTVar' nextId succ
