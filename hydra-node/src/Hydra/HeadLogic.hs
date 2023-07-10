@@ -443,7 +443,7 @@ data HeadStateEvent tx
   | AckSnConfirmed
       { snapshot :: Snapshot tx
       , multisig :: MultiSignature (Snapshot tx)
-      , newAllTxs :: Map.Map (TxIdType tx) tx
+      , confirmed ::[TxIdType tx]
       }
   | AckSnPending
       { snapshot :: Snapshot tx
@@ -540,12 +540,13 @@ updateHeadState st evt = case (st, evt) of
               , seenUTxO
               }
         }
-  (Open ost@OpenState{coordinatedHeadState}, AckSnConfirmed{snapshot, multisig, newAllTxs}) ->
+  (Open ost@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{allTxs}},
+   AckSnConfirmed{snapshot, multisig, confirmed}) ->
     Open
       ost
         { coordinatedHeadState =
-            coordinatedHeadState
-              { allTxs = newAllTxs
+            chs
+              { allTxs = foldr Map.delete allTxs confirmed
               , confirmedSnapshot =
                   ConfirmedSnapshot
                     { snapshot
@@ -596,9 +597,7 @@ updateHeadState st evt = case (st, evt) of
           }
   (_, RolledBack{rolledBackChainState}) ->
     setChainState rolledBackChainState st
-  _ ->
-    Hydra.Prelude.error $
-      "Invalid State Transition: " <> show evt <> " - " <> show st
+  _ -> st
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -980,9 +979,8 @@ onOpenNetworkAckSn openState otherParty snapshotSignature sn =
         ifAllMembersHaveSigned snapshot sigs' $ do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
-          let allTxs' = foldr Map.delete allTxs confirmed
           requireVerifiedMultisignature multisig snapshot $
-            NewState [AckSnConfirmed{snapshot, multisig, newAllTxs = allTxs'}]
+            NewState [AckSnConfirmed{snapshot, multisig, confirmed}]
               `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig, OffChainEffect RqEmitSn]
  where
   seenSn = seenSnapshotNumber seenSnapshot
@@ -1018,7 +1016,7 @@ onOpenNetworkAckSn openState otherParty snapshotSignature sn =
 
   vkeys = vkey <$> parties
 
-  CoordinatedHeadState{seenSnapshot, allTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
 
   OpenState
     { parameters
