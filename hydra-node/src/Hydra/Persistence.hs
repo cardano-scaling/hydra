@@ -76,3 +76,21 @@ createPersistenceIncremental fp = do
                 Left e -> throwIO $ PersistenceException e
                 Right decoded -> pure decoded
       }
+
+newtype PersistenceIncrementalView a m =
+  PersistenceIncrementalView {
+      selectAll :: FromJSON a => m [a]
+    }
+
+createPersistenceIncrementalView :: 
+  (Monad m, FromJSON a) =>
+  PersistenceIncremental a m ->
+  (a -> Maybe b) ->
+  PersistenceIncrementalView b m
+createPersistenceIncrementalView PersistenceIncremental{loadAll} f =
+  PersistenceIncrementalView {
+    selectAll = do
+      as <- loadAll
+      let bs = f <$> as
+      return $ catMaybes bs
+  }

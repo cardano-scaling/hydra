@@ -61,7 +61,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
-import Hydra.HeadLogic (HeadStateEvent)
+import Hydra.HeadLogic (HeadStateEvent, toChainStateEvents)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -70,7 +70,7 @@ import Hydra.Options (
   toArgNetworkId,
  )
 import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncrementalView)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
@@ -451,7 +451,8 @@ withDirectChainTest tracer config ctx action = do
               atomically $ modifyTVar events (event :)
           , loadAll = readTVarIO events
           }
-  withDirectChain tracer config ctx wallet persistence initialChainState callback $ \Chain{postTx} -> do
+  let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
+  withDirectChain tracer config ctx wallet persistenceView initialChainState callback $ \Chain{postTx} -> do
     action
       DirectChainTest
         { postTx

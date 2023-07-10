@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -32,7 +33,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateType,
   PostChainTx (..),
-  PostTxError (..),
+  PostTxError (..), contestationPeriod,
  )
 import Hydra.Chain.Direct.State (
   ChainContext,
@@ -47,7 +48,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
+  observeSomeTx, contestationPeriod,
  )
 import qualified Hydra.Chain.Direct.State as ChainState
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
@@ -57,10 +58,9 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.HeadLogic (HeadStateEvent (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Persistence (PersistenceIncremental, loadAll)
+import Hydra.Persistence (PersistenceIncrementalView, selectAll)
 import Hydra.Prelude
 import Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -252,10 +252,10 @@ chainSyncHandler ::
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m ->
-  PersistenceIncremental (HeadStateEvent Tx) m ->
+  PersistenceIncrementalView ChainStateAt m ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
-chainSyncHandler tracer callback getTimeHandle ctx localChainState persistence =
+chainSyncHandler tracer callback getTimeHandle ctx localChainState persistenceView =
   ChainSyncHandler
     { onRollBackward
     , onRollForward
@@ -263,25 +263,10 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState persistence =
  where
   LocalChainState{rollback, getLatest, pushNew} = localChainState
 
-  loadChainStateEvents = do
-    events <- loadAll persistence
-    pure $
-      events
-        & mapMaybe
-          ( \case
-              HeadInitialized{newChainState} -> Just newChainState
-              TxCommitted{newChainState} -> Just newChainState
-              HeadAborted{newChainState} -> Just newChainState
-              HeadOpened{newChainState} -> Just newChainState
-              HeadClosed{newChainState} -> Just newChainState
-              HeadFannedOut{newChainState} -> Just newChainState
-              _ -> Nothing
-          )
-
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    chainStateEvents <- loadChainStateEvents
+    chainStateEvents <- selectAll persistenceView
     rolledBackChainState <- atomically $ rollback point chainStateEvents
     callback Rollback{rolledBackChainState}
 
@@ -377,7 +362,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 
   -- See ADR21 for context
   calculateTxUpperBoundFromContestationPeriod currentTime = do
-    let effectiveDelay = min (toNominalDiffTime $ ChainState.contestationPeriod ctx) maxGraceTime
+    let effectiveDelay = min (toNominalDiffTime $ contestationPeriod ctx) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)

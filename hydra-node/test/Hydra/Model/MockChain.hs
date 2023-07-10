@@ -49,7 +49,7 @@ import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Environment (Environment, otherParties, party),
   Event (..),
-  defaultTTL,
+  defaultTTL, toChainStateEvents,
  )
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
@@ -60,6 +60,7 @@ import Hydra.Node (
  )
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
+import Hydra.Persistence (createPersistenceIncrementalView)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on
@@ -118,6 +119,7 @@ mockChainAndNetwork tr seedKeys cp = do
             getTimeHandle
             seedInput
             localChainState
+    let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
     let chainHandler =
           chainSyncHandler
             tr
@@ -125,7 +127,7 @@ mockChainAndNetwork tr seedKeys cp = do
             getTimeHandle
             ctx
             localChainState
-            persistence
+            persistenceView
     let node' =
           node
             { hn = createMockNetwork node nodes

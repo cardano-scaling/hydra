@@ -49,12 +49,12 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.HeadLogic (HeadStateEvent (..))
+import Hydra.HeadLogic (HeadStateEvent (..), toChainStateEvents)
 import Hydra.Ledger (
   ChainSlot (..),
  )
 import Hydra.Options (maximumNumberOfParties)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncrementalView)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
@@ -141,7 +141,7 @@ spec = do
                     atomically $ modifyTVar chainStateEvents (event :)
                 , loadAll = readTVarIO chainStateEvents
                 }
-
+        let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
         let chainSyncCallback = \_cont -> failure "Unexpected callback"
             handler =
               chainSyncHandler
@@ -150,7 +150,7 @@ spec = do
                 (pure timeHandle)
                 chainContext
                 localChainState
-                persistence
+                persistenceView
         run $ do
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
@@ -188,7 +188,7 @@ spec = do
                   atomically $ modifyTVar chainStateEvents (event :)
               , loadAll = readTVarIO chainStateEvents
               }
-
+      let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
       let handler =
             chainSyncHandler
               nullTracer
@@ -196,7 +196,7 @@ spec = do
               (pure timeHandle)
               ctx
               localChainState
-              persistence
+              persistenceView
       run $ do
         onRollForward handler header txs
         latest' <- atomically $ getLatest localChainState
@@ -225,7 +225,7 @@ spec = do
                   atomically $ modifyTVar chainStateEvents (event :)
               , loadAll = readTVarIO chainStateEvents
               }
-
+      let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
       let handler =
             chainSyncHandler
               nullTracer
@@ -233,7 +233,7 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              persistence
+              persistenceView
 
       -- Simulate some chain following
       run $ forM_ blocks $ \(TestBlock header txs) -> do
@@ -266,7 +266,7 @@ spec = do
                   atomically $ modifyTVar chainStateEvents (event :)
               , loadAll = readTVarIO chainStateEvents
               }
-
+      let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
       let handler =
             chainSyncHandler
               nullTracer
@@ -274,7 +274,7 @@ spec = do
               (pure timeHandle)
               chainContext
               localChainState
-              persistence
+              persistenceView
 
       run $ forM_ blocks $ \(TestBlock header txs) -> do
         onRollForward handler header txs
@@ -297,7 +297,7 @@ spec = do
               (pure timeHandle)
               chainContext
               resumedLocalChainState
-              persistence
+              persistenceView
 
       (rollbackPoint, blocksAfter) <- pickBlind $ genRollbackBlocks blocks
       monitor $ label $ "Rollback " <> show (length blocksAfter) <> " blocks"
@@ -327,7 +327,8 @@ recordEventsHandler ::
 recordEventsHandler ctx cs getTimeHandle persistence = do
   eventsVar <- newTVarIO []
   localChainState <- newLocalChainState cs
-  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState persistence
+  let persistenceView = createPersistenceIncrementalView persistence toChainStateEvents
+  let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState persistenceView
   pure (handler, getEvents eventsVar)
  where
   getEvents = readTVarIO

@@ -471,6 +471,16 @@ deriving instance (IsTx tx, IsChainState tx) => FromJSON (HeadStateEvent tx)
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadStateEvent tx) where
   arbitrary = genericArbitrary
 
+toChainStateEvents :: HeadStateEvent tx -> Maybe (ChainStateType tx)
+toChainStateEvents = \case
+    HeadInitialized{newChainState} -> Just newChainState
+    TxCommitted{newChainState} -> Just newChainState
+    HeadAborted{newChainState} -> Just newChainState
+    HeadOpened{newChainState} -> Just newChainState
+    HeadClosed{newChainState} -> Just newChainState
+    HeadFannedOut{newChainState} -> Just newChainState
+    _ -> Nothing
+
 updateHeadState ::
   IsChainState tx =>
   HeadState tx ->
