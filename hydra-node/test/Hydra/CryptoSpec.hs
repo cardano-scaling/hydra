@@ -16,6 +16,7 @@ import qualified Data.Map as Map
 import Hydra.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (
+  classify,
   counterexample,
   elements,
   forAll,
@@ -104,11 +105,11 @@ specMultiSignature =
                 =/= Verified
 
     prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) -> do
-      (length sks > 1)
-        ==> forAll (sublistOf sks)
-        $ \prefix ->
-          let sigs = aggregate $ map (`sign` msg) (toList sks)
-           in verifyMultiSignature (map getVerificationKey prefix) sigs msg
-                =/= Verified
-                & counterexample ("Keys: " <> show prefix)
-                & counterexample ("Signature: " <> show sigs)
+      forAll (sublistOf sks) $ \prefix ->
+        (length prefix < length sks)
+          ==> let sigs = aggregate $ map (`sign` msg) (toList sks)
+               in verifyMultiSignature (map getVerificationKey prefix) sigs msg
+                    =/= Verified
+                    & classify (null prefix) "empty"
+                    & counterexample ("Keys: " <> show prefix)
+                    & counterexample ("Signature: " <> show sigs)
