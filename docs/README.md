@@ -4,13 +4,7 @@ Sources for the [user manual 📖](https://input-output-hk.github.io/hydra).
 
 # Building
 
-The user-manual is built using [Docusaurus 2](https://docusaurus.io/), which combines React components and markdown into a customisable static website. Docusaurus supports a set of plugins and basic features (coming in the form of _'presets'_). The basic set contains in particular three types of documents:
-
-- pages
-- docs
-- blog posts
-
-Our setup here _hijack_ the blog posts for showing [architectural decision records](https://input-output-hk.github.io/hydra/adr), which gives us a nice way to view them and browse them by tags. Pages can be used for custom pages such as an API reference using full-blown React components. Finally, docs are the most common and translate markdown into nicely structured pages.
+The user-manual is built using [Docusaurus 2](https://docusaurus.io/), which combines React components and markdown into a customisable static website. Docusaurus supports a set of plugins and basic features (coming in the form of _'presets'_). We use it to create the actual user manual (docs), documenting our [architectural decision records](https://input-output-hk.github.io/hydra/head-protocol/adr), [monthly reports](https://input-output-hk.github.io/hydra/head-protocol/monthly), a custom page for the [API reference](https://input-output-hk.github.io/hydra/head-protocol/api-reference), and various other documentation pages around the Hydra Head protocol. 
 
 #### Installation
 
