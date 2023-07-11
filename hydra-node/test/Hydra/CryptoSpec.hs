@@ -13,18 +13,20 @@ import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Map as Map
+import Hydra.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (
-  conjoin,
   counterexample,
+  elements,
   forAll,
   shuffle,
+  sublistOf,
   (=/=),
-  (==>), chooseInt,
+  (===),
+  (==>),
  )
 import Test.QuickCheck.Instances.UnorderedContainers ()
 import Test.Util (propCollisionResistant)
-import Data.List ((!!))
 
 spec :: Spec
 spec = do
@@ -92,24 +94,21 @@ specMultiSignature =
             not (null shuffled)
               ==> verifyMultiSignature (map vkey shuffled) (aggregateInOrder sigs shuffled) msg
               === Verified
-       in verifyMultiSignature vks msig msg
 
     prop "verifyMultiSignature fails when signature is missing" $ \sks (msg :: ByteString) dummySig ->
-      (length sks > 2) ==>
-        forAll (elements sks) $ \missingKeySig ->
-              sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
-           in not (verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg)
+      (length sks > 2)
+        ==> forAll (elements sks)
+        $ \missingKeySig ->
+          let sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
+           in verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg
+                =/= Verified
 
     prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) -> do
       (length sks > 1)
-      properPrefixes <- sublistOf sks
-        ==> let sigs = aggregate $ map (`sign` msg) (toList sks)
-            conjoin
-                  ( map
-                      ( \prefix ->
-                          not (verifyMultiSignature (map getVerificationKey prefix) sigs msg)
-                            & counterexample ("Prefix: " <> show prefix)
-                            & counterexample ("Signature: " <> show sigs)
-                      )
-                      properPrefixes
-                  )
+        ==> forAll (sublistOf sks)
+        $ \prefix ->
+          let sigs = aggregate $ map (`sign` msg) (toList sks)
+           in verifyMultiSignature (map getVerificationKey prefix) sigs msg
+                =/= Verified
+                & counterexample ("Keys: " <> show prefix)
+                & counterexample ("Signature: " <> show sigs)
