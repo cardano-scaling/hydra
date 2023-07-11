@@ -10,6 +10,10 @@ changes.
 
 ## [0.12.0] - UNRELEASED
 
+- *Fixed bugs* in `hydra-node`:
+  + Multisignature verification would silently ignore certain keys in case the
+  list of verification keys is not of same length as the list of signatures.
+
 - **BREAKING** Introduce authenticated network messages [#965](965).
   - Peers will sign messages before broadcasting them to other peers,
     and verify signature of received messages is from a known party
