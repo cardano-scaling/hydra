@@ -667,7 +667,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
           --  & emitSnapshot env
           Environment{party} = env
        in case outcome of
-            NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) ->
+            NewState (Open OpenState{parameters, coordinatedHeadState, chainState}) ->
               let snapshotInFlight = case seenSnapshot of
                     NoSeenSnapshot -> False
                     LastSeenSnapshot{} -> False
