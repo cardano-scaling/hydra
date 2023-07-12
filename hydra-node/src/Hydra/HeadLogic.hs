@@ -651,8 +651,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
       | otherwise ->
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
-    Right utxo' -> 
-      let outcome = 
+    Right utxo' ->
+      let outcome =
             NewState
               ( Open
                   st
@@ -668,15 +668,14 @@ onOpenNetworkReqTx env ledger st ttl tx =
           Environment{party} = env
         in case outcome of
           NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) ->
-            let CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
-                nextSn = confirmedSn + 1
-                snapshotInFlight = case seenSnapshot of
+            let snapshotInFlight = case seenSnapshot of
                     NoSeenSnapshot -> False
                     LastSeenSnapshot{} -> False
                     RequestedSnapshot{} -> True
                     SeenSnapshot{} -> True
 
                 Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+                nextSn = confirmedSn + 1
             in
               if
                 | not (isLeader parameters party nextSn) -> outcome
@@ -685,7 +684,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
                   -- may be an acceptable invariant, but we have property tests which are
                   -- more strict right now. Anyhow, we can be more expressive.
                   snapshotInFlight -> outcome
-                | null seenTxs -> outcome
+                | null (seenTxs <> [tx]) -> outcome
                 | otherwise ->
                       NewState
                         ( Open
@@ -704,7 +703,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
                               , currentSlot
                               }
                         )
-                        `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
+                        `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> (seenTxs <> [tx])))]
           Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
           _ -> outcome
 
@@ -712,7 +711,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
  where
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{allTxs, seenTxs, seenUTxO} = coordinatedHeadState
+  CoordinatedHeadState{allTxs, seenTxs, seenUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
   OpenState{coordinatedHeadState, headId, currentSlot} = st
 
