@@ -652,7 +652,41 @@ onOpenNetworkReqTx env ledger st ttl tx =
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      let outcome =
+      let
+        Environment{party} = env
+        snapshotInFlight = case seenSnapshot of
+          NoSeenSnapshot -> False
+          LastSeenSnapshot{} -> False
+          RequestedSnapshot{} -> True
+          SeenSnapshot{} -> True
+
+        Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+        nextSn = confirmedSn + 1
+       in
+        if isLeader parameters party nextSn && not snapshotInFlight
+          then
+            NewState
+              ( Open
+                  OpenState
+                    { parameters
+                    , coordinatedHeadState =
+                        trackTxInState
+                          { seenTxs = seenTxs <> [tx]
+                          , seenUTxO = utxo'
+                          , seenSnapshot =
+                              RequestedSnapshot
+                                { lastSeen = seenSnapshotNumber seenSnapshot
+                                , requested = nextSn
+                                }
+                          }
+                    , chainState
+                    , headId
+                    , currentSlot
+                    }
+              )
+              `Combined` Effects [ClientEffect $ TxValid headId tx]
+              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> (seenTxs <> [tx])))]
+          else
             NewState
               ( Open
                   st
@@ -664,46 +698,6 @@ onOpenNetworkReqTx env ledger st ttl tx =
                     }
               )
               `Combined` Effects [ClientEffect $ TxValid headId tx]
-          --  & emitSnapshot env
-          Environment{party} = env
-          snapshotInFlight = case seenSnapshot of
-            NoSeenSnapshot -> False
-            LastSeenSnapshot{} -> False
-            RequestedSnapshot{} -> True
-            SeenSnapshot{} -> True
-
-          Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-          nextSn = confirmedSn + 1
-       in if
-              | not (isLeader parameters party nextSn) -> outcome
-              | -- NOTE: This is different than in the spec. If we use seenSn /=
-                -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
-                -- may be an acceptable invariant, but we have property tests which are
-                -- more strict right now. Anyhow, we can be more expressive.
-                snapshotInFlight ->
-                  outcome
-              | otherwise ->
-                  NewState
-                    ( Open
-                        OpenState
-                          { parameters
-                          , coordinatedHeadState =
-                              trackTxInState
-                                { seenTxs = seenTxs <> [tx]
-                                , seenUTxO = utxo'
-                                , seenSnapshot =
-                                    RequestedSnapshot
-                                      { lastSeen = seenSnapshotNumber seenSnapshot
-                                      , requested = nextSn
-                                      }
-                                }
-                          , chainState
-                          , headId
-                          , currentSlot
-                          }
-                    )
-                    `Combined` Effects [ClientEffect $ TxValid headId tx]
-                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> (seenTxs <> [tx])))]
  where
   Ledger{applyTransactions} = ledger
 
