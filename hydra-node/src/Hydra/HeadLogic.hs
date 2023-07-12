@@ -1149,30 +1149,47 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 -- | Emit a snapshot if we are the next snapshot leader. 'Outcome' modifying
 -- signature so it can be chained with other 'update' functions.
 emitSnapshot :: IsTx tx => Environment -> Outcome tx -> Outcome tx
-emitSnapshot env outcome =
+emitSnapshot env@Environment{party} outcome =
   case outcome of
     NewState (Open OpenState{parameters, coordinatedHeadState, chainState, headId, currentSlot}) ->
-      case newSn env parameters coordinatedHeadState of
-        ShouldSnapshot sn txs -> do
-          let CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
-          NewState
-            ( Open
-                OpenState
-                  { parameters
-                  , coordinatedHeadState =
-                      coordinatedHeadState
-                        { seenSnapshot =
-                            RequestedSnapshot
-                              { lastSeen = seenSnapshotNumber seenSnapshot
-                              , requested = sn
-                              }
-                        }
-                  , chainState
-                  , headId
-                  , currentSlot
-                  }
-            )
-            `Combined` Effects [NetworkEffect (ReqSn sn (txId <$> txs))]
-        _ -> outcome
+       let  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} = coordinatedHeadState
+            nextSn = confirmedSn + 1
+            snapshotInFlight = case seenSnapshot of
+              NoSeenSnapshot -> False
+              LastSeenSnapshot{} -> False
+              RequestedSnapshot{} -> True
+              SeenSnapshot{} -> True
+
+            Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+       in
+         if
+             | not (isLeader parameters party nextSn) -> outcome
+             | -- NOTE: This is different than in the spec. If we use seenSn /=
+               -- confirmedSn here, we implicitly require confirmedSn <= seenSn. Which
+               -- may be an acceptable invariant, but we have property tests which are
+               -- more strict right now. Anyhow, we can be more expressive.
+               snapshotInFlight -> outcome
+             | null seenTxs -> outcome
+             | otherwise ->
+                  NewState
+                    ( Open
+                        OpenState
+                          { parameters
+                          , coordinatedHeadState =
+                              coordinatedHeadState
+                                { seenSnapshot =
+                                    RequestedSnapshot
+                                      { lastSeen = seenSnapshotNumber seenSnapshot
+                                      , requested = nextSn
+                                      }
+                                }
+                          , chainState
+                          , headId
+                          , currentSlot
+                          }
+                    )
+                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
+
     Combined l r -> Combined (emitSnapshot env l) (emitSnapshot env r)
     _ -> outcome
+
