@@ -844,7 +844,7 @@ onOpenNetworkAckSn ::
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
   Outcome tx
-onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
+onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn =
   -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
@@ -858,20 +858,47 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
           requireVerifiedMultisignature multisig snapshot $
-            NewState
-              ( onlyUpdateCoordinatedHeadState $
-                  coordinatedHeadState
-                    { confirmedSnapshot =
-                        ConfirmedSnapshot
-                          { snapshot
-                          , signatures = multisig
-                          }
-                    , seenSnapshot = LastSeenSnapshot (number snapshot)
-                    , allTxs = allTxs'
-                    }
-              )
-              `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-              & emitSnapshot env
+            let outcome =
+                 NewState
+                   ( onlyUpdateCoordinatedHeadState $
+                       coordinatedHeadState
+                         { confirmedSnapshot =
+                             ConfirmedSnapshot
+                               { snapshot
+                               , signatures = multisig
+                               }
+                         , seenSnapshot = LastSeenSnapshot (number snapshot)
+                         , allTxs = allTxs'
+                         }
+                   )
+                  `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+
+                CoordinatedHeadState{seenTxs} = coordinatedHeadState
+                nextSn = confirmedSn + 1
+                Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+               in if
+                      | not (isLeader parameters party nextSn) -> outcome
+                      | null seenTxs -> outcome
+                      | otherwise ->
+                          NewState
+                            ( Open
+                                OpenState
+                                  { parameters
+                                  , coordinatedHeadState =
+                                      coordinatedHeadState
+                                        { seenSnapshot =
+                                            RequestedSnapshot
+                                              { lastSeen = seenSnapshotNumber $ LastSeenSnapshot (number snapshot)
+                                              , requested = nextSn
+                                              }
+                                        }
+                                  , chainState
+                                  , headId
+                                  , currentSlot
+                                  }
+                            )
+                            `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+                            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -920,12 +947,14 @@ onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   onlyUpdateCoordinatedHeadState chs' =
     Open openState{coordinatedHeadState = chs'}
 
-  CoordinatedHeadState{seenSnapshot, allTxs} = coordinatedHeadState
-
+  CoordinatedHeadState{seenSnapshot, allTxs, confirmedSnapshot} = coordinatedHeadState
+  HeadParameters{parties} = parameters
   OpenState
-    { parameters = HeadParameters{parties}
+    { parameters
     , coordinatedHeadState
     , headId
+    , currentSlot
+    , chainState
     } = openState
 
 -- ** Closing the Head
