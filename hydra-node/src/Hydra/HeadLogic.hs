@@ -662,6 +662,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
         Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
         nextSn = confirmedSn + 1
+        seenTxs' = seenTxs <> [tx]
        in
         if isLeader parameters party nextSn && not snapshotInFlight
           then
@@ -671,7 +672,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
                     { parameters
                     , coordinatedHeadState =
                         trackTxInState
-                          { seenTxs = seenTxs <> [tx]
+                          { seenTxs = seenTxs'
                           , seenUTxO = utxo'
                           , seenSnapshot =
                               RequestedSnapshot
@@ -685,14 +686,14 @@ onOpenNetworkReqTx env ledger st ttl tx =
                     }
               )
               `Combined` Effects [ClientEffect $ TxValid headId tx]
-              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> (seenTxs <> [tx])))]
+              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
           else
             NewState
               ( Open
                   st
                     { coordinatedHeadState =
                         trackTxInState
-                          { seenTxs = seenTxs <> [tx]
+                          { seenTxs = seenTxs'
                           , seenUTxO = utxo'
                           }
                     }
