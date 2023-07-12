@@ -682,7 +682,6 @@ onOpenNetworkReqTx env ledger st ttl tx =
                 -- more strict right now. Anyhow, we can be more expressive.
                 snapshotInFlight ->
                   outcome
-              | null (seenTxs <> [tx]) -> outcome
               | otherwise ->
                   NewState
                     ( Open
