@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Hydra.TUI.Options where
 
 import Hydra.Prelude
@@ -8,8 +6,7 @@ import Data.Version (Version (Version), showVersion)
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Network (Host (Host))
 import Hydra.Options (networkIdParser)
-import Hydra.Version (gitRevision)
-import Language.Haskell.TH.Env (envQ)
+import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
   auto,
@@ -55,8 +52,9 @@ parseOptions =
 
   revision =
     maybeToList $
-      ($$(envQ "GIT_REVISION") :: Maybe String)
+      embeddedRevision
         <|> gitRevision
+        <|> Just unknownVersion
 
 parseCardanoNodeSocket :: Parser FilePath
 parseCardanoNodeSocket =

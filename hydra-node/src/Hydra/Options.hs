@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -35,8 +34,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Party (Party)
-import Hydra.Version (gitRevision)
-import Language.Haskell.TH.Env (envQ)
+import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -569,8 +567,9 @@ hydraNodeCommand =
 
   revision =
     maybeToList $
-      ($$(envQ "GIT_REVISION") :: Maybe String)
+      embeddedRevision
         <|> gitRevision
+        <|> Just unknownVersion
 
   scriptInfo =
     infoOption

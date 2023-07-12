@@ -10,8 +10,8 @@ license-files:
   NOTICE
 
 data-files:
-  json-schemas/logs.yaml
   json-schemas/api.yaml
+  json-schemas/logs.yaml
 
 source-repository head
   type:     git
@@ -174,7 +174,6 @@ library
     , serialise
     , stm
     , text
-    , th-env
     , time
     , transformers
     , typed-protocols                                                   >=0.1.0.0
@@ -248,13 +247,13 @@ benchmark micro
   main-is:        Main.hs
   type:           exitcode-stdio-1.0
   build-depends:
-                  QuickCheck
-                , aeson
-                , base
-                , criterion
-                , hydra-cardano-api
-                , hydra-node
-                , hydra-prelude
+    , aeson
+    , base
+    , criterion
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , QuickCheck
 
   ghc-options:    -threaded -rtsopts
 
