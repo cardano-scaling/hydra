@@ -667,7 +667,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
           --  & emitSnapshot env
           Environment{party} = env
        in case outcome of
-            NewState (Open OpenState{parameters, chainState}) ->
+            NewState (Open OpenState{chainState}) ->
               let snapshotInFlight = case seenSnapshot of
                     NoSeenSnapshot -> False
                     LastSeenSnapshot{} -> False
@@ -713,7 +713,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   CoordinatedHeadState{allTxs, seenTxs, seenUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, headId, currentSlot} = st
+  OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
 
   trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
 
