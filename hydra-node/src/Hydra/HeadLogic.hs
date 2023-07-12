@@ -664,41 +664,40 @@ onOpenNetworkReqTx env ledger st ttl tx =
         nextSn = confirmedSn + 1
         seenTxs' = seenTxs <> [tx]
        in
-        if isLeader parameters party nextSn && not snapshotInFlight
-          then
-            NewState
-              ( Open
-                  OpenState
-                    { parameters
-                    , coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          , seenSnapshot =
-                              RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber seenSnapshot
-                                , requested = nextSn
-                                }
-                          }
-                    , chainState
-                    , headId
-                    , currentSlot
-                    }
-              )
-              `Combined` Effects [ClientEffect $ TxValid headId tx]
-              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
-          else
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          }
-                    }
-              )
-              `Combined` Effects [ClientEffect $ TxValid headId tx]
+        Effects [ClientEffect $ TxValid headId tx]
+          `Combined` if isLeader parameters party nextSn && not snapshotInFlight
+            then
+              NewState
+                ( Open
+                    OpenState
+                      { parameters
+                      , coordinatedHeadState =
+                          trackTxInState
+                            { seenTxs = seenTxs'
+                            , seenUTxO = utxo'
+                            , seenSnapshot =
+                                RequestedSnapshot
+                                  { lastSeen = seenSnapshotNumber seenSnapshot
+                                  , requested = nextSn
+                                  }
+                            }
+                      , chainState
+                      , headId
+                      , currentSlot
+                      }
+                )
+                `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
+            else
+              NewState
+                ( Open
+                    st
+                      { coordinatedHeadState =
+                          trackTxInState
+                            { seenTxs = seenTxs'
+                            , seenUTxO = utxo'
+                            }
+                      }
+                )
  where
   Ledger{applyTransactions} = ledger
 
