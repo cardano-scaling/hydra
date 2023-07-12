@@ -126,7 +126,9 @@ withOuroborosNetwork ::
 withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
   let newBroadcastChannel = atomically $ dupTChan bchan
-  -- TODO: Factor this out, there should be only one IOManager per process.
+  -- NOTE: There should only be one `IOManager` instance per process. Should we
+  -- want to use ouroboros network framework in other places, we must factor out
+  -- this instantiation
   withIOManager $ \iomgr -> do
     withServerListening iomgr hydraServer $
       race_ (connect iomgr newBroadcastChannel hydraClient) $ do

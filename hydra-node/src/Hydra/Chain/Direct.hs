@@ -6,7 +6,6 @@
 -- protocols to submit "hand-rolled" transactions.
 module Hydra.Chain.Direct (
   NetworkMagic (NetworkMagic),
-  withIOManager,
   module Hydra.Chain.Direct,
 ) where
 
@@ -95,9 +94,6 @@ import Hydra.Options (ChainConfig (..))
 import Hydra.Party (Party)
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
-import Ouroboros.Network.NodeToClient (
-  withIOManager,
- )
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
