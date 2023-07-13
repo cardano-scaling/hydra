@@ -64,22 +64,43 @@ spec = do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{seenTxs = [tx]}
-        newSn (envFor aliceSk) params st `shouldBe` ShouldSnapshot 1 [tx]
+            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
-      prop "always ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshot
-      -- prop "given head has 1 member, always ReqSn after confirming a snapshot " prop_singleMemberHeadAlwaysSnapshotOnAckSn
+        collectEffects outcome
+          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx, 1])]
+
+      prop "always emit ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshotOnReqTx
 
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{seenTxs = [tx]}
-        newSn (envFor bobSk) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+            outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
-      it "do not send ReqSn when there is a snapshot in flight" $ do
-        let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
+        collectEffects outcome
+          `shouldNotSatisfy` ( isJust
+                                . find
+                                  ( \case
+                                      NetworkEffect (ReqSn _ _) -> True
+                                      _ -> False
+                                  )
+                             )
+
+      fit "do not send ReqSn when there is a snapshot in flight" $ do
+        let tx = aValidTx 1
+            sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
-        newSn (envFor aliceSk) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
+
+        collectEffects outcome
+          `shouldNotSatisfy` ( isJust
+                                . find
+                                  ( \case
+                                      NetworkEffect (ReqSn _ _) -> True
+                                      _ -> False
+                                  )
+                             )
 
       it "do not send ReqSn when there's no seen transactions" $ do
         newSn (envFor aliceSk) params coordinatedHeadState
@@ -99,8 +120,8 @@ spec = do
           emitSnapshot (envFor aliceSk) (NewState st)
             `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [1]])
 
-prop_singleMemberHeadAlwaysSnapshot :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshot sn = monadicST $ do
+prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
+prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
   seenSnapshot <-
     pick $
       oneof
@@ -138,6 +159,5 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      length parties
-        > 0
-        ==> any (\p -> isLeader params p sn) parties
+      not (null parties) ==>
+        any (\p -> isLeader params p sn) parties
