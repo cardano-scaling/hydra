@@ -642,6 +642,7 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
+  traceShow "onOpenNetworkReqTx" $
   -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
   case applyTransactions currentSlot seenUTxO [tx] of
     Left (_, err)
@@ -665,7 +666,11 @@ onOpenNetworkReqTx env ledger st ttl tx =
         seenTxs' = seenTxs <> [tx]
        in
         Effects [ClientEffect $ TxValid headId tx]
-          `Combined` if isLeader parameters party nextSn && not snapshotInFlight
+          -- REVIEW: SB added check `not (null seenTxs)` here. Rationalle is that
+          -- the existing state should already contain some txs if we want to
+          -- send `ReqSn`. BUT here we are also preventing the `NewState` output
+          -- in this case which might not be fine.
+          `Combined` if isLeader parameters party nextSn && not snapshotInFlight && not (null seenTxs)
             then
               NewState
                 ( Open
@@ -686,7 +691,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
                       , currentSlot
                       }
                 )
-                `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
+                `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
             else
               NewState
                 ( Open
@@ -738,6 +743,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   -- (Can we prove a message comes from a given peer, without signature?)
 
   -- Spec: require s = ŝ + 1 and leader(s) = j
+  traceShow "onOpenNetworkReqSn" $
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
@@ -845,6 +851,8 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn =
+
+  traceShow "onOpenNetworkAckSn" $
   -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do

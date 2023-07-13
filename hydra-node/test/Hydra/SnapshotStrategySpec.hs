@@ -87,11 +87,11 @@ spec = do
                                   )
                              )
 
-      fit "do not send ReqSn when there is a snapshot in flight" $ do
+      it "do not send ReqSn when there is a snapshot in flight" $ do
         let tx = aValidTx 1
             sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
+            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
         collectEffects outcome
           `shouldNotSatisfy` ( isJust
@@ -102,9 +102,18 @@ spec = do
                                   )
                              )
 
-      it "do not send ReqSn when there's no seen transactions" $ do
-        newSn (envFor aliceSk) params coordinatedHeadState
-          `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
+      fit "do not send ReqSn when there's no seen transactions" $ do
+        let tx = aValidTx 1
+            st = coordinatedHeadState{seenTxs = []}
+            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
+        collectEffects outcome
+          `shouldNotSatisfy` ( isJust
+                                . find
+                                  ( \case
+                                      NetworkEffect (ReqSn _ _) -> True
+                                      _ -> False
+                                  )
+                             )
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
