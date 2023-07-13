@@ -238,7 +238,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , seenTxs :: [tx]
   -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
   , allTxs :: Map.Map (TxIdType tx) tx
-  -- ^ Map containing all the transactions ever seen by this node and not yet included in a snapshot
+  -- ^ Map containing all the transactions ever seen by this node and not yet
+  -- included in a snapshot. Spec: T̂all
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
   , seenSnapshot :: SeenSnapshot tx
@@ -651,48 +652,57 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
-  -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions currentSlot seenUTxO [tx] of
-    Left (_, err)
-      | ttl <= 0 ->
-          NewState (Open st{coordinatedHeadState = untrackTxInState})
-            `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
-      | otherwise ->
-          NewState (Open st{coordinatedHeadState = trackTxInState})
-            `Combined` Wait (WaitOnNotApplicableTx err)
-    Right utxo' ->
-      Effects [ClientEffect $ TxValid headId tx]
-        `Combined` if isLeader parameters party nextSn && not snapshotInFlight
-          then
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          , seenSnapshot =
-                              RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber seenSnapshot
-                                , requested = nextSn
-                                }
-                          }
-                    }
-              )
-              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
-          else
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          }
-                    }
-              )
+onOpenNetworkReqTx env ledger st ttl tx = do
+  -- Spec: T̂all ← ̂Tall ∪ { (hash(tx), tx) }
+  let s' = trackTxInState
+  -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
+  waitApplyTx s' $ \utxo' ->
+    Effects [ClientEffect $ TxValid headId tx]
+      `Combined` if isLeader parameters party nextSn && not snapshotInFlight
+        then
+          NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      trackTxInState
+                        { seenTxs = seenTxs'
+                        , seenUTxO = utxo'
+                        , seenSnapshot =
+                            RequestedSnapshot
+                              { lastSeen = seenSnapshotNumber seenSnapshot
+                              , requested = nextSn
+                              }
+                        }
+                  }
+            )
+            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
+        else
+          NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      trackTxInState
+                        { seenTxs = seenTxs'
+                        , seenUTxO = utxo'
+                        }
+                  }
+            )
  where
+  waitApplyTx s' cont =
+    case applyTransactions currentSlot seenUTxO [tx] of
+      Right utxo' -> cont utxo'
+      Left (_, err)
+        | ttl > 0 ->
+            NewState (Open st{coordinatedHeadState = s'})
+              `Combined` Wait (WaitOnNotApplicableTx err)
+        | otherwise ->
+            -- FIXME: Check whether we really want to remove invalid tx from
+            -- allTxs? Especially in case of conflicting transactions this is
+            -- problematic as another leader could validly request them to be
+            -- snapshotted.
+            NewState (Open st{coordinatedHeadState = untrackTxInState})
+              `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+
   Ledger{applyTransactions} = ledger
 
   Environment{party} = env

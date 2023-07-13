@@ -73,10 +73,14 @@
 
 						%%% REQ TX
 						\On{$(\hpRT,\tx)$ from $\party_j$}{%
+
+							$\textcolor{red}{\hatmT_{\mathsf{all}} \gets \hatmT_{\mathsf{all}} \cup \{ (\hash(\tx),\tx )\}}$ % track tx in state
+
 							\Wait{$\hatmL \applytx \tx \neq \bot$}{
-								$\hatmT \gets \hatmT \cup \{\tx\}$ % candidates for next snapshot
 
 								$\hatmL \gets \hatmL\applytx\tx$ %
+
+								$\hatmT \gets \hatmT \cup \{\tx\}$ % candidates for next snapshot
 
 								% issue snapshot if we are leader
 								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{%
@@ -88,9 +92,11 @@
 						\vspace{12pt} %
 
 						%%% REQ SN
-						\On{$(\hpRS,s,\mT_{res})$ from $\party_j$}{ %
+						\On{$(\hpRS,s,\mT^{\#}_{req})$ from $\party_j$}{ %
 
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \; %
+
+							\textcolor{red}{Missing: lookup tx id $\hatmT^{\#}_{req}$ in $\hatmT_{\mathsf{all}}$ to get $\mT_{res}$}
 
 							% Wait for snapshot no snapshot in flight anymore and all txs applicable
 							\Wait{$\bars = \hats ~ \land ~ \barmU \applytx \mT_{res} \not= \bot ~ \and ~ \mT_{res} \subseteq \hatmT$}{ %
@@ -113,17 +119,20 @@
 								% this we would need to do a more recursive algorithm. Right now
 								% we throw out everything which is not applicable after a single
 								% pass. Also: Should we inform users if we drop a transaction?
-								\textcolor{red}{
-									$X\gets\hatmT$;\ $\hatmT\gets\emptyset$ \; %
-									\ForA{$\tx\in X$}{
-										\If{$\hatmU\applytx(\hatmT\cup\{\tx\})\not=\bot$}{
-											$\hatmT\gets\hatmT\cup\{\tx\}$
-										}
-									}}
-								$\hatmL \gets \hatmU\applytx\hatmT$
-								% TODO: This was here ^^^ before:
-								% $\hatmT \gets \{ tx \in \hatmT ~  | ~ \hatmU \applytx tx \not = \bot \}$ \; %
+								% \textcolor{red}{
+								% 	$X\gets\hatmT$;\ $\hatmT\gets\emptyset$ \; %
+								% 	\ForA{$\tx\in X$}{
+								% 		\If{$\hatmU\applytx(\hatmT\cup\{\tx\})\not=\bot$}{
+								% 			$\hatmT\gets\hatmT\cup\{\tx\}$
+								% 		}
+								% 	}}
 								% $\hatmL \gets \hatmU\applytx\hatmT$
+
+								\textcolor{red}{Missing: untrack $\hatmT_{\mathsf{all}}$}
+
+								$\hatmT \gets \{ tx \in \hatmT ~  | ~ \hatmU \applytx tx \not = \bot \}$ \; %
+
+								$\hatmL \gets \hatmU\applytx\hatmT$
 							}
 						}
 					\end{walgo}

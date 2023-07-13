@@ -41,11 +41,11 @@ off-chain protocol logic relies on these assumptions:
 	\item Every network message received from a specific party is checked for
 	      authentication. An implementation of the specification needs to find a
 	      suitable means of authentication, either on the communication channel
-        or for individual messages. Unauthenticated messages must be dropped.
+	      or for individual messages. Unauthenticated messages must be dropped.
 	\item The head protocol gets correctly (and with completeness) notified about
 	      observed transactions on-chain belonging to the respective head
 	      instance.
-        % TODO: Mention multiple heads?
+	      % TODO: Mention multiple heads?
 	      % \item The specification covers only a single instance of a Hydra head.
 	      %       However, some implementations may choose to track multiple instances. As
 	      %       multiple Hydra heads might exist on the same blockchain, it is vital
@@ -57,9 +57,9 @@ off-chain protocol logic relies on these assumptions:
 	      to multiple invocations of the handling semantics.
 	\item Given the specification, events may pile up forever and implementations
 	      need to consider these situations (i.e.\ potential for DoS). A valid reaction
-        to this would be to just drop these events. Note that, from a security standpoint,
-        these situations are identical to a non-collaborative peer and closing the head
-        is also a possible reaction.
+	      to this would be to just drop these events. Note that, from a security standpoint,
+	      these situations are identical to a non-collaborative peer and closing the head
+	      is also a possible reaction.
 	\item The lifecycle of a Hydra head on-chain does not cross (hard fork)
 	      protocol update boundaries. Note that these events are announced in
 	      advance hence it should be possible for implementations to react in such
@@ -106,10 +106,12 @@ party's local state consists of the following variables:
 	      signatures of the latest seen snapshot, indexed by parties.
 	\item $\hatmL$: Local ledger state used to validate requested transactions
 	      against.
-	\item $\hatmT \in \mT^{*}$: List of transactions that extend from the last
-	      confirmed snapshot $\barmU$ to form $\hatmL$. These are also the
-	      transactions that would go into the next snapshot (if this party is the
-	      next leader).
+	\item $\hatmT \in \mT^{*}$: List of seen transactions currently pending to be
+	      included in the next snapshot (if this party is the next leader).
+	      Applying all these transactions to the last confirmed snapshot $\barmU$
+	      will result in $\hatmL$.
+	\item $\hatmT_{\mathsf{all}} \in (\tyBytes \times \mT)^{*}$: Associative list of all
+	      seen transactions not yet included in a snapshot.
 \end{itemize}
 
 \subsection{Protocol flow}
