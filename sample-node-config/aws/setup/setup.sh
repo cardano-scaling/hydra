@@ -4,23 +4,27 @@
 # fail if something goes wrong
 set -e
 
-echo "Enter [profile]: "
-profile=
-while [[ $profile = "" ]]; do
-   read profile
-done
+function setup() {
+   echo "Enter [profile]: "
+   profile=
+   while [[ $profile = "" ]]; do
+      read profile
+   done
 
-echo "Enter [key_name]: "
-key_name=
-while [[ $key_name = "" ]]; do
-   read key_name
-done
+   echo "Enter [key_name]: "
+   key_name=
+   while [[ $key_name = "" ]]; do
+      read key_name
+   done
 
-test -f terraform.tfvars ||
-    cat << EOF >terraform.tfvars
+   cat << EOF >terraform.tfvars
 profile    = "$profile"
 key_name   = "$key_name"
 EOF
+
+}
+
+test -f terraform.tfvars || setup
 
 test -f terraform.tfvars && setup/env.sh
 

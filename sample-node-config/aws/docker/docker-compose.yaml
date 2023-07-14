@@ -1,5 +1,7 @@
 version: "3.9"
 
+# Note: awslogs-group value depends on `key_name` under terraform.tfvars
+
 services:
   cardano-node:
     image: inputoutput/cardano-node:latest
@@ -8,92 +10,91 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "eu-west-3"           # defined in variables.tf
-        awslogs-group: "franco_instance_logs" # defined in cloudwatch.tf
+        awslogs-group: "hydra-demo_instance_logs" # defined in cloudwatch.tf
         awslogs-stream: "cardano_node"        # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
     volumes:
-      - .:/data
-      - ./devnet:/devnet
+      - ./network:/network
     working_dir: /data
     environment:
-      - CARDANO_SOCKET_PATH=/devnet/node.socket      # used by cardano-node
-      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket # used by cardano-cli
+      - CARDANO_SOCKET_PATH=/network/node.socket      # used by cardano-node
+      - CARDANO_NODE_SOCKET_PATH=/network/node.socket # used by cardano-cli
     command:
       [ "run"
-      , "--config", "/devnet/cardano-node/config.json"
-      , "--topology", "/devnet/cardano-node/topology.json"
-      , "--database-path", "/devnet/db"
+      , "--config", "/network/cardano-node/config.json"
+      , "--topology", "/network/cardano-node/topology.json"
+      , "--database-path", "/network/db"
       ]
 
   hydra-node:
-    image: ghcr.io/input-output-hk/hydra-node:0.8.1
+    image: ghcr.io/input-output-hk/hydra-node:0.10.0
     restart: always
     logging:
       driver: "awslogs"
       options:
         awslogs-region: "eu-west-3"           # defined in variables.tf
-        awslogs-group: "franco_instance_logs" # defined in cloudwatch.tf
+        awslogs-group: "hydra-demo_instance_logs" # defined in cloudwatch.tf
         awslogs-stream: "hydra_node"          # defined in cloudwatch.tf
         tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
         mode: non-blocking
     volumes:
-      - .:/data:ro
-      - ./devnet:/devnet
+      - ./credentials:/config:ro
+      - ./network:/network
+      - ./persistence:/data
     ports:
       - "5001:5001"
     command:
-      [ "--node-id", "1"
+      [ "--node-id", "hydra-demo"
       , "--api-host", "0.0.0.0"
       , "--host", "0.0.0.0"
       , "--monitoring-port", "6000"
       , "--hydra-scripts-tx-id", "${HYDRA_SCRIPTS_TX_ID}"
-      , "--hydra-signing-key", "/data/hydra-key.sk"
-      , "--cardano-signing-key", "/data/cardano-key.sk"
-      , "--ledger-protocol-parameters", "/data/protocol-parameters.json"
+      , "--hydra-signing-key", "/config/hydra-key.sk"
+      , "--cardano-signing-key", "/config/cardano-key.sk"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
+      # , "--mainnet"
       , "--testnet-magic", "${NETWORK_MAGIC}"
-      , "--node-socket", "/devnet/node.socket"
+      , "--node-socket", "/network/node.socket"
+      , "--persistence-dir", "/data/persistence"
       # hardcoded peers
       ## Arnaud
-      , "--peer", "35.233.17.169:5001"
-      , "--hydra-verification-key", "/data/arnaud.hydra.vk"
-      , "--cardano-verification-key", "/data/arnaud.cardano.vk"
+      # , "--peer", "35.233.17.169:5001"
+      # , "--hydra-verification-key", "/data/arnaud.hydra.vk"
+      # , "--cardano-verification-key", "/data/arnaud.cardano.vk"
       ## Sebastian
-      , "--peer", "fk.ncoding.at:5001"
-      , "--hydra-verification-key", "/data/sebastian.hydra.vk"
-      , "--cardano-verification-key", "/data/sebastian.cardano.vk"
+      # , "--peer", "fk.ncoding.at:5001"
+      # , "--hydra-verification-key", "/data/sebastian.hydra.vk"
+      # , "--cardano-verification-key", "/data/sebastian.cardano.vk"
       ## Pascal
-      , "--peer", "13.39.80.222:5001"
-      , "--hydra-verification-key", "/data/pascal.hydra.vk"
-      , "--cardano-verification-key", "/data/pascal.cardano.vk"
+      # , "--peer", "13.37.15.211:5001"
+      # , "--hydra-verification-key", "/data/pascal.hydra.vk"
+      # , "--cardano-verification-key", "/data/pascal.cardano.vk"
       ## Sasha
-      , "--peer", "13.38.49.252:5001"
-      , "--hydra-verification-key", "/data/sasha.hydra.vk"
-      , "--cardano-verification-key", "/data/sasha.cardano.vk"
+      # , "--peer", "13.37.150.125:5001"
+      # , "--hydra-verification-key", "/data/sasha.hydra.vk"
+      # , "--cardano-verification-key", "/data/sasha.cardano.vk"
       ]
     
   hydra-tui:
-    image: ghcr.io/input-output-hk/hydra-tui:0.8.1
+    image: ghcr.io/input-output-hk/hydra-tui:0.10.0
     profiles:
       - tui
     command:
       [ 
-        "--"
-      , "--connect", "hydra-node:4001"
-      , "--node-socket", "/devnet/node.socket"
-      , "--testnet-magic", "${NETWORK_MAGIC}"
+      "--connect", "hydra-node:4001"
+      , "--node-socket", "/network/node.socket"
+      , "--network-id", "${NETWORK_MAGIC}"
       , "--cardano-signing-key", "/data/cardano-key.sk"
       ]
     volumes:
       - .:/data:ro
-      - ./devnet:/devnet
+      - ./network:/network
 
   hydraw:
     image: ghcr.io/input-output-hk/hydraw:latest
     profiles:
       - hydraw
-    entrypoint:
-      [ "hydraw" ]
     environment:
       - HYDRAW_CARDANO_SIGNING_KEY=/data/cardano-key.sk
       - HYDRA_API_HOST=hydra-node:4001

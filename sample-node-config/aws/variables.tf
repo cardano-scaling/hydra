@@ -23,5 +23,5 @@ variable "region" {
 variable "instance_type" {
   description = "The instance profile for your role"
   type        = string
-  default     = "t2.micro" // t2.micro is available in the AWS free tier
+  default     = "t2.xlarge" // t2.micro is available in the AWS free tier
 }

@@ -15,12 +15,12 @@
         "hydra-vk": "5820935df47d312772df391cc7a934702e13e9f4263c611cc275b93f76ec6d31d02c"
     },
     "pascal": {
-        "peer": "13.39.80.222:5001",
+        "peer": "13.37.15.211:5001",
         "cardano-vk": "582082300ea5e0ad5d9318999c3b8814347453648101aceef9fef8c09d8aeeca60ff",
         "hydra-vk": "5820737b232d388e9666af437440f4962eda30e42bfff826906145c1816249a91340"
     },
     "sasha": {
-        "peer": "13.38.49.252:5001",
+        "peer": "13.37.150.125:5001",
         "cardano-vk": "5820f4e4d4d2c478420c70b57d38c02514d73537bb58ec651885df45f95c1ea429fe",
         "hydra-vk": "5820a65dd1af5d938e394b05198b97870a33343d3dd2ec8feb8906a2cbbd2cc0ac96"
     }
