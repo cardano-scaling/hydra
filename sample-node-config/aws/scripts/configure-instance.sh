@@ -26,8 +26,8 @@ echo 'Installing jq'
 sudo apt-get install jq -y
 
 echo 'Installing docker' # https://docs.docker.com/engine/install/ubuntu/
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh ./get-docker.sh
+curl -fsSL https://get.docker.com -o ./scripts/get-docker.sh
+sh ./scripts/get-docker.sh
 sudo usermod -aG docker ubuntu                    # to add myself to docker group
 
 echo 'Installing docker-compose' # https://gist.github.com/npearce/6f3c7826c7499587f00957fee62f8ee9
@@ -48,4 +48,6 @@ echo "alias fuel='cd ~ && ./create-marker-utxo.sh'" >> .bashrc
 echo "alias up='cd ~ && ./hydraw-up.sh'" >> .bashrc
 echo "alias down='cd ~ && ./hydraw-down.sh'" >> .bashrc
 echo "alias tui='cd ~ && ./run-tui.sh'" >> .bashrc
-echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=1'" >> .bashrc
+# [mainnet]
+# echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=1'" >> .bashrc
+echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2'" >> .bashrc

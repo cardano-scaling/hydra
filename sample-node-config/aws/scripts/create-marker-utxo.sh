@@ -5,4 +5,4 @@
 set -e
 
 chmod +x ./fuel-testnet.sh
-exec ./fuel-testnet.sh devnet cardano-key.sk 10000000
+exec ./fuel-testnet.sh network cardano-key.sk 10000000

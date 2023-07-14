@@ -37,9 +37,26 @@ resource "aws_instance" "this" {
     volume_size = 200
   }
 
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir /home/ubuntu/scripts",
+      "mkdir /home/ubuntu/credentials",
+      "mkdir /home/ubuntu/config"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file(local.private_key)
+      timeout     = "2m"
+      agent       = false
+      host        = self.public_ip
+    }
+  }
+
   provisioner "file" {
     source      = "scripts/"
-    destination = "/home/ubuntu"
+    destination = "/home/ubuntu/scripts/"
 
     connection {
       type        = "ssh"
@@ -53,7 +70,7 @@ resource "aws_instance" "this" {
 
   provisioner "file" {
     source      = "credentials/"
-    destination = "/home/ubuntu"
+    destination = "/home/ubuntu/credentials/"
 
     connection {
       type        = "ssh"
@@ -80,22 +97,8 @@ resource "aws_instance" "this" {
   }
 
   provisioner "file" {
-    source      = "../../hydra-cluster/config/devnet/genesis-shelley.json"
-    destination = "/home/ubuntu/genesis-shelley.json"
-
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file(local.private_key)
-      timeout     = "2m"
-      agent       = false
-      host        = self.public_ip
-    }
-  }
-
-  provisioner "file" {
-    source      = "../../hydra-cluster/config/protocol-parameters.json"
-    destination = "/home/ubuntu/protocol-parameters.json"
+    source      = "./config/preview/protocol-parameters.json"
+    destination = "/home/ubuntu/config/protocol-parameters.json"
 
     connection {
       type        = "ssh"
@@ -109,7 +112,7 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "find /home/ubuntu -type f -iname \"*.sh\" -exec chmod +x {} +"
+      "find /home/ubuntu/scripts -type f -iname \"*.sh\" -exec chmod +x {} +"
     ]
 
     connection {
@@ -124,7 +127,7 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "/home/ubuntu/configure-instance.sh"
+      "/home/ubuntu/scripts/configure-instance.sh"
     ]
 
     connection {
@@ -139,7 +142,7 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "/home/ubuntu/configure-testnet.sh"
+      "/home/ubuntu/scripts/configure-testnet.sh"
     ]
 
     connection {
