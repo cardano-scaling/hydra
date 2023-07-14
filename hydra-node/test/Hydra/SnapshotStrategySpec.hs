@@ -7,31 +7,28 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Data.List as List
+import qualified Data.Map.Strict as Map
 import Hydra.Chain (HeadParameters (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
   Event (NetworkEvent),
-  NoSnapshotReason (..),
-  Outcome (..),
   SeenSnapshot (..),
-  SnapshotOutcome (..),
   collectEffects,
+  collectState,
   defaultTTL,
-  emitSnapshot,
   isLeader,
-  newSn,
   update,
  )
 import Hydra.HeadLogicSpec (inOpenState')
 import Hydra.Ledger (Ledger (..), txId)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 
@@ -48,8 +45,6 @@ spec = do
                 , otherParties = List.delete party threeParties
                 , contestationPeriod = defaultContestationPeriod
                 }
-
-    let params = HeadParameters cperiod threeParties
 
     let coordinatedHeadState =
           CoordinatedHeadState
@@ -102,32 +97,30 @@ spec = do
                                   )
                              )
 
-      fit "do not send ReqSn when there's no seen transactions" $ do
-        let tx = aValidTx 1
-            st = coordinatedHeadState{seenTxs = []}
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
-        collectEffects outcome
-          `shouldNotSatisfy` ( isJust
-                                . find
-                                  ( \case
-                                      NetworkEffect (ReqSn _ _) -> True
-                                      _ -> False
-                                  )
-                             )
+      xit "do not send ReqSn when there's no seen transactions" $
+        -- REVIEW: This test has become invalid because it was testing only the
+        -- logic in the 'newSn' funcion. Now we have that logic inlined meaning
+        -- we have to test this logic through 'update' and in this scenario we
+        -- will always have a tx in the 'seenTxs' field in 'onOpenNetworkReqTx'
+        -- when the tx can be applied.
+        True `shouldBe` False
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
           let tx = aValidTx 1
-              st = inOpenState' threeParties coordinatedHeadState{seenTxs = [tx]}
-              st' =
+              st = inOpenState' threeParties coordinatedHeadState
+              outcome = update (envFor aliceSk) simpleLedger st $ NetworkEvent defaultTTL alice $ ReqTx tx
+
+          let st' =
                 inOpenState' threeParties $
                   coordinatedHeadState
                     { seenTxs = [tx]
+                    , allTxs = Map.singleton (txId tx) tx
+                    , seenUTxO = initUTxO <> utxoRef (txId tx)
                     , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                     }
 
-          emitSnapshot (envFor aliceSk) (NewState st)
-            `shouldBe` Combined (NewState st') (Effects [NetworkEffect $ ReqSn 1 [1]])
+          collectState outcome `shouldContain` [st']
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
