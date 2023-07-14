@@ -40,7 +40,7 @@ let
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.cabal-plan
     # For validating JSON instances against a pre-defined schema
-    pkgs.python3Packages.jsonschema
+    pkgs.check-jsonschema
     # For generating plantuml drawings
     pkgs.plantuml
     # For plotting results of hydra-cluster benchmarks
