@@ -303,7 +303,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
-    Hydra.SnapshotStrategySpec
+    Hydra.HeadLogicSnapshotSpec
     Paths_hydra_node
     Spec
     Test.Hydra.Fixture

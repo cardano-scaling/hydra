@@ -1,7 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module Hydra.SnapshotStrategySpec where
+module Hydra.HeadLogicSnapshotSpec where
 
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
@@ -9,6 +10,7 @@ import Test.Hydra.Prelude
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Crypto (sign)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -21,14 +23,14 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.HeadLogicSpec (inOpenState')
+import Hydra.HeadLogicSpec (inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 
@@ -54,6 +56,16 @@ spec = do
             , confirmedSnapshot = InitialSnapshot initUTxO
             , seenSnapshot = NoSeenSnapshot
             }
+    let sendReqSn =
+          isJust
+            . find
+              ( \case
+                  NetworkEffect ReqSn{} -> True
+                  _ -> False
+              )
+    let snapshot1 = Snapshot 1 mempty []
+
+    let ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
     describe "New Snapshot Decision" $ do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
@@ -73,14 +85,7 @@ spec = do
             st = coordinatedHeadState{seenTxs = [tx]}
             outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
-        collectEffects outcome
-          `shouldNotSatisfy` ( isJust
-                                . find
-                                  ( \case
-                                      NetworkEffect (ReqSn _ _) -> True
-                                      _ -> False
-                                  )
-                             )
+        collectEffects outcome `shouldNotSatisfy` sendReqSn
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
         let tx = aValidTx 1
@@ -88,22 +93,70 @@ spec = do
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
-        collectEffects outcome
-          `shouldNotSatisfy` ( isJust
-                                . find
-                                  ( \case
-                                      NetworkEffect (ReqSn _ _) -> True
-                                      _ -> False
-                                  )
-                             )
+        collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      xit "do not send ReqSn when there's no seen transactions" $
-        -- REVIEW: This test has become invalid because it was testing only the
-        -- logic in the 'newSn' funcion. Now we have that logic inlined meaning
-        -- we have to test this logic through 'update' and in this scenario we
-        -- will always have a tx in the 'seenTxs' field in 'onOpenNetworkReqTx'
-        -- when the tx can be applied.
-        True `shouldBe` False
+      it "sends ReqSn on AckSn when leader and there are seen transactions" $ do
+        let
+          tx = aValidTx 1
+          bobEnv =
+            Environment
+              { party = bob
+              , signingKey = bobSk
+              , otherParties = [alice, carol]
+              , contestationPeriod = defaultContestationPeriod
+              }
+
+
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (NetworkEvent defaultTTL carol $ ReqTx tx)
+          step (ackFrom carolSk carol)
+          step (ackFrom aliceSk alice)
+
+        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
+        collectEffects outcome `shouldSatisfy` sendReqSn
+
+      it "Do NOT send ReqSn on AckSn when we are the leader but there are NO seen transactions" $ do
+        let
+          bobEnv =
+            Environment
+              { party = bob
+              , signingKey = bobSk
+              , otherParties = [alice, carol]
+              , contestationPeriod = defaultContestationPeriod
+              }
+
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (ackFrom carolSk carol)
+          step (ackFrom aliceSk alice)
+
+        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
+        collectEffects outcome `shouldNotSatisfy` sendReqSn
+
+      it "Do NOT send ReqSn on AckSn when we are NOT the leader but there are seen transactions" $ do
+        let
+          tx = aValidTx 1
+          notLeaderEnv =
+            Environment
+              { party = carol
+              , signingKey = carolSk
+              , otherParties = [alice, bob]
+              , contestationPeriod = defaultContestationPeriod
+              }
+
+        let initiateSigningASnapshot actor =
+              step (NetworkEvent defaultTTL actor $ ReqSn 1 [])
+            newTxBeforeSnapshotAckgnowledged =
+              step (NetworkEvent defaultTTL carol $ ReqTx tx)
+
+        headState <- runEvents notLeaderEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+          initiateSigningASnapshot alice
+          step (ackFrom carolSk carol)
+          newTxBeforeSnapshotAckgnowledged
+          step (ackFrom aliceSk alice)
+        let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
+        collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
