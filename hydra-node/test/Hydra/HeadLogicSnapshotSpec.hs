@@ -177,6 +177,30 @@ spec = do
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
+      it "update seenSnapshot state when sending ReqSn" $ do
+        let
+          tx = aValidTx 1
+          bobEnv =
+            Environment
+              { party = bob
+              , signingKey = bobSk
+              , otherParties = [alice, carol]
+              , contestationPeriod = defaultContestationPeriod
+              }
+
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (NetworkEvent defaultTTL carol $ ReqTx tx)
+          step (ackFrom carolSk carol)
+          step (ackFrom aliceSk alice)
+
+        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
+
+        case collectState outcome of
+          [Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = actualSnapshot}}] ->
+            actualSnapshot `shouldBe` RequestedSnapshot{lastSeen = 1, requested = 2}
+          other -> expectationFailure $ "Expected to be in open state: " <> show other
+
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
   seenSnapshot <-
