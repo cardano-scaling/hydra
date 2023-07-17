@@ -426,6 +426,7 @@ collectWaits = \case
   Effects _ -> []
   Combined l r -> collectWaits l <> collectWaits r
 
+-- FIXME should return Maybe?
 collectState :: Outcome tx -> [HeadState tx]
 collectState = \case
   NoOutcome -> []

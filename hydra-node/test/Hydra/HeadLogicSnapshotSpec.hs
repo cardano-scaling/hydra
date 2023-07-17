@@ -16,9 +16,12 @@ import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
   Event (NetworkEvent),
+  HeadState (..),
+  OpenState (OpenState),
   SeenSnapshot (..),
   collectEffects,
   collectState,
+  coordinatedHeadState,
   defaultTTL,
   isLeader,
   update,
@@ -67,27 +70,27 @@ spec = do
 
     let ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
-    describe "New Snapshot Decision" $ do
-      it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
-        let tx = aValidTx 1
-            st = coordinatedHeadState{seenTxs = [tx]}
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
-
-        collectEffects outcome
-          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx, 1])]
-
-      prop "always emit ReqSn given head has 1 member and there's a seen tx" prop_singleMemberHeadAlwaysSnapshotOnReqTx
-
+    describe "Generic Snapshot property" $ do
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
 
-      it "do not send ReqSn when we aren't leader" $ do
+    describe "On ReqTx" $ do
+      prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
+
+      it "sends ReqSn when leader and no snapshot in flight" $ do
+        let tx = aValidTx 1
+            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkEvent defaultTTL alice $ ReqTx tx
+
+        collectEffects outcome
+          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx])]
+
+      it "Do NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{seenTxs = [tx]}
             outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "do not send ReqSn when there is a snapshot in flight" $ do
+      it "Do NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
             sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
@@ -95,7 +98,24 @@ spec = do
 
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "sends ReqSn on AckSn when leader and there are seen transactions" $ do
+      it "update seenSnapshot state when sending ReqSn" $ do
+        let tx = aValidTx 1
+            st = inOpenState' threeParties coordinatedHeadState
+            outcome = update (envFor aliceSk) simpleLedger st $ NetworkEvent defaultTTL alice $ ReqTx tx
+
+        let st' =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { seenTxs = [tx]
+                  , allTxs = Map.singleton (txId tx) tx
+                  , seenUTxO = initUTxO <> utxoRef (txId tx)
+                  , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                  }
+
+        collectState outcome `shouldContain` [st']
+
+    describe "On AckSn" $ do
+      it "sends ReqSn  when leader and there are seen transactions" $ do
         let
           tx = aValidTx 1
           bobEnv =
@@ -106,7 +126,6 @@ spec = do
               , contestationPeriod = defaultContestationPeriod
               }
 
-
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (NetworkEvent defaultTTL carol $ ReqTx tx)
@@ -116,7 +135,7 @@ spec = do
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldSatisfy` sendReqSn
 
-      it "Do NOT send ReqSn on AckSn when we are the leader but there are NO seen transactions" $ do
+      it "do NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         let
           bobEnv =
             Environment
@@ -134,7 +153,7 @@ spec = do
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "Do NOT send ReqSn on AckSn when we are NOT the leader but there are seen transactions" $ do
+      it "Do NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
           tx = aValidTx 1
           notLeaderEnv =
@@ -147,33 +166,16 @@ spec = do
 
         let initiateSigningASnapshot actor =
               step (NetworkEvent defaultTTL actor $ ReqSn 1 [])
-            newTxBeforeSnapshotAckgnowledged =
+            newTxBeforeSnapshotAcknowledged =
               step (NetworkEvent defaultTTL carol $ ReqTx tx)
 
         headState <- runEvents notLeaderEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           initiateSigningASnapshot alice
           step (ackFrom carolSk carol)
-          newTxBeforeSnapshotAckgnowledged
+          newTxBeforeSnapshotAcknowledged
           step (ackFrom aliceSk alice)
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
-
-      describe "Snapshot Emission" $ do
-        it "update seenSnapshot state when sending ReqSn" $ do
-          let tx = aValidTx 1
-              st = inOpenState' threeParties coordinatedHeadState
-              outcome = update (envFor aliceSk) simpleLedger st $ NetworkEvent defaultTTL alice $ ReqTx tx
-
-          let st' =
-                inOpenState' threeParties $
-                  coordinatedHeadState
-                    { seenTxs = [tx]
-                    , allTxs = Map.singleton (txId tx) tx
-                    , seenUTxO = initUTxO <> utxoRef (txId tx)
-                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
-                    }
-
-          collectState outcome `shouldContain` [st']
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
@@ -214,5 +216,5 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      not (null parties) ==>
-        any (\p -> isLeader params p sn) parties
+      not (null parties)
+        ==> any (\p -> isLeader params p sn) parties
