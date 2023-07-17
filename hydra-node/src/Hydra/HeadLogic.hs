@@ -661,39 +661,36 @@ onOpenNetworkReqTx env ledger st ttl tx =
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      if isLeader parameters party nextSn && not snapshotInFlight
-        then
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      trackTxInState
-                        { seenTxs = seenTxs'
-                        , seenUTxO = utxo'
-                        , seenSnapshot =
-                            RequestedSnapshot
-                              { lastSeen = seenSnapshotNumber seenSnapshot
-                              , requested = nextSn
-                              }
-                        }
-                  }
-            )
-            `Combined` Effects
-              [ ClientEffect $ TxValid headId tx
-              , NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))
-              ]
-        else
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      trackTxInState
-                        { seenTxs = seenTxs'
-                        , seenUTxO = utxo'
-                        }
-                  }
-            )
-            `Combined` Effects [ClientEffect $ TxValid headId tx]
+      Effects [ClientEffect $ TxValid headId tx]
+        `Combined` if isLeader parameters party nextSn && not snapshotInFlight
+          then
+            NewState
+              ( Open
+                  st
+                    { coordinatedHeadState =
+                        trackTxInState
+                          { seenTxs = seenTxs'
+                          , seenUTxO = utxo'
+                          , seenSnapshot =
+                              RequestedSnapshot
+                                { lastSeen = seenSnapshotNumber seenSnapshot
+                                , requested = nextSn
+                                }
+                          }
+                    }
+              )
+              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
+          else
+            NewState
+              ( Open
+                  st
+                    { coordinatedHeadState =
+                        trackTxInState
+                          { seenTxs = seenTxs'
+                          , seenUTxO = utxo'
+                          }
+                    }
+              )
  where
   Ledger{applyTransactions} = ledger
 
@@ -868,36 +865,33 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
           requireVerifiedMultisignature multisig snapshot $
-            if isLeader parameters party nextSn && not (null seenTxs)
-              then
-                NewState
-                  ( onlyUpdateCoordinatedHeadState $
-                      coordinatedHeadState
-                        { seenSnapshot =
-                            RequestedSnapshot
-                              { lastSeen = seenSnapshotNumber $ LastSeenSnapshot (number snapshot)
-                              , requested = nextSn
-                              }
-                        }
-                  )
-                  `Combined` Effects
-                    [ ClientEffect $ SnapshotConfirmed headId snapshot multisig
-                    , NetworkEffect (ReqSn nextSn (txId <$> seenTxs))
-                    ]
-              else
-                NewState
-                  ( onlyUpdateCoordinatedHeadState $
-                      coordinatedHeadState
-                        { confirmedSnapshot =
-                            ConfirmedSnapshot
-                              { snapshot
-                              , signatures = multisig
-                              }
-                        , seenSnapshot = LastSeenSnapshot (number snapshot)
-                        , allTxs = allTxs'
-                        }
-                  )
-                  `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+            Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              `Combined` if isLeader parameters party nextSn && not (null seenTxs)
+                then
+                  NewState
+                    ( onlyUpdateCoordinatedHeadState $
+                        coordinatedHeadState
+                          { seenSnapshot =
+                              RequestedSnapshot
+                                { lastSeen = seenSnapshotNumber $ LastSeenSnapshot (number snapshot)
+                                , requested = nextSn
+                                }
+                          }
+                    )
+                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
+                else
+                  NewState
+                    ( onlyUpdateCoordinatedHeadState $
+                        coordinatedHeadState
+                          { confirmedSnapshot =
+                              ConfirmedSnapshot
+                                { snapshot
+                                , signatures = multisig
+                                }
+                          , seenSnapshot = LastSeenSnapshot (number snapshot)
+                          , allTxs = allTxs'
+                          }
+                    )
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
