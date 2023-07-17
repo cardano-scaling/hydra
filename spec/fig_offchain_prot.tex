@@ -79,7 +79,7 @@
 								$\hatmL \gets \hatmL\applytx\tx$ %
 
 								% issue snapshot if we are leader
-								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i \land \hatmT \neq \emptyset$}{%
+								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{%
 									\Multi{} $(\hpRS,\bars+1,\hatmT)$ \;%
 								}
 							}
@@ -144,7 +144,7 @@
 
 
 								\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{ %
-                                    % TODO: MS-ASig used different than in the preliminaries
+									% TODO: MS-ASig used different than in the preliminaries
 									$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \; %
 
 									$\eta' \gets (\hats, \combine(\hatmU))$ \; %
@@ -157,7 +157,7 @@
 									$\forall \tx \in \mT_{res} : \Out (\hpConf,\tx)$ \; %
 
 									% issue snapshot if we are leader
-									\If{$\hats = \bars \land \hpLdr(\bars + 1) = i \land \hatmT \neq \emptyset$}{%
+									\If{$\hpLdr(\bars + 1) = i \land \hatmT \neq \emptyset$}{%
 										\Multi{} $(\hpRS,\bars+1,\hatmT)$ \;%
 									}
 								}
