@@ -864,6 +864,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
+          let nextSn = sn + 1
           requireVerifiedMultisignature multisig snapshot $
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
               `Combined` if isLeader parameters party nextSn && not (null seenTxs)
@@ -874,7 +875,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                           { seenSnapshot =
                               RequestedSnapshot
                                 { lastSeen = seenSnapshotNumber $ LastSeenSnapshot (number snapshot)
-                                , requested = nextSn
+                                , requested = sn
                                 }
                           }
                     )
@@ -946,11 +947,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, allTxs, confirmedSnapshot, seenTxs} = coordinatedHeadState
-
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
-  nextSn = confirmedSn + 1
+  CoordinatedHeadState{seenSnapshot, allTxs, seenTxs} = coordinatedHeadState
 
   HeadParameters{parties} = parameters
 
