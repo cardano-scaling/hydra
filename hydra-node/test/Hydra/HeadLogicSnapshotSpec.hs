@@ -83,14 +83,14 @@ spec = do
         collectEffects outcome
           `shouldContain` [NetworkEffect (ReqSn 1 [txId tx])]
 
-      it "Do NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
+      it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{seenTxs = [tx]}
             outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "Do NOT send ReqSn when we are the leader but snapshot in flight" $ do
+      it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
             sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
@@ -98,7 +98,7 @@ spec = do
 
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "update seenSnapshot state when sending ReqSn" $ do
+      it "updates seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
             st = inOpenState' threeParties coordinatedHeadState
             outcome = update (envFor aliceSk) simpleLedger st $ NetworkEvent defaultTTL alice $ ReqTx tx
@@ -135,7 +135,7 @@ spec = do
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldSatisfy` sendReqSn
 
-      it "do NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
+      it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         let
           bobEnv =
             Environment
@@ -153,7 +153,7 @@ spec = do
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldNotSatisfy` sendReqSn
 
-      it "Do NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
+      it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
           tx = aValidTx 1
           notLeaderEnv =
@@ -177,7 +177,7 @@ spec = do
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
-      it "update seenSnapshot state when sending ReqSn" $ do
+      it "updates seenSnapshot state when sending ReqSn" $ do
         let
           tx = aValidTx 1
           bobEnv =
