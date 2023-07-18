@@ -45,6 +45,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   collectEffects,
+  collectState,
   collectWaits,
   defaultTTL,
   update,
@@ -635,14 +636,9 @@ assertNewState outcome =
   -- NewState is about to be superseded when we implement event-sourced persistency
   -- See https://github.com/input-output-hk/hydra/issues/913
   -- In the meantime, we are expecting for an Outcome to only contain one single NewState.
-  case collectStateChanges outcome of
-    Nothing -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
-    Just newState -> pure newState
- where
-  collectStateChanges = \case
-    NewState st -> Just st
-    Combined l r -> collectStateChanges l <|> collectStateChanges r
-    _ -> Nothing
+  case collectState outcome of
+    [newState] -> pure newState
+    _ -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
 
 assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
 assertEffects outcome = hasEffectSatisfying outcome (const True)

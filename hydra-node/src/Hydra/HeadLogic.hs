@@ -355,7 +355,7 @@ data RequirementFailure tx
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
-  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid  :: TxIdType tx, error :: ValidationError }
+  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   deriving stock (Generic)
 
 deriving instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
@@ -426,6 +426,16 @@ collectWaits = \case
   NewState _ -> []
   Effects _ -> []
   Combined l r -> collectWaits l <> collectWaits r
+
+-- FIXME should return Maybe?
+collectState :: Outcome tx -> [HeadState tx]
+collectState = \case
+  NoOutcome -> []
+  Error _ -> []
+  Wait _ -> []
+  NewState s -> [s]
+  Effects _ -> []
+  Combined l r -> collectState l <> collectState r
 
 -- * The Coordinated Head protocol
 
