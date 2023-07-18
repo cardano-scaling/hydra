@@ -42,7 +42,7 @@ AVAILABLE’ basis, without any representations or warranties of any kind. All
 implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 
-[known-issues]: https://hydra.family/head-protocol/getting-started/known-issues
+[known-issues]: https://hydra.family/head-protocol/docs/known-issues
 [license]: ./LICENSE
 
 ## :rocket: Getting started
