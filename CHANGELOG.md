@@ -23,6 +23,9 @@ changes.
   a snapshot to be seen before acknowledging it, and only send
   transaction ids in snapshot requests
 
+- **BREAKING** Change to the Hydra scripts due to upgrading our plutus compiler
+  and toolchain.
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts
