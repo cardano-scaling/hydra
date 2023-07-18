@@ -45,6 +45,7 @@ package plutus-cbor
 package plutus-merkle-tree
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
+-- Fix compilation of strict-containers (see also nix/hydra/project.nix)
 package strict-containers
   ghc-options: "-Wno-noncanonical-monad-instances"
 
