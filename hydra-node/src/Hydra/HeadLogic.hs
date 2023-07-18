@@ -875,7 +875,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                         coordinatedHeadState
                           { seenSnapshot =
                               RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber $ LastSeenSnapshot (number snapshot)
+                                { lastSeen = sn
                                 , requested = nextSn
                                 }
                           }
@@ -890,7 +890,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 { snapshot
                                 , signatures = multisig
                                 }
-                          , seenSnapshot = LastSeenSnapshot (number snapshot)
+                          , seenSnapshot = LastSeenSnapshot sn
                           , allTxs = allTxs'
                           }
                     )
