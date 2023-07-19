@@ -87,7 +87,7 @@ data ServerOutput tx
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
-    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx)}
+    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving (Generic)
 
@@ -134,7 +134,12 @@ instance
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me headStatus snapshotUtxo -> Greetings <$> shrink me <*> shrink headStatus <*> shrink snapshotUtxo
+    Greetings me headStatus snapshotUtxo hydraNodeVersion ->
+      Greetings
+        <$> shrink me
+        <*> shrink headStatus
+        <*> shrink snapshotUtxo
+        <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
 
 -- | Possible transaction formats in the api server output

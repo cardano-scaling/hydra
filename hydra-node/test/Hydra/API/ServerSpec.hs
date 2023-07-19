@@ -42,6 +42,7 @@ import Hydra.Network (PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
+import Hydra.Version (unknownVersion)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import System.Timeout (timeout)
@@ -71,6 +72,19 @@ spec = describe "ServerSpec" $
             withTestAPIServer port alice mockPersistence tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
+
+
+    it "Greetings should contain the hydra-node version" $ do
+      failAfter 5 $
+        showLogsOnFailure $ \tracer ->
+          withFreePort $ \port ->
+            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
+              withClient port "/" $ \conn -> do
+
+                waitMatch 5 conn $ \v -> do
+                  guard $ matchGreetings v
+                  version <- v ^? key "hydraNodeVersion"
+                  guard $ version /= Aeson.String (T.pack unknownVersion)
 
     it "sends sendOutput to all connected clients" $ do
       queue <- atomically newTQueue
