@@ -10,6 +10,8 @@ changes.
 
 ## [0.12.0] - UNRELEASED
 
+- `Greetings` message now contains also the hydra-node version.
+
 - *Fixed bugs* in `hydra-node`:
   + Multisignature verification would silently ignore certain keys in case the
   list of verification keys is not of same length as the list of signatures.
