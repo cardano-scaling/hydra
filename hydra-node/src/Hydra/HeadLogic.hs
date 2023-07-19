@@ -883,6 +883,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 { lastSeen = sn
                                 , requested = nextSn
                                 }
+                          , allTxs = allTxs'
                           }
                     )
                     `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]

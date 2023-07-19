@@ -174,6 +174,27 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
+        it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
+          let t1 = SimpleTx 1 mempty (utxoRef 1)
+              pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
+              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
+              ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
+
+          sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+            step reqSn
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+
+            step $ NetworkEvent defaultTTL alice $ ReqTx pendingTransaction
+
+            step (ackFrom bobSk bob)
+
+          sa `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
+            _ -> False
+
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
             snapshot = Snapshot 1 mempty []
