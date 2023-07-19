@@ -258,7 +258,7 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead n1 n2
 
-                send n1 (NewTx (aValidTx 42))
+                send n1 (NewTx $ aValidTx 42)
                 waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
                 let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [42]
@@ -267,6 +267,44 @@ spec = parallel $ do
 
                 send n1 Close
                 waitForNext n1 >>= assertHeadIsClosedWith 1
+
+      it "snapshots are created as long as transactions to snapshot exist" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead n1 n2
+
+                -- Load the "ingest queue" of the head enough to have still
+                -- pending transactions after a first snapshot request by
+                -- alice. Note that we are in a deterministic simulation here.
+                send n1 (NewTx $ aValidTx 40)
+                send n1 (NewTx $ aValidTx 41)
+                send n1 (NewTx $ aValidTx 42)
+
+                -- Expect alice to create a snapshot from the first requested
+                -- transaction right away which is the current snapshot policy.
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    number == 1 && confirmed == [40]
+                  _ -> False
+
+                -- Expect bob to also snapshot what did "not fit" into the first
+                -- snapshot.
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    -- NOTE: We sort the confirmed to be clear that the order may
+                    -- be freely picked by the leader.
+                    number == 2 && sort confirmed == [41, 42]
+                  _ -> False
+
+                -- As there are no pending transactions and snapshots anymore
+                -- we expect to continue normally on seeing just another tx.
+                send n1 (NewTx $ aValidTx 44)
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    number == 3 && confirmed == [44]
+                  _ -> False
 
       it "depending transactions stay pending and are confirmed in order" $
         shouldRunInSim $

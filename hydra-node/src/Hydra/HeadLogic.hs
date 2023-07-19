@@ -873,7 +873,12 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                   NewState
                     ( onlyUpdateCoordinatedHeadState $
                         coordinatedHeadState
-                          { seenSnapshot =
+                          { confirmedSnapshot =
+                              ConfirmedSnapshot
+                                { snapshot
+                                , signatures = multisig
+                                }
+                          , seenSnapshot =
                               RequestedSnapshot
                                 { lastSeen = sn
                                 , requested = nextSn
