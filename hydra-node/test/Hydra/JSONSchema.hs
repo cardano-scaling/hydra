@@ -6,15 +6,16 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
+import Control.Arrow (left)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
-import Data.Char (isSpace)
-import Data.List (dropWhileEnd)
+import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import Data.Text (pack)
-import Data.Versions (SemVer (SemVer), semver)
+import qualified Data.Text as Text
+import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import qualified Data.Yaml as Yaml
 import GHC.IO.Exception (IOErrorType (OtherError))
 import qualified Paths_hydra_node as Pkg
@@ -69,7 +70,7 @@ prop_validateJSONSchema specFileName selector =
             writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
         monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
         (exitCode, out, err) <- run $ do
-          readProcessWithExitCode "jsonschema" ["-i", jsonInput, jsonSchema] mempty
+          readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] mempty
         monitor $ counterexample out
         monitor $ counterexample err
         assert (exitCode == ExitSuccess)
@@ -129,7 +130,7 @@ prop_specIsComplete specFileName typeSpecificationSelector =
  where
   -- Like Generics, if you squint hard-enough.
   poormansGetConstr :: a -> Text
-  poormansGetConstr = toText . Prelude.head . words . show
+  poormansGetConstr = toText . Prelude.head . List.words . show
 
   classify :: FilePath -> Maybe Aeson.Value -> [a] -> Map Text Integer
   classify _ (Just specs) =
@@ -178,29 +179,27 @@ addField k v = withObject (at k ?~ toJSON v)
     Aeson.Object m -> Aeson.Object (fn m)
     x -> x
 
--- | Make sure that the required python library is available on the system.
+-- | Make sure that the required `check-jsonschema` tool is available on the system.
 -- Mark a test as pending when not available.
-ensureSystemRequirements ::
-  IO ()
-ensureSystemRequirements = do
+ensureSystemRequirements :: IO ()
+ensureSystemRequirements =
   getToolVersion >>= \case
-    Right version ->
-      case semver (pack version) of
-        Right v ->
-          if v >= SemVer 3 2 0 [] Nothing
-            then pure ()
-            else failure $ "jsonschema version " <> version <> " found but >=3.2.0 needed"
-        Left err -> failure $ show err
+    Right semVer ->
+      unless (semVer >= SemVer 0 21 0 [] Nothing) $
+        failure . Text.unpack $
+          "check-jsonschema version " <> prettySemVer semVer <> " found but >= 0.21.0 needed"
     Left errorMsg -> failure errorMsg
  where
-  -- Returns 'Nothing' when not available and 'Just <version number>' otherwise.
-  getToolVersion ::
-    IO (Either String String)
+  getToolVersion :: IO (Either String SemVer)
   getToolVersion = do
-    try (readProcessWithExitCode "jsonschema" ["--version"] mempty) >>= \case
-      Right (exitCode, out, _) ->
-        pure (dropWhileEnd isSpace out <$ guard (exitCode == ExitSuccess))
-      Left (err :: IOError)
-        | ioeGetErrorType err == OtherError ->
-            pure (Left "Check jsonschema is installed and in $PATH")
-      Left err -> pure (Left $ show err)
+    version <-
+      try (readProcessWithExitCode "check-jsonschema" ["--version"] mempty) >>= \case
+        Right (exitCode, out, _) ->
+          pure (List.last (List.words out) <$ guard (exitCode == ExitSuccess))
+        Left (err :: IOError)
+          | ioeGetErrorType err == OtherError ->
+              pure (Left "Make sure check-jsonschema is installed and in $PATH")
+        Left err -> pure (Left $ show err)
+    pure $ do
+      packedVersion <- pack <$> version
+      left show $ semver packedVersion

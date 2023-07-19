@@ -97,7 +97,9 @@ rec {
     };
     hydra-node = pkgs.mkShellNoCC {
       name = "hydra-node-tests";
-      buildInputs = [ nativePkgs.hydra-node.components.tests.tests ];
+      buildInputs = [ nativePkgs.hydra-node.components.tests.tests
+                      pkgs.check-jsonschema
+                    ];
     };
     hydra-cluster = pkgs.mkShellNoCC {
       name = "hydra-cluster-tests";
