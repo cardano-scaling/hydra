@@ -379,25 +379,6 @@ spec = parallel $ do
                   TxInvalid{transaction} -> transaction == tx''
                   _ -> False
 
-      it "multiple transactions get snapshotted" $ do
-        pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead n1 n2
-
-                send n1 (NewTx (aValidTx 42))
-                send n1 (NewTx (aValidTx 43))
-
-                waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
-                waitUntil [n1] $ TxValid testHeadId (aValidTx 43)
-
-                let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [42, 43]
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-
-                waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
-
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           withSimulatedChainAndNetwork $ \chain ->
