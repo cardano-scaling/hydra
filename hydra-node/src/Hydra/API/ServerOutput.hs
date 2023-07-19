@@ -92,6 +92,7 @@ data ServerOutput tx
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)
+
 deriving instance (IsChainState tx) => Show (ServerOutput tx)
 
 instance (IsChainState tx) => ToJSON (ServerOutput tx) where

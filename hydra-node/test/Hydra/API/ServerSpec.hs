@@ -24,6 +24,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
+import Data.Version (showVersion)
 import Hydra.API.Server (APIServerLog, RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
@@ -39,10 +40,10 @@ import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
+import qualified Hydra.Options as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
-import Hydra.Version (unknownVersion)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import System.Timeout (timeout)
@@ -73,18 +74,16 @@ spec = describe "ServerSpec" $
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
-
     it "Greetings should contain the hydra-node version" $ do
       failAfter 5 $
         showLogsOnFailure $ \tracer ->
           withFreePort $ \port ->
             withTestAPIServer port alice mockPersistence tracer $ \_ -> do
               withClient port "/" $ \conn -> do
-
-                waitMatch 5 conn $ \v -> do
+                version <- waitMatch 5 conn $ \v -> do
                   guard $ matchGreetings v
-                  version <- v ^? key "hydraNodeVersion"
-                  guard $ version /= Aeson.String (T.pack unknownVersion)
+                  v ^? key "hydraNodeVersion"
+                version `shouldBe` toJSON (showVersion Options.hydraNodeVersion)
 
     it "sends sendOutput to all connected clients" $ do
       queue <- atomically newTQueue
