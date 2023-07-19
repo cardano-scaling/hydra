@@ -281,6 +281,7 @@ components:
           - headStatus
           - seq
           - timestamp
+          - hydraNodeVersion
         properties:
           tag:
             type: string
@@ -293,6 +294,8 @@ components:
             $ref: "#/components/schemas/UTxO"
           timestamp:
             $ref: "#/components/schemas/UTCTime"
+          hydraNodeVersion:
+            $ref: "#/components/schemas/HydraNodeVersion"
 
     PeerConnected:
       title: PeerConnected
@@ -1648,6 +1651,10 @@ components:
           $ref: "#/components/schemas/PlutusV2Script"
         redeemer:
           type: string
+    HydraNodeVersion:
+      type: string
+      description: |
+        Current hydra-node version.
 
     SequenceNumber:
       type: integer
