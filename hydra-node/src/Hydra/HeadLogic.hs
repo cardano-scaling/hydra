@@ -696,12 +696,11 @@ onOpenNetworkReqTx env ledger st ttl tx = do
             NewState (Open st{coordinatedHeadState = s'})
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
-            -- FIXME: Check whether we really want to remove invalid tx from
-            -- allTxs? Especially in case of conflicting transactions this is
+            -- FIXME: Check whether we maybe want to remove invalid tx from
+            -- allTxs? Maybe problematic in case of conflicting transactions this is
             -- problematic as another leader could validly request them to be
             -- snapshotted.
-            NewState (Open st{coordinatedHeadState = untrackTxInState})
-              `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+            Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
 
   Ledger{applyTransactions} = ledger
 
@@ -714,8 +713,6 @@ onOpenNetworkReqTx env ledger st ttl tx = do
   OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
 
   trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
-
-  untrackTxInState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
