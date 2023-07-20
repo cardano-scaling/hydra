@@ -12,6 +12,9 @@ changes.
 
 - `Greetings` message now contains also the hydra-node version.
 
+- New REST endpoint (`/protocol-parameters`) which provides protocol-parameters
+  used in the hydra-node.
+
 - *Fixed bugs* in `hydra-node`:
   + Multisignature verification would silently ignore certain keys in case the
   list of verification keys is not of same length as the list of signatures.
