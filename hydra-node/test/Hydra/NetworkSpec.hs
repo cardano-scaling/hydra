@@ -18,7 +18,8 @@ import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
-  (===), Property,
+  Property,
+  (===),
  )
 import Test.QuickCheck.Instances.ByteString ()
 
@@ -81,4 +82,3 @@ prop_canRoundtripCBOREncoding ::
 prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
-

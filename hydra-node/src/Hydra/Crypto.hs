@@ -296,9 +296,9 @@ verifyMultiSignature vks HydraMultiSignature{multiSignature} a
   | length vks == length multiSignature =
       let verifications = zipWith (\vk s -> (vk, verify vk s a)) vks multiSignature
           failures = fst <$> filter (not . snd) verifications
-      in if null failures
-           then Verified
-           else FailedKeys failures
+       in if null failures
+            then Verified
+            else FailedKeys failures
   | otherwise = KeyNumberMismatch
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]

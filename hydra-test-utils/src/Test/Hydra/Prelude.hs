@@ -37,6 +37,7 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Control.Monad.Class.MonadTimer (timeout)
+import qualified Control.Monad.Trans.State.Strict as StrictS
 import Data.Ratio ((%))
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
@@ -54,7 +55,6 @@ import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFi
 import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
-import qualified Control.Monad.Trans.State.Strict as StrictS
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -114,16 +114,16 @@ instance (MonadMask m) => MonadCatch (StrictS.StateT s m) where
   catch = StrictS.liftCatch catch
 
 instance MonadMask m => MonadMask (StrictS.StateT s m) where
-
   mask a = StrictS.StateT $ \s -> mask $ \u -> StrictS.runStateT (a $ q u) s
-    where q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
-          q u (StrictS.StateT b) = StrictS.StateT (u . b)
+   where
+    q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
+    q u (StrictS.StateT b) = StrictS.StateT (u . b)
 
   uninterruptibleMask a =
     StrictS.StateT $ \s -> uninterruptibleMask $ \u -> StrictS.runStateT (a $ q u) s
-      where q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
-            q u (StrictS.StateT b) = StrictS.StateT (u . b)
-
+   where
+    q :: (m (a, s) -> m (a, s)) -> StrictS.StateT s m a -> StrictS.StateT s m a
+    q u (StrictS.StateT b) = StrictS.StateT (u . b)
 
 -- | Fail some monadic action if it does not complete within given timeout.
 -- A 'DiffTime' can be represented as a decimal number of seconds.

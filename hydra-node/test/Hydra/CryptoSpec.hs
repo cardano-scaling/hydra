@@ -46,8 +46,8 @@ specSigningKey =
           exceedingSizeSeedB = Char8.pack $ replicate 32 'x' <> "b"
        in generateSigningKey exceedingSizeSeedA `shouldNotBe` generateSigningKey exceedingSizeSeedB
     prop "can be generated" $ \(seedA, seedB) -> do
-      (seedA /= seedB)
-        ==> (generateSigningKey seedA =/= generateSigningKey seedB)
+      (seedA /= seedB) ==>
+        (generateSigningKey seedA =/= generateSigningKey seedB)
     propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
 
 specVerificationKey :: Spec
@@ -66,8 +66,8 @@ specSignature =
         `shouldEndWith` "0a0a0a\""
 
     prop "can sign arbitrary messages" $ \sk (msgA :: ByteString) (msgB :: ByteString) ->
-      (msgA /= msgB)
-        ==> (sign sk msgA =/= sign sk msgB)
+      (msgA /= msgB) ==>
+        (sign sk msgA =/= sign sk msgB)
 
     prop "sign/verify roundtrip" $ \sk (msg :: ByteString) ->
       let sig = sign sk msg
@@ -80,8 +80,8 @@ specMultiSignature =
     prop "is sensitive to order" $ \(allSigs :: HashSet (Signature ByteString)) ->
       let sigs = toList allSigs
        in forAll (shuffle sigs) $ \shuffled ->
-            (length sigs > 1 && sigs /= shuffled)
-              ==> (aggregate sigs =/= aggregate shuffled)
+            (length sigs > 1 && sigs /= shuffled) ==>
+              (aggregate sigs =/= aggregate shuffled)
 
     prop "aggregate/verifyMultiSignature roundtrip" $ \sks (msg :: ByteString) ->
       let sigs = map (`sign` msg) sks
@@ -92,24 +92,24 @@ specMultiSignature =
     prop "aggregateInOrder/verifyMultiSignature roundtrip" $ \sks (msg :: ByteString) ->
       let sigs = Map.fromList $ map (\sk -> (deriveParty sk, sign sk msg)) sks
        in forAll (shuffle $ Map.keys sigs) $ \shuffled ->
-            not (null shuffled)
-              ==> verifyMultiSignature (map vkey shuffled) (aggregateInOrder sigs shuffled) msg
-              === Verified
+            not (null shuffled) ==>
+              verifyMultiSignature (map vkey shuffled) (aggregateInOrder sigs shuffled) msg
+                === Verified
 
     prop "verifyMultiSignature fails when signature is missing" $ \sks (msg :: ByteString) dummySig ->
-      (length sks > 2)
-        ==> forAll (elements sks)
-        $ \missingKeySig ->
-          let sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
-           in verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg
-                =/= Verified
+      (length sks > 2) ==>
+        forAll (elements sks) $
+          \missingKeySig ->
+            let sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
+             in verifyMultiSignature (map getVerificationKey sks) (aggregate sigs) msg
+                  =/= Verified
 
     prop "does not validate multisig if less keys given" $ \sks (msg :: ByteString) -> do
       forAll (sublistOf sks) $ \prefix ->
-        (length prefix < length sks)
-          ==> let sigs = aggregate $ map (`sign` msg) (toList sks)
-               in verifyMultiSignature (map getVerificationKey prefix) sigs msg
-                    =/= Verified
-                    & classify (null prefix) "empty"
-                    & counterexample ("Keys: " <> show prefix)
-                    & counterexample ("Signature: " <> show sigs)
+        (length prefix < length sks) ==>
+          let sigs = aggregate $ map (`sign` msg) (toList sks)
+           in verifyMultiSignature (map getVerificationKey prefix) sigs msg
+                =/= Verified
+                & classify (null prefix) "empty"
+                & counterexample ("Keys: " <> show prefix)
+                & counterexample ("Signature: " <> show sigs)
