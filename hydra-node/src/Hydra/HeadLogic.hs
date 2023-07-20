@@ -654,20 +654,23 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx = do
   -- Spec: T̂all ← ̂Tall ∪ { (hash(tx), tx) }
-  let s' = trackTxInState
+  let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
-  waitApplyTx s' $ \utxo' ->
+  waitApplyTx chs' $ \utxo' ->
     Effects [ClientEffect $ TxValid headId tx]
-      `Combined` if isLeader parameters party nextSn && not snapshotInFlight
+      `Combined` if not snapshotInFlight && isLeader parameters party nextSn
         then
           NewState
             ( Open
                 st
                   { coordinatedHeadState =
-                      trackTxInState
+                      chs'
                         { seenTxs = seenTxs'
                         , seenUTxO = utxo'
                         , seenSnapshot =
+                            -- FIXME: Open point: This state update has no
+                            -- equivalence in the spec. Do we really need to
+                            -- store that we have requested a snapshot?
                             RequestedSnapshot
                               { lastSeen = seenSnapshotNumber seenSnapshot
                               , requested = nextSn
@@ -681,19 +684,19 @@ onOpenNetworkReqTx env ledger st ttl tx = do
             ( Open
                 st
                   { coordinatedHeadState =
-                      trackTxInState
+                      chs'
                         { seenTxs = seenTxs'
                         , seenUTxO = utxo'
                         }
                   }
             )
  where
-  waitApplyTx s' cont =
+  waitApplyTx chs cont =
     case applyTransactions currentSlot seenUTxO [tx] of
       Right utxo' -> cont utxo'
       Left (_, err)
         | ttl > 0 ->
-            NewState (Open st{coordinatedHeadState = s'})
+            NewState (Open st{coordinatedHeadState = chs})
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
             -- FIXME: Check whether we maybe want to remove invalid tx from
@@ -711,8 +714,6 @@ onOpenNetworkReqTx env ledger st ttl tx = do
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
-
-  trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
