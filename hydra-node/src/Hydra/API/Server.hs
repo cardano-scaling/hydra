@@ -254,6 +254,8 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
       ("POST", ["commit"]) -> do
         body <- consumeRequestBodyStrict req
         handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+      ("GET", ["protocol-parameters"]) -> do
+        respond $ responseLBS status200 [] "OK"
       _ -> do
         traceWith tracer $
           APIRestInputReceived
