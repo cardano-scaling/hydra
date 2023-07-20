@@ -756,8 +756,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait T_res ⊆ T
-      waitSeenTxs $ \resolvedTxs ->
+      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂all combined with Tres ← {T̂all [h] | h ∈ Treq}
+      waitResolvableTxs $ \resolvedTxs ->
         -- Spec: require U̅ ◦ T_res /= ⊥ combined with Û ← Ū̅ ◦ T_res
         requireApplyTxs resolvedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
@@ -793,7 +793,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       then continue
       else Wait $ WaitOnSnapshotNumber seenSn
 
-  waitSeenTxs continue =
+  waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
       [] -> continue (mapMaybe (`Map.lookup` allTxs) requestedTxIds)
       unseen -> Wait $ WaitOnTxs unseen
@@ -871,9 +871,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
         ifAllMembersHaveSigned snapshot sigs' $ do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
-          let allTxs' = foldr Map.delete allTxs confirmed
-          let nextSn = sn + 1
-          requireVerifiedMultisignature multisig snapshot $
+          requireVerifiedMultisignature multisig snapshot $ do
+            let nextSn = sn + 1
+            let allTxs' = foldr Map.delete allTxs confirmed
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
               `Combined` if isLeader parameters party nextSn && not (null seenTxs)
                 then
