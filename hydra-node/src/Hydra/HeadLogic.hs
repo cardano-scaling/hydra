@@ -763,8 +763,10 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
-            -- Spec: TODO T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
+            -- Spec: for loop which updates T̂ and L̂
             let (seenTxs', seenUTxO') = pruneTransactions u
+            -- Spec: T̂all ← {tx | ∀tx ∈ T̂all : tx ∉ Treq }
+            let allTxs' = foldr Map.delete allTxs requestedTxIds
             NewState
               ( Open
                   st
@@ -773,6 +775,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
                           { seenSnapshot = SeenSnapshot nextSnapshot mempty
                           , seenTxs = seenTxs'
                           , seenUTxO = seenUTxO'
+                          , allTxs = allTxs'
                           }
                     }
               )
@@ -862,7 +865,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
-    waitOnSeenSnapshot $ \snapshot@Snapshot{confirmed} sigs -> do
+    waitOnSeenSnapshot $ \snapshot sigs -> do
       -- Spec: (j,.) ∉ ̂Σ
       requireNotSignedYet sigs $ do
         let sigs' = Map.insert otherParty snapshotSignature sigs
@@ -871,8 +874,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           let multisig = aggregateInOrder sigs' parties
           requireVerifiedMultisignature multisig snapshot $ do
             let nextSn = sn + 1
-            -- Spec: T̂all ← {tx | ∀tx ∈ T̂all : tx ∉ Treq }
-            let allTxs' = foldr Map.delete allTxs confirmed
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
               `Combined` if isLeader parameters party nextSn && not (null seenTxs)
                 then
@@ -889,7 +890,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 { lastSeen = sn
                                 , requested = nextSn
                                 }
-                          , allTxs = allTxs'
                           }
                     )
                     `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
@@ -903,7 +903,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 , signatures = multisig
                                 }
                           , seenSnapshot = LastSeenSnapshot sn
-                          , allTxs = allTxs'
                           }
                     )
  where
@@ -960,7 +959,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, allTxs, seenTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, seenTxs} = coordinatedHeadState
 
   HeadParameters{parties} = parameters
 

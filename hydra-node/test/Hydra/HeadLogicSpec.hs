@@ -134,7 +134,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
             _ -> False
 
-        it "keeps transactions in allTxs given it receives a ReqSn" $ do
+        it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
               reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
@@ -143,23 +143,6 @@ spec =
           s1 <- assertNewState $ update bobEnv ledger sa reqSn
 
           s1 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
-            _ -> False
-
-        it "removes transactions from allTxs when included in a acked snapshot" $ do
-          let t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
-              snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
-              ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
-
-          sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-            step $ NetworkEvent defaultTTL alice $ ReqTx t1
-            step reqSn
-            step (ackFrom carolSk carol)
-            step (ackFrom aliceSk alice)
-            step (ackFrom bobSk bob)
-
-          sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 

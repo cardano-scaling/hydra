@@ -125,8 +125,8 @@
 							$X\gets\hatmT$ \;
 							$\hatmT\gets\emptyset$ \; %
 							\For{$\tx\in X : \hatmL\applytx \tx \not=\bot$}{
-								$\hatmL\gets\hatmL\applytx \tx$ \;
 								$\hatmT\gets\hatmT\cup\{\tx\}$
+								$\hatmL\gets\hatmL\applytx \tx$ \;
 							}
 							% FIXME: Open point: should we remove by id instead?
 							% \textcolor{blue}{
@@ -134,7 +134,7 @@
 							% 	$\hatmL \gets \hatmU\applytx\hatmT$
 							% }
 
-							\textcolor{red}{Do clean up $\hatmT_{\mathsf{all}}$ here?}
+							\textcolor{blue}{$\hatmT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \hatmT_{\mathsf{all}} : tx \notin \mT_{req} \}$}
 						}
 					\end{walgo}
 				} &
@@ -159,8 +159,6 @@
 
 									$\eta' \gets (\hats, \combine(\hatmU))$ \; %
 									\Req{} $\msVfy(\hydraKeysAgg, (\textcolor{red}{\cid || \eta_{0} ||} \eta'), \msCSig)$ \;
-
-									\textcolor{blue}{$\hatmT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \hatmT_{\mathsf{all}} : tx \notin \mT_{req} \}$}
 
 									$\barmU \gets \hatmU$ \; %
 									$\bars \gets \hats$ \; %
