@@ -656,18 +656,24 @@ onOpenNetworkReqTx env ledger st ttl tx = do
   -- Spec: T̂all ← ̂Tall ∪ { (hash(tx), tx) }
   let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
-  waitApplyTx chs' $ \utxo' ->
-    Effects [ClientEffect $ TxValid headId tx]
-      `Combined` if not snapshotInFlight && isLeader parameters party nextSn
+  waitApplyTx chs' $ \utxo' -> do
+    let chs'' =
+          chs'
+            { -- Spec: L̂ ← L̂ ◦ tx
+              seenUTxO = utxo'
+            , -- Spec: T̂ ← T̂ ∪ {tx}
+              seenTxs = seenTxs'
+            }
+    (Effects [ClientEffect $ TxValid headId tx] `Combined`) $
+      -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
+      if not snapshotInFlight && isLeader parameters party nextSn
         then
           NewState
             ( Open
                 st
                   { coordinatedHeadState =
-                      chs'
-                        { seenTxs = seenTxs'
-                        , seenUTxO = utxo'
-                        , seenSnapshot =
+                      chs''
+                        { seenSnapshot =
                             -- FIXME: Open point: This state update has no
                             -- equivalence in the spec. Do we really need to
                             -- store that we have requested a snapshot?
@@ -679,17 +685,7 @@ onOpenNetworkReqTx env ledger st ttl tx = do
                   }
             )
             `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
-        else
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      chs'
-                        { seenTxs = seenTxs'
-                        , seenUTxO = utxo'
-                        }
-                  }
-            )
+        else NewState (Open st{coordinatedHeadState = chs''})
  where
   waitApplyTx chs cont =
     case applyTransactions currentSlot seenUTxO [tx] of
