@@ -112,31 +112,24 @@
 
 							% NOTE: WE could make included transactions auditable by adding
 							% a merkle tree root to the (signed) snapshot data \eta'
-							$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \eta_{0} || \eta'))$ \; %
+							$\msSig_i \gets \msSign(\hydraSigningKey, (\textcolor{red}{\cid || \eta_{0} ||} \eta'))$ \; %
 							$\hatSigma \gets \emptyset$
 
 							$\Multi{}~(\hpAS,\hats,\msSig_i)$ \; %
 
-							$\forall \tx \in \mT_{res}: \Out~(\hpSeen,\tx)$ \; %
+							$\forall \tx \in \mT_{req}: \Out~(\hpSeen,\tx)$ \; %
 
-							% TODO: We would not be keeping all applicable transactions. For
-							% this we would need to do a more recursive algorithm. Right now
-							% we throw out everything which is not applicable after a single
-							% pass. Also: Should we inform users if we drop a transaction?
-							% \textcolor{red}{
-							% 	$X\gets\hatmT$;\ $\hatmT\gets\emptyset$ \; %
-							% 	\ForA{$\tx\in X$}{
-							% 		\If{$\hatmU\applytx(\hatmT\cup\{\tx\})\not=\bot$}{
-							% 			$\hatmT\gets\hatmT\cup\{\tx\}$
-							% 		}
-							% 	}}
-							% $\hatmL \gets \hatmU\applytx\hatmT$
+							% TODO: Should we inform users if we drop a transaction?
+							% XXX: This is a bit verbose for the spec
+							$\hatmL \gets \hatmU$ \;
+							$X\gets\hatmT$ \;
+							$\hatmT\gets\emptyset$ \; %
+							\For{$\tx\in X : \hatmL\applytx \tx \not=\bot$}{
+								$\hatmL\gets\hatmL\applytx \tx$ \;
+								$\hatmT\gets\hatmT\cup\{\tx\}$
+							}
 
-							\textcolor{red}{Do untrack $\hatmT_{\mathsf{all}}$ here?}
-
-							$\hatmT \gets \{ tx \in \hatmT ~  | ~ \hatmU \applytx tx \not = \bot \}$ \; %
-
-							$\hatmL \gets \hatmU\applytx\hatmT$
+							\textcolor{red}{Do clean up $\hatmT_{\mathsf{all}}$ here?}
 						}
 					\end{walgo}
 				} &
