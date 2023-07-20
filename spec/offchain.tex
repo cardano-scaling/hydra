@@ -104,12 +104,10 @@ party's local state consists of the following variables:
 	\item $\barmU$: UTxO set associated with the latest confirmed snapshot.
 	\item $\hatSigma \in {(\tyNatural \times \tyBytes)}^{*}$: Accumulator of
 	      signatures of the latest seen snapshot, indexed by parties.
-	\item $\hatmL$: Local ledger state used to validate requested transactions
-	      against.
-	\item $\hatmT \in \mT^{*}$: List of seen transactions currently pending to be
-	      included in the next snapshot (if this party is the next leader).
-	      Applying all these transactions to the last confirmed snapshot $\barmU$
-	      will result in $\hatmL$.
+	\item $\hatmL$: UTxO set representing the local ledger state resulting from
+	      applying $\hatmT$ to $\barmU$ to validate requested transactions.
+	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
+	      inclusion in a snapshot (if this party is the next leader).
 	\item $\hatmT_{\mathsf{all}} \in (\tyBytes \times \mT)^{*}$: Associative list of all
 	      seen transactions not yet included in a snapshot.
 \end{itemize}

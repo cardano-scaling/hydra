@@ -231,11 +231,11 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUTxO :: UTxOType tx
-  -- ^ The latest UTxO resulting from applying 'seenTxs' to
+  { localUTxO :: UTxOType tx
+  -- ^ The latest UTxO resulting from applying 'localTxs' to
   -- 'confirmedSnapshot'. Spec: L̂
-  , seenTxs :: [tx]
-  -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
+  , localTxs :: [tx]
+  -- ^ List of transactions applied locally and pending inclusion in a snapshot. Spec: T̂
   , allTxs :: Map.Map (TxIdType tx) tx
   -- ^ Map containing all the transactions ever seen by this node and not yet
   -- included in a snapshot. Spec: T̂all
@@ -600,9 +600,9 @@ onInitialChainCollectTx st newChainState =
           { parameters
           , coordinatedHeadState =
               CoordinatedHeadState
-                { seenUTxO = u0
+                { localUTxO = u0
                 , allTxs = mempty
-                , seenTxs = mempty
+                , localTxs = mempty
                 , confirmedSnapshot
                 , seenSnapshot = NoSeenSnapshot
                 }
@@ -659,9 +659,9 @@ onOpenNetworkReqTx env ledger st ttl tx = do
     let chs'' =
           chs'
             { -- Spec: L̂ ← L̂ ◦ tx
-              seenUTxO = utxo'
+              localUTxO = utxo'
             , -- Spec: T̂ ← T̂ ∪ {tx}
-              seenTxs = seenTxs'
+              localTxs = localTxs'
             }
     (Effects [ClientEffect $ TxValid headId tx] `Combined`) $
       -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
@@ -683,11 +683,11 @@ onOpenNetworkReqTx env ledger st ttl tx = do
                         }
                   }
             )
-            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
+            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
         else NewState (Open st{coordinatedHeadState = chs''})
  where
   waitApplyTx chs cont =
-    case applyTransactions currentSlot seenUTxO [tx] of
+    case applyTransactions currentSlot localUTxO [tx] of
       Right utxo' -> cont utxo'
       Left (_, err)
         | ttl > 0 ->
@@ -698,13 +698,13 @@ onOpenNetworkReqTx env ledger st ttl tx = do
             -- allTxs? Maybe problematic in case of conflicting transactions this is
             -- problematic as another leader could validly request them to be
             -- snapshotted.
-            Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
+            Effects [ClientEffect $ TxInvalid headId localUTxO tx err]
 
   Ledger{applyTransactions} = ledger
 
   Environment{party} = env
 
-  CoordinatedHeadState{allTxs, seenTxs, seenUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{allTxs, localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -718,7 +718,7 @@ onOpenNetworkReqTx env ledger st ttl tx = do
 
   nextSn = confirmedSn + 1
 
-  seenTxs' = seenTxs <> [tx]
+  localTxs' = localTxs <> [tx]
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -764,7 +764,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           let snapshotSignature = sign signingKey nextSnapshot
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
             -- Spec: for loop which updates T̂ and L̂
-            let (seenTxs', seenUTxO') = pruneTransactions u
+            let (localTxs', localUTxO') = pruneTransactions u
             -- Spec: T̂all ← {tx | ∀tx ∈ T̂all : tx ∉ Treq }
             let allTxs' = foldr Map.delete allTxs requestedTxIds
             NewState
@@ -773,8 +773,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
                     { coordinatedHeadState =
                         coordinatedHeadState
                           { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                          , seenTxs = seenTxs'
-                          , seenUTxO = seenUTxO'
+                          , localTxs = localTxs'
+                          , localUTxO = localUTxO'
                           , allTxs = allTxs'
                           }
                     }
@@ -799,8 +799,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       [] -> continue
       unseen -> Wait $ WaitOnTxs unseen
 
-  -- NOTE: at this point we know those transactions apply on the seenUTxO because they
-  -- are part of the seenTxs. The snapshot can contain less transactions than the ones
+  -- NOTE: at this point we know those transactions apply on the localUTxO because they
+  -- are part of the localTxs. The snapshot can contain less transactions than the ones
   -- we have seen at this stage, but they all _must_ apply correctly to the latest
   -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
@@ -811,7 +811,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       Right u -> cont u
 
   pruneTransactions utxo = do
-    foldr go ([], utxo) seenTxs
+    foldr go ([], utxo) localTxs
    where
     go tx (txs, u) =
       -- XXX: We prune transactions on any error, while only some of them are
@@ -832,7 +832,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, allTxs} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, localTxs, allTxs} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
@@ -875,7 +875,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           requireVerifiedMultisignature multisig snapshot $ do
             let nextSn = sn + 1
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-              `Combined` if isLeader parameters party nextSn && not (null seenTxs)
+              `Combined` if isLeader parameters party nextSn && not (null localTxs)
                 then
                   NewState
                     ( onlyUpdateCoordinatedHeadState $
@@ -892,7 +892,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 }
                           }
                     )
-                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
+                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs))]
                 else
                   NewState
                     ( onlyUpdateCoordinatedHeadState $
@@ -959,7 +959,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, seenTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
   HeadParameters{parties} = parameters
 

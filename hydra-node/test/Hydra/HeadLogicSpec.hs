@@ -83,9 +83,9 @@ spec =
 
       let coordinatedHeadState =
             CoordinatedHeadState
-              { seenUTxO = mempty
+              { localUTxO = mempty
               , allTxs = mempty
-              , seenTxs = mempty
+              , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot mempty
               , seenSnapshot = NoSeenSnapshot
               }
@@ -455,9 +455,9 @@ spec =
                   { parameters = HeadParameters cperiod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
-                        { seenUTxO = UTxO.singleton utxo
+                        { localUTxO = UTxO.singleton utxo
                         , allTxs = mempty
-                        , seenTxs = [expiringTransaction]
+                        , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         }
@@ -475,8 +475,8 @@ spec =
           Open
             OpenState
               { coordinatedHeadState =
-                CoordinatedHeadState{seenTxs}
-              } -> null seenTxs
+                CoordinatedHeadState{localTxs}
+              } -> null localTxs
           _ -> False
 
 runEvents :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
@@ -534,9 +534,9 @@ inOpenState ::
 inOpenState parties Ledger{initUTxO} =
   inOpenState' parties $
     CoordinatedHeadState
-      { seenUTxO = u0
+      { localUTxO = u0
       , allTxs = mempty
-      , seenTxs = mempty
+      , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       }

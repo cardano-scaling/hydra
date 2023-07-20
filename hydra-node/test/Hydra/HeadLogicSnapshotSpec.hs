@@ -53,9 +53,9 @@ spec = do
 
     let coordinatedHeadState =
           CoordinatedHeadState
-            { seenUTxO = initUTxO
+            { localUTxO = initUTxO
             , allTxs = mempty
-            , seenTxs = mempty
+            , localTxs = mempty
             , confirmedSnapshot = InitialSnapshot initUTxO
             , seenSnapshot = NoSeenSnapshot
             }
@@ -85,7 +85,7 @@ spec = do
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
-            st = coordinatedHeadState{seenTxs = [tx]}
+            st = coordinatedHeadState{localTxs = [tx]}
             outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
         collectEffects outcome `shouldNotSatisfy` sendReqSn
@@ -106,9 +106,9 @@ spec = do
         let st' =
               inOpenState' threeParties $
                 coordinatedHeadState
-                  { seenTxs = [tx]
+                  { localTxs = [tx]
                   , allTxs = Map.singleton (txId tx) tx
-                  , seenUTxO = initUTxO <> utxoRef (txId tx)
+                  , localUTxO = initUTxO <> utxoRef (txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                   }
 
@@ -221,9 +221,9 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
             }
     st =
       CoordinatedHeadState
-        { seenUTxO = mempty
+        { localUTxO = mempty
         , allTxs = mempty
-        , seenTxs = []
+        , localTxs = []
         , confirmedSnapshot = sn
         , seenSnapshot
         }
