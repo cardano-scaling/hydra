@@ -36,6 +36,7 @@ import Hydra.Chain (
   draftCommitTx,
   postTx,
  )
+import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -433,7 +434,7 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer =
-  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle noop
+  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop
 
 withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
 withClient port path action = do

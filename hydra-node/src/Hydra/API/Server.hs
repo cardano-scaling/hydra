@@ -85,6 +85,7 @@ import Network.WebSockets (
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
+import Hydra.Cardano.Api (ProtocolParameters)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -139,8 +140,9 @@ withAPIServer ::
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
+  ProtocolParameters ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain callback action = do
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action = do
   responseChannel <- newBroadcastTChanIO
   timedOutputEvents <- loadAll
 
@@ -153,7 +155,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
   history <- newTVarIO (reverse timedOutputEvents)
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
   race_
-    (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning)
+    (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning pparams)
     ( do
         waitForServerRunning
         action $
@@ -211,13 +213,14 @@ runAPIServer ::
   TChan (TimedServerOutput tx) ->
   -- | Called when the server is listening before entering the main loop.
   NotifyServerRunning ->
+  ProtocolParameters ->
   IO ()
-runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning = do
+runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning protocolparams = do
   traceWith tracer (APIServerStarted port)
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp (httpApp chain)
+      websocketsOr defaultConnectionOptions wsApp (httpApp chain protocolparams)
  where
   serverSettings =
     defaultSettings
@@ -249,13 +252,13 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
   -- Hydra HTTP server
-  httpApp directChain req respond =
+  httpApp directChain pparams' req respond =
     case (requestMethod req, pathInfo req) of
       ("POST", ["commit"]) -> do
         body <- consumeRequestBodyStrict req
         handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
-      ("GET", ["protocol-parameters"]) -> do
-        respond $ responseLBS status200 [] "OK"
+      ("GET", ["protocol-parameters"]) ->
+        respond $ responseLBS status200 [] (Aeson.encode pparams')
       _ -> do
         traceWith tracer $
           APIRestInputReceived
