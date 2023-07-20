@@ -45,6 +45,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   collectEffects,
+  collectState,
   collectWaits,
   defaultTTL,
   update,
@@ -167,6 +168,27 @@ spec =
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
+            step (ackFrom bobSk bob)
+
+          sa `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
+            _ -> False
+
+        it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
+          let t1 = SimpleTx 1 mempty (utxoRef 1)
+              pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
+              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
+              ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
+
+          sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+            step reqSn
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+
+            step $ NetworkEvent defaultTTL alice $ ReqTx pendingTransaction
+
             step (ackFrom bobSk bob)
 
           sa `shouldSatisfy` \case
@@ -635,14 +657,9 @@ assertNewState outcome =
   -- NewState is about to be superseded when we implement event-sourced persistency
   -- See https://github.com/input-output-hk/hydra/issues/913
   -- In the meantime, we are expecting for an Outcome to only contain one single NewState.
-  case collectStateChanges outcome of
-    Nothing -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
-    Just newState -> pure newState
- where
-  collectStateChanges = \case
-    NewState st -> Just st
-    Combined l r -> collectStateChanges l <|> collectStateChanges r
-    _ -> Nothing
+  case collectState outcome of
+    [newState] -> pure newState
+    _ -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
 
 assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
 assertEffects outcome = hasEffectSatisfying outcome (const True)
