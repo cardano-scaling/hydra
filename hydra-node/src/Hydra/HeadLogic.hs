@@ -871,6 +871,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           let multisig = aggregateInOrder sigs' parties
           requireVerifiedMultisignature multisig snapshot $ do
             let nextSn = sn + 1
+            -- Spec: T̂all ← {tx | ∀tx ∈ T̂all : tx ∉ Treq }
             let allTxs' = foldr Map.delete allTxs confirmed
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
               `Combined` if isLeader parameters party nextSn && not (null seenTxs)

@@ -100,7 +100,7 @@
 						% Wait for snapshot no snapshot in flight anymore and all txs applicable
 						\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \hatmT_{\mathsf{all}}$}{
 
-							$\mT_{req} \gets \{ \hatmT_{\mathsf{all}}[h] ~ | ~ h \in \mT^{\#}_{req} \}$
+							$\mT_{req} \gets \{ \hatmT_{\mathsf{all}}[h] ~ | ~ \forall h \in \mT^{\#}_{req} \}$
 
 							\Req{$\barmU \applytx \mT_{req} \not= \bot$}
 
@@ -155,14 +155,14 @@
 									$\eta' \gets (\hats, \combine(\hatmU))$ \; %
 									\Req{} $\msVfy(\hydraKeysAgg, (\textcolor{red}{\cid || \eta_{0} ||} \eta'), \msCSig)$ \;
 
-									\textcolor{blue}{Untrack $\hatmT_{\mathsf{all}}$}
+									\textcolor{blue}{$\hatmT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \hatmT_{\mathsf{all}} : tx \notin \mT_{req} \}$}
 
 									$\barmU \gets \hatmU$ \; %
 									$\bars \gets \hats$ \; %
 									$\barsigma \gets \msCSig$ \; %
 
 									%$\Out~(\hpSnap,(\bars,\barmU))$ \;  %
-									$\forall \tx \in \mT_{res} : \Out (\hpConf,\tx)$ \; %
+									$\forall \tx \in \mT_{req} : \Out (\hpConf,\tx)$ \; %
 
 									% issue snapshot if we are leader
 									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{%
