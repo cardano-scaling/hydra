@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
@@ -753,46 +752,48 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂all combined with Tres ← {T̂all [h] | h ∈ Treq}
-      waitResolvableTxs $ \resolvedTxs ->
-        -- Spec: require U̅ ◦ T_res /= ⊥ combined with Û ← Ū̅ ◦ T_res
-        requireApplyTxs resolvedTxs $ \u -> do
+      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂all
+      waitResolvableTxs $ do
+        -- Spec: Treq ← {T̂all [h] | h ∈ Treq#}
+        let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+        -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
+        requireApplyTxs requestedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
           let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
-          -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
-          let (seenTxs', seenUTxO') = pruneTransactions u
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      coordinatedHeadState
-                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                        , seenTxs = seenTxs'
-                        , seenUTxO = seenUTxO'
-                        }
-                  }
-            )
-            `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
+          (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
+            -- Spec: TODO T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
+            let (seenTxs', seenUTxO') = pruneTransactions u
+            NewState
+              ( Open
+                  st
+                    { coordinatedHeadState =
+                        coordinatedHeadState
+                          { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                          , seenTxs = seenTxs'
+                          , seenUTxO = seenUTxO'
+                          }
+                    }
+              )
  where
-  requireReqSn continue =
-    if
-        | sn /= seenSn + 1 ->
-            Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
-        | not (isLeader parameters otherParty sn) ->
-            Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
-        | otherwise ->
-            continue
+  requireReqSn continue
+    | sn /= seenSn + 1 =
+        Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+    | not (isLeader parameters otherParty sn) =
+        Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+    | otherwise =
+        continue
 
-  waitNoSnapshotInFlight continue =
-    if confSn == seenSn
-      then continue
-      else Wait $ WaitOnSnapshotNumber seenSn
+  waitNoSnapshotInFlight continue
+    | confSn == seenSn =
+        continue
+    | otherwise =
+        Wait $ WaitOnSnapshotNumber seenSn
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-      [] -> continue (mapMaybe (`Map.lookup` allTxs) requestedTxIds)
+      [] -> continue
       unseen -> Wait $ WaitOnTxs unseen
 
   -- NOTE: at this point we know those transactions apply on the seenUTxO because they
@@ -800,8 +801,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   -- we have seen at this stage, but they all _must_ apply correctly to the latest
   -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
-  requireApplyTxs resolvedTxs cont =
-    case applyTransactions ledger currentSlot confirmedUTxO resolvedTxs of
+  requireApplyTxs requestedTxs cont =
+    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u

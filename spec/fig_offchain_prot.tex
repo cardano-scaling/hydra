@@ -100,14 +100,13 @@
 						% Wait for snapshot no snapshot in flight anymore and all txs applicable
 						\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \hatmT_{\mathsf{all}}$}{
 
-							$\mT_{res} \gets \{ \hatmT_{\mathsf{all}}[h] ~ | ~ h \in \mT^{\#}_{req} \}$
+							$\mT_{req} \gets \{ \hatmT_{\mathsf{all}}[h] ~ | ~ h \in \mT^{\#}_{req} \}$
 
+							\Req{$\barmU \applytx \mT_{req} \not= \bot$}
 
-							\Req{$\barmU \applytx \mT_{res} \not= \bot$}
+							$\hatmU \gets \barmU \applytx \mT_{req}$ \; %
 
 							$\hats \gets \bars + 1$ \; %
-
-							$\hatmU \gets \barmU \applytx \mT_{res}$ \; %
 
 							$\eta' \gets (\hats, \combine(\hatmU))$ \; %
 
