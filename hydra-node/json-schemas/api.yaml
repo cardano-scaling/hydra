@@ -141,6 +141,22 @@ channels:
           type: request
           method: POST
           bindingVersion: '0.1.0'
+  /protocol-parameters:
+    description: Endpoint to obtain protocol parameters used in hydra-node.
+    servers:
+      - localhost-http
+    subscribe:
+      summary: Get cardano protocol parameters.
+      operationId: getProtocolParameters
+      description: |
+        Clients can request from hydra-node it's protocol parameters used on start.
+      message:
+        $ref: "api.yaml#/components/messages/ProtocolParameters"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########
@@ -786,6 +802,58 @@ components:
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
+
+    ProtocolParameters:
+      title: ProtocolParameters
+      description: |
+         Cardano protocol parameters used in hydra-node.
+         Example used in hydra-cluster package: https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config/protocol-parameters.json .
+      payload:
+       type: object
+       example:
+         {
+             "collateralPercentage": 150,
+             "costModels": {
+                 "PlutusScriptV1": {},
+                 "PlutusScriptV2": {}
+             },
+             "decentralization": null,
+             "executionUnitPrices": {
+                 "priceMemory": 5.77e-2,
+                 "priceSteps": 7.21e-5
+             },
+             "extraPraosEntropy": null,
+             "maxBlockBodySize": 65536,
+             "maxBlockExecutionUnits": {
+                 "memory": 80000000,
+                 "steps": 40000000000
+             },
+             "maxBlockHeaderSize": 1100,
+             "maxCollateralInputs": 3,
+             "maxTxExecutionUnits": {
+                 "memory": 14000000,
+                 "steps": 10000000000
+             },
+             "maxTxSize": 16384,
+             "maxValueSize": 5000,
+             "minPoolCost": 0,
+             "minUTxOValue": null,
+             "monetaryExpansion": 1.78650067e-3,
+             "poolPledgeInfluence": 0.1,
+             "poolRetireMaxEpoch": 18,
+             "protocolVersion": {
+                 "major": 7,
+                 "minor": 0
+             },
+             "stakeAddressDeposit": 400000,
+             "stakePoolDeposit": 500000000,
+             "stakePoolTargetNum": 50,
+             "treasuryCut": 0.1,
+             "txFeeFixed": 0,
+             "txFeePerByte": 0,
+             "utxoCostPerWord": 34488,
+             "utxoCostPerByte": 4310
+         }
 
   ########
   #
