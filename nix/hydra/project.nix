@@ -1,4 +1,4 @@
-{ compiler ? "ghc8107"
+{ compiler ? "ghc927"
 
 , system ? builtins.currentSystem
 
@@ -68,6 +68,12 @@ let
           packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf ] ];
         }
       )
+      # Fix compliation of strict-containers (see also cabal.project)
+      {
+        packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
+        # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
+        packages.strict-containers.doHaddock = false;
+      }
     ];
   };
 in

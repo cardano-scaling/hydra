@@ -165,7 +165,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
       stepHydraNode tracer node >> go
 
 createHydraNode ::
-  (MonadSTM m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  (MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->

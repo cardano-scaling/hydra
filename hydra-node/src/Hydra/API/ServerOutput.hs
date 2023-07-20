@@ -34,14 +34,14 @@ genTimedServerOutput :: ServerOutput tx -> Gen (TimedServerOutput tx)
 genTimedServerOutput o =
   TimedServerOutput o <$> arbitrary <*> arbitrary
 
-instance (ToJSON tx, IsChainState tx) => ToJSON (TimedServerOutput tx) where
+instance (IsChainState tx) => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
       Object o ->
         Object $ o <> KeyMap.fromList [("seq", toJSON seq), ("timestamp", toJSON time)]
       _NotAnObject -> error "expected ServerOutput to serialize to an Object"
 
-instance (FromJSON tx, IsChainState tx) => FromJSON (TimedServerOutput tx) where
+instance (IsChainState tx) => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
@@ -91,17 +91,17 @@ data ServerOutput tx
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (ServerOutput tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (ServerOutput tx)
+deriving instance (IsChainState tx) => Eq (ServerOutput tx)
+deriving instance (IsChainState tx) => Show (ServerOutput tx)
 
-instance (IsTx tx, IsChainState tx) => ToJSON (ServerOutput tx) where
+instance (IsChainState tx) => ToJSON (ServerOutput tx) where
   toJSON =
     genericToJSON
       defaultOptions
         { omitNothingFields = True
         }
 
-instance (IsTx tx, IsChainState tx) => FromJSON (ServerOutput tx) where
+instance (IsChainState tx) => FromJSON (ServerOutput tx) where
   parseJSON =
     genericParseJSON
       defaultOptions

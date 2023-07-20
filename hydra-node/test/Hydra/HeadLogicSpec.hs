@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
@@ -162,7 +163,7 @@ spec =
               ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-            step $ NetworkEvent defaultTTL  alice $ ReqTx t1
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
@@ -330,9 +331,9 @@ spec =
             secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51]
 
         s3 <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-           step firstReqTx
-           step firstReqSn
-           step secondReqTx
+          step firstReqTx
+          step firstReqSn
+          step secondReqTx
 
         update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True

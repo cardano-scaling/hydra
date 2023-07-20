@@ -153,12 +153,12 @@ data PostTxError tx
     SpendingNodeUtxoForbidden
   deriving (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (PostTxError tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (PostTxError tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (PostTxError tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (PostTxError tx)
+deriving instance (IsChainState tx) => Eq (PostTxError tx)
+deriving instance (IsChainState tx) => Show (PostTxError tx)
+deriving instance (IsChainState tx) => ToJSON (PostTxError tx)
+deriving instance (IsChainState tx) => FromJSON (PostTxError tx)
 
-instance (IsTx tx, IsChainState tx) => Exception (PostTxError tx)
+instance (IsChainState tx) => Exception (PostTxError tx)
 
 instance Arbitrary Lovelace where
   arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)

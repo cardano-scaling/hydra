@@ -66,8 +66,7 @@ import Hydra.Party (Party (..), deriveParty)
 -- every 'blockTime' and performs 'rollbackAndForward' every couple blocks.
 mockChainAndNetwork ::
   forall m.
-  ( MonadSTM m
-  , MonadTimer m
+  ( MonadTimer m
   , MonadAsync m
   , MonadMask m
   , MonadThrow (STM m)

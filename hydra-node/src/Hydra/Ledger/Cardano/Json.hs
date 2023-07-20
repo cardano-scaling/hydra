@@ -241,7 +241,6 @@ safeHashFromText t =
 
 instance
   ( Crypto (Ledger.Crypto era)
-  , Typeable era
   , Ledger.Era era
   ) =>
   FromJSON (Ledger.Alonzo.AlonzoScript era)
@@ -313,7 +312,6 @@ instance (ToCBOR a, FromJSON a) => FromJSON (Sized a) where
 
 instance
   ( Ledger.Babbage.BabbageEraTxBody era
-  , Show (Core.Value era)
   , FromJSON (Core.Value era)
   , FromJSON (Ledger.Mary.MaryValue (Ledger.Crypto era))
   , FromJSON (Core.AuxiliaryData era)
@@ -354,27 +352,17 @@ instance
   toJSON (Ledger.Alonzo.TxDats datums) = toJSON datums
 
 instance
-  ( Typeable era
-  , Crypto (Ledger.Crypto era)
+  ( Crypto (Ledger.Crypto era)
   , Ledger.Era era
   ) =>
   FromJSON (Ledger.Alonzo.TxDats era)
   where
   parseJSON = fmap Ledger.Alonzo.TxDats . parseJSON
 
-instance
-  ( Typeable era
-  ) =>
-  ToJSON (Ledger.Alonzo.Data era)
-  where
+instance Typeable era => ToJSON (Ledger.Alonzo.Data era) where
   toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
-instance
-  ( Typeable era
-  , Ledger.Era era
-  ) =>
-  FromJSON (Ledger.Alonzo.Data era)
-  where
+instance Ledger.Era era => FromJSON (Ledger.Alonzo.Data era) where
   parseJSON = withText "Data" $ \t ->
     case Base16.decode $ encodeUtf8 t of
       Left e -> fail $ "failed to decode from base16: " <> show e

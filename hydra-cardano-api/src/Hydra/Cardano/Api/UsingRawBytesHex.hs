@@ -33,7 +33,7 @@ instance SerialiseAsRawBytes a => IsString (UsingRawBytesHex a) where
 instance SerialiseAsRawBytes a => ToJSON (UsingRawBytesHex a) where
   toJSON (UsingRawBytesHex x) = toJSON (serialiseToRawBytesHexText x)
 
-instance (SerialiseAsRawBytes a, Typeable a) => FromJSON (UsingRawBytesHex a) where
+instance (SerialiseAsRawBytes a) => FromJSON (UsingRawBytesHex a) where
   parseJSON =
     Aeson.withText tname $
       either fail pure . deserialiseFromRawBytesBase16 . encodeUtf8
@@ -44,7 +44,7 @@ instance SerialiseAsRawBytes a => ToJSONKey (UsingRawBytesHex a) where
   toJSONKey =
     Aeson.toJSONKeyText $ \(UsingRawBytesHex x) -> serialiseToRawBytesHexText x
 
-instance (SerialiseAsRawBytes a, Typeable a) => FromJSONKey (UsingRawBytesHex a) where
+instance (SerialiseAsRawBytes a) => FromJSONKey (UsingRawBytesHex a) where
   fromJSONKey =
     Aeson.FromJSONKeyTextParser $
       either fail pure . deserialiseFromRawBytesBase16 . encodeUtf8

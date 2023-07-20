@@ -30,8 +30,7 @@ data EventQueue m e = EventQueue
 data Queued e = Queued {eventId :: Word64, queuedEvent :: e}
 
 createEventQueue ::
-  ( MonadSTM m
-  , MonadDelay m
+  ( MonadDelay m
   , MonadAsync m
   , MonadLabelledSTM m
   ) =>

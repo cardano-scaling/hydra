@@ -46,6 +46,7 @@
         inherit hydraProject;
 
         packages =
+          { default = hydraPackages.hydra-node; } //
           hydraPackages //
           prefixAttrs "docker-" hydraImages // {
             spec = import ./spec { inherit pkgs; };
