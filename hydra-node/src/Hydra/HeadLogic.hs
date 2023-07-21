@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
@@ -232,13 +231,14 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUTxO :: UTxOType tx
-  -- ^ The latest UTxO resulting from applying 'seenTxs' to
+  { localUTxO :: UTxOType tx
+  -- ^ The latest UTxO resulting from applying 'localTxs' to
   -- 'confirmedSnapshot'. Spec: L̂
-  , seenTxs :: [tx]
-  -- ^ List of seen transactions pending inclusion in a snapshot. Spec: T̂
+  , localTxs :: [tx]
+  -- ^ List of transactions applied locally and pending inclusion in a snapshot. Spec: T̂
   , allTxs :: Map.Map (TxIdType tx) tx
-  -- ^ Map containing all the transactions ever seen by this node and not yet included in a snapshot
+  -- ^ Map containing all the transactions ever seen by this node and not yet
+  -- included in a snapshot. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
   , seenSnapshot :: SeenSnapshot tx
@@ -600,9 +600,9 @@ onInitialChainCollectTx st newChainState =
           { parameters
           , coordinatedHeadState =
               CoordinatedHeadState
-                { seenUTxO = u0
+                { localUTxO = u0
                 , allTxs = mempty
-                , seenTxs = mempty
+                , localTxs = mempty
                 , confirmedSnapshot
                 , seenSnapshot = NoSeenSnapshot
                 }
@@ -651,61 +651,70 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
-  -- Spec: wait L̂ ◦ tx ̸= ⊥ combined with L̂ ← L̂ ◦ tx
-  case applyTransactions currentSlot seenUTxO [tx] of
-    Left (_, err)
-      | ttl <= 0 ->
-          NewState (Open st{coordinatedHeadState = untrackTxInState})
-            `Combined` Effects [ClientEffect $ TxInvalid headId seenUTxO tx err]
-      | otherwise ->
-          NewState (Open st{coordinatedHeadState = trackTxInState})
-            `Combined` Wait (WaitOnNotApplicableTx err)
-    Right utxo' ->
-      Effects [ClientEffect $ TxValid headId tx]
-        `Combined` if isLeader parameters party nextSn && not snapshotInFlight
-          then
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          , seenSnapshot =
-                              RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber seenSnapshot
-                                , requested = nextSn
-                                }
-                          }
-                    }
-              )
-              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
-          else
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          }
-                    }
-              )
+onOpenNetworkReqTx env ledger st ttl tx = do
+  -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
+  let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
+  -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
+  waitApplyTx chs' $ \utxo' -> do
+    let chs'' =
+          chs'
+            { -- Spec: L̂ ← L̂ ◦ tx
+              localUTxO = utxo'
+            , -- Spec: T̂ ← T̂ ∪ {tx}
+              localTxs = localTxs'
+            }
+    (Effects [ClientEffect $ TxValid headId tx] `Combined`) $
+      -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
+      if not snapshotInFlight && isLeader parameters party nextSn
+        then
+          NewState
+            ( Open
+                st
+                  { coordinatedHeadState =
+                      chs''
+                        { seenSnapshot =
+                            -- XXX: This state update has no equivalence in the
+                            -- spec. Do we really need to store that we have
+                            -- requested a snapshot? If yes, should update spec.
+                            RequestedSnapshot
+                              { lastSeen = seenSnapshotNumber seenSnapshot
+                              , requested = nextSn
+                              }
+                        }
+                  }
+            )
+            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
+        else NewState (Open st{coordinatedHeadState = chs''})
  where
+  waitApplyTx chs cont =
+    case applyTransactions currentSlot localUTxO [tx] of
+      Right utxo' -> cont utxo'
+      Left (_, err)
+        | ttl > 0 ->
+            NewState (Open st{coordinatedHeadState = chs})
+              `Combined` Wait (WaitOnNotApplicableTx err)
+        | otherwise ->
+            -- XXX: We might want to remove invalid txs from allTxs here to
+            -- prevent them piling up infintely. However, this is not really
+            -- covered by the spec and this could be problematic in case of
+            -- conflicting transactions paired with network latency and/or
+            -- message resubmission. For example: Assume tx2 depends on tx1, but
+            -- only tx2 is seen by a participant and eventually times out
+            -- because of network latency when receiving tx1. The leader,
+            -- however, saw both as valid and requests a snapshot including
+            -- both. This is a valid request and if we would have removed tx2
+            -- from allTxs, we would make the head stuck.
+            Effects [ClientEffect $ TxInvalid headId localUTxO tx err]
+
   Ledger{applyTransactions} = ledger
 
   Environment{party} = env
 
-  CoordinatedHeadState{allTxs, seenTxs, seenUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{allTxs, localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
-
-  trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
-
-  untrackTxInState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
@@ -715,7 +724,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   nextSn = confirmedSn + 1
 
-  seenTxs' = seenTxs <> [tx]
+  localTxs' = localTxs <> [tx]
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -749,61 +758,66 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait T_res ⊆ T
-      waitSeenTxs $ \resolvedTxs ->
-        -- Spec: require U̅ ◦ T_res /= ⊥ combined with Û ← Ū̅ ◦ T_res
-        requireApplyTxs resolvedTxs $ \u -> do
+      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
+      waitResolvableTxs $ do
+        -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
+        let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+        -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
+        requireApplyTxs requestedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
           let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
-          -- Spec: T̂ ← {tx | ∀tx ∈ T̂ , Û ◦ tx ≠ ⊥} and L̂ ← Û ◦ T̂
-          let (seenTxs', seenUTxO') = pruneTransactions u
-          NewState
-            ( Open
-                st
-                  { coordinatedHeadState =
-                      coordinatedHeadState
-                        { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                        , seenTxs = seenTxs'
-                        , seenUTxO = seenUTxO'
-                        }
-                  }
-            )
-            `Combined` Effects [NetworkEffect $ AckSn snapshotSignature sn]
+          (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
+            -- Spec: for loop which updates T̂ and L̂
+            let (localTxs', localUTxO') = pruneTransactions u
+            -- Spec: Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
+            let allTxs' = foldr Map.delete allTxs requestedTxIds
+            NewState
+              ( Open
+                  st
+                    { coordinatedHeadState =
+                        coordinatedHeadState
+                          { seenSnapshot = SeenSnapshot nextSnapshot mempty
+                          , localTxs = localTxs'
+                          , localUTxO = localUTxO'
+                          , allTxs = allTxs'
+                          }
+                    }
+              )
  where
-  requireReqSn continue =
-    if
-        | sn /= seenSn + 1 ->
-            Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
-        | not (isLeader parameters otherParty sn) ->
-            Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
-        | otherwise ->
-            continue
+  requireReqSn continue
+    | sn /= seenSn + 1 =
+        Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+    | not (isLeader parameters otherParty sn) =
+        Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+    | otherwise =
+        continue
 
-  waitNoSnapshotInFlight continue =
-    if confSn == seenSn
-      then continue
-      else Wait $ WaitOnSnapshotNumber seenSn
+  waitNoSnapshotInFlight continue
+    | confSn == seenSn =
+        continue
+    | otherwise =
+        Wait $ WaitOnSnapshotNumber seenSn
 
-  waitSeenTxs continue =
+  waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-      [] -> continue (mapMaybe (`Map.lookup` allTxs) requestedTxIds)
+      [] -> continue
       unseen -> Wait $ WaitOnTxs unseen
 
-  -- NOTE: at this point we know those transactions apply on the seenUTxO because they
-  -- are part of the seenTxs. The snapshot can contain less transactions than the ones
+  -- NOTE: at this point we know those transactions apply on the localUTxO because they
+  -- are part of the localTxs. The snapshot can contain less transactions than the ones
   -- we have seen at this stage, but they all _must_ apply correctly to the latest
   -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
-  requireApplyTxs resolvedTxs cont =
-    case applyTransactions ledger currentSlot confirmedUTxO resolvedTxs of
+  requireApplyTxs requestedTxs cont =
+    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
 
   pruneTransactions utxo = do
-    foldr go ([], utxo) seenTxs
+    foldr go ([], utxo) localTxs
    where
     go tx (txs, u) =
       -- XXX: We prune transactions on any error, while only some of them are
@@ -824,7 +838,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, allTxs} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, localTxs, allTxs} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
@@ -857,18 +871,17 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
-    waitOnSeenSnapshot $ \snapshot@Snapshot{confirmed} sigs -> do
+    waitOnSeenSnapshot $ \snapshot sigs -> do
       -- Spec: (j,.) ∉ ̂Σ
       requireNotSignedYet sigs $ do
         let sigs' = Map.insert otherParty snapshotSignature sigs
         ifAllMembersHaveSigned snapshot sigs' $ do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
-          let allTxs' = foldr Map.delete allTxs confirmed
-          let nextSn = sn + 1
-          requireVerifiedMultisignature multisig snapshot $
+          requireVerifiedMultisignature multisig snapshot $ do
+            let nextSn = sn + 1
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-              `Combined` if isLeader parameters party nextSn && not (null seenTxs)
+              `Combined` if isLeader parameters party nextSn && not (null localTxs)
                 then
                   NewState
                     ( onlyUpdateCoordinatedHeadState $
@@ -883,10 +896,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 { lastSeen = sn
                                 , requested = nextSn
                                 }
-                          , allTxs = allTxs'
                           }
                     )
-                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
+                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs))]
                 else
                   NewState
                     ( onlyUpdateCoordinatedHeadState $
@@ -897,7 +909,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 , signatures = multisig
                                 }
                           , seenSnapshot = LastSeenSnapshot sn
-                          , allTxs = allTxs'
                           }
                     )
  where
@@ -954,7 +965,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, allTxs, seenTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
   HeadParameters{parties} = parameters
 

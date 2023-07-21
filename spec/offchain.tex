@@ -41,11 +41,11 @@ off-chain protocol logic relies on these assumptions:
 	\item Every network message received from a specific party is checked for
 	      authentication. An implementation of the specification needs to find a
 	      suitable means of authentication, either on the communication channel
-        or for individual messages. Unauthenticated messages must be dropped.
+	      or for individual messages. Unauthenticated messages must be dropped.
 	\item The head protocol gets correctly (and with completeness) notified about
 	      observed transactions on-chain belonging to the respective head
 	      instance.
-        % TODO: Mention multiple heads?
+	      % TODO: Mention multiple heads?
 	      % \item The specification covers only a single instance of a Hydra head.
 	      %       However, some implementations may choose to track multiple instances. As
 	      %       multiple Hydra heads might exist on the same blockchain, it is vital
@@ -57,9 +57,9 @@ off-chain protocol logic relies on these assumptions:
 	      to multiple invocations of the handling semantics.
 	\item Given the specification, events may pile up forever and implementations
 	      need to consider these situations (i.e.\ potential for DoS). A valid reaction
-        to this would be to just drop these events. Note that, from a security standpoint,
-        these situations are identical to a non-collaborative peer and closing the head
-        is also a possible reaction.
+	      to this would be to just drop these events. Note that, from a security standpoint,
+	      these situations are identical to a non-collaborative peer and closing the head
+	      is also a possible reaction.
 	\item The lifecycle of a Hydra head on-chain does not cross (hard fork)
 	      protocol update boundaries. Note that these events are announced in
 	      advance hence it should be possible for implementations to react in such
@@ -104,12 +104,12 @@ party's local state consists of the following variables:
 	\item $\barmU$: UTxO set associated with the latest confirmed snapshot.
 	\item $\hatSigma \in {(\tyNatural \times \tyBytes)}^{*}$: Accumulator of
 	      signatures of the latest seen snapshot, indexed by parties.
-	\item $\hatmL$: Local ledger state used to validate requested transactions
-	      against.
-	\item $\hatmT \in \mT^{*}$: List of transactions that extend from the last
-	      confirmed snapshot $\barmU$ to form $\hatmL$. These are also the
-	      transactions that would go into the next snapshot (if this party is the
-	      next leader).
+	\item $\hatmL$: UTxO set representing the local ledger state resulting from
+	      applying $\hatmT$ to $\barmU$ to validate requested transactions.
+	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
+	      inclusion in a snapshot (if this party is the next leader).
+	\item $\mT_{\mathsf{all}} \in (\tyBytes \times \mT)^{*}$: Associative list of all
+	      seen transactions not yet included in a snapshot.
 \end{itemize}
 
 \subsection{Protocol flow}
@@ -162,42 +162,50 @@ client of the protocol can submit a new transaction $\tx$ to the head, which
 results in it being sent out to all parties as a $(\hpRT,\tx)$ message.\\
 
 \dparagraph{$\hpRT$.}\quad Upon receiving request $(\hpRT,\tx)$, the transaction
-gets recorded in $\hatmT$ and $\mT$ and applied to the local \emph{seen} ledger state
-$\hatmL \applytx \tx$. If there is no current snapshot ``in flight''
-($\hats = \bars$) and the receiving party $\party_{i}$ is the next snapshot
+gets recorded in $\mT_{\mathsf{all}}$ and applied to the \emph{local} ledger
+state $\hatmL \applytx \tx$. If not applicable yet, the protocol does $\KwWait$
+to retry later or eventually marks this transaction as invalid (see assumption
+about events piling up). After applying and if there is no current snapshot ``in
+flight'' ($\hats = \bars$) and the receiving party $\party_{i}$ is the next
+snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 
-\dparagraph{$\hpRS$.}\quad Upon receiving request $(\hpRS,s,\mT_{res})$ from
-party $\party_j$, the receiver $\party_i$ checks that $s$ is the next snapshot
-number and that party $\party_j$ is responsible for leading its
-creation.\todo{define $\hpLdr$} Party $\party_i$ then waits until the previous
-snapshot is confirmed ($\bars = \hats$), and all requested transactions have
-been seen ($\mT_{res} \subseteq \mT$). Then all requested transactions $\mT_{res}$
-must be applicable to $\barmU$, otherwise the snapshot is rejected as invalid.
-Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets the
-signature accumulator $\hatSigma$, and computes the UTxO set $\hatmU$ of the new
-(seen) snapshot as $\hatmU \gets \barmU \applytx \mT_{res}$. Then, $\party_i$
-creates a signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a
-message comprised by \textcolor{red}{the $\cid$, the $\eta_{0}$ corresponding to
-	the initial UTxO set $\Uinit$, and} the new $\eta'$ given by the new snapshot
-number $\hats$ and canonically combining $\hatmU$ (see
-Section~\ref{sec:close-tx} for details). The signature is sent to all head
-members via message $(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction
-set $\hatmT$ gets pruned by the just requested transactions $\mT_{res}$ and the
-local ledger state $\hatmL$ is updated accordingly.\\
+\dparagraph{$\hpRS$.}\quad Upon receiving request
+$(\hpRS,s,\mT_{\mathsf{req}}^{\#})$ from party $\party_j$, the receiver
+$\party_i$ checks that $s$ is the next snapshot number and that party $\party_j$
+is responsible for leading its creation.\todo{define $\hpLdr$} Party $\party_i$
+has to $\KwWait$ until the previous snapshot is confirmed ($\bars = \hats$) and
+all requested transaction hashes $\mT_{\mathsf{req}}^{\#}$ can be resolved in
+$\mT_{\mathsf{all}}$. Then, all those resolved transactions $\mT_{\mathsf{req}}$
+are $\Req$d to be applicable to $\barmU$, otherwise the snapshot is rejected
+as invalid. Only then, $\party_i$ increments their seen-snapshot counter
+$\hats$, resets the signature accumulator $\hatSigma$, and computes the UTxO set
+$\hatmU$ of the new (seen) snapshot as
+$\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$. Then, $\party_i$ creates a
+signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a message
+comprised by \textcolor{red}{the $\cid$, the $\eta_{0}$ corresponding to the
+	initial UTxO set $\Uinit$, and} the new $\eta'$ given by the new snapshot number
+$\hats$ and canonically combining $\hatmU$ (see Section~\ref{sec:close-tx} for
+details). The signature is sent to all head members via message
+$(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction set $\hatmT$ gets
+pruned by re-applying all locally pending transactions $\hatmT$ to the just
+requested snapshot's UTxO set $\hatmU$ iteratively and ultimately yielding a
+``pruned'' version of $\hatmT$ and $\hatmU$. Also, the set of all transactions
+$\mT_{\mathsf{all}}$ can be reduced by the requested
+transactions $\mT_{\mathsf{req}}$.\\
 
-\dparagraph{$\hpAS$.}\quad Upon receiving acknowledgment $(\hpAS,s,\msSig_j)$,
-all participants $\Req$ that it is from an expected snapshot (either the last
-seen $\hats$ or + 1), potentially $\KwWait$ for the corresponding $\hpRS$ such
-that $\hats = s$ and $\Req$ that the signature is not yet included in
-$\hatSigma$. They store the received signature in the signature accumulator
-$\hatSigma$, and if signature from each party has been collected, $\party_i$
-aggregates the multisignature $\msCSig$ and $\Req$ it to be valid. If everything
-is fine, the snapshot can be considered confirmed by updating $\bars=s$ and
-participants also store the UTxO set in $\barmU$, as well as the signature in
-$\barsigma$ for later reference. Similar to the $\hpRT$, if $\party_i$ is the
-next snapshot leader and there are already transactions to snapshot in $\hatmT$,
-a corresponding $\hpRS$ is distributed.
+\dparagraph{$\hpAS$.}\quad Upon receiving acknowledgment $(\hpAS,s,\msSig_j)$, all
+participants $\Req$ that it is from an expected snapshot (either the last seen
+$\hats$ or + 1), potentially $\KwWait$ for the corresponding $\hpRS$ such that
+$\hats = s$ and $\Req$ that the signature is not yet included in $\hatSigma$.
+They store the received signature in the signature accumulator $\hatSigma$, and
+if the signature from each party has been collected, $\party_i$ aggregates the
+multisignature $\msCSig$ and $\Req$ it to be valid. If everything is fine, the
+snapshot can be considered confirmed by updating $\bars=s$ and participants also
+store the UTxO set in $\barmU$, as well as the signature in $\barsigma$ for
+later reference. Similar to the $\hpRT$, if $\party_i$ is the next snapshot
+leader and there are already transactions to snapshot in $\hatmT$, a
+corresponding $\hpRS$ is distributed.
 
 \subsubsection{Closing the head}
 

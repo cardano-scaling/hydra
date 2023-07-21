@@ -10,20 +10,20 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
 						%%% INIT
-						\On{$(\hpInit)$ from client}{ %
+						\On{$(\hpInit)$ from client}{
 							$n \gets |\hydraKeys^{setup}|$ \;
-							$\hydraKeysAgg \gets \msCombVK(\hydraKeys^{setup})$ \; %
-							$\cardanoKeys \gets \cardanoKeys^{setup}$\; %
-							$\cPer \gets \cPer^{setup}$ \; %
-							$\PostTx{}~(\mtxInit, \nop, \hydraKeysAgg,\cardanoKeys,\cPer)$ \; %
+							$\hydraKeysAgg \gets \msCombVK(\hydraKeys^{setup})$ \;
+							$\cardanoKeys \gets \cardanoKeys^{setup}$\;
+							$\cPer \gets \cPer^{setup}$ \;
+							$\PostTx{}~(\mtxInit, \nop, \hydraKeysAgg,\cardanoKeys,\cPer)$ \;
 						}
 						\vspace{12pt}
 
-						\On{$(\gcChainInitial, \cid, \seed, \nop, \hydraKeysAgg, \cardanoKeys^{\#}, \cPer)$ from chain}{ %
-						\Req{} $\hydraKeysAgg=\msCombVK(\hydraKeys^{setup})$\; %
-						\Req{} $\cardanoKeys^{\#}= [ \hash(k)~|~\forall k \in \cardanoKeys^{setup}]$\; %
-						\Req{} $\cPer=\cPer^{setup}$\; %
-						\Req{} $\cid = \hash(\muHead(\seed))$ \; %
+						\On{$(\gcChainInitial, \cid, \seed, \nop, \hydraKeysAgg, \cardanoKeys^{\#}, \cPer)$ from chain}{
+						\Req{} $\hydraKeysAgg=\msCombVK(\hydraKeys^{setup})$\;
+						\Req{} $\cardanoKeys^{\#}= [ \hash(k)~|~\forall k \in \cardanoKeys^{setup}]$\;
+						\Req{} $\cPer=\cPer^{setup}$\;
+						\Req{} $\cid = \hash(\muHead(\seed))$ \;
 						}
 					\end{walgo}
 				}
@@ -31,23 +31,23 @@
 
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
-						\On{$(\gcChainCommit, j, U)$ from chain}{ %
+						\On{$(\gcChainCommit, j, U)$ from chain}{
 							$C_j \gets U $
 
-							\If{$\forall k \in [1..n]: C_k \neq \undefined$}{ %
-								$\eta \gets (0, \combine([C_1 \dots C_n]))$ \; %
-								$\PostTx{}~(\mtxCCom, \eta)$ \; %
-							} %
+							\If{$\forall k \in [1..n]: C_k \neq \undefined$}{
+								$\eta \gets (0, \combine([C_1 \dots C_n]))$ \;
+								$\PostTx{}~(\mtxCCom, \eta)$ \;
+							}
 						}
 
 						\vspace{12pt}
 
-						\On{$(\gcChainCollectCom, \eta_{0})$ from chain}{ %
+						\On{$(\gcChainCollectCom, \eta_{0})$ from chain}{
 							% Implictly means that all commits will defined as we cannot miss a commit (by assumption)
-							$\Uinit \gets \bigcup_{j=1}^{n} U_j$ \; %
-							% $\Out~(\hpSnap,(0,U_0))$ \; %
-							$\hatmU, \barmU, \hatmL \gets \Uinit$ \; %
-							$\hats,\bars \gets 0$ \; %
+							$\Uinit \gets \bigcup_{j=1}^{n} U_j$ \;
+							% $\Out~(\hpSnap,(0,U_0))$ \;
+							$\hatmU, \barmU, \hatmL \gets \Uinit$ \;
+							$\hats,\bars \gets 0$ \;
 							$\mT, \hatmT, \barmT \gets \emptyset$ \;
 						}
 
@@ -56,7 +56,7 @@
 			\end{tabular}
 
 			\\
-			\multicolumn{1}{l}{\line(1,0){490}} %
+			\multicolumn{1}{l}{\line(1,0){490}}
 			\\
 
 			%%% Open head
@@ -65,65 +65,52 @@
 					\begin{walgo}{0.65}
 
 						%%% NEW TX
-						\On{$(\hpNew,\tx)$ from client}{%
+						\On{$(\hpNew,\tx)$ from client}{
 							\Multi{} $(\hpRT,\tx)$%
 						}
 
 						\vspace{12pt}
 
 						%%% REQ TX
-						\On{$(\hpRT,\tx)$ from $\party_j$}{%
+						\On{$(\hpRT,\tx)$ from $\party_j$}{
+							$\mT_{\mathsf{all}} \gets \mT_{\mathsf{all}} \cup \{ (\hash(\tx),\tx )\}$ \;
 							\Wait{$\hatmL \applytx \tx \neq \bot$}{
-								$\hatmT \gets \hatmT \cup \{\tx\}$ % candidates for next snapshot
-
-								$\hatmL \gets \hatmL\applytx\tx$ %
-
+								$\hatmL \gets \hatmL\applytx\tx$ \;
+								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
-								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{%
-									\Multi{} $(\hpRS,\bars+1,\hatmT)$ \;%
+								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
+									\Multi{} $(\hpRS,\bars+1,\hatmT)$ \;
 								}
 							}
 						}
 
-						\vspace{12pt} %
+						\vspace{12pt}
 
 						%%% REQ SN
-						\On{$(\hpRS,s,\mT_{res})$ from $\party_j$}{ %
-
-							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \; %
-
-							% Wait for snapshot no snapshot in flight anymore and all txs applicable
-							\Wait{$\bars = \hats ~ \land ~ \barmU \applytx \mT_{res} \not= \bot ~ \and ~ \mT_{res} \subseteq \hatmT$}{ %
-								$\hats \gets \bars + 1$ \; %
-
-								$\hatmU \gets \barmU \applytx \mT_{res}$ \; %
-
-								$\eta' \gets (\hats, \combine(\hatmU))$ \; %
-
+						\On{$(\hpRS,s,\mT^{\#}_{req})$ from $\party_j$}{
+							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
+							\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \mT_{\mathsf{all}}$}{
+								$\mT_{\mathsf{req}} \gets \{ \mT_{\mathsf{all}}[h] ~ | ~ \forall h \in \mT^{\#}_{req} \}$ \;
+								\Req{$\barmU \applytx \mT_{\mathsf{req}} \not= \bot$} \;
+								$\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$ \;
+								$\hats \gets \bars + 1$ \;
+								$\eta' \gets (\hats, \combine(\hatmU))$ \;
 								% NOTE: WE could make included transactions auditable by adding
 								% a merkle tree root to the (signed) snapshot data \eta'
-								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \eta_{0} || \eta'))$ \; %
-								$\hatSigma \gets \emptyset$
-
-								$\Multi{}~(\hpAS,\hats,\msSig_i)$ \; %
-
-								$\forall \tx \in \mT_{res}: \Out~(\hpSeen,\tx)$ \; %
-
-								% TODO: We would not be keeping all applicable transactions. For
-								% this we would need to do a more recursive algorithm. Right now
-								% we throw out everything which is not applicable after a single
-								% pass. Also: Should we inform users if we drop a transaction?
-								\textcolor{red}{
-									$X\gets\hatmT$;\ $\hatmT\gets\emptyset$ \; %
-									\ForA{$\tx\in X$}{
-										\If{$\hatmU\applytx(\hatmT\cup\{\tx\})\not=\bot$}{
-											$\hatmT\gets\hatmT\cup\{\tx\}$
-										}
-									}}
-								$\hatmL \gets \hatmU\applytx\hatmT$
-								% TODO: This was here ^^^ before:
-								% $\hatmT \gets \{ tx \in \hatmT ~  | ~ \hatmU \applytx tx \not = \bot \}$ \; %
-								% $\hatmL \gets \hatmU\applytx\hatmT$
+								$\msSig_i \gets \msSign(\hydraSigningKey, (\textcolor{red}{\cid || \eta_{0} ||} \eta'))$ \;
+								$\hatSigma \gets \emptyset$ \;
+								$\Multi{}~(\hpAS,\hats,\msSig_i)$ \;
+								$\forall \tx \in \mT_{\mathsf{req}}: \Out~(\hpSeen,\tx)$ \;
+								% TODO: Should we inform users if we drop a transaction?
+								% XXX: This is a bit verbose for the spec
+								$\hatmL \gets \hatmU$ \;
+								$X\gets\hatmT$ \;
+								$\hatmT\gets\emptyset$ \;
+								\For{$\tx\in X : \hatmL\applytx \tx \not=\bot$}{
+									$\hatmT\gets\hatmT\cup\{\tx\}$
+									$\hatmL\gets\hatmL\applytx \tx$ \;
+								}
+								$\mT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \mT_{\mathsf{all}} : tx \notin \mT_{\mathsf{req}} \}$ \;
 							}
 						}
 					\end{walgo}
@@ -132,70 +119,59 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
 						%%% ACK SN
-						\On{$(\hpAS,s,\msSig_j)$ from $\party_j$}{ %
-
-							\Req{} $s \in \{\hats,\hats+1\}$
-							\; %
-
-							\Wait{$\hats=s$
-							}{ %
-
-								\Req{} $(j, \cdot) \notin \hatSigma$ \; %
-
-
-								\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{ %
+						\On{$(\hpAS,s,\msSig_j)$ from $\party_j$}{
+							\Req{} $s \in \{\hats,\hats+1\}$ \;
+							\Wait{$\hats=s$}{
+								\Req{} $(j, \cdot) \notin \hatSigma$ \;
+								\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{
 									% TODO: MS-ASig used different than in the preliminaries
-									$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \; %
+									$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \;
 
-									$\eta' \gets (\hats, \combine(\hatmU))$ \; %
+									$\eta' \gets (\hats, \combine(\hatmU))$ \;
 									\Req{} $\msVfy(\hydraKeysAgg, (\textcolor{red}{\cid || \eta_{0} ||} \eta'), \msCSig)$ \;
-									$\barmU \gets \hatmU$ \; %
-									$\bars \gets \hats$ \; %
-									$\barsigma \gets \msCSig$ \; %
-
-									%$\Out~(\hpSnap,(\bars,\barmU))$ \;  %
-									$\forall \tx \in \mT_{res} : \Out (\hpConf,\tx)$ \; %
-
+									$\barmU \gets \hatmU$ \;
+									$\bars \gets \hats$ \;
+									$\barsigma \gets \msCSig$ \;
+									%$\Out~(\hpSnap,(\bars,\barmU))$ \;
+									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
 									% issue snapshot if we are leader
-									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{%
-										\Multi{} $(\hpRS,s+1,\hatmT)$ \;%
+									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
+										\Multi{} $(\hpRS,s+1,\hatmT)$ \;
 									}
 								}
-							} }
+							}
+						}
 					\end{walgo}
-
 				}
 			\end{tabular}
 
 			\\
-			\multicolumn{1}{l}{\line(1,0){490}} %
+			\multicolumn{1}{l}{\line(1,0){490}}
 			\\
 
 			%%% Closing the head
 			\begin{tabular}{c c}
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
-
 						% CLOSE from client
-						\On{$(\hpClose)$ from client}{ %
-							$\eta' \gets (\bars, \combine(\barmU))$ \; %
-							$\xi \gets \barsigma$ \; %
-							$\PostTx{}~(\mtxClose, \eta', \xi)$ \; %
+						\On{$(\hpClose)$ from client}{
+							$\eta' \gets (\bars, \combine(\barmU))$ \;
+							$\xi \gets \barsigma$ \;
+							$\PostTx{}~(\mtxClose, \eta', \xi)$ \;
 						}
-
 					\end{walgo}
 				}
-				 & \adjustbox{valign=t,scale=\sfact}{
+				 &
+				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
-
-						\On{$(\gcChainClose, \eta) \lor (\gcChainContest, \eta)$ from chain}{ %
+						\On{$(\gcChainClose, \eta) \lor (\gcChainContest, \eta)$ from chain}{
 							$(s_{c}, \cdot) \gets \eta$ \;
-							\If{$\bars > s_{c}$}{%
-								$\eta' \gets (\bars, \combine(\barmU))$ \; %
-								$\xi \gets \barsigma$ \; %
-								$\PostTx{}~(\mtxContest, \eta', \xi)$ \; %
-							} }
-
+							\If{$\bars > s_{c}$}{
+								$\eta' \gets (\bars, \combine(\barmU))$ \;
+								$\xi \gets \barsigma$ \;
+								$\PostTx{}~(\mtxContest, \eta', \xi)$ \;
+							}
+						}
 					\end{walgo}
 				}
 			\end{tabular}

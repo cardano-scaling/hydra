@@ -83,9 +83,9 @@ spec =
 
       let coordinatedHeadState =
             CoordinatedHeadState
-              { seenUTxO = mempty
+              { localUTxO = mempty
               , allTxs = mempty
-              , seenTxs = mempty
+              , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot mempty
               , seenSnapshot = NoSeenSnapshot
               }
@@ -134,7 +134,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
             _ -> False
 
-        it "keeps transactions in allTxs given it receives a ReqSn" $ do
+        it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
               reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
@@ -143,34 +143,6 @@ spec =
           s1 <- assertNewState $ update bobEnv ledger sa reqSn
 
           s1 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
-            _ -> False
-
-        it "removes transactions from allTxs when ttl expires" $ do
-          let t1 = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-
-          sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-            step $ NetworkEvent 1 alice $ ReqTx t1
-            step $ NetworkEvent 0 alice $ ReqTx t1
-
-          sa `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
-            _ -> False
-
-        it "removes transactions from allTxs when included in a acked snapshot" $ do
-          let t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
-              snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
-              ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
-
-          sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
-            step $ NetworkEvent defaultTTL alice $ ReqTx t1
-            step reqSn
-            step (ackFrom carolSk carol)
-            step (ackFrom aliceSk alice)
-            step (ackFrom bobSk bob)
-
-          sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
@@ -483,9 +455,9 @@ spec =
                   { parameters = HeadParameters cperiod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
-                        { seenUTxO = UTxO.singleton utxo
+                        { localUTxO = UTxO.singleton utxo
                         , allTxs = mempty
-                        , seenTxs = [expiringTransaction]
+                        , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         }
@@ -503,8 +475,8 @@ spec =
           Open
             OpenState
               { coordinatedHeadState =
-                CoordinatedHeadState{seenTxs}
-              } -> null seenTxs
+                CoordinatedHeadState{localTxs}
+              } -> null localTxs
           _ -> False
 
 runEvents :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
@@ -562,9 +534,9 @@ inOpenState ::
 inOpenState parties Ledger{initUTxO} =
   inOpenState' parties $
     CoordinatedHeadState
-      { seenUTxO = u0
+      { localUTxO = u0
       , allTxs = mempty
-      , seenTxs = mempty
+      , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       }

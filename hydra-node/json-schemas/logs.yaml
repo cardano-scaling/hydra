@@ -1000,14 +1000,14 @@ definitions:
     type: object
     additionalProperties: false
     required:
-      - seenUTxO
-      - seenTxs
+      - localUTxO
+      - localTxs
       - confirmedSnapshot
       - seenSnapshot
     properties:
-      seenUTxO:
+      localUTxO:
         $ref: "api.yaml#/components/schemas/UTxO"
-      seenTxs:
+      localTxs:
         type: array
         items:
           $ref: "api.yaml#/components/schemas/Transaction"
