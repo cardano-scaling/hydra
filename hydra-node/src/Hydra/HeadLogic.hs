@@ -694,10 +694,16 @@ onOpenNetworkReqTx env ledger st ttl tx = do
             NewState (Open st{coordinatedHeadState = chs})
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
-            -- FIXME: Check whether we maybe want to remove invalid tx from
-            -- allTxs? Maybe problematic in case of conflicting transactions this is
-            -- problematic as another leader could validly request them to be
-            -- snapshotted.
+            -- XXX: We might want to remove invalid txs from allTxs here to
+            -- prevent them piling up infintely. However, this is not really
+            -- covered by the spec and this could be problematic in case of
+            -- conflicting transactions paired with network latency and/or
+            -- message resubmission. For example: Assume tx2 depends on tx1, but
+            -- only tx2 is seen by a participant and eventually times out
+            -- because of network latency when receiving tx1. The leader,
+            -- however, saw both as valid and requests a snapshot including
+            -- both. This is a valid request and if we would have removed tx2
+            -- from allTxs, we would make the head stuck.
             Effects [ClientEffect $ TxInvalid headId localUTxO tx err]
 
   Ledger{applyTransactions} = ledger
