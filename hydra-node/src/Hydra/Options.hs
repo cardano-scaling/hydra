@@ -559,22 +559,23 @@ hydraNodeCommand =
  where
   versionInfo =
     infoOption
-      (showVersion ourVersion)
+      (showVersion hydraNodeVersion)
       (long "version" <> help "Show version")
-
-  ourVersion =
-    version & \(Version semver _) -> Version semver revision
-
-  revision =
-    maybeToList $
-      embeddedRevision
-        <|> gitRevision
-        <|> Just unknownVersion
 
   scriptInfo =
     infoOption
       (decodeUtf8 $ encodePretty Contract.scriptInfo)
       (long "script-info" <> help "Dump script info as JSON")
+
+hydraNodeVersion :: Version
+hydraNodeVersion =
+  version & \(Version semver _) -> Version semver revision
+ where
+  revision =
+    maybeToList $
+      embeddedRevision
+        <|> gitRevision
+        <|> Just unknownVersion
 
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = UnsafeContestationPeriod 60

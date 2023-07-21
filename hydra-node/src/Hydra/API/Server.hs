@@ -15,6 +15,7 @@ import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text (pack)
+import Data.Version (showVersion)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.RestServer (
@@ -25,7 +26,7 @@ import Hydra.API.RestServer (
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   OutputFormat (..),
-  ServerOutput (Greetings, InvalidInput),
+  ServerOutput (Greetings, InvalidInput, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
@@ -50,6 +51,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import qualified Hydra.Options as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (Method, status200, status400, status500)
@@ -269,6 +271,7 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     headStatus <- atomically getLatestHeadStatus
     snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
+
     sendTextData con $
       Aeson.encode
         TimedServerOutput
@@ -279,6 +282,7 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
                 { me = party
                 , headStatus
                 , snapshotUtxo
+                , hydraNodeVersion = showVersion Options.hydraNodeVersion
                 } ::
                 ServerOutput tx
           }

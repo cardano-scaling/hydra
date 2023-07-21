@@ -52,15 +52,12 @@
             "tag": "CommandFailed"
         },
         {
-            "headStatus": "Closed",
+            "headStatus": "Open",
+            "hydraNodeVersion": "𧺁mH7叇󽏨",
             "me": {
-                "vkey": "a370ea4b5ee0a358b6c9194ee4bc8565d8d8baddcdc4c3cfdc4ccc8a51fb094c"
+                "vkey": "87f730001ad30d8cca3cb866c793c8d8b88d4ebd980294658fcfd8a46257fe94"
             },
-            "snapshotUtxo": [
-                -5,
-                -2,
-                -1
-            ],
+            "snapshotUtxo": [],
             "tag": "Greetings"
         },
         {
@@ -488,14 +485,11 @@
             ]
         },
         {
-            "headStatus": "Final",
+            "headStatus": "Closed",
+            "hydraNodeVersion": "V",
             "me": {
-                "vkey": "2f5e1bcd9b49e081a0e1b08798a4798d7d4edf1499dc48a05e838ec6cb619d0f"
+                "vkey": "64d9bfac7aa1a6c8731da40cfd0f3ca102d48d5c81efb130850f961334120541"
             },
-            "snapshotUtxo": [
-                -6,
-                -4
-            ],
             "tag": "Greetings"
         },
         {
@@ -778,13 +772,15 @@
             "tag": "HeadIsClosed"
         },
         {
-            "headStatus": "Initializing",
+            "headStatus": "Idle",
+            "hydraNodeVersion": "󼐦",
             "me": {
-                "vkey": "8f2253084df751343d6c12ee5edf3eccf1fc4bfd99396f38b531514349688f00"
+                "vkey": "4d8e57a1a668f8e9617214a07e8ab381607a60d376b9f7658553f97b29379828"
             },
             "snapshotUtxo": [
-                -2,
-                -1
+                -1,
+                4,
+                6
             ],
             "tag": "Greetings"
         },
@@ -1042,14 +1038,11 @@
             ]
         },
         {
-            "headStatus": "FanoutPossible",
+            "headStatus": "Initializing",
+            "hydraNodeVersion": "[p\u0003󺚿󻤦",
             "me": {
-                "vkey": "c6aabf39b3d9c02c1d1b626787d4f69aa64b528a88fde044184bda137d9a1dc3"
+                "vkey": "383387d9bbfaf3570bffa2e61f3363abf5f08ed575cbf0357c69dc1c176e6c33"
             },
-            "snapshotUtxo": [
-                -2,
-                -1
-            ],
             "tag": "Greetings"
         },
         {
@@ -1287,13 +1280,13 @@
             ]
         },
         {
-            "headStatus": "Closed",
+            "headStatus": "FanoutPossible",
+            "hydraNodeVersion": "􈿅J\"p-\u0004",
             "me": {
-                "vkey": "4ad0396ea2180de4fd0b8ca36c39727350466b30951f5be68275627d7a985d46"
+                "vkey": "90c367fe4412017c74de7d22e9b8478297d26d6c7eaa4f2467fa301d16a8fb60"
             },
             "snapshotUtxo": [
-                -4,
-                -1
+                1
             ],
             "tag": "Greetings"
         },
@@ -1381,15 +1374,15 @@
             ]
         },
         {
-            "headStatus": "FanoutPossible",
+            "headStatus": "Final",
+            "hydraNodeVersion": "|\u001065󶆼",
             "me": {
-                "vkey": "7330a5a7f832629641ec76492c0451c0231dec5b091d792daee8a026e980e313"
+                "vkey": "4dec6db3851bda10b538ff5a079e5b6830bc1f8f0a3d7e9d8ce6025d337e5ac1"
             },
             "snapshotUtxo": [
-                -4,
-                -3,
-                1,
-                6
+                -1,
+                4,
+                5
             ],
             "tag": "Greetings"
         },
@@ -1467,14 +1460,11 @@
         },
         {
             "headStatus": "Initializing",
+            "hydraNodeVersion": "",
             "me": {
-                "vkey": "497e015d8cf8f1818d2b3e487856f38ec6ce415d6a9960b6ebd53730f69b327b"
+                "vkey": "7d80ab7b2734c7789aa42d1e7dfc6f0c0244f818d867ad9039a6bbcfa87b547b"
             },
-            "snapshotUtxo": [
-                -6,
-                5,
-                6
-            ],
+            "snapshotUtxo": [],
             "tag": "Greetings"
         },
         {
@@ -1513,13 +1503,10 @@
         },
         {
             "headStatus": "Closed",
+            "hydraNodeVersion": "&*󲟨G>",
             "me": {
-                "vkey": "57cca95cbf4314415f006775d68b8895075d0f419fe44ad7a9d157e703b1263c"
+                "vkey": "00cac85e0342093b1502aabdc0be0df7f44d8f5e3fd75e6be189a29c73d64585"
             },
-            "snapshotUtxo": [
-                0,
-                6
-            ],
             "tag": "Greetings"
         },
         {
@@ -1939,20 +1926,7 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "headUTxO": [],
-                "reason": "2",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": -4,
-                    "inputs": [
-                        -5,
-                        -2
-                    ],
-                    "outputs": [
-                        -3,
-                        -2
-                    ]
-                }
+                "tag": "SpendingNodeUtxoForbidden"
             },
             "tag": "PostTxOnChainFailed"
         },
