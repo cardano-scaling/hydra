@@ -238,7 +238,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ List of transactions applied locally and pending inclusion in a snapshot. Spec: T̂
   , allTxs :: Map.Map (TxIdType tx) tx
   -- ^ Map containing all the transactions ever seen by this node and not yet
-  -- included in a snapshot. Spec: T̂all
+  -- included in a snapshot. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
   , seenSnapshot :: SeenSnapshot tx
@@ -652,7 +652,7 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx = do
-  -- Spec: T̂all ← ̂Tall ∪ { (hash(tx), tx) }
+  -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
   let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
   waitApplyTx chs' $ \utxo' -> do
@@ -673,9 +673,9 @@ onOpenNetworkReqTx env ledger st ttl tx = do
                   { coordinatedHeadState =
                       chs''
                         { seenSnapshot =
-                            -- FIXME: Open point: This state update has no
-                            -- equivalence in the spec. Do we really need to
-                            -- store that we have requested a snapshot?
+                            -- XXX: This state update has no equivalence in the
+                            -- spec. Do we really need to store that we have
+                            -- requested a snapshot? If yes, should update spec.
                             RequestedSnapshot
                               { lastSeen = seenSnapshotNumber seenSnapshot
                               , requested = nextSn
@@ -752,9 +752,9 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   requireReqSn $
     -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂all
+      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
       waitResolvableTxs $ do
-        -- Spec: Treq ← {T̂all [h] | h ∈ Treq#}
+        -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
         let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
         -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
         requireApplyTxs requestedTxs $ \u -> do
@@ -765,7 +765,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
             -- Spec: for loop which updates T̂ and L̂
             let (localTxs', localUTxO') = pruneTransactions u
-            -- Spec: T̂all ← {tx | ∀tx ∈ T̂all : tx ∉ Treq }
+            -- Spec: Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
             let allTxs' = foldr Map.delete allTxs requestedTxIds
             NewState
               ( Open

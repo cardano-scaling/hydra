@@ -75,7 +75,7 @@
 						\On{$(\hpRT,\tx)$ from $\party_j$}{%
 
 							% track tx in state
-							$\hatmT_{\mathsf{all}} \gets \hatmT_{\mathsf{all}} \cup \{ (\hash(\tx),\tx )\}$
+							$\mT_{\mathsf{all}} \gets \mT_{\mathsf{all}} \cup \{ (\hash(\tx),\tx )\}$
 
 							\Wait{$\hatmL \applytx \tx \neq \bot$}{
 
@@ -98,13 +98,13 @@
 						\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \; %
 
 						% Wait for snapshot no snapshot in flight anymore and all txs applicable
-						\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \hatmT_{\mathsf{all}}$}{
+						\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \mT_{\mathsf{all}}$}{
 
-							$\mT_{req} \gets \{ \hatmT_{\mathsf{all}}[h] ~ | ~ \forall h \in \mT^{\#}_{req} \}$
+							$\mT_{\mathsf{req}} \gets \{ \mT_{\mathsf{all}}[h] ~ | ~ \forall h \in \mT^{\#}_{req} \}$
 
-							\Req{$\barmU \applytx \mT_{req} \not= \bot$}
+							\Req{$\barmU \applytx \mT_{\mathsf{req}} \not= \bot$}
 
-							$\hatmU \gets \barmU \applytx \mT_{req}$ \; %
+							$\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$ \; %
 
 							$\hats \gets \bars + 1$ \; %
 
@@ -117,7 +117,7 @@
 
 							$\Multi{}~(\hpAS,\hats,\msSig_i)$ \; %
 
-							$\forall \tx \in \mT_{req}: \Out~(\hpSeen,\tx)$ \; %
+							$\forall \tx \in \mT_{\mathsf{req}}: \Out~(\hpSeen,\tx)$ \; %
 
 							% TODO: Should we inform users if we drop a transaction?
 							% XXX: This is a bit verbose for the spec
@@ -129,7 +129,7 @@
 								$\hatmL\gets\hatmL\applytx \tx$ \;
 							}
 
-							$\hatmT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \hatmT_{\mathsf{all}} : tx \notin \mT_{req} \}$
+							$\mT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \mT_{\mathsf{all}} : tx \notin \mT_{\mathsf{req}} \}$
 						}
 					\end{walgo}
 				} &
@@ -160,7 +160,7 @@
 									$\barsigma \gets \msCSig$ \; %
 
 									%$\Out~(\hpSnap,(\bars,\barmU))$ \;  %
-									$\forall \tx \in \mT_{req} : \Out (\hpConf,\tx)$ \; %
+									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \; %
 
 									% issue snapshot if we are leader
 									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{%
