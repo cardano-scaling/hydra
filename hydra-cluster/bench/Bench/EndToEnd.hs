@@ -406,12 +406,12 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
     snapshot <- v ^? key "snapshot"
     SnapshotConfirmed
       <$> snapshot
-      ^? key "confirmedTransactions"
-      . _Array
-      . to toList
+        ^? key "confirmedTransactions"
+          . _Array
+          . to toList
       <*> snapshot
-      ^? key "snapshotNumber"
-      . _Number
+        ^? key "snapshotNumber"
+          . _Number
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 
-
 -- | Golden tests of hydra-plutus scripts.
 --
 -- This test suite ensures we do not accidentally change scripts and also

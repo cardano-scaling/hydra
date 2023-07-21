@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Cardano.Api.TxId where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
-import Cardano.Binary (ToCBOR(..), FromCBOR (..))
 
 -- missing CBOR instances
 

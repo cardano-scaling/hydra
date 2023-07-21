@@ -38,7 +38,7 @@ import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, createAndSaveSigningKey)
+import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
