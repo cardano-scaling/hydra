@@ -25,7 +25,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.HeadLogic.Outcome (collectEffects, collectState)
-import Hydra.HeadLogicSpec (inOpenState, inOpenState', runEvents, step)
+import Hydra.HeadLogicSpec (getState, inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
@@ -130,6 +130,7 @@ spec = do
           step (NetworkEvent defaultTTL carol $ ReqTx tx)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
+          getState
 
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldSatisfy` sendReqSn
@@ -148,6 +149,7 @@ spec = do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
+          getState
 
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects outcome `shouldNotSatisfy` sendReqSn
@@ -173,6 +175,8 @@ spec = do
           step (ackFrom carolSk carol)
           newTxBeforeSnapshotAcknowledged
           step (ackFrom aliceSk alice)
+          getState
+
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
@@ -192,6 +196,7 @@ spec = do
           step (NetworkEvent defaultTTL carol $ ReqTx tx)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
+          getState
 
         let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
 
@@ -239,5 +244,5 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      not (null parties) ==>
-        any (\p -> isLeader params p sn) parties
+      not (null parties)
+        ==> any (\p -> isLeader params p sn) parties

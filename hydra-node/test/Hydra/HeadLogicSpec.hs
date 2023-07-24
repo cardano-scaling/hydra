@@ -2,7 +2,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
 -- grained and specific to individual steps in the protocol. More high-level of
@@ -29,7 +28,8 @@ import Hydra.Chain (
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State ()
-import Hydra.Crypto (aggregate, generateSigningKey, sign)
+import Hydra.Crypto (generateSigningKey, sign)
+import qualified Hydra.Crypto as Crypto
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -43,11 +43,15 @@ import Hydra.HeadLogic (
   Outcome (..),
   RequirementFailure (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
+  StateChanged (StateReplaced),
   WaitReason (..),
+  aggregate,
+  collectEffects,
+  collectWaits,
   defaultTTL,
-  update, StateChanged (StateReplaced),
+  update,
  )
-import Hydra.HeadLogic.Outcome (collectEffects, collectState, collectWaits)
+import Hydra.HeadLogic.Outcome (collectState)
 import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -115,10 +119,14 @@ spec =
           step reqSn
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
+          getState
 
         getConfirmedSnapshot snapshotInProgress `shouldBe` Just (Snapshot 0 mempty [])
 
-        snapshotConfirmed <- runEvents bobEnv ledger snapshotInProgress $ step (ackFrom bobSk bob)
+        snapshotConfirmed <-
+          runEvents bobEnv ledger snapshotInProgress $ do
+            step (ackFrom bobSk bob)
+            getState
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
 
       describe "Tracks Transaction Ids" $ do
@@ -160,6 +168,7 @@ spec =
             step $ NetworkEvent defaultTTL alice $ ReqTx pendingTransaction
 
             step (ackFrom bobSk bob)
+            getState
 
           sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
@@ -176,6 +185,7 @@ spec =
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
+            getState
 
         update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
@@ -191,6 +201,7 @@ spec =
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
+            getState
 
         update bobEnv ledger waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
           `shouldSatisfy` \case
@@ -209,6 +220,7 @@ spec =
             step reqSn
             step (ackFrom carolSk carol)
             step (invalidAckFrom bobSk bob)
+            getState
 
         update bobEnv ledger waitingForLastAck (ackFrom aliceSk alice)
           `shouldSatisfy` \case
@@ -223,6 +235,7 @@ spec =
           runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
             step reqSn
             step (ackFrom carolSk carol)
+            getState
 
         update bobEnv ledger waitingForAck (ackFrom carolSk carol)
           `shouldSatisfy` \case
@@ -265,8 +278,9 @@ spec =
         let reqSn1 = NetworkEvent defaultTTL alice $ ReqSn 1 []
             reqSn2 = NetworkEvent defaultTTL bob $ ReqSn 2 []
         st <-
-          runEvents bobEnv ledger (inOpenState threeParties ledger) $
+          runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
             step reqSn1
+            getState
 
         update bobEnv ledger st reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
 
@@ -293,7 +307,7 @@ spec =
             snapshot = Snapshot 2 mempty []
             st =
               inOpenState' threeParties $
-                coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])}
+                coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
@@ -303,7 +317,7 @@ spec =
             st =
               inOpenState' threeParties $
                 coordinatedHeadState
-                  { confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
+                  { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
@@ -326,6 +340,7 @@ spec =
           step firstReqTx
           step firstReqSn
           step secondReqTx
+          getState
 
         update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
           Error RequireFailed{} -> True
@@ -344,6 +359,7 @@ spec =
           runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observeEventAtSlot 1 aliceCommit)
             step (observeEventAtSlot 2 bobCommit)
+            getState
 
         -- Bob is not the last party, but still does post a collect
         update bobEnv ledger waitingForLastCommit (observeEventAtSlot 3 carolCommit)
@@ -353,8 +369,9 @@ spec =
 
       it "cannot observe abort after collect com" $ do
         afterCollectCom <-
-          runEvents bobEnv ledger (inInitialState threeParties) $
+          runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observationEvent OnCollectComTx)
+            getState
 
         let invalidEvent = observationEvent OnAbortTx
         update bobEnv ledger afterCollectCom invalidEvent
@@ -362,8 +379,9 @@ spec =
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
-          runEvents bobEnv ledger (inInitialState threeParties) $
+          runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observationEvent OnAbortTx)
+            getState
 
         let invalidEvent = observationEvent OnCollectComTx
         update bobEnv ledger afterAbort invalidEvent
@@ -395,7 +413,7 @@ spec =
 
       it "contests when detecting close with old snapshot" $ do
         let snapshot = Snapshot 2 mempty []
-            latestConfirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
             s0 =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
@@ -410,7 +428,7 @@ spec =
 
       it "re-contests when detecting contest with old snapshot" $ do
         let snapshot2 = Snapshot 2 mempty []
-            latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (aggregate [])
+            latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = observationEvent $ OnContestTx 1
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
@@ -466,8 +484,9 @@ spec =
 
         st <-
           run $
-            runEvents bobEnv ledger st0 $
+            runEvents bobEnv ledger st0 $ do
               step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+              getState
 
         assert $ case st of
           Open
@@ -595,30 +614,27 @@ data StepState tx = StepState
   , ledger :: Ledger tx
   }
 
--- | Asserts that the update function will update the state (return a NewState) for this Event
+-- | Retrieves the latest 'HeadState' from within 'runEvents'.
+getState :: (MonadState (StepState tx) m) => m (HeadState tx)
+getState = headState <$> get
+
+-- | Calls 'update' and 'aggregate' to drive the 'runEvents' monad forward.
 step ::
-  (MonadState (StepState tx) m, HasCallStack, IsChainState tx) =>
+  (MonadState (StepState tx) m, IsChainState tx) =>
   Event tx ->
-  m (HeadState tx)
+  m ()
 step event = do
   StepState{headState, env, ledger} <- get
-  headState' <- assertNewState $ update env ledger headState event
+  let headState' = aggregateOutcome headState $ update env ledger headState event
   put StepState{env, ledger, headState = headState'}
-  pure headState'
+ where
+  aggregateOutcome s = \case
+    StateChanged sc -> aggregate s sc
+    Combined l r -> aggregateOutcome (aggregateOutcome s l) r
+    _ -> s
 
--- | Asserts that the update function will update the state (return a NewState) for this Event
-assertUpdateState ::
-  (MonadState (HeadState tx) m, HasCallStack, IsChainState tx) =>
-  Environment ->
-  Ledger tx ->
-  Event tx ->
-  m (HeadState tx)
-assertUpdateState env ledger event = do
-  st <- get
-  st' <- assertNewState $ update env ledger st event
-  put st'
-  pure st'
-
+-- TODO: instead of asserting state we should try to rework the tests in here to
+-- assert the StateChange outcome already
 assertNewState ::
   (HasCallStack, IsChainState tx, Monad m) =>
   Outcome tx ->
