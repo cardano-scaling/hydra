@@ -52,16 +52,20 @@ data StateChanged tx
       , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
       }
+  | TransactionAppliedToLocalUTxO
+      { tx :: tx
+      , utxo :: UTxOType tx
+      }
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
-instance (Arbitrary (HeadState tx), Arbitrary (ChainStateType tx), Arbitrary (UTxOType tx)) => Arbitrary (StateChanged tx) where
+instance (Arbitrary tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx), Arbitrary (UTxOType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq (HeadState tx), Eq (UTxOType tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving instance (Show (HeadState tx), Show (UTxOType tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving instance (ToJSON (HeadState tx), ToJSON (UTxOType tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving instance (FromJSON (HeadState tx), FromJSON (UTxOType tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving instance (Eq tx, Eq (HeadState tx), Eq (UTxOType tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving instance (Show tx, Show (HeadState tx), Show (UTxOType tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving instance (ToJSON tx, ToJSON (HeadState tx), ToJSON (UTxOType tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving instance (FromJSON tx, FromJSON (HeadState tx), FromJSON (UTxOType tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = NoOutcome
@@ -99,7 +103,7 @@ collectWaits = \case
   Combined l r -> collectWaits l <> collectWaits r
 
 -- FIXME: This is only used in tests
-collectState :: Outcome tx -> [HeadState tx]
+collectState :: HasCallStack => Outcome tx -> [HeadState tx]
 collectState = \case
   NoOutcome -> []
   Error _ -> []
@@ -107,6 +111,8 @@ collectState = \case
   StateChanged s ->
     case s of
       HeadInitialized{} -> undefined
+      CommittedUTxO{} -> undefined
+      TransactionAppliedToLocalUTxO{} -> undefined
       StateReplaced sc -> [sc]
   Effects _ -> []
   Combined l r -> collectState l <> collectState r

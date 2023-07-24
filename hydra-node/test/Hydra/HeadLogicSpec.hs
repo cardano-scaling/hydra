@@ -134,8 +134,11 @@ spec =
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
 
-          sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
+          sa <- runEvents bobEnv ledger s0 $ do
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+            getState
 
+          -- TODO: not assert state? but only the StateChanged + a test on 'aggregate'?
           sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
             _ -> False
@@ -145,8 +148,10 @@ spec =
               t1 = SimpleTx 1 mempty (utxoRef 1)
               reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
 
-          sa <- assertNewState $ update bobEnv ledger s0 $ NetworkEvent defaultTTL alice $ ReqTx t1
-          s1 <- assertNewState $ update bobEnv ledger sa reqSn
+          s1 <- runEvents bobEnv ledger s0 $ do
+            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+            step reqSn
+            getState
 
           s1 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
@@ -248,8 +253,10 @@ spec =
             event = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
             s0 = inOpenState threeParties ledger
 
-        s1 <- assertNewState $ update bobEnv ledger s0 reqTx42
-        s2 <- assertNewState $ update bobEnv ledger s1 reqTx1
+        s2 <- runEvents bobEnv ledger s0 $ do
+          step reqTx42
+          step reqTx1
+          getState
 
         update bobEnv ledger s2 event
           `shouldBe` Error (RequireFailed (SnapshotDoesNotApply 1 1 (ValidationError "cannot apply transaction")))

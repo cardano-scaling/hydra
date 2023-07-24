@@ -333,7 +333,7 @@ onOpenNetworkReqTx env ledger st ttl tx = do
                     }
             )
             `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
-        else StateChanged (StateReplaced $ Open st{coordinatedHeadState = chs''})
+        else StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
  where
   waitApplyTx chs cont =
     case applyTransactions currentSlot localUTxO [tx] of
@@ -828,7 +828,7 @@ update env ledger st ev = case (st, ev) of
 -- * HeadState aggregate
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
-aggregate :: HeadState tx -> StateChanged tx -> HeadState tx
+aggregate :: IsTx tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
     Initial
@@ -839,10 +839,9 @@ aggregate st = \case
         , chainState
         , headId
         }
-  CommittedUTxO{committedUTxO, chainState, party} -> case st of
-    Initial InitialState{parameters, pendingCommits, committed, headId} -> newState
-     where
-      newState =
+  CommittedUTxO{committedUTxO, chainState, party} ->
+    case st of
+      Initial InitialState{parameters, pendingCommits, committed, headId} ->
         Initial
           InitialState
             { parameters
@@ -851,8 +850,23 @@ aggregate st = \case
             , chainState
             , headId
             }
-
-      newCommitted = Map.insert party committedUTxO committed
-      remainingParties = Set.delete party pendingCommits
-    _ -> st
+       where
+        newCommitted = Map.insert party committedUTxO committed
+        remainingParties = Set.delete party pendingCommits
+      _otherState -> st
+  TransactionAppliedToLocalUTxO{tx, utxo} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { allTxs = allTxs <> fromList [(txId tx, tx)]
+                  , localUTxO = utxo
+                  , localTxs = localTxs <> [tx]
+                  }
+            }
+       where
+        CoordinatedHeadState{allTxs, localTxs} = coordinatedHeadState
+      _otherState -> st
   StateReplaced newState -> newState
