@@ -179,22 +179,12 @@ onInitialChainCommitTx ::
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
   StateChanged
-    (StateReplaced newState)
+    (CommittedUTxO{party = pt, committedUTxO = utxo, chainState = newChainState})
     `Combined` Effects
       ( notifyClient
           : [postCollectCom | canCollectCom]
       )
  where
-  newState =
-    Initial
-      InitialState
-        { parameters
-        , pendingCommits = remainingParties
-        , committed = newCommitted
-        , chainState = newChainState
-        , headId
-        }
-
   newCommitted = Map.insert pt utxo committed
 
   notifyClient = ClientEffect $ Committed headId pt utxo
@@ -208,7 +198,7 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   remainingParties = Set.delete pt pendingCommits
 
-  InitialState{parameters, pendingCommits, committed, headId} = st
+  InitialState{pendingCommits, committed, headId} = st
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
@@ -839,7 +829,7 @@ update env ledger st ev = case (st, ev) of
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: HeadState tx -> StateChanged tx -> HeadState tx
-aggregate _s = \case
+aggregate st = \case
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
     Initial
       InitialState
@@ -849,4 +839,20 @@ aggregate _s = \case
         , chainState
         , headId
         }
+  CommittedUTxO{committedUTxO, chainState, party} -> case st of
+    Initial InitialState{parameters, pendingCommits, committed, headId} -> newState
+     where
+      newState =
+        Initial
+          InitialState
+            { parameters
+            , pendingCommits = remainingParties
+            , committed = newCommitted
+            , chainState
+            , headId
+            }
+
+      newCommitted = Map.insert party committedUTxO committed
+      remainingParties = Set.delete party pendingCommits
+    _ -> st
   StateReplaced newState -> newState

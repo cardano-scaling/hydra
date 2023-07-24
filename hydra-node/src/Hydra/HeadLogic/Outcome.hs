@@ -6,11 +6,12 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx, TxIdType, ValidationError)
+import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
+import Hydra.Party (Party)
 import Hydra.Snapshot (SnapshotNumber)
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
@@ -46,16 +47,21 @@ data StateChanged tx
       , chainState :: ChainStateType tx
       , headId :: HeadId
       }
+  | CommittedUTxO
+      { party :: Party
+      , committedUTxO :: UTxOType tx
+      , chainState :: ChainStateType tx
+      }
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
-instance (Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
+instance (Arbitrary (HeadState tx), Arbitrary (ChainStateType tx), Arbitrary (UTxOType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving instance (Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving instance (ToJSON (HeadState tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving instance (FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving instance (Eq (HeadState tx), Eq (UTxOType tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving instance (Show (HeadState tx), Show (UTxOType tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving instance (ToJSON (HeadState tx), ToJSON (UTxOType tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving instance (FromJSON (HeadState tx), FromJSON (UTxOType tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = NoOutcome
