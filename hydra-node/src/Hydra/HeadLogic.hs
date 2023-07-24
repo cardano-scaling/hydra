@@ -130,15 +130,11 @@ onIdleChainInitTx ::
   Outcome tx
 onIdleChainInitTx newChainState parties contestationPeriod headId =
   StateChanged
-    ( StateReplaced $
-        Initial
-          InitialState
-            { parameters = HeadParameters{contestationPeriod, parties}
-            , pendingCommits = Set.fromList parties
-            , committed = mempty
-            , chainState = newChainState
-            , headId
-            }
+    ( HeadInitialized
+        { parameters = HeadParameters{contestationPeriod, parties}
+        , chainState = newChainState
+        , headId
+        }
     )
     `Combined` Effects [ClientEffect $ HeadIsInitializing headId (fromList parties)]
 
@@ -844,4 +840,13 @@ update env ledger st ev = case (st, ev) of
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: HeadState tx -> StateChanged tx -> HeadState tx
 aggregate _s = \case
+  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
+    Initial
+      InitialState
+        { parameters = parameters
+        , pendingCommits = Set.fromList parties
+        , committed = mempty
+        , chainState
+        , headId
+        }
   StateReplaced newState -> newState

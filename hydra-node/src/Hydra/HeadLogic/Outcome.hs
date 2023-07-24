@@ -41,16 +41,21 @@ instance
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
 data StateChanged tx
-  = StateReplaced (HeadState tx)
+  = HeadInitialized
+      { parameters :: HeadParameters
+      , chainState :: ChainStateType tx
+      , headId :: HeadId
+      }
+  | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
-instance (Arbitrary (HeadState tx)) => Arbitrary (StateChanged tx) where
+instance (Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq (HeadState tx)) => Eq (StateChanged tx)
-deriving instance (Show (HeadState tx)) => Show (StateChanged tx)
-deriving instance (ToJSON (HeadState tx)) => ToJSON (StateChanged tx)
-deriving instance (FromJSON (HeadState tx)) => FromJSON (StateChanged tx)
+deriving instance (Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving instance (Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving instance (ToJSON (HeadState tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving instance (FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = NoOutcome
@@ -87,14 +92,15 @@ collectWaits = \case
   Effects _ -> []
   Combined l r -> collectWaits l <> collectWaits r
 
+-- FIXME: This is only used in tests
 collectState :: Outcome tx -> [HeadState tx]
 collectState = \case
   NoOutcome -> []
   Error _ -> []
   Wait _ -> []
   StateChanged s ->
-    -- FIXME: This is wrong we should need the enclosing function
     case s of
+      HeadInitialized{} -> undefined
       StateReplaced sc -> [sc]
   Effects _ -> []
   Combined l r -> collectState l <> collectState r
