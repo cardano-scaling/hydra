@@ -172,6 +172,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
                     <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
+    , postUserTx = submitTx
     }
 
 -- | Balance and sign the given partial transaction.

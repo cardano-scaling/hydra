@@ -22,7 +22,8 @@ import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SubmitTxRequest (..),
-  fromTxOutWithWitness, SubmitTxResponse (..),
+  SubmitTxResponse (..),
+  fromTxOutWithWitness,
  )
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
@@ -449,7 +450,8 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
+      postUserTx txToSubmit
       respond $ responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
  where
-   -- TODO: plug new chain handle function to submit user tx here
-  Chain{draftCommitTx} = directChain
+  -- TODO: plug new chain handle function to submit user tx here
+  Chain{postUserTx} = directChain

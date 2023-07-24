@@ -206,6 +206,8 @@ data Chain tx m = Chain
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- information to spend from a script. Errors are handled at the call site.
+  , postUserTx :: MonadThrow m => Tx -> m ()
+  -- ^ Post a signed transaction on behalf of the user.
   }
 
 data ChainEvent tx
