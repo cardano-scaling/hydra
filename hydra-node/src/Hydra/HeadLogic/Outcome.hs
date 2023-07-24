@@ -56,6 +56,7 @@ data StateChanged tx
       { tx :: tx
       , utxo :: UTxOType tx
       }
+  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
@@ -114,6 +115,7 @@ collectState = \case
       CommittedUTxO{} -> undefined
       TransactionAppliedToLocalUTxO{} -> undefined
       StateReplaced sc -> [sc]
+      SnapshotRequestDecided{} -> undefined
   Effects _ -> []
   Combined l r -> collectState l <> collectState r
 

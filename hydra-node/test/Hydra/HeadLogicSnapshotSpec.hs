@@ -100,7 +100,6 @@ spec = do
       it "updates seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
             st = inOpenState' threeParties coordinatedHeadState
-            outcome = update (envFor aliceSk) simpleLedger st $ NetworkEvent defaultTTL alice $ ReqTx tx
 
         let st' =
               inOpenState' threeParties $
@@ -111,7 +110,10 @@ spec = do
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                   }
 
-        collectState outcome `shouldContain` [st']
+        actualState <- runEvents (envFor aliceSk) simpleLedger st $ do
+          step $ NetworkEvent defaultTTL alice $ ReqTx tx
+          getState
+        actualState `shouldBe` st'
 
     describe "On AckSn" $ do
       it "sends ReqSn  when leader and there are seen transactions" $ do

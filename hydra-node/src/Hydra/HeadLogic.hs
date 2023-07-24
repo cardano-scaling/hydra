@@ -304,34 +304,15 @@ onOpenNetworkReqTx env ledger st ttl tx = do
   let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
   waitApplyTx chs' $ \utxo' -> do
-    let chs'' =
-          chs'
-            { -- Spec: L̂ ← L̂ ◦ tx
-              localUTxO = utxo'
-            , -- Spec: T̂ ← T̂ ∪ {tx}
-              localTxs = localTxs'
-            }
     (Effects [ClientEffect $ TxValid headId tx] `Combined`) $
       -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
       if not snapshotInFlight && isLeader parameters party nextSn
         then
-          StateChanged
-            ( StateReplaced $
-                Open
-                  st
-                    { coordinatedHeadState =
-                        chs''
-                          { seenSnapshot =
-                              -- XXX: This state update has no equivalence in the
-                              -- spec. Do we really need to store that we have
-                              -- requested a snapshot? If yes, should update spec.
-                              RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber seenSnapshot
-                                , requested = nextSn
-                                }
-                          }
-                    }
-            )
+          StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
+            -- XXX: This state update has no equivalence in the
+            -- spec. Do we really need to store that we have
+            -- requested a snapshot? If yes, should update spec.
+            `Combined` StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
             `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
         else StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
  where
@@ -868,5 +849,22 @@ aggregate st = \case
             }
        where
         CoordinatedHeadState{allTxs, localTxs} = coordinatedHeadState
+      _otherState -> st
+  SnapshotRequestDecided{snapshotNumber} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { seenSnapshot =
+                      RequestedSnapshot
+                        { lastSeen = seenSnapshotNumber seenSnapshot
+                        , requested = snapshotNumber
+                        }
+                  }
+            }
+       where
+        CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
       _otherState -> st
   StateReplaced newState -> newState
