@@ -351,8 +351,8 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
-    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      tx :: Tx <- generate arbitrary
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \_ -> do
+      tx <- generate arbitrary
       let userTx =
             SubmitTxRequest
               { txToSubmit = tx

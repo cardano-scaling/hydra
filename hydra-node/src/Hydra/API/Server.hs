@@ -21,7 +21,8 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
-  fromTxOutWithWitness,
+  SubmitTxRequest (..),
+  fromTxOutWithWitness, SubmitTxResponse (..),
  )
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
@@ -252,6 +253,24 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
+  -- Hydra HTTP server
+  httpApp directChain req respond =
+    case (requestMethod req, pathInfo req) of
+      ("POST", ["commit"]) -> do
+        body <- consumeRequestBodyStrict req
+        handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+      ("POST", ["submit-user-tx"]) -> do
+        body <- consumeRequestBodyStrict req
+        handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
+      _ -> do
+        traceWith tracer $
+          APIRestInputReceived
+            { method = decodeUtf8 $ requestMethod req
+            , paths = pathInfo req
+            , requestInputBody = Nothing
+            }
+        respond $ responseLBS status400 [] "Resource not found"
+
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
@@ -408,4 +427,29 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
  where
   return400 = responseLBS status400 [] . Aeson.encode . toJSON
 
+  Chain{draftCommitTx} = directChain
+
+-- Handle user requests to submit a signed tx
+handleSubmitUserTx ::
+  Chain tx IO ->
+  Tracer IO APIServerLog ->
+  LBS.ByteString ->
+  Method ->
+  [Text] ->
+  (Response -> IO ResponseReceived) ->
+  IO ResponseReceived
+handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
+  case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
+    Left err ->
+      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right requestInput@SubmitTxRequest{txToSubmit} -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 reqMethod
+          , paths = reqPaths
+          , requestInputBody = Just $ toJSON requestInput
+          }
+      respond $ responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
+ where
+   -- TODO: plug new chain handle function to submit user tx here
   Chain{draftCommitTx} = directChain
