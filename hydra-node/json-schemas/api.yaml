@@ -151,7 +151,7 @@ channels:
       description: |
         Clients can request from hydra-node it's protocol parameters used on start.
       message:
-        $ref: "api.yaml#/components/messages/ProtocolParameters"
+        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
       bindings:
         http:
           type: response
