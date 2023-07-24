@@ -36,8 +36,9 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
+import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
+  ChainContext (ChainContext, contestationPeriod, networkId),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -125,16 +126,17 @@ type GetTimeHandle m = m TimeHandle
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m, MonadThrow (STM m), MonadIO m) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
   LocalChainState m ->
+  FilePath ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx@ChainContext{networkId} LocalChainState{getLatest} nodeSocket submitTx =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -172,7 +174,8 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
                     <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
-    , postUserTx = submitTx
+    , -- Post a signed transaction on behalf of the user.
+      postUserTx = liftIO . submitTransaction networkId nodeSocket
     }
 
 -- | Balance and sign the given partial transaction.

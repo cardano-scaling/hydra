@@ -204,6 +204,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
           wallet
           ctx
           localChainState
+          nodeSocket
           (submitTx queue)
 
   let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
