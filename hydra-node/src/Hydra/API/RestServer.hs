@@ -6,7 +6,7 @@ module Hydra.API.RestServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.Aeson (Value (Object), withObject, (.:?), (.:))
+import Data.Aeson (Value (Object), withObject, (.:?))
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.ByteString.Short ()
 import Hydra.Cardano.Api (
@@ -29,7 +29,6 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
  )
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger (IsTx)
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
@@ -105,13 +104,13 @@ instance Arbitrary DraftCommitTxRequest where
   shrink = \case
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
 
-newtype SubmitTxRequest tx = SubmitTxRequest
-  { txToSubmit :: tx
+newtype SubmitTxRequest = SubmitTxRequest
+  { txToSubmit :: Tx
   }
   deriving stock (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
-instance IsTx tx => Arbitrary (SubmitTxRequest tx) where
+instance Arbitrary SubmitTxRequest where
   arbitrary = genericArbitrary
 
   shrink = \case
@@ -120,15 +119,9 @@ instance IsTx tx => Arbitrary (SubmitTxRequest tx) where
 newtype SubmitTxResponse = SubmitTxResponse
   { submitTxResponse :: Text
   }
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
 
-instance ToJSON SubmitTxResponse where
-  toJSON (SubmitTxResponse r) = toJSON r
-
-instance FromJSON SubmitTxResponse where
-  parseJSON = withObject "SubmitTxResponse" $ \o -> do
-     r <- o .: "submitTxResponse"
-     pure $ SubmitTxResponse r
 
 instance Arbitrary SubmitTxResponse where
   arbitrary = genericArbitrary
