@@ -9,6 +9,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
+  buildTransaction,
   queryProtocolParameters,
   queryTip,
   submitTx,
@@ -24,18 +25,29 @@ import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
-  TxOutWithWitness (..), SubmitTxRequest (..), SubmitTxResponse (..),
+  SubmitTxRequest (..),
+  SubmitTxResponse (..),
+  TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
   Lovelace (..),
+  MultiAssetSupportedInEra (MultiAssetInBabbageEra),
   PlutusScriptV2,
+  ShelleyWitnessSigningKey (WitnessPaymentKey),
   Tx,
   TxId,
+  TxOutValue (TxOutValue),
   fromPlutusScript,
+  lovelaceToValue,
+  makeShelleyKeyWitness,
+  makeSignedTransaction,
   mkScriptAddress,
+  mkVkAddress,
   selectLovelace,
+  signTx,
   toScriptData,
  )
+import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
@@ -63,7 +75,7 @@ import Network.HTTP.Req (
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldThrow)
-import Test.QuickCheck (generate)
+import Test.Hydra.Prelude (failure)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -352,24 +364,43 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
     withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \_ -> do
-      tx <- generate arbitrary
-      let userTx =
-            SubmitTxRequest
-              { txToSubmit = tx
-              }
-      res <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "submit-user-tx")
-            (ReqBodyJson userTx)
-            (Proxy :: Proxy (JsonResponse SubmitTxResponse))
-            (port $ 4000 + hydraNodeId)
+      -- let's prepare a _user_ transaction from Bob to Carol
+      (cardanoBobVk, cardanoBobSk) <- keysFor Bob
+      (cardanoCarolVk, _) <- keysFor Carol
+      -- create output for Bob
+      bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
+      let carolAddress = mkVkAddress networkId cardanoCarolVk
+          changeAddress = mkVkAddress networkId cardanoBobVk
+          theOutput =
+            TxOut
+              carolAddress
+              (TxOutValue MultiAssetInBabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
+              TxOutDatumNone
+              ReferenceScriptNone
+      -- prepare fully balanced tx body
+      eTxBody <- buildTransaction networkId nodeSocket changeAddress bobUTxO [] [theOutput]
+      case eTxBody of
+        Left e -> failure $ show e
+        Right body -> do
+          -- create signed tx using bob's secret key
+          let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey cardanoBobSk)] body
+              bobTx =
+                SubmitTxRequest
+                  { txToSubmit = tx
+                  }
+          res <-
+            runReq defaultHttpConfig $
+              req
+                POST
+                (http "127.0.0.1" /: "submit-user-tx")
+                (ReqBodyJson bobTx)
+                (Proxy :: Proxy (JsonResponse SubmitTxResponse))
+                (port $ 4000 + hydraNodeId)
 
-      let SubmitTxResponse{submitTxResponse} = responseBody res
-      submitTxResponse `shouldBe` "TX Submitted"
+          let SubmitTxResponse{submitTxResponse} = responseBody res
+          submitTxResponse `shouldBe` "TX Submitted"
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{networkId, nodeSocket} = node
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

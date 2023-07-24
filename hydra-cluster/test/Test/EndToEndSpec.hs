@@ -146,7 +146,7 @@ spec = around showLogsOnFailure $
             publishHydraScriptsAs node Faucet
               >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
-        withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
+        withClusterTempDir "submit-a-signed-user-transaction" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitUserTransaction tracer tmpDir node
