@@ -86,6 +86,7 @@ import Network.WebSockets (
   sendTextDatas,
   withPingThread,
  )
+import Ouroboros.Network.Driver.Simple (DecoderFailure)
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
@@ -450,8 +451,13 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
           , paths = reqPaths
           , requestInputBody = Just $ toJSON requestInput
           }
-      postUserTx txToSubmit
-      respond $ responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
+
+      eresult <- try $ postUserTx txToSubmit
+      respond $
+        case eresult of
+          Left (e :: DecoderFailure) ->
+            responseLBS status500 [] (Aeson.encode . Aeson.String . pack $ displayException e)
+          Right _ ->
+            responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
  where
-  -- TODO: plug new chain handle function to submit user tx here
   Chain{postUserTx} = directChain
