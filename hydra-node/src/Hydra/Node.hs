@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), collectEffects, defaultTTL)
+import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -116,7 +116,10 @@ stepHydraNode tracer node = do
     NoOutcome -> pure ()
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    NewState s -> save s
+    StateChanged sc -> do
+      -- TODO: We should not need to query the head state here
+      s <- atomically queryHeadState
+      save $ aggregate s sc
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -131,7 +134,9 @@ stepHydraNode tracer node = do
 
   Persistence{save} = persistence
 
-  HydraNode{persistence, eq, env} = node
+  NodeState{queryHeadState} = nodeState
+
+  HydraNode{persistence, eq, env, nodeState} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -152,7 +157,7 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
   handleOutcome s = \case
     NoOutcome -> (NoOutcome, s)
     Effects effects -> (Effects effects, s)
-    NewState s' -> (NewState s', s')
+    StateChanged sc -> (StateChanged sc, aggregate s sc)
     Error err -> (Error err, s)
     Wait reason -> (Wait reason, s)
     Combined l r ->

@@ -38,10 +38,24 @@ instance
   where
   arbitrary = genericArbitrary
 
+-- | Head state changed event. These events represent all the internal state
+-- changes, get persisted and processed in an event sourcing manner.
+data StateChanged tx
+  = StateReplaced (HeadState tx)
+  deriving stock (Generic)
+
+instance (Arbitrary (HeadState tx)) => Arbitrary (StateChanged tx) where
+  arbitrary = genericArbitrary
+
+deriving instance (Eq (HeadState tx)) => Eq (StateChanged tx)
+deriving instance (Show (HeadState tx)) => Show (StateChanged tx)
+deriving instance (ToJSON (HeadState tx)) => ToJSON (StateChanged tx)
+deriving instance (FromJSON (HeadState tx)) => FromJSON (StateChanged tx)
+
 data Outcome tx
   = NoOutcome
   | Effects {effects :: [Effect tx]}
-  | NewState {headState :: HeadState tx}
+  | StateChanged (StateChanged tx)
   | Wait {reason :: WaitReason tx}
   | Error {error :: LogicError tx}
   | Combined {left :: Outcome tx, right :: Outcome tx}
@@ -57,22 +71,31 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) wher
 
 collectEffects :: Outcome tx -> [Effect tx]
 collectEffects = \case
-    Effects eff -> eff
-    Combined l r -> collectEffects l <> collectEffects r
-    _ -> []
+  NoOutcome -> []
+  Error _ -> []
+  Wait _ -> []
+  StateChanged _ -> []
+  Effects effs -> effs
+  Combined l r -> collectEffects l <> collectEffects r
 
 collectWaits :: Outcome tx -> [WaitReason tx]
 collectWaits = \case
-    Wait w -> [w]
-    Combined l r -> collectWaits l <> collectWaits r
-    _ -> []
+  NoOutcome -> []
+  Error _ -> []
+  Wait w -> [w]
+  StateChanged _ -> []
+  Effects _ -> []
+  Combined l r -> collectWaits l <> collectWaits r
 
 collectState :: Outcome tx -> [HeadState tx]
 collectState = \case
   NoOutcome -> []
   Error _ -> []
   Wait _ -> []
-  NewState s -> [s]
+  StateChanged s ->
+    -- FIXME: This is wrong we should need the enclosing function
+    case s of
+      StateReplaced sc -> [sc]
   Effects _ -> []
   Combined l r -> collectState l <> collectState r
 
@@ -91,5 +114,3 @@ deriving instance (IsTx tx) => FromJSON (WaitReason tx)
 
 instance IsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary
-
-
