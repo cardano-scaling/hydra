@@ -66,7 +66,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCannotCommitExternallyWalletUtxo,
   singlePartyCommitsFromExternalScript,
   singlePartyCommitsUsingFuel,
-  singlePartyHeadFullLifeCycle,
+  singlePartyHeadFullLifeCycle, canSubmitUserTransaction,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -145,6 +145,11 @@ spec = around showLogsOnFailure $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
+      it "can submit a signed user transaction" $ \tracer -> do
+        withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSubmitUserTransaction tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

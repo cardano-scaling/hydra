@@ -24,7 +24,7 @@ import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
-  TxOutWithWitness (..),
+  TxOutWithWitness (..), SubmitTxRequest (..), SubmitTxResponse (..),
  )
 import Hydra.Cardano.Api (
   Lovelace (..),
@@ -63,6 +63,7 @@ import Network.HTTP.Req (
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldThrow)
+import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -338,6 +339,37 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (actorVk, _) <- keysFor actor
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+
+canSubmitUserTransaction ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      tx :: Tx <- generate arbitrary
+      let userTx =
+            SubmitTxRequest
+              { txToSubmit = tx
+              }
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "submit-user-tx")
+            (ReqBodyJson userTx)
+            (Proxy :: Proxy (JsonResponse SubmitTxResponse))
+            (port $ 4000 + hydraNodeId)
+
+      let SubmitTxResponse{submitTxResponse} = responseBody res
+      submitTxResponse `shouldBe` "TX Submitted"
+ where
+  RunningNode{nodeSocket} = node
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
