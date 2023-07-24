@@ -149,7 +149,7 @@ channels:
       summary: Get cardano protocol parameters.
       operationId: getProtocolParameters
       message:
-        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
+        $ref: "#/components/messages/ProtocolParameters"
       bindings:
         http:
           type: response
@@ -801,6 +801,12 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
 
+    ProtocolParameters:
+      title: ProtocolParameters
+      payload:
+        type: object
+        additionalProperties: false
+        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
 
   ########
   #
