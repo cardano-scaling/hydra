@@ -65,6 +65,7 @@ data StateChanged tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | InvalidTransactionReceived {tx :: tx}
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 

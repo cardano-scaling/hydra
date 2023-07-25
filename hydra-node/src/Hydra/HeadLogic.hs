@@ -303,7 +303,7 @@ onOpenNetworkReqTx env ledger st ttl tx = do
       Right utxo' -> cont utxo'
       Left (_, err)
         | ttl > 0 ->
-            StateChanged (StateReplaced $ Open st{coordinatedHeadState = chs})
+            StateChanged InvalidTransactionReceived{tx}
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
             -- XXX: We might want to remove invalid txs from allTxs here to
@@ -879,5 +879,18 @@ aggregate st = \case
             , headId
             , currentSlot = chainStateSlot chainState
             }
+      _otherState -> st
+  InvalidTransactionReceived{tx} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { allTxs = allTxs <> fromList [(txId tx, tx)]
+                  }
+            }
+       where
+        CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   StateReplaced newState -> newState
