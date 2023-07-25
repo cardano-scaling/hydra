@@ -336,6 +336,7 @@ test-suite tests
     , hspec
     , hspec-core
     , hspec-golden-aeson
+    , hspec-wai
     , HUnit
     , hydra-cardano-api
     , hydra-node

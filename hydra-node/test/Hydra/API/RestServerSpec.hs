@@ -2,21 +2,20 @@
 
 module Hydra.API.RestServerSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Aeson.Lens (key)
 import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse)
-import Hydra.API.ServerSpec (mockPersistence, withTestAPIServer)
+import Hydra.API.Server (httpApp)
+import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Logging (showLogsOnFailure)
-import Network.HTTP.Req (GET (GET), NoReqBody (NoReqBody), defaultHttpConfig, http, lbsResponse, port, req, responseBody, responseStatusCode, runReq, (/:))
+import Hydra.Logging (nullTracer)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice)
-import Test.Network.Ports (withFreePort)
+import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
 import Test.QuickCheck.Property (property, withMaxSuccess)
 
 spec :: Spec
@@ -37,19 +36,22 @@ spec = do
           prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
             key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
 
-  describe "REST API endpoints" $
-    it "GET /protocol-parameters returns 200" $
-      showLogsOnFailure $ \tracer -> failAfter 5 $
-        withFreePort $ \port' ->
-          withTestAPIServer port' alice mockPersistence tracer $ \_ -> do
-            r <-
-              runReq defaultHttpConfig $
-                req
-                  GET
-                  (http "127.0.0.1" /: "protocol-parameters")
-                  NoReqBody
-                  lbsResponse
-                  (port $ fromIntegral port')
+    apiServerSpec
 
-            responseBody r `shouldBe` encode defaultPParams
-            responseStatusCode r `shouldBe` 200
+-- REVIEW: we should add more tests for other routes here (eg. /commit)
+apiServerSpec :: Spec
+apiServerSpec = do
+  let webServer = httpApp nullTracer dummyChainHandle defaultPParams
+  with (return webServer) $ do
+    describe "API should respond correctly" $
+      it "GET /protocol-parameters works" $
+        get "/protocol-parameters"
+          `shouldRespondWith` 200
+            { matchBody =
+                MatchBody
+                  ( \_ actualBody ->
+                      if actualBody /= encode defaultPParams
+                        then Just "Request body missmatch"
+                        else Nothing
+                  )
+            }

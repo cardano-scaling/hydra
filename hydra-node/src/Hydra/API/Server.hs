@@ -37,6 +37,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
+import Hydra.Cardano.Api (ProtocolParameters)
 import Hydra.Chain (
   Chain (..),
   IsChainState,
@@ -56,6 +57,7 @@ import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.HTTP.Types (Method, status200, status400, status500)
 import Network.Wai (
+  Application,
   Request (pathInfo),
   Response,
   ResponseReceived,
@@ -85,7 +87,6 @@ import Network.WebSockets (
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
-import Hydra.Cardano.Api (ProtocolParameters)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -220,7 +221,7 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
   -- catch and rethrow with more context
   handle onIOException $
     runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp (httpApp chain protocolparams)
+      websocketsOr defaultConnectionOptions wsApp (httpApp tracer chain protocolparams)
  where
   serverSettings =
     defaultSettings
@@ -250,23 +251,6 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
 
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
-
-  -- Hydra HTTP server
-  httpApp directChain pparams' req respond =
-    case (requestMethod req, pathInfo req) of
-      ("POST", ["commit"]) -> do
-        body <- consumeRequestBodyStrict req
-        handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
-      ("GET", ["protocol-parameters"]) ->
-        respond $ responseLBS status200 [] (Aeson.encode pparams')
-      _ -> do
-        traceWith tracer $
-          APIRestInputReceived
-            { method = decodeUtf8 $ requestMethod req
-            , paths = pathInfo req
-            , requestInputBody = Nothing
-            }
-        respond $ responseLBS status400 [] "Resource not found"
 
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
@@ -364,6 +348,28 @@ data RunServerException = RunServerException
   deriving (Show)
 
 instance Exception RunServerException
+
+-- | Hydra HTTP server
+httpApp ::
+  Tracer IO APIServerLog ->
+  Chain tx IO ->
+  ProtocolParameters ->
+  Application
+httpApp tracer directChain pparams req respond =
+  case (requestMethod req, pathInfo req) of
+    ("POST", ["commit"]) -> do
+      body <- consumeRequestBodyStrict req
+      handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+    ("GET", ["protocol-parameters"]) ->
+      respond $ responseLBS status200 [] (Aeson.encode pparams)
+    _ -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 $ requestMethod req
+          , paths = pathInfo req
+          , requestInputBody = Nothing
+          }
+      respond $ responseLBS status400 [] "Resource not found"
 
 -- Handle user requests to obtain a draft commit tx
 handleDraftCommitUtxo ::
