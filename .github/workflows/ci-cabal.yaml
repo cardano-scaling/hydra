@@ -30,7 +30,7 @@ jobs:
       uses: ./.github/workflows/actions/setup_dev_ubuntu
       with:
         clean_caches: true
-        version_ghc: 9.2.7
+        version_ghc: 9.2.8
 
     - name: cabal build
       run: |
@@ -55,7 +55,7 @@ jobs:
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
       with:
-        version_ghc: 9.2.7
+        version_ghc: 9.2.8
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -119,7 +119,7 @@ jobs:
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
       with:
-        version_ghc: 9.2.7
+        version_ghc: 9.2.8
 
     - name: 📚 Documentation (Haddock)
       run: |
@@ -156,7 +156,7 @@ jobs:
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
       with:
-        version_ghc: 9.2.7
+        version_ghc: 9.2.8
 
     - name: 📈 Benchmark
       run: |
