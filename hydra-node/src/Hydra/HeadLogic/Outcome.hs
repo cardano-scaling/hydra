@@ -64,6 +64,7 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       }
   | HeadAborted {chainState :: ChainStateType tx}
+  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 

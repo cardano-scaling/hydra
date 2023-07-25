@@ -242,33 +242,15 @@ onInitialChainCollectTx ::
   Outcome tx
 onInitialChainCollectTx st newChainState =
   StateChanged
-    ( StateReplaced $
-        Open
-          OpenState
-            { parameters
-            , coordinatedHeadState =
-                CoordinatedHeadState
-                  { localUTxO = u0
-                  , allTxs = mempty
-                  , localTxs = mempty
-                  , confirmedSnapshot
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-            , chainState = newChainState
-            , headId
-            , currentSlot = chainStateSlot newChainState
-            }
-    )
+    HeadOpened{chainState = newChainState, initialUTxO = u0}
     `Combined` Effects [ClientEffect $ HeadIsOpen{headId, utxo = u0}]
  where
   u0 = fold committed
 
-  confirmedSnapshot = InitialSnapshot u0
-
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
   -- untrue?
-  InitialState{parameters, committed, headId} = st
+  InitialState{committed, headId} = st
 
 -- ** Off-chain protocol
 
@@ -804,7 +786,7 @@ update env ledger st ev = case (st, ev) of
 -- * HeadState aggregate
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
-aggregate :: IsTx tx => HeadState tx -> StateChanged tx -> HeadState tx
+aggregate :: (IsChainState tx) => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
     Initial
@@ -879,4 +861,23 @@ aggregate st = \case
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   HeadAborted{chainState} -> Idle $ IdleState{chainState}
+  HeadOpened{chainState, initialUTxO} ->
+    case st of
+      Initial InitialState{parameters, headId} ->
+        Open
+          OpenState
+            { parameters
+            , coordinatedHeadState =
+                CoordinatedHeadState
+                  { localUTxO = initialUTxO
+                  , allTxs = mempty
+                  , localTxs = mempty
+                  , confirmedSnapshot = InitialSnapshot{initialUTxO}
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+            , chainState
+            , headId
+            , currentSlot = chainStateSlot chainState
+            }
+      _otherState -> st
   StateReplaced newState -> newState
