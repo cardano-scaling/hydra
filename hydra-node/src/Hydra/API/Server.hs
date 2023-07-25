@@ -50,6 +50,7 @@ import Hydra.Chain (
     UnsupportedLegacyOutput
   ),
  )
+import Hydra.Chain.CardanoClient (SubmitTransactionException)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
@@ -86,7 +87,6 @@ import Network.WebSockets (
   sendTextDatas,
   withPingThread,
  )
-import Ouroboros.Network.Driver.Simple (DecoderFailure)
 import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
@@ -431,7 +431,9 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
 
   Chain{draftCommitTx} = directChain
 
--- Handle user requests to submit a signed tx
+-- | Handle user requests to submit a signed tx
+-- TODO: we should move these handlers to a separate module and solve cyclic imports
+-- related to APIServerLog.
 handleSubmitUserTx ::
   Chain tx IO ->
   Tracer IO APIServerLog ->
@@ -455,7 +457,7 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
       eresult <- try $ postUserTx txToSubmit
       respond $
         case eresult of
-          Left (e :: DecoderFailure) ->
+          Left (e :: SubmitTransactionException) ->
             responseLBS status500 [] (Aeson.encode . Aeson.String . pack $ displayException e)
           Right _ ->
             responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
