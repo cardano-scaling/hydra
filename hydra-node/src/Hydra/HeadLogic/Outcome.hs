@@ -12,7 +12,7 @@ import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -57,16 +57,22 @@ data StateChanged tx
       , utxo :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
+  | SnapshotAppliedToLocalUTxO
+      { snapshot :: Snapshot tx
+      , txs :: [tx]
+      , utxo :: UTxOType tx
+      , requestedTxIds :: [TxIdType tx]
+      }
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx), Arbitrary (UTxOType tx)) => Arbitrary (StateChanged tx) where
+instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq tx, Eq (HeadState tx), Eq (UTxOType tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving instance (Show tx, Show (HeadState tx), Show (UTxOType tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving instance (ToJSON tx, ToJSON (HeadState tx), ToJSON (UTxOType tx), ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving instance (FromJSON tx, FromJSON (HeadState tx), FromJSON (UTxOType tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = NoOutcome

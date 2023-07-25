@@ -401,20 +401,15 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $ do
             -- Spec: for loop which updates T̂ and L̂
             let (localTxs', localUTxO') = pruneTransactions u
+            -- TODO: where to put this spec comment now?
             -- Spec: Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-            let allTxs' = foldr Map.delete allTxs requestedTxIds
             StateChanged
-              ( StateReplaced $
-                  Open
-                    st
-                      { coordinatedHeadState =
-                          coordinatedHeadState
-                            { seenSnapshot = SeenSnapshot nextSnapshot mempty
-                            , localTxs = localTxs'
-                            , localUTxO = localUTxO'
-                            , allTxs = allTxs'
-                            }
-                      }
+              ( SnapshotAppliedToLocalUTxO
+                  { snapshot = nextSnapshot
+                  , txs = localTxs'
+                  , utxo = localUTxO'
+                  , requestedTxIds
+                  }
               )
  where
   requireReqSn continue
@@ -866,5 +861,21 @@ aggregate st = \case
             }
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
+      _otherState -> st
+  SnapshotAppliedToLocalUTxO{snapshot, txs, utxo, requestedTxIds} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { seenSnapshot = SeenSnapshot snapshot mempty
+                  , localTxs = txs
+                  , localUTxO = utxo
+                  , allTxs = foldr Map.delete allTxs requestedTxIds
+                  }
+            }
+       where
+        CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   StateReplaced newState -> newState
