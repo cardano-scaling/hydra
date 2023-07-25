@@ -1,18 +1,10 @@
 # This workflow builds a static executable for the hydra-node and its tools
 name: Static executable
 
-# Limit concurrent runs of this workflow within a single PR
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
-  pull_request:
-    branches:
-      - 'master'
 
 jobs:
   build-executables:
@@ -21,16 +13,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
-      with:
-        repository: input-output-hk/hydra
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v22
