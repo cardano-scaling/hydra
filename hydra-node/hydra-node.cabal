@@ -94,6 +94,11 @@ library
     Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadLogic
+    Hydra.HeadLogic.Error
+    Hydra.HeadLogic.Event
+    Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.SnapshotOutcome
+    Hydra.HeadLogic.State
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder

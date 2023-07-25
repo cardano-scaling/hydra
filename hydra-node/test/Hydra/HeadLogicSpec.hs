@@ -44,12 +44,10 @@ import Hydra.HeadLogic (
   RequirementFailure (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
-  collectEffects,
-  collectState,
-  collectWaits,
   defaultTTL,
   update,
  )
+import Hydra.HeadLogic.Outcome (collectEffects, collectState, collectWaits)
 import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)

@@ -19,13 +19,12 @@ import Hydra.HeadLogic (
   HeadState (..),
   OpenState (OpenState),
   SeenSnapshot (..),
-  collectEffects,
-  collectState,
   coordinatedHeadState,
   defaultTTL,
   isLeader,
   update,
  )
+import Hydra.HeadLogic.Outcome (collectEffects, collectState)
 import Hydra.HeadLogicSpec (inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
