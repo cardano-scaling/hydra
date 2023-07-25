@@ -69,21 +69,38 @@ buildTransaction ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
+  txBody <- buildBalancedTxBody networkId socket changeAddress utxoToSpend collateral outs
+  pure $ second balancedTxBody txBody
+
+buildBalancedTxBody ::
+  -- | Current network identifier
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  FilePath ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  IO (Either TxBodyErrorAutoBalance BalancedTxBody)
+buildBalancedTxBody networkId socket changeAddress utxoToSpend collateral outs = do
   pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
   pure $
-    second balancedTxBody $
-      makeTransactionBodyAutoBalance
-        systemStart
-        (toLedgerEpochInfo eraHistory)
-        pparams
-        stakePools
-        (UTxO.toApi utxoToSpend)
-        (bodyContent pparams)
-        changeAddress
-        Nothing
+    makeTransactionBodyAutoBalance
+      systemStart
+      (toLedgerEpochInfo eraHistory)
+      pparams
+      stakePools
+      (UTxO.toApi utxoToSpend)
+      (bodyContent pparams)
+      changeAddress
+      Nothing
  where
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   dummyFeeForBalancing = TxFeeExplicit 0

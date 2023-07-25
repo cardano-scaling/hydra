@@ -192,6 +192,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
 -- | Build and sign tx and return the calculated fee.
 -- - Signing key should be the key of a sender
 -- - Address is used as a change address.
+-- - Lovelace amount should be one we are trying to send.
 calculateTxFee ::
   RunningNode ->
   SigningKey PaymentKey ->

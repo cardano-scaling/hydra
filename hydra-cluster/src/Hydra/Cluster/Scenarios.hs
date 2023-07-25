@@ -9,7 +9,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
-  buildTransaction,
+  buildBalancedTxBody,
   queryProtocolParameters,
   queryTip,
   submitTx,
@@ -33,14 +33,12 @@ import Hydra.Cardano.Api (
   Lovelace (..),
   MultiAssetSupportedInEra (MultiAssetInBabbageEra),
   PlutusScriptV2,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
   Tx,
   TxId,
   TxOutValue (TxOutValue),
+  balancedTxBodyContent,
   fromPlutusScript,
   lovelaceToValue,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
   mkScriptAddress,
   mkVkAddress,
   selectLovelace,
@@ -55,6 +53,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
+import Hydra.Ledger.Cardano (unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -299,19 +298,9 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit `shouldThrow` selector400
+      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400
  where
   RunningNode{nodeSocket} = node
-  selector400 :: HttpException -> Bool
-  selector400
-    ( VanillaHttpException
-        ( L.HttpExceptionRequest
-            _
-            (L.StatusCodeException response chunk)
-          )
-      ) =
-      L.responseStatus response == toEnum 400 && not (B.null chunk)
-  selector400 _ = False
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that
@@ -378,29 +367,34 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      eTxBody <- buildTransaction networkId nodeSocket changeAddress bobUTxO [] [theOutput]
+      eTxBody <- buildBalancedTxBody networkId nodeSocket changeAddress bobUTxO [] [theOutput]
       case eTxBody of
         Left e -> failure $ show e
         Right body -> do
-          -- create signed tx using bob's secret key
-          let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey cardanoBobSk)] body
-              bobTx =
-                SubmitTxRequest
-                  { txToSubmit = tx
-                  }
-          res <-
-            runReq defaultHttpConfig $
-              req
-                POST
-                (http "127.0.0.1" /: "submit-user-tx")
-                (ReqBodyJson bobTx)
-                (Proxy :: Proxy (JsonResponse SubmitTxResponse))
-                (port $ 4000 + hydraNodeId)
+          let unsignedTx = unsafeBuildTransaction $ balancedTxBodyContent body
+          let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
+
+          -- sending UNSIGNED transaction should not be accepted
+          sendRequest hydraNodeId unsignedRequest `shouldThrow` expectErrorStatus 500
+
+          let signedTx = signTx cardanoBobSk unsignedTx
+          let signedRequest = SubmitTxRequest{txToSubmit = signedTx}
+
+          -- sending SIGNED transaction should be accepted
+          res <- sendRequest hydraNodeId signedRequest
 
           let SubmitTxResponse{submitTxResponse} = responseBody res
           submitTxResponse `shouldBe` "TX Submitted"
  where
   RunningNode{networkId, nodeSocket} = node
+  sendRequest hydraNodeId tx =
+    runReq defaultHttpConfig $
+      req
+        POST
+        (http "127.0.0.1" /: "submit-user-tx")
+        (ReqBodyJson tx)
+        (Proxy :: Proxy (JsonResponse SubmitTxResponse))
+        (port $ 4000 + hydraNodeId)
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
@@ -434,3 +428,18 @@ headIsInitializingWith expectedParties v = do
   guard $ parties == toJSON expectedParties
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
+
+-- TODO: sometimes it is convenient if in case of errors response body contains
+-- some specific text. Perhaps we can make this better by adding this
+-- possibillity?
+expectErrorStatus :: Int -> HttpException -> Bool
+expectErrorStatus
+  stat
+  ( VanillaHttpException
+      ( L.HttpExceptionRequest
+          _
+          (L.StatusCodeException response chunk)
+        )
+    ) =
+    L.responseStatus response == toEnum stat && not (B.null chunk)
+expectErrorStatus _ _ = False
