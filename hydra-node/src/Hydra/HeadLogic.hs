@@ -226,7 +226,7 @@ onInitialChainAbortTx ::
   Outcome tx
 onInitialChainAbortTx newChainState committed headId =
   StateChanged
-    (StateReplaced $ Idle IdleState{chainState = newChainState})
+    HeadAborted{chainState = newChainState}
     `Combined` Effects [ClientEffect $ HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -878,4 +878,5 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
+  HeadAborted{chainState} -> Idle $ IdleState{chainState}
   StateReplaced newState -> newState
