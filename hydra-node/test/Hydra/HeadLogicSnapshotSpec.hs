@@ -24,7 +24,7 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.HeadLogic.Outcome (collectEffects, collectState)
+import Hydra.HeadLogic.Outcome (collectEffects)
 import Hydra.HeadLogicSpec (getState, inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
@@ -198,12 +198,11 @@ spec = do
           step (NetworkEvent defaultTTL carol $ ReqTx tx)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
+          step (ackFrom bobSk bob)
           getState
 
-        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
-
-        case collectState outcome of
-          [Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = actualSnapshot}}] ->
+        case headState of
+          Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = actualSnapshot}} ->
             actualSnapshot `shouldBe` RequestedSnapshot{lastSeen = 1, requested = 2}
           other -> expectationFailure $ "Expected to be in open state: " <> show other
 

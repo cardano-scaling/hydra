@@ -195,6 +195,7 @@ data NodeState tx m = NodeState
   }
 
 -- | Initialize a new 'NodeState'.
+-- TODO: We do not need a TVar to keep the HeadState. REMOVE.
 createNodeState :: (MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
 createNodeState initialState = do
   tv <- newTVarIO initialState

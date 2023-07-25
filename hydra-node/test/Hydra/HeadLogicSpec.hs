@@ -637,7 +637,7 @@ step event = do
  where
   aggregateOutcome s = \case
     StateChanged sc -> aggregate s sc
-    Combined l r -> aggregateOutcome (aggregateOutcome s l) r
+    Combined l r -> aggregateOutcome (aggregateOutcome s r) l
     _ -> s
 
 -- TODO: instead of asserting state we should try to rework the tests in here to

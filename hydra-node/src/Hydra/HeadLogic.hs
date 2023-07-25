@@ -307,7 +307,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
             -- XXX: We might want to remove invalid txs from allTxs here to
-            -- prevent them piling up infintely. However, this is not really
+            -- prevent them piling up infinitely. However, this is not really
             -- covered by the spec and this could be problematic in case of
             -- conflicting transactions paired with network latency and/or
             -- message resubmission. For example: Assume tx2 depends on tx1, but
@@ -489,38 +489,12 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           requireVerifiedMultisignature multisig snapshot $ do
             let nextSn = sn + 1
             Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              `Combined` StateChanged SnapshotHasBeenConfirmed{snapshot, signatures = multisig}
               `Combined` if isLeader parameters party nextSn && not (null localTxs)
                 then
-                  StateChanged
-                    ( StateReplaced $
-                        onlyUpdateCoordinatedHeadState $
-                          coordinatedHeadState
-                            { confirmedSnapshot =
-                                ConfirmedSnapshot
-                                  { snapshot
-                                  , signatures = multisig
-                                  }
-                            , seenSnapshot =
-                                RequestedSnapshot
-                                  { lastSeen = sn
-                                  , requested = nextSn
-                                  }
-                            }
-                    )
+                  StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
                     `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs))]
-                else
-                  StateChanged
-                    ( StateReplaced $
-                        onlyUpdateCoordinatedHeadState $
-                          coordinatedHeadState
-                            { confirmedSnapshot =
-                                ConfirmedSnapshot
-                                  { snapshot
-                                  , signatures = multisig
-                                  }
-                            , seenSnapshot = LastSeenSnapshot sn
-                            }
-                    )
+                else NoOutcome
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -893,4 +867,37 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
+  SnapshotHasBeenConfirmed{snapshot, signatures} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { confirmedSnapshot =
+                      ConfirmedSnapshot
+                        { snapshot
+                        , signatures
+                        }
+                  , seenSnapshot = LastSeenSnapshot number
+                  }
+            }
+       where
+        Snapshot{number} = snapshot
+      _otherState -> st
   StateReplaced newState -> newState
+
+aggregateState :: IsChainState tx => HeadState tx -> Outcome tx -> HeadState tx
+aggregateState s outcome =
+  recoverState s $ collectStateChanged outcome
+ where
+  collectStateChanged = \case
+    NoOutcome -> []
+    Error _ -> []
+    Wait w -> []
+    StateChanged change -> [change]
+    Effects _ -> []
+    Combined l r -> collectStateChanged l <> collectStateChanged r
+
+recoverState :: IsChainState tx => HeadState tx -> [StateChanged tx] -> HeadState tx
+recoverState = foldl' aggregate

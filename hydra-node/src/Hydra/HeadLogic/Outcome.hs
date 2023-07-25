@@ -7,6 +7,7 @@ import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Crypto (MultiSignature)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
@@ -66,6 +67,7 @@ data StateChanged tx
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionReceived {tx :: tx}
+  | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | StateReplaced (HeadState tx)
   deriving stock (Generic)
 
