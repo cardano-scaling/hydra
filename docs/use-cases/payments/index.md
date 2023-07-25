@@ -1,15 +1,11 @@
 # Hydra for Payments
 
-> Using Hydra for Peer-To-Peer Payments
+:::caution This category will be restructured
 
-:::warning This section is a stub 
-
-This section will be updated soon to include several use cases for Hydra in the payments domain.
+The payments category will be restructured into a more consistent
+use-case-centric roadmap of application scenarios. For now it still contains
+some legacy use case articles.
 :::
-
-## Using Hydra for Peer-To-Peer Payments
-
-### Hydra for Payments Project
 
 Hydra for Payments is an ongoing collaboration with Obsidian Systems meant to complement the evolving Hydra Head Protocol with tooling designed for payment-specific use cases.
 
@@ -34,10 +30,3 @@ To validate these aims, the launch of a **mobile reference application** will fo
 ### An Example Configuration
 
 ![](./hydra-for-payments.png)
-
-
-:::warning Keep an eye on this section
-
-More to follow soon, including use cases and a way forward for this track...
-
-:::
