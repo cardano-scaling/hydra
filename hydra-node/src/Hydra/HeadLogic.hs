@@ -281,14 +281,11 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx = do
-  -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
-  let chs' = coordinatedHeadState{allTxs = allTxs <> fromList [(txId tx, tx)]}
+onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
-  waitApplyTx chs' $ \utxo' -> do
-    (Effects [ClientEffect $ TxValid headId tx] `Combined`) $
-      -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
-      if not snapshotInFlight && isLeader parameters party nextSn
+  waitApplyTx $ \utxo' ->
+    -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
+    ( if not snapshotInFlight && isLeader parameters party nextSn
         then
           StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
             -- XXX: This state update has no equivalence in the
@@ -297,13 +294,16 @@ onOpenNetworkReqTx env ledger st ttl tx = do
             `Combined` StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
             `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
         else StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
+    )
+      `Combined` Effects [ClientEffect $ TxValid headId tx]
+      `Combined` StateChanged TransactionReceived{tx}
  where
-  waitApplyTx chs cont =
+  waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
       Right utxo' -> cont utxo'
       Left (_, err)
         | ttl > 0 ->
-            StateChanged InvalidTransactionReceived{tx}
+            StateChanged TransactionReceived{tx}
               `Combined` Wait (WaitOnNotApplicableTx err)
         | otherwise ->
             -- XXX: We might want to remove invalid txs from allTxs here to
@@ -322,7 +322,7 @@ onOpenNetworkReqTx env ledger st ttl tx = do
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{allTxs, localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -819,13 +819,12 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { allTxs = allTxs <> fromList [(txId tx, tx)]
-                  , localUTxO = utxo
+                  { localUTxO = utxo
                   , localTxs = localTxs <> [tx]
                   }
             }
        where
-        CoordinatedHeadState{allTxs, localTxs} = coordinatedHeadState
+        CoordinatedHeadState{localTxs} = coordinatedHeadState
       _otherState -> st
   SnapshotRequestDecided{snapshotNumber} ->
     case st of
@@ -880,12 +879,13 @@ aggregate st = \case
             , currentSlot = chainStateSlot chainState
             }
       _otherState -> st
-  InvalidTransactionReceived{tx} ->
+  TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
           os
             { coordinatedHeadState =
+                -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
                 coordinatedHeadState
                   { allTxs = allTxs <> fromList [(txId tx, tx)]
                   }
