@@ -4,6 +4,7 @@ module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Tracer (Tracer)
+import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import qualified Data.Aeson as Aeson
 import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Hydra.Logging (traceWith)
@@ -84,7 +85,13 @@ mkAuthLog message signature party =
 
 data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Party}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (FromJSON)
+
+-- NOTE: we make an explicit instance here because the default derivation
+-- from Generic does not add a tag for single constructor data types or newtypes.
+-- Without the tag, the message is pretty cryptic in the logs
+instance ToJSON AuthLog where
+  toJSON = genericToJSON defaultOptions{tagSingleConstructors = True}
 
 instance Arbitrary AuthLog where
   arbitrary = genericArbitrary
