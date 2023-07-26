@@ -177,8 +177,8 @@ const config = {
             position: "left",
           },
           {
-            to: "/use-cases",
-            label: "Use Cases",
+            to: "/api-reference",
+            label: "API Reference",
             position: "left",
           },
           {
@@ -187,18 +187,18 @@ const config = {
             position: "left",
           },
           {
-            to: "/topologies",
-            label: "Topologies",
-            position: "left",
-          },
-          {
             to: "/benchmarks",
             label: "Benchmarks",
             position: "left",
           },
           {
-            to: "/api-reference",
-            label: "API Reference",
+            to: "/topologies",
+            label: "Topologies",
+            position: "left",
+          },
+          {
+            to: "/use-cases",
+            label: "Use Cases",
             position: "left",
           },
           {
