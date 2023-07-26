@@ -72,6 +72,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   txBody <- buildBalancedTxBody networkId socket changeAddress utxoToSpend collateral outs
   pure $ second balancedTxBody txBody
 
+-- | Try to build a fully balanced transaction body.
 buildBalancedTxBody ::
   -- | Current network identifier
   NetworkId ->

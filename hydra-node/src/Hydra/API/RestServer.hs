@@ -6,7 +6,7 @@ module Hydra.API.RestServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.Aeson (Value (Object), withObject, (.:?))
+import Data.Aeson (Value (Object, String), withObject, withText, (.:?))
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.ByteString.Short ()
 import Hydra.Cardano.Api (
@@ -118,7 +118,18 @@ instance Arbitrary SubmitTxRequest where
 
 data SubmittedTxResponse = SubmittedTxResponse
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+
+submittedTxResponseConst :: Text
+submittedTxResponseConst = "Transaction Submitted"
+
+instance ToJSON SubmittedTxResponse where
+  toJSON _ = String submittedTxResponseConst
+
+instance FromJSON SubmittedTxResponse where
+  parseJSON = withText "SubmittedTxResponse" $ \t ->
+    if t == submittedTxResponseConst
+      then pure SubmittedTxResponse
+      else fail $ "Failed to parse: " <> show t <> " expected: " <> show submittedTxResponseConst
 
 instance Arbitrary SubmittedTxResponse where
   arbitrary = genericArbitrary

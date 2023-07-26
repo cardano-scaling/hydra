@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Aeson.Lens (key)
-import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse)
+import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, SubmittedTxResponse)
 import Hydra.API.Server (httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
@@ -23,6 +23,8 @@ spec = do
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxRequest))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitTxRequest))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmittedTxResponse))
 
     prop "Validate /commit publish api schema" $
       property $
@@ -35,6 +37,18 @@ spec = do
         withMaxSuccess 1 $
           prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
             key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
+
+    prop "Validate /submit-user-tx publish api schema" $
+      property $
+        withMaxSuccess 1 $
+          prop_validateJSONSchema @SubmitTxRequest "api.json" $
+            key "components" . key "messages" . key "SubmitTxRequest" . key "payload"
+
+    prop "Validate /submit-user-tx  subscribe api schema" $
+      property $
+        withMaxSuccess 1 $
+          prop_validateJSONSchema @SubmittedTxResponse "api.json" $
+            key "components" . key "messages" . key "SubmittedTxResponse" . key "payload"
 
     apiServerSpec
 

@@ -155,6 +155,34 @@ channels:
           type: response
           method: GET
           bindingVersion: '0.1.0'
+  /submit-user-tx:
+    description: Submit signed user transaction using a hydra-node.
+    servers:
+      - localhost-http
+    publish:
+      summary: Submit user transaction request.
+      operationId: submitTxRequest
+      description: |
+        Possible responses of commit endpoint are:
+          * SubmittedTxResponse - 200 ok
+          * PostTxError - 400 bad request
+      message:
+        $ref: "api.yaml#/components/messages/SubmitTxRequest"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      summary: Submitted user transaction response.
+      operationId: submittedTxResponse
+      message:
+        $ref: "#/components/messages/SubmittedTxResponse"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########
@@ -807,6 +835,21 @@ components:
         type: object
         additionalProperties: false
         $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
+
+    SubmitTxRequest:
+      title: SubmitTxRequest
+      description: |
+        Accept signed user transaction and submit it to a local running cardano-node.
+      payload:
+        $ref: "api.yaml#/components/schemas/Transaction"
+
+    SubmittedTxResponse:
+      title: SubmittedTxResponse
+      description: |
+          Emitted by the server after successfully submitting a user transaction to cardano-node.
+      payload:
+        additionalProperties: false
+        type: string
 
   ########
   #

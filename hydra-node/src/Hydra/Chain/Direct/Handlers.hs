@@ -46,10 +46,11 @@ import Hydra.Chain.Direct.State (
   commit,
   commit',
   contest,
+  contestationPeriod,
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx, contestationPeriod,
+  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
