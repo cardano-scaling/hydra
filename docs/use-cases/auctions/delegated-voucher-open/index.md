@@ -1,7 +1,11 @@
-# Delegated Voucher Auctions (Open & Fully Collateralised)
+---
+sidebar_label: Delegated Voucher Open
+sidebar_position: 2
+---
 
-> Possible extension of the initial prototype enabling open auctions, where bidders can freely participate without permission from sellers. It would require bids to be fully collateralized upon submission.
+# Delegated Voucher Auctions (Open)
 
+> Extension of invitational auctions to enable open auctions, where bidders can freely participate without permission from sellers. It would require bids to be fully collateralized upon submission.
 
 ## Overview
 
@@ -11,16 +15,18 @@ However, for sellers to be comfortable with this auction format, we need stronge
 ## Workflow
 
 In this step, each public auction would work as follows:
+
 1. Delegates initialize a Hydra Head, making it available to host the bidding for a yet-to-be-announced auction.
 2. The seller announces an auction to sell a given NFT (the “auction lot”), sets the terms of the auction, deposits the NFT into the auction smart contract, and indicates which Hydra Head will host the auction’s bidding process on L2.
 3. Near the bidding start-time, the bidding process for the auction moves from L1 (where the auction was announced) to L2 (the delegates’ Hydra Head).
 4. Bidders submit bids to delegates, who collectively witness the bids in the Hydra Head ledger and confirm bids to bidders via multi-signed ledger snapshots.
-A bid is valid only if proof is attached of a sufficient deposit placed by the bidder on L1 towards the auction. Bidders make these deposits as needed on L1, to support their bids on L2.
+   A bid is valid only if proof is attached of a sufficient deposit placed by the bidder on L1 towards the auction. Bidders make these deposits as needed on L1, to support their bids on L2.
 5. At the end of the bidding phase, the Hydra Head is closed and the standing bid is moved to L1. The bidder that submitted that standing bid becomes the winner of the auction.
 6. At the end of the bidding phase, the standing bid and the winning bidder’s deposit are used to send the auction lot to the winning bidder and the winning bid payment to the seller.
 7. At the end of the bidding phase, all other bidders can reclaim their bid deposits.
 
 ## Prerequisites from Hydra technical roadmap
+
 No specific prerequisites are currently anticipated, but some may come up.
 
 ## Remaining limitations

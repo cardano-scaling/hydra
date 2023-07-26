@@ -1,3 +1,8 @@
+---
+sidebar_label: Payments
+sidebar_position: 3
+---
+
 # Hydra for Payments
 
 :::caution This category will be restructured

@@ -1,3 +1,8 @@
+---
+sidebar_label: Delegated Voucher Invitational
+sidebar_position: 1
+---
+
 # Delegated Voucher Auctions (Invitational)
 
 > The first complete prototype of an auction that can host its bidding process on L2.
@@ -19,17 +24,17 @@ The Hydra Head protocol massively reduces this cost and latency overhead by dist
 
 ## Design
 
-[Summary table of the features of the design]
 We want the bidding experience to be lively and efficient, which is difficult to provide on L1, so we host the bidding process of our auction on L2. However, we can’t have the bidders be direct participants in the Hydra Head, because it is impossible to get their unanimous consent on every bid since they are competing against each other in the auction.
 Instead, we define an independent group of delegates who will directly participate in the Hydra Head protocol on the seller's and bidders’ behalf to witness the bids. These delegates perform a role similar to the combination of stakepool and lightwallet providers on Cardano L1.
 Since the bidders and seller are not direct participants in the Hydra Head, we do not commit any of the bidders’ funds or the seller’s NFT auction lot to the auction, because we do not want to grant the delegates custody over them. Instead, the Hydra Head is used purely to manage the informational aspect of the bidding process (Which bids were made? What is the current standing bid?). The auction lot and the bidders’ funds remain on L1 at all times.
-Since the bidders’ funds are not present on the Hydra Head ledger, there is no way to provide proof to validators on L2 that any bidder has sufficient funds committed to honoring his bid. Instead, we allow the seller to require that bidders place fixed security deposits into a smart contract on L1 towards the auction, such that the seller can claim the winning bidder’s security deposit if the winning bid is dishonored, as compensation for wasting everyone’s time.]
+Since the bidders’ funds are not present on the Hydra Head ledger, there is no way to provide proof to validators on L2 that any bidder has sufficient funds committed to honoring his bid. Instead, we allow the seller to require that bidders place fixed security deposits into a smart contract on L1 towards the auction, such that the seller can claim the winning bidder’s security deposit if the winning bid is dishonored, as compensation for wasting everyone’s time.
 The fixed deposit provides some protection to the seller against dishonorable behavior from bidders, but in some cases (e.g. if bids get unexpectedly high), it may still be advantageous to a bidder to dishonor his genuinely-placed bid or even to place a disingenuous bid to sabotage the auction. To feel comfortable selling an NFT in an auction with a fixed-size security deposit, the seller needs to be able to manage this risk. Furthermore, the seller may need to apply know-your-customer (KYC) and anti-money-laundering (AML) processes to the auction.
 For these reasons, we implement an invitational private version of the auction where the seller has absolute discretion over which bidders may participate in the auction. The public version of the auction where bidders can freely participate will be implemented in a later milestone.
 
 ## Workflow
 
 In this prototype, each auction would work as follows:
+
 1. Delegates initialize a Hydra Head, making it available to host the bidding for a yet-to-be-announced auction.
 2. The seller announces an auction to sell a given NFT (the “auction lot”), sets the terms of the auction (including the security deposit amount required), deposits the NFT into the auction smart contract, and indicates which Hydra Head will host the auction’s bidding process on L2.
 3. Prospective bidders register their interest to participate in the auction by placing security deposits into the auction smart contract.
@@ -45,14 +50,16 @@ In this prototype, each auction would work as follows:
 
 The prerequisites for Hydra for this milestone mainly deal with support for using smart contracts on L2:
 During the design and early implementation phase of this milestone, we identified the following prerequisites to enable using the auction smart contracts on L2.
+
 - Add a method to the Hydra node API to commit UTxOs from script addresses.
 - Support committing multiple UTxOs per Hydra Head participant, so that collateral UTxOs can be committed to the Hydra Head for transactions with validator scripts on L2.
 - Allow time to pass on the L2 ledger (instead of maintaining time fixed at the start time of the Hydra Head).
-Fortunately, the Hydra core devs implemented all of these features during the course of the milestone. Thank you! 🚀
+  Fortunately, the Hydra core devs implemented all of these features during the course of the milestone. Thank you! 🚀
 
 ## Remaining limitations
 
 This initial prototype auction design still has the following limitations:
+
 - Auction implementation is a prototype, not necessarily ready for production.
 - Open auctions (where bidders can freely enter any auction to bid) are not supported.
 - Bids are backed only by fixed security deposits from bidders, which may be less than the full bid amount.
