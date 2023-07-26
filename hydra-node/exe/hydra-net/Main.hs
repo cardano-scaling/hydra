@@ -5,7 +5,6 @@ module Main where
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
-  newBroadcastTChan,
   newBroadcastTChanIO,
   readTChan,
   writeTChan,
@@ -16,7 +15,6 @@ import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Network.Ouroboros (
-  HasInitiator,
   MiniProtocol (..),
   MiniProtocolNum (..),
   MuxMode (InitiatorMode),
@@ -118,18 +116,37 @@ injectReqSn peer snapshotNumber _hydraKeyFile = do
   --  vk <- readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) hydraKeyFile
   withIOManager $ \iomgr -> do
     withTracer @_ @(WithHost (TraceOuroborosNetwork (Message Tx))) (Verbose "hydra-net") $ \tracer -> do
-      bchan <- newBroadcastTChanIO
-      let newBroadcastChannel = atomically $ dupTChan bchan
-      void $ connectToPeers tracer localHost [peer] iomgr newBroadcastChannel (client (contramap (WithHost localHost) tracer))
+      sockAddr <- resolveSockAddr peer
+      putTextLn $ "resolved " <> show sockAddr
+      sock <- socket (addrFamily sockAddr) Stream defaultProtocol
+      putTextLn $ "connecting to " <> show sockAddr
+      connect sock (addrAddress sockAddr)
+      putTextLn $ "connected to " <> show sockAddr
+      actualConnect iomgr (pure ()) (runClient (contramap (WithHost localHost) tracer)) sock
  where
-  client ::
-    Tracer IO (TraceOuroborosNetwork (Message Tx)) ->
-    TChan (Message Tx) ->
-    OuroborosApplication 'InitiatorMode addr LByteString IO () Void
-  client tracer = hydraClient tracer mkClient
+  resolveSockAddr Host{hostname, port} = do
+    is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
+    case is of
+      (inf : _) -> pure inf
+      _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  mkClient :: TChan (Message Tx) -> FireForgetClient (Message Tx) IO ()
-  mkClient _chan = Idle $ do
-    let msg = ReqSn snapshotNumber []
-    putTextLn $ "Sending " <> show msg <> " as "
-    pure $ SendMsg msg (pure $ SendDone (pure ()))
+  -- runClient :: Tracer IO (TraceOuroborosNetwork (Message Tx)) -> () -> OuroborosApplication 'InitiatorMode addr LByteString IO () ()
+  runClient tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
+    [ MiniProtocol
+        { miniProtocolNum = MiniProtocolNum 42
+        , miniProtocolLimits = maximumMiniProtocolLimits
+        , miniProtocolRun = InitiatorProtocolOnly initiator
+        }
+    ]
+   where
+    initiator =
+      MuxPeer
+        (contramap TraceSendRecv tracer)
+        codecFireForget
+        (fireForgetClientPeer client)
+
+    --    client :: FireForgetClient (Message tx) IO ()
+    client = Idle $ do
+      let msg = ReqSn snapshotNumber []
+      putTextLn $ "Sending " <> show msg
+      pure $ SendMsg msg (pure $ SendDone (pure ()))
