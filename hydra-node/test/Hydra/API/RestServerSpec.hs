@@ -38,7 +38,7 @@ spec = do
 
     apiServerSpec
 
--- REVIEW: we should add more tests for other routes here (eg. /commit)
+-- TODO: we should add more tests for other routes here (eg. /commit)
 apiServerSpec :: Spec
 apiServerSpec = do
   let webServer = httpApp nullTracer dummyChainHandle defaultPParams
