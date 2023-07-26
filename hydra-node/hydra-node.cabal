@@ -217,6 +217,19 @@ executable hydra-tools
 
   ghc-options:    -threaded -rtsopts
 
+executable hydra-net
+  import:         project-config
+  hs-source-dirs: exe/hydra-net
+  main-is:        Main.hs
+  build-depends:
+     filepath
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , optparse-applicative
+
+  ghc-options:    -threaded -rtsopts
+
 benchmark tx-cost
   import:         project-config
   hs-source-dirs: bench/tx-cost
