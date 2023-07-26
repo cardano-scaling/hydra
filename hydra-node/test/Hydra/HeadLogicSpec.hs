@@ -2,6 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
 -- grained and specific to individual steps in the protocol. More high-level of
@@ -43,7 +44,6 @@ import Hydra.HeadLogic (
   Outcome (..),
   RequirementFailure (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
-  StateChanged (StateReplaced),
   WaitReason (..),
   aggregateState,
   collectEffects,
@@ -51,7 +51,6 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.HeadLogic.Outcome (collectState)
 import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -406,17 +405,20 @@ spec =
                   , contestationDeadline
                   }
             clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
-        let outcome1 = update bobEnv ledger s0 observeCloseTx
-        outcome1 `hasEffect` clientEffect
-        outcome1 `hasNoEffectSatisfying` \case
-          ClientEffect (ReadyToFanout _) -> True
-          _ -> False
-        s1 <- assertNewState outcome1
-        let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
-            someChainSlot = arbitrary `generateWith` 42
-            stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline someChainSlot
-            s2 = update bobEnv ledger s1 stepTimePastDeadline
-        s2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
+        runEvents bobEnv ledger s0 $ do
+          outcome1 <- step observeCloseTx
+          lift $ do
+            outcome1 `hasEffect` clientEffect
+            outcome1
+              `hasNoEffectSatisfying` \case
+                ClientEffect (ReadyToFanout _) -> True
+                _ -> False
+
+          let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
+              someChainSlot = arbitrary `generateWith` 42
+              stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline someChainSlot
+          outcome2 <- step stepTimePastDeadline
+          lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
         let snapshot = Snapshot 2 mempty []
@@ -427,11 +429,14 @@ spec =
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
             contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
-            s1 = update bobEnv ledger s0 closeTxEvent
-        s1 `hasEffect` contestTxEffect
-        s1 `shouldSatisfy` \case
-          Combined (StateChanged (StateReplaced (Closed ClosedState{}))) _ -> True
-          _ -> False
+        runEvents bobEnv ledger s0 $ do
+          o1 <- step closeTxEvent
+          lift $ o1 `hasEffect` contestTxEffect
+          s1 <- getState
+          lift $
+            s1 `shouldSatisfy` \case
+              Closed ClosedState{} -> True
+              _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
         let snapshot2 = Snapshot 2 mempty []
@@ -629,25 +634,13 @@ getState = headState <$> get
 step ::
   (MonadState (StepState tx) m, IsChainState tx) =>
   Event tx ->
-  m ()
+  m (Outcome tx)
 step event = do
   StepState{headState, env, ledger} <- get
-  let headState' = aggregateState headState $ update env ledger headState event
+  let outcome = update env ledger headState event
+  let headState' = aggregateState headState $ outcome
   put StepState{env, ledger, headState = headState'}
-
--- TODO: instead of asserting state we should try to rework the tests in here to
--- assert the StateChange outcome already
-assertNewState ::
-  (HasCallStack, IsChainState tx, Monad m) =>
-  Outcome tx ->
-  m (HeadState tx)
-assertNewState outcome =
-  -- NewState is about to be superseded when we implement event-sourced persistency
-  -- See https://github.com/input-output-hk/hydra/issues/913
-  -- In the meantime, we are expecting for an Outcome to only contain one single NewState.
-  case collectState outcome of
-    [newState] -> pure newState
-    _ -> Hydra.Test.Prelude.error $ "Expecting one single newState in outcome: " <> show outcome
+  pure outcome
 
 assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
 assertEffects outcome = hasEffectSatisfying outcome (const True)

@@ -66,6 +66,7 @@ data StateChanged tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | TransactionReceived {tx :: tx}
   | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}
@@ -114,22 +115,6 @@ collectWaits = \case
   StateChanged _ -> []
   Effects _ -> []
   Combined l r -> collectWaits l <> collectWaits r
-
--- FIXME: This is only used in tests
-collectState :: HasCallStack => Outcome tx -> [HeadState tx]
-collectState = \case
-  NoOutcome -> []
-  Error _ -> []
-  Wait _ -> []
-  StateChanged s ->
-    case s of
-      HeadInitialized{} -> undefined
-      CommittedUTxO{} -> undefined
-      TransactionAppliedToLocalUTxO{} -> undefined
-      StateReplaced sc -> [sc]
-      SnapshotRequestDecided{} -> undefined
-  Effects _ -> []
-  Combined l r -> collectState l <> collectState r
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}

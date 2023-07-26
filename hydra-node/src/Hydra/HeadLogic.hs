@@ -573,7 +573,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  StateChanged (StateReplaced closedState)
+  StateChanged (HeadClosed newChainState contestationDeadline)
     `Combined` Effects
       ( notifyClient
           : [ OnChainEffect
@@ -586,17 +586,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
   doContest =
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
 
-  closedState =
-    Closed
-      ClosedState
-        { parameters
-        , confirmedSnapshot
-        , contestationDeadline
-        , readyToFanoutSent = False
-        , chainState = newChainState
-        , headId
-        }
-
   notifyClient =
     ClientEffect $
       HeadIsClosed
@@ -607,7 +596,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{parameters, headId, coordinatedHeadState} = openState
+  OpenState{headId, coordinatedHeadState} = openState
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -824,6 +813,27 @@ aggregate st = \case
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   HeadAborted{chainState} -> Idle $ IdleState{chainState}
+  HeadClosed{chainState, contestationDeadline} ->
+    case st of
+      Open
+        OpenState
+          { parameters
+          , coordinatedHeadState =
+            CoordinatedHeadState
+              { confirmedSnapshot
+              }
+          , headId
+          } ->
+          Closed
+            ClosedState
+              { parameters
+              , confirmedSnapshot
+              , contestationDeadline
+              , readyToFanoutSent = False
+              , chainState
+              , headId
+              }
+      _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of
       Initial InitialState{parameters, headId} ->
