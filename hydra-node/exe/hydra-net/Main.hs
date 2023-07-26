@@ -1,6 +1,18 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
-import Hydra.Network (Host)
+import Control.Concurrent.STM (
+  TChan,
+  dupTChan,
+  newBroadcastTChanIO,
+  writeTChan,
+ )
+import Hydra.Cardano.Api (Tx)
+import Hydra.Logging (Verbosity (..), withTracer)
+import Hydra.Network (Host (..))
+import Hydra.Network.Message (Message (ReqSn))
+import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, connectToPeers, hydraClient, withIOManager)
 import Hydra.Options (hydraVerificationKeyFileParser, peerParser)
 import Hydra.Prelude
 import Hydra.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
@@ -75,6 +87,23 @@ netOptions =
     )
 
 main :: IO ()
-main = do
-  opts <- execParser netOptions
-  print opts
+main =
+  execParser netOptions >>= \case
+    InjectReqSn{peer, snapshotNumber, hydraKey} -> injectReqSn peer snapshotNumber hydraKey
+
+injectReqSn :: Host -> SnapshotNumber -> FilePath -> IO ()
+injectReqSn peer snapshotNumber _hydraKeyFile = do
+  let localHost = Host "127.0.0.1" 12345
+  --  vk <- readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) hydraKeyFile
+  withIOManager $ \iomgr -> do
+    bchan <- newBroadcastTChanIO
+    let newBroadcastChannel = atomically $ dupTChan bchan
+    withTracer @_ @(WithHost (TraceOuroborosNetwork (Message Tx))) (Verbose "hydra-net") $ \tracer ->
+      concurrently_
+        (connectToPeers tracer localHost [peer] iomgr newBroadcastChannel hydraClient)
+        (sendReqSn bchan)
+ where
+  sendReqSn :: TChan (Message Tx) -> IO ()
+  sendReqSn chan = do
+    let msg = ReqSn snapshotNumber []
+    atomically $ writeTChan chan msg

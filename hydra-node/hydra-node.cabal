@@ -227,7 +227,7 @@ executable hydra-net
     , hydra-node
     , hydra-prelude
     , optparse-applicative
-
+    , stm
   ghc-options:    -threaded -rtsopts
 
 benchmark tx-cost
