@@ -18,7 +18,6 @@ need to interact with the hydra-node when commiting funds. The project
 to reflect latest ideas from an even higher level project plan that is updated
 quarterly:
 
-TODO create snapshot
 ![The roadmap without idea items](./img/2023-07-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
 
 #### Release 0.11.0
@@ -41,7 +40,6 @@ TODO summarize differences
 
 TODO write about high-level project plan (starmap)?
 
-TODO create snapshot
 ![The latest roadmap with features and ideas](./img/2023-07-roadmap.png) <small><center>The latest roadmap with featuresand ideas</center></small>
 
 ## Development
