@@ -67,6 +67,7 @@ data StateChanged tx
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadFannedOut {chainState :: ChainStateType tx}
   | TransactionReceived {tx :: tx}
   | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}

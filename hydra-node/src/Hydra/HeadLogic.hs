@@ -651,7 +651,7 @@ onClosedChainFanoutTx ::
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   StateChanged
-    (StateReplaced $ Idle IdleState{chainState = newChainState})
+    HeadFannedOut{chainState = newChainState}
     `Combined` Effects [ClientEffect $ HeadIsFinalized{headId, utxo}]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
@@ -833,6 +833,10 @@ aggregate st = \case
               , chainState
               , headId
               }
+      _otherState -> st
+  HeadFannedOut{chainState} ->
+    case st of
+      Closed _ -> Idle $ IdleState{chainState}
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of

@@ -16,7 +16,6 @@ import Test.Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Map (notMember)
 import qualified Data.Set as Set
-import qualified GHC.Base as Hydra.Test.Prelude
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
