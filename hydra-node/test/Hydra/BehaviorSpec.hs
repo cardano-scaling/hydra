@@ -615,7 +615,7 @@ simulatedChainAndNetwork initialChainState = do
                   Chain
                     { postTx = postTx nodes history chainStateVar
                     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
-                    , postUserTx = \_ -> error "unexpected call to postUserTx"
+                    , submitUserTx = \_ -> error "unexpected call to submitUserTx"
                     }
               , hn = createMockNetwork node nodes
               }

@@ -22,7 +22,7 @@ import Hydra.API.RestServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SubmitTxRequest (..),
-  SubmitTxResponse (..),
+  SubmittedTxResponse (..),
   fromTxOutWithWitness,
  )
 import Hydra.API.ServerOutput (
@@ -39,7 +39,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
   snapshotUtxo,
  )
-import Hydra.Cardano.Api (ProtocolParameters)
+import Hydra.Cardano.Api (ProtocolParameters, Tx)
 import Hydra.Chain (
   Chain (..),
   IsChainState,
@@ -50,7 +50,6 @@ import Hydra.Chain (
     UnsupportedLegacyOutput
   ),
  )
-import Hydra.Chain.CardanoClient (SubmitTransactionException)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
@@ -255,24 +254,6 @@ runAPIServer host port party tracer history chain callback headStatusP snapshotU
     withPingThread con 30 (pure ()) $
       race_ (receiveInputs con) (sendOutputs chan con outConfig)
 
-  -- Hydra HTTP server
-  httpApp directChain req respond =
-    case (requestMethod req, pathInfo req) of
-      ("POST", ["commit"]) -> do
-        body <- consumeRequestBodyStrict req
-        handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
-      ("POST", ["submit-user-tx"]) -> do
-        body <- consumeRequestBodyStrict req
-        handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
-      _ -> do
-        traceWith tracer $
-          APIRestInputReceived
-            { method = decodeUtf8 $ requestMethod req
-            , paths = pathInfo req
-            , requestInputBody = Nothing
-            }
-        respond $ responseLBS status400 [] "Resource not found"
-
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
@@ -381,8 +362,13 @@ httpApp tracer directChain pparams req respond =
     ("POST", ["commit"]) -> do
       body <- consumeRequestBodyStrict req
       handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
+
+    ("POST", ["submit-user-tx"]) -> do
+        body <- consumeRequestBodyStrict req
+        handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
     _ -> do
       traceWith tracer $
         APIRestInputReceived
@@ -454,12 +440,12 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
           , requestInputBody = Just $ toJSON requestInput
           }
 
-      eresult <- try $ postUserTx txToSubmit
+      eresult <- try $ submitUserTx txToSubmit
       respond $
         case eresult of
-          Left (e :: SubmitTransactionException) ->
-            responseLBS status500 [] (Aeson.encode . Aeson.String . pack $ displayException e)
+          Left (e :: PostTxError Tx) ->
+            responseLBS status400 [] (Aeson.encode . Aeson.String . pack $ show e)
           Right _ ->
-            responseLBS status200 [] (Aeson.encode $ SubmitTxResponse "TX Submitted")
+            responseLBS status200 [] (Aeson.encode SubmittedTxResponse)
  where
-  Chain{postUserTx} = directChain
+  Chain{submitUserTx} = directChain

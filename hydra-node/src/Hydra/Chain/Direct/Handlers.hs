@@ -36,9 +36,8 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.Direct.State (
-  ChainContext (ChainContext, contestationPeriod, networkId),
+  ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -50,7 +49,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
+  observeSomeTx, contestationPeriod,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -126,17 +125,16 @@ type GetTimeHandle m = m TimeHandle
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadThrow (STM m), MonadIO m) =>
+  (MonadSTM m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
   LocalChainState m ->
-  FilePath ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx@ChainContext{networkId} LocalChainState{getLatest} nodeSocket submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         chainState <- atomically getLatest
@@ -174,8 +172,11 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx@ChainContext{netwo
                     <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
-    , -- Post a signed transaction on behalf of the user.
-      postUserTx = liftIO . submitTransaction networkId nodeSocket
+    , -- Post a signed transaction on behalf of the user. Errors are handled at
+      -- the call site and even though they can be tecnically any of
+      -- 'PostTxError' constructors, in reality they would be most probably only
+      -- 'FailedToPostTx' errors.
+      submitUserTx = submitTx
     }
 
 -- | Balance and sign the given partial transaction.

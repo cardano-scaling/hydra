@@ -116,18 +116,12 @@ instance Arbitrary SubmitTxRequest where
   shrink = \case
     SubmitTxRequest u -> SubmitTxRequest <$> shrink u
 
-newtype SubmitTxResponse = SubmitTxResponse
-  { submitTxResponse :: Text
-  }
-  deriving stock (Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
+data SubmittedTxResponse = SubmittedTxResponse
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-
-instance Arbitrary SubmitTxResponse where
+instance Arbitrary SubmittedTxResponse where
   arbitrary = genericArbitrary
-
-  shrink = \case
-    SubmitTxResponse xs -> SubmitTxResponse <$> shrink xs
 
 fromTxOutWithWitness :: TxOutWithWitness -> (TxOut CtxUTxO, Witness WitCtxTxIn)
 fromTxOutWithWitness TxOutWithWitness{txOut, witness} =
