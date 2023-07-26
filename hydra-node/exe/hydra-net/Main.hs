@@ -10,7 +10,9 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Concurrent.STM.TMVar (newEmptyTMVarIO, putTMVar, takeTMVar)
-import Hydra.Cardano.Api (Tx)
+import Hydra.Cardano.Api (AsType (AsVerificationKey), Tx)
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (ReqSn))
@@ -32,6 +34,7 @@ import Hydra.Network.Ouroboros (
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Type (codecFireForget)
 import Hydra.Options (hydraVerificationKeyFileParser, peerParser)
+import Hydra.Party (Party (..))
 import Hydra.Prelude
 import Hydra.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
 import Network.Socket (AddrInfo (addrAddress, addrFamily), SocketType (Stream), connect, defaultHints, defaultProtocol, getAddrInfo, socket)
@@ -111,9 +114,9 @@ main =
     InjectReqSn{peer, snapshotNumber, hydraKey} -> injectReqSn peer snapshotNumber hydraKey
 
 injectReqSn :: Host -> SnapshotNumber -> FilePath -> IO ()
-injectReqSn peer snapshotNumber _hydraKeyFile = do
+injectReqSn peer snapshotNumber hydraKeyFile = do
   let localHost = Host "127.0.0.1" 12345
-  --  vk <- readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) hydraKeyFile
+  party <- Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) hydraKeyFile
   withIOManager $ \iomgr -> do
     withTracer @_ @(WithHost (TraceOuroborosNetwork (Message Tx))) (Verbose "hydra-net") $ \tracer -> do
       sockAddr <- resolveSockAddr peer
@@ -122,7 +125,7 @@ injectReqSn peer snapshotNumber _hydraKeyFile = do
       putTextLn $ "connecting to " <> show sockAddr
       connect sock (addrAddress sockAddr)
       putTextLn $ "connected to " <> show sockAddr
-      actualConnect iomgr (pure ()) (runClient (contramap (WithHost localHost) tracer)) sock
+      actualConnect iomgr (pure ()) (runClient party (contramap (WithHost localHost) tracer)) sock
  where
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
@@ -131,7 +134,7 @@ injectReqSn peer snapshotNumber _hydraKeyFile = do
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
   -- runClient :: Tracer IO (TraceOuroborosNetwork (Message Tx)) -> () -> OuroborosApplication 'InitiatorMode addr LByteString IO () ()
-  runClient tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
+  runClient party tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
     [ MiniProtocol
         { miniProtocolNum = MiniProtocolNum 42
         , miniProtocolLimits = maximumMiniProtocolLimits
@@ -147,6 +150,6 @@ injectReqSn peer snapshotNumber _hydraKeyFile = do
 
     --    client :: FireForgetClient (Message tx) IO ()
     client = Idle $ do
-      let msg = ReqSn snapshotNumber []
+      let msg = ReqSn party snapshotNumber []
       putTextLn $ "Sending " <> show msg
       pure $ SendMsg msg (pure $ SendDone (pure ()))
