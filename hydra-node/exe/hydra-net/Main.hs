@@ -65,6 +65,8 @@ data Options = InjectReqSn
   , snapshotNumber :: SnapshotNumber
   -- ^ The number of the snapshot to inject
   , hydraKey :: FilePath
+  -- ^ The signing key to use for signing
+  , fakeHydraKey :: FilePath
   -- ^ The verification key to impersonate
   }
   deriving stock (Show)
@@ -75,6 +77,7 @@ injectReqSnParser =
     <$> peerParser
     <*> snapshotNumberParser
     <*> hydraSigningKeyFileParser
+    <*> hydraVerificationKeyFileParser
 
 snapshotNumberParser :: Parser SnapshotNumber
 snapshotNumberParser =
@@ -113,12 +116,13 @@ netOptions =
 main :: IO ()
 main =
   execParser netOptions >>= \case
-    InjectReqSn{peer, snapshotNumber, hydraKey} -> injectReqSn peer snapshotNumber hydraKey
+    InjectReqSn{peer, snapshotNumber, hydraKey, fakeHydraKey} -> injectReqSn peer snapshotNumber hydraKey fakeHydraKey
 
-injectReqSn :: Host -> SnapshotNumber -> FilePath -> IO ()
-injectReqSn peer snapshotNumber hydraKeyFile = do
+injectReqSn :: Host -> SnapshotNumber -> FilePath -> FilePath -> IO ()
+injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
   let localHost = Host "127.0.0.1" 12345
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraKeyFile
+  party <- Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) fakeHydraKeyFile
   withIOManager $ \iomgr -> do
     withNetworkTracer $ \tracer -> do
       sockAddr <- resolveSockAddr peer
@@ -127,7 +131,7 @@ injectReqSn peer snapshotNumber hydraKeyFile = do
       putTextLn $ "connecting to " <> show sockAddr
       connect sock (addrAddress sockAddr)
       putTextLn $ "connected to " <> show sockAddr
-      actualConnect iomgr (pure ()) (runClient sk (contramap (WithHost localHost) tracer)) sock
+      actualConnect iomgr (pure ()) (runClient sk party (contramap (WithHost localHost) tracer)) sock
  where
   withNetworkTracer = withTracer @_ @(WithHost (TraceOuroborosNetwork (Signed (Heartbeat (Message Tx))))) (Verbose "hydra-net")
 
@@ -137,7 +141,7 @@ injectReqSn peer snapshotNumber hydraKeyFile = do
       (inf : _) -> pure inf
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  runClient sk tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
+  runClient sk party tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
     [ MiniProtocol
         { miniProtocolNum = MiniProtocolNum 42
         , miniProtocolLimits = maximumMiniProtocolLimits
@@ -152,7 +156,6 @@ injectReqSn peer snapshotNumber hydraKeyFile = do
         (fireForgetClientPeer client)
 
     client = Idle $ do
-      let party = deriveParty sk
       let msg = Data "2" (ReqSn snapshotNumber [])
       let signed = Signed msg (sign sk msg) party
       putTextLn $ "Sending " <> show signed
