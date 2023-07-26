@@ -22,9 +22,8 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.SnapshotOutcome,
   aggregate,
   aggregateState,
-) where
-
-import Hydra.Prelude
+)
+where
 
 import qualified Data.Map.Strict as Map
 import Data.Set ((\\))
@@ -91,6 +90,7 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
+import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 defaultTTL :: TTL
@@ -518,14 +518,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   ifAllMembersHaveSigned snapshot sigs' cont =
     if Map.keysSet sigs' == Set.fromList parties
       then cont
-      else
-        StateChanged
-          ( StateReplaced $
-              onlyUpdateCoordinatedHeadState $
-                coordinatedHeadState
-                  { seenSnapshot = SeenSnapshot snapshot sigs'
-                  }
-          )
+      else StateChanged PartySignedSnapshot{snapshot, sigs = sigs'}
 
   requireVerifiedMultisignature multisig msg cont =
     case verifyMultiSignature vkeys multisig msg of
@@ -540,10 +533,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             InvalidMultisignature{multisig = show multisig, vkeys}
 
   vkeys = vkey <$> parties
-
-  -- XXX: Data structures become unwieldy -> helper functions or lenses
-  onlyUpdateCoordinatedHeadState chs' =
-    Open openState{coordinatedHeadState = chs'}
 
   OpenState
     { parameters = parameters@HeadParameters{parties}
@@ -886,6 +875,17 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  PartySignedSnapshot{snapshot, sigs} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { seenSnapshot = SeenSnapshot snapshot sigs
+                  }
+            }
+      _otherState -> st
   StateReplaced newState -> newState
 
 aggregateState :: IsChainState tx => HeadState tx -> Outcome tx -> HeadState tx
@@ -894,10 +894,10 @@ aggregateState s outcome =
  where
   collectStateChanged = \case
     NoOutcome -> []
-    Error _ -> []
-    Wait w -> []
+    Error{} -> []
+    Wait{} -> []
     StateChanged change -> [change]
-    Effects _ -> []
+    Effects{} -> []
     Combined l r -> collectStateChanged l <> collectStateChanged r
 
 recoverState :: IsChainState tx => HeadState tx -> [StateChanged tx] -> HeadState tx
