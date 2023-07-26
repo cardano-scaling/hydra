@@ -32,6 +32,7 @@ import Control.Concurrent.STM (
  )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (wait)
+import Control.Tracer (stdoutTracer)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -108,7 +109,7 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
  )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
-import Ouroboros.Network.Snocket (SocketSnocket, makeSocketBearer, socketSnocket)
+import Ouroboros.Network.Snocket (makeSocketBearer, socketSnocket)
 import Ouroboros.Network.Socket (
   AcceptConnectionsPolicyTrace,
   ConnectionId (..),
@@ -228,8 +229,8 @@ actualConnect iomgr newBroadcastChannel app sn = do
  where
   networkConnectTracers =
     NetworkConnectTracers
-      { nctMuxTracer = nullTracer
-      , nctHandshakeTracer = nullTracer
+      { nctMuxTracer = contramap show stdoutTracer
+      , nctHandshakeTracer = contramap show stdoutTracer
       }
 
 withServerListening ::

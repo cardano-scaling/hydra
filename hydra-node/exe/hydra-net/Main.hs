@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Network (Host (..))
+import Hydra.Network.Heartbeat (Heartbeat (Data))
 import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Network.Ouroboros (
   MiniProtocol (..),
@@ -118,7 +119,7 @@ injectReqSn peer snapshotNumber hydraKeyFile = do
   let localHost = Host "127.0.0.1" 12345
   party <- Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) hydraKeyFile
   withIOManager $ \iomgr -> do
-    withTracer @_ @(WithHost (TraceOuroborosNetwork (Message Tx))) (Verbose "hydra-net") $ \tracer -> do
+    withTracer @_ @(WithHost (TraceOuroborosNetwork (Heartbeat (Message Tx)))) (Verbose "hydra-net") $ \tracer -> do
       sockAddr <- resolveSockAddr peer
       putTextLn $ "resolved " <> show sockAddr
       sock <- socket (addrFamily sockAddr) Stream defaultProtocol
@@ -148,8 +149,7 @@ injectReqSn peer snapshotNumber hydraKeyFile = do
         codecFireForget
         (fireForgetClientPeer client)
 
-    --    client :: FireForgetClient (Message tx) IO ()
     client = Idle $ do
-      let msg = ReqSn party snapshotNumber []
+      let msg = Data "2" (ReqSn party snapshotNumber [])
       putTextLn $ "Sending " <> show msg
       pure $ SendMsg msg (pure $ SendDone (pure ()))
