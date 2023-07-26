@@ -16,9 +16,9 @@
             "appendString-memory-arguments-slope": 1,
             "bData-cpu-arguments": 1000,
             "bData-memory-arguments": 32,
-            "blake2b_256-cpu-arguments-intercept": 117366,
-            "blake2b_256-cpu-arguments-slope": 10475,
-            "blake2b_256-memory-arguments": 4,
+            "blake2b-cpu-arguments-intercept": 117366,
+            "blake2b-cpu-arguments-slope": 10475,
+            "blake2b-memory-arguments": 4,
             "cekApplyCost-exBudgetCPU": 23000,
             "cekApplyCost-exBudgetMemory": 100,
             "cekBuiltinCost-exBudgetCPU": 23000,
@@ -165,9 +165,9 @@
             "unListData-memory-arguments": 32,
             "unMapData-cpu-arguments": 38314,
             "unMapData-memory-arguments": 32,
-            "verifyEd25519Signature-cpu-arguments-intercept": 9462713,
-            "verifyEd25519Signature-cpu-arguments-slope": 1021,
-            "verifyEd25519Signature-memory-arguments": 10
+            "verifySignature-cpu-arguments-intercept": 9462713,
+            "verifySignature-cpu-arguments-slope": 1021,
+            "verifySignature-memory-arguments": 10
         },
         "PlutusV2": {
             "addInteger-cpu-arguments-intercept": 205665,

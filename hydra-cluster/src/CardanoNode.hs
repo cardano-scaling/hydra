@@ -65,6 +65,7 @@ data CardanoNodeArgs = CardanoNodeArgs
   , nodeByronGenesisFile :: FilePath
   , nodeShelleyGenesisFile :: FilePath
   , nodeAlonzoGenesisFile :: FilePath
+  , nodeConwayGenesisFile :: FilePath
   , nodeTopologyFile :: FilePath
   , nodeDatabaseDir :: FilePath
   , nodeDlgCertFile :: Maybe FilePath
@@ -83,6 +84,7 @@ defaultCardanoNodeArgs =
     , nodeByronGenesisFile = "genesis-byron.json"
     , nodeShelleyGenesisFile = "genesis-shelley.json"
     , nodeAlonzoGenesisFile = "genesis-alonzo.json"
+    , nodeConwayGenesisFile = "genesis-conway.json"
     , nodeTopologyFile = "topology.json"
     , nodeDatabaseDir = "db"
     , nodeDlgCertFile = Nothing
@@ -168,6 +170,9 @@ withCardanoNodeDevnet tracer stateDirectory action = do
     readConfigFile ("devnet" </> "genesis-alonzo.json")
       >>= writeFileBS
         (stateDirectory </> nodeAlonzoGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-conway.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConwayGenesisFile args)
 
   writeTopology peers args =
     Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
@@ -196,6 +201,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeByronGenesisFile = "genesis/byron.json"
       , nodeShelleyGenesisFile = "genesis/shelley.json"
       , nodeAlonzoGenesisFile = "genesis/alonzo.json"
+      , nodeConwayGenesisFile = "genesis/conway.json"
       }
 
   -- Read 'NetworkId' from shelley genesis
