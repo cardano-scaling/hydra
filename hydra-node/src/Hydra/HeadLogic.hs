@@ -713,10 +713,10 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber
-  (Closed cst@ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         StateChanged
-          (StateReplaced $ Closed cst{readyToFanoutSent = True})
+          HeadIsReadyToFanout
           `Combined` Effects [ClientEffect $ ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
@@ -900,6 +900,10 @@ aggregate st = \case
                   }
             }
       _otherState -> st
+  HeadIsReadyToFanout ->
+    case st of
+      Closed cst -> Closed cst{readyToFanoutSent = True}
+      _otherState -> st
   StateReplaced newState -> newState
 
 aggregateState :: IsChainState tx => HeadState tx -> Outcome tx -> HeadState tx
@@ -912,7 +916,8 @@ aggregateState s outcome =
     Wait{} -> []
     StateChanged change -> [change]
     Effects{} -> []
-    Combined l r -> collectStateChanged l <> collectStateChanged r
+    Combined l r ->
+      collectStateChanged l <> collectStateChanged r
 
 recoverState :: IsChainState tx => HeadState tx -> [StateChanged tx] -> HeadState tx
 recoverState = foldl' aggregate

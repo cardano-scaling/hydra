@@ -72,6 +72,7 @@ data StateChanged tx
   | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}
   | StateReplaced (HeadState tx)
+  | HeadIsReadyToFanout
   deriving stock (Generic)
 
 instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
