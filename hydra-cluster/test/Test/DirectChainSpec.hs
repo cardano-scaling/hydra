@@ -17,7 +17,6 @@ import CardanoClient (
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
