@@ -141,6 +141,20 @@ channels:
           type: request
           method: POST
           bindingVersion: '0.1.0'
+  /protocol-parameters:
+    description: Endpoint to obtain protocol parameters used by the internal ledger of a hydra-node.
+    servers:
+      - localhost-http
+    subscribe:
+      summary: Get cardano protocol parameters.
+      operationId: getProtocolParameters
+      message:
+        $ref: "#/components/messages/ProtocolParameters"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########
@@ -786,6 +800,13 @@ components:
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
+
+    ProtocolParameters:
+      title: ProtocolParameters
+      payload:
+        type: object
+        additionalProperties: false
+        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
 
   ########
   #

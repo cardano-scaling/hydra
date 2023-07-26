@@ -105,12 +105,12 @@ main = do
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
-              RunOptions{apiHost, apiPort} = opts
+              RunOptions{apiHost, apiPort, ledgerConfig} = opts
+          protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain (putEvent . ClientEvent) $ \server -> do
+          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain protocolParams (putEvent . ClientEvent) $ \server -> do
             withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
-              let RunOptions{ledgerConfig} = opts
-              withCardanoLedger ledgerConfig chainConfig $ \ledger ->
+              withCardanoLedger chainConfig protocolParams $ \ledger ->
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn = contramap (`Authenticated` party) hn, nodeState, oc = chain, server, ledger, env, persistence}
 
@@ -127,13 +127,10 @@ main = do
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
      in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
 
-  withCardanoLedger ledgerConfig chainConfig action = do
+  withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-    ledgerEnv <-
-      newLedgerEnv
-        <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-
+    let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
   -- check if hydra-node parameters are matching with the hydra-node state.
