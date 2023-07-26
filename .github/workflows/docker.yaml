@@ -1,8 +1,7 @@
-# This workflow builds docker images on 'master', for all release tags, but also
-# for all pull requests. It only tags and pushes all builds from 'master' and
-# releases. However, the 'latest' docker tag on the registry will always point
-# to the latest version (likely the one built from 'master') so referring to the
-# versioned images is suggested.
+# This workflow builds docker images on 'master' and for all release tags. The
+# 'latest' docker tag on the registry will always point to the latest pushed
+# version, likely the one built from 'master', so referring to the versioned
+# images is suggested.
 name: Docker
 
 # Limit concurrent runs of this workflow within a single PR
@@ -14,9 +13,6 @@ on:
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
-  pull_request:
-    branches:
-      - 'master'
 
 jobs:
   docker:
@@ -28,8 +24,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v3
-      with:
-        submodules: true
 
     - name: 🐳 Login to GitHub Container Registry
       uses: docker/login-action@v2
@@ -76,8 +70,6 @@ jobs:
         docker images
         docker inspect ${IMAGE_NAME}:unstable
 
-    - name: 📤 Maybe push
-      if: ${{ github.ref == 'refs/heads/master' || github.ref_type == 'tag' }}
+    - name: 📤 Push to registry
       run: |
-        # Only push images from master or release tags
         docker push -a ${IMAGE_NAME}
