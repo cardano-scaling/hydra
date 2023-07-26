@@ -45,7 +45,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   StateChanged (StateReplaced),
   WaitReason (..),
-  aggregate,
+  aggregateState,
   collectEffects,
   collectWaits,
   defaultTTL,
@@ -632,13 +632,8 @@ step ::
   m ()
 step event = do
   StepState{headState, env, ledger} <- get
-  let headState' = aggregateOutcome headState $ update env ledger headState event
+  let headState' = aggregateState headState $ update env ledger headState event
   put StepState{env, ledger, headState = headState'}
- where
-  aggregateOutcome s = \case
-    StateChanged sc -> aggregate s sc
-    Combined l r -> aggregateOutcome (aggregateOutcome s r) l
-    _ -> s
 
 -- TODO: instead of asserting state we should try to rework the tests in here to
 -- assert the StateChange outcome already

@@ -21,6 +21,7 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Outcome,
   module Hydra.HeadLogic.SnapshotOutcome,
   aggregate,
+  aggregateState,
 ) where
 
 import Hydra.Prelude

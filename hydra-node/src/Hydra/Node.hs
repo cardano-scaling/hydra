@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, collectEffects, defaultTTL)
+import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -150,20 +150,10 @@ processNextEvent ::
   STM m (Outcome tx)
 processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
-    handleOutcome s $ Logic.update env ledger s e
+    let outcome = Logic.update env ledger s e
+     in (outcome, aggregateState s outcome)
  where
   NodeState{modifyHeadState} = nodeState
-
-  handleOutcome s = \case
-    NoOutcome -> (NoOutcome, s)
-    Effects effects -> (Effects effects, s)
-    StateChanged sc -> (StateChanged sc, aggregate s sc)
-    Error err -> (Error err, s)
-    Wait reason -> (Wait reason, s)
-    Combined l r ->
-      let (leftOutcome, leftState) = handleOutcome s l
-          (rightOutcome, rightState) = handleOutcome leftState r
-       in (Combined leftOutcome rightOutcome, rightState)
 
 processEffect ::
   ( MonadAsync m
