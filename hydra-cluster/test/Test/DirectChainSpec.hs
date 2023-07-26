@@ -339,10 +339,7 @@ spec = around showLogsOnFailure $ do
                 )
             )
             ""
-        let hydraScriptsTxId =
-              let removeTrailingNewline = BS.init
-               in unsafeDeserialiseFromRawBytesBase16
-                    (removeTrailingNewline (encodeUtf8 hydraScriptsTxIdStr))
+        let hydraScriptsTxId = unsafeDeserialiseFromRawBytesBase16 (encodeUtf8 hydraScriptsTxIdStr)
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do
