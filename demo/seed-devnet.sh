@@ -23,6 +23,13 @@ if [[ -n ${2} ]]; then
     HYDRA_NODE_CMD=${2}
 fi
 
+DOCKER_COMPOSE_CMD=
+if docker compose --version > /dev/null 2>&1; then
+  DOCKER_COMPOSE_CMD="docker compose"
+else
+  DOCKER_COMPOSE_CMD="docker-compose"
+fi
+
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
   ccli_ ${@} --testnet-magic ${NETWORK_ID}
@@ -31,7 +38,7 @@ function ccli_() {
   if [[ -x ${CCLI_CMD} ]]; then
       ${CCLI_CMD} ${@}
   else
-      docker-compose exec cardano-node cardano-cli ${@}
+      ${DOCKER_COMPOSE_CMD} exec cardano-node cardano-cli ${@}
   fi
 }
 

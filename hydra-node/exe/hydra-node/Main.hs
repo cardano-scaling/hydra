@@ -118,7 +118,7 @@ main = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket = nodeSocket} = opts
     txId <- publishHydraScripts networkId nodeSocket sk
-    putStrLn (decodeUtf8 (serialiseToRawBytesHex txId))
+    putStr (decodeUtf8 (serialiseToRawBytesHex txId))
 
   withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
     let localhost = Host{hostname = show host, port}
