@@ -223,7 +223,8 @@ executable hydra-net
   main-is:        Main.hs
   build-depends:
      filepath
-    , hydra-cardano-api
+     , hydra-cardano-api
+     , network
     , hydra-node
     , hydra-prelude
     , optparse-applicative
