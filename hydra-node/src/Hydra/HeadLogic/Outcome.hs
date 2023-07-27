@@ -71,7 +71,6 @@ data StateChanged tx
   | TransactionReceived {tx :: tx}
   | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}
-  | StateReplaced (HeadState tx)
   | ChainRolledBack {chainState :: ChainStateType tx}
   | HeadIsReadyToFanout
   | TickObserved {chainSlot :: ChainSlot}

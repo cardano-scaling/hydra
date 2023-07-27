@@ -909,7 +909,6 @@ aggregate st = \case
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
       _otherState -> st
-  StateReplaced newState -> newState
 
 aggregateState :: IsChainState tx => HeadState tx -> Outcome tx -> HeadState tx
 aggregateState s outcome =
