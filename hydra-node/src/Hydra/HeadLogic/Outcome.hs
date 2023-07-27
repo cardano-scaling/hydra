@@ -53,6 +53,8 @@ data StateChanged tx
       , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
       }
+  | HeadAborted {chainState :: ChainStateType tx}
+  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , utxo :: UTxOType tx
@@ -62,15 +64,13 @@ data StateChanged tx
       { snapshot :: Snapshot tx
       , requestedTxIds :: [TxIdType tx]
       }
-  | HeadAborted {chainState :: ChainStateType tx}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadFannedOut {chainState :: ChainStateType tx}
   | TransactionReceived {tx :: tx}
-  | SnapshotHasBeenConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}
-  | ChainRolledBack {chainState :: ChainStateType tx}
+  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
+  | HeadFannedOut {chainState :: ChainStateType tx}
+  | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 
