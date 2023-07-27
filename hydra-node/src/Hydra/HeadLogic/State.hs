@@ -9,7 +9,7 @@ import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
-import Hydra.Party (Party)
+import Hydra.Party (Party, deriveParty)
 import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
@@ -22,6 +22,13 @@ data Environment = Environment
   , otherParties :: [Party]
   , contestationPeriod :: ContestationPeriod
   }
+
+instance Arbitrary Environment where
+  arbitrary = do
+    signingKey <- arbitrary
+    otherParties <- arbitrary
+    contestationPeriod <- arbitrary
+    pure $ Environment{ signingKey, party = deriveParty signingKey, otherParties, contestationPeriod }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

@@ -6,10 +6,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
+import qualified Data.List as List
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
-import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api (SigningKey, Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -30,7 +31,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.State (ClosedState (..), InitialState (..), OpenState (..), getHeadParameters)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -132,25 +133,27 @@ spec = parallel $ do
         runToCompletion tracer node'
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
-  fit "can load state from persistence" $ do
-    signingKey <- generate arbitrary
-    headState <- generate arbitrary
-    let pt = deriveParty signingKey
-    let cp = case getHeadParameters headState of
-          Just HeadParameters{contestationPeriod} -> contestationPeriod
-          Nothing -> defaultContestationPeriod
-    let (party, otherParties) = case getHeadParameters headState of
-          Just HeadParameters{parties = (us : others)} -> (us, others)
-          _ -> (pt, [])
-    let env =
-          Environment
-            { party
-            , signingKey
-            , otherParties
-            , contestationPeriod = cp
-            }
+  it "can load state from persistence" $ do
+    env <- generate arbitrary
+    headState <- generate (genHeadState env)
     let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
     loadState nullTracer env persistence initialChainState `shouldReturn` headState
+
+genHeadState :: Environment -> Gen (HeadState Tx)
+genHeadState env = do
+  arbitrary <&> \case
+    s@Idle{} -> s
+    Initial i -> Initial i{parameters}
+    Open o -> Open o{parameters}
+    Closed c -> Closed c{parameters}
+ where
+  parameters =
+    HeadParameters
+      { contestationPeriod
+      , parties = party : otherParties
+      }
+
+  Environment{party, otherParties, contestationPeriod} = env
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
