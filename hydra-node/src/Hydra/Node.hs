@@ -83,8 +83,7 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, eventId :: Word64, effectId :: Word32, effect :: Effect tx}
   | EndEffect {by :: Party, eventId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
-  | CreatedState
-  | LoadedState
+  | LoadedState {numberOfEvents :: Word64}
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
@@ -215,16 +214,10 @@ loadState ::
   PersistenceIncremental (StateChanged tx) m ->
   ChainStateType tx ->
   m (HeadState tx)
-loadState tracer persistence defaultChainState =
-  loadAll persistence >>= \case
-    [] -> do
-      -- TODO: better logs
-      traceWith tracer CreatedState
-      pure initialState
-    events -> do
-      -- TODO: better logs
-      traceWith tracer LoadedState
-      pure $ recoverState initialState events
+loadState tracer persistence defaultChainState = do
+  events <- loadAll persistence
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  pure $ recoverState initialState events
  where
   initialState = Idle IdleState{chainState = defaultChainState}
 
