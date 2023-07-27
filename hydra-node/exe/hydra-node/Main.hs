@@ -34,6 +34,7 @@ import Hydra.Network.Message (Connectivity (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   HydraNode (..),
+  checkHeadState,
   createNodeState,
   initEnvironment,
   loadState,
@@ -72,7 +73,8 @@ main = do
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
         persistence <- createPersistence $ persistenceDir <> "/state"
-        hs <- loadState (contramap Node tracer) env persistence initialChainState
+        hs <- loadState (contramap Node tracer) persistence initialChainState
+        checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig

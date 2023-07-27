@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.NodeSpec where
 
@@ -10,7 +9,7 @@ import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
-import Hydra.Cardano.Api (SigningKey, Tx)
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -31,7 +30,6 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.State (ClosedState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -134,26 +132,9 @@ spec = parallel $ do
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
   prop "can load state from persistence" $ monadicIO $ do
-    env <- pick arbitrary
-    headState <- pick (reasonablySized $ genHeadState env)
+    headState <- pick (reasonablySized arbitrary)
     let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
-    pure $ loadState nullTracer env persistence initialChainState `shouldReturn` headState
-
-genHeadState :: Environment -> Gen (HeadState Tx)
-genHeadState env = do
-  arbitrary <&> \case
-    s@Idle{} -> s
-    Initial i -> Initial i{parameters}
-    Open o -> Open o{parameters}
-    Closed c -> Closed c{parameters}
- where
-  parameters =
-    HeadParameters
-      { contestationPeriod
-      , parties = party : otherParties
-      }
-
-  Environment{party, otherParties, contestationPeriod} = env
+    pure $ loadState nullTracer persistence initialChainState `shouldReturn` headState
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case

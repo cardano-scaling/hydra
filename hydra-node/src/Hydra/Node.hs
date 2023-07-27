@@ -214,22 +214,30 @@ instance Exception ParamMismatchError
 loadState ::
   (MonadThrow m, IsTx tx, FromJSON (ChainStateType tx)) =>
   Tracer m (HydraNodeLog tx) ->
-  Environment ->
   Persistence (HeadState tx) m ->
   ChainStateType tx ->
   m (HeadState tx)
-loadState tracer env persistence defaultChainState =
+loadState tracer persistence defaultChainState =
   load persistence >>= \case
     Nothing -> do
       traceWith tracer CreatedState
       pure $ Idle IdleState{chainState = defaultChainState}
     Just headState -> do
       traceWith tracer LoadedState
-      let paramsMismatch = checkParamsAgainstExistingState headState
-      unless (null paramsMismatch) $ do
-        traceWith tracer (Misconfiguration paramsMismatch)
-        throwIO $ ParamMismatchError paramsMismatch
       pure headState
+
+-- XXX: parse don't validate
+checkHeadState ::
+  MonadThrow m =>
+  Tracer m (HydraNodeLog tx) ->
+  Environment ->
+  HeadState tx ->
+  m ()
+checkHeadState tracer env headState = do
+  let paramsMismatch = checkParamsAgainstExistingState headState
+  unless (null paramsMismatch) $ do
+    traceWith tracer (Misconfiguration paramsMismatch)
+    throwIO $ ParamMismatchError paramsMismatch
  where
   -- check if hydra-node parameters are matching with the hydra-node state.
   checkParamsAgainstExistingState :: HeadState tx -> [ParamMismatch]
