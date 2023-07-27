@@ -4,14 +4,13 @@
 
 module Hydra.HeadLogic.State where
 
-import Hydra.Prelude
-
 import qualified Data.Map as Map
 import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
 import Hydra.Party (Party)
+import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
 data Environment = Environment

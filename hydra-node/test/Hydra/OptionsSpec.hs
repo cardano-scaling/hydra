@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Logging (Verbosity (..))
@@ -20,7 +21,6 @@ import Hydra.Options (
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
-  maximumNumberOfParties,
   parseHydraCommandFromArgs,
   renderFailure,
   toArgs,

@@ -28,6 +28,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytesHexText,
  )
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
 import Hydra.Ledger.Cardano ()
@@ -73,12 +74,6 @@ import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
-
--- | Hardcoded limit for maximum number of parties in a head protocol
--- The value is obtained from calculating the costs of running the scripts
--- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
-maximumNumberOfParties :: Int
-maximumNumberOfParties = 4
 
 data ParamMismatch
   = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}

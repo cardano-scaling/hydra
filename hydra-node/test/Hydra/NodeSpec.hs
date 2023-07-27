@@ -44,7 +44,7 @@ import Hydra.Node (
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
-import Hydra.Options (ChainConfig (contestationPeriod), defaultContestationPeriod)
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
@@ -133,19 +133,24 @@ spec = parallel $ do
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
   fit "can load state from persistence" $ do
-    headState <- generate arbitrary
-    let contestationPeriod = fromMaybe defaultContestationPeriod (contestationPeriod $ getHeadParameters headState)
     signingKey <- generate arbitrary
+    headState <- generate arbitrary
+    let pt = deriveParty signingKey
+    let cp = case getHeadParameters headState of
+          Just HeadParameters{contestationPeriod} -> contestationPeriod
+          Nothing -> defaultContestationPeriod
+    let (party, otherParties) = case getHeadParameters headState of
+          Just HeadParameters{parties = (us : others)} -> (us, others)
+          _ -> (pt, [])
     let env =
           Environment
-            { party = deriveParty signingKey
+            { party
             , signingKey
-            , otherParties = []
-            , contestationPeriod
+            , otherParties
+            , contestationPeriod = cp
             }
     let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
-    hs <- loadState nullTracer env persistence "persistenceDir" initialChainState
-    hs `shouldBe` headState
+    loadState nullTracer env persistence initialChainState `shouldReturn` headState
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case

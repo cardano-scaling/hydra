@@ -72,7 +72,7 @@ main = do
         let RunOptions{hydraScriptsTxId, chainConfig} = opts
         -- Load state from persistence or create new one
         persistence <- createPersistence $ persistenceDir <> "/state"
-        hs <- loadState (contramap Node tracer) env persistence persistenceDir initialChainState
+        hs <- loadState (contramap Node tracer) env persistence initialChainState
         nodeState <- createNodeState hs
         ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig

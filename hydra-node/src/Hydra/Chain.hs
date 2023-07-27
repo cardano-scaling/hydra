@@ -36,11 +36,18 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
+
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Lovelace
 maxMainnetLovelace = 100_000_000
+
+-- | Hardcoded limit for maximum number of parties in a head protocol
+-- The value is obtained from calculating the costs of running the scripts
+-- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
+maximumNumberOfParties :: Int
+maximumNumberOfParties = 4
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -54,7 +61,10 @@ instance Arbitrary HeadParameters where
   arbitrary = dedupParties <$> genericArbitrary
    where
     dedupParties HeadParameters{contestationPeriod, parties} =
-      HeadParameters{contestationPeriod, parties = nub parties}
+      HeadParameters
+        { contestationPeriod
+        , parties = sort . take maximumNumberOfParties $ nub parties
+        }
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.

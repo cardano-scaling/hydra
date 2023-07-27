@@ -207,7 +207,7 @@ createNodeState initialState = do
       , queryHeadState = readTVar tv
       }
 
-newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
+newtype ParamMismatchError = ParamMismatchError [ParamMismatch] deriving (Eq, Show)
 
 instance Exception ParamMismatchError
 
@@ -216,10 +216,9 @@ loadState ::
   Tracer m (HydraNodeLog tx) ->
   Environment ->
   Persistence (HeadState tx) m ->
-  String ->
   ChainStateType tx ->
   m (HeadState tx)
-loadState tracer env persistence persistenceDir defaultChainState =
+loadState tracer env persistence defaultChainState =
   load persistence >>= \case
     Nothing -> do
       traceWith tracer CreatedState
@@ -229,12 +228,7 @@ loadState tracer env persistence persistenceDir defaultChainState =
       let paramsMismatch = checkParamsAgainstExistingState headState
       unless (null paramsMismatch) $ do
         traceWith tracer (Misconfiguration paramsMismatch)
-        throwIO $
-          ParamMismatchError $
-            "Loaded state does not match given command line options."
-              <> " Please check the state in: "
-              <> persistenceDir
-              <> " against provided command line options."
+        throwIO $ ParamMismatchError paramsMismatch
       pure headState
  where
   -- check if hydra-node parameters are matching with the hydra-node state.
