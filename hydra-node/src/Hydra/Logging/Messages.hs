@@ -10,11 +10,11 @@ module Hydra.Logging.Messages where
 
 import Hydra.Prelude
 
-import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Options (RunOptions)
+import Hydra.Options (ParamMismatch, RunOptions)
+import Hydra.API.RestServer (APIServerLog)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}

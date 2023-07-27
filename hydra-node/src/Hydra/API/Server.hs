@@ -19,6 +19,7 @@ import Data.Version (showVersion)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.RestServer (
+  APIServerLog (..),
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SubmitTxRequest (..),
@@ -86,41 +87,8 @@ import Network.WebSockets (
   sendTextDatas,
   withPingThread,
  )
-import Test.QuickCheck (oneof)
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
-
-data APIServerLog
-  = APIServerStarted {listeningPort :: PortNumber}
-  | NewAPIConnection
-  | APIOutputSent {sentOutput :: Aeson.Value}
-  | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput {reason :: String, inputReceived :: Text}
-  | APIConnectionError {reason :: String}
-  | APIHandshakeError {reason :: String}
-  | APIRestInputReceived
-      { method :: Text
-      , paths :: [Text]
-      , requestInputBody :: Maybe Aeson.Value
-      }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary APIServerLog where
-  arbitrary =
-    oneof
-      [ APIServerStarted <$> arbitrary
-      , pure NewAPIConnection
-      , pure $ APIOutputSent (Aeson.Object mempty)
-      , pure $ APIInputReceived (Aeson.Object mempty)
-      , APIInvalidInput <$> arbitrary <*> arbitrary
-      , APIConnectionError <$> arbitrary
-      , APIHandshakeError <$> arbitrary
-      , APIRestInputReceived
-          <$> arbitrary
-          <*> arbitrary
-          <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
-      ]
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -362,13 +330,11 @@ httpApp tracer directChain pparams req respond =
     ("POST", ["commit"]) -> do
       body <- consumeRequestBodyStrict req
       handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
-
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
-
     ("POST", ["submit-user-tx"]) -> do
-        body <- consumeRequestBodyStrict req
-        handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
+      body <- consumeRequestBodyStrict req
+      handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
     _ -> do
       traceWith tracer $
         APIRestInputReceived
