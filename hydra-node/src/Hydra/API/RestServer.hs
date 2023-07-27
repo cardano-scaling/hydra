@@ -17,6 +17,7 @@ import Hydra.Cardano.Api (
   HashableScriptData,
   KeyWitnessInCtx (..),
   PlutusScript,
+  ProtocolParameters,
   ScriptDatum (ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
@@ -27,7 +28,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToTextEnvelope,
   pattern KeyWitness,
-  pattern ScriptWitness, ProtocolParameters,
+  pattern ScriptWitness,
  )
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
@@ -35,7 +36,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (PortNumber)
 import Network.HTTP.Types (Method, status200, status400, status500)
-import Network.Wai (Response, ResponseReceived, responseLBS, Application, Request (requestMethod, pathInfo), consumeRequestBodyStrict)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, responseLBS)
 import Test.QuickCheck (oneof)
 
 data APIServerLog
@@ -251,8 +252,6 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
 
 -- | Handle user requests to submit a signed tx
--- TODO: we should move these handlers to a separate module and solve cyclic imports
--- related to APIServerLog.
 handleSubmitUserTx ::
   Chain tx IO ->
   Tracer IO APIServerLog ->
