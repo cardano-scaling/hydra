@@ -156,11 +156,11 @@ channels:
           method: GET
           bindingVersion: '0.1.0'
   /submit-user-tx:
-    description: Submit signed user transaction using a hydra-node.
+    description: Submit signed user transaction to be submitted to the L1 network.
     servers:
       - localhost-http
     publish:
-      summary: Submit user transaction request.
+      summary: Submit signed user transaction using a hydra-node.
       operationId: submitTxRequest
       description: |
         Possible responses of commit endpoint are:
