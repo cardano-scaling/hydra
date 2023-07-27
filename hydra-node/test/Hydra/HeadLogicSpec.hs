@@ -136,7 +136,6 @@ spec =
             step $ NetworkEvent defaultTTL alice $ ReqTx t1
             getState
 
-          -- TODO: not assert state? but only the StateChanged + a test on 'aggregate'?
           sa `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `member` allTxs
             _ -> False
