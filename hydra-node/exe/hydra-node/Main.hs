@@ -51,7 +51,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (createPersistenceIncremental)
 
 main :: IO ()
 main = do
@@ -70,23 +70,26 @@ main = do
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
         eq@EventQueue{putEvent} <- createEventQueue
-        let RunOptions{hydraScriptsTxId, chainConfig} = opts
-        -- Load state from persistence or create new one
-        persistence <- createPersistence $ persistenceDir <> "/state"
-        hs <- loadState (contramap Node tracer) persistence initialChainState
-        checkHeadState (contramap Node tracer) env hs
-        nodeState <- createNodeState hs
-        ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
-        wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
-          let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
-              RunOptions{apiHost, apiPort, ledgerConfig} = opts
-          protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-          apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain protocolParams (putEvent . ClientEvent) $ \server -> do
-            withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
-              withCardanoLedger chainConfig protocolParams $ \ledger ->
+        let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
+        protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+        withCardanoLedger chainConfig protocolParams $ \ledger -> do
+          persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+          hs <- loadState (contramap Node tracer) persistence initialChainState
+          checkHeadState (contramap Node tracer) env hs
+          nodeState <- createNodeState hs
+          -- Chain
+          ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
+          wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
+          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
+            -- API
+            let RunOptions{host, port, peers, nodeId} = opts
+                putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
+                RunOptions{apiHost, apiPort} = opts
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain protocolParams (putEvent . ClientEvent) $ \server -> do
+              -- Network
+              withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+                -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode{eq, hn = contramap (`Authenticated` party) hn, nodeState, oc = chain, server, ledger, env, persistence}
 

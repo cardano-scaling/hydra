@@ -29,12 +29,13 @@ import Hydra.HeadLogic (
   HeadState (..),
   IdleState (IdleState),
   Outcome (..),
-  aggregate,
   aggregateState,
   collectEffects,
   defaultTTL,
+  recoverState,
  )
 import qualified Hydra.HeadLogic as Logic
+import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -43,7 +44,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Options (ChainConfig (..), ParamMismatch (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (Persistence (..))
+import Hydra.Persistence (PersistenceIncremental (..), loadAll)
 
 -- * Environment Handling
 
@@ -61,6 +62,7 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+
 -- ** Create and run a hydra node
 
 -- | Main handle of a hydra node where all layers are tied together.
@@ -72,7 +74,7 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  , persistence :: PersistenceIncremental (StateChanged tx) m
   }
 
 data HydraNodeLog tx
@@ -128,10 +130,7 @@ stepHydraNode tracer node = do
   handleOutcome e = \case
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    StateChanged sc -> do
-      -- TODO: We should not need to query the head state here
-      s <- atomically queryHeadState
-      save $ aggregate s sc
+    StateChanged sc -> append sc
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -144,11 +143,9 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  Persistence{save} = persistence
+  PersistenceIncremental{append} = persistence
 
-  NodeState{queryHeadState} = nodeState
-
-  HydraNode{persistence, eq, env, nodeState} = node
+  HydraNode{persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -211,20 +208,25 @@ newtype ParamMismatchError = ParamMismatchError [ParamMismatch] deriving (Eq, Sh
 
 instance Exception ParamMismatchError
 
+-- | Load state from persistence.
 loadState ::
-  (MonadThrow m, IsTx tx, FromJSON (ChainStateType tx)) =>
+  (MonadThrow m, IsChainState tx) =>
   Tracer m (HydraNodeLog tx) ->
-  Persistence (HeadState tx) m ->
+  PersistenceIncremental (StateChanged tx) m ->
   ChainStateType tx ->
   m (HeadState tx)
 loadState tracer persistence defaultChainState =
-  load persistence >>= \case
-    Nothing -> do
+  loadAll persistence >>= \case
+    [] -> do
+      -- TODO: better logs
       traceWith tracer CreatedState
-      pure $ Idle IdleState{chainState = defaultChainState}
-    Just headState -> do
+      pure initialState
+    events -> do
+      -- TODO: better logs
       traceWith tracer LoadedState
-      pure headState
+      pure $ recoverState initialState events
+ where
+  initialState = Idle IdleState{chainState = defaultChainState}
 
 -- XXX: parse don't validate
 checkHeadState ::
@@ -252,5 +254,6 @@ checkHeadState tracer env headState = do
    where
     loadedParties = sort parties
 
-  Environment{contestationPeriod = configuredCp, otherParties, party} = env
   configuredParties = sort (party : otherParties)
+
+  Environment{contestationPeriod = configuredCp, otherParties, party} = env

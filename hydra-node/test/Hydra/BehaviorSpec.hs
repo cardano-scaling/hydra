@@ -63,7 +63,7 @@ import Hydra.Node (
  )
 import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (Persistence (Persistence, load, save))
+import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
@@ -771,7 +771,7 @@ createHydraNode ::
   m (HydraNode tx m)
 createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
   eq <- createEventQueue
-  persistenceVar <- newTVarIO Nothing
+  persistenceVar <- newTVarIO []
   labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
   connectNode chain $
     HydraNode
@@ -798,9 +798,9 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             , contestationPeriod = cp
             }
       , persistence =
-          Persistence
-            { save = atomically . writeTVar persistenceVar . Just
-            , load = readTVarIO persistenceVar
+          PersistenceIncremental
+            { append = \x -> atomically $ modifyTVar persistenceVar (<> [x])
+            , loadAll = readTVarIO persistenceVar
             }
       }
 

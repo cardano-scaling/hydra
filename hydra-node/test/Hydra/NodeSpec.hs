@@ -29,6 +29,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   IdleState (..),
   defaultTTL,
+  recoverState,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -45,7 +46,7 @@ import Hydra.Node (
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (Persistence (Persistence, load, save))
+import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck.Monadic (monadicIO, pick)
@@ -132,9 +133,18 @@ spec = parallel $ do
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
   prop "can load state from persistence" $ monadicIO $ do
-    headState <- pick (reasonablySized arbitrary)
-    let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
-    pure $ loadState nullTracer persistence initialChainState `shouldReturn` headState
+    events <- pick arbitrary
+    let persistence =
+          PersistenceIncremental
+            { append = const $ pure ()
+            , loadAll = pure events
+            }
+    let initialState = Idle IdleState{chainState = initialChainState}
+    -- XXX: This is testing loadState directly using the implementation of
+    -- loadState
+    pure $
+      loadState nullTracer persistence initialChainState
+        `shouldReturn` recoverState initialState events
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
@@ -203,9 +213,9 @@ createHydraNode signingKey otherParties contestationPeriod events = do
             , contestationPeriod
             }
       , persistence =
-          Persistence
-            { save = const $ pure ()
-            , load = failure "unexpected load"
+          PersistenceIncremental
+            { append = const $ pure ()
+            , loadAll = failure "unexpected loadAll"
             }
       }
  where
