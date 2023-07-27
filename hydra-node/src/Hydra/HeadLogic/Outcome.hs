@@ -58,10 +58,8 @@ data StateChanged tx
       , utxo :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | SnapshotAppliedToLocalUTxO
+  | SnapshotRequested
       { snapshot :: Snapshot tx
-      , txs :: [tx]
-      , utxo :: UTxOType tx
       , requestedTxIds :: [TxIdType tx]
       }
   | HeadAborted {chainState :: ChainStateType tx}

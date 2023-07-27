@@ -637,7 +637,7 @@ step ::
 step event = do
   StepState{headState, env, ledger} <- get
   let outcome = update env ledger headState event
-  let headState' = aggregateState headState $ outcome
+  let headState' = aggregateState ledger headState outcome
   put StepState{env, ledger, headState = headState'}
   pure outcome
 

@@ -119,7 +119,7 @@ stepHydraNode tracer node = do
     StateChanged sc -> do
       -- TODO: We should not need to query the head state here
       s <- atomically queryHeadState
-      save $ aggregate s sc
+      save $ aggregate ledger s sc
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -136,7 +136,7 @@ stepHydraNode tracer node = do
 
   NodeState{queryHeadState} = nodeState
 
-  HydraNode{persistence, eq, env, nodeState} = node
+  HydraNode{persistence, eq, env, nodeState, ledger} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -151,7 +151,7 @@ processNextEvent ::
 processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
     let outcome = Logic.update env ledger s e
-     in (outcome, aggregateState s outcome)
+     in (outcome, aggregateState ledger s outcome)
  where
   NodeState{modifyHeadState} = nodeState
 
