@@ -66,12 +66,18 @@ TODO
 
 #### Github security advisories
 
-TODO
+Team discovered a bug in the multisignature verification which could compromise
+off-chain security of a Hydra Head. The fix was quite simple and they decided
+to use a Github feature to report security advisory in order to test out this
+feature. The process creates a separate github repo where potential security
+issues could be discussed in privacy (between the reporter and the repository
+administrators) since potential attackers should not be aware of any issues
+until they are fixed. The team scored this issue using CVSS (The Common
+Vulnerability Scoring System), the score was moderate (5.5), and they didn't
+issue any CVE (Common Vulnerabilities and Exposures). The process overall feels
+nice but Hydra CI is not checking the builds in these private, one-off forks so
+there is a risk of merging code that doesn't compile.
 
-- Found a first bug, potentially impacting off-chain security of Hydra Head
-- Published advisory in security section
-- Scored with CVSS, but no CVE issued
-- Problems with running CI on private forks to fix security advisory
 
 #### Moving to GHC 9.2.7
 
