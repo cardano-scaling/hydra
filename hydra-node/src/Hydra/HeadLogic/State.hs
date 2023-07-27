@@ -65,6 +65,14 @@ setChainState chainState = \case
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
+-- | Get the head parameters in any 'HeadState'.
+getHeadParameters :: HeadState tx -> Maybe HeadParameters
+getHeadParameters = \case
+  Idle _ -> Nothing
+  Initial InitialState{parameters} -> Just parameters
+  Open OpenState{parameters} -> Just parameters
+  Closed ClosedState{parameters} -> Just parameters
+
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.

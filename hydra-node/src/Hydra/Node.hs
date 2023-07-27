@@ -22,8 +22,20 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, HeadParameters (..), IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (ClosedState (ClosedState), Effect (..), Environment (..), Event (..), HeadState (..), IdleState (IdleState), InitialState (InitialState), OpenState (OpenState), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
+import Hydra.HeadLogic (
+  Effect (..),
+  Environment (..),
+  Event (..),
+  HeadState (..),
+  IdleState (IdleState),
+  Outcome (..),
+  aggregate,
+  aggregateState,
+  collectEffects,
+  defaultTTL,
+ )
 import qualified Hydra.HeadLogic as Logic
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
@@ -227,12 +239,7 @@ loadState tracer env persistence persistenceDir defaultChainState =
  where
   -- check if hydra-node parameters are matching with the hydra-node state.
   checkParamsAgainstExistingState :: HeadState tx -> [ParamMismatch]
-  checkParamsAgainstExistingState hs =
-    case hs of
-      Idle _ -> []
-      Initial InitialState{parameters} -> validateParameters parameters
-      Open OpenState{parameters} -> validateParameters parameters
-      Closed ClosedState{parameters} -> validateParameters parameters
+  checkParamsAgainstExistingState = maybe [] validateParameters . getHeadParameters
 
   validateParameters HeadParameters{contestationPeriod = loadedCp, parties} =
     flip execState [] $ do

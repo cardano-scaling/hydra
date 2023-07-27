@@ -14,12 +14,13 @@ import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   HeadId (HeadId),
-  HeadParameters (HeadParameters),
+  HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
  )
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
@@ -29,23 +30,26 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
-import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog,
   createNodeState,
+  loadState,
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
-import Hydra.Options (defaultContestationPeriod)
+import Hydra.Options (ChainConfig (contestationPeriod), defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = parallel $ do
@@ -127,6 +131,21 @@ spec = parallel $ do
         (node', getNetworkMessages) <- recordNetwork node
         runToCompletion tracer node'
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+
+  fit "can load state from persistence" $ do
+    headState <- generate arbitrary
+    let contestationPeriod = fromMaybe defaultContestationPeriod (contestationPeriod $ getHeadParameters headState)
+    signingKey <- generate arbitrary
+    let env =
+          Environment
+            { party = deriveParty signingKey
+            , signingKey
+            , otherParties = []
+            , contestationPeriod
+            }
+    let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
+    hs <- loadState nullTracer env persistence "persistenceDir" initialChainState
+    hs `shouldBe` headState
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
