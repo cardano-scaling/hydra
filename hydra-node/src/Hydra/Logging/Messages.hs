@@ -21,10 +21,7 @@ data HydraLog tx net
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  | CreatedState
-  | LoadedState
   | NodeOptions {runOptions :: RunOptions}
-  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   | Authentication {authentication :: AuthLog}
   deriving (Generic)
 

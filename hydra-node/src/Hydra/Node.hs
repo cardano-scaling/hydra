@@ -19,17 +19,17 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, HeadParameters (..), IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
+import Hydra.HeadLogic (ClosedState (ClosedState), Effect (..), Environment (..), Event (..), HeadState (..), IdleState (IdleState), InitialState (InitialState), OpenState (OpenState), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
-import Hydra.Options (ChainConfig (..), RunOptions (..))
+import Hydra.Options (ChainConfig (..), ParamMismatch (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (Persistence (..))
 
@@ -69,6 +69,9 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, eventId :: Word64, effectId :: Word32, effect :: Effect tx}
   | EndEffect {by :: Party, eventId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
+  | CreatedState
+  | LoadedState
+  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
 deriving instance (IsChainState tx) => Eq (HydraNodeLog tx)
@@ -191,3 +194,54 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
+
+newtype ParamMismatchError = ParamMismatchError String deriving (Eq, Show)
+
+instance Exception ParamMismatchError
+
+loadState ::
+  (MonadThrow m, IsTx tx, FromJSON (ChainStateType tx)) =>
+  Tracer m (HydraNodeLog tx) ->
+  Environment ->
+  Persistence (HeadState tx) m ->
+  String ->
+  ChainStateType tx ->
+  m (HeadState tx)
+loadState tracer env persistence persistenceDir defaultChainState =
+  load persistence >>= \case
+    Nothing -> do
+      traceWith tracer CreatedState
+      pure $ Idle IdleState{chainState = defaultChainState}
+    Just headState -> do
+      traceWith tracer LoadedState
+      let paramsMismatch = checkParamsAgainstExistingState headState
+      unless (null paramsMismatch) $ do
+        traceWith tracer (Misconfiguration paramsMismatch)
+        throwIO $
+          ParamMismatchError $
+            "Loaded state does not match given command line options."
+              <> " Please check the state in: "
+              <> persistenceDir
+              <> " against provided command line options."
+      pure headState
+ where
+  -- check if hydra-node parameters are matching with the hydra-node state.
+  checkParamsAgainstExistingState :: HeadState tx -> [ParamMismatch]
+  checkParamsAgainstExistingState hs =
+    case hs of
+      Idle _ -> []
+      Initial InitialState{parameters} -> validateParameters parameters
+      Open OpenState{parameters} -> validateParameters parameters
+      Closed ClosedState{parameters} -> validateParameters parameters
+
+  validateParameters HeadParameters{contestationPeriod = loadedCp, parties} =
+    flip execState [] $ do
+      when (loadedCp /= configuredCp) $
+        modify (<> [ContestationPeriodMismatch{loadedCp, configuredCp}])
+      when (loadedParties /= configuredParties) $
+        modify (<> [PartiesMismatch{loadedParties, configuredParties}])
+   where
+    loadedParties = sort parties
+
+  Environment{contestationPeriod = configuredCp, otherParties, party} = env
+  configuredParties = sort (party : otherParties)
