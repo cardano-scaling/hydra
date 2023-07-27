@@ -7,8 +7,7 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Aeson.Lens (key)
-import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, SubmittedTxResponse)
-import Hydra.API.Server (httpApp)
+import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, SubmittedTxResponse, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()

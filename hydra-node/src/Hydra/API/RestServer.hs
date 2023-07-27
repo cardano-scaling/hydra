@@ -7,8 +7,11 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Aeson (Value (Object, String), withObject, withText, (.:?))
+import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Short ()
+import Data.Text (pack)
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -19,18 +22,20 @@ import Hydra.Cardano.Api (
   Tx,
   TxOut,
   UTxO',
-  WitCtxTxIn,
-  Witness,
   deserialiseFromTextEnvelope,
   mkScriptWitness,
   proxyToAsType,
   serialiseToTextEnvelope,
   pattern KeyWitness,
-  pattern ScriptWitness,
+  pattern ScriptWitness, ProtocolParameters,
  )
+import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
+import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (PortNumber)
-import qualified Data.Aeson as Aeson
+import Network.HTTP.Types (Method, status200, status400, status500)
+import Network.Wai (Response, ResponseReceived, responseLBS, Application, Request (requestMethod, pathInfo), consumeRequestBodyStrict)
 import Test.QuickCheck (oneof)
 
 data APIServerLog
@@ -169,13 +174,111 @@ instance FromJSON SubmittedTxResponse where
 instance Arbitrary SubmittedTxResponse where
   arbitrary = genericArbitrary
 
-fromTxOutWithWitness :: TxOutWithWitness -> (TxOut CtxUTxO, Witness WitCtxTxIn)
-fromTxOutWithWitness TxOutWithWitness{txOut, witness} =
-  (txOut, toScriptWitness witness)
+-- | Hydra HTTP server
+httpApp ::
+  Tracer IO APIServerLog ->
+  Chain tx IO ->
+  ProtocolParameters ->
+  Application
+httpApp tracer directChain pparams req respond =
+  case (requestMethod req, pathInfo req) of
+    ("POST", ["commit"]) -> do
+      body <- consumeRequestBodyStrict req
+      handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+    ("GET", ["protocol-parameters"]) ->
+      respond $ responseLBS status200 [] (Aeson.encode pparams)
+    ("POST", ["submit-user-tx"]) -> do
+      body <- consumeRequestBodyStrict req
+      handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
+    _ -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 $ requestMethod req
+          , paths = pathInfo req
+          , requestInputBody = Nothing
+          }
+      respond $ responseLBS status400 [] "Resource not found"
+
+-- *- Handlers
+
+-- Handle user requests to obtain a draft commit tx
+handleDraftCommitUtxo ::
+  Chain tx IO ->
+  Tracer IO APIServerLog ->
+  LBS.ByteString ->
+  Method ->
+  [Text] ->
+  (Response -> IO ResponseReceived) ->
+  IO ResponseReceived
+handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
+  case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
+    Left err ->
+      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right requestInput@DraftCommitTxRequest{utxoToCommit} -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 reqMethod
+          , paths = reqPaths
+          , requestInputBody = Just $ toJSON requestInput
+          }
+      eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxoToCommit
+      respond $
+        case eCommitTx of
+          Left e ->
+            -- Distinguish between errors users can actually benefit from and
+            -- other errors that are turned into 500 responses.
+            case e of
+              CannotCommitReferenceScript -> return400 e
+              CommittedTooMuchADAForMainnet _ _ -> return400 e
+              UnsupportedLegacyOutput _ -> return400 e
+              walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
+              _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+          Right commitTx ->
+            responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
-  toScriptWitness = \case
-    Nothing ->
-      KeyWitness KeyWitnessForSpending
-    Just ScriptInfo{redeemer, datum, plutusV2Script} ->
-      ScriptWitness ScriptWitnessForSpending $
-        mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
+  return400 = responseLBS status400 [] . Aeson.encode . toJSON
+
+  Chain{draftCommitTx} = directChain
+
+  fromTxOutWithWitness TxOutWithWitness{txOut, witness} =
+    (txOut, toScriptWitness witness)
+   where
+    toScriptWitness = \case
+      Nothing ->
+        KeyWitness KeyWitnessForSpending
+      Just ScriptInfo{redeemer, datum, plutusV2Script} ->
+        ScriptWitness ScriptWitnessForSpending $
+          mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
+
+-- | Handle user requests to submit a signed tx
+-- TODO: we should move these handlers to a separate module and solve cyclic imports
+-- related to APIServerLog.
+handleSubmitUserTx ::
+  Chain tx IO ->
+  Tracer IO APIServerLog ->
+  LBS.ByteString ->
+  Method ->
+  [Text] ->
+  (Response -> IO ResponseReceived) ->
+  IO ResponseReceived
+handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
+  case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
+    Left err ->
+      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right requestInput@SubmitTxRequest{txToSubmit} -> do
+      traceWith tracer $
+        APIRestInputReceived
+          { method = decodeUtf8 reqMethod
+          , paths = reqPaths
+          , requestInputBody = Just $ toJSON requestInput
+          }
+
+      eresult <- try $ submitUserTx txToSubmit
+      respond $
+        case eresult of
+          Left (e :: PostTxError Tx) ->
+            responseLBS status400 [] (Aeson.encode . Aeson.String . pack $ show e)
+          Right _ ->
+            responseLBS status200 [] (Aeson.encode SubmittedTxResponse)
+ where
+  Chain{submitUserTx} = directChain
