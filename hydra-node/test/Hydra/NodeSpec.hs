@@ -5,10 +5,10 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -20,16 +20,13 @@ import Hydra.Chain (
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
  )
-import Hydra.Chain.Direct (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
-  HeadState (..),
-  IdleState (..),
+  StateChanged,
   defaultTTL,
-  recoverState,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -49,7 +46,6 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
-import Test.QuickCheck.Monadic (monadicIO, pick)
 
 spec :: Spec
 spec = parallel $ do
@@ -132,19 +128,34 @@ spec = parallel $ do
         runToCompletion tracer node'
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
-  prop "can load state from persistence" $ monadicIO $ do
-    events <- pick arbitrary
-    let persistence =
-          PersistenceIncremental
-            { append = const $ pure ()
-            , loadAll = pure events
-            }
-    let initialState = Idle IdleState{chainState = initialChainState}
-    -- XXX: This is testing loadState directly using the implementation of
-    -- loadState
-    pure $
-      loadState nullTracer persistence initialChainState
-        `shouldReturn` recoverState initialState events
+  it "can continue after restart via persisted state" $
+    failAfter 1 $
+      showLogsOnFailure $ \tracer -> do
+        persistence <- createPersistenceInMemory
+
+        createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod eventsToOpenHead
+          >>= runToCompletion tracer
+
+        let reqTxEvent = NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+            tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+
+        (node, getServerOutputs) <-
+          createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod [reqTxEvent]
+            >>= recordServerOutputs
+        runToCompletion tracer node
+
+        mapM_ print =<< loadAll persistence
+
+        getServerOutputs >>= (`shouldContain` [TxValid{headId = HeadId "1234", transaction = tx1}])
+
+createPersistenceInMemory :: MonadSTM m => m (PersistenceIncremental a m)
+createPersistenceInMemory = do
+  persistenceVar <- newTVarIO []
+  pure
+    PersistenceIncremental
+      { append = \x -> atomically $ modifyTVar persistenceVar (<> [x])
+      , loadAll = readTVarIO persistenceVar
+      }
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
@@ -183,16 +194,32 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
       stepHydraNode tracer node >> go
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
-createHydraNode signingKey otherParties contestationPeriod events = do
+createHydraNode =
+  createHydraNode'
+    PersistenceIncremental
+      { append = const $ pure ()
+      , loadAll = pure []
+      }
+
+createHydraNode' ::
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  PersistenceIncremental (StateChanged SimpleTx) m ->
+  SigningKey HydraKey ->
+  [Party] ->
+  ContestationPeriod ->
+  [Event SimpleTx] ->
+  m (HydraNode SimpleTx m)
+createHydraNode' persistence signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  headState <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
+  nodeState <- createNodeState headState
   pure $
     HydraNode
       { eq
@@ -212,11 +239,7 @@ createHydraNode signingKey otherParties contestationPeriod events = do
             , otherParties
             , contestationPeriod
             }
-      , persistence =
-          PersistenceIncremental
-            { append = const $ pure ()
-            , loadAll = failure "unexpected loadAll"
-            }
+      , persistence
       }
  where
   party = deriveParty signingKey
@@ -225,6 +248,11 @@ recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
+
+recordPersistedItems :: HydraNode tx IO -> IO (HydraNode tx IO, IO [StateChanged tx])
+recordPersistedItems node = do
+  (record, query) <- messageRecorder
+  pure (node{persistence = PersistenceIncremental{append = record, loadAll = pure []}}, query)
 
 recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do

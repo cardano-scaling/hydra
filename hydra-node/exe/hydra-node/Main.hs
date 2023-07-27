@@ -91,7 +91,16 @@ main = do
               withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
-                  HydraNode{eq, hn = contramap (`Authenticated` party) hn, nodeState, oc = chain, server, ledger, env, persistence}
+                  HydraNode
+                    { eq
+                    , hn = contramap (`Authenticated` party) hn
+                    , nodeState
+                    , oc = chain
+                    , server
+                    , ledger
+                    , env
+                    , persistence
+                    }
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
