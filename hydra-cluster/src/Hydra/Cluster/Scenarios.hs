@@ -19,6 +19,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
+import Data.ByteString (isInfixOf)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
 import Hydra.API.RestServer (
@@ -298,7 +299,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400
+      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
   RunningNode{nodeSocket} = node
 
@@ -356,10 +357,11 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
       -- let's prepare a _user_ transaction from Bob to Carol
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
-      -- create output for Bob
+      -- create output for Bob to be sent to carol
       bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
       let carolAddress = mkVkAddress networkId cardanoCarolVk
           changeAddress = mkVkAddress networkId cardanoBobVk
+          -- carol's output
           theOutput =
             TxOut
               carolAddress
@@ -375,7 +377,7 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
           let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
 
           -- sending UNSIGNED transaction should not be accepted
-          sendRequest hydraNodeId unsignedRequest `shouldThrow` expectErrorStatus 400
+          sendRequest hydraNodeId unsignedRequest `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
           let signedTx = signTx cardanoBobSk unsignedTx
           let signedRequest = SubmitTxRequest{txToSubmit = signedTx}
@@ -428,17 +430,28 @@ headIsInitializingWith expectedParties v = do
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
 
--- TODO: sometimes it is convenient if in case of errors response body contains
--- some specific text. Perhaps we can make this better by adding this
--- possibillity?
-expectErrorStatus :: Int -> HttpException -> Bool
+expectErrorStatus ::
+  -- | Expected http status code
+  Int ->
+  -- | Optional string expected to be present somewhere in the response body
+  Maybe ByteString ->
+  -- | Expected exception
+  HttpException ->
+  Bool
 expectErrorStatus
   stat
+  mbodyContains
   ( VanillaHttpException
       ( L.HttpExceptionRequest
           _
           (L.StatusCodeException response chunk)
         )
     ) =
-    L.responseStatus response == toEnum stat && not (B.null chunk)
-expectErrorStatus _ _ = False
+    L.responseStatus response == toEnum stat && not (B.null chunk) && assertBodyContains mbodyContains chunk
+   where
+    -- NOTE: The documentation says: Response body parameter MAY include the beginning of the response body so this can be partial.
+    -- https://hackage.haskell.org/package/http-client-0.7.13.1/docs/Network-HTTP-Client.html#t:HttpExceptionContent
+    assertBodyContains :: Maybe ByteString -> ByteString -> Bool
+    assertBodyContains (Just bodyContains) bodyChunk = bodyContains `isInfixOf` bodyChunk
+    assertBodyContains Nothing _ = False
+expectErrorStatus _ _ _ = False

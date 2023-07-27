@@ -59,6 +59,7 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
+  canSubmitUserTransaction,
   headIsInitializingWith,
   refuelIfNeeded,
   restartedNodeCanAbort,
@@ -66,7 +67,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCannotCommitExternallyWalletUtxo,
   singlePartyCommitsFromExternalScript,
   singlePartyCommitsUsingFuel,
-  singlePartyHeadFullLifeCycle, canSubmitUserTransaction,
+  singlePartyHeadFullLifeCycle,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
