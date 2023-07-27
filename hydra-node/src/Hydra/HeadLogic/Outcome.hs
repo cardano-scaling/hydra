@@ -10,7 +10,7 @@ import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostCh
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
+import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -74,6 +74,7 @@ data StateChanged tx
   | StateReplaced (HeadState tx)
   | ChainRolledBack {chainState :: ChainStateType tx}
   | HeadIsReadyToFanout
+  | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 
 instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
