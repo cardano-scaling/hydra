@@ -65,7 +65,7 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       }
   | TransactionReceived {tx :: tx}
-  | PartySignedSnapshot {snapshot :: Snapshot tx, sigs :: Map Party (Signature (Snapshot tx))}
+  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout

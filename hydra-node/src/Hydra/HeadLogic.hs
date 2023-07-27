@@ -469,8 +469,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     waitOnSeenSnapshot $ \snapshot sigs -> do
       -- Spec: (j,.) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        let sigs' = Map.insert otherParty snapshotSignature sigs
-        ifAllMembersHaveSigned snapshot sigs' $ do
+        ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
           requireVerifiedMultisignature multisig snapshot $ do
@@ -501,10 +500,17 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then continue
       else Error $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
 
-  ifAllMembersHaveSigned snapshot sigs' cont =
-    if Map.keysSet sigs' == Set.fromList parties
-      then cont
-      else StateChanged PartySignedSnapshot{snapshot, sigs = sigs'}
+  ifAllMembersHaveSigned snapshot sigs cont =
+    let sigs' = Map.insert otherParty snapshotSignature sigs
+     in if Map.keysSet sigs' == Set.fromList parties
+          then cont sigs'
+          else
+            StateChanged
+              PartySignedSnapshot
+                { snapshot
+                , party = otherParty
+                , signature = snapshotSignature
+                }
 
   requireVerifiedMultisignature multisig msg cont =
     case verifyMultiSignature vkeys multisig msg of
@@ -889,16 +895,22 @@ aggregate ledger st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
-  PartySignedSnapshot{snapshot, sigs} ->
+  PartySignedSnapshot{snapshot, party, signature} ->
     case st of
-      Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { seenSnapshot = SeenSnapshot snapshot sigs
-                  }
-            }
+      Open
+        os@OpenState
+          { coordinatedHeadState =
+            chs@CoordinatedHeadState
+              { seenSnapshot = SeenSnapshot{signatories}
+              }
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  chs{seenSnapshot = SeenSnapshot snapshot sigs}
+              }
+         where
+          sigs = Map.insert party signature signatories
       _otherState -> st
   HeadIsReadyToFanout ->
     case st of
