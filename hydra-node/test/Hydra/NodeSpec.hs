@@ -1,12 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.NodeSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM)
-import qualified Data.List as List
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (PostTxOnChainFailed))
@@ -31,7 +31,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.State (ClosedState (..), InitialState (..), OpenState (..), getHeadParameters)
+import Hydra.HeadLogic.State (ClosedState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -50,7 +50,7 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (Persistence, load, save))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
-import Test.QuickCheck (generate)
+import Test.QuickCheck.Monadic (monadicIO, pick)
 
 spec :: Spec
 spec = parallel $ do
@@ -133,11 +133,11 @@ spec = parallel $ do
         runToCompletion tracer node'
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
 
-  it "can load state from persistence" $ do
-    env <- generate arbitrary
-    headState <- generate (genHeadState env)
+  prop "can load state from persistence" $ monadicIO $ do
+    env <- pick arbitrary
+    headState <- pick (reasonablySized $ genHeadState env)
     let persistence = Persistence{save = const $ pure (), load = pure $ Just headState}
-    loadState nullTracer env persistence initialChainState `shouldReturn` headState
+    pure $ loadState nullTracer env persistence initialChainState `shouldReturn` headState
 
 genHeadState :: Environment -> Gen (HeadState Tx)
 genHeadState env = do

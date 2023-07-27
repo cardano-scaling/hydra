@@ -22,13 +22,14 @@ data Environment = Environment
   , otherParties :: [Party]
   , contestationPeriod :: ContestationPeriod
   }
+  deriving (Show)
 
 instance Arbitrary Environment where
   arbitrary = do
     signingKey <- arbitrary
     otherParties <- arbitrary
     contestationPeriod <- arbitrary
-    pure $ Environment{ signingKey, party = deriveParty signingKey, otherParties, contestationPeriod }
+    pure $ Environment{signingKey, party = deriveParty signingKey, otherParties, contestationPeriod}
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
