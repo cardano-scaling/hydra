@@ -2,15 +2,16 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Implements the Head Protocol's /state machine/ as a /pure function/.
+-- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
 --
--- The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/)
+-- More specifically, the 'update' will handle incoming 'Event' (or rather
+-- "commands" in event sourcing speak) and convert that into a set of
+-- side-'Effect's and internal 'StateChanged' events, which in turn are
+-- 'aggregate'd into a single 'HeadState'.
 --
---     * One part detailing how the Head deals with /client input/.
---     * Another part describing how the Head reacts to /network messages/ from peers.
---     * A third part detailing the /On-Chain Verification (OCV)/ protocol, i.e. the abstract "smart contracts" that are need to provide on-chain security.
---
--- This module is about the first two parts, while the "Hydra.Contract.Head" module in 'hydra-plutus' covers the third part.
+-- As the specification is using a more imperative way of specifying the protocl
+-- behavior, one would find the decision logic in 'update' while state updates
+-- can be found in the corresponding 'aggregate' branch.
 module Hydra.HeadLogic (
   module Hydra.HeadLogic,
   module Hydra.HeadLogic.Event,
@@ -20,6 +21,8 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.SnapshotOutcome,
 )
 where
+
+import Hydra.Prelude
 
 import qualified Data.Map.Strict as Map
 import Data.Set ((\\))
@@ -86,7 +89,6 @@ import Hydra.Ledger (
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
-import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 defaultTTL :: TTL
