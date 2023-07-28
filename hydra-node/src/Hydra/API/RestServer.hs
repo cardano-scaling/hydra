@@ -200,7 +200,7 @@ httpApp tracer directChain pparams req respond =
           }
       respond $ responseLBS status400 [] "Resource not found"
 
--- *- Handlers
+-- * Handlers
 
 -- Handle user requests to obtain a draft commit tx
 handleDraftCommitUtxo ::
