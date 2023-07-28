@@ -10,13 +10,68 @@ preparation for the monthly review meeting (see [slides][slides] and
 [recording][recording]), where the team updates project stakeholders on recent
 developments to gather their feedback on proposed plans.
 
+### Starmap update
+
+Every couple months, we reflect on the the themes we identified for 2023 (as
+presented in [January](./2023-01.md#themes-for-2023)), and create a very high
+level list of possible deliverables which could bring us closer to our goals,
+e.g. using [impact maps](./img/2022-11-impact.png). This time we have come up
+with the following items:
+
+![](./img/2023-07-starmap.png)
+
+- Sustainable open-source :green_heart:
+
+  - **Hydra master-class workshop**: A concrete session we aim to conduct in an
+    upcoming event or online as a fallback. This will also be a motivation to
+    update our already existing tutorials and improve the first start
+    experience.
+
+  - **Engage & support developer community on catalyst proposals**: There are
+    around 30 proposals mentioning Hydra in the current catalyst funding round
+    and we want to review, comment, try to align and maybe even promote some
+    proposals. The goal here is to provide a platform to the many new ideas out
+    there, while avoiding fragmentation and maximum re-use of work across the
+    space.
+
+  - **Further open up github repositories**: we want to provide a welcoming
+    experience to non-IOG contributors and provide an easy to navigate space of
+    repositories relating to Hydra.
+
+- Mainnet mature application :purple_heart:
+
+  - **Make Hydra trivial to use**: Improving user and developer experience,
+    enabling a quick and frictionless setup of Hydra, likely also involving
+    Mithril to get started. Goal is to be able to open a distributed hydra head
+    with two nodes on a testnet within a few minutes; end-to-end!
+
+  - **Build a basic head explorer**: In the past we experimented with an
+    explorer already, but this time we want to set it up persistently. Not only
+    to measure adoption of Hydra, but primarily as a tool for app developers and
+    eventually a visualization for end users to start answering questions like
+    "who is running this head?"
+
+- Drive adoption :blue_heart:
+
+  - **Deliver a first version of HydraNow to mainnet**: Although ambitious, we
+    think it's important that the very promising use case of payments using
+    Hydra is made available to first users on mainnet. Concretely, this would be
+    the mobile application "HydraNow" which uses a `hydra-pay` service to enable
+    peer-to-peer payment channels.
+
+  - **Enable uni-directional payment channels**: This will expand the
+    capabilities of any payment channel created using Hydra to allow deposits &
+    withdrawals while keeping the Head open.
+
+You will find work packages related to these items pop up on our technical
+roadmap (especially [this view](https://github.com/orgs/input-output-hk/projects/21/views/26)) and as things we do in the community.
+
 ## Roadmap
 
 This month the team released version 0.11.0 which shifts the way Hydra clients
 need to interact with the hydra-node when commiting funds. The project
 [roadmap](https://github.com/orgs/input-output-hk/projects/21) was also updated
-to reflect latest ideas from an even higher level project plan that is updated
-quarterly:
+to reflect latest developments and ideas from the starmap:
 
 ![The roadmap without idea items](./img/2023-07-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
 
@@ -38,9 +93,7 @@ quarterly:
 
 TODO summarize differences
 
-TODO write about high-level project plan (starmap)?
-
-![The latest roadmap with features and ideas](./img/2023-07-roadmap.png) <small><center>The latest roadmap with featuresand ideas</center></small>
+![The latest roadmap with features and ideas](./img/2023-07-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
 ## Development
 
