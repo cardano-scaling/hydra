@@ -1,15 +1,16 @@
 {-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
 import Hydra.Chain (HeadId)
+import Hydra.Crypto (HydraKey, VerificationKey)
 import Hydra.HeadLogic.Event (Event)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (ValidationError, IsTx (TxIdType))
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Ledger (IsTx (TxIdType), ValidationError)
 import Hydra.Party (Party)
-import Hydra.Crypto (VerificationKey, HydraKey)
+import Hydra.Snapshot (SnapshotNumber)
 
 -- | Preliminary type for collecting errors occurring during 'update'.
 -- TODO: Try to merge this (back) into 'Outcome'.

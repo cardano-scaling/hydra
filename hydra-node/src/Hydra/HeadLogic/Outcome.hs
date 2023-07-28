@@ -6,12 +6,14 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx, TxIdType, ValidationError)
+import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Party (Party)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- | Analogous to events, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -38,14 +40,63 @@ instance
   where
   arbitrary = genericArbitrary
 
+-- | Head state changed event. These events represent all the internal state
+-- changes, get persisted and processed in an event sourcing manner.
+data StateChanged tx
+  = HeadInitialized
+      { parameters :: HeadParameters
+      , chainState :: ChainStateType tx
+      , headId :: HeadId
+      }
+  | CommittedUTxO
+      { party :: Party
+      , committedUTxO :: UTxOType tx
+      , chainState :: ChainStateType tx
+      }
+  | HeadAborted {chainState :: ChainStateType tx}
+  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | TransactionAppliedToLocalUTxO
+      { tx :: tx
+      , newLocalUTxO :: UTxOType tx
+      }
+  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
+  | -- | A snapshot was requested by some party.
+    -- NOTE: We deliberately already include an updated local ledger state to
+    -- not need a ledger to interpret this event.
+    SnapshotRequested
+      { snapshot :: Snapshot tx
+      , requestedTxIds :: [TxIdType tx]
+      , newLocalUTxO :: UTxOType tx
+      , newLocalTxs :: [tx]
+      }
+  | TransactionReceived {tx :: tx}
+  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
+  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadIsReadyToFanout
+  | HeadFannedOut {chainState :: ChainStateType tx}
+  | ChainRolledBack {chainState :: ChainStateType tx}
+  | TickObserved {chainSlot :: ChainSlot}
+  deriving stock (Generic)
+
+instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
+  arbitrary = genericArbitrary
+
+deriving instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+
 data Outcome tx
-  = NoOutcome
-  | Effects {effects :: [Effect tx]}
-  | NewState {headState :: HeadState tx}
+  = Effects {effects :: [Effect tx]}
+  | StateChanged (StateChanged tx)
   | Wait {reason :: WaitReason tx}
   | Error {error :: LogicError tx}
   | Combined {left :: Outcome tx, right :: Outcome tx}
   deriving stock (Generic)
+
+instance Semigroup (Outcome tx) where
+  (<>) = Combined
 
 deriving instance (IsChainState tx) => Eq (Outcome tx)
 deriving instance (IsChainState tx) => Show (Outcome tx)
@@ -57,24 +108,19 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) wher
 
 collectEffects :: Outcome tx -> [Effect tx]
 collectEffects = \case
-    Effects eff -> eff
-    Combined l r -> collectEffects l <> collectEffects r
-    _ -> []
+  Error _ -> []
+  Wait _ -> []
+  StateChanged _ -> []
+  Effects effs -> effs
+  Combined l r -> collectEffects l <> collectEffects r
 
 collectWaits :: Outcome tx -> [WaitReason tx]
 collectWaits = \case
-    Wait w -> [w]
-    Combined l r -> collectWaits l <> collectWaits r
-    _ -> []
-
-collectState :: Outcome tx -> [HeadState tx]
-collectState = \case
-  NoOutcome -> []
   Error _ -> []
-  Wait _ -> []
-  NewState s -> [s]
+  Wait w -> [w]
+  StateChanged _ -> []
   Effects _ -> []
-  Combined l r -> collectState l <> collectState r
+  Combined l r -> collectWaits l <> collectWaits r
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -91,5 +137,3 @@ deriving instance (IsTx tx) => FromJSON (WaitReason tx)
 
 instance IsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary
-
-

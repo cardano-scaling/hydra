@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
 import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), collectEffects, defaultTTL)
+import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -111,12 +111,12 @@ stepHydraNode tracer node = do
   traceWith tracer EndEvent{by = party, eventId}
  where
   handleOutcome e = \case
-    -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
-    -- does trace and not throw!
-    NoOutcome -> pure ()
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    NewState s -> save s
+    StateChanged sc -> do
+      -- TODO: We should not need to query the head state here
+      s <- atomically queryHeadState
+      save $ aggregate s sc
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -131,7 +131,9 @@ stepHydraNode tracer node = do
 
   Persistence{save} = persistence
 
-  HydraNode{persistence, eq, env} = node
+  NodeState{queryHeadState} = nodeState
+
+  HydraNode{persistence, eq, env, nodeState} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -145,20 +147,10 @@ processNextEvent ::
   STM m (Outcome tx)
 processNextEvent HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
-    handleOutcome s $ Logic.update env ledger s e
+    let outcome = Logic.update env ledger s e
+     in (outcome, aggregateState s outcome)
  where
   NodeState{modifyHeadState} = nodeState
-
-  handleOutcome s = \case
-    NoOutcome -> (NoOutcome, s)
-    Effects effects -> (Effects effects, s)
-    NewState s' -> (NewState s', s')
-    Error err -> (Error err, s)
-    Wait reason -> (Wait reason, s)
-    Combined l r ->
-      let (leftOutcome, leftState) = handleOutcome s l
-          (rightOutcome, rightState) = handleOutcome leftState r
-       in (Combined leftOutcome rightOutcome, rightState)
 
 processEffect ::
   ( MonadAsync m
