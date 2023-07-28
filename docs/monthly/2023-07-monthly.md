@@ -91,7 +91,25 @@ to reflect latest developments and ideas from the starmap:
 
 #### Notable updates
 
-TODO summarize differences
+- Two new items \__elevated_ from user ideas and both improving the API capabilities:
+
+  - [Ability to read protocol parameters via API
+    #735](https://github.com/input-output-hk/hydra/issues/735)
+  - [Submit L1 transactions through hydra-node #966](https://github.com/input-output-hk/hydra/issues/966)
+
+- [Removing commit from internal wallet #954](Submit L1 transactions through
+  hydra-node#954) is a consequence of deprecating this functionality in the
+  previous 0.11.0 release. This will make the code base and documentation
+  cleaner as there will be only one way to commit funds to a head.
+
+- First new item derived from the starmap is to [Update tutorial and include
+  Mithril #997](https://github.com/input-output-hk/hydra/issues/997). The
+  tutorial is already a bit outdated, we want to slim it down and incorporate
+  Mithril to get the fastest (secure) bootstrap possible of a `hydra-node`.
+
+- As we are focusing on the very concrete use case of payments for mainnet
+  deployment (and hence 1.0.0 release), multiple items need to (and can!) get
+  reprioritized to match the requirements of this use case.
 
 ![The latest roadmap with features and ideas](./img/2023-07-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
