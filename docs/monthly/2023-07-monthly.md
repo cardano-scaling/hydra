@@ -186,8 +186,17 @@ Moving to this new version entailed some significant changes in the code and als
 
 ## Community
 
-TODO Master-class preparation for Rare Evo
-TODO Catalyst fund10 proposals and our stance to them?
+### Hydra master-class
+
+As already mentioned above in our starmap update, we aim to be having an educational session at the upcoming Rare Evo event:
+
+> Whether you are building decentralized applications which need to be fast and scale well, or you are creating infrastructure for other builders on Cardano, we will show you how to use Hydra to make your applications and platforms utilize fast off-chain transaction processing via the Hydra Head protocol.
+>
+> In this session you will learn what Hydra is all about, how to build scalable applications in a live coding session, get to know the hydra-pay and hydra-auction projects, and be guided through exercises to get your hands on these APIs and early SDKs.
+
+We are currently putting together a detailed outline and will send out
+communications on how to register to this exclusive session within the next 1-2
+weeks. Stay tuned!
 
 ## Conclusion
 
