@@ -1,7 +1,7 @@
 ---
 title: July 2023
 slug: 2023-07
-authors: [ch1bo]
+authors: [ch1bo, abailly, v0d1ch]
 tags: [monthly]
 ---
 
@@ -45,7 +45,7 @@ TODO write about high-level project plan (starmap)?
 ## Development
 
 [Issues and pull requests closed since last
-report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-05-24..2023-06-22)
+report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-06-22..2023-07-28)
 
 This month, the team worked on the following:
 
@@ -57,44 +57,44 @@ The Hydra Head protocol paper states:
 
 [Hydra: Fast Isomorphic State Channels, p.14](https://eprint.iacr.org/2020/299.pdf)
 
-Guaranteeing the authenticity and integrity of the messages received
-from one's peers is critical to the security of the Head
-protocol. While this is something that we initially thought to defer
-to the transport layer, eg. leaving it to Hydra node operators to use
-TLS or other kind of encrypted channels to communicate with their
-peers, we realised this introduced an additional unneeded operational
-burden on operators.
+Guaranteeing the authenticity and integrity of the messages received from one's
+peers is critical to the security of the Head protocol. While this is something
+that we initially thought to defer to the transport layer, eg. leaving it to
+Hydra node operators to use TLS or other kind of encrypted channels to
+communicate with their peers, we realised this introduced an additional unneeded
+operational burden on operators.
 
-It appeared simple enough to reuse the existing Hydra keys (using
-Ed25519 curve), which need to be passed to the node, to:
-* _sign_ all messages sent to peers,
-* _verify_ all messages received from peers.
+It appeared simple enough to reuse the existing Hydra keys (using Ed25519
+curve), which need to be passed to the node, to:
 
-The net benefit of this feature is to increase the life expectancy of
-a Head, preventing some forms of _Denial of Service_ attacks or
-wrongly configured nodes that would lead to a _stalled head_.
+- _sign_ all messages sent to peers,
+- _verify_ all messages received from peers.
+
+The net benefit of this feature is to increase the life expectancy of a Head,
+preventing some forms of _Denial of Service_ attacks or wrongly configured nodes
+that would lead to a _stalled head_.
 
 #### ReqSn only sends Transaction IDs [#728](https://github.com/input-output-hk/hydra/issues/728)
 
-This is another feature which better aligns the current implementation
-with the original paper, by requesting snapshots using only the
-transaction identifiers and not the full transaction.
+This is another feature which better aligns the current implementation with the
+original paper, by requesting snapshots using only the transaction identifiers
+and not the full transaction.
 
 The motivation to implement this feature came from different directions:
-* Improve the performance of the protocol by reducing the bandwidth
-  usage,
-* Make it possible to have "atomic" transaction sets submitted
-  ([#900](https://github.com/input-output-hk/hydra/issues/900)),
-* Prevent "front-running" from the current leader which, in the
-  previous implementation, could inject arbitrary (but valid)
-  transactions that peers had never seen before into a snapshot.
 
-`ReqSn`'s snapshots now contains only the list of transaction ids and
-each hydra-node validates the snapshot by resolving those ideas
-against the set of transactions they have seen (through `ReqTx`). A
-consequence is that this introduces the possibility of space leak in
-the event a submitted valid transaction never gets included in a
-snapshot, but we thought this should not be a problem in practice.
+- Improve the performance of the protocol by reducing the bandwidth usage,
+- Make it possible to have "atomic" transaction sets submitted
+  ([#900](https://github.com/input-output-hk/hydra/issues/900)),
+- Prevent "front-running" from the current leader which, in the previous
+  implementation, could inject arbitrary (but valid) transactions that peers had
+  never seen before into a snapshot.
+
+`ReqSn`'s snapshots now contains only the list of transaction ids and each
+hydra-node validates the snapshot by resolving those ideas against the set of
+transactions they have seen (through `ReqTx`). A consequence is that this
+introduces the possibility of space leak in the event a submitted valid
+transaction never gets included in a snapshot, but we thought this should not be
+a problem in practice.
 
 Note the
 [specification](https://hydra.family/head-protocol/core-concepts/specification)
@@ -102,18 +102,21 @@ has been updated to reflect this change.
 
 #### Github security advisories
 
-Team discovered a bug in the multisignature verification which could compromise
-off-chain security of a Hydra Head. The fix was quite simple and they decided
-to use a Github feature to report security advisory in order to test out this
-feature. The process creates a separate github repo where potential security
-issues could be discussed in privacy (between the reporter and the repository
-administrators) since potential attackers should not be aware of any issues
-until they are fixed. The team scored this issue using CVSS (The Common
-Vulnerability Scoring System), the score was moderate (5.5), and they didn't
-issue any CVE (Common Vulnerabilities and Exposures). The process overall feels
-nice but Hydra CI is not checking the builds in these private, one-off forks so
-there is a risk of merging code that doesn't compile.
+We discovered a bug in the multisignature verification which could compromise
+off-chain security of a Hydra Head. Although the fix was quite simple, we
+decided to use a new Github feature to create the first [Github Security
+Advisory](https://github.com/input-output-hk/hydra/security/advisories/GHSA-c8qp-cv4h-vcc4)
+for Hydra.
 
+The process creates a separate github repository where potential security issues
+could be discussed in privacy (between the reporter and the maintainers) since
+potential attackers should not be aware of any issues until they are fixed. The
+team scored this issue using CVSS (The Common Vulnerability Scoring System), the
+score was moderate (5.5), and they didn't request a CVE (Common Vulnerabilities
+and Exposures) for this (yet).
+
+The process overall works nice but Hydra CI is not checking the builds in these
+private, one-off forks so there is a risk of merging code that doesn't compile.
 
 #### Moving to GHC 9.2.7 [#841](https://github.com/input-output-hk/hydra/pull/841)
 
@@ -122,7 +125,7 @@ GHC 9.2 series have been around for more than a year and the whole cardano ecosy
 Moving to this new version entailed some significant changes in the code and also in the Plutus scripts:
 
 | Name     | After (Bytes) | Before (Bytes) | Δsize |
-|----------|---------------|----------------|-------|
+| -------- | ------------- | -------------- | ----- |
 | νInitial | 4289          | 4621           | - 7%  |
 | νCommit  | 2124          | 2422           | - 12% |
 | νHead    | 9185          | 8954           | + 3%  |
@@ -141,4 +144,4 @@ these [slides][slides] and here is the [recording][recording].
 TODO
 
 [slides]: https://docs.google.com/presentation/d/1CQYAFztRcqofN6sbowg37QuXQ-DQU4NcDmoMghS36B8
-[recording]: https://TODO
+[recording]: https://drive.google.com/file/d/14ANZ3efuxgXpYK94EBWxZLR9TtN7voru/
