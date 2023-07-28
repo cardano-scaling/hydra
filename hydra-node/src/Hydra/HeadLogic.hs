@@ -281,29 +281,29 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
-  -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
-  waitApplyTx $ \newLocalUTxO ->
-    -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
-    ( if not snapshotInFlight && isLeader parameters party nextSn
-        then
-          StateChanged (TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO})
-            -- XXX: This state update has no equivalence in the
-            -- spec. Do we really need to store that we have
-            -- requested a snapshot? If yes, should update spec.
-            `Combined` StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
-            `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
-        else StateChanged (TransactionAppliedToLocalUTxO{tx, newLocalUTxO})
-    )
-      `Combined` Effects [ClientEffect $ ServerOutput.TxValid headId tx]
-      `Combined` StateChanged TransactionReceived{tx}
+  -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
+  (StateChanged TransactionReceived{tx} `Combined`) $
+    -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
+    waitApplyTx $ \newLocalUTxO ->
+      -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
+      ( if not snapshotInFlight && isLeader parameters party nextSn
+          then
+            StateChanged (TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO})
+              -- XXX: This state update has no equivalence in the
+              -- spec. Do we really need to store that we have
+              -- requested a snapshot? If yes, should update spec.
+              `Combined` StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
+              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
+          else StateChanged (TransactionAppliedToLocalUTxO{tx, newLocalUTxO})
+      )
+        `Combined` Effects [ClientEffect $ ServerOutput.TxValid headId tx]
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
       Right utxo' -> cont utxo'
       Left (_, err)
         | ttl > 0 ->
-            StateChanged TransactionReceived{tx}
-              `Combined` Wait (WaitOnNotApplicableTx err)
+            Wait (WaitOnNotApplicableTx err)
         | otherwise ->
             -- XXX: We might want to remove invalid txs from allTxs here to
             -- prevent them piling up infinitely. However, this is not really
