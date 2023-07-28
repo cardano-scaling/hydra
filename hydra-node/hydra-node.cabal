@@ -221,13 +221,17 @@ executable hydra-net
   import:         project-config
   hs-source-dirs: exe/hydra-net
   main-is:        Main.hs
+  other-modules:  Log
   build-depends:
-     filepath
-     , hydra-cardano-api
-     , network
+      aeson
+    , contra-tracer
+    , filepath
+    , hydra-cardano-api
+    , network
     , hydra-node
     , hydra-prelude
     , optparse-applicative
+    , ouroboros-network-framework                                       >=0.3.0.0
     , stm
   ghc-options:    -threaded -rtsopts
 

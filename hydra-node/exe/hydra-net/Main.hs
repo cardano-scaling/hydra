@@ -1,45 +1,33 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Main where
 
-import Control.Concurrent.STM (
-  TChan,
-  dupTChan,
-  newBroadcastTChanIO,
-  readTChan,
-  writeTChan,
- )
-import Control.Concurrent.STM.TMVar (newEmptyTMVarIO, putTMVar, takeTMVar)
-import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), Key (getVerificationKey), Tx)
+import Control.Tracer (stdoutTracer, traceWith)
+import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), Tx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey), sign)
-import Hydra.Logging (Tracer, Verbosity (..), withTracer)
+import Hydra.Logging (Verbosity (..), withTracer)
 import Hydra.Network (Host (..))
-import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed (..))
+import Hydra.Network.Authenticate (Signed (..))
 import Hydra.Network.Heartbeat (Heartbeat (Data))
 import Hydra.Network.Message (Message (ReqSn))
-import Hydra.Network.Ouroboros (
-  MiniProtocol (..),
-  MiniProtocolNum (..),
-  MuxMode (InitiatorMode),
-  MuxPeer (MuxPeer),
-  OuroborosApplication (..),
-  RunMiniProtocol (..),
-  TraceOuroborosNetwork (TraceSendRecv),
-  WithHost (..),
-  actualConnect,
-  connectToPeers,
-  hydraClient,
-  maximumMiniProtocolLimits,
-  withIOManager,
- )
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Type (codecFireForget)
 import Hydra.Options (hydraSigningKeyFileParser, hydraVerificationKeyFileParser, peerParser)
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Party (Party (..))
 import Hydra.Prelude
 import Hydra.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
-import Network.Socket (AddrInfo (addrAddress, addrFamily), SocketType (Stream), connect, defaultHints, defaultProtocol, getAddrInfo, socket)
+import Log (NetLog (..))
+import Network.Socket (
+  AddrInfo (..),
+  SocketType (Stream),
+  connect,
+  defaultHints,
+  defaultProtocol,
+  getAddrInfo,
+  socket,
+ )
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -57,6 +45,15 @@ import Options.Applicative (
   option,
   progDesc,
   short,
+ )
+import Ouroboros.Network.IOManager (withIOManager)
+import Ouroboros.Network.Mux (MiniProtocol (..), MiniProtocolLimits (MiniProtocolLimits, maximumIngressQueue), MiniProtocolNum (..), MuxPeer (..), OuroborosApplication (..), RunMiniProtocol (..))
+import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
+import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
+import Ouroboros.Network.Socket (
+  NetworkConnectTracers (..),
+  connectToNodeSocket,
  )
 
 data Options = InjectReqSn
@@ -120,20 +117,33 @@ main =
 
 injectReqSn :: Host -> SnapshotNumber -> FilePath -> FilePath -> IO ()
 injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
-  let localHost = Host "127.0.0.1" 12345
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraKeyFile
   party <- Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) fakeHydraKeyFile
   withIOManager $ \iomgr -> do
-    withNetworkTracer $ \tracer -> do
+    withTracer (Verbose "hydra-net") $ \tracer -> do
       sockAddr <- resolveSockAddr peer
-      putTextLn $ "resolved " <> show sockAddr
       sock <- socket (addrFamily sockAddr) Stream defaultProtocol
-      putTextLn $ "connecting to " <> show sockAddr
+      traceWith tracer $ ConnectingTo sockAddr
       connect sock (addrAddress sockAddr)
-      putTextLn $ "connected to " <> show sockAddr
-      actualConnect iomgr (pure ()) (runClient sk party (contramap (WithHost localHost) tracer)) sock
+      traceWith tracer $ ConnectedTo sockAddr
+      runClient iomgr (mkApplication sk party tracer) sock
  where
-  withNetworkTracer = withTracer @_ @(WithHost (TraceOuroborosNetwork (Signed (Heartbeat (Message Tx))))) (Verbose "hydra-net")
+  runClient iomgr app sock =
+    connectToNodeSocket
+      iomgr
+      unversionedHandshakeCodec
+      noTimeLimitsHandshake
+      unversionedProtocolDataCodec
+      networkConnectTracers
+      acceptableVersion
+      (unversionedProtocol app)
+      sock
+
+  networkConnectTracers =
+    NetworkConnectTracers
+      { nctMuxTracer = contramap show stdoutTracer
+      , nctHandshakeTracer = contramap show stdoutTracer
+      }
 
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
@@ -141,22 +151,22 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       (inf : _) -> pure inf
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  runClient sk party tracer () = OuroborosApplication $ \_connectionId _controlMessageSTM ->
+  mkApplication sk party tracer = OuroborosApplication $ \_connectionId _controlMessageSTM ->
     [ MiniProtocol
         { miniProtocolNum = MiniProtocolNum 42
-        , miniProtocolLimits = maximumMiniProtocolLimits
-        , miniProtocolRun = InitiatorProtocolOnly initiator
+        , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
+        , miniProtocolRun =
+            InitiatorProtocolOnly
+              ( MuxPeer
+                  (contramap TraceSendRecv tracer)
+                  codecFireForget
+                  (fireForgetClientPeer $ client tracer sk party)
+              )
         }
     ]
-   where
-    initiator =
-      MuxPeer
-        (contramap TraceSendRecv tracer)
-        codecFireForget
-        (fireForgetClientPeer client)
 
-    client = Idle $ do
-      let msg = Data "2" (ReqSn snapshotNumber [])
-      let signed = Signed msg (sign sk msg) party
-      putTextLn $ "Sending " <> show signed
-      pure $ SendMsg signed (pure $ SendDone (pure ()))
+  client tracer sk party = Idle $ do
+    let msg = Data "2" (ReqSn @Tx snapshotNumber [])
+    let signed = Signed msg (sign sk msg) party
+    traceWith tracer $ Injecting signed
+    pure $ SendMsg signed (pure $ SendDone (pure ()))
