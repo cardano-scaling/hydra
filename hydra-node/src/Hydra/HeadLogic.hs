@@ -650,14 +650,16 @@ onClosedChainFanoutTx closedState newChainState =
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
--- | The "pure core" of the Hydra node, which handles the 'Event' against a
--- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
--- outcomes handled by the "Hydra.Node".
+-- | Handles commands and converts them into internal 'StateChanged' events
+-- along with 'Effect's, in case it is processed succesfully.
+-- Later, the Node will 'aggregate' the events, resulting in a new 'HeadState'.
 update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
+  -- | Current HeadState to validate the command against.
   HeadState tx ->
+  -- | Command sent to the HeadLogic to be processed.
   Event tx ->
   Outcome tx
 update env ledger st ev = case (st, ev) of
