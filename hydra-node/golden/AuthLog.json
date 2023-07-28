@@ -1,0 +1,45 @@
+{
+    "samples": [
+        {
+            "message": "q-g􅄂퍾퍑\"󲕡(9\u000fi\u0001\ro𣴰W",
+            "party": {
+                "vkey": "8f055eb30388b08e06f977d9b3e994a63fca5980c59b81a6dd1b2d8a3d53c66d"
+            },
+            "signature": ".1|\u0002{#𪝸{\u0007z󿄯󼼷\u0004",
+            "tag": "MessageDropped"
+        },
+        {
+            "message": "\"\u000cz~4l&y\u000e\u0019k",
+            "party": {
+                "vkey": "e245ffec7a17a3d84bf1d5271529f6a8f3bf186258088c04d2bcbbbd6079042a"
+            },
+            "signature": "\u0001O\u0019?\u0014󾑺P8`ESX\u001e𐀹E􏼪\u001a",
+            "tag": "MessageDropped"
+        },
+        {
+            "message": "\u0015",
+            "party": {
+                "vkey": "475e11df6ed90f7ef7ce617aae91ced3a8e9a359266a0655cad3d4353ded1a52"
+            },
+            "signature": "T\u000e𫘍.p󺔯\u00182|􎸰𠴀=\u0016{\u001b􂥠",
+            "tag": "MessageDropped"
+        },
+        {
+            "message": "}}󾋾\n\u0011Og𘠑v}\u0000kQ7LPRV􍲟Xm\u0003:/z\u0012𠺗",
+            "party": {
+                "vkey": "295025a8542bc3df120f5d36a6005b0935736124d7101d57daa45b86f870b153"
+            },
+            "signature": "6𓁐",
+            "tag": "MessageDropped"
+        },
+        {
+            "message": "ꍂ",
+            "party": {
+                "vkey": "5cd76f54935f1daa1ce6b6df35c86080d8d754ab72b384d493747dcc01fcc0d6"
+            },
+            "signature": "aI󿭊\u001e\u0001\u001b1",
+            "tag": "MessageDropped"
+        }
+    ],
+    "seed": -1847125493
+}

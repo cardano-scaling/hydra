@@ -10,11 +10,12 @@ import Hydra.Crypto (sign)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
 import Hydra.Network (Network (..))
-import Hydra.Network.Authenticate (Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
+import Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
 import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
 import Hydra.Prelude
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Hydra.Prelude
 import Test.QuickCheck (listOf)
@@ -119,6 +120,8 @@ spec = parallel $ do
   describe "Serialization" $ do
     prop "can roundtrip CBOR encoding/decoding of Signed Hydra Message" $
       prop_canRoundtripCBOREncoding @(Signed Msg)
+
+    roundtripAndGoldenSpecs (Proxy @AuthLog)
 
 newtype Msg = Msg ByteString
   deriving newtype (Eq, Show, ToCBOR, FromCBOR, SignableRepresentation)
