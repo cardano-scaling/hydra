@@ -284,17 +284,17 @@ onOpenNetworkReqTx ::
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
   -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
-  waitApplyTx $ \utxo' ->
+  waitApplyTx $ \newLocalUTxO ->
     -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
     ( if not snapshotInFlight && isLeader parameters party nextSn
         then
-          StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
+          StateChanged (TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO})
             -- XXX: This state update has no equivalence in the
             -- spec. Do we really need to store that we have
             -- requested a snapshot? If yes, should update spec.
             `Combined` StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
             `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
-        else StateChanged (TransactionAppliedToLocalUTxO{tx = tx, utxo = utxo'})
+        else StateChanged (TransactionAppliedToLocalUTxO{tx, newLocalUTxO})
     )
       `Combined` Effects [ClientEffect $ ServerOutput.TxValid headId tx]
       `Combined` StateChanged TransactionReceived{tx}
@@ -370,11 +370,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
   -- Spec: require s = ŝ + 1 and leader(s) = j
   requireReqSn $
     -- Spec: wait s̅ = ŝ
-
-    -- Spec: wait s̅ = ŝ
     waitNoSnapshotInFlight $
-      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
-
       -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
       waitResolvableTxs $ do
         -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
@@ -387,11 +383,17 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
           let snapshotSignature = sign signingKey nextSnapshot
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] `Combined`) $
             do
-              -- TODO: unclear where to put these comments
               -- Spec: for loop which updates T̂ and L̂
+              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
               -- TODO: where to put this spec comment now?
               -- Spec: Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-              StateChanged SnapshotRequested{snapshot = nextSnapshot, requestedTxIds}
+              StateChanged
+                SnapshotRequested
+                  { snapshot = nextSnapshot
+                  , requestedTxIds
+                  , newLocalUTxO
+                  , newLocalTxs
+                  }
  where
   requireReqSn continue
     | sn /= seenSn + 1 =
@@ -423,6 +425,18 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
 
+  pruneTransactions utxo = do
+    foldr go ([], utxo) localTxs
+   where
+    go tx (txs, u) =
+      -- XXX: We prune transactions on any error, while only some of them are
+      -- actually expected.
+      -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
+      -- here when a tx becomes invalid.
+      case applyTransactions ledger currentSlot u [tx] of
+        Left (_, _) -> (txs, u)
+        Right u' -> (txs <> [tx], u')
+
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -433,7 +447,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, currentSlot} = st
 
@@ -733,8 +747,8 @@ update env ledger st ev = case (st, ev) of
 -- * HeadState aggregate
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
-aggregate :: (IsChainState tx) => Ledger tx -> HeadState tx -> StateChanged tx -> HeadState tx
-aggregate ledger st = \case
+aggregate :: (IsChainState tx) => HeadState tx -> StateChanged tx -> HeadState tx
+aggregate st = \case
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
     Initial
       InitialState
@@ -773,14 +787,14 @@ aggregate ledger st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  TransactionAppliedToLocalUTxO{tx, utxo} ->
+  TransactionAppliedToLocalUTxO{tx, newLocalUTxO} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = utxo
+                  { localUTxO = newLocalUTxO
                   , localTxs = localTxs <> [tx]
                   }
             }
@@ -804,35 +818,21 @@ aggregate ledger st = \case
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
       _otherState -> st
-  SnapshotRequested{snapshot, requestedTxIds} ->
+  SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs} ->
     case st of
-      Open os@OpenState{coordinatedHeadState, currentSlot} ->
+      Open os@OpenState{coordinatedHeadState} ->
         Open
           os
             { coordinatedHeadState =
                 coordinatedHeadState
                   { seenSnapshot = SeenSnapshot snapshot mempty
-                  , localTxs = localTxs'
-                  , localUTxO = localUTxO'
+                  , localTxs = newLocalTxs
+                  , localUTxO = newLocalUTxO
                   , allTxs = foldr Map.delete allTxs requestedTxIds
                   }
             }
        where
-        (localTxs', localUTxO') = pruneTransactions snapshotUtxo
-        Snapshot{utxo = snapshotUtxo} = snapshot
-
-        CoordinatedHeadState{allTxs, localTxs} = coordinatedHeadState
-        pruneTransactions utxo = do
-          foldr go ([], utxo) localTxs
-         where
-          go tx (txs, u) =
-            -- XXX: We prune transactions on any error, while only some of them are
-            -- actually expected.
-            -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
-            -- here when a tx becomes invalid.
-            case applyTransactions ledger currentSlot u [tx] of
-              Left (_, _) -> (txs, u)
-              Right u' -> (txs <> [tx], u')
+        CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
   HeadAborted{chainState} -> Idle $ IdleState{chainState}
   HeadClosed{chainState, contestationDeadline} ->
@@ -926,12 +926,11 @@ aggregate ledger st = \case
 
 aggregateState ::
   IsChainState tx =>
-  Ledger tx ->
   HeadState tx ->
   Outcome tx ->
   HeadState tx
-aggregateState ledger s outcome =
-  recoverState ledger s $ collectStateChanged outcome
+aggregateState s outcome =
+  recoverState s $ collectStateChanged outcome
  where
   collectStateChanged = \case
     NoOutcome -> []
@@ -944,8 +943,7 @@ aggregateState ledger s outcome =
 
 recoverState ::
   (Foldable t, IsChainState tx) =>
-  Ledger tx ->
   HeadState tx ->
   t (StateChanged tx) ->
   HeadState tx
-recoverState ledger = foldl' (aggregate ledger)
+recoverState = foldl' aggregate

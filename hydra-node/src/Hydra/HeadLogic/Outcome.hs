@@ -57,12 +57,17 @@ data StateChanged tx
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
-      , utxo :: UTxOType tx
+      , newLocalUTxO :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | SnapshotRequested
+  | -- | A snapshot was requested by some party.
+    -- NOTE: We deliberately already include an updated local ledger state to
+    -- not need a ledger to interpret this event.
+    SnapshotRequested
       { snapshot :: Snapshot tx
       , requestedTxIds :: [TxIdType tx]
+      , newLocalUTxO :: UTxOType tx
+      , newLocalTxs :: [tx]
       }
   | TransactionReceived {tx :: tx}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
