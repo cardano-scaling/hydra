@@ -44,12 +44,25 @@ import Options.Applicative (
   metavar,
   option,
   progDesc,
+  progDescDoc,
   short,
  )
+import Options.Applicative.Help (vsep)
 import Ouroboros.Network.IOManager (withIOManager)
-import Ouroboros.Network.Mux (MiniProtocol (..), MiniProtocolLimits (MiniProtocolLimits, maximumIngressQueue), MiniProtocolNum (..), MuxPeer (..), OuroborosApplication (..), RunMiniProtocol (..))
+import Ouroboros.Network.Mux (
+  MiniProtocol (..),
+  MiniProtocolLimits (MiniProtocolLimits, maximumIngressQueue),
+  MiniProtocolNum (..),
+  MuxPeer (..),
+  OuroborosApplication (..),
+  RunMiniProtocol (..),
+ )
 import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
-import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
+import Ouroboros.Network.Protocol.Handshake.Unversioned (
+  unversionedHandshakeCodec,
+  unversionedProtocol,
+  unversionedProtocolDataCodec,
+ )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Socket (
   NetworkConnectTracers (..),
@@ -95,7 +108,13 @@ commandsParser =
         "reqsn"
         ( info
             (helper <*> injectReqSnParser)
-            (progDesc "Inject a ReqSn message for given number seemingly from another peer.")
+            ( progDesc
+                "Inject a ReqSn message with given snapshot number, \
+                \seemingly from another peer. Note that since we now \
+                \authenticate messages, both the verification and the \
+                \signing key need to be provided to sign the message\
+                \and set its originator, which could be different."
+            )
         )
     )
 
@@ -106,7 +125,17 @@ netOptions =
         <**> helper
     )
     ( fullDesc
-        <> progDesc "Hydra Network Injector"
+        <> progDescDoc
+          ( Just $
+              vsep
+                [ "Hydra Network Injector"
+                , ""
+                , "This tool is meant to provide various commands and utilities"
+                , "to interact with hydra-node and cluster at the level of the "
+                , "network protocol, possibly to inject errors, test the resilience"
+                , "of the system, or monitor the behaviour of a cluster."
+                ]
+          )
         <> header "hydra-net - CLI tool to inject messages into a Hydra nodes network"
     )
 
