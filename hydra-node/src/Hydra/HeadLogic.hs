@@ -578,7 +578,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  StateChanged (HeadClosed newChainState contestationDeadline)
+  StateChanged HeadClosed{chainState = newChainState, contestationDeadline}
     <> Effects
       ( notifyClient
           : [ OnChainEffect
