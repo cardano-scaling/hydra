@@ -103,14 +103,14 @@ benchmarkFailedWith benchDir = \case
 
 benchmarkSucceeded :: Maybe FilePath -> [Summary] -> IO ()
 benchmarkSucceeded outputDirectory summaries = do
-  now <- getCurrentTime
-  let report = markdownReport now summaries
-  maybe dumpToStdout (writeTo report) outputDirectory
+  dumpToStdout
+  whenJust outputDirectory writeReport
  where
   dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
-  writeTo report outputDir = do
-    existsDir <- doesDirectoryExist outputDir
-    unless existsDir $ createDirectory outputDir
+  writeReport outputDir = do
+    now <- getCurrentTime
+    let report = markdownReport now summaries
+    createDirectoryIfMissing True outputDir
     withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
       hPut hdl $ encodeUtf8 $ unlines report
