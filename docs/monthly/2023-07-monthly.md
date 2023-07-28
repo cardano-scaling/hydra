@@ -221,7 +221,26 @@ weeks. Stay tuned!
 The monthly review meeting for May was held on 2023-07-26 via Google Meet with
 these [slides][slides] and here is the [recording][recording].
 
-TODO
+Although we would have prepared an _awesome_ demo for this months review meeting
+in which we hack a Hydra Head without the authenticated messages feature,
+but unfortunately we had some live demo problems (never forget: record a
+backup!). While we might show it next time still, this just further highlights
+that we have reason to improve the developer and user experience still.
+
+Not much questions on our journey to mature the Hydra software stack further to
+support various use cases building on it. However, the recently kicked-off
+Fund10 of catalyst sparked a nice discussion of how to handle all this great new
+ideas while being conscious of not fragmenting the scaling efforts too much.
+
+Open protocols mean that new ideas can be incorporated not only to the various
+code bases, but also to the specification and standards which ensure
+interoperability. We discussed means to ensure adherence to standards in a
+light-weight agile way and challenges of educating potential contributors in
+specification-driven development.
+
+Next month we'll be at RareEvo, but might have the monthly just before in a
+hybrid session from Colorado. Until then, we'll make Hydra trivial to use and
+get started on our new objectives.
 
 [slides]: https://docs.google.com/presentation/d/1CQYAFztRcqofN6sbowg37QuXQ-DQU4NcDmoMghS36B8
 [recording]: https://drive.google.com/file/d/14ANZ3efuxgXpYK94EBWxZLR9TtN7voru/
