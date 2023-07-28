@@ -12,16 +12,12 @@
 --
 -- This module is about the first two parts, while the "Hydra.Contract.Head" module in 'hydra-plutus' covers the third part.
 module Hydra.HeadLogic (
-  update,
-  defaultTTL,
-  Environment (..),
+  module Hydra.HeadLogic,
   module Hydra.HeadLogic.Event,
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
   module Hydra.HeadLogic.SnapshotOutcome,
-  aggregate,
-  aggregateState,
 )
 where
 
@@ -385,8 +381,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
             do
               -- Spec: for loop which updates T̂ and L̂
               let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-              -- TODO: where to put this spec comment now?
-              -- Spec: Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
+              -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
               StateChanged
                 SnapshotRequested
                   { snapshot = nextSnapshot
