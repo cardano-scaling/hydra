@@ -13,7 +13,7 @@ developments to gather their feedback on proposed plans.
 ### Starmap update
 
 Every couple months, we reflect on the the themes we identified for 2023 (as
-presented in [January](./2023-01.md#themes-for-2023)), and create a very high
+presented in [January](/monthly/2023-01#themes-for-2023)), and create a very high
 level list of possible deliverables which could bring us closer to our goals,
 e.g. using [impact maps](./img/2022-11-impact.png). This time we have come up
 with the following items:
