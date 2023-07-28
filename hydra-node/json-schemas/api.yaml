@@ -167,7 +167,11 @@ channels:
           * TransactionSubmitted - 200 ok
           * PostTxError - 400 bad request
       message:
-        $ref: "api.yaml#/components/messages/SubmitTxRequest"
+         title: SubmitTxRequest
+         description: |
+           Accept signed user transaction and submit it to a local running cardano-node.
+         payload:
+           $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: response
@@ -177,7 +181,16 @@ channels:
       summary: Submitted user transaction response.
       operationId: TransactionSubmitted
       message:
-        $ref: "#/components/messages/TransactionSubmitted"
+       title: TransactionSubmitted
+       description: |
+           Emitted by the server after successfully submitting a user transaction to cardano-node.
+       payload:
+         type: object
+         additionalProperties: false
+         properties:
+           tag:
+            type: string
+            enum: ["TransactionSubmitted"]
       bindings:
         http:
           type: request
@@ -835,25 +848,6 @@ components:
         type: object
         additionalProperties: false
         $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
-
-    SubmitTxRequest:
-      title: SubmitTxRequest
-      description: |
-        Accept signed user transaction and submit it to a local running cardano-node.
-      payload:
-        $ref: "api.yaml#/components/schemas/Transaction"
-
-    TransactionSubmitted:
-      title: TransactionSubmitted
-      description: |
-          Emitted by the server after successfully submitting a user transaction to cardano-node.
-      payload:
-        type: object
-        additionalProperties: false
-        properties:
-          tag:
-           type: string
-           enum: ["TransactionSubmitted"]
 
   ########
   #
