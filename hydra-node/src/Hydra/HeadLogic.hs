@@ -730,10 +730,8 @@ update env ledger st ev = case (st, ev) of
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
     StateChanged ChainRolledBack{chainState = rolledBackChainState}
-  (Open OpenState{}, OnChainEvent Tick{chainSlot}) ->
+  (_, OnChainEvent Tick{chainSlot}) ->
     StateChanged (TickObserved{chainSlot})
-  (_, OnChainEvent Tick{}) ->
-    NoOutcome
   (_, PostTxError{postChainTx, postTxError}) ->
     Effects [ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
