@@ -88,13 +88,15 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged 
 deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
-  = NoOutcome
-  | Effects {effects :: [Effect tx]}
+  = Effects {effects :: [Effect tx]}
   | StateChanged (StateChanged tx)
   | Wait {reason :: WaitReason tx}
   | Error {error :: LogicError tx}
   | Combined {left :: Outcome tx, right :: Outcome tx}
   deriving stock (Generic)
+
+instance Semigroup (Outcome tx) where
+  (<>) = Combined
 
 deriving instance (IsChainState tx) => Eq (Outcome tx)
 deriving instance (IsChainState tx) => Show (Outcome tx)
@@ -106,7 +108,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) wher
 
 collectEffects :: Outcome tx -> [Effect tx]
 collectEffects = \case
-  NoOutcome -> []
   Error _ -> []
   Wait _ -> []
   StateChanged _ -> []
@@ -115,7 +116,6 @@ collectEffects = \case
 
 collectWaits :: Outcome tx -> [WaitReason tx]
 collectWaits = \case
-  NoOutcome -> []
   Error _ -> []
   Wait w -> [w]
   StateChanged _ -> []

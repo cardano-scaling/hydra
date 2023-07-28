@@ -111,9 +111,6 @@ stepHydraNode tracer node = do
   traceWith tracer EndEvent{by = party, eventId}
  where
   handleOutcome e = \case
-    -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
-    -- does trace and not throw!
-    NoOutcome -> pure ()
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
     StateChanged sc -> do
