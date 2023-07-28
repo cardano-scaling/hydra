@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Aeson.Lens (key)
-import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, SubmittedTxResponse, httpApp)
+import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()
@@ -23,7 +23,7 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxRequest))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitTxRequest))
-    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmittedTxResponse))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
 
     prop "Validate /commit publish api schema" $
       property $
@@ -46,8 +46,8 @@ spec = do
     prop "Validate /submit-user-tx  subscribe api schema" $
       property $
         withMaxSuccess 1 $
-          prop_validateJSONSchema @SubmittedTxResponse "api.json" $
-            key "components" . key "messages" . key "SubmittedTxResponse" . key "payload"
+          prop_validateJSONSchema @TransactionSubmitted "api.json" $
+            key "components" . key "messages" . key "TransactionSubmitted" . key "payload"
 
     apiServerSpec
 

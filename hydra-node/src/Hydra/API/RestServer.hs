@@ -6,7 +6,7 @@ module Hydra.API.RestServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.Aeson (Value (Object, String), withObject, withText, (.:?))
+import Data.Aeson (Value (Object), withObject, (.:?), object, KeyValue ((.=)), (.:))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Lazy as LBS
@@ -157,22 +157,23 @@ instance Arbitrary SubmitTxRequest where
   shrink = \case
     SubmitTxRequest u -> SubmitTxRequest <$> shrink u
 
-data SubmittedTxResponse = SubmittedTxResponse
+data TransactionSubmitted = TransactionSubmitted
   deriving stock (Eq, Show, Generic)
 
-submittedTxResponseConst :: Text
-submittedTxResponseConst = "Transaction Submitted"
+instance ToJSON TransactionSubmitted where
+  toJSON _ = object
+      [ "tag" .= Aeson.String "TransactionSubmitted"
+      ]
 
-instance ToJSON SubmittedTxResponse where
-  toJSON _ = String submittedTxResponseConst
+instance FromJSON TransactionSubmitted where
+  parseJSON = withObject "TransactionSubmitted" $ \o -> do
+    tag <- o .: "tag"
+    case tag :: Text of
+      "TransactionSubmitted" ->
+        pure TransactionSubmitted
+      _ -> fail "Expected tag to be TransactionSubmitted"
 
-instance FromJSON SubmittedTxResponse where
-  parseJSON = withText "SubmittedTxResponse" $ \t ->
-    if t == submittedTxResponseConst
-      then pure SubmittedTxResponse
-      else fail $ "Failed to parse: " <> show t <> " expected: " <> show submittedTxResponseConst
-
-instance Arbitrary SubmittedTxResponse where
+instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
 -- | Hydra HTTP server
@@ -278,6 +279,6 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
           Left (e :: PostTxError Tx) ->
             responseLBS status400 [] (Aeson.encode . Aeson.String . pack $ show e)
           Right _ ->
-            responseLBS status200 [] (Aeson.encode SubmittedTxResponse)
+            responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
   Chain{submitUserTx} = directChain

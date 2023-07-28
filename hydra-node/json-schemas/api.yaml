@@ -164,7 +164,7 @@ channels:
       operationId: submitTxRequest
       description: |
         Possible responses of commit endpoint are:
-          * SubmittedTxResponse - 200 ok
+          * TransactionSubmitted - 200 ok
           * PostTxError - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/SubmitTxRequest"
@@ -175,9 +175,9 @@ channels:
           bindingVersion: '0.1.0'
     subscribe:
       summary: Submitted user transaction response.
-      operationId: submittedTxResponse
+      operationId: TransactionSubmitted
       message:
-        $ref: "#/components/messages/SubmittedTxResponse"
+        $ref: "#/components/messages/TransactionSubmitted"
       bindings:
         http:
           type: request
@@ -843,13 +843,17 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Transaction"
 
-    SubmittedTxResponse:
-      title: SubmittedTxResponse
+    TransactionSubmitted:
+      title: TransactionSubmitted
       description: |
           Emitted by the server after successfully submitting a user transaction to cardano-node.
       payload:
+        type: object
         additionalProperties: false
-        type: string
+        properties:
+          tag:
+           type: string
+           enum: ["TransactionSubmitted"]
 
   ########
   #

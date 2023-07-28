@@ -27,7 +27,7 @@ import Hydra.API.RestServer (
   DraftCommitTxResponse (..),
   ScriptInfo (..),
   SubmitTxRequest (..),
-  SubmittedTxResponse (..),
+  TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
@@ -385,7 +385,7 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
           -- sending SIGNED transaction should be accepted
           res <- sendRequest hydraNodeId signedRequest
 
-          responseBody res `shouldBe` SubmittedTxResponse
+          responseBody res `shouldBe` TransactionSubmitted
  where
   RunningNode{networkId, nodeSocket} = node
   sendRequest hydraNodeId tx =
@@ -394,7 +394,7 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
         POST
         (http "127.0.0.1" /: "submit-user-tx")
         (ReqBodyJson tx)
-        (Proxy :: Proxy (JsonResponse SubmittedTxResponse))
+        (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
