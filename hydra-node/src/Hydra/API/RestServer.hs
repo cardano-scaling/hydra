@@ -30,7 +30,7 @@ import Hydra.Cardano.Api (
   pattern KeyWitness,
   pattern ScriptWitness,
  )
-import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
+import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
@@ -238,7 +238,6 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
-  return400 = responseLBS status400 [] . Aeson.encode . toJSON
 
   Chain{draftCommitTx} = directChain
 
@@ -276,9 +275,11 @@ handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
       eresult <- try $ submitUserTx txToSubmit
       respond $
         case eresult of
-          Left (e :: PostTxError Tx) ->
-            responseLBS status400 [] (Aeson.encode . Aeson.String . pack $ show e)
+          Left (e :: PostTxError Tx) -> return400 e
           Right _ ->
             responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
   Chain{submitUserTx} = directChain
+
+return400 :: IsChainState tx => PostTxError tx -> Response
+return400 = responseLBS status400 [] . Aeson.encode . toJSON
