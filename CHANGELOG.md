@@ -24,12 +24,12 @@ changes.
     and verify signature of received messages is from a known party
     and of course valid.
 
-- **BREAKING**Protocol change: Wait for all transactions requested in
-  a snapshot to be seen before acknowledging it, and only send
-  transaction ids in snapshot requests
+- **BREAKING**Protocol change: Wait for all transactions requested in a snapshot
+  to be seen before acknowledging it, and only send transaction ids in snapshot
+  requests
 
 - **BREAKING** Change to the Hydra scripts due to upgrading our plutus compiler
-  and toolchain.
+  and toolchain to GHC 9.2.8.
 
 ## [0.11.0] - 2023-06-30
 
