@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.Server where
@@ -7,43 +5,31 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
+import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
-import qualified Data.Aeson as Aeson
-import Data.Version (showVersion)
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.HTTPServer (
   APIServerLog (..),
   httpApp,
  )
+import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   HeadStatus (Idle),
-  OutputFormat (..),
-  ServerOutput (Greetings, InvalidInput, hydraNodeVersion),
-  ServerOutputConfig (..),
+  ServerOutput,
   TimedServerOutput (..),
-  WithUTxO (..),
-  headStatus,
-  me,
-  prepareServerOutput,
   projectHeadStatus,
   projectSnapshotUtxo,
-  snapshotUtxo,
  )
+import Hydra.API.WSServer (nextSequenceNumber, wsApp)
 import Hydra.Cardano.Api (ProtocolParameters)
 import Hydra.Chain (
   Chain (..),
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import qualified Hydra.Options as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Network.Wai.Handler.Warp (
@@ -56,17 +42,8 @@ import Network.Wai.Handler.Warp (
  )
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
-  PendingConnection (pendingRequest),
-  RequestHead (..),
-  acceptRequest,
   defaultConnectionOptions,
-  receiveData,
-  sendTextData,
-  sendTextDatas,
-  withPingThread,
  )
-import Text.URI hiding (ParseException)
-import Text.URI.QQ (queryKey, queryValue)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -91,32 +68,47 @@ withAPIServer ::
   Chain tx IO ->
   ProtocolParameters ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action = do
-  responseChannel <- newBroadcastTChanIO
-  timedOutputEvents <- loadAll
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
+  handle onIOException $ do
+    responseChannel <- newBroadcastTChanIO
+    timedOutputEvents <- loadAll
 
-  -- Intialize our read model from stored events
-  headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-  snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
+    -- Intialize our read model from stored events
+    headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
+    snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
 
-  -- NOTE: we need to reverse the list because we store history in a reversed
-  -- list in memory but in order on disk
-  history <- newTVarIO (reverse timedOutputEvents)
-  (notifyServerRunning, waitForServerRunning) <- setupServerNotification
-  race_
-    (runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning pparams)
-    ( do
-        waitForServerRunning
-        action $
-          Server
-            { sendOutput = \output -> do
-                timedOutput <- appendToHistory history output
-                atomically $ do
-                  update headStatusP output
-                  update snapshotUtxoP output
-                  writeTChan responseChannel timedOutput
-            }
-    )
+    -- NOTE: we need to reverse the list because we store history in a reversed
+    -- list in memory but in order on disk
+    history <- newTVarIO (reverse timedOutputEvents)
+    (notifyServerRunning, waitForServerRunning) <- setupServerNotification
+
+    let serverSettings =
+          defaultSettings
+            & setHost (fromString $ show host)
+            & setPort (fromIntegral port)
+            & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+            & setBeforeMainLoop notifyServerRunning
+    race_
+      ( do
+          traceWith tracer (APIServerStarted port)
+          runSettings serverSettings $
+            websocketsOr
+              defaultConnectionOptions
+              (wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel)
+              (httpApp tracer chain pparams)
+      )
+      ( do
+          waitForServerRunning
+          action $
+            Server
+              { sendOutput = \output -> do
+                  timedOutput <- appendToHistory history output
+                  atomically $ do
+                    update headStatusP output
+                    update snapshotUtxoP output
+                    writeTChan responseChannel timedOutput
+              }
+      )
  where
   appendToHistory history output = do
     time <- getCurrentTime
@@ -128,11 +120,23 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
     append timedOutput
     pure timedOutput
 
-nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
-nextSequenceNumber historyList =
-  STM.readTVar historyList >>= \case
-    [] -> pure 0
-    (TimedServerOutput{seq} : _) -> pure (seq + 1)
+  onIOException ioException =
+    throwIO
+      RunServerException
+        { ioException
+        , host
+        , port
+        }
+
+-- | An 'IOException' with more 'IP' and 'PortNumber' added as context.
+data RunServerException = RunServerException
+  { ioException :: IOException
+  , host :: IP
+  , port :: PortNumber
+  }
+  deriving (Show)
+
+instance Exception RunServerException
 
 type NotifyServerRunning = IO ()
 
@@ -144,155 +148,3 @@ setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
-
-runAPIServer ::
-  forall tx.
-  (IsChainState tx) =>
-  IP ->
-  PortNumber ->
-  Party ->
-  Tracer IO APIServerLog ->
-  TVar [TimedServerOutput tx] ->
-  Chain tx IO ->
-  (ClientInput tx -> IO ()) ->
-  -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (ServerOutput tx) HeadStatus ->
-  -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
-  TChan (TimedServerOutput tx) ->
-  -- | Called when the server is listening before entering the main loop.
-  NotifyServerRunning ->
-  ProtocolParameters ->
-  IO ()
-runAPIServer host port party tracer history chain callback headStatusP snapshotUtxoP responseChannel notifyServerRunning protocolparams = do
-  traceWith tracer (APIServerStarted port)
-  -- catch and rethrow with more context
-  handle onIOException $
-    runSettings serverSettings $
-      websocketsOr defaultConnectionOptions wsApp (httpApp tracer chain protocolparams)
- where
-  serverSettings =
-    defaultSettings
-      & setHost (fromString $ show host)
-      & setPort (fromIntegral port)
-      & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
-      & setBeforeMainLoop notifyServerRunning
-
-  wsApp pending = do
-    -- XXX: Moving this here improved on flakyness of tests (which would see a
-    -- 'HandshakeException'). This indicates that there might be a race
-    -- condition between notifyingServerRunning and clients starting and
-    -- handshaking on connections still?
-    traceWith tracer NewAPIConnection
-    let path = requestPath $ pendingRequest pending
-    queryParams <- uriQuery <$> mkURIBs path
-    con <- acceptRequest pending
-    chan <- STM.atomically $ dupTChan responseChannel
-
-    -- api client can decide if they want to see the past history of server outputs
-    unless (shouldNotServeHistory queryParams) $
-      forwardHistory con
-
-    forwardGreetingOnly con
-
-    let outConfig = mkServerOutputConfig queryParams
-
-    withPingThread con 30 (pure ()) $
-      race_ (receiveInputs con) (sendOutputs chan con outConfig)
-
-  -- NOTE: We will add a 'Greetings' message on each API server start. This is
-  -- important to make sure the latest configured 'party' is reaching the
-  -- client.
-  forwardGreetingOnly con = do
-    seq <- atomically $ nextSequenceNumber history
-    headStatus <- atomically getLatestHeadStatus
-    snapshotUtxo <- atomically getLatestSnapshotUtxo
-    time <- getCurrentTime
-
-    sendTextData con $
-      Aeson.encode
-        TimedServerOutput
-          { time
-          , seq
-          , output =
-              Greetings
-                { me = party
-                , headStatus
-                , snapshotUtxo
-                , hydraNodeVersion = showVersion Options.hydraNodeVersion
-                } ::
-                ServerOutput tx
-          }
-
-  Projection{getLatest = getLatestHeadStatus} = headStatusP
-  Projection{getLatest = getLatestSnapshotUtxo} = snapshotUtxoP
-
-  mkServerOutputConfig qp =
-    ServerOutputConfig
-      { txOutputFormat = decideOnTxDisplay qp
-      , utxoInSnapshot = decideOnUTxODisplay qp
-      }
-
-  decideOnTxDisplay qp =
-    let k = [queryKey|tx-output|]
-        v = [queryValue|cbor|]
-        queryP = QueryParam k v
-     in if queryP `elem` qp then OutputCBOR else OutputJSON
-
-  decideOnUTxODisplay qp =
-    let k = [queryKey|snapshot-utxo|]
-        v = [queryValue|no|]
-        queryP = QueryParam k v
-     in if queryP `elem` qp then WithoutUTxO else WithUTxO
-
-  shouldNotServeHistory qp =
-    flip any qp $ \case
-      (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|no|]
-      _other -> False
-
-  onIOException ioException =
-    throwIO $
-      RunServerException
-        { ioException
-        , host
-        , port
-        }
-
-  sendOutputs chan con outConfig = forever $ do
-    response <- STM.atomically $ readTChan chan
-    let sentResponse =
-          prepareServerOutput outConfig response
-
-    sendTextData con sentResponse
-    traceWith tracer (APIOutputSent $ toJSON response)
-
-  receiveInputs con = forever $ do
-    msg <- receiveData con
-    case Aeson.eitherDecode msg of
-      Right input -> do
-        traceWith tracer (APIInputReceived $ toJSON input)
-        callback input
-      Left e -> do
-        -- XXX(AB): toStrict might be problematic as it implies consuming the full
-        -- message to memory
-        let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber history
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
-        sendTextData con $ Aeson.encode timedOutput
-        traceWith tracer (APIInvalidInput e clientInput)
-
-  forwardHistory con = do
-    hist <- STM.atomically (readTVar history)
-    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
-    sendTextDatas con $ foldl' encodeAndReverse [] hist
-
-data RunServerException = RunServerException
-  { ioException :: IOException
-  , host :: IP
-  , port :: PortNumber
-  }
-  deriving (Show)
-
-instance Exception RunServerException

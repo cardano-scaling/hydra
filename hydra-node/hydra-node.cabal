@@ -76,10 +76,11 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Hydra.API.ClientInput
-    Hydra.API.Projection
     Hydra.API.HTTPServer
+    Hydra.API.Projection
     Hydra.API.Server
     Hydra.API.ServerOutput
+    Hydra.API.WSServer
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
