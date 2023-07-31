@@ -309,7 +309,7 @@ withHydraNode' ::
   [Int] ->
   -- | Transaction id at which Hydra scripts should have been published.
   TxId ->
-  -- | If give use this as std out.
+  -- | If given use this as std out.
   Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
