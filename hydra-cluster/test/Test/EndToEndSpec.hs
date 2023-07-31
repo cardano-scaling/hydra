@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
-import CardanoNode (RunningNode (..), generateCardanoKey, withCardanoNodeDevnet)
+import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
@@ -25,7 +25,6 @@ import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
   GenesisParameters (..),
-  Key (SigningKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -37,7 +36,6 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
-  writeFileTextEnvelope,
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain.Direct.State ()
@@ -72,7 +70,7 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -98,7 +96,6 @@ import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
-import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
 import System.Timeout (timeout)
 import Test.QuickCheck (generate)
 import qualified Prelude
@@ -409,17 +406,31 @@ spec = around showLogsOnFailure $
     describe "hydra-node executable" $ do
       it "logs its command line arguments" $ \tracer -> do
         withClusterTempDir "logs-options" $ \dir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
-            let hydraSK = dir </> "hydra.sk"
-            let cardanoSK = dir </> "cardano.sk"
-            hydraSKey :: SigningKey HydraKey <- generate arbitrary
-            (_, cardanoSKey) <- generateCardanoKey
-            void $ writeFileTextEnvelope hydraSK Nothing hydraSKey
-            void $ writeFileTextEnvelope cardanoSK Nothing cardanoSKey
-            withCreateProcess (proc "hydra-node" ["-n", "hydra-node-1", "--testnet-magic", "42", "--hydra-signing-key", hydraSK, "--cardano-signing-key", cardanoSK, "--node-socket", nodeSocket]){std_out = CreatePipe} $
-              \_ (Just nodeStdout) _ _ ->
-                waitForLog 10 nodeStdout "JSON object with key NodeOptions" $ \line ->
-                  line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            chainConfig <- chainConfigFor Alice dir nodeSocket [] (UnsafeContestationPeriod 1)
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _stdErr _processHandle -> do
+              waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
+                line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+
+      it "logs to a logfile" $ \tracer -> do
+        withClusterTempDir "logs-to-logfile" $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket, networkId} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            refuelIfNeeded tracer node Alice 100_000_000
+            let contestationPeriod = UnsafeContestationPeriod 2
+            aliceChainConfig <-
+              chainConfigFor Alice dir nodeSocket [] contestationPeriod
+                -- we delibelately do not start from a chain point here to highlight the
+                -- need for persistence
+                <&> \config -> config{networkId, startChainFrom = Nothing}
+
+            withHydraNode tracer aliceChainConfig dir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+              send n1 $ input "Init" []
+
+            let logFilePath = dir </> "logs" </> "hydra-node-1.log"
+            logfile <- readFileBS logFilePath
+            BS.length logfile `shouldSatisfy` (> 0)
 
       it "detects misconfiguration" $ \tracer -> do
         withClusterTempDir "detect-misconfiguration" $ \dir -> do
@@ -446,25 +457,6 @@ spec = around showLogsOnFailure $
               -- node should exit with appropriate exception
               waitForLog 10 stdErr "Detect ParamMismatchError" $ \errlines ->
                 "ParameterMismatch" `isInfixOf` errlines
-
-      it "does log to logfiles" $ \tracer -> do
-        withClusterTempDir "log-to-logfiles" $ \dir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket, networkId} -> do
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            refuelIfNeeded tracer node Alice 100_000_000
-            let contestationPeriod = UnsafeContestationPeriod 2
-            aliceChainConfig <-
-              chainConfigFor Alice dir nodeSocket [] contestationPeriod
-                -- we delibelately do not start from a chain point here to highlight the
-                -- need for persistence
-                <&> \config -> config{networkId, startChainFrom = Nothing}
-
-            withHydraNode tracer aliceChainConfig dir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-              send n1 $ input "Init" []
-
-            let logFilePath = dir </> "logs" </> "hydra-node-1.log"
-            logfile <- readFileBS logFilePath
-            BS.length logfile `shouldSatisfy` (> 0)
 
 waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
