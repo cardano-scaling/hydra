@@ -11,10 +11,8 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TVar (TVar, readTVar)
 import qualified Data.Aeson as Aeson
 import Data.Version (showVersion)
+import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.HTTPServer (
-  APIServerLog (..),
- )
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   HeadStatus,

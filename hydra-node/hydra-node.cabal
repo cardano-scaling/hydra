@@ -75,6 +75,7 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
+    Hydra.API.APIServerLog
     Hydra.API.ClientInput
     Hydra.API.HTTPServer
     Hydra.API.Projection

@@ -6,12 +6,13 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.Aeson (Value (Object), withObject, (.:?), object, KeyValue ((.=)), (.:))
+import Data.Aeson (KeyValue ((.=)), Value (Object), object, withObject, (.:), (.:?))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
+import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -30,46 +31,12 @@ import Hydra.Cardano.Api (
   pattern KeyWitness,
   pattern ScriptWitness,
  )
-import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx, IsChainState)
+import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (PortNumber)
 import Network.HTTP.Types (Method, status200, status400, status500)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, responseLBS)
-import Test.QuickCheck (oneof)
-
-data APIServerLog
-  = APIServerStarted {listeningPort :: PortNumber}
-  | NewAPIConnection
-  | APIOutputSent {sentOutput :: Aeson.Value}
-  | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput {reason :: String, inputReceived :: Text}
-  | APIConnectionError {reason :: String}
-  | APIHandshakeError {reason :: String}
-  | APIRestInputReceived
-      { method :: Text
-      , paths :: [Text]
-      , requestInputBody :: Maybe Aeson.Value
-      }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary APIServerLog where
-  arbitrary =
-    oneof
-      [ APIServerStarted <$> arbitrary
-      , pure NewAPIConnection
-      , pure $ APIOutputSent (Aeson.Object mempty)
-      , pure $ APIInputReceived (Aeson.Object mempty)
-      , APIInvalidInput <$> arbitrary <*> arbitrary
-      , APIConnectionError <$> arbitrary
-      , APIHandshakeError <$> arbitrary
-      , APIRestInputReceived
-          <$> arbitrary
-          <*> arbitrary
-          <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
-      ]
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
@@ -161,7 +128,8 @@ data TransactionSubmitted = TransactionSubmitted
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON TransactionSubmitted where
-  toJSON _ = object
+  toJSON _ =
+    object
       [ "tag" .= Aeson.String "TransactionSubmitted"
       ]
 
@@ -238,7 +206,6 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
           Right commitTx ->
             responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
-
   Chain{draftCommitTx} = directChain
 
   fromTxOutWithWitness TxOutWithWitness{txOut, witness} =
