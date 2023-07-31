@@ -9,10 +9,9 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
-  buildBalancedTxBody,
   queryProtocolParameters,
   queryTip,
-  submitTx,
+  submitTx, buildRaw,
  )
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
@@ -37,14 +36,13 @@ import Hydra.Cardano.Api (
   Tx,
   TxId,
   TxOutValue (TxOutValue),
-  balancedTxBodyContent,
   fromPlutusScript,
   lovelaceToValue,
   mkScriptAddress,
   mkVkAddress,
   selectLovelace,
   signTx,
-  toScriptData,
+  toScriptData, makeSignedTransaction,
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
@@ -54,7 +52,6 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -359,21 +356,27 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
       (cardanoCarolVk, _) <- keysFor Carol
       -- create output for Bob to be sent to carol
       bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
-      let carolAddress = mkVkAddress networkId cardanoCarolVk
-          changeAddress = mkVkAddress networkId cardanoBobVk
+      let carolsAddress = mkVkAddress networkId cardanoCarolVk
+          bobsAddress = mkVkAddress networkId cardanoBobVk
           -- carol's output
-          theOutput =
+          carolsOutput =
             TxOut
-              carolAddress
+              carolsAddress
               (TxOutValue MultiAssetInBabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
               TxOutDatumNone
               ReferenceScriptNone
+          bobsOutput =
+            TxOut
+              bobsAddress
+              (TxOutValue MultiAssetInBabbageEra $ lovelaceToValue $ Lovelace 2_834_455)
+              TxOutDatumNone
+              ReferenceScriptNone
       -- prepare fully balanced tx body
-      eTxBody <- buildBalancedTxBody networkId nodeSocket changeAddress bobUTxO [] [theOutput]
+      let eTxBody = buildRaw (fst <$> UTxO.pairs bobUTxO) [carolsOutput, bobsOutput] (Lovelace 165545)
       case eTxBody of
         Left e -> failure $ show e
         Right body -> do
-          let unsignedTx = unsafeBuildTransaction $ balancedTxBodyContent body
+          let unsignedTx = makeSignedTransaction [] body
           let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
 
           -- sending UNSIGNED transaction should not be accepted
