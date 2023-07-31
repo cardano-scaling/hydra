@@ -36,7 +36,6 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
-
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
@@ -61,10 +60,7 @@ instance Arbitrary HeadParameters where
   arbitrary = dedupParties <$> genericArbitrary
    where
     dedupParties HeadParameters{contestationPeriod, parties} =
-      HeadParameters
-        { contestationPeriod
-        , parties = sort . take maximumNumberOfParties $ nub parties
-        }
+      HeadParameters{contestationPeriod, parties = nub parties}
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
