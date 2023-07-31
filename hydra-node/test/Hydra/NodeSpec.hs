@@ -5,7 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -144,17 +144,16 @@ spec = parallel $ do
             >>= recordServerOutputs
         runToCompletion tracer node
 
-        mapM_ print =<< loadAll persistence
-
         getServerOutputs >>= (`shouldContain` [TxValid{headId = HeadId "1234", transaction = tx1}])
 
-createPersistenceInMemory :: MonadSTM m => m (PersistenceIncremental a m)
+createPersistenceInMemory :: MonadLabelledSTM m => m (PersistenceIncremental a m)
 createPersistenceInMemory = do
-  persistenceVar <- newTVarIO []
+  tvar <- newTVarIO []
+  labelTVarIO tvar "persistence-in-memory"
   pure
     PersistenceIncremental
-      { append = \x -> atomically $ modifyTVar persistenceVar (<> [x])
-      , loadAll = readTVarIO persistenceVar
+      { append = \x -> atomically $ modifyTVar tvar (<> [x])
+      , loadAll = readTVarIO tvar
       }
 
 isReqSn :: Message tx -> Bool

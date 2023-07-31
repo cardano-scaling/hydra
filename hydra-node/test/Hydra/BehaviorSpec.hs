@@ -8,7 +8,6 @@ import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSat
 
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
-  labelTVarIO,
   modifyTVar,
   modifyTVar',
   newTQueue,
@@ -62,8 +61,8 @@ import Hydra.Node (
   waitDelay,
  )
 import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
+import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
@@ -771,8 +770,7 @@ createHydraNode ::
   m (HydraNode tx m)
 createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
   eq <- createEventQueue
-  persistenceVar <- newTVarIO []
-  labelTVarIO persistenceVar ("persistence-" <> shortLabel signingKey)
+  persistence <- createPersistenceInMemory
   connectNode chain $
     HydraNode
       { eq
@@ -797,11 +795,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             , otherParties
             , contestationPeriod = cp
             }
-      , persistence =
-          PersistenceIncremental
-            { append = \x -> atomically $ modifyTVar persistenceVar (<> [x])
-            , loadAll = readTVarIO persistenceVar
-            }
+      , persistence
       }
 
 openHead ::
