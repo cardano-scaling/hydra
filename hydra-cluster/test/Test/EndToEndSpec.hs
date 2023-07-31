@@ -20,7 +20,7 @@ import Data.Aeson.Lens (key, values, _JSON)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.Text (isInfixOf, pack)
+import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
@@ -439,13 +439,32 @@ spec = around showLogsOnFailure $
               void $ waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
             let mismatchedConfig = aliceChainConfig{contestationPeriod = UnsafeContestationPeriod 10}
-            withHydraNode' tracer mismatchedConfig dir 1 aliceSk [] [1] hydraScriptsTxId $ \stdOut stdErr _processHandle -> do
+            withHydraNode' mismatchedConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut stdErr _processHandle -> do
               waitForLog 10 stdOut "Detect Misconfiguration log" $ \outline ->
                 outline ^? key "message" . key "node" . key "tag" == Just (Aeson.String "Misconfiguration")
 
               -- node should exit with appropriate exception
               waitForLog 10 stdErr "Detect ParamMismatchError" $ \errlines ->
                 "ParameterMismatch" `isInfixOf` errlines
+
+      it "does log to logfiles" $ \tracer -> do
+        withClusterTempDir "log-to-logfiles" $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket, networkId} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            refuelIfNeeded tracer node Alice 100_000_000
+            let contestationPeriod = UnsafeContestationPeriod 2
+            aliceChainConfig <-
+              chainConfigFor Alice dir nodeSocket [] contestationPeriod
+                -- we delibelately do not start from a chain point here to highlight the
+                -- need for persistence
+                <&> \config -> config{networkId, startChainFrom = Nothing}
+
+            withHydraNode tracer aliceChainConfig dir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+              send n1 $ input "Init" []
+
+            let logFilePath = dir </> "logs" </> "hydra-node-1.log"
+            logfile <- readFileBS logFilePath
+            BS.length logfile `shouldSatisfy` (> 0)
 
 waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
