@@ -16,7 +16,7 @@ import qualified Data.Aeson as Aeson
 import Data.Version (showVersion)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..), mkProjection)
-import Hydra.API.RestServer (
+import Hydra.API.HTTPServer (
   APIServerLog (..),
   httpApp,
  )

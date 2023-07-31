@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.API.RestServer where
+module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 

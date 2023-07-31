@@ -25,7 +25,7 @@ import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Version (showVersion)
-import Hydra.API.RestServer (APIServerLog)
+import Hydra.API.HTTPServer (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (

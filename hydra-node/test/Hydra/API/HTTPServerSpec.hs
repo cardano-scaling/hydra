@@ -1,13 +1,13 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.API.RestServerSpec where
+module Hydra.API.HTTPServerSpec where
 
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Aeson.Lens (key)
-import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
+import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()

@@ -22,7 +22,7 @@ import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (
+import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),

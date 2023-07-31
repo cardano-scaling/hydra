@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Options (ParamMismatch, RunOptions)
-import Hydra.API.RestServer (APIServerLog)
+import Hydra.API.HTTPServer (APIServerLog)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
