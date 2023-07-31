@@ -155,7 +155,7 @@ channels:
           type: response
           method: GET
           bindingVersion: '0.1.0'
-  /submit-user-tx:
+  /cardano-transaction:
     description: Submit signed user transaction to be submitted to the L1 network.
     servers:
       - localhost-http

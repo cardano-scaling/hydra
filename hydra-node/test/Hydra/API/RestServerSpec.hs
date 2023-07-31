@@ -37,13 +37,13 @@ spec = do
           prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
             key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
 
-    prop "Validate /submit-user-tx publish api schema" $
+    prop "Validate /cardano-transaction publish api schema" $
       property $
         withMaxSuccess 1 $
           prop_validateJSONSchema @SubmitTxRequest "api.json" $
             key "components" . key "messages" . key "SubmitTxRequest" . key "payload"
 
-    prop "Validate /submit-user-tx  subscribe api schema" $
+    prop "Validate /cardano-transaction  subscribe api schema" $
       property $
         withMaxSuccess 1 $
           prop_validateJSONSchema @TransactionSubmitted "api.json" $

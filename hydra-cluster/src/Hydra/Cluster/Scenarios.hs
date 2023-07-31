@@ -392,7 +392,7 @@ canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
     runReq defaultHttpConfig $
       req
         POST
-        (http "127.0.0.1" /: "submit-user-tx")
+        (http "127.0.0.1" /: "cardano-transaction")
         (ReqBodyJson tx)
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)

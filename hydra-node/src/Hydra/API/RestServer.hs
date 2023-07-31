@@ -189,7 +189,7 @@ httpApp tracer directChain pparams req respond =
       handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
-    ("POST", ["submit-user-tx"]) -> do
+    ("POST", ["cardano-transaction"]) -> do
       body <- consumeRequestBodyStrict req
       handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
     _ -> do
