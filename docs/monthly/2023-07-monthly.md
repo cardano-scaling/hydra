@@ -31,7 +31,6 @@ with the following items:
     around 30 proposals mentioning Hydra in the current Catalyst funding round
     and we want to review, comment, try to align, and maybe even promote some
     proposals. The goal is to provide a platform for many new ideas while avoiding fragmentation and maximizing the reuse of work.
-    
 
   - **Further open up GitHub repositories**: We want to provide a welcoming
     experience to non-IOG contributors and provide an easy-to-navigate group of
@@ -39,13 +38,13 @@ with the following items:
 
 - Mainnet mature application :purple_heart:
 
-  - **Make Hydra trivial to use**: To enhance user and developer experience, we aim to enable a quick and frictionless setup of Hydra, possibly involving Mithril to get started. Our goal is to facilitate the opening of a distributed Hydra head with two nodes on a testnet within just a few minutes. 
+  - **Make Hydra trivial to use**: To enhance user and developer experience, we aim to enable a quick and frictionless setup of Hydra, possibly involving Mithril to get started. Our goal is to facilitate the opening of a distributed Hydra head with two nodes on a testnet within just a few minutes.
 
   - **Build a basic head explorer**: We have previously experimented with the explorer, and now we are looking to set it up for the long term. The goal is not only to assess Hydra adoption but also to provide a valuable tool for DApp developers. Additionally, we aim to create a visualization that end users can use to answer important questions, such as 'who is running this head?'
 
 - Drive adoption :blue_heart:
 
-  - **Deliver the first version of HydraNow to mainnet**: 
+  - **Deliver the first version of HydraNow to mainnet**:
     It's important that the very promising use case of payments using
     Hydra is made available to first users on mainnet. As a concrete example, this would be
     a mobile application 'HydraNow', which uses a `hydra-pay` service to enable
@@ -85,8 +84,7 @@ to reflect the latest developments and ideas from the starmap:
 
 - Two new items \__elevated_ from user ideas and improved the API capabilities:
 
-  - The [ability to read protocol parameters via API
-    #735](https://github.com/input-output-hk/hydra/issues/735)
+  - The [ability to read protocol parameters via API #735](https://github.com/input-output-hk/hydra/issues/735)
   - The ability to[submit layer 1 transactions through hydra-node #966](https://github.com/input-output-hk/hydra/issues/966)
 
 - [Removing commit from internal wallet #954](Submit layer 1 transactions through
@@ -107,8 +105,7 @@ to reflect the latest developments and ideas from the starmap:
 
 ## Development
 
-[Issues and pull requests closed since last
-report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-06-22..2023-07-28)
+[Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-06-22..2023-07-28)
 
 This month, the team worked on the following:
 
