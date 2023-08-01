@@ -75,11 +75,13 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
+    Hydra.API.APIServerLog
     Hydra.API.ClientInput
+    Hydra.API.HTTPServer
     Hydra.API.Projection
-    Hydra.API.RestServer
     Hydra.API.Server
     Hydra.API.ServerOutput
+    Hydra.API.WSServer
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
@@ -264,7 +266,7 @@ test-suite tests
   hs-source-dirs:     test
   other-modules:
     Hydra.API.ClientInputSpec
-    Hydra.API.RestServerSpec
+    Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec

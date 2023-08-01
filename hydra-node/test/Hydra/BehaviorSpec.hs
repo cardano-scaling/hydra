@@ -615,6 +615,7 @@ simulatedChainAndNetwork initialChainState = do
                   Chain
                     { postTx = postTx nodes history chainStateVar
                     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+                    , submitTx = \_ -> error "unexpected call to submitTx"
                     }
               , hn = createMockNetwork node nodes
               }
@@ -780,7 +781,8 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
       , oc =
           Chain
             { postTx = \_ -> pure ()
-            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
+            , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+            , submitTx = \_ -> error "unexpected call to submitTx"
             }
       , server =
           Server

@@ -228,44 +228,22 @@ definitions:
             type: string
             description: >-
               A textual description of the reason why this input is invalid.
-      - title: APIHandshakeError
+      - title: APIHTTPRequestReceived
         description: >-
-          API returned a handshake error.
-        additionalProperties: false
-        required:
-          - tag
-          - reason
-        properties:
-          tag:
-            type: string
-            enum: ["APIHandshakeError"]
-          reason:
-            type: string
-            description: >-
-              A textual description of the reason why this input is invalid.
-      - title: APIRestInputReceived
-        description: >-
-          Some input has been received from a REST client.
+          An HTTP request has been received.
         additionalProperties: false
         required:
           - tag
           - method
-          - paths
-          - requestInputBody
+          - path
         properties:
           tag:
             type: string
-            enum: ["APIRestInputReceived"]
+            enum: ["APIHTTPRequestReceived"]
           method:
             type: string
-          paths:
-            type: array
-            items:
-              type: string
-          requestInputBody:
-            oneOf:
-              - type: "null"
-              - type: object
+          path:
+            type: string
 
   DirectChain:
     oneOf:

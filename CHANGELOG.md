@@ -14,6 +14,8 @@ changes.
   increases the performance of the `hydra-node` as less data needs to be written
   and prepares internal architecture for more event-sourced improvements.
 
+- Provide option to post a signed transaction on L1 through hydra-node http endpoint.
+
 - `Greetings` message now contains also the hydra-node version.
 
 - New HTTP endpoint (`GET /protocol-parameters`) which provides the current protocol parameters

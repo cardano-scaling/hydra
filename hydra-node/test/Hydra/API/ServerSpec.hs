@@ -25,7 +25,8 @@ import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Version (showVersion)
-import Hydra.API.Server (APIServerLog, RunServerException (..), Server (Server, sendOutput), withAPIServer)
+import Hydra.API.APIServerLog (APIServerLog)
+import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
@@ -35,6 +36,7 @@ import Hydra.Chain (
   confirmedSnapshot,
   draftCommitTx,
   postTx,
+  submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Ledger (txId)
@@ -421,6 +423,7 @@ dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+    , submitTx = \_ -> error "unexpected call to submitTx"
     }
 
 noop :: Applicative m => a -> m ()
@@ -489,8 +492,7 @@ waitMatch delay con match = do
       Right value -> pure value
 
 shouldSatisfyAll :: Show a => [a] -> [a -> Bool] -> Expectation
-shouldSatisfyAll values predicates =
-  go values predicates
+shouldSatisfyAll = go
  where
   go [] [] = pure ()
   go [] _ = failure "shouldSatisfyAll: ran out of values"

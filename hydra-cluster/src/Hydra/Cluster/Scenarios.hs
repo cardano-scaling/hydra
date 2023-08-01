@@ -5,10 +5,12 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude (failure)
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
+  buildTransaction,
   queryProtocolParameters,
   queryTip,
   submitTx,
@@ -18,24 +20,34 @@ import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
+import Data.ByteString (isInfixOf)
 import qualified Data.ByteString as B
 import qualified Data.Set as Set
-import Hydra.API.RestServer (
+import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
+  SubmitTxRequest (..),
+  TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
+  BabbageEra,
   Lovelace (..),
   PlutusScriptV2,
   Tx,
   TxId,
   fromPlutusScript,
+  lovelaceToValue,
+  makeSignedTransaction,
   mkScriptAddress,
+  mkTxOutValue,
+  mkVkAddress,
   selectLovelace,
+  signTx,
   toScriptData,
  )
+import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (Marked (Fuel, Normal), createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
@@ -62,7 +74,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
-import Test.Hspec.Expectations (shouldBe, shouldThrow)
+import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -286,19 +298,9 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit `shouldThrow` selector400
+      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
   RunningNode{nodeSocket} = node
-  selector400 :: HttpException -> Bool
-  selector400
-    ( VanillaHttpException
-        ( L.HttpExceptionRequest
-            _
-            (L.StatusCodeException response chunk)
-          )
-      ) =
-      L.responseStatus response == toEnum 400 && not (B.null chunk)
-  selector400 _ = False
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that
@@ -339,6 +341,54 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
+canSubmitTransactionThroughAPI ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] hydraScriptsTxId $ \_ -> do
+      -- let's prepare a _user_ transaction from Bob to Carol
+      (cardanoBobVk, cardanoBobSk) <- keysFor Bob
+      (cardanoCarolVk, _) <- keysFor Carol
+      -- create output for Bob to be sent to carol
+      bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
+      let carolsAddress = mkVkAddress networkId cardanoCarolVk
+          bobsAddress = mkVkAddress networkId cardanoBobVk
+          carolsOutput =
+            TxOut
+              carolsAddress
+              (mkTxOutValue @BabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
+              TxOutDatumNone
+              ReferenceScriptNone
+      -- prepare fully balanced tx body
+      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
+        Left e -> failure $ show e
+        Right body -> do
+          let unsignedTx = makeSignedTransaction [] body
+          let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
+          sendRequest hydraNodeId unsignedRequest
+            `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
+
+          let signedRequest = SubmitTxRequest{txToSubmit = signTx cardanoBobSk unsignedTx}
+          (sendRequest hydraNodeId signedRequest <&> responseBody)
+            `shouldReturn` TransactionSubmitted
+ where
+  RunningNode{networkId, nodeSocket} = node
+  sendRequest hydraNodeId tx =
+    runReq defaultHttpConfig $
+      req
+        POST
+        (http "127.0.0.1" /: "cardano-transaction")
+        (ReqBodyJson tx)
+        (Proxy :: Proxy (JsonResponse TransactionSubmitted))
+        (port $ 4000 + hydraNodeId)
+
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
   Tracer IO EndToEndLog ->
@@ -371,3 +421,29 @@ headIsInitializingWith expectedParties v = do
   guard $ parties == toJSON expectedParties
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
+
+expectErrorStatus ::
+  -- | Expected http status code
+  Int ->
+  -- | Optional string expected to be present somewhere in the response body
+  Maybe ByteString ->
+  -- | Expected exception
+  HttpException ->
+  Bool
+expectErrorStatus
+  stat
+  mbodyContains
+  ( VanillaHttpException
+      ( L.HttpExceptionRequest
+          _
+          (L.StatusCodeException response chunk)
+        )
+    ) =
+    L.responseStatus response == toEnum stat && not (B.null chunk) && assertBodyContains mbodyContains chunk
+   where
+    -- NOTE: The documentation says: Response body parameter MAY include the beginning of the response body so this can be partial.
+    -- https://hackage.haskell.org/package/http-client-0.7.13.1/docs/Network-HTTP-Client.html#t:HttpExceptionContent
+    assertBodyContains :: Maybe ByteString -> ByteString -> Bool
+    assertBodyContains (Just bodyContains) bodyChunk = bodyContains `isInfixOf` bodyChunk
+    assertBodyContains Nothing _ = False
+expectErrorStatus _ _ _ = False

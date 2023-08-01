@@ -46,7 +46,6 @@ servers:
         description: Port at which the Hydra node is accepting the client requests.
         default: "4001"
 
-
 channels:
   /:
     description: Main entry point for Websockets server in Hydra service.
@@ -111,14 +110,22 @@ channels:
           - $ref: "#/components/messages/Fanout"
 
   /commit:
-    description: Main entry point to draft commit transaction in Hydra service.
     servers:
       - localhost-http
+    publish:
+      description: Draft a commit transaction, which can be completed and later submitted to the L1 network.
+      operationId: draftCommitTxRequest
+      message:
+        $ref: "#/components/messages/DraftCommitTxRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
     subscribe:
-      summary: Draft commit tx response
       operationId: draftCommitTxResponse
       description: |
-        Possible responses of commit endpoint are:
+        Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
           * CannotCommitReferenceScript - 400 bad request
           * CommittedTooMuchADAForMainnet - 400 bad request
@@ -131,22 +138,11 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
-    publish:
-      summary: Draft commit tx request
-      operationId: draftCommitTxRequest
-      message:
-        $ref: "#/components/messages/DraftCommitTxRequest"
-      bindings:
-        http:
-          type: request
-          method: POST
-          bindingVersion: '0.1.0'
   /protocol-parameters:
-    description: Endpoint to obtain protocol parameters used by the internal ledger of a hydra-node.
     servers:
       - localhost-http
     subscribe:
-      summary: Get cardano protocol parameters.
+      description: Get cardano protocol parameters.
       operationId: getProtocolParameters
       message:
         $ref: "#/components/messages/ProtocolParameters"
@@ -154,6 +150,44 @@ channels:
         http:
           type: response
           method: GET
+          bindingVersion: '0.1.0'
+  /cardano-transaction:
+    servers:
+      - localhost-http
+    publish:
+      operationId: submitTxRequest
+      message:
+        summary: |
+          Cardano transaction to be submitted to the L1 network.
+        payload:
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: submitTxResponse
+      message:
+        oneOf:
+        - name: TransactionSubmitted
+          summary: 200 OK
+          description: Successfully submitted a cardano transaction to the L1 network.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["TransactionSubmitted"]
+        - name: PostTxError
+          summary: 400 Bad Request
+          payload:
+            $ref: "#/components/schemas/PostTxError"
+      bindings:
+        http:
+          type: request
+          method: POST
           bindingVersion: '0.1.0'
 components:
   messages:

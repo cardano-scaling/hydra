@@ -1,14 +1,13 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.API.RestServerSpec where
+module Hydra.API.HTTPServerSpec where
 
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
-import Data.Aeson.Lens (key)
-import Hydra.API.RestServer (DraftCommitTxRequest, DraftCommitTxResponse)
-import Hydra.API.Server (httpApp)
+import Data.Aeson.Lens (key, nth)
+import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()
@@ -23,6 +22,8 @@ spec = do
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxRequest))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitTxRequest))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
 
     prop "Validate /commit publish api schema" $
       property $
@@ -35,6 +36,28 @@ spec = do
         withMaxSuccess 1 $
           prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
             key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
+
+    prop "Validate /cardano-transaction publish api schema" $
+      property $
+        withMaxSuccess 1 $
+          prop_validateJSONSchema @SubmitTxRequest "api.json" $
+            key "channels"
+              . key "/cardano-transaction"
+              . key "publish"
+              . key "message"
+              . key "payload"
+
+    prop "Validate /cardano-transaction subscribe api schema" $
+      property $
+        withMaxSuccess 1 $
+          prop_validateJSONSchema @TransactionSubmitted "api.json" $
+            key "channels"
+              . key "/cardano-transaction"
+              . key "subscribe"
+              . key "message"
+              . key "oneOf"
+              . nth 0
+              . key "payload"
 
     apiServerSpec
 

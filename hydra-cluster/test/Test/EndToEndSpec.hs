@@ -59,6 +59,7 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
+  canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   refuelIfNeeded,
   restartedNodeCanAbort,
@@ -145,6 +146,11 @@ spec = around showLogsOnFailure $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
+      it "can submit a signed user transaction" $ \tracer -> do
+        withClusterTempDir "submit-a-signed-user-transaction" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSubmitTransactionThroughAPI tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->

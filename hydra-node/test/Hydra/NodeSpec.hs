@@ -228,6 +228,7 @@ createHydraNode' persistence signingKey otherParties contestationPeriod events =
           Chain
             { postTx = \_ -> pure ()
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
+            , submitTx = \_ -> error "submitTx not implemented"
             }
       , server = Server{sendOutput = \_ -> pure ()}
       , ledger = simpleLedger
@@ -277,5 +278,6 @@ throwExceptionOnPostTx exception node =
           Chain
             { postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
+            , submitTx = \_ -> error "submitTx not implemented"
             }
       }

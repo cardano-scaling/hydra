@@ -37,7 +37,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
+  ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
@@ -46,6 +46,7 @@ import Hydra.Chain.Direct.State (
   commit,
   commit',
   contest,
+  contestationPeriod,
   fanout,
   getKnownUTxO,
   initialize,
@@ -172,6 +173,9 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
                     <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
+    , -- Submit a cardano transaction to the cardano-node using the
+      -- LocalTxSubmission protocol.
+      submitTx
     }
 
 -- | Balance and sign the given partial transaction.

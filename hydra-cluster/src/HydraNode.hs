@@ -20,7 +20,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.List as List
 import Data.Text (pack)
 import qualified Data.Text as T
-import Hydra.API.RestServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
+import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
