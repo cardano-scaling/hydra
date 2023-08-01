@@ -37,7 +37,14 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Types (status200, status400, status500)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, rawPathInfo, responseLBS)
+import Network.Wai (
+  Application,
+  Request (pathInfo, requestMethod),
+  Response,
+  consumeRequestBodyStrict,
+  rawPathInfo,
+  responseLBS,
+ )
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
@@ -158,45 +165,44 @@ httpApp tracer directChain pparams request respond = do
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-    ("POST", ["commit"]) -> do
-      body <- consumeRequestBodyStrict request
-      handleDraftCommitUtxo directChain body respond
+    ("POST", ["commit"]) ->
+      consumeRequestBodyStrict request
+        >>= handleDraftCommitUtxo directChain
+        >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
-    ("POST", ["cardano-transaction"]) -> do
-      body <- consumeRequestBodyStrict request
-      handleSubmitUserTx directChain body respond
-    _ -> do
+    ("POST", ["cardano-transaction"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSubmitUserTx directChain
+        >>= respond
+    _ ->
       respond $ responseLBS status400 [] "Resource not found"
 
 -- * Handlers
 
--- Handle user requests to obtain a draft commit tx
+-- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo ::
   Chain tx IO ->
   -- | Request body.
   LBS.ByteString ->
-  (Response -> IO ResponseReceived) ->
-  IO ResponseReceived
-handleDraftCommitUtxo directChain body respond = do
+  IO Response
+handleDraftCommitUtxo directChain body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
-      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@DraftCommitTxRequest{utxoToCommit} -> do
-      eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxoToCommit
-      respond $
-        case eCommitTx of
-          Left e ->
-            -- Distinguish between errors users can actually benefit from and
-            -- other errors that are turned into 500 responses.
-            case e of
-              CannotCommitReferenceScript -> return400 e
-              CommittedTooMuchADAForMainnet _ _ -> return400 e
-              UnsupportedLegacyOutput _ -> return400 e
-              walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
-              _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
-          Right commitTx ->
-            responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+      draftCommitTx (fromTxOutWithWitness <$> utxoToCommit) <&> \case
+        Left e ->
+          -- Distinguish between errors users can actually benefit from and
+          -- other errors that are turned into 500 responses.
+          case e of
+            CannotCommitReferenceScript -> return400 e
+            CommittedTooMuchADAForMainnet _ _ -> return400 e
+            UnsupportedLegacyOutput _ -> return400 e
+            walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
+            _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+        Right commitTx ->
+          responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
  where
   Chain{draftCommitTx} = directChain
 
@@ -210,24 +216,21 @@ handleDraftCommitUtxo directChain body respond = do
         ScriptWitness ScriptWitnessForSpending $
           mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
 
--- | Handle user requests to submit a signed tx
+-- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
   Chain tx IO ->
   -- | Request body.
   LBS.ByteString ->
-  (Response -> IO ResponseReceived) ->
-  IO ResponseReceived
-handleSubmitUserTx directChain body respond = do
+  IO Response
+handleSubmitUserTx directChain body = do
   case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
     Left err ->
-      respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@SubmitTxRequest{txToSubmit} -> do
-      eresult <- try $ submitUserTx txToSubmit
-      respond $
-        case eresult of
-          Left (e :: PostTxError Tx) -> return400 e
-          Right _ ->
-            responseLBS status200 [] (Aeson.encode TransactionSubmitted)
+      try (submitUserTx txToSubmit) <&> \case
+        Left (e :: PostTxError Tx) -> return400 e
+        Right _ ->
+          responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
   Chain{submitUserTx} = directChain
 
