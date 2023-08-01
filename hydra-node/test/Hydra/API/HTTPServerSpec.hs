@@ -6,7 +6,7 @@ import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (key, nth)
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
@@ -41,13 +41,23 @@ spec = do
       property $
         withMaxSuccess 1 $
           prop_validateJSONSchema @SubmitTxRequest "api.json" $
-            key "components" . key "messages" . key "SubmitTxRequest" . key "payload"
+            key "channels"
+              . key "/cardano-transaction"
+              . key "publish"
+              . key "message"
+              . key "payload"
 
-    prop "Validate /cardano-transaction  subscribe api schema" $
+    prop "Validate /cardano-transaction subscribe api schema" $
       property $
         withMaxSuccess 1 $
           prop_validateJSONSchema @TransactionSubmitted "api.json" $
-            key "components" . key "messages" . key "TransactionSubmitted" . key "payload"
+            key "channels"
+              . key "/cardano-transaction"
+              . key "subscribe"
+              . key "message"
+              . key "oneOf"
+              . nth 0
+              . key "payload"
 
     apiServerSpec
 

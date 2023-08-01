@@ -46,7 +46,6 @@ servers:
         description: Port at which the Hydra node is accepting the client requests.
         default: "4001"
 
-
 channels:
   /:
     description: Main entry point for Websockets server in Hydra service.
@@ -158,7 +157,10 @@ channels:
     publish:
       operationId: submitTxRequest
       message:
-        $ref: "api.yaml#/components/messages/SubmitTxRequest"
+        summary: |
+          Cardano transaction to be submitted to the L1 network.
+        payload:
+          $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: response
@@ -166,12 +168,22 @@ channels:
           bindingVersion: '0.1.0'
     subscribe:
       operationId: submitTxResponse
-      description: |
-        Possible responses of this endpoint are:
-          * TransactionSubmitted - 200 ok
-          * PostTxError - 400 bad request
       message:
-        $ref: "#/components/messages/TransactionSubmitted"
+        oneOf:
+        - name: TransactionSubmitted
+          summary: 200 OK
+          description: Successfully submitted a cardano transaction to the L1 network.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["TransactionSubmitted"]
+        - name: PostTxError
+          summary: 400 Bad Request
+          payload:
+            $ref: "#/components/schemas/PostTxError"
       bindings:
         http:
           type: request
@@ -829,25 +841,6 @@ components:
         type: object
         additionalProperties: false
         $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
-
-    SubmitTxRequest:
-      title: SubmitTxRequest
-      description: |
-        Accept signed user transaction and submit it to a local running cardano-node.
-      payload:
-        $ref: "api.yaml#/components/schemas/Transaction"
-
-    TransactionSubmitted:
-      title: TransactionSubmitted
-      description: |
-          Emitted by the server after successfully submitting a user transaction to cardano-node.
-      payload:
-        type: object
-        additionalProperties: false
-        properties:
-          tag:
-           type: string
-           enum: ["TransactionSubmitted"]
 
   ########
   #
