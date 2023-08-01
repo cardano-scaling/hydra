@@ -1,6 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.API.HTTPServer where
 
@@ -190,7 +189,7 @@ handleDraftCommitUtxo directChain body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right requestInput@DraftCommitTxRequest{utxoToCommit} -> do
+    Right DraftCommitTxRequest{utxoToCommit} -> do
       draftCommitTx (fromTxOutWithWitness <$> utxoToCommit) <&> \case
         Left e ->
           -- Distinguish between errors users can actually benefit from and
@@ -226,7 +225,7 @@ handleSubmitUserTx directChain body = do
   case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right requestInput@SubmitTxRequest{txToSubmit} -> do
+    Right SubmitTxRequest{txToSubmit} -> do
       try (submitTx txToSubmit) <&> \case
         Left (e :: PostTxError Tx) -> return400 e
         Right _ ->
