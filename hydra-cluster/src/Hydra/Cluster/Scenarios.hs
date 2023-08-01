@@ -5,13 +5,15 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude (failure)
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
+  buildTransaction,
   queryProtocolParameters,
   queryTip,
-  submitTx, buildRaw,
+  submitTx,
  )
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
@@ -30,19 +32,20 @@ import Hydra.API.HTTPServer (
   TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
+  BabbageEra,
   Lovelace (..),
-  MultiAssetSupportedInEra (MultiAssetInBabbageEra),
   PlutusScriptV2,
   Tx,
   TxId,
-  TxOutValue (TxOutValue),
   fromPlutusScript,
   lovelaceToValue,
+  makeSignedTransaction,
   mkScriptAddress,
+  mkTxOutValue,
   mkVkAddress,
   selectLovelace,
   signTx,
-  toScriptData, makeSignedTransaction,
+  toScriptData,
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
@@ -71,8 +74,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
-import Test.Hspec.Expectations (shouldBe, shouldThrow)
-import Test.Hydra.Prelude (failure)
+import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -350,7 +352,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
-    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \_ -> do
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] hydraScriptsTxId $ \_ -> do
       -- let's prepare a _user_ transaction from Bob to Carol
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
@@ -358,37 +360,24 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
       bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
       let carolsAddress = mkVkAddress networkId cardanoCarolVk
           bobsAddress = mkVkAddress networkId cardanoBobVk
-          -- carol's output
           carolsOutput =
             TxOut
               carolsAddress
-              (TxOutValue MultiAssetInBabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
-              TxOutDatumNone
-              ReferenceScriptNone
-          bobsOutput =
-            TxOut
-              bobsAddress
-              (TxOutValue MultiAssetInBabbageEra $ lovelaceToValue $ Lovelace 2_834_455)
+              (mkTxOutValue @BabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      let eTxBody = buildRaw (fst <$> UTxO.pairs bobUTxO) [carolsOutput, bobsOutput] (Lovelace 165545)
-      case eTxBody of
+      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
           let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
+          sendRequest hydraNodeId unsignedRequest
+            `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
-          -- sending UNSIGNED transaction should not be accepted
-          sendRequest hydraNodeId unsignedRequest `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
-
-          let signedTx = signTx cardanoBobSk unsignedTx
-          let signedRequest = SubmitTxRequest{txToSubmit = signedTx}
-
-          -- sending SIGNED transaction should be accepted
-          res <- sendRequest hydraNodeId signedRequest
-
-          responseBody res `shouldBe` TransactionSubmitted
+          let signedRequest = SubmitTxRequest{txToSubmit = signTx cardanoBobSk unsignedTx}
+          (sendRequest hydraNodeId signedRequest <&> responseBody)
+            `shouldReturn` TransactionSubmitted
  where
   RunningNode{networkId, nodeSocket} = node
   sendRequest hydraNodeId tx =
