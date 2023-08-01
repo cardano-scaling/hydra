@@ -1,4 +1,3 @@
-
 module Hydra.API.APIServerLog where
 
 import Hydra.Prelude
@@ -17,7 +16,6 @@ data APIServerLog
   | APIInputReceived {receivedInput :: Aeson.Value}
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   | APIConnectionError {reason :: String}
-  | APIHandshakeError {reason :: String}
   | APIRestInputReceived
       { method :: Text
       , paths :: [Text]
@@ -35,10 +33,8 @@ instance Arbitrary APIServerLog where
       , pure $ APIInputReceived (Aeson.Object mempty)
       , APIInvalidInput <$> arbitrary <*> arbitrary
       , APIConnectionError <$> arbitrary
-      , APIHandshakeError <$> arbitrary
       , APIRestInputReceived
           <$> arbitrary
           <*> arbitrary
           <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
       ]
-
