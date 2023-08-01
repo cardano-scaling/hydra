@@ -3,12 +3,10 @@ module Hydra.API.APIServerLog where
 import Hydra.Prelude
 
 import qualified Data.Aeson as Aeson
-import Data.ByteString.Short ()
-import Hydra.Chain.Direct.State ()
-import Hydra.Ledger.Cardano ()
+import qualified Data.Text as Text
 import Hydra.Network (PortNumber)
 import Network.HTTP.Types (renderStdMethod)
-import Test.QuickCheck (chooseEnum, oneof)
+import Test.QuickCheck (chooseEnum, listOf, oneof)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -31,7 +29,7 @@ instance Arbitrary APIServerLog where
       , pure NewAPIConnection
       , pure $ APIOutputSent (Aeson.Object mempty)
       , pure $ APIInputReceived (Aeson.Object mempty)
-      , APIInvalidInput <$> arbitrary <*> arbitrary
+      , APIInvalidInput <$> arbitrary <*> (Text.pack <$> listOf arbitrary)
       , APIConnectionError <$> arbitrary
       , APIHTTPRequestReceived <$> arbitrary <*> arbitrary
       ]
@@ -39,7 +37,10 @@ instance Arbitrary APIServerLog where
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString
   deriving (Eq, Show)
-  deriving newtype (Arbitrary)
+
+instance Arbitrary PathInfo where
+  arbitrary =
+    PathInfo . encodeUtf8 . Text.pack <$> listOf arbitrary
 
 instance ToJSON PathInfo where
   toJSON (PathInfo bytes) =
