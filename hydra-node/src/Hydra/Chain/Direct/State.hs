@@ -61,6 +61,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
   maxMainnetLovelace,
+  maximumNumberOfParties,
  )
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
@@ -108,7 +109,6 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Options (maximumNumberOfParties)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),

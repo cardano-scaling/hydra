@@ -10,6 +10,10 @@ changes.
 
 ## [0.12.0] - UNRELEASED
 
+- **BREAKING** Change persisted state to be a sequence of events instead. This
+  increases the performance of the `hydra-node` as less data needs to be written
+  and prepares internal architecture for more event-sourced improvements.
+
 - `Greetings` message now contains also the hydra-node version.
 
 - New HTTP endpoint (`GET /protocol-parameters`) which provides the current protocol parameters

@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.11.0
+version:       0.12.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -286,6 +286,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.FireForgetSpec
+    Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
     Hydra.Ledger.CardanoSpec
@@ -304,7 +305,6 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
-    Hydra.HeadLogicSnapshotSpec
     Paths_hydra_node
     Spec
     Test.Hydra.Fixture

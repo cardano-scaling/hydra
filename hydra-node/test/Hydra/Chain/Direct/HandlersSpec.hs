@@ -21,6 +21,7 @@ import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
   chainStateSlot,
+  maximumNumberOfParties,
  )
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Handlers (
@@ -52,7 +53,6 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandlePara
 import Hydra.Ledger (
   ChainSlot (..),
  )
-import Hydra.Options (maximumNumberOfParties)
 import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
 import Test.QuickCheck (

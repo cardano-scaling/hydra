@@ -14,17 +14,14 @@ import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Options (ParamMismatch, RunOptions)
+import Hydra.Options (RunOptions)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  | CreatedState
-  | LoadedState
   | NodeOptions {runOptions :: RunOptions}
-  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   | Authentication {authentication :: AuthLog}
   deriving (Generic)
 

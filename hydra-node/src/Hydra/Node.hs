@@ -17,13 +17,28 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   stateTVar,
  )
+import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainStateType, HeadParameters (..), IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.HeadLogic (Effect (..), Environment (..), Event (..), HeadState (..), Outcome (..), aggregate, aggregateState, collectEffects, defaultTTL)
+import Hydra.HeadLogic (
+  Effect (..),
+  Environment (..),
+  Event (..),
+  HeadState (..),
+  IdleState (IdleState),
+  Outcome (..),
+  aggregateState,
+  collectEffects,
+  defaultTTL,
+  recoverState,
+ )
 import qualified Hydra.HeadLogic as Logic
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx, Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
@@ -31,10 +46,11 @@ import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (Persistence (..))
+import Hydra.Persistence (PersistenceIncremental (..), loadAll)
 
 -- * Environment Handling
 
+-- | Intialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig = DirectChainConfig{contestationPeriod}} = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
@@ -49,6 +65,53 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+
+-- | Exception used to indicate command line options not matching the persisted
+-- state.
+newtype ParameterMismatch = ParameterMismatch [ParamMismatch]
+  deriving (Eq, Show)
+  deriving anyclass (Exception)
+
+data ParamMismatch
+  = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
+  | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ParamMismatch where
+  arbitrary = genericArbitrary
+
+-- | Checks that command line options match a given 'HeadState'. This funciton
+-- takes 'Environment' because it is derived from 'RunOptions' via
+-- 'initEnvironment'.
+--
+-- Throws: 'ParameterMismatch' when state not matching the environment.
+checkHeadState ::
+  MonadThrow m =>
+  Tracer m (HydraNodeLog tx) ->
+  Environment ->
+  HeadState tx ->
+  m ()
+checkHeadState tracer env headState = do
+  unless (null paramsMismatch) $ do
+    traceWith tracer (Misconfiguration paramsMismatch)
+    throwIO $ ParameterMismatch paramsMismatch
+ where
+  paramsMismatch =
+    maybe [] validateParameters $ getHeadParameters headState
+
+  validateParameters HeadParameters{contestationPeriod = loadedCp, parties} =
+    execWriter $ do
+      when (loadedCp /= configuredCp) $
+        tell [ContestationPeriodMismatch{loadedCp, configuredCp}]
+
+      let loadedParties = sort parties
+          configuredParties = sort (party : otherParties)
+      when (loadedParties /= configuredParties) $
+        tell [PartiesMismatch{loadedParties, configuredParties}]
+
+  Environment{contestationPeriod = configuredCp, otherParties, party} = env
+
 -- ** Create and run a hydra node
 
 -- | Main handle of a hydra node where all layers are tied together.
@@ -60,7 +123,7 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: Persistence (HeadState tx) m
+  , persistence :: PersistenceIncremental (StateChanged tx) m
   }
 
 data HydraNodeLog tx
@@ -69,6 +132,8 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, eventId :: Word64, effectId :: Word32, effect :: Effect tx}
   | EndEffect {by :: Party, eventId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
+  | LoadedState {numberOfEvents :: Word64}
+  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
 deriving instance (IsChainState tx) => Eq (HydraNodeLog tx)
@@ -113,10 +178,7 @@ stepHydraNode tracer node = do
   handleOutcome e = \case
     Error _ -> pure ()
     Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    StateChanged sc -> do
-      -- TODO: We should not need to query the head state here
-      s <- atomically queryHeadState
-      save $ aggregate s sc
+    StateChanged sc -> append sc
     Effects _ -> pure ()
     Combined l r -> handleOutcome e l >> handleOutcome e r
 
@@ -129,11 +191,9 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  Persistence{save} = persistence
+  PersistenceIncremental{append} = persistence
 
-  NodeState{queryHeadState} = nodeState
-
-  HydraNode{persistence, eq, env, nodeState} = node
+  HydraNode{persistence, eq, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -191,3 +251,17 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
+
+-- | Load a 'HeadState' from persistence.
+loadState ::
+  (MonadThrow m, IsChainState tx) =>
+  Tracer m (HydraNodeLog tx) ->
+  PersistenceIncremental (StateChanged tx) m ->
+  ChainStateType tx ->
+  m (HeadState tx)
+loadState tracer persistence defaultChainState = do
+  events <- loadAll persistence
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  pure $ recoverState initialState events
+ where
+  initialState = Idle IdleState{chainState = defaultChainState}

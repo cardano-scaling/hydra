@@ -33,7 +33,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace)
+import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
   applyMutation,
@@ -97,7 +97,6 @@ import Hydra.Ledger.Cardano.Evaluate (
   maxTxSize,
  )
 import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
-import Hydra.Options (maximumNumberOfParties)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import qualified PlutusLedgerApi.V2 as Plutus
@@ -196,12 +195,12 @@ spec = parallel $ do
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
-        null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
-          forAll2 (pickChainContext ctxA) (pickChainContext ctxB) $
-            \(cctxA, cctxB) ->
-              forAll genTxIn $ \seedInput ->
-                let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-                 in isLeft (observeInit cctxB tx)
+        null (ctxParties ctxA `intersect` ctxParties ctxB)
+          ==> forAll2 (pickChainContext ctxA) (pickChainContext ctxB)
+          $ \(cctxA, cctxB) ->
+            forAll genTxIn $ \seedInput ->
+              let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
+               in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit

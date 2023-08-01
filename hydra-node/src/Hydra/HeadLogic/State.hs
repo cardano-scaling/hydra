@@ -4,14 +4,13 @@
 
 module Hydra.HeadLogic.State where
 
-import Hydra.Prelude
-
 import qualified Data.Map as Map
 import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
-import Hydra.Party (Party)
+import Hydra.Party (Party, deriveParty)
+import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
 data Environment = Environment
@@ -23,6 +22,14 @@ data Environment = Environment
   , otherParties :: [Party]
   , contestationPeriod :: ContestationPeriod
   }
+  deriving (Show)
+
+instance Arbitrary Environment where
+  arbitrary = do
+    signingKey <- arbitrary
+    otherParties <- arbitrary
+    contestationPeriod <- arbitrary
+    pure $ Environment{signingKey, party = deriveParty signingKey, otherParties, contestationPeriod}
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -64,6 +71,14 @@ setChainState chainState = \case
   Initial st -> Initial st{chainState}
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
+
+-- | Get the head parameters in any 'HeadState'.
+getHeadParameters :: HeadState tx -> Maybe HeadParameters
+getHeadParameters = \case
+  Idle _ -> Nothing
+  Initial InitialState{parameters} -> Just parameters
+  Open OpenState{parameters} -> Just parameters
+  Closed ClosedState{parameters} -> Just parameters
 
 -- ** Idle
 

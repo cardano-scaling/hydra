@@ -37,6 +37,7 @@ import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
+  ProcessHandle,
   StdStream (..),
   proc,
   withCreateProcess,
@@ -284,52 +285,75 @@ withHydraNode ::
   (HydraClient -> IO a) ->
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
-  withLogFile logFilePath $ \out -> do
-    withSystemTempDirectory "hydra-node" $ \dir -> do
-      let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
-      readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
-      let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-      void $ writeFileTextEnvelope hydraSigningKey Nothing hydraSKey
-      hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
-        let filepath = dir </> (show i <> ".vk")
-        filepath <$ writeFileTextEnvelope filepath Nothing vKey
-      let ledgerConfig =
-            CardanoLedgerConfig
-              { cardanoLedgerProtocolParametersFile
-              }
-      let p =
-            ( hydraNodeProcess $
-                RunOptions
-                  { verbosity = Verbose "HydraNode"
-                  , nodeId = NodeId $ show hydraNodeId
-                  , host = "127.0.0.1"
-                  , port = fromIntegral $ 5000 + hydraNodeId
-                  , peers
-                  , apiHost = "127.0.0.1"
-                  , apiPort = fromIntegral $ 4000 + hydraNodeId
-                  , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
-                  , hydraSigningKey
-                  , hydraVerificationKeys
-                  , hydraScriptsTxId
-                  , persistenceDir = workDir </> "state-" <> show hydraNodeId
-                  , chainConfig
-                  , ledgerConfig
-                  }
-            )
-              { std_out = UseHandle out
-              }
-      withCreateProcess p $
-        \_stdin _stdout _stderr processHandle -> do
-          result <-
-            race
-              (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-              (withConnectionToNode tracer hydraNodeId action)
-          case result of
-            Left err -> absurd err
-            Right a -> pure a
+  withLogFile logFilePath $ \logFileHandle -> do
+    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
+      \_ _err processHandle -> do
+        result <-
+          race
+            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+            (withConnectionToNode tracer hydraNodeId action)
+        case result of
+          Left e -> absurd e
+          Right a -> pure a
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config/.
+withHydraNode' ::
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
+  -- | If given use this as std out.
+  Maybe Handle ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
+  IO a
+withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
+  withSystemTempDirectory "hydra-node" $ \dir -> do
+    let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+    readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
+    let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
+    void $ writeFileTextEnvelope hydraSigningKey Nothing hydraSKey
+    hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
+      let filepath = dir </> (show i <> ".vk")
+      filepath <$ writeFileTextEnvelope filepath Nothing vKey
+    let ledgerConfig =
+          CardanoLedgerConfig
+            { cardanoLedgerProtocolParametersFile
+            }
+    let p =
+          ( hydraNodeProcess $
+              RunOptions
+                { verbosity = Verbose "HydraNode"
+                , nodeId = NodeId $ show hydraNodeId
+                , host = "127.0.0.1"
+                , port = fromIntegral $ 5000 + hydraNodeId
+                , peers
+                , apiHost = "127.0.0.1"
+                , apiPort = fromIntegral $ 4000 + hydraNodeId
+                , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
+                , hydraSigningKey
+                , hydraVerificationKeys
+                , hydraScriptsTxId
+                , persistenceDir = workDir </> "state-" <> show hydraNodeId
+                , chainConfig
+                , ledgerConfig
+                }
+          )
+            { std_out = maybe CreatePipe UseHandle mGivenStdOut
+            , std_err = CreatePipe
+            }
+    withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
+      case (mCreatedHandle, mGivenStdOut, mErr) of
+        (Just out, _, Just err) -> action out err processHandle
+        (Nothing, Just out, Just err) -> action out err processHandle
+        (_, _, _) -> error "Should not happen™"
+ where
   peers =
     [ Host
       { Network.hostname = "127.0.0.1"
@@ -356,11 +380,6 @@ withConnectionToNode tracer hydraNodeId action = do
     res <- action $ HydraClient{hydraNodeId, connection, tracer}
     sendClose connection ("Bye" :: Text)
     pure res
-
--- | Runs an action with a new connection to given Hydra node.
-withNewClient :: HydraClient -> (HydraClient -> IO a) -> IO a
-withNewClient HydraClient{hydraNodeId, tracer} =
-  withConnectionToNode tracer hydraNodeId
 
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
