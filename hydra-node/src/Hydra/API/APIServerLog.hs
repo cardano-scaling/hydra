@@ -7,7 +7,8 @@ import Data.ByteString.Short ()
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
 import Hydra.Network (PortNumber)
-import Test.QuickCheck (oneof)
+import Network.HTTP.Types (renderStdMethod)
+import Test.QuickCheck (chooseEnum, oneof)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -16,10 +17,9 @@ data APIServerLog
   | APIInputReceived {receivedInput :: Aeson.Value}
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   | APIConnectionError {reason :: String}
-  | APIRestInputReceived
-      { method :: Text
-      , paths :: [Text]
-      , requestInputBody :: Maybe Aeson.Value
+  | APIHTTPRequestReceived
+      { method :: Method
+      , path :: PathInfo
       }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -33,8 +33,36 @@ instance Arbitrary APIServerLog where
       , pure $ APIInputReceived (Aeson.Object mempty)
       , APIInvalidInput <$> arbitrary <*> arbitrary
       , APIConnectionError <$> arbitrary
-      , APIRestInputReceived
-          <$> arbitrary
-          <*> arbitrary
-          <*> oneof [pure Nothing, pure $ Just (Aeson.Object mempty)]
+      , APIHTTPRequestReceived <$> arbitrary <*> arbitrary
       ]
+
+-- | New type wrapper to define JSON instances.
+newtype PathInfo = PathInfo ByteString
+  deriving (Eq, Show)
+  deriving newtype (Arbitrary)
+
+instance ToJSON PathInfo where
+  toJSON (PathInfo bytes) =
+    Aeson.String $ decodeUtf8 bytes
+
+instance FromJSON PathInfo where
+  parseJSON = Aeson.withText "PathInfo" $ \t ->
+    pure . PathInfo $ encodeUtf8 t
+
+-- | New type wrapper to define JSON instances.
+--
+-- NOTE: We are not using http-types 'StdMethod' as we do not want to be
+-- constrained in terms of logging and accept any method in a 'Request'.
+newtype Method = Method ByteString
+  deriving (Eq, Show)
+
+instance Arbitrary Method where
+  arbitrary = Method . renderStdMethod <$> chooseEnum (minBound, maxBound)
+
+instance ToJSON Method where
+  toJSON (Method bytes) =
+    Aeson.String $ decodeUtf8 bytes
+
+instance FromJSON Method where
+  parseJSON = Aeson.withText "Method" $ \t ->
+    pure . Method $ encodeUtf8 t

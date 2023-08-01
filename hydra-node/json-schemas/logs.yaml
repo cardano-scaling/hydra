@@ -228,29 +228,22 @@ definitions:
             type: string
             description: >-
               A textual description of the reason why this input is invalid.
-      - title: APIHTTPInputReceived
+      - title: APIHTTPRequestReceived
         description: >-
-          Some input has been received from a REST client.
+          An HTTP request has been received.
         additionalProperties: false
         required:
           - tag
           - method
-          - paths
-          - requestInputBody
+          - path
         properties:
           tag:
             type: string
-            enum: ["APIHTTPInputReceived"]
+            enum: ["APIHTTPRequestReceived"]
           method:
             type: string
-          paths:
-            type: array
-            items:
-              type: string
-          requestInputBody:
-            oneOf:
-              - type: "null"
-              - type: object
+          path:
+            type: string
 
   DirectChain:
     oneOf:

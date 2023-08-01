@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.API.HTTPServer where
 
@@ -12,7 +13,7 @@ import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
-import Hydra.API.APIServerLog (APIServerLog (..))
+import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -35,8 +36,8 @@ import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
-import Network.HTTP.Types (Method, status200, status400, status500)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, responseLBS)
+import Network.HTTP.Types (status200, status400, status500)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, ResponseReceived, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
@@ -150,23 +151,22 @@ httpApp ::
   Chain tx IO ->
   ProtocolParameters ->
   Application
-httpApp tracer directChain pparams req respond =
-  case (requestMethod req, pathInfo req) of
+httpApp tracer directChain pparams request respond = do
+  traceWith tracer $
+    APIHTTPRequestReceived
+      { method = Method $ requestMethod request
+      , path = PathInfo $ rawPathInfo request
+      }
+  case (requestMethod request, pathInfo request) of
     ("POST", ["commit"]) -> do
-      body <- consumeRequestBodyStrict req
-      handleDraftCommitUtxo directChain tracer body (requestMethod req) (pathInfo req) respond
+      body <- consumeRequestBodyStrict request
+      handleDraftCommitUtxo directChain body respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
     ("POST", ["cardano-transaction"]) -> do
-      body <- consumeRequestBodyStrict req
-      handleSubmitUserTx directChain tracer body (requestMethod req) (pathInfo req) respond
+      body <- consumeRequestBodyStrict request
+      handleSubmitUserTx directChain body respond
     _ -> do
-      traceWith tracer $
-        APIRestInputReceived
-          { method = decodeUtf8 $ requestMethod req
-          , paths = pathInfo req
-          , requestInputBody = Nothing
-          }
       respond $ responseLBS status400 [] "Resource not found"
 
 -- * Handlers
@@ -174,23 +174,15 @@ httpApp tracer directChain pparams req respond =
 -- Handle user requests to obtain a draft commit tx
 handleDraftCommitUtxo ::
   Chain tx IO ->
-  Tracer IO APIServerLog ->
+  -- | Request body.
   LBS.ByteString ->
-  Method ->
-  [Text] ->
   (Response -> IO ResponseReceived) ->
   IO ResponseReceived
-handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
+handleDraftCommitUtxo directChain body respond = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@DraftCommitTxRequest{utxoToCommit} -> do
-      traceWith tracer $
-        APIRestInputReceived
-          { method = decodeUtf8 reqMethod
-          , paths = reqPaths
-          , requestInputBody = Just $ toJSON requestInput
-          }
       eCommitTx <- draftCommitTx $ fromTxOutWithWitness <$> utxoToCommit
       respond $
         case eCommitTx of
@@ -221,24 +213,15 @@ handleDraftCommitUtxo directChain tracer body reqMethod reqPaths respond = do
 -- | Handle user requests to submit a signed tx
 handleSubmitUserTx ::
   Chain tx IO ->
-  Tracer IO APIServerLog ->
+  -- | Request body.
   LBS.ByteString ->
-  Method ->
-  [Text] ->
   (Response -> IO ResponseReceived) ->
   IO ResponseReceived
-handleSubmitUserTx directChain tracer body reqMethod reqPaths respond = do
+handleSubmitUserTx directChain body respond = do
   case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
     Left err ->
       respond $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@SubmitTxRequest{txToSubmit} -> do
-      traceWith tracer $
-        APIRestInputReceived
-          { method = decodeUtf8 reqMethod
-          , paths = reqPaths
-          , requestInputBody = Just $ toJSON requestInput
-          }
-
       eresult <- try $ submitUserTx txToSubmit
       respond $
         case eresult of
