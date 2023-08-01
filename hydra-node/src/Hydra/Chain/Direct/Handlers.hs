@@ -173,11 +173,9 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
                     <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
               else pure $ Left SpendingNodeUtxoForbidden
           _ -> pure $ Left FailedToDraftTxNotInitializing
-    , -- Post a signed transaction on behalf of the user. Errors are handled at
-      -- the call site and even though they can be technically any of
-      -- 'PostTxError' constructors, in reality they would be most probably only
-      -- 'FailedToPostTx' errors.
-      submitUserTx = submitTx
+    , -- Submit a cardano transaction to the cardano-node using the
+      -- LocalTxSubmission protocol.
+      submitTx
     }
 
 -- | Balance and sign the given partial transaction.

@@ -339,13 +339,13 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
 
-canSubmitUserTransaction ::
+canSubmitTransactionThroughAPI ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
   TxId ->
   IO ()
-canSubmitUserTransaction tracer workDir node hydraScriptsTxId =
+canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100

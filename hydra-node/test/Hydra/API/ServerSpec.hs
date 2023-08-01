@@ -36,7 +36,7 @@ import Hydra.Chain (
   confirmedSnapshot,
   draftCommitTx,
   postTx,
-  submitUserTx,
+  submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Ledger (txId)
@@ -423,7 +423,7 @@ dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
-    , submitUserTx = \_ -> error "unexpected call to submitUserTx"
+    , submitTx = \_ -> error "unexpected call to submitTx"
     }
 
 noop :: Applicative m => a -> m ()

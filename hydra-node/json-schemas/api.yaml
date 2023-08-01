@@ -111,14 +111,22 @@ channels:
           - $ref: "#/components/messages/Fanout"
 
   /commit:
-    description: Main entry point to draft commit transaction in Hydra service.
     servers:
       - localhost-http
+    publish:
+      description: Draft a commit transaction, which can be completed and later submitted to the L1 network.
+      operationId: draftCommitTxRequest
+      message:
+        $ref: "#/components/messages/DraftCommitTxRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
     subscribe:
-      summary: Draft commit tx response
       operationId: draftCommitTxResponse
       description: |
-        Possible responses of commit endpoint are:
+        Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
           * CannotCommitReferenceScript - 400 bad request
           * CommittedTooMuchADAForMainnet - 400 bad request
@@ -131,22 +139,11 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
-    publish:
-      summary: Draft commit tx request
-      operationId: draftCommitTxRequest
-      message:
-        $ref: "#/components/messages/DraftCommitTxRequest"
-      bindings:
-        http:
-          type: request
-          method: POST
-          bindingVersion: '0.1.0'
   /protocol-parameters:
-    description: Endpoint to obtain protocol parameters used by the internal ledger of a hydra-node.
     servers:
       - localhost-http
     subscribe:
-      summary: Get cardano protocol parameters.
+      description: Get cardano protocol parameters.
       operationId: getProtocolParameters
       message:
         $ref: "#/components/messages/ProtocolParameters"
@@ -156,16 +153,10 @@ channels:
           method: GET
           bindingVersion: '0.1.0'
   /cardano-transaction:
-    description: Submit signed user transaction to be submitted to the L1 network.
     servers:
       - localhost-http
     publish:
-      summary: Submit signed user transaction using a hydra-node.
       operationId: submitTxRequest
-      description: |
-        Possible responses of commit endpoint are:
-          * TransactionSubmitted - 200 ok
-          * PostTxError - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/SubmitTxRequest"
       bindings:
@@ -174,8 +165,11 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
     subscribe:
-      summary: Submitted user transaction response.
-      operationId: TransactionSubmitted
+      operationId: submitTxResponse
+      description: |
+        Possible responses of this endpoint are:
+          * TransactionSubmitted - 200 ok
+          * PostTxError - 400 bad request
       message:
         $ref: "#/components/messages/TransactionSubmitted"
       bindings:

@@ -206,11 +206,13 @@ data Chain tx m = Chain
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- information to spend from a script. Errors are handled at the call site.
-  , submitUserTx :: MonadThrow m => Tx -> m ()
-  -- ^ Submit a signed transaction on behalf of the user. Possible errors are
-  -- handled at the call site and while technically they could be any of
-  -- 'PostTxError tx' branches in reality they should only be `FailedToPostTx`
-  -- errors.
+  , submitTx :: MonadThrow m => Tx -> m ()
+  -- ^ Submit a cardano transaction.
+  --
+  -- Throws at least 'PostTxError'.
+  --
+  -- XXX: While technically they could be any of 'PostTxError tx', only
+  -- `FailedToPostTx` errors are expected here.
   }
 
 data ChainEvent tx

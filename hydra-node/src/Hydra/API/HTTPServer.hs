@@ -227,12 +227,12 @@ handleSubmitUserTx directChain body = do
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right requestInput@SubmitTxRequest{txToSubmit} -> do
-      try (submitUserTx txToSubmit) <&> \case
+      try (submitTx txToSubmit) <&> \case
         Left (e :: PostTxError Tx) -> return400 e
         Right _ ->
           responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
-  Chain{submitUserTx} = directChain
+  Chain{submitTx} = directChain
 
 return400 :: IsChainState tx => PostTxError tx -> Response
 return400 = responseLBS status400 [] . Aeson.encode . toJSON
