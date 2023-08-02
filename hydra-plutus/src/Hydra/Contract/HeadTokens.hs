@@ -149,7 +149,7 @@ validateTokensBurning context =
   burnHeadTokens =
     case Map.lookup currency minted of
       Nothing -> False
-      Just tokenMap -> all (< 0) tokenMap
+      Just tokenMap -> Map.all (< 0) tokenMap
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
