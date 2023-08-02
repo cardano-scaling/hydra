@@ -41,6 +41,7 @@ changes.
 
   - Drop `UsingRawBytesHex` as it is available upstream in `cardano-api` now.
   - Remove `totalExecutionCost` as `cardano-ledger` provides `getMinFeeTx` now.
+  - Add `BundledProtocolParameters` pattern for latest `Era` to `Hydra.Cardano.Api`.
 
 ## [0.11.0] - 2023-06-30
 

@@ -39,6 +39,7 @@ import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
+  BundledProtocolParameters (..),
   Key (..),
   KeyWitness,
   PlutusScript,
@@ -200,6 +201,20 @@ pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOu
   where
     BalancedTxBody =
       Cardano.Api.BalancedTxBody
+
+-- ** BundledProtocolParameters
+
+type BundledProtocolParameters = Cardano.Api.BundledProtocolParameters Era
+
+pattern BundleAsShelleyBasedProtocolParameters ::
+  ProtocolParameters ->
+  Ledger.PParams LedgerEra ->
+  BundledProtocolParameters
+pattern BundleAsShelleyBasedProtocolParameters{shelleyPParams, ledgerParams} <-
+  Cardano.Api.Shelley.BundleAsShelleyBasedProtocolParameters _ shelleyPParams ledgerParams
+  where
+    BundleAsShelleyBasedProtocolParameters =
+      Cardano.Api.BundleAsShelleyBasedProtocolParameters ShelleyBasedEraBabbage
 
 -- ** KeyWitness
 
