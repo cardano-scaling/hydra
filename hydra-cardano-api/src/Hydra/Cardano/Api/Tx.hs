@@ -14,7 +14,7 @@ import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Babbage.PParams as Ledger (_prices)
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)

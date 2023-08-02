@@ -24,9 +24,10 @@ import Cardano.Binary (
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Ledger
+import qualified Cardano.Ledger.Allegra.Scripts as Ledger.Allegra
 import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger.Alonzo
 import qualified Cardano.Ledger.AuxiliaryData as Ledger
 import qualified Cardano.Ledger.Babbage.Tx as Ledger.Babbage
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger.Babbage
@@ -42,7 +43,6 @@ import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import Cardano.Ledger.Serialization (Sized, mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import qualified Cardano.Ledger.ShelleyMA.Timelocks as Ledger.Mary
 import qualified Codec.Binary.Bech32 as Bech32
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
@@ -270,10 +270,10 @@ instance Crypto crypto => FromJSONKey (Ledger.ScriptHash crypto) where
 -- Timelock
 --
 
-instance ToJSON (Ledger.Mary.Timelock StandardCrypto) where
+instance ToJSON (Ledger.Allegra.Timelock StandardCrypto) where
   toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
-instance FromJSON (Ledger.Mary.Timelock StandardCrypto) where
+instance FromJSON (Ledger.Allegra.Timelock StandardCrypto) where
   parseJSON = withText "Timelock" $ \t ->
     case Base16.decode $ encodeUtf8 t of
       Left e -> fail $ "failed to decode from base16: " <> show e

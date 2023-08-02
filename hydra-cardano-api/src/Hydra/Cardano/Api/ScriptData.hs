@@ -6,7 +6,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)

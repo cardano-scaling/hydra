@@ -124,12 +124,14 @@ library
     , cardano-api                  >=1.36.0
     , cardano-binary               >=1.5.0
     , cardano-crypto-class         >=2.0.0
+    , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
     , cardano-ledger-babbage-test
     , cardano-ledger-byron
     , cardano-ledger-core
+    , cardano-ledger-mary
     , cardano-ledger-shelley
     , cardano-ledger-shelley-test
     , cardano-prelude

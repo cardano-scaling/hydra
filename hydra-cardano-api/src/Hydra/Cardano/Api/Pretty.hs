@@ -7,7 +7,7 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Data.Aeson as Aeson

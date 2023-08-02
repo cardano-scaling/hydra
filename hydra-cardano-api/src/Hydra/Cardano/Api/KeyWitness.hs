@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.KeyWitness where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger

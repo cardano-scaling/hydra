@@ -5,7 +5,7 @@ module Hydra.Cardano.Api.ValidityInterval where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
-import qualified Cardano.Ledger.ShelleyMA.Timelocks as Ledger
+import qualified Cardano.Ledger.Allegra.Scripts as Ledger
 import Test.QuickCheck (oneof)
 
 toLedgerValidityInterval ::

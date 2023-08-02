@@ -338,6 +338,7 @@ test-suite tests
     , bytestring
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage

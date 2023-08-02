@@ -142,7 +142,7 @@ import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
