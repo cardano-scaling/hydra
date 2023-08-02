@@ -31,7 +31,7 @@ common package-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -56,6 +56,7 @@ library
     , directory
     , filepath
     , hspec
+    , hspec-api
     , hspec-core
     , hspec-junit-formatter
     , HUnit
