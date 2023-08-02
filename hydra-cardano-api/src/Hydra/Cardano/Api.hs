@@ -381,6 +381,8 @@ pattern TxBodyContent ::
   TxUpdateProposal Era ->
   TxMintValue build ->
   TxScriptValidity ->
+  TxGovernanceActions Era ->
+  TxVotes Era ->
   TxBodyContent build
 pattern TxBodyContent
   { txIns
@@ -400,6 +402,8 @@ pattern TxBodyContent
   , txUpdateProposal
   , txMintValue
   , txScriptValidity
+  , txGovernanceActions
+  , txVotes
   } <-
   Cardano.Api.TxBodyContent
     txIns
@@ -419,6 +423,8 @@ pattern TxBodyContent
     txUpdateProposal
     txMintValue
     txScriptValidity
+    txGovernanceActions
+    txVotes
   where
     TxBodyContent = Cardano.Api.TxBodyContent
 
