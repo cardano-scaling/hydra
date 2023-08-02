@@ -227,7 +227,6 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , containers
     , directory
     , filepath

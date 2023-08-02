@@ -122,9 +122,9 @@ library
     , base16-bytestring
     , bech32
     , bytestring
-    , cardano-api                     >=1.36.0
-    , cardano-binary                  >=1.5.0
-    , cardano-crypto-class            >=2.0.0
+    , cardano-api                  >=1.36.0
+    , cardano-binary               >=1.5.0
+    , cardano-crypto-class         >=2.0.0
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
@@ -132,17 +132,15 @@ library
     , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
-    , cardano-ledger-shelley-ma-test
     , cardano-ledger-shelley-test
     , cardano-prelude
     , cborg
     , containers
     , data-default
-    , plutus-ledger-api               >=1.1.0.0 && <=1.7.0.0
+    , plutus-ledger-api            >=1.1.0.0 && <1.7.0.0.0
     , QuickCheck
     , serialise
     , stm
-    , strict-containers               >=0.1.0.0
-    , text                            >=2.0
+    , strict-containers            >=0.1.0.0
+    , text                         >=2.0
     , time
