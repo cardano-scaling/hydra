@@ -155,15 +155,15 @@ validateTokensBurning context =
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.applyCode` PlutusTx.liftCode Initial.validatorHash
-    `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Initial.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Head.validatorHash
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> SerialisedScript
 mintingPolicyScript txOutRef =
   serialiseCompiledCode $
     unappliedMintingPolicy
-      `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
+      `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef txOutRef
 
 -- * Create PolicyId
 

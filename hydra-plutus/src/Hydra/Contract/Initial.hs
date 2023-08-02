@@ -174,7 +174,7 @@ checkCommit commitValidator headId committedRefs context =
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap . validator||])
-    `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Commit.validatorHash
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
