@@ -79,14 +79,15 @@ spec =
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
-                                Right (fromLedgerTx -> txAbortWithFees) ->
-                                  let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
-                                      fee = txFee' txAbortWithFees
+                                Right ledgerTx ->
+                                  let actualExecutionCost = fromLedgerCoin $ getMinFeeTx ledgerPParams ledgerTx
+                                      fee = txFee' apiTx
+                                      apiTx = fromLedgerTx ledgerTx
                                    in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
                                         & label "Ok"
                                         & counterexample ("Execution cost: " <> show actualExecutionCost)
                                         & counterexample ("Fee: " <> show fee)
-                                        & counterexample ("Tx: " <> show txAbortWithFees)
+                                        & counterexample ("Tx: " <> show apiTx)
                                         & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
                     Left e ->
                       property False

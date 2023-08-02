@@ -40,6 +40,7 @@ changes.
 - **BREAKING** Changes to `hydra-cardano-api`:
 
   - Drop `UsingRawBytesHex` as it is available upstream in `cardano-api` now.
+  - Remove `totalExecutionCost` as `cardano-ledger` provides `getMinFeeTx` now.
 
 ## [0.11.0] - 2023-06-30
 

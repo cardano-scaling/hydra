@@ -230,6 +230,7 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 -- cover for the transaction cost and get the change back.
 --
 -- TODO: The fee calculation is currently very dumb and static.
+-- XXX: All call sites of this function use cardano-api types
 coverFee_ ::
   Core.PParams LedgerEra ->
   SystemStart ->
