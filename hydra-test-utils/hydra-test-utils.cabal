@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-test-utils
-version:       0.11.0
+version:       0.11.1
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG
@@ -61,7 +61,6 @@ library
     , HUnit
     , hydra-cardano-api
     , hydra-prelude
-    , io-classes
     , network
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx

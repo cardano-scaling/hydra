@@ -22,7 +22,6 @@ import Hydra.Prelude
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
-import Control.Monad.Class.MonadTimer (timeout)
 import Data.Ratio ((%))
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
