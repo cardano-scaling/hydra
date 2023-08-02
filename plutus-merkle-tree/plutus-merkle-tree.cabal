@@ -74,7 +74,7 @@ library
   hs-source-dirs:  src
   build-depends:
     , base
-    , base16
+    , base16-bytestring
     , plutus-core
     , plutus-tx
     , text
@@ -91,7 +91,7 @@ test-suite tests
   build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base
-    , base16
+    , base16-bytestring
     , bytestring
     , containers
     , hspec

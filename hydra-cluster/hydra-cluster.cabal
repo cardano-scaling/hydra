@@ -126,7 +126,6 @@ library
     , aeson
     , async
     , base                                                              >=4.7     && <5
-    , base16
     , bytestring
     , cardano-crypto-class
     , cardano-ledger-core

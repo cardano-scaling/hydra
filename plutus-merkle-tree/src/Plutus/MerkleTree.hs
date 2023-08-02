@@ -22,6 +22,7 @@ import PlutusTx.Prelude hiding (toList)
 
 import qualified Data.ByteString.Base16 as Haskell.Base16
 import qualified Data.Text as Haskell.Text
+import qualified Data.Text.Encoding as Haskell.Text.Encoding
 import qualified Prelude as Haskell
 
 -- * MerkleTree
@@ -150,10 +151,12 @@ instance Eq Hash where
 
 instance Haskell.Show Hash where
   show (Hash bs) =
-    Haskell.Text.unpack $
-      Haskell.Base16.encodeBase16 $
-        fromBuiltin $
-          takeByteString 4 bs
+    Haskell.Text.unpack
+      . Haskell.Text.Encoding.decodeUtf8
+      . Haskell.Base16.encode
+      . fromBuiltin
+      . takeByteString 4
+      $ bs
 
 -- | Computes a SHA-256 hash of a given 'BuiltinByteString' message.
 hash :: BuiltinByteString -> Hash

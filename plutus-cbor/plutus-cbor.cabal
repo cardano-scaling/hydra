@@ -88,7 +88,7 @@ test-suite tests
   build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base
-    , base16
+    , base16-bytestring
     , binary
     , bytestring
     , cborg
@@ -133,7 +133,7 @@ executable encoding-cost
   other-modules:  Plutus.Codec.CBOR.Encoding.Validator
   build-depends:
     , base
-    , base16
+    , base16-bytestring
     , binary
     , bytestring
     , cardano-ledger-alonzo
