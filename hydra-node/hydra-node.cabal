@@ -365,7 +365,6 @@ test-suite tests
     , io-sim
     , lens
     , lens-aeson
-    , ouroboros-consensus-cardano-test
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
     , process

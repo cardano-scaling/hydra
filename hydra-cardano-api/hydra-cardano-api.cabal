@@ -139,10 +139,10 @@ library
     , cborg
     , containers
     , data-default
-    , plutus-ledger-api               >=1.1.0.0
+    , plutus-ledger-api               >=1.1.0.0 && <=1.7.0.0
     , QuickCheck
     , serialise
     , stm
     , strict-containers               >=0.1.0.0
-    , text
+    , text                            >=2.0
     , time
