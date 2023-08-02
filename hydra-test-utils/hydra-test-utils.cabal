@@ -49,7 +49,6 @@ library
     , base
     , bytestring
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
     , cardano-slotting
     , containers
     , data-default

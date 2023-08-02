@@ -20,7 +20,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel)
+import Cardano.Ledger.Alonzo.Scripts (costModelsValid, emptyCostModels, mkCostModel)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
@@ -28,7 +28,7 @@ import Data.Default (def)
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
-  CardanoEra (BabbageEra),
+  BundledProtocolParameters,
   Era,
   ExecutionUnits (..),
   IsScriptWitnessInCtx (scriptWitnessInCtx),
@@ -43,7 +43,6 @@ import Hydra.Cardano.Api (
   TxBody,
   UTxO,
   addTxIn,
-  bundleProtocolParams,
   createAndValidateTransactionBody,
   defaultTxBodyContent,
   evaluateTransactionExecutionUnits,
@@ -56,7 +55,10 @@ import Hydra.Cardano.Api (
   mkTxOutDatumHash,
   setTxInsCollateral,
   setTxProtocolParams,
+  toLedgerPParams,
   toScriptData,
+  unbundleProtocolParams,
+  pattern BundleAsShelleyBasedProtocolParameters,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxInsCollateral,
@@ -109,7 +111,7 @@ evaluateScriptExecutionUnits validatorScript redeemer =
     evaluateTransactionExecutionUnits
       systemStart
       (LedgerEpochInfo epochInfo)
-      (bundleProtocolParams BabbageEra pparams)
+      pparams
       (UTxO.toApi utxo)
       body
 
@@ -120,23 +122,40 @@ evaluateScriptExecutionUnits validatorScript redeemer =
   systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
 
 -- | Current (2023-04-12) mainchain parameters.
-pparams :: ProtocolParameters
+pparams :: HasCallStack => BundledProtocolParameters
 pparams =
-  (fromLedgerPParams (shelleyBasedEra @Era) def)
-    { protocolParamCostModels =
-        fromAlonzoCostModels
-          . CostModels
-          $ Map.fromList
-            [ (PlutusV1, testCostModel PlutusV1)
-            , (PlutusV2, testCostModel PlutusV2)
-            ]
-    , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
-    , protocolParamProtocolVersion = (7, 0)
-    }
+  -- XXX: This is a bit contrived as we need both now, api and ledger
+  -- parameters. cardano-api parameters are easier to access (just a record)
+  -- while ledger parameters have defaults and our cost models are "closer".
+  -- Maybe bite the bullet and use the cardano-ledger-api way of constructing +
+  -- modifying them, and then use fromLedgerPParams which does not fail.
+  BundleAsShelleyBasedProtocolParameters
+    apiPParams
+    ledgerPParams
  where
+  apiPParams =
+    (fromLedgerPParams (shelleyBasedEra @Era) def)
+      { protocolParamCostModels =
+          fromAlonzoCostModels $
+            emptyCostModels
+              { costModelsValid =
+                  Map.fromList
+                    [ (PlutusV1, testCostModel PlutusV1)
+                    , (PlutusV2, testCostModel PlutusV2)
+                    ]
+              }
+      , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
+      , protocolParamProtocolVersion = (7, 0)
+      }
+
+  ledgerPParams =
+    case toLedgerPParams (shelleyBasedEra @Era) apiPParams of
+      Left e -> error $ "toLedgerPParams failed: " <> show e
+      Right p -> p
+
   testCostModel pv =
-    case mkCostModel pv costModelParamsForTesting of
-      Left e -> error $ "testCostModel failed: " <> show e
+    case mkCostModel pv $ Map.elems costModelParamsForTesting of
+      Left e -> error $ "mkCostModel failed: " <> show e
       Right cm -> cm
 
 -- | Max transaction execution unit budget of the current 'pparams'.
@@ -165,7 +184,7 @@ transactionBodyFromScript validatorScript redeemer =
         defaultTxBodyContent
           & addTxIn (defaultTxIn, scriptWitness)
           & setTxInsCollateral (TxInsCollateral mempty)
-          & setTxProtocolParams (BuildTxWith $ Just pparams)
+          & setTxProtocolParams (BuildTxWith . Just $ unbundleProtocolParams pparams)
 
   utxo = UTxO.singleton (defaultTxIn, txOutFromScript)
 
