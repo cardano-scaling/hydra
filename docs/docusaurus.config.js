@@ -87,7 +87,7 @@ const config = {
         routeBasePath: "/",
         editUrl,
         editLocalizedFiles: true,
-        sidebarPath: false
+        sidebarPath: false,
       }),
     ],
     [
@@ -134,6 +134,30 @@ const config = {
         editLocalizedFiles: true,
       }),
     ],
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          // Use cases section re-organized (2023-07-25)
+          {
+            from: "/use-cases/poker-game",
+            to: "/use-cases/other/poker-game",
+          },
+          {
+            from: "/use-cases/nft-auction",
+            to: "/use-cases/auctions",
+          },
+          {
+            from: "/use-cases/pay-per-use-api",
+            to: "/use-cases/payments/pay-per-use-api",
+          },
+          {
+            from: "/use-cases/inter-wallet-payments",
+            to: "/use-cases/payments/inter-wallet-payments",
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:
@@ -153,8 +177,8 @@ const config = {
             position: "left",
           },
           {
-            to: "/use-cases",
-            label: "Use Cases",
+            to: "/api-reference",
+            label: "API Reference",
             position: "left",
           },
           {
@@ -163,18 +187,18 @@ const config = {
             position: "left",
           },
           {
-            to: "/topologies",
-            label: "Topologies",
-            position: "left",
-          },
-          {
             to: "/benchmarks",
             label: "Benchmarks",
             position: "left",
           },
           {
-            to: "/api-reference",
-            label: "API Reference",
+            to: "/topologies",
+            label: "Topologies",
+            position: "left",
+          },
+          {
+            to: "/use-cases",
+            label: "Use Cases",
             position: "left",
           },
           {
@@ -269,7 +293,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ['haskell'],
+        additionalLanguages: ["haskell"],
       },
       algolia: {
         appId: "YZTAF8IOVB",
@@ -284,8 +308,7 @@ const config = {
     mermaid: true,
   },
 
-  themes: ['@docusaurus/theme-mermaid'],
-
+  themes: ["@docusaurus/theme-mermaid"],
 };
 
 module.exports = config;

@@ -24,6 +24,7 @@
   "dependencies": {
     "@asyncapi/specs": "4.2.1",
     "@docusaurus/core": "^2.4.1",
+    "@docusaurus/plugin-client-redirects": "^2.4.1",
     "@docusaurus/plugin-content-docs": "^2.4.1",
     "@docusaurus/preset-classic": "^2.4.1",
     "@docusaurus/theme-mermaid": "^2.4.1",

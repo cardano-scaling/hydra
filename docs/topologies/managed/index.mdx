@@ -27,6 +27,6 @@ For this setup to be viable, it is important that the _Hydra keys_ remain on the
 
 As a consequence of this, the client needs to be online for any progress to happen in a Hydra Head. While this is a bit awkward in multi-party Hydra Heads - they stall if a lightweight, mobile client is not reacting for a time, it matches pretty well the _two-party Hydra Head_ setup. There, a transaction is only complete of both parties have been online to send/receive and hence acknowledged it.
 
-An example use case for two-party Hydra Heads are plain old payment channels between two [machines](../../use-cases/pay-per-use-api) or [individuals](../../use-cases/inter-wallet-payments) (especially if multiple such channels are logically connected like in the Lighning network).
+An example use case for two-party Hydra Heads are plain old payment channels between two [machines](../../use-cases/payments/pay-per-use-api) or [individuals](../../use-cases/payments/inter-wallet-payments) (especially if multiple such channels are logically connected like in the Lighning network).
 
 While access to Hydra Heads is provided by the Service Provider, this does not centralize the system. A client could always close a head & recover funds with an alternative provider or even using a transaction created out-of-band (e.g. by the client application using another service to submit the transaction).
