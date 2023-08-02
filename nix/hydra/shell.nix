@@ -105,7 +105,7 @@ let
     name = "hydra-node-cabal-shell";
 
     buildInputs = libs ++ [
-      pkgs.haskell.compiler.${compiler}
+      pkgs.haskell-nix.compiler.${compiler}
       pkgs.cabal-install
       pkgs.pkgconfig
     ] ++ buildInputs ++ devInputs;
