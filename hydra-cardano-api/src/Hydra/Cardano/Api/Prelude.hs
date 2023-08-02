@@ -60,7 +60,7 @@ type Era = BabbageEra
 type LedgerEra = Ledger.BabbageEra StandardCrypto
 
 type UsesStandardCrypto era =
-  (Ledger.Era.Crypto (ShelleyLedgerEra era) ~ StandardCrypto)
+  (Ledger.Era.EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
 
 -- | Interpret some raw 'ByteString' as a particular 'Hash'.
 --
