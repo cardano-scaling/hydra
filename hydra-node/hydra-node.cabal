@@ -125,7 +125,6 @@ library
     Hydra.Node
     Hydra.Node.EventQueue
     Hydra.Node.MultiHeaded
-    Hydra.Node.Version
     Hydra.Options
     Hydra.Party
     Hydra.Persistence
