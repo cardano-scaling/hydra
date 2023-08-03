@@ -116,15 +116,6 @@ instance
         Left err -> fail $ show err
         Right v -> pure v
 
-instance ToJSON (Ledger.AuxiliaryDataHash crypto) where
-  toJSON =
-    String
-      . decodeUtf8
-      . Base16.encode
-      . Crypto.hashToBytes
-      . Ledger.extractHash
-      . Ledger.unsafeAuxiliaryDataHash
-
 instance Crypto crypto => FromJSON (Ledger.AuxiliaryDataHash crypto) where
   parseJSON = fmap Ledger.AuxiliaryDataHash . parseJSON
 
@@ -215,9 +206,6 @@ safeHashToText ::
 safeHashToText =
   decodeUtf8 . Base16.encode . Crypto.hashToBytes . Ledger.extractHash
 
-instance Crypto crypto => FromJSON (Ledger.SafeHash crypto any) where
-  parseJSON = withText "SafeHash" safeHashFromText
-
 instance Crypto crypto => FromJSONKey (Ledger.SafeHash crypto any) where
   fromJSONKey = FromJSONKeyTextParser safeHashFromText
 
@@ -246,20 +234,6 @@ instance
       Right bs' -> case decodeAnnotator "Script" fromCBOR (fromStrict bs') of
         Left err -> fail $ show err
         Right v -> pure v
-
---
--- ScriptHash
---
-
-instance Crypto crypto => ToJSONKey (Ledger.ScriptHash crypto) where
-  toJSONKey = toJSONKeyText $ \(Ledger.ScriptHash h) ->
-    decodeUtf8 $ Base16.encode (Crypto.hashToBytes h)
-
-instance Crypto crypto => FromJSONKey (Ledger.ScriptHash crypto) where
-  fromJSONKey = FromJSONKeyTextParser $ \t ->
-    case Crypto.hashFromTextAsHex t of
-      Nothing -> fail "failed to decode from base16."
-      Just h -> pure $ Ledger.ScriptHash h
 
 --
 -- Timelock
@@ -364,22 +338,6 @@ instance Ledger.Era era => FromJSON (Ledger.Data era) where
       Right bs' -> case decodeAnnotator "Data" fromCBOR (fromStrict bs') of
         Left err -> fail $ show err
         Right v -> pure v
-
---
--- TxId
---
-
-instance Crypto crypto => ToJSON (Ledger.TxId crypto) where
-  toJSON = String . txIdToText @crypto
-
-txIdToText :: Ledger.TxId crypto -> Text
-txIdToText (Ledger.TxId h) = safeHashToText h
-
-instance Crypto crypto => FromJSON (Ledger.TxId crypto) where
-  parseJSON = withText "TxId" txIdFromText
-
-txIdFromText :: (Crypto crypto, MonadFail m) => Text -> m (Ledger.TxId crypto)
-txIdFromText = fmap Ledger.TxId . safeHashFromText
 
 --
 -- TxIn
