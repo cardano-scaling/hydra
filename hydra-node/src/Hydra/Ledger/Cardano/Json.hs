@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -21,7 +22,11 @@ import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), isSJust)
 import Cardano.Ledger.Binary (
+  DecCBOR,
+  decCBOR,
+  decodeAnnotator,
   decodeFull',
+  decodeFullAnnotator,
   decodeListLenOf,
   decodeWord,
   encodeListLen,
@@ -34,8 +39,6 @@ import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import qualified Cardano.Ledger.Era as Ledger
-import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
@@ -127,12 +130,7 @@ instance Crypto crypto => ToJSON (Ledger.BootstrapWitness crypto) where
   toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
 instance FromJSON (Ledger.BootstrapWitness crypto) where
-  parseJSON = withText "BootstrapWitness" $ \t ->
-    case Base16.decode $ encodeUtf8 t of
-      Left e -> fail $ "failed to decode from base16: " <> show e
-      Right bs' -> case decodeAnnotator "BootstrapWitness" fromCBOR (fromStrict bs') of
-        Left err -> fail $ show err
-        Right v -> pure v
+  parseJSON = parseHexEncodedCbor "BootstrapWitness"
 
 --
 -- DCert
@@ -550,3 +548,39 @@ isOpenInterval :: Ledger.ValidityInterval -> Bool
 isOpenInterval = \case
   Ledger.ValidityInterval SNothing SNothing -> True
   _ -> False
+
+-- | Parse a hex-encoded CBOR value in given 'era'.
+parseHexEncodedCbor ::
+  forall era a.
+  (Ledger.Era era, DecCBOR a) =>
+  Text ->
+  Aeson.Value ->
+  Parser a
+parseHexEncodedCbor lbl =
+  withText (toString lbl) $ \t ->
+    case Base16.decode $ encodeUtf8 t of
+      Left e -> fail $ "failed to decode from base16: " <> show e
+      Right bs ->
+        case decodeFullDecoder version lbl decCBOR (fromStrict bs) of
+          Left err -> fail $ show err
+          Right v -> pure v
+ where
+  version = Ledger.eraProtVerLow @era
+
+-- | Parse a hex-encoded, annotated CBOR value in given 'era'.
+parseHexEncodedCborAnnotated ::
+  forall era a.
+  (Ledger.Era era, DecCBOR (Annotator a)) =>
+  Text ->
+  Aeson.Value ->
+  Parser a
+parseHexEncodedCborAnnotated lbl =
+  withText (toString lbl) $ \t ->
+    case Base16.decode $ encodeUtf8 t of
+      Left e -> fail $ "failed to decode from base16: " <> show e
+      Right bs ->
+        case decodeFullAnnotator version lbl decCBOR (fromStrict bs) of
+          Left err -> fail $ show err
+          Right v -> pure v
+ where
+  version = Ledger.eraProtVerLow @era
