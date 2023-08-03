@@ -335,7 +335,8 @@ throwOnEraMismatch res =
     Right result -> pure result
 
 localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
-localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
+localNodeConnectInfo networkId socketPath =
+  LocalNodeConnectInfo cardanoModeParams networkId (File socketPath)
 
 cardanoModeParams :: ConsensusModeParams CardanoMode
 cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots

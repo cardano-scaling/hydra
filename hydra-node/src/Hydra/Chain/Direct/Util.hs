@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.Util where
 
@@ -23,13 +22,14 @@ readKeyPair keyPath = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
   pure (getVerificationKey sk, sk)
 
+-- XXX: Should accept a 'File' path
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
   AsType a ->
   FilePath ->
   IO a
-readFileTextEnvelopeThrow asType =
-  either (fail . show) pure <=< readFileTextEnvelope asType
+readFileTextEnvelopeThrow asType fileContents =
+  either (fail . show) pure =<< readFileTextEnvelope asType (File fileContents)
 
 readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
 readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
