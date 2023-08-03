@@ -18,7 +18,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel, txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
@@ -262,16 +262,18 @@ prepareTxScripts tx utxo = do
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
-pparams :: ProtocolParameters
+pparams :: HasCallStack => ProtocolParameters
 pparams =
   (fromLedgerPParams (shelleyBasedEra @Era) def)
     { protocolParamCostModels =
-        fromAlonzoCostModels
-          . CostModels
-          $ Map.fromList
-            [ (PlutusV1, testCostModel PlutusV1)
-            , (PlutusV2, testCostModel PlutusV2)
-            ]
+        fromAlonzoCostModels $
+          emptyCostModels
+            { costModelsValid =
+                Map.fromList
+                  [ (PlutusV1, testCostModel PlutusV1)
+                  , (PlutusV2, testCostModel PlutusV2)
+                  ]
+            }
     , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
     , protocolParamMaxBlockExUnits =
         Just
@@ -293,8 +295,8 @@ pparams =
     }
  where
   testCostModel pv =
-    case mkCostModel pv costModelParamsForTesting of
-      Left e -> error $ "testCostModel failed: " <> show e
+    case mkCostModel pv $ Map.elems costModelParamsForTesting of
+      Left e -> error $ "mkCostModel failed: " <> show e
       Right cm -> cm
 
 -- | Max transaction size of the current 'pparams'.
