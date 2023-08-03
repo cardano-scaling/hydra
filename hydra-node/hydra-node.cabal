@@ -141,6 +141,7 @@ library
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
     , cardano-ledger-babbage-test
+    , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
@@ -243,7 +244,7 @@ benchmark tx-cost
   build-depends:
     , base
     , bytestring
-    , cardano-binary
+    , cardano-ledger-binary
     , directory
     , filepath
     , hydra-cardano-api
@@ -336,12 +337,12 @@ test-suite tests
     , base
     , base16-bytestring
     , bytestring
-    , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
+    , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-slotting
