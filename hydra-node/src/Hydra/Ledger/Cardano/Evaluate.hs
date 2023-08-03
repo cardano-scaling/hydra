@@ -410,6 +410,5 @@ slotNoToUTCTime :: HasCallStack => SlotNo -> UTCTime
 slotNoToUTCTime =
   either error posixToUTCTime
     . slotToPOSIXTime
-      (toLedgerPParams (shelleyBasedEra @Era) pparams)
       epochInfo
       systemStart
