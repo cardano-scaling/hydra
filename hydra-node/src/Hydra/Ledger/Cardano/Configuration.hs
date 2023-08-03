@@ -73,7 +73,7 @@ newGlobals genesisParameters = do
     } = genesisParameters
   -- NOTE: This is used by the ledger to discard blocks that have a version
   -- beyond a known limit. Or said differently, unused and irrelevant for Hydra.
-  maxMajorPV = 0
+  maxMajorPV = minBound
   -- NOTE: uses fixed epoch info for our L2 ledger
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
