@@ -10,9 +10,9 @@ import Hydra.Prelude
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
+import qualified Cardano.Ledger.Shelley.API.Types as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
-import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import qualified Data.Aeson as Json
@@ -107,5 +107,8 @@ newLedgerEnv pparams =
       -- both unused in Hydra. There might be room for interesting features in the
       -- future with these two but for now, we'll consider them empty.
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-    , Ledger.ledgerPp = toLedgerPParams ShelleyBasedEraBabbage pparams
+    , Ledger.ledgerPp =
+        -- TODO: Fix toLedgerPParams invocation here
+        either (error . show) id $
+          toLedgerPParams ShelleyBasedEraBabbage pparams
     }
