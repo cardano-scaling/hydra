@@ -85,6 +85,7 @@ import qualified PlutusLedgerApi.Common as Plutus
 import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
+import UntypedPlutusCore (UnrestrictedProgram (..))
 import qualified UntypedPlutusCore as UPLC
 
 -- * Evaluate transactions
@@ -236,7 +237,7 @@ prepareTxScripts tx utxo = do
     appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
-  pure $ flat <$> programs
+  pure $ flat . UnrestrictedProgram <$> programs
  where
   pp =
     -- TODO: Don't forget to revisit this invocation of 'toLedgerPParams'
