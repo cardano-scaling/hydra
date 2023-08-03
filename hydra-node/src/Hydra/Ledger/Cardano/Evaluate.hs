@@ -45,6 +45,7 @@ import Hydra.Cardano.Api (
   LedgerEpochInfo (..),
   Lovelace,
   ProtocolParameters (..),
+  ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
@@ -107,19 +108,22 @@ evaluateTx' ::
   Tx ->
   UTxO ->
   Either EvaluationError EvaluationReport
-evaluateTx' maxUnits tx utxo =
-  case result of
+evaluateTx' maxUnits tx utxo = do
+  bundledProtocolParams <-
+    first PParamsConversion $
+      bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits}
+  case result bundledProtocolParams of
     Left txValidityError -> Left $ TransactionInvalid txValidityError
     Right report
       -- Check overall budget when all individual scripts evaluated
       | all isRight report -> checkBudget maxUnits report
       | otherwise -> Right report
  where
-  result =
+  result bundledProtocolParams =
     evaluateTransactionExecutionUnits
       systemStart
       (LedgerEpochInfo epochInfo)
-      (bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits})
+      bundledProtocolParams
       (UTxO.toApi utxo)
       (getTxBody tx)
 
@@ -146,6 +150,7 @@ checkBudget maxUnits report
 data EvaluationError
   = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
   | TransactionInvalid TransactionValidityError
+  | PParamsConversion ProtocolParametersConversionError
   deriving (Show)
 
 -- | Evaluation result for each of the included scripts. Either they failed
@@ -229,7 +234,7 @@ prepareTxScripts tx utxo = do
   programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
     let pArgs = Ledger.getPlutusData <$> arguments
     appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
-    pure $ UPLC.Program () (PLC.defaultVersion ()) appliedTerm
+    pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat <$> programs
  where
