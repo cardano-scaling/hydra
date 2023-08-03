@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
@@ -80,6 +81,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
         (toLedgerEpochInfo eraHistory)
         pparams
         stakePools
+        Map.empty
         (UTxO.toApi utxoToSpend)
         (bodyContent pparams)
         changeAddress
@@ -107,6 +109,8 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxUpdateProposalNone
       TxMintValueNone
       TxScriptValidityNone
+      TxGovernanceActionsNone
+      TxVotesNone
 
 -- | Submit a (signed) transaction to the node.
 --
