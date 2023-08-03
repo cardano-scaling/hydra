@@ -39,6 +39,14 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = parallel $ do
+  describe "ShelleyGenesis" $ do
+    it "can be read from JSON" $ do
+      bytes <- readConfigFile "devnet/genesis-shelley.json"
+      case Json.eitherDecodeStrict' bytes of
+        Left err -> fail err
+        Right json -> do
+          Json.parseEither shelleyGenesisFromJson json `shouldSatisfy` isRight
+
   roundtripSpecs (Proxy @Dataset)
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
 
@@ -71,6 +79,9 @@ apply globals ledgerEnv utxo tx =
   case applyTransactions (cardanoLedger globals ledgerEnv) (ChainSlot 0) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
+
+shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis StandardCrypto)
+shelleyGenesisFromJson = parseJSON
 
 prettyJSONString :: ToJSON a => a -> String
 prettyJSONString = unpack . decodeUtf8 . prettyPrintJSON

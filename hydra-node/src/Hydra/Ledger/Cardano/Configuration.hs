@@ -11,8 +11,6 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import qualified Cardano.Ledger.Shelley.API.Types as Ledger
-import qualified Cardano.Ledger.Shelley.Genesis as Ledger
-import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import qualified Data.Aeson as Json
@@ -28,9 +26,6 @@ readJsonFileThrow parser filepath = do
     Right a -> pure a
 
 -- * Globals
-
-shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis LedgerEra)
-shelleyGenesisFromJson = parseJSON
 
 data GlobalsTranslationError = GlobalsTranslationError deriving (Eq, Show)
 
