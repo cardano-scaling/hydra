@@ -199,8 +199,11 @@ estimateMinFee tx evaluationReport =
   a = Coin . fromIntegral $ protocolParamTxFeePerByte pparams
   b = Coin . fromIntegral $ protocolParamTxFeeFixed pparams
   prices =
-    fromMaybe (error "no prices in protocol param fixture") $
-      toAlonzoPrices =<< protocolParamPrices pparams
+    case protocolParamPrices pparams of
+      Nothing -> error "no prices in protocol param fixture"
+      Just executionPrices ->
+        fromRight (error "toAlonzoPrices failed to convert prices") $
+          toAlonzoPrices executionPrices
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
 
 -- * Profile transactions
@@ -230,7 +233,11 @@ prepareTxScripts tx utxo = do
 
   pure $ flat <$> programs
  where
-  pp = toLedgerPParams (shelleyBasedEra @Era) pparams
+  pp =
+    -- TODO: Don't forget to revisit this invocation of 'toLedgerPParams'
+    case toLedgerPParams (shelleyBasedEra @Era) pparams of
+      Left e -> error $ "toLedgerPParams failed: " <> show e
+      Right pparams' -> pparams'
 
   ltx = toLedgerTx tx
 

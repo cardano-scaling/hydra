@@ -149,6 +149,7 @@ pparams =
       }
 
   ledgerPParams =
+    -- TODO: Don't forget to revisit this invocation of 'toLedgerPParams'
     case toLedgerPParams (shelleyBasedEra @Era) apiPParams of
       Left e -> error $ "toLedgerPParams failed: " <> show e
       Right p -> p
