@@ -7,20 +7,22 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO (UTxO)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo.Data (Data (..), Datum (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (CostModels (..), ExUnits (ExUnits), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts.Data (Data (..), Datum (..))
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
-import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits)
+import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits, ppMaxTxExUnitsL, ppPricesL)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (isNativeScript)
 import qualified Cardano.Ledger.Core as Core
@@ -28,15 +30,14 @@ import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Serialization (mkSized)
 import Cardano.Ledger.Shelley.API (unUTxO)
-import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
-import Data.Array (array)
+import Control.Lens ((^.))
 import qualified Data.List as List
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
@@ -54,12 +55,13 @@ import Hydra.Cardano.Api (
   ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
-  UTxO,
   VerificationKey,
   fromLedgerTx,
+  fromLedgerTxIn,
   fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
+  ledgerEraVersion,
   makeShelleyAddress,
   selectLovelace,
   shelleyAddressInEra,
@@ -71,7 +73,6 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import qualified Hydra.Cardano.Api as Api
-import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
@@ -262,9 +263,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         resolvedInputs
         (toList $ outputs' body)
         needlesslyHighFee
-
-      referenceScripts = refScripts @LedgerEra (referenceInputs' body) (Ledger.UTxO utxo)
-  let newOutputs = outputs' body <> StrictSeq.singleton (mkSized ledgerEraVersion change)
+  let referenceScripts = refScripts @LedgerEra (Babbage.referenceInputs' body) (Ledger.UTxO utxo)
+      newOutputs = outputs' body <> StrictSeq.singleton change
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
@@ -274,7 +274,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       finalBody =
         body
           { btbInputs = newInputs
-          , btbOutputs = newOutputs
+          , btbOutputs = mkSized ledgerEraVersion <$> newOutputs
           , btbCollateral = Set.singleton input
           , btbTxFee = needlesslyHighFee
           , btbScriptIntegrityHash =
@@ -297,7 +297,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- TODO: Do a better fee estimation based on the transaction's content.
   calculateNeedlesslyHighFee (Redeemers redeemers) =
-    let executionCost = txscriptfee (_prices pparams) $ foldMap snd redeemers
+    let executionCost = txscriptfee (pparams ^. ppPricesL) $ foldMap snd redeemers
      in Coin 2_000_000 <> executionCost
 
   getAdaValue :: TxOut -> Coin
@@ -350,7 +350,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
     executionUnitsFor :: RdmrPtr -> ExUnits
     executionUnitsFor ptr =
-      let ExUnits maxMem maxCpu = _maxTxExUnits pparams
+      let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
           ExUnits totalMem totalCpu = foldMap identity estimatedCosts
           ExUnits approxMem approxCpu = estimatedCosts ! ptr
        in ExUnits
@@ -371,7 +371,7 @@ findFuelOrLargestUTxO utxo =
 
   findFuelUTxO utxo' =
     let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo'
-        lovelaceOfLedgerTxOut = \(Babbage.BabbageTxOut _ v _ _) -> coin v
+        lovelaceOfLedgerTxOut (Babbage.BabbageTxOut _ v _ _) = coin v
      in listToMaybe $ sortOn (Down . lovelaceOfLedgerTxOut . snd) utxosWithDatum
 
   hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
@@ -410,11 +410,6 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
-
-  costModelsToArray CostModels{costModelsValid} =
-    array
-      (fst (Map.findMin costModelsValid), fst (Map.findMax costModelsValid))
-      (Map.toList costModelsValid)
 
 --
 -- Logs

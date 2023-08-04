@@ -129,7 +129,6 @@ library
   other-modules:   Paths_hydra_node
   build-depends:
     , aeson
-    , array
     , base
     , base16-bytestring
     , bech32
