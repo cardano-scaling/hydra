@@ -10,16 +10,15 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo.Data (Data (..))
+import Cardano.Ledger.Alonzo.Data (Data (..), Datum (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (TransactionScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Scripts (CostModels (..), ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
-import Cardano.Ledger.Alonzo.TxWits (RdmrPtr (RdmrPtr), Redeemers (..), TxWitness (txrdmrs), txdats, txscripts)
-import Cardano.Ledger.Babbage.PParams (_costmdls, _maxTxExUnits, _prices, _protocolVersion)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, referenceInputs, wits)
+import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
+import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import Cardano.Ledger.Babbage.TxBody (Datum (..), collateral, inputs, outputs, outputs', scriptIntegrityHash, txfee)
+import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..))
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -218,7 +217,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure StandardCrypto)}
+  | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure LedgerEra)}
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
@@ -274,11 +273,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         ]
       finalBody =
         body
-          { inputs = inputs'
-          , outputs = newOutputs
-          , collateral = Set.singleton input
-          , txfee = needlesslyHighFee
-          , scriptIntegrityHash =
+          { btbInputs = inputs'
+          , btbOutputs = newOutputs
+          , btbCollateral = Set.singleton input
+          , btbTxFee = needlesslyHighFee
+          , btbScriptIntegrityHash =
               hashScriptIntegrity
                 (Set.fromList langs)
                 adjustedRedeemers
@@ -405,7 +404,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) units
  where
   result =
-    evaluateTransactionExecutionUnits
+    evalTxExUnits
       pparams
       tx
       (Ledger.UTxO utxo)
@@ -413,10 +412,10 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       systemStart
       (costModelsToArray (_costmdls pparams))
 
-  costModelsToArray (CostModels m) =
+  costModelsToArray CostModels{costModelsValid} =
     array
-      (fst (Map.findMin m), fst (Map.findMax m))
-      (Map.toList m)
+      (fst (Map.findMin costModelsValid), fst (Map.findMax costModelsValid))
+      (Map.toList costModelsValid)
 
 --
 -- Logs
