@@ -139,8 +139,8 @@ library
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
-    , cardano-ledger-babbage
     , cardano-ledger-babbage-test
+    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-mary

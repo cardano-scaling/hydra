@@ -39,7 +39,7 @@ import qualified Hydra.Contract.Head as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
-import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
+import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (
   choose,
   getSize,

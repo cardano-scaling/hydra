@@ -245,7 +245,6 @@ instance
   , FromJSON (Ledger.TxAuxData era)
   , FromJSON (Ledger.TxOut era)
   , FromJSON (Ledger.TxCert era)
-  , FromJSON (Ledger.MultiAsset (Ledger.EraCrypto era))
   , FromJSON (Ledger.TxIn (Ledger.EraCrypto era))
   , FromJSON (Ledger.BabbageTxOut era)
   ) =>
@@ -265,10 +264,12 @@ instance
       <*> (o .:? "validity" .!= Ledger.ValidityInterval SNothing SNothing)
       <*> pure SNothing -- TODO: Protocol Updates? Likely irrelevant to the L2.
       <*> (o .:? "requiredSignatures" .!= mempty)
-      <*> (o .:? "mint" .!= mempty)
+      <*> (valueToMultiAsset <$> o .:? "mint" .!= mempty)
       <*> (o .:? "scriptIntegrityHash" .!= SNothing)
       <*> (o .:? "auxiliaryDataHash" .!= SNothing)
       <*> (o .:? "networkId" .!= SNothing)
+   where
+    valueToMultiAsset (Ledger.MaryValue _ multiAsset) = multiAsset
 
 --
 -- TxDats
@@ -429,7 +430,7 @@ instance FromJSON Ledger.ValidityInterval where
 --
 -- Value
 --
-
+-- REVIEW: Check if this is really roundtripping with toJSON
 instance FromJSON (Ledger.MaryValue StandardCrypto) where
   parseJSON = fmap toLedgerValue . parseJSON
 
