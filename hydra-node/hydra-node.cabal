@@ -242,7 +242,7 @@ benchmark tx-cost
   build-depends:
     , base
     , bytestring
-    , cardano-ledger-binary
+    , cardano-binary
     , directory
     , filepath
     , hydra-cardano-api
