@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Main where
 
@@ -134,6 +133,10 @@ netOptions =
                 , "to interact with hydra-node and cluster at the level of the "
                 , "network protocol, possibly to inject errors, test the resilience"
                 , "of the system, or monitor the behaviour of a cluster."
+                , ""
+                , "Please make sure the version of the hydra-node against which"
+                , "you are running it is compatible as the serialisation format"
+                , "might have changed."
                 ]
           )
         <> header "hydra-net - CLI tool to inject messages into a Hydra nodes network"
