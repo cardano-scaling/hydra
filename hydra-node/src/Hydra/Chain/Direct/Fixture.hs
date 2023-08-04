@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -13,7 +12,6 @@ module Hydra.Chain.Direct.Fixture (
 import Hydra.Prelude
 
 import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -27,7 +25,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
+import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
@@ -44,7 +42,7 @@ testSeedInput = generateWith arbitrary 42
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
-defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
+defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv =
   newLedgerEnv defaultPParams
 
@@ -66,7 +64,7 @@ defaultGlobals =
     , Ledger.securityParameter = 10
     , Ledger.maxKESEvo = 10
     , Ledger.quorum = 5
-    , Ledger.maxMajorPV = 1000
+    , Ledger.maxMajorPV = maxBound
     , Ledger.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , Ledger.activeSlotCoeff = Ledger.mkActiveSlotCoeff . unsafeBoundRational $ 0.9
     , Ledger.networkId = Ledger.Testnet
