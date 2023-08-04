@@ -18,7 +18,7 @@ import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redee
 import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
-import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..))
+import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -193,7 +193,7 @@ applyTxs txs isOurs utxo =
       -- XXX: Use cardano-api types instead here
       let tx = toLedgerTx apiTx
       let txId = getTxId tx
-      modify (`Map.withoutKeys` inputs (body tx))
+      modify (`Map.withoutKeys` spendInputs' (body tx))
       let indexedOutputs =
             let outs = toList $ outputs' (body tx)
                 maxIx = fromIntegral $ length outs
@@ -241,16 +241,16 @@ coverFee_ ::
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
   (input, output) <- findUTxOToPayFees walletUTxO
 
-  let inputs' = inputs body <> Set.singleton input
-  resolvedInputs <- traverse resolveInput (toList inputs')
+  let newInputs = spendInputs' body <> Set.singleton input
+  resolvedInputs <- traverse resolveInput (toList newInputs)
 
   let utxo = lookupUTxO <> walletUTxO
   estimatedScriptCosts <-
     estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
-          (inputs body)
-          inputs'
+          (spendInputs' body)
+          newInputs
           estimatedScriptCosts
           (txrdmrs wits)
       needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
@@ -263,8 +263,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         (toList $ outputs' body)
         needlesslyHighFee
 
-  let newOutputs = outputs body <> StrictSeq.singleton (mkSized change)
-      referenceScripts = refScripts @LedgerEra (referenceInputs body) (Ledger.UTxO utxo)
+  let newOutputs = outputs' body <> StrictSeq.singleton (mkSized change)
+      referenceScripts = refScripts @LedgerEra (referenceInputs' body) (Ledger.UTxO utxo)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
@@ -273,7 +273,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         ]
       finalBody =
         body
-          { btbInputs = inputs'
+          { btbInputs = newInputs
           , btbOutputs = newOutputs
           , btbCollateral = Set.singleton input
           , btbTxFee = needlesslyHighFee
@@ -410,7 +410,6 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
-      (costModelsToArray (_costmdls pparams))
 
   costModelsToArray CostModels{costModelsValid} =
     array
