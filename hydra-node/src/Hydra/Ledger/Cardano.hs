@@ -202,7 +202,7 @@ genSigningKey :: Gen (SigningKey PaymentKey)
 genSigningKey = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
   -- play well with pure generation from seed.
-  sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
+  sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 32 arbitrary
   pure (PaymentSigningKey sk)
 
 genVerificationKey :: Gen (VerificationKey PaymentKey)
