@@ -290,7 +290,7 @@ instance
   where
   parseJSON = fmap Ledger.TxDats . parseJSON
 
-instance Typeable era => ToJSON (Ledger.Data era) where
+instance Ledger.Era era => ToJSON (Ledger.Data era) where
   toJSON = String . decodeUtf8 . Base16.encode . serialize' (eraProtVerLow @era)
 
 instance Ledger.Era era => FromJSON (Ledger.Data era) where
