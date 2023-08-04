@@ -20,6 +20,7 @@ module Hydra.Cardano.Api (
   StandardCrypto,
   Era,
   LedgerEra,
+  ledgerEraVersion,
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -109,6 +110,7 @@ import Hydra.Cardano.Api.Prelude (
   LedgerEra,
   Map,
   StandardCrypto,
+  ledgerEraVersion,
  )
 
 import Hydra.Cardano.Api.Address ()

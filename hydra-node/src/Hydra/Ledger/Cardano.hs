@@ -19,7 +19,6 @@ import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
-import Cardano.Ledger.Core (eraProtVerLow)
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
@@ -108,12 +107,12 @@ instance IsTx Tx where
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
 instance ToCBOR Tx where
-  toCBOR = CBOR.encodeBytes . serialize' (eraProtVerLow @LedgerEra) . toLedgerTx
+  toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
 
 instance FromCBOR Tx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
-    decodeFullAnnotator (eraProtVerLow @LedgerEra) "Tx" decCBOR (fromStrict bs)
+    decodeFullAnnotator ledgerEraVersion "Tx" decCBOR (fromStrict bs)
       & either
         (fail . toString . toLazyText . build)
         (pure . fromLedgerTx)

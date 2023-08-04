@@ -263,8 +263,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         (toList $ outputs' body)
         needlesslyHighFee
 
-  let newOutputs = outputs' body <> StrictSeq.singleton (mkSized change)
       referenceScripts = refScripts @LedgerEra (referenceInputs' body) (Ledger.UTxO utxo)
+  let newOutputs = outputs' body <> StrictSeq.singleton (mkSized ledgerEraVersion change)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
