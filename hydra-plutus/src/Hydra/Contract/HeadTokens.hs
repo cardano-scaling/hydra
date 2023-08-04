@@ -2,6 +2,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+-- Plutus core version to compile to. In babbage era, that is Cardano protocol
+-- version 7 and 8, only plutus-core version 1.0.0 is available.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
@@ -27,6 +30,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), findDatum, ownCurrencySymbol, scriptOutputsAt)
 import Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
+import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.V2 (
   Datum (getDatum),
   FromData (fromBuiltinData),
@@ -155,15 +159,15 @@ validateTokensBurning context =
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Initial.validatorHash
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Head.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Initial.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Head.validatorHash
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> SerialisedScript
 mintingPolicyScript txOutRef =
   serialiseCompiledCode $
     unappliedMintingPolicy
-      `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef txOutRef
+      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 txOutRef
 
 -- * Create PolicyId
 

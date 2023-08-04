@@ -1,6 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+-- Plutus core version to compile to. In babbage era, that is Cardano protocol
+-- version 7 and 8, only plutus-core version 1.0.0 is available.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 -- | The validator used to collect & open or abort a Head.
 module Hydra.Contract.Commit where

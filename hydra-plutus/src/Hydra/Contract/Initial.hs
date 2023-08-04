@@ -1,6 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+-- Plutus core version to compile to. In babbage era, that is Cardano protocol
+-- version 7 and 8, only plutus-core version 1.0.0 is available.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 -- | The initial validator which allows participants to commit or abort.
 module Hydra.Contract.Initial where
@@ -22,6 +25,7 @@ import Hydra.ScriptContext (
   valueLockedBy,
  )
 import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V2 (
@@ -174,7 +178,7 @@ checkCommit commitValidator headId committedRefs context =
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap . validator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef Commit.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Commit.validatorHash
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
