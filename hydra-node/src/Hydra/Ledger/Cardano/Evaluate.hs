@@ -15,9 +15,9 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
 import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
 import Cardano.Ledger.Coin (Coin (Coin))
@@ -82,7 +82,6 @@ import Ouroboros.Consensus.HardFork.History (
 import qualified PlutusCore as PLC
 import PlutusLedgerApi.Common (mkTermToEvaluate)
 import qualified PlutusLedgerApi.Common as Plutus
-import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
@@ -259,17 +258,14 @@ prepareTxScripts tx utxo = do
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
-pparams :: HasCallStack => ProtocolParameters
+pparams :: ProtocolParameters
 pparams =
   (fromLedgerPParams (shelleyBasedEra @Era) def)
     { protocolParamCostModels =
         fromAlonzoCostModels $
           emptyCostModels
             { costModelsValid =
-                Map.fromList
-                  [ (PlutusV1, testCostModel PlutusV1)
-                  , (PlutusV2, testCostModel PlutusV2)
-                  ]
+                Map.fromList [(PlutusV2, plutusV2CostModel)]
             }
     , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
     , protocolParamMaxBlockExUnits =
@@ -290,11 +286,6 @@ pparams =
             , priceExecutionMemory = 577 % 10000
             }
     }
- where
-  testCostModel pv =
-    case mkCostModel pv $ Map.elems costModelParamsForTesting of
-      Left e -> error $ "mkCostModel failed: " <> show e
-      Right cm -> cm
 
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
@@ -409,3 +400,188 @@ slotNoToUTCTime =
     . slotToPOSIXTime
       epochInfo
       systemStart
+
+-- ** Plutus cost model fixtures
+
+-- | Current (2023-08-04) mainnet PlutusV2 cost model.
+plutusV2CostModel :: CostModel
+plutusV2CostModel =
+  either (error . show) id $
+    mkCostModel
+      PlutusV2
+      [ 205665
+      , 812
+      , 1
+      , 1
+      , 1000
+      , 571
+      , 0
+      , 1
+      , 1000
+      , 24177
+      , 4
+      , 1
+      , 1000
+      , 32
+      , 117366
+      , 10475
+      , 4
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 100
+      , 100
+      , 23000
+      , 100
+      , 19537
+      , 32
+      , 175354
+      , 32
+      , 46417
+      , 4
+      , 221973
+      , 511
+      , 0
+      , 1
+      , 89141
+      , 32
+      , 497525
+      , 14068
+      , 4
+      , 2
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 1000
+      , 28662
+      , 4
+      , 2
+      , 245000
+      , 216773
+      , 62
+      , 1
+      , 1060367
+      , 12586
+      , 1
+      , 208512
+      , 421
+      , 1
+      , 187000
+      , 1000
+      , 52998
+      , 1
+      , 80436
+      , 32
+      , 43249
+      , 32
+      , 1000
+      , 32
+      , 80556
+      , 1
+      , 57667
+      , 4
+      , 1000
+      , 10
+      , 197145
+      , 156
+      , 1
+      , 197145
+      , 156
+      , 1
+      , 204924
+      , 473
+      , 1
+      , 208896
+      , 511
+      , 1
+      , 52467
+      , 32
+      , 64832
+      , 32
+      , 65493
+      , 32
+      , 22558
+      , 32
+      , 16563
+      , 32
+      , 76511
+      , 32
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 69522
+      , 11687
+      , 0
+      , 1
+      , 60091
+      , 32
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 1159724
+      , 392670
+      , 0
+      , 2
+      , 806990
+      , 30482
+      , 4
+      , 1927926
+      , 82523
+      , 4
+      , 265318
+      , 0
+      , 4
+      , 0
+      , 85931
+      , 32
+      , 205665
+      , 812
+      , 1
+      , 1
+      , 41182
+      , 32
+      , 212342
+      , 32
+      , 31220
+      , 32
+      , 32696
+      , 32
+      , 43357
+      , 32
+      , 32247
+      , 32
+      , 38314
+      , 32
+      , 35892428
+      , 10
+      , 57996947
+      , 18975
+      , 10
+      , 38887044
+      , 32947
+      , 10
+      ]
