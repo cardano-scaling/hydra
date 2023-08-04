@@ -137,9 +137,7 @@ library
     , cardano-crypto-class
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
     , cardano-ledger-api
-    , cardano-ledger-babbage-test
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-binary
     , cardano-ledger-core
@@ -340,7 +338,6 @@ test-suite tests
     , cardano-crypto-class
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
     , cardano-ledger-binary
     , cardano-ledger-core

@@ -126,9 +126,7 @@ library
     , cardano-crypto-class         >=2.0.0
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
     , cardano-ledger-babbage
-    , cardano-ledger-babbage-test
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-core

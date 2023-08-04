@@ -62,7 +62,6 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   Property,

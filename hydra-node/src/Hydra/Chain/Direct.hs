@@ -104,7 +104,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 -- | Defines the starting state of the direct chain layer.
 initialChainState :: ChainStateType Tx

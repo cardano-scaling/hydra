@@ -11,7 +11,6 @@ import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 import PlutusCore.Data (Data)
 import PlutusLedgerApi.V2 (BuiltinByteString, builtinDataToData, toBuiltinData)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 type Block = CardanoBlock StandardCrypto
 type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)

@@ -65,7 +65,6 @@ import Data.Aeson.Types (
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 --
 -- Addr

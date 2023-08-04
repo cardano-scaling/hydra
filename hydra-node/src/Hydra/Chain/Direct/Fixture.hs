@@ -22,12 +22,12 @@ import Hydra.Cardano.Api (
   PolicyId,
   ProtocolParameters (..),
   TxIn,
+  genTxIn,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 -- * Cardano tx utilities
 
@@ -38,7 +38,7 @@ testPolicyId :: PolicyId
 testPolicyId = headPolicyId testSeedInput
 
 testSeedInput :: TxIn
-testSeedInput = generateWith arbitrary 42
+testSeedInput = generateWith genTxIn 42
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.

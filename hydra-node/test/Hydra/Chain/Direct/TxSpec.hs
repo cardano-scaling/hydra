@@ -37,7 +37,6 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (Property, choose, counterexample, elements, forAll, getPositive, label, property, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Instances.Semigroup ()
 

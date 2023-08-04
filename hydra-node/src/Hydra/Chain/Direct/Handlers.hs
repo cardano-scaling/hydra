@@ -63,7 +63,6 @@ import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
 import Plutus.Orphans ()
 import System.IO.Error (userError)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 -- | Handle of a local chain state that is kept in the direct chain layer.
 data LocalChainState m = LocalChainState

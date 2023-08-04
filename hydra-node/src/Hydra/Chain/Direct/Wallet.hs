@@ -77,7 +77,6 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
-import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 type Address = Ledger.Addr StandardCrypto
 type TxIn = Ledger.TxIn StandardCrypto

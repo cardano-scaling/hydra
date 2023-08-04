@@ -17,7 +17,6 @@ import Data.List (intercalate, sort, sortBy)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
-import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Api.Tx -> String
