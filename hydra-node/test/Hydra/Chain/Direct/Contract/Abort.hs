@@ -38,7 +38,7 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
@@ -157,6 +157,8 @@ data AbortMutation
     ReorderCommitOutputs
   | -- | Only burning should be allowed in abort (by the minting policy).
     MintOnAbort
+  | -- | Not spend from v_head and also not burn anything to extract value.
+    ExtractValue
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -226,6 +228,24 @@ genAbortMutation (tx, utxo) =
                   , Head.seed = toPlutusTxOutRef testSeedInput
                   }
         pure $ Changes [mintAPT, removeOneParty]
+    , SomeMutation Nothing ExtractValue <$> do
+        divertFunds <- do
+          let allValue = foldMap txOutValue $ txOuts' tx
+          extractionTxOut <- do
+            someAddress <- genAddressInEra testNetworkId
+            pure $ TxOut someAddress allValue TxOutDatumNone ReferenceScriptNone
+          pure
+            [ RemoveOutput 0
+            , RemoveOutput 1
+            , AppendOutput extractionTxOut
+            ]
+
+        pure $
+          Changes $
+            [ ChangeMintedValue mempty
+            , RemoveInput healthyHeadInput
+            ]
+              ++ divertFunds
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

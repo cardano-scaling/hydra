@@ -53,7 +53,6 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandlePara
 import Hydra.Ledger (
   ChainSlot (..),
  )
-import Test.Consensus.Cardano.Generators ()
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,

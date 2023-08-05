@@ -335,13 +335,16 @@ test-suite tests
     , base
     , base16-bytestring
     , bytestring
+    , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-babbage
     , cardano-ledger-binary
     , cardano-ledger-core
+    , cardano-ledger-mary
     , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma-test
     , cardano-slotting
     , cardano-strict-containers
     , cborg

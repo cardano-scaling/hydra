@@ -5,7 +5,15 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
+import Hydra.Cardano.Api (
+  BlockHeader,
+  ChainPoint (..),
+  Hash,
+  NetworkId (..),
+  deserialiseFromRawBytesHex,
+  proxyToAsType,
+  serialiseToRawBytesHexText,
+ )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -222,7 +230,12 @@ spec = parallel $
                   }
             }
 
-    it "parses --start-chain-from as a pair of slot number and block header hash" $
+    it "parses --start-chain-from as a pair of slot number and block header hash" $ do
+      let ttoken = proxyToAsType (Proxy :: Proxy (Hash BlockHeader))
+          unsafeDeserialiseFromRawBytesBase16 str =
+            case deserialiseFromRawBytesHex ttoken str of
+              Left err -> error . show $ ("cannot deserialise " ++ show str ++ ".  The error was: " <> show err)
+              Right hBlockHeader -> hBlockHeader
       setFlags ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
         `shouldParse` Run
           defaultRunOptions
@@ -241,7 +254,7 @@ spec = parallel $
       setFlags ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultChainConfig{startChainFrom = Just (ChainPointAtGenesis)}
+            { chainConfig = defaultChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->

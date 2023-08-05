@@ -13,7 +13,8 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Babbage.PParams (BabbagePParams)
+import Cardano.Ledger.Babbage.Core (PParams)
+import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -135,8 +136,8 @@ spec =
                     & counterexample (renderTx tx)
                     & counterexample (show e)
 
-ledgerPParams :: BabbagePParams LedgerEra
-ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
+ledgerPParams :: PParams LedgerEra
+ledgerPParams = either (error . show) id $ toLedgerPParams (shelleyBasedEra @Era) pparams
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =

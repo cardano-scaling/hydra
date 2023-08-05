@@ -185,7 +185,7 @@ ensureSystemRequirements :: IO ()
 ensureSystemRequirements =
   getToolVersion >>= \case
     Right semVer ->
-      unless (semVer >= SemVer 0 21 0 [] Nothing) $
+      unless (semVer >= SemVer 0 21 0 Nothing Nothing) $
         failure . Text.unpack $
           "check-jsonschema version " <> prettySemVer semVer <> " found but >= 0.21.0 needed"
     Left errorMsg -> failure errorMsg

@@ -72,6 +72,7 @@ mockChainAndNetwork ::
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadFork m
+  , MonadDelay m
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->

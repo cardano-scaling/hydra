@@ -13,7 +13,6 @@ import qualified Data.List as List
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair)
-import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (choose)
 import Test.QuickCheck.StateModel (HasVariables)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
