@@ -2,20 +2,20 @@
 
 module Main where
 
+import Hydra.Prelude
+
 import Control.Tracer (stdoutTracer, traceWith)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey), Tx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey), sign)
 import Hydra.Logging (Verbosity (..), withTracer)
-import Hydra.Network (Host (..))
+import Hydra.Network (Host (..), readHost)
 import Hydra.Network.Authenticate (Signed (..))
 import Hydra.Network.Heartbeat (Heartbeat (Data))
 import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Type (codecFireForget)
-import Hydra.Options (hydraSigningKeyFileParser, hydraVerificationKeyFileParser, peerParser)
 import Hydra.Party (Party (..))
-import Hydra.Prelude
 import Hydra.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
 import Log (NetLog (..))
 import Network.Socket (
@@ -40,11 +40,13 @@ import Options.Applicative (
   hsubparser,
   info,
   long,
+  maybeReader,
   metavar,
   option,
   progDesc,
   progDescDoc,
   short,
+  str,
  )
 import Options.Applicative.Help (vsep)
 import Ouroboros.Network.IOManager (withIOManager)
@@ -68,6 +70,8 @@ import Ouroboros.Network.Socket (
   connectToNodeSocket,
  )
 
+import Hydra.Ledger.Cardano ()
+
 data Options = InjectReqSn
   { peer :: Host
   -- ^ The host to connect to
@@ -85,20 +89,40 @@ injectReqSnParser =
   InjectReqSn
     <$> peerParser
     <*> snapshotNumberParser
-    <*> hydraSigningKeyFileParser
-    <*> hydraVerificationKeyFileParser
+    <*> signingKeyFileParser
+    <*> verificationKeyFileParser
+
+peerParser :: Parser Host
+peerParser =
+  option (maybeReader readHost) $
+    long "peer"
+      <> short 'P'
+      <> help
+        "A peer address to connect to. This is using the form <host>:<port>, \
+        \where <host> can be an IP address, or a host name."
 
 snapshotNumberParser :: Parser SnapshotNumber
 snapshotNumberParser =
-  UnsafeSnapshotNumber
-    <$> option
-      auto
-      ( long "snapshot-number"
-          <> short 's'
-          <> metavar "NATURAL"
-          <> help
-            "The number of the snapshot to craft a ReqSn for"
-      )
+  fmap UnsafeSnapshotNumber . option auto $
+    long "snapshot-number"
+      <> short 's'
+      <> metavar "NATURAL"
+      <> help
+        "The number of the snapshot to craft a ReqSn for."
+
+signingKeyFileParser :: Parser FilePath
+signingKeyFileParser =
+  option str $
+    long "hydra-signing-key"
+      <> metavar "FILE"
+      <> help "Hydra signing key used to sign the message with."
+
+verificationKeyFileParser :: Parser FilePath
+verificationKeyFileParser =
+  option str $
+    long "hydra-verification-key"
+      <> metavar "FILE"
+      <> help "Hydra verification key of another party in the Head to impersonate."
 
 commandsParser :: Parser Options
 commandsParser =
@@ -111,7 +135,7 @@ commandsParser =
                 "Inject a ReqSn message with given snapshot number, \
                 \seemingly from another peer. Note that since we now \
                 \authenticate messages, both the verification and the \
-                \signing key need to be provided to sign the message\
+                \signing key need to be provided to sign the message \
                 \and set its originator, which could be different."
             )
         )
