@@ -24,6 +24,7 @@ import Hydra.Ledger.Cardano (
   genUTxOAdaOnlyOfSize,
   genUTxOAlonzo,
   genUTxOFor,
+  genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -79,9 +80,13 @@ spec =
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
-      describe "genTxOut" $ do
+      describe "genTxOut" $
         it "does generate good values" $
-          forAll genTxOut prop_generatesGoodTxOut
+          forAll genTxOut propGeneratesGoodTxOut
+
+      describe "genValue" $
+        it "produces realistic values" $
+          forAll genValue propRealisticValue
 
     describe "Evaluate helpers" $
       prop "slotNoFromUTCTime . slotNoToUTCTime === id" $ \slot ->
@@ -143,14 +148,25 @@ propDoesNotCollapse name gen =
     forAll (vectorOf 100 gen) $ \xs ->
       sum (length <$> xs) === length (fold xs)
 
+-- | A transaction or transaction output can usually only contain a realistic
+-- number of native asset entries. This property checks a realistic order of
+-- magnitude (100).
+propRealisticValue :: Value -> Property
+propRealisticValue value =
+  numberOfAssets < 100
+    & counterexample ("too many individual assets: " <> show numberOfAssets)
+ where
+  numberOfAssets = length (valueToList value)
+
 -- | Check that the given 'TxOut' fulfills several requirements and does not use
 -- unsupported features. See 'genTxOut' for rationale.
-prop_generatesGoodTxOut :: TxOut CtxUTxO -> Property
-prop_generatesGoodTxOut txOut =
+propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
+propGeneratesGoodTxOut txOut =
   checkCoverage $
     conjoin
       [ propNoReferenceScript
       , propNoByronAddress
+      , propRealisticValue (txOutValue txOut)
       ]
       & cover 5 hasDatum "has datum"
       & cover 5 isVKOutput "is VK output"

@@ -371,7 +371,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = fromLedgerValue <$> arbitrary
+genValue = scale (`div` 10) $ fromLedgerValue <$> arbitrary
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
