@@ -22,7 +22,7 @@ services:
       ]
 
   hydra-node-1:
-    # NOTE: Make sure to use the same image in ./seed-devnet.sh
+   # NOTE: Make sure to use the same image in ./seed-devnet.sh
     image: ghcr.io/input-output-hk/hydra-node:0.11.0
     build:
       context: ../
@@ -34,6 +34,7 @@ services:
       - ./devnet:/devnet
     ports:
       - "4001:4001"
+      - "5001:5001"
     command:
       [ "--node-id", "1"
       , "--api-host", "0.0.0.0"
@@ -70,6 +71,7 @@ services:
       - ./devnet:/devnet
     ports:
       - "4002:4001"
+      - "5002:5001"
     command:
       [ "--node-id", "2"
       , "--api-host", "0.0.0.0"
@@ -106,6 +108,7 @@ services:
       - ./devnet:/devnet
     ports:
       - "4003:4001"
+      - "5003:5001"
     command:
       [ "--node-id", "3"
       , "--api-host", "0.0.0.0"

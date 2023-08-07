@@ -217,6 +217,22 @@ executable hydra-tools
 
   ghc-options:    -threaded -rtsopts
 
+executable hydra-net
+  import:         project-config
+  hs-source-dirs: exe/hydra-net
+  main-is:        Main.hs
+  other-modules:  Log
+  build-depends:
+      aeson
+    , contra-tracer
+    , hydra-cardano-api
+    , network
+    , hydra-node
+    , hydra-prelude
+    , optparse-applicative
+    , ouroboros-network-framework                                       >=0.3.0.0
+  ghc-options:    -threaded -rtsopts
+
 benchmark tx-cost
   import:         project-config
   hs-source-dirs: bench/tx-cost

@@ -8,6 +8,7 @@ module Hydra.Network.Ouroboros (
   withIOManager,
   TraceOuroborosNetwork,
   module Hydra.Network,
+  encodeTraceSendRecvFireForget,
 ) where
 
 import Control.Monad.Class.MonadAsync (wait)
