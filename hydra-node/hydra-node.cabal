@@ -158,7 +158,7 @@ library
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , io-classes                                                        >=0.3.0.0
+    , io-classes                                                >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -169,11 +169,11 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , ouroboros-network-api                                             >=0.1.0.0
-    , ouroboros-network-framework                                       >=0.3.0.0
-    , ouroboros-network-protocols                                       >=0.3.0.0
+    , ouroboros-network-api                                     >=0.1.0.0
+    , ouroboros-network-framework                               >=0.3.0.0
+    , ouroboros-network-protocols                               >=0.3.0.0
     , plutus-core
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
+    , plutus-ledger-api                                         >=1.1.1.0
     , prometheus
     , QuickCheck
     , quickcheck-instances
@@ -182,8 +182,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                                                   >=0.1.0.0
-    , typed-protocols-cborg                                             >=0.1.0.0
+    , typed-protocols                                           >=0.1.0.0
+    , typed-protocols-cborg                                     >=0.1.0.0
     , unliftio
     , wai
     , wai-websockets
@@ -337,14 +337,12 @@ test-suite tests
     , bytestring
     , cardano-binary
     , cardano-crypto-class
-    , cardano-ledger-allegra
     , cardano-ledger-alonzo
-    , cardano-ledger-babbage
+    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma-test
     , cardano-slotting
     , cardano-strict-containers
     , cborg

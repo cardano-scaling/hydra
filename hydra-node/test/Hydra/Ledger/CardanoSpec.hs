@@ -28,7 +28,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Cardano.Ledger.MaryEraGen ()
+import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
 import Test.Util (propCollisionResistant)
 
