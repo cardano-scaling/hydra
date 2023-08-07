@@ -338,7 +338,7 @@ instance
   ) =>
   FromJSON (Ledger.AlonzoTxWits era)
   where
-  parseJSON = withObject "TxWitness" $ \o ->
+  parseJSON = withObject "AlonzoTxWits" $ \o ->
     Ledger.AlonzoTxWits
       <$> (o .:? "keys" .!= mempty)
       <*> (o .:? "bootstrap" .!= mempty)
@@ -383,16 +383,16 @@ instance
   parseJSON value =
     -- We accept transactions in three forms:
     --
-    -- (a) As high-level JSON object, which full format is specified via a
-    -- JSON-schema.
-    parseAsAdHocJSONObject value
-      -- (b) As a JSON 'text-envelope', which is a format defined and produced by
-      -- the cardano-cli, wrapping base16-encoded strings as JSON objects with
-      -- tags.
-      <|> parseAsEnvelopedBase16CBOR value
-      -- (c) As base16 string representing a CBOR-serialized transaction, since
+    -- (1) As a JSON 'text-envelope', which is a format defined and produced by
+    -- the cardano-cli, wrapping base16-encoded strings as JSON objects with
+    -- tags.
+    parseAsEnvelopedBase16CBOR value
+      -- (2) As base16 string representing a CBOR-serialized transaction, since
       -- this is the most common medium of exchange used for transactions.
       <|> parseHexEncodedCborAnnotated @era "Tx" value
+      -- (3) As high-level JSON object, which full format is specified via a
+      -- JSON-schema.
+      <|> parseAsAdHocJSONObject value
    where
     parseAsEnvelopedBase16CBOR =
       withObject "Tx" $ \o -> do
