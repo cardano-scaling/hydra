@@ -26,11 +26,11 @@ import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   genValue,
  )
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Party (partyToChain)
 import Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
-import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
 healthyFanoutTx :: (Tx, UTxO)
@@ -119,9 +119,8 @@ genFanoutMutation (tx, _utxo) =
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
-        lb <- arbitrary `suchThat` slotBeforeContestationDeadline
+        lb <- genSlotBefore $ slotNoFromUTCTime healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
     ]
  where
-  slotBeforeContestationDeadline slotNo =
-    slotNoToUTCTime slotNo < healthyContestationDeadline
+  genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
