@@ -181,7 +181,7 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
       (inf : _) -> pure inf
-      _ -> error "getAdrrInfo failed.. do proper error handling"
+      _ -> die "getAdrrInfo failed"
 
   mkApplication sk party tracer = OuroborosApplication $ \_connectionId _controlMessageSTM ->
     [ MiniProtocol
