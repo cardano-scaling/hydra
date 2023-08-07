@@ -519,7 +519,6 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurren
     [] -> []
     (TxInInfo{txInInfoResolved} : rest) ->
       findParticipationTokens headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
-{-# INLINEABLE mustBeSignedByParticipant #-}
 
 findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
 findParticipationTokens headCurrency (Value val) =
