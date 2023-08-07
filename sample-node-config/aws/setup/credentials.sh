@@ -24,12 +24,24 @@ test -f $DIR/cardano-key.sk ||
         --signing-key-file "$DIR/cardano-key.sk" \
         --verification-key-file "$DIR/cardano-key.vk"
 
+NETWORK=$(cat terraform.tfvars | awk '{
+    if (match($0, /^env[[:space:]]*=[[:space:]]*"([^"]+)"/)) {
+        value = substr($0, RSTART + 10, RLENGTH - 10);
+        gsub(/^[[:space:]]*=|[[:space:]]+|"/, "", value);
+        print value;
+    }
+}')
+
+export CARDANO_TAG=$(jq -r .$NETWORK.tag ./scripts/configure.json)
+
 test -f $DIR/cardano.addr ||
     cardano-cli address build \
         --payment-verification-key-file "$DIR/cardano-key.vk" \
-        --testnet-magic 1 > "$DIR/cardano.addr"
+        $CARDANO_TAG > "$DIR/cardano.addr"
 
 echo "building members keys"
+
+test -d ./$DIR/members || mkdir ./$DIR/members
 
 TEAM_JSON=$(cat ./setup/hydra-team-keys.json | jq)
 MEMBERS=$(echo $TEAM_JSON | jq keys | jq -r '.[]')
@@ -38,7 +50,7 @@ for member in $MEMBERS; do
     MEMBER_JSON=$(echo $TEAM_JSON  | jq ".$member")
 
     cardanoVK=$(echo $MEMBER_JSON | jq '.["cardano-vk"]')
-    cat << EOF >./$DIR/$member.cardano.vk
+    cat << EOF >./$DIR/members/$member.cardano.vk
 {
     "type": "PaymentVerificationKeyShelley_ed25519",
     "description": "Payment Verification Key",
@@ -47,7 +59,7 @@ for member in $MEMBERS; do
 EOF
 
     hydraVK=$(echo $MEMBER_JSON | jq '.["hydra-vk"]')
-    cat << EOF >./$DIR/$member.hydra.vk
+    cat << EOF >./$DIR/members/$member.hydra.vk
 {
     "type": "HydraVerificationKey_ed25519",
     "description": "",

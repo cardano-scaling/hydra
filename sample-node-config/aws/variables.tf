@@ -4,7 +4,12 @@ variable "profile" {
 }
 
 variable "key_name" {
-  description = "The name of key-pair created by the user in aws ec2 > 'Network & Security'"
+  description = "The name of key-pair created by the user in aws ec2 > 'Network & Security'. This is also used as your INSTANCE-ID (tag)."
+  type        = string
+}
+
+variable "env" {
+  description = "Environment variable for the remote-exec script."
   type        = string
 }
 

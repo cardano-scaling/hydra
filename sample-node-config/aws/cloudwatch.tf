@@ -7,13 +7,13 @@ variable "log_retention_days" {
 }
 
 locals {
-  log_group_name = "${var.key_name}_instance_logs"
+  log_group_name = "${var.key_name}-${var.env}_instance_logs"
 }
 
 # store CloudAgent config inside SSM parameter
 resource "aws_ssm_parameter" "cw_agent" {
   description = "Cloudwatch agent config to configure custom log"
-  name        = "${var.key_name}_cloudwatch-agent_config"
+  name        = "${var.key_name}-${var.env}_cloudwatch-agent_config"
   type        = "String"
   value = templatefile("cw_agent_config.tftpl", {
     log_group_name = local.log_group_name
@@ -26,8 +26,8 @@ resource "aws_cloudwatch_log_group" "docker_log_group" {
   retention_in_days = var.log_retention_days
   # tags - (Optional): to distinguish between different log groups
   tags = {
-    Environment = "${var.key_name}-testnet"
-    Application = "hydraw-${var.key_name}"
+    Environment = "${var.key_name}-${var.env}"
+    Application = "${var.key_name}-${var.env}"
   }
 }
 

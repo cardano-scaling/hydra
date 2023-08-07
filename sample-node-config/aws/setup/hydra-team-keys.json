@@ -1,6 +1,6 @@
 {
     "arnaud": {
-        "peer": "35.233.17.169:5001",
+        "peer": "cardano.hydra.bzh:5001",
         "cardano-vk": "5820ea295cfdd2914067994eeae8a7a32e9862180596bb88db85d9ee8f3b241f32d6",
         "hydra-vk": "5820286b3cbf98f62a4f9f3368dc7ddbc02001b2580ee5e3720cb7619e2492d1bb77"
     },
@@ -10,8 +10,8 @@
         "hydra-vk": "582043d8ac3fb8e39b355005ed546c8fc9cd80e4909cb254835513a542b1c9a2e3ad"
     },
     "franco": {
-        "peer": "13.38.189.209:5001",
-        "cardano-vk": "5820a5eaaf8b0d7cda349aae162428a419aa2ba128d11d5cf9b0dd9d6cd9b31d85b7",
+        "peer": "13.39.121.84:5001",
+        "cardano-vk": "58200eab16b5198cb5d9556112749f7e7fdb3c6129b32a792989a25a04283b7bfb62",
         "hydra-vk": "5820935df47d312772df391cc7a934702e13e9f4263c611cc275b93f76ec6d31d02c"
     },
     "pascal": {
@@ -23,5 +23,10 @@
         "peer": "13.37.150.125:5001",
         "cardano-vk": "5820f4e4d4d2c478420c70b57d38c02514d73537bb58ec651885df45f95c1ea429fe",
         "hydra-vk": "5820a65dd1af5d938e394b05198b97870a33343d3dd2ec8feb8906a2cbbd2cc0ac96"
+    },
+    "dan": {
+        "peer": "hydra.horizon-haskell.net:5005",
+        "cardano-vk": "582032a1809179372d87cb118785fa9f415fd2dd2f3dda66b9fea47def53a20bed99",
+        "hydra-vk": "58200f23a3124d401d89e8f6cfb724eb00ac073c74edc93a4db9b0889c999f2415fe"
     }
 }
