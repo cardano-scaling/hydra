@@ -31,8 +31,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
+import Hydra.Ledger.Cardano.Configuration (LedgerEnv, ProtocolParametersConversionException, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- * Cardano tx utilities
 
@@ -49,9 +50,13 @@ testSeedInput = generateWith genTxIn 42
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
 defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv =
-  case toLedgerPParams (shelleyBasedEra @Era) defaultPParams of
-    Left err -> error $ "defaultLedgerEnv: Failed to convert to ledger PParams: " <> show err
-    Right ledgerParams -> newLedgerEnv ledgerParams
+  -- XXX: Ideally we would use the Either or Maybe instance of MonadThrow here,
+  -- however that is not possible in the io-classes variants of this type class.
+  unsafeDupablePerformIO $
+    try (newLedgerEnv defaultPParams) >>= \case
+      Left (err :: ProtocolParametersConversionException) ->
+        error $ "Failed to create ledger env from fixture: " <> show err
+      Right env -> pure env
 
 defaultPParams :: ProtocolParameters
 defaultPParams =

@@ -118,7 +118,7 @@ main = do
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-    let ledgerEnv = newLedgerEnv protocolParams
+    ledgerEnv <- newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
 identifyNode :: RunOptions -> RunOptions

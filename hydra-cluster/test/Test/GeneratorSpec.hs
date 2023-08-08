@@ -47,8 +47,7 @@ prop_keepsUTxOConstant =
       faucetSk <- snd <$> keysFor Faucet
 
       ledgerEnv <-
-        newLedgerEnv
-          <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"
+        newLedgerEnv =<< readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $
