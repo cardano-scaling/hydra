@@ -244,7 +244,13 @@ jobs:
     needs: [haddock,benchmarks,test,build-specification]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v3
+      with:
+        # For the cardanonical json schemas
+        submodules: true
+        # Ensure we have all history with all commits
+        fetch-depth: 0
 
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v3
