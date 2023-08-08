@@ -1,6 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -46,11 +46,9 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  shelleyBasedEra,
-  toLedgerPParams,
   toLedgerUTxO,
+  pattern BundleAsShelleyBasedProtocolParameters,
  )
-import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
   ChainStateType,
@@ -166,7 +164,7 @@ mkTinyWallet tracer config = do
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId nodeSocket (QueryAt point)
+    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId socketPath (QueryAt point)
     systemStart <- querySystemStart networkId nodeSocket (QueryAt point)
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
