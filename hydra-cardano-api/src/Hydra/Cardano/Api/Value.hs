@@ -18,18 +18,18 @@ import qualified PlutusLedgerApi.V2 as Plutus
 -- | Calculate minimum value for a UTxO. Note that cardano-api defines a
 -- 'calculateMinimumUTxO' function but it is flawed (see NOTE below) and has an
 -- unsatisfactory API because it works across multiple era.
---
--- This one is specialized to Babbage and therefore, can be pure.
+-- XXX: Check if this is still true ^^^ and use it if not.
 minUTxOValue ::
-  ProtocolParameters ->
+  BundledProtocolParameters Era ->
   TxOut CtxTx Era ->
   Value
-minUTxOValue pparams (TxOut addr val dat ref) =
+minUTxOValue bundledParams (TxOut addr val dat ref) =
   fromLedgerLovelace $
     getMinCoinTxOut
-      (toLedgerPParams ShelleyBasedEraBabbage pparams)
+      ledgerPparams
       (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
  where
+  BundleAsShelleyBasedProtocolParameters _ _ ledgerPparams = bundledParams
   out' =
     TxOut
       addr

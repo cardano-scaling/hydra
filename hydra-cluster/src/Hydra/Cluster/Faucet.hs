@@ -150,7 +150,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 createOutputAtAddress ::
   ToScriptData a =>
   RunningNode ->
-  ProtocolParameters ->
+  BundledProtocolParameters ->
   AddressInEra ->
   a ->
   IO (TxIn, TxOut CtxUTxO)

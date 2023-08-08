@@ -19,6 +19,7 @@ type NodeSocket = FilePath
 data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
+  | QueryProtocolParamsConversionException ProtocolParametersConversionError
   deriving (Show)
 
 instance Eq QueryException where
@@ -70,7 +71,8 @@ buildTransaction ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  pparams <- queryProtocolParameters networkId socket QueryTip
+  bpparams <- queryProtocolParameters networkId socket QueryTip
+  let pparams = unbundleProtocolParams bpparams
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -218,8 +220,8 @@ queryEraHistory networkId socket queryPoint =
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters :: NetworkId -> FilePath -> QueryPoint -> IO ProtocolParameters
-queryProtocolParameters networkId socket queryPoint =
+queryProtocolParameters :: NetworkId -> FilePath -> QueryPoint -> IO BundledProtocolParameters
+queryProtocolParameters networkId socket queryPoint = do
   let query =
         QueryInEra
           BabbageEraInCardanoMode
@@ -227,7 +229,10 @@ queryProtocolParameters networkId socket queryPoint =
               ShelleyBasedEraBabbage
               QueryProtocolParameters
           )
-   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+  pparams <- runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+  case bundleProtocolParams BabbageEra pparams of
+    Left err -> throwIO (QueryProtocolParamsConversionException err)
+    Right bpparams -> pure bpparams
 
 -- | Query 'GenesisParameters' at a given point.
 --
