@@ -666,42 +666,6 @@ definitions:
             prefixItems:
               - $ref: "logs.yaml#/definitions/Event"
               - $ref: "logs.yaml#/definitions/HeadState"
-      - title: InvalidState
-        additionalProperties: false
-        required:
-          - tag
-          - contents
-        properties:
-          tag:
-            type: string
-            enum: ["InvalidState"]
-          contents:
-            $ref: "logs.yaml#/definitions/HeadState"
-      - title: InvalidSnapshot
-        additionalProperties: false
-        required:
-          - tag
-          - expected
-          - actual
-        properties:
-          tag:
-            type: string
-            enum: ["InvalidSnapshot"]
-          expected:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          actual:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-      - title: LedgerError
-        additionalProperties: false
-        required:
-          - tag
-          - contents
-        properties:
-          tag:
-            type: string
-            enum: ["LedgerError"]
-          contents:
-            $ref: "logs.yaml#/definitions/ValidationError"
       - title: RequireFailed
         description: >-
           A precondition for some state transition within the Hydra
@@ -1455,7 +1419,7 @@ definitions:
             items:
               type: object
               $ref: "logs.yaml#/definitions/Effect"
-      - title: NewState
+      - title: StateChanged
         type: object
         additionalProperties: false
         required:
@@ -1466,7 +1430,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["NewState"]
+            enum: ["StateChanged"]
           headState:
             type: object
             $ref: "logs.yaml#/definitions/HeadState"
