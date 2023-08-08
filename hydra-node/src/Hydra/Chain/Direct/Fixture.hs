@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -15,7 +16,10 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
+  CardanoEraStyle (ShelleyBasedEra),
+  Era,
   ExecutionUnitPrices (ExecutionUnitPrices),
+  IsShelleyBasedEra (shelleyBasedEra),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -23,6 +27,7 @@ import Hydra.Cardano.Api (
   ProtocolParameters (..),
   TxIn,
   genTxIn,
+  toLedgerPParams,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
@@ -44,7 +49,9 @@ testSeedInput = generateWith genTxIn 42
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
 defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv =
-  newLedgerEnv defaultPParams
+  case toLedgerPParams (shelleyBasedEra @Era) defaultPParams of
+    Left err -> error $ "defaultLedgerEnv: Failed to convert to ledger PParams: " <> show err
+    Right ledgerParams -> newLedgerEnv ledgerParams
 
 defaultPParams :: ProtocolParameters
 defaultPParams =
