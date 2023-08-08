@@ -9,6 +9,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import qualified Cardano.Ledger.Shelley.API.Types as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -78,8 +79,8 @@ newGlobals genesisParameters = do
 protocolParametersFromJson :: Json.Value -> Json.Parser ProtocolParameters
 protocolParametersFromJson = parseJSON
 
-newLedgerEnv :: ProtocolParameters -> Ledger.LedgerEnv LedgerEra
-newLedgerEnv pparams =
+newLedgerEnv :: Ledger.PParams LedgerEra -> Ledger.LedgerEnv LedgerEra
+newLedgerEnv ledgerPParams =
   Ledger.LedgerEnv
     { -- TODO: Ideally we would want the slot number to be initialized to whatever
       -- the slot number is on the underlying mainchain. This is somewhat hard to
@@ -102,8 +103,5 @@ newLedgerEnv pparams =
       -- both unused in Hydra. There might be room for interesting features in the
       -- future with these two but for now, we'll consider them empty.
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-    , Ledger.ledgerPp =
-        -- TODO: Fix toLedgerPParams invocation here
-        either (error . show) id $
-          toLedgerPParams ShelleyBasedEraBabbage pparams
+    , Ledger.ledgerPp = ledgerPParams
     }
