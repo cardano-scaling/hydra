@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Options (RunOptions)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
@@ -32,3 +33,5 @@ deriving instance (FromJSON net, FromJSON (HydraNodeLog tx)) => FromJSON (HydraL
 
 instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => Arbitrary (HydraLog tx net) where
   arbitrary = genericArbitrary
+
+instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => ToADTArbitrary (HydraLog tx net)

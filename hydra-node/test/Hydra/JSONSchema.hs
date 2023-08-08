@@ -26,8 +26,8 @@ import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
 import Test.Hydra.Prelude (failure, withTempDir)
 import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, resize, vectorOf)
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary, ToADTArbitrary, adtCAPs, capConstructor, toADTArbitrary)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
-import qualified Prelude
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
@@ -75,7 +75,7 @@ prop_validateJSONSchema specFileName selector =
         monitor $ counterexample err
         assert (exitCode == ExitSuccess)
 
--- | Check specification is complete wr.t. to generated data
+-- | Check specification is complete w.r.t. to generated data
 -- This second sub-property ensures that any key found in the
 -- specification corresponds to a constructor in the corresponding
 -- data-type. This makes sure the document is kept in sync and make sure we don't
@@ -105,12 +105,12 @@ prop_validateJSONSchema specFileName selector =
 -- @@
 prop_specIsComplete ::
   forall a.
-  (Arbitrary a, Show a) =>
+  (ToADTArbitrary a, Show a) =>
   String ->
   SpecificationSelector ->
   Property
 prop_specIsComplete specFileName typeSpecificationSelector =
-  forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
+  forAllBlind (vectorOf 1 (toADTArbitrary (Proxy :: Proxy a))) $ \(a :: [ADTArbitrary a]) ->
     monadicIO $ do
       withJsonSpecifications $ \tmpDir -> do
         let specFile = tmpDir </> specFileName
@@ -129,18 +129,19 @@ prop_specIsComplete specFileName typeSpecificationSelector =
           assert False
  where
   -- Like Generics, if you squint hard-enough.
-  poormansGetConstr :: a -> Text
-  poormansGetConstr = toText . Prelude.head . List.words . show
+  poormansGetConstr :: ADTArbitrary a -> [Text]
+  poormansGetConstr = fmap (toText . capConstructor) . adtCAPs
 
-  classify :: FilePath -> Maybe Aeson.Value -> [a] -> Map Text Integer
+  classify :: FilePath -> Maybe Aeson.Value -> [ADTArbitrary a] -> Map Text Integer
   classify _ (Just specs) =
     let ks = specs ^.. typeSpecificationSelector . key "oneOf" . _Array . traverse . key "title" . _String
 
         knownKeys = Map.fromList $ zip ks (repeat @Integer 0)
 
-        countMatch (poormansGetConstr -> tag) =
-          Map.alter (Just . maybe 1 (+ 1)) tag
-     in foldr countMatch knownKeys
+        countMatch x =
+          let tags = poormansGetConstr x
+           in foldMap (Map.alter (Just . maybe 1 (+ 1))) tags
+     in traceShow knownKeys $ foldr countMatch knownKeys
   classify specFile _ =
     error $ "Invalid specification file. Does not decode to an object: " <> show specFile
 

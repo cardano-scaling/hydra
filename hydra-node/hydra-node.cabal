@@ -176,6 +176,7 @@ library
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , prometheus
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , quickcheck-instances
     , serialise
     , stm
@@ -223,14 +224,15 @@ executable hydra-net
   main-is:        Main.hs
   other-modules:  Log
   build-depends:
-      aeson
+    , aeson
     , contra-tracer
     , hydra-cardano-api
-    , network
     , hydra-node
     , hydra-prelude
+    , network
     , optparse-applicative
-    , ouroboros-network-framework                                       >=0.3.0.0
+    , ouroboros-network-framework  >=0.3.0.0
+
   ghc-options:    -threaded -rtsopts
 
 benchmark tx-cost
@@ -370,6 +372,7 @@ test-suite tests
     , plutus-tx
     , process
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , quickcheck-dynamic                                                >=3.0.3
     , quickcheck-instances
     , regex-tdfa

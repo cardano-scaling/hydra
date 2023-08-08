@@ -7,6 +7,7 @@ import qualified Data.Text as Text
 import Hydra.Network (PortNumber)
 import Network.HTTP.Types (renderStdMethod)
 import Test.QuickCheck (chooseEnum, listOf, oneof)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -33,6 +34,8 @@ instance Arbitrary APIServerLog where
       , APIConnectionError <$> arbitrary
       , APIHTTPRequestReceived <$> arbitrary <*> arbitrary
       ]
+
+instance ToADTArbitrary APIServerLog
 
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString

@@ -47,6 +47,7 @@ import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), loadAll)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- * Environment Handling
 
@@ -143,6 +144,8 @@ deriving instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
+
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => ToADTArbitrary (HydraNodeLog tx)
 
 runHydraNode ::
   ( MonadCatch m
