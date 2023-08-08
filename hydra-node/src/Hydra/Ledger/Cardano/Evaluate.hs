@@ -225,6 +225,8 @@ prepareTxScripts ::
   UTxO ->
   Either String [ByteString]
 prepareTxScripts tx utxo = do
+  pp <- left show $ toLedgerPParams (shelleyBasedEra @Era) pparams
+
   -- Tuples with scripts and their arguments collected from the tx
   results <-
     case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pp ltx lutxo of
@@ -239,12 +241,6 @@ prepareTxScripts tx utxo = do
 
   pure $ flat . UnrestrictedProgram <$> programs
  where
-  pp =
-    -- TODO: Don't forget to revisit this invocation of 'toLedgerPParams'
-    case toLedgerPParams (shelleyBasedEra @Era) pparams of
-      Left e -> error $ "toLedgerPParams failed: " <> show e
-      Right pparams' -> pparams'
-
   ltx = toLedgerTx tx
 
   lutxo = toLedgerUTxO utxo
