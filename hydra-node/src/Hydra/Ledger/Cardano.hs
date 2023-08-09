@@ -43,6 +43,7 @@ import Test.QuickCheck (
   choose,
   getSize,
   listOf,
+  oneof,
   scale,
   shrinkList,
   shrinkMapBy,
@@ -310,9 +311,18 @@ genUTxO1 gen = do
 --  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
-  (noRefScripts . noStakeRefPtr . fromLedgerTxOut <$> arbitrary)
+  (noRefScripts . noStakeRefPtr <$> gen)
     `suchThat` notByronAddress
  where
+  gen =
+    oneof
+      [ fromLedgerTxOut <$> arbitrary
+      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      ]
+
+  notMultiAsset =
+    modifyTxOutValue (lovelaceToValue . selectLovelace)
+
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True

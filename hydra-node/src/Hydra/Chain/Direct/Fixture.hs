@@ -16,10 +16,7 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  CardanoEraStyle (ShelleyBasedEra),
-  Era,
   ExecutionUnitPrices (ExecutionUnitPrices),
-  IsShelleyBasedEra (shelleyBasedEra),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -27,7 +24,6 @@ import Hydra.Cardano.Api (
   ProtocolParameters (..),
   TxIn,
   genTxIn,
-  toLedgerPParams,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
