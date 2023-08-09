@@ -81,7 +81,7 @@ library
     , aeson
     , async
     , base
-    , brick
+    , brick                   ==0.73
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-core
