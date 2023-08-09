@@ -134,6 +134,7 @@ import Hydra.Cardano.Api
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
+import Cardano.Ledger.Alonzo.TxInfo (transMintValue)
 import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Babbage.TxBody as Ledger
 import Cardano.Ledger.Binary (mkSized)
@@ -457,7 +458,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           )
         $ valueToList mint
 
-    mint = fromLedgerValue . Ledger.MaryValue 1 $ Ledger.btbMint ledgerBody
+    mint = fromPlutusValue . transMintValue $ Ledger.btbMint ledgerBody
 
     scripts' =
       map
