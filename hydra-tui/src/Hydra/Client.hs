@@ -16,7 +16,7 @@ import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
-  signTx, File (..),
+  signTx,
  )
 import Hydra.Chain.CardanoClient (submitTransaction)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)

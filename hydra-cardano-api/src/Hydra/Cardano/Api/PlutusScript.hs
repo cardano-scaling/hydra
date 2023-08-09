@@ -33,6 +33,7 @@ toLedgerScript (PlutusScriptSerialised bytes) =
   let lang = case plutusScriptVersion @lang of
         PlutusScriptV1 -> Ledger.PlutusV1
         PlutusScriptV2 -> Ledger.PlutusV2
+        PlutusScriptV3 -> Ledger.PlutusV3
    in Ledger.PlutusScript lang bytes
 
 -- | Convert a serialized plutus script into a cardano-api 'PlutusScript'.
