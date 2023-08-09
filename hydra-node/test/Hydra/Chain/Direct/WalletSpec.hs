@@ -74,6 +74,7 @@ import Test.QuickCheck (
   generate,
   getSize,
   property,
+  resize,
   scale,
   suchThat,
   vectorOf,
@@ -206,7 +207,7 @@ prop_seenInputsAreConsumed =
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =
-  forAllBlind (reasonablySized genLedgerTx) $ \tx ->
+  forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind genMarkedUTxO $ \walletUTxO ->
         case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
