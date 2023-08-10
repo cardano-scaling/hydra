@@ -15,8 +15,12 @@ let
   pkgs = import nixpkgs {
     inherit system;
     overlays = [
-      haskellNix.overlay
       iohk-nix.overlays.crypto
+      # Keep haskell.nix as the last overlay!
+      #
+      # Reason: haskell.nix modules/overlays neds to be last
+      # https://github.com/input-output-hk/haskell.nix/issues/1954
+      haskellNix.overlay
     ];
   };
 
