@@ -16,7 +16,7 @@ import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Aeson.Lens (key, _Number)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
@@ -42,7 +42,7 @@ newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
 
 data RunningNode = RunningNode
-  { nodeSocket :: FilePath
+  { nodeSocket :: SocketPath
   , networkId :: NetworkId
   }
 
@@ -265,7 +265,7 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
   socketPath = stateDirectory </> nodeSocket
 
   waitForNode = do
-    let rn = RunningNode{nodeSocket = socketPath, networkId}
+    let rn = RunningNode{nodeSocket = File socketPath, networkId}
     waitForSocket rn
     traceWith tr $ MsgSocketIsReady socketPath
     action rn
@@ -277,7 +277,7 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
 -- | Wait for the node socket file to become available.
 waitForSocket :: RunningNode -> IO ()
 waitForSocket node@RunningNode{nodeSocket} =
-  unlessM (doesFileExist nodeSocket) $ do
+  unlessM (doesFileExist $ unFile nodeSocket) $ do
     threadDelay 0.1
     waitForSocket node
 

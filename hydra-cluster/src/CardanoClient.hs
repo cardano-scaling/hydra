@@ -83,7 +83,7 @@ submitTx RunningNode{networkId, nodeSocket} =
 
 waitForPayment ::
   NetworkId ->
-  FilePath ->
+  SocketPath ->
   Lovelace ->
   Address ShelleyAddr ->
   IO UTxO
@@ -102,7 +102,7 @@ waitForPayment networkId socket amount addr =
 
 waitForUTxO ::
   NetworkId ->
-  FilePath ->
+  SocketPath ->
   UTxO ->
   IO ()
 waitForUTxO networkId nodeSocket utxo =

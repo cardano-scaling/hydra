@@ -11,13 +11,13 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
-  File (..),
   Key (..),
   NetworkId,
   PaymentKey,
   ScriptHash,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
+  SocketPath,
   TxId,
   TxIn (..),
   TxIx (..),
@@ -159,12 +159,10 @@ registryUTxO scriptRegistry =
 queryScriptRegistry ::
   (MonadIO m, MonadThrow m) =>
   NetworkId ->
-  -- XXX: Use 'SocketPath'
-  FilePath ->
+  SocketPath ->
   TxId ->
   m ScriptRegistry
-queryScriptRegistry networkId nodeSocket txId = do
-  let socketPath = File nodeSocket
+queryScriptRegistry networkId socketPath txId = do
   utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
   case newScriptRegistry utxo of
     Left e -> throwIO e
@@ -176,13 +174,11 @@ publishHydraScripts ::
   -- | Expected network discriminant.
   NetworkId ->
   -- | Path to the cardano-node's domain socket
-  -- XXX: Use 'SocketPath'
-  FilePath ->
+  SocketPath ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
   IO TxId
-publishHydraScripts networkId nodeSocket sk = do
-  let socketPath = File nodeSocket
+publishHydraScripts networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =

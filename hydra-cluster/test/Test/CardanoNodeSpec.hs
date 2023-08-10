@@ -10,7 +10,7 @@ import CardanoNode (
  )
 
 import CardanoClient (queryTipSlotNo)
-import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
 import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesFileExist)
 
@@ -29,7 +29,7 @@ spec = do
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           withCardanoNodeDevnet tr tmp $ \RunningNode{nodeSocket, networkId} -> do
-            doesFileExist nodeSocket `shouldReturn` True
+            doesFileExist (unFile nodeSocket) `shouldReturn` True
             networkId `shouldBe` Testnet (NetworkMagic 42)
             -- Should produce blocks (tip advances)
             slot1 <- queryTipSlotNo networkId nodeSocket

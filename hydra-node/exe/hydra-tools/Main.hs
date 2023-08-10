@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Crypto.Random (getRandomBytes)
 import Hydra.Cardano.Api (
+  File (..),
   SigningKey,
   getVerificationKey,
   writeFileTextEnvelope,
@@ -76,6 +77,6 @@ main = do
   case opts of
     GenerateKeyPair{outputFile} -> do
       sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
-      void $ writeFileTextEnvelope (outputFile <.> "sk") Nothing sk
-      void $ writeFileTextEnvelope (outputFile <.> "vk") Nothing (getVerificationKey sk)
+      void $ writeFileTextEnvelope (File (outputFile <.> "sk")) Nothing sk
+      void $ writeFileTextEnvelope (File (outputFile <.> "vk")) Nothing (getVerificationKey sk)
     OutputMarkerHash -> print markerDatumHash

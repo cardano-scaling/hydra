@@ -34,11 +34,11 @@ import Hydra.Cardano.Api (
   EpochSlots (..),
   EraHistory (EraHistory),
   EraInMode (BabbageEraInCardanoMode),
-  File (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  SocketPath,
   Tx,
   TxId,
   TxInMode (..),
@@ -157,18 +157,15 @@ mkTinyWallet tracer config = do
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} = config
 
-  -- XXX: Upstream 'SocketPath' further
-  socketPath = File nodeSocket
-
-  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId socketPath QueryTip
+  queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
 
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip networkId socketPath
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId socketPath (QueryAt point) [address]
-    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId socketPath (QueryAt point)
-    systemStart <- querySystemStart networkId socketPath (QueryAt point)
+      QueryTip -> queryTip networkId nodeSocket
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
+    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId nodeSocket (QueryAt point)
+    systemStart <- querySystemStart networkId nodeSocket (QueryAt point)
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
 
@@ -190,12 +187,12 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
   let persistedPoint = recordedAt chainStateAt
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip networkId socketPath) pure $ do
+  chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
     (min <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 
-  let getTimeHandle = queryTimeHandle networkId socketPath
+  let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateAt
 
   let chainHandle =
@@ -222,9 +219,6 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
  where
   DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
 
-  -- XXX: Upstream 'SocketPath' further
-  socketPath = File nodeSocket
-
   connectInfo =
     LocalNodeConnectInfo
       { -- REVIEW: This was 432000 before, but all usages in the
@@ -232,7 +226,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
         -- relevant for the Byron era.
         localConsensusModeParams = CardanoModeParams (EpochSlots 21600)
       , localNodeNetworkId = networkId
-      , localNodeSocketPath = socketPath
+      , localNodeSocketPath = nodeSocket
       }
 
   clientProtocols point queue handler =
@@ -262,7 +256,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
 
 data ConnectException = ConnectException
   { ioException :: IOException
-  , nodeSocket :: FilePath
+  , nodeSocket :: SocketPath
   , networkId :: NetworkId
   }
   deriving (Show)

@@ -217,7 +217,7 @@ withHydraCluster ::
   HasCallStack =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  FilePath ->
+  SocketPath ->
   -- | First node id
   -- This sets the starting point for assigning ports
   Int ->
@@ -236,8 +236,8 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
     failure "Not matching number of cardano/hydra keys"
 
   forM_ (zip allKeys allNodeIds) $ \((vk, sk), ix) -> do
-    let vkFile = workDir </> show ix <.> "vk"
-    let skFile = workDir </> show ix <.> "sk"
+    let vkFile = File $ workDir </> show ix <.> "vk"
+    let skFile = File $ workDir </> show ix <.> "sk"
     void $ writeFileTextEnvelope vkFile Nothing vk
     void $ writeFileTextEnvelope skFile Nothing sk
   startNodes [] allNodeIds
@@ -318,10 +318,10 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-    void $ writeFileTextEnvelope hydraSigningKey Nothing hydraSKey
+    void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
     hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
       let filepath = dir </> (show i <> ".vk")
-      filepath <$ writeFileTextEnvelope filepath Nothing vKey
+      filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
     let ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile

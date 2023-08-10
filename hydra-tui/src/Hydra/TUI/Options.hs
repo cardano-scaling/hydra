@@ -3,7 +3,7 @@ module Hydra.TUI.Options where
 import Hydra.Prelude
 
 import Data.Version (Version (Version), showVersion)
-import Hydra.Cardano.Api (NetworkId)
+import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Network (Host (Host))
 import Hydra.Options (networkIdParser)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
@@ -24,7 +24,7 @@ import Paths_hydra_tui (version)
 
 data Options = Options
   { hydraNodeHost :: Host
-  , cardanoNodeSocket :: FilePath
+  , cardanoNodeSocket :: SocketPath
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
   -- ^ User key used by the tui client to commit
@@ -56,7 +56,7 @@ parseOptions =
         <|> gitRevision
         <|> Just unknownVersion
 
-parseCardanoNodeSocket :: Parser FilePath
+parseCardanoNodeSocket :: Parser SocketPath
 parseCardanoNodeSocket =
   strOption
     ( long "node-socket"
