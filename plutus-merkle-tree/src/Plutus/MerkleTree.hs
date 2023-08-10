@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_HADDOCK prune #-}
 
 -- | A purely functional implementation of MerkleTrees that is suitable for

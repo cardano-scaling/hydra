@@ -6,7 +6,6 @@ module Validators where
 
 import PlutusTx.Prelude
 
-import Plutus.MerkleTree (member)
 import qualified Plutus.MerkleTree as MT
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import qualified PlutusTx as Plutus
@@ -20,7 +19,7 @@ merkleTreeMemberValidator =
           [||
           wrapValidator $
             \() (e, root, proof) _ctx ->
-              member e root proof
+              MT.member e root proof
           ||]
       )
 
