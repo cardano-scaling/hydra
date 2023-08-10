@@ -10,38 +10,59 @@ changes.
 
 ## [0.12.0] - UNRELEASED
 
+Tested with cardano-node version: 8.1.2
+
+- **BREAKING** Support new cardano-node versions 8.x
+
+  - Updated chain client and internal (layer 2) ledger versions to support the
+    new cardano-node versions. No direct impact on hydra clients expected.
+
+  - The JSON encoding of transaction as used at the `hydra-node` API changed
+    slightly. Verification key witnesses (`keys` field `witnesses`) are not
+    double wrapped cbor arrays anymore. Do not rely on this serialization as we
+    will change this again into a more "cardanonical" form. Alternative: Use
+    `cbor=true` query parameter to receive full CBOR encoded transactions.
+
+  - TODO: Is 1.35.7 still compatible?
+
+- **BREAKING** Changes to Hydra scripts due to upgrading our plutus version and
+  toolchain to GHC 9.2.8.
+
 - **BREAKING** Change persisted state to be a sequence of events instead. This
   increases the performance of the `hydra-node` as less data needs to be written
   and prepares internal architecture for more event-sourced improvements.
 
-- Provide option to post a signed transaction on L1 through hydra-node http endpoint.
+- New HTTP endpoint (`POST /cardano-transaction`) to submit a transaction on L1
+  through the `hydra-node`.
 
 - `Greetings` message now contains also the hydra-node version.
 
 - New HTTP endpoint (`GET /protocol-parameters`) which provides the current protocol parameters
   used by the hydra-node when validating transactions.
 
-- *Fixed bugs* in `hydra-node`:
-  + Multisignature verification would silently ignore certain keys in case the
-  list of verification keys is not of same length as the list of signatures.
+- **BREAKING** Introduce authenticated network messages [#965](965):
 
-- **BREAKING** Introduce authenticated network messages [#965](965).
   - Peers will sign messages before broadcasting them to other peers,
     and verify signature of received messages is from a known party
     and of course valid.
 
-- **BREAKING**Protocol change: Wait for all transactions requested in a snapshot
-  to be seen before acknowledging it, and only send transaction ids in snapshot
-  requests
+- **BREAKING** Layer 2 protocol change:
 
-- **BREAKING** Change to the Hydra scripts due to upgrading our plutus compiler
-  and toolchain to GHC 9.2.8.
+  - Wait for all transactions requested in a snapshot to be seen before
+    acknowledging it, and only send transaction ids in snapshot requests.
+
+- Fixed a bug in `hydra-node` (on-chain protocol not affected) where
+  multisignature verification would silently ignore certain keys in case the
+  list of verification keys is not of same length as the list of signatures.
 
 - **BREAKING** Changes to `hydra-cardano-api`:
 
   - Drop `UsingRawBytesHex` as it is available upstream in `cardano-api` now.
   - Remove `totalExecutionCost` as `cardano-ledger` provides `getMinFeeTx` now.
   - Add `BundledProtocolParameters` pattern for latest `Era` to `Hydra.Cardano.Api`.
+  - Add `ledgerEraVersion` for the latest `Era` en-/decoder version.
+  - Change `minUTxOValue` to take `BundledProtocolParameters`.
+  - Add `fromLedgerMultiAsset` helper as transactions only `mint` `MultiAsset`.
 
 ## [0.11.0] - 2023-06-30
 
