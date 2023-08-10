@@ -29,7 +29,7 @@ mkdir -p srv/bin
 )
 
 # Install cardano-node
-curl https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-8.1.2-linux.tar.gz -o src/cardano-node.tar.gz
+curl -L https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz -o src/cardano-node.tar.gz
 tar xfz src/cardano-node.tar.gz -C srv/bin
 
 cat <<EOF
