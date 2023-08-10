@@ -141,7 +141,7 @@ pparams =
                   Map.fromList [(PlutusV2, plutusV2CostModel)]
               }
       , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
-      , protocolParamProtocolVersion = (7, 0)
+      , protocolParamProtocolVersion = (8, 0)
       }
 
   ledgerPParams =

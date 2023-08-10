@@ -274,7 +274,7 @@ pparams =
             { executionMemory = 62_000_000
             , executionSteps = 40_000_000_000
             }
-    , protocolParamProtocolVersion = (7, 0)
+    , protocolParamProtocolVersion = (8, 0)
     , protocolParamMaxTxSize = maxTxSize
     , protocolParamMaxValueSize = Just 1000000000
     , protocolParamTxFeePerByte = 44 -- a
