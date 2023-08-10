@@ -97,9 +97,9 @@ function publishReferenceScripts() {
 }
 
 echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
-seedFaucet "alice" 20000000 # 20 Ada fuel available to the node
-seedFaucet "bob" 20000000 # 20 Ada fuel available to the node
-seedFaucet "carol" 20000000 # 20 Ada fuel available to the node
+seedFaucet "alice" 30000000 # 30 Ada fuel available to the node
+seedFaucet "bob" 30000000 # 30 Ada fuel available to the node
+seedFaucet "carol" 30000000 # 30 Ada fuel available to the node
 echo >&2 "Distributing funds to alice, bob and carol..."
 seedFaucet "alice-funds" 100000000 # 100 Ada to commit
 seedFaucet "bob-funds" 50000000 # 50 Ada to commit

@@ -10,9 +10,7 @@ changes.
 
 ## [0.12.0] - UNRELEASED
 
-Tested with cardano-node version: 8.1.2
-
-- **BREAKING** Support new cardano-node versions 8.x
+- **BREAKING** Support new cardano-node version 8.1.2
 
   - Updated chain client and internal (layer 2) ledger versions to support the
     new cardano-node versions. No direct impact on hydra clients expected.
@@ -23,7 +21,7 @@ Tested with cardano-node version: 8.1.2
     will change this again into a more "cardanonical" form. Alternative: Use
     `cbor=true` query parameter to receive full CBOR encoded transactions.
 
-  - TODO: Is 1.35.7 still compatible?
+- The last stable cardano-node version 1.35.7 is not compatible anymore.
 
 - **BREAKING** Changes to Hydra scripts due to upgrading our plutus version and
   toolchain to GHC 9.2.8.
