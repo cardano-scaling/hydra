@@ -73,6 +73,13 @@ fromLedgerValue :: Ledger.MaryValue StandardCrypto -> Value
 fromLedgerValue =
   fromMaryValue
 
+-- | Convert a cardano-ledger 'MultiAsset' into a cardano-api 'Value'. The
+-- cardano-api currently does not have an asset-only type. So this conversion
+-- will construct a 'Value' with no 'AdaAssetId' entry in it.
+fromLedgerMultiAsset :: Ledger.MultiAsset StandardCrypto -> Value
+fromLedgerMultiAsset =
+  fromMaryValue . Ledger.MaryValue 0
+
 -- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.
 toLedgerValue :: Value -> Ledger.MaryValue StandardCrypto
 toLedgerValue =

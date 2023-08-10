@@ -226,7 +226,7 @@ instance ToJSON (Ledger.BabbageTxBody LedgerEra) where
         , onlyIf (const True) "fees" (Ledger.txfee' b)
         , onlyIf (not . isOpenInterval) "validity" (Ledger.vldt' b)
         , onlyIf (not . null) "requiredSignatures" (Ledger.reqSignerHashes' b)
-        , onlyIf (/= mempty) "mint" (fromLedgerValue $ Ledger.MaryValue 0 (Ledger.mint' b))
+        , onlyIf (/= mempty) "mint" (fromLedgerMultiAsset (Ledger.mint' b))
         , onlyIf isSJust "scriptIntegrityHash" (Ledger.scriptIntegrityHash' b)
         , onlyIf isSJust "auxiliaryDataHash" (Ledger.adHash' b)
         , onlyIf isSJust "networkId" (Ledger.txnetworkid' b)
