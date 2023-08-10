@@ -6,9 +6,9 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Shelley.API (mkShelleyGlobals)
 import Data.Text (unpack)
-import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, protocolParamProtocolVersion, utxoFromTx)
+import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
@@ -25,9 +25,7 @@ import Hydra.Ledger.Cardano.Configuration (
   newLedgerEnv,
   protocolParametersFromJson,
   readJsonFileThrow,
-  shelleyGenesisFromJson,
  )
-import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (
   Positive (Positive),
@@ -39,14 +37,6 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = parallel $ do
-  describe "ShelleyGenesis" $ do
-    it "can be read from JSON" $ do
-      bytes <- readConfigFile "devnet/genesis-shelley.json"
-      case Json.eitherDecodeStrict' bytes of
-        Left err -> fail err
-        Right json -> do
-          Json.parseEither shelleyGenesisFromJson json `shouldSatisfy` isRight
-
   roundtripSpecs (Proxy @Dataset)
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
 
@@ -56,10 +46,6 @@ prop_keepsUTxOConstant =
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
-      shelleyGenesis <- readJsonFileThrow shelleyGenesisFromJson "config/devnet/genesis-shelley.json"
-      let (majV, _) = protocolParamProtocolVersion Fixture.pparams
-      let globals = mkShelleyGlobals shelleyGenesis Fixture.epochInfo majV
-
       ledgerEnv <-
         newLedgerEnv
           <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"
@@ -68,7 +54,7 @@ prop_keepsUTxOConstant =
         forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $
           \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
-                finalUTxO = foldl' (apply globals ledgerEnv) initialUTxO txSequence
+                finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
              in length finalUTxO == length initialUTxO
                   & counterexample ("transactions: " <> prettyJSONString txSequence)
                   & counterexample ("utxo: " <> prettyJSONString initialUTxO)
@@ -79,9 +65,6 @@ apply globals ledgerEnv utxo tx =
   case applyTransactions (cardanoLedger globals ledgerEnv) (ChainSlot 0) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
-
-shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis StandardCrypto)
-shelleyGenesisFromJson = parseJSON
 
 prettyJSONString :: ToJSON a => a -> String
 prettyJSONString = unpack . decodeUtf8 . prettyPrintJSON
