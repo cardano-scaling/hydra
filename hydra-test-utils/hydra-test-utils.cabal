@@ -61,7 +61,7 @@ library
     , hydra-cardano-api
     , hydra-prelude
     , network
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
+    , plutus-ledger-api      >=1.1.1.0
     , plutus-tx
     , port-utils
     , process
