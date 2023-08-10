@@ -13,7 +13,8 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Babbage.PParams (BabbagePParams)
+import Cardano.Ledger.Babbage.Core (PParams)
+import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import GHC.Natural (wordToNatural)
@@ -37,7 +38,6 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (Property, choose, counterexample, elements, forAll, getPositive, label, property, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Instances.Semigroup ()
 
@@ -79,14 +79,15 @@ spec =
                                           ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
-                                Right (fromLedgerTx -> txAbortWithFees) ->
-                                  let actualExecutionCost = totalExecutionCost ledgerPParams txAbortWithFees
-                                      fee = txFee' txAbortWithFees
+                                Right ledgerTx ->
+                                  let actualExecutionCost = fromLedgerCoin $ getMinFeeTx ledgerPParams ledgerTx
+                                      fee = txFee' apiTx
+                                      apiTx = fromLedgerTx ledgerTx
                                    in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
                                         & label "Ok"
                                         & counterexample ("Execution cost: " <> show actualExecutionCost)
                                         & counterexample ("Fee: " <> show fee)
-                                        & counterexample ("Tx: " <> show txAbortWithFees)
+                                        & counterexample ("Tx: " <> show apiTx)
                                         & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
                     Left e ->
                       property False
@@ -135,8 +136,8 @@ spec =
                     & counterexample (renderTx tx)
                     & counterexample (show e)
 
-ledgerPParams :: BabbagePParams LedgerEra
-ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) pparams
+ledgerPParams :: PParams LedgerEra
+ledgerPParams = either (error . show) id $ toLedgerPParams (shelleyBasedEra @Era) pparams
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =

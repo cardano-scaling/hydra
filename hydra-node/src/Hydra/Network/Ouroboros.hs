@@ -93,12 +93,13 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
   unversionedProtocol,
   unversionedProtocolDataCodec,
  )
-import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion, queryVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (makeSocketBearer, socketSnocket)
 import Ouroboros.Network.Socket (
   AcceptConnectionsPolicyTrace,
   ConnectionId (..),
+  HandshakeCallbacks (..),
   NetworkConnectTracers (..),
   NetworkServerTracers (..),
   SomeResponderApplication (..),
@@ -175,7 +176,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       noTimeLimitsHandshake
       unversionedProtocolDataCodec
       networkConnectTracers
-      acceptableVersion
+      (HandshakeCallbacks acceptableVersion queryVersion)
       (unversionedProtocol (app chan))
       sn
    where
@@ -201,7 +202,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         unversionedHandshakeCodec
         noTimeLimitsHandshake
         unversionedProtocolDataCodec
-        acceptableVersion
+        (HandshakeCallbacks acceptableVersion queryVersion)
         (unversionedProtocol (SomeResponderApplication app))
         nullErrorPolicies
       $ \_addr serverAsync -> do
@@ -382,6 +383,10 @@ encodeTraceSendRecvHandshake = \case
       ]
     MsgReplyVersions versions ->
       [ "tag" .= ("ReplyVersions" :: String)
+      , "versions" .= (show <$> Map.keys versions :: [Text])
+      ]
+    MsgQueryReply versions ->
+      [ "tag" .= ("MsgQueryReply" :: String)
       , "versions" .= (show <$> Map.keys versions :: [Text])
       ]
 

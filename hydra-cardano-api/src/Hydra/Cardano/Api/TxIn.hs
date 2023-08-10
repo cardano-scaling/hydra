@@ -4,9 +4,9 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Binary (unsafeDeserialize')
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import qualified Cardano.Ledger.Binary as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.Set as Set
@@ -59,11 +59,13 @@ toPlutusTxOutRef = Ledger.txInfoIn' . toLedgerTxIn
 -- * Arbitrary values
 
 -- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
+-- NOTE: This is using the Cardano ledger's deserialization framework using the
+-- latest protocol version via 'maxBound'.
 genTxIn :: Gen TxIn
 genTxIn =
   fmap fromLedgerTxIn . Ledger.TxIn
     -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
-    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
+    <$> fmap (Ledger.unsafeDeserialize' maxBound . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap Ledger.TxIx (choose (0, 99))
 
 instance Arbitrary TxIn where

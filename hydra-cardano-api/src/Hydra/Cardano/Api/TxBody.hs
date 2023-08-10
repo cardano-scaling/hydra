@@ -8,8 +8,8 @@ import Hydra.Cardano.Api.ScriptData (FromScriptData)
 import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import Hydra.Cardano.Api.Value (toLedgerPolicyID)
 
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import qualified Cardano.Ledger.Core as Ledger

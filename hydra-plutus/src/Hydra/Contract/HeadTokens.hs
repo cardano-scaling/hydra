@@ -2,6 +2,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+-- Avoid trace calls to be optimized away when inlining functions.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:no-simplifier-inline #-}
+-- Plutus core version to compile to. In babbage era, that is Cardano protocol
+-- version 7 and 8, only plutus-core version 1.0.0 is available.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
@@ -27,6 +32,7 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), findDatum, ownCurrencySymbol, scriptOutputsAt)
 import Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
+import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.V2 (
   Datum (getDatum),
   FromData (fromBuiltinData),
@@ -149,21 +155,21 @@ validateTokensBurning context =
   burnHeadTokens =
     case Map.lookup currency minted of
       Nothing -> False
-      Just tokenMap -> all (< 0) tokenMap
+      Just tokenMap -> Map.all (< 0) tokenMap
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.applyCode` PlutusTx.liftCode Initial.validatorHash
-    `PlutusTx.applyCode` PlutusTx.liftCode Head.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Initial.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Head.validatorHash
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> SerialisedScript
 mintingPolicyScript txOutRef =
   serialiseCompiledCode $
     unappliedMintingPolicy
-      `PlutusTx.applyCode` PlutusTx.liftCode txOutRef
+      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 txOutRef
 
 -- * Create PolicyId
 

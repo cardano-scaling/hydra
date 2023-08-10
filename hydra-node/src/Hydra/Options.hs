@@ -19,9 +19,11 @@ import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
+  File (..),
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
+  SocketPath,
   TxId (..),
   deserialiseFromRawBytes,
   deserialiseFromRawBytesHex,
@@ -128,7 +130,7 @@ commandParser =
 
 data PublishOptions = PublishOptions
   { publishNetworkId :: NetworkId
-  , publishNodeSocket :: FilePath
+  , publishNodeSocket :: SocketPath
   , publishSigningKey :: FilePath
   }
   deriving (Show, Eq)
@@ -248,7 +250,7 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig = DirectChainConfig
   { networkId :: NetworkId
   -- ^ Network identifer to which we expect to connect.
-  , nodeSocket :: FilePath
+  , nodeSocket :: SocketPath
   -- ^ Path to a domain socket used to connect to the server.
   , cardanoSigningKey :: FilePath
   -- ^ Path to the cardano signing key of the internal wallet.
@@ -274,7 +276,7 @@ defaultChainConfig =
 instance Arbitrary ChainConfig where
   arbitrary = do
     networkId <- Testnet . NetworkMagic <$> arbitrary
-    nodeSocket <- genFilePath "socket"
+    nodeSocket <- File <$> genFilePath "socket"
     cardanoSigningKey <- genFilePath ".sk"
     cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
     startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
@@ -326,7 +328,7 @@ networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
               \network. See https://book.world.dev.cardano.org/environments.html for available networks."
         )
 
-nodeSocketParser :: Parser FilePath
+nodeSocketParser :: Parser SocketPath
 nodeSocketParser =
   strOption
     ( long "node-socket"
@@ -690,7 +692,7 @@ toArgs
 
     argsChainConfig =
       toArgNetworkId networkId
-        <> ["--node-socket", nodeSocket]
+        <> ["--node-socket", unFile nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> ["--contestation-period", show contestationPeriod]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys

@@ -34,10 +34,10 @@ hasST headPolicyId v =
 mustBurnST :: Value -> CurrencySymbol -> Bool
 mustBurnST val headCurrencySymbol =
   case Map.lookup headCurrencySymbol (getValue val) of
-    Nothing -> True
+    Nothing -> False
     Just tokenMap ->
       case Map.lookup (TokenName hydraHeadV1) tokenMap of
-        Nothing -> True
+        Nothing -> False
         Just v -> v == negate 1
 {-# INLINEABLE mustBurnST #-}
 

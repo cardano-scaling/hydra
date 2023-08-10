@@ -71,6 +71,8 @@ emptyTxBody =
     TxUpdateProposalNone
     TxMintValueNone
     TxScriptValidityNone
+    TxGovernanceActionsNone
+    TxVotesNone
 
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx

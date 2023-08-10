@@ -7,7 +7,7 @@ import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Pretty as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import qualified Data.ByteString as BS
-import Data.ByteString.Base16 (encodeBase16)
+import qualified Data.ByteString.Base16 as Base16
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodeBool,
@@ -63,7 +63,7 @@ propCompareWithOracle encodeOracle encodeOurs x =
   )
     & counterexample ("value: " <> show x)
     & counterexample ("\n─── cborg: \n" <> CBOR.prettyHexEnc oracle)
-    & counterexample ("\n─── ours: \n" <> toString (encodeBase16 $ Plutus.fromBuiltin ours))
+    & counterexample ("\n─── ours: \n" <> decodeUtf8 (Base16.encode (Plutus.fromBuiltin ours)))
  where
   oracle = encodeOracle x
   ours = encodingToBuiltinByteString (encodeOurs x)

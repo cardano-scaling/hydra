@@ -20,6 +20,7 @@ module Hydra.Cardano.Api (
   StandardCrypto,
   Era,
   LedgerEra,
+  ledgerEraVersion,
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -39,6 +40,7 @@ import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
+  BundledProtocolParameters (..),
   Key (..),
   KeyWitness,
   PlutusScript,
@@ -67,6 +69,10 @@ import Cardano.Api as X hiding (
   Witness (..),
   multiAssetSupportedInEra,
   policyId,
+  queryEraHistory,
+  queryProtocolParameters,
+  queryStakePools,
+  querySystemStart,
   scriptDataSupportedInEra,
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
@@ -104,6 +110,7 @@ import Hydra.Cardano.Api.Prelude (
   LedgerEra,
   Map,
   StandardCrypto,
+  ledgerEraVersion,
  )
 
 import Hydra.Cardano.Api.Address ()
@@ -135,7 +142,6 @@ import Hydra.Cardano.Api.TxOutDatum as Extras
 import Hydra.Cardano.Api.TxOutValue as Extras
 import Hydra.Cardano.Api.TxScriptValidity as Extras
 import Hydra.Cardano.Api.UTxO as Extras
-import Hydra.Cardano.Api.UsingRawBytesHex as Extras
 import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.VerificationKey ()
@@ -143,11 +149,12 @@ import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxAuxData as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
-import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
+import qualified Cardano.Ledger.Keys.WitVKey as Ledger
 import Data.ByteString.Short (ShortByteString)
 import Prelude
 
@@ -200,6 +207,20 @@ pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOu
   where
     BalancedTxBody =
       Cardano.Api.BalancedTxBody
+
+-- ** BundledProtocolParameters
+
+type BundledProtocolParameters = Cardano.Api.BundledProtocolParameters Era
+
+pattern BundleAsShelleyBasedProtocolParameters ::
+  ProtocolParameters ->
+  Ledger.PParams LedgerEra ->
+  BundledProtocolParameters
+pattern BundleAsShelleyBasedProtocolParameters{shelleyPParams, ledgerParams} <-
+  Cardano.Api.Shelley.BundleAsShelleyBasedProtocolParameters _ shelleyPParams ledgerParams
+  where
+    BundleAsShelleyBasedProtocolParameters =
+      Cardano.Api.BundleAsShelleyBasedProtocolParameters ShelleyBasedEraBabbage
 
 -- ** KeyWitness
 
@@ -308,7 +329,7 @@ pattern ShelleyTxBody ::
   Ledger.TxBody LedgerEra ->
   [Ledger.Script LedgerEra] ->
   TxBodyScriptData ->
-  Maybe (Ledger.AuxiliaryData LedgerEra) ->
+  Maybe (Ledger.AlonzoTxAuxData LedgerEra) ->
   TxScriptValidity ->
   TxBody
 pattern ShelleyTxBody
@@ -381,6 +402,8 @@ pattern TxBodyContent ::
   TxUpdateProposal Era ->
   TxMintValue build ->
   TxScriptValidity ->
+  TxGovernanceActions Era ->
+  TxVotes Era ->
   TxBodyContent build
 pattern TxBodyContent
   { txIns
@@ -400,6 +423,8 @@ pattern TxBodyContent
   , txUpdateProposal
   , txMintValue
   , txScriptValidity
+  , txGovernanceActions
+  , txVotes
   } <-
   Cardano.Api.TxBodyContent
     txIns
@@ -419,6 +444,8 @@ pattern TxBodyContent
     txUpdateProposal
     txMintValue
     txScriptValidity
+    txGovernanceActions
+    txVotes
   where
     TxBodyContent = Cardano.Api.TxBodyContent
 

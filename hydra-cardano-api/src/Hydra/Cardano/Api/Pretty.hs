@@ -7,7 +7,7 @@ import Hydra.Cardano.Api.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Data.Aeson as Aeson
@@ -17,7 +17,6 @@ import Data.List (intercalate, sort, sortBy)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
-import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
 
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Api.Tx -> String

@@ -104,8 +104,8 @@ main = do
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
-    let PublishOptions{publishNetworkId = networkId, publishNodeSocket = nodeSocket} = opts
-    txId <- publishHydraScripts networkId nodeSocket sk
+    let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
+    txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
 
   withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
@@ -118,7 +118,7 @@ main = do
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-    let ledgerEnv = newLedgerEnv protocolParams
+    ledgerEnv <- newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
 identifyNode :: RunOptions -> RunOptions

@@ -169,7 +169,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
         v ^? key "contestationDeadline" . _JSON
       -- Expect to see ReadyToFanout within 600 seconds after deadline.
       -- XXX: We still would like to have a network-specific time here
-      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
       waitFor tracer (remainingTime + 60) [n1] $
         output "ReadyToFanout" ["headId" .= headId]
       send n1 $ input "Fanout" []

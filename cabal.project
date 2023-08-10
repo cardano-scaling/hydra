@@ -11,10 +11,9 @@ repository cardano-haskell-packages
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
 -- See CONTRIBUTING.md for information about when and how to update these.
-
 index-state:
-  , hackage.haskell.org 2023-04-21T02:04:45Z
-  , cardano-haskell-packages 2023-03-21T14:44:35Z
+  , hackage.haskell.org 2023-08-02T06:54:18Z
+  , cardano-haskell-packages 2023-08-01T16:16:59Z
 
 packages:
   hydra-prelude
@@ -51,43 +50,3 @@ package strict-containers
 
 -- Always show detailed output for tests
 test-show-details: direct
-
--- XXX: Latest cardano-api is not on CHaP yet
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-node.git
-  tag: 2dcdbb7bafb5045aa3565c1b41858af07d2da631
-  --sha256: 10k4nk7mmy62fw2y095rrbxzsaxvj3jb822a1fmhh8z2zqa1hvhj
-  subdir:
-    cardano-api
-
--- XXX: Needed to export mkTermToEvaluate on plutus 1.1.1.0
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/plutus.git
-  tag: 50684b9c983b859ca9a4168a662d52e8bf02a6ab
-  --sha256: 1jhvb7jq75rr45k7mgjvbrf1n8lam80d1crci0x1sx63r7q9zv45
-  subdir:
-    plutus-ledger-api
-
-constraints:
-  -- For ouroboros-consensus-0.3.0.0
-  unix-bytestring < 0.4
-
--- Constraints / allow-newer from cardano-node
-allow-newer:
-  -- ekg does not suport aeson 2: https://github.com/tibbe/ekg/issues/90
-    ekg:aeson
-  -- ekg does not suport newer snap
-  , ekg:snap-server
-  , ekg:snap-core
-  -- cardano-node-capi depends on aeson > 2.1, even our patched ekg-json only
-  -- supports between 2 and 2.1
-  , ekg-json:aeson
-  -- These are currently required for 9.2.
-  , enumerator:base
-  , MonadCatchIO-transformers:base
-  , katip:Win32
-  , ekg:base
-  , ekg:time
-  , libsystemd-journal:base

@@ -4,6 +4,7 @@
   "ByronGenesisFile": "genesis-byron.json",
   "ShelleyGenesisFile": "genesis-shelley.json",
   "AlonzoGenesisFile": "genesis-alonzo.json",
+  "ConwayGenesisFile": "genesis-conway.json",
 
   "ApplicationName": "cardano-sl",
   "ApplicationVersion": 1,
@@ -74,6 +75,6 @@
     }
   },
 
-  "TestEnableDevelopmentHardForkEras": true,
-  "TestEnableDevelopmentNetworkProtocols": true
+  "ExperimentalHardForksEnabled": true,
+  "ExperimentalProtocolsEnabled": true
 }

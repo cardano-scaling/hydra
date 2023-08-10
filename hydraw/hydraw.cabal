@@ -55,7 +55,6 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , containers
     , hydra-cardano-api
     , hydra-node

@@ -1,6 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -38,6 +38,7 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  SocketPath,
   Tx,
   TxId,
   TxInMode (..),
@@ -46,11 +47,9 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  shelleyBasedEra,
-  toLedgerPParams,
   toLedgerUTxO,
+  pattern BundleAsShelleyBasedProtocolParameters,
  )
-import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain (
   ChainComponent,
   ChainStateType,
@@ -105,7 +104,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 -- | Defines the starting state of the direct chain layer.
 initialChainState :: ChainStateType Tx
@@ -166,7 +164,7 @@ mkTinyWallet tracer config = do
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
-    pparams <- toLedgerPParams (shelleyBasedEra @Api.Era) <$> queryProtocolParameters networkId nodeSocket (QueryAt point)
+    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId nodeSocket (QueryAt point)
     systemStart <- querySystemStart networkId nodeSocket (QueryAt point)
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
@@ -258,7 +256,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
 
 data ConnectException = ConnectException
   { ioException :: IOException
-  , nodeSocket :: FilePath
+  , nodeSocket :: SocketPath
   , networkId :: NetworkId
   }
   deriving (Show)

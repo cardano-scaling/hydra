@@ -17,12 +17,11 @@ import CardanoClient (
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
-import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
   lovelaceToValue,
   txOutValue,
-  unsafeDeserialiseFromRawBytesBase16,
+  unFile,
  )
 import Hydra.Chain (
   Chain (..),
@@ -309,7 +308,7 @@ spec = around showLogsOnFailure $ do
         seedFromFaucet_ node aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
-        let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
+        let headerHash = fromString (replicate 64 '0')
         let fakeTip = ChainPoint 42 headerHash
         aliceChainConfig <-
           chainConfigFor Alice tmp nodeSocket [] cperiod
@@ -331,14 +330,14 @@ spec = around showLogsOnFailure $ do
                 "hydra-node"
                 ( "publish-scripts"
                     : mconcat
-                      [ ["--node-socket", nodeSocket]
+                      [ ["--node-socket", unFile nodeSocket]
                       , toArgNetworkId networkId
                       , ["--cardano-signing-key", cardanoSigningKey]
                       ]
                 )
             )
             ""
-        let hydraScriptsTxId = unsafeDeserialiseFromRawBytesBase16 (encodeUtf8 hydraScriptsTxIdStr)
+        let hydraScriptsTxId = fromString hydraScriptsTxIdStr
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do

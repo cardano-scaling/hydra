@@ -10,6 +10,7 @@ module Hydra.Cardano.Api.Prelude (
   StandardCrypto,
   Era,
   LedgerEra,
+  ledgerEraVersion,
   UsesStandardCrypto,
   Text,
   decodeUtf8,
@@ -41,8 +42,10 @@ import Cardano.Api.Shelley hiding (
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Babbage as Ledger
+import qualified Cardano.Ledger.Binary as Ledger
+import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
-import qualified Cardano.Ledger.Era as Ledger.Era
+import Cardano.Ledger.Era (EraCrypto)
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
@@ -57,10 +60,14 @@ import Test.QuickCheck (Arbitrary (..), Gen)
 
 type Era = BabbageEra
 
+-- | Currently supported ledger era.
 type LedgerEra = Ledger.BabbageEra StandardCrypto
 
-type UsesStandardCrypto era =
-  (Ledger.Era.Crypto (ShelleyLedgerEra era) ~ StandardCrypto)
+type UsesStandardCrypto era = (EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
+
+-- | Associated version for the fixed 'LedgerEra'.
+ledgerEraVersion :: Ledger.Version
+ledgerEraVersion = Ledger.eraProtVerLow @LedgerEra
 
 -- | Interpret some raw 'ByteString' as a particular 'Hash'.
 --

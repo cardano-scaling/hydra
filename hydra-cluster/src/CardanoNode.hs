@@ -16,7 +16,7 @@ import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 import Data.Aeson.Lens (key, _Number)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), NetworkId, PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
@@ -42,7 +42,7 @@ newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
 
 data RunningNode = RunningNode
-  { nodeSocket :: FilePath
+  { nodeSocket :: SocketPath
   , networkId :: NetworkId
   }
 
@@ -65,6 +65,7 @@ data CardanoNodeArgs = CardanoNodeArgs
   , nodeByronGenesisFile :: FilePath
   , nodeShelleyGenesisFile :: FilePath
   , nodeAlonzoGenesisFile :: FilePath
+  , nodeConwayGenesisFile :: FilePath
   , nodeTopologyFile :: FilePath
   , nodeDatabaseDir :: FilePath
   , nodeDlgCertFile :: Maybe FilePath
@@ -83,6 +84,7 @@ defaultCardanoNodeArgs =
     , nodeByronGenesisFile = "genesis-byron.json"
     , nodeShelleyGenesisFile = "genesis-shelley.json"
     , nodeAlonzoGenesisFile = "genesis-alonzo.json"
+    , nodeConwayGenesisFile = "genesis-conway.json"
     , nodeTopologyFile = "topology.json"
     , nodeDatabaseDir = "db"
     , nodeDlgCertFile = Nothing
@@ -168,6 +170,9 @@ withCardanoNodeDevnet tracer stateDirectory action = do
     readConfigFile ("devnet" </> "genesis-alonzo.json")
       >>= writeFileBS
         (stateDirectory </> nodeAlonzoGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-conway.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConwayGenesisFile args)
 
   writeTopology peers args =
     Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
@@ -196,6 +201,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeByronGenesisFile = "genesis/byron.json"
       , nodeShelleyGenesisFile = "genesis/shelley.json"
       , nodeAlonzoGenesisFile = "genesis/alonzo.json"
+      , nodeConwayGenesisFile = "genesis/conway.json"
       }
 
   -- Read 'NetworkId' from shelley genesis
@@ -259,7 +265,7 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
   socketPath = stateDirectory </> nodeSocket
 
   waitForNode = do
-    let rn = RunningNode{nodeSocket = socketPath, networkId}
+    let rn = RunningNode{nodeSocket = File socketPath, networkId}
     waitForSocket rn
     traceWith tr $ MsgSocketIsReady socketPath
     action rn
@@ -271,7 +277,7 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
 -- | Wait for the node socket file to become available.
 waitForSocket :: RunningNode -> IO ()
 waitForSocket node@RunningNode{nodeSocket} =
-  unlessM (doesFileExist nodeSocket) $ do
+  unlessM (doesFileExist $ unFile nodeSocket) $ do
     threadDelay 0.1
     waitForSocket node
 

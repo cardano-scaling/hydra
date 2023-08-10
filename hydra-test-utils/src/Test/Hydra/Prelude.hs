@@ -22,7 +22,6 @@ import Hydra.Prelude
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
-import Control.Monad.Class.MonadTimer (timeout)
 import Data.Ratio ((%))
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
@@ -34,8 +33,8 @@ import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
+import Test.Hspec.Api.Formatters.V1 (formatterToFormat, specdoc)
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
-import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
 import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
 import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)

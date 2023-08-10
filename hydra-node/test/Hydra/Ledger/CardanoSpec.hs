@@ -11,10 +11,12 @@ import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens (key)
 import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
+import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
@@ -24,10 +26,11 @@ import Hydra.Ledger.Cardano (
   genUTxOAdaOnlyOfSize,
   genUTxOAlonzo,
   genUTxOFor,
+  genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Cardano.Ledger.MaryEraGen ()
+import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
 import Test.Util (propCollisionResistant)
 
@@ -36,38 +39,50 @@ spec =
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @AssetName)
     -- FIXME: Roundtrip instances for all JSON types we depend on
-    roundtripAndGoldenSpecs (Proxy @UTxO)
-    -- roundtripAndGoldenSpecs (Proxy @TxWitnesses)
-    roundtripAndGoldenSpecs (Proxy @Tx)
 
-    prop "Same TxId before/after JSON encoding" roundtripTxId
+    describe "UTxO" $ do
+      roundtripAndGoldenSpecs (Proxy @UTxO)
 
-    prop "Roundtrip to and from Ledger" roundtripLedger
+      prop "JSON encoding of UTxO according to schema" $
+        prop_validateJSONSchema @UTxO "api.json" $
+          key "components" . key "schemas" . key "UTxO"
 
-    prop "CBOR encoding of Tx" $ roundtripCBOR @Tx
+      -- TODO(SN): rather ensure we use bech32 for addresses as a test
+      it "parses a specific UTxO" $ do
+        let bs =
+              "{\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\":\
+              \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
+              \   \"value\":{\"lovelace\":14}}}"
+        shouldParseJSONAs @UTxO bs
 
-    prop "applies valid transaction" appliesValidTransaction
+    describe "Tx" $ do
+      roundtripAndGoldenSpecs (Proxy @Tx)
 
-    prop "applies valid transaction serialised from JSON" appliesValidTransactionFromJSON
+      prop "Same TxId before/after JSON encoding" roundtripTxId
 
-    -- TODO(SN): rather ensure we use bech32 for addresses as a test
-    it "should parse a Cardano.UTxO" $ do
-      let bs =
-            "{\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\":\
-            \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
-            \   \"value\":{\"lovelace\":14}}}"
-      shouldParseJSONAs @UTxO bs
+      prop "Roundtrip to and from Ledger" roundtripLedger
 
-    -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
-    it "should parse a Tx" $ do
-      let bs =
-            "{\"witnesses\":\
-            \    {\"keys\": [\"8200825820db995fe25169d141cab9bbba92baa01f9f2e1ece7df4cb2ac05190f37fcc1f9d58400599ccd0028389216631446cf0f9a4b095bbed03c25537595aa5a2e107e3704a55050c4ee5198a0aa9fc88007791ef9f3847cd96f3cb9a430d1c2d81c817480c\"]\
-            \    },\
-            \ \"body\":{\"outputs\":[{\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\"value\":{\"lovelace\":14}}],\
-            \ \"inputs\":[\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\"]},\
-            \ \"auxiliaryData\":null}"
-      shouldParseJSONAs @Tx bs
+      prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
+
+      prop "JSON encoding of Tx according to schema" $
+        prop_validateJSONSchema @Tx "api.json" $
+          key "components" . key "schemas" . key "Transaction"
+
+      -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
+      it "parses a specific Tx" $ do
+        let bs =
+              "{\"witnesses\":\
+              \    {\"keys\": [\"825820db995fe25169d141cab9bbba92baa01f9f2e1ece7df4cb2ac05190f37fcc1f9d58400599ccd0028389216631446cf0f9a4b095bbed03c25537595aa5a2e107e3704a55050c4ee5198a0aa9fc88007791ef9f3847cd96f3cb9a430d1c2d81c817480c\"]\
+              \    },\
+              \ \"body\":{\"outputs\":[{\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\"value\":{\"lovelace\":14}}],\
+              \           \"inputs\":[\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\"]\
+              \          }\
+              \ }"
+        shouldParseJSONAs @Tx bs
+
+    describe "applyTransactions" $ do
+      prop "works with valid transaction" appliesValidTransaction
+      prop "works with valid transaction deserialised from JSON" appliesValidTransactionFromJSON
 
     describe "Generators" $ do
       propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
@@ -79,9 +94,13 @@ spec =
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))
 
-      describe "genTxOut" $ do
+      describe "genTxOut" $
         it "does generate good values" $
-          forAll genTxOut prop_generatesGoodTxOut
+          forAll genTxOut propGeneratesGoodTxOut
+
+      describe "genValue" $
+        it "produces realistic values" $
+          forAll genValue propRealisticValue
 
     describe "Evaluate helpers" $
       prop "slotNoFromUTCTime . slotNoToUTCTime === id" $ \slot ->
@@ -143,14 +162,25 @@ propDoesNotCollapse name gen =
     forAll (vectorOf 100 gen) $ \xs ->
       sum (length <$> xs) === length (fold xs)
 
+-- | A transaction or transaction output can usually only contain a realistic
+-- number of native asset entries. This property checks a realistic order of
+-- magnitude (100).
+propRealisticValue :: Value -> Property
+propRealisticValue value =
+  numberOfAssets < 100
+    & counterexample ("too many individual assets: " <> show numberOfAssets)
+ where
+  numberOfAssets = length (valueToList value)
+
 -- | Check that the given 'TxOut' fulfills several requirements and does not use
 -- unsupported features. See 'genTxOut' for rationale.
-prop_generatesGoodTxOut :: TxOut CtxUTxO -> Property
-prop_generatesGoodTxOut txOut =
+propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
+propGeneratesGoodTxOut txOut =
   checkCoverage $
     conjoin
       [ propNoReferenceScript
       , propNoByronAddress
+      , propRealisticValue (txOutValue txOut)
       ]
       & cover 5 hasDatum "has datum"
       & cover 5 isVKOutput "is VK output"

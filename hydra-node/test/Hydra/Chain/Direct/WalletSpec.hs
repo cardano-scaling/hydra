@@ -6,14 +6,14 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Data (Data (Data), Datum (DatumHash), hashData)
+import Cardano.Ledger.Alonzo.Scripts.Data (Data (Data), Datum (DatumHash), hashData)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams, Tx, Value)
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Serialization (mkSized)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
@@ -35,6 +35,7 @@ import Hydra.Cardano.Api (
   fromLedgerTxOut,
   fromLedgerUTxO,
   genTxIn,
+  ledgerEraVersion,
   selectLovelace,
   shelleyBasedEra,
   toLedgerPParams,
@@ -62,8 +63,6 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -75,6 +74,7 @@ import Test.QuickCheck (
   generate,
   getSize,
   property,
+  resize,
   scale,
   suchThat,
   vectorOf,
@@ -207,7 +207,7 @@ prop_seenInputsAreConsumed =
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =
-  forAllBlind (reasonablySized genLedgerTx) $ \tx ->
+  forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind genMarkedUTxO $ \walletUTxO ->
         case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
@@ -225,7 +225,7 @@ isBalanced utxo originalTx balancedTx =
   let inp' = knownInputBalance utxo balancedTx
       out' = outputBalance balancedTx
       out = outputBalance originalTx
-      fee = (txfee . body) balancedTx
+      fee = (btbTxFee . body) balancedTx
    in coin (deltaValue out' inp') == fee
         & counterexample ("Fee:             " <> show fee)
         & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
@@ -234,7 +234,7 @@ isBalanced utxo originalTx balancedTx =
         & counterexample ("Outputs before:  " <> show (coin out))
 
 ledgerPParams :: PParams (ShelleyLedgerEra Era)
-ledgerPParams = toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
+ledgerPParams = either (error . show) id $ toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
 
 prop_picksCorrectUTxOToPayTheFees :: Property
 prop_picksCorrectUTxOToPayTheFees =
@@ -316,8 +316,8 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
     (input, output) <- gets Map.findMax
     let body =
           base
-            { inputs = Set.singleton input
-            , outputs = StrictSeq.fromList [mkSized output]
+            { btbInputs = Set.singleton input
+            , btbOutputs = StrictSeq.fromList [mkSized ledgerEraVersion output]
             }
     let input' = Ledger.TxIn (Ledger.TxId $ SafeHash.hashAnnotated body) (Ledger.TxIx 0)
     modify (\m -> m & Map.delete input & Map.insert input' output)
@@ -347,14 +347,14 @@ genMarkedUTxO = do
 
 genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs AlonzoTx{body} = do
-  let n = Set.size (inputs body)
+  let n = Set.size (btbInputs body)
   outs <- vectorOf n arbitrary
-  pure $ Map.fromList $ zip (toList (inputs body)) outs
+  pure $ Map.fromList $ zip (toList (btbInputs body)) outs
 
 genLedgerTx :: Gen (Tx LedgerEra)
 genLedgerTx = do
   tx <- arbitrary
-  body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
+  body <- (\x -> x{btbTxFee = Coin 0}) <$> arbitrary
   pure $ tx{body, wits = mempty}
 
 --
@@ -363,7 +363,7 @@ genLedgerTx = do
 
 allTxIns :: [Tx LedgerEra] -> Set TxIn
 allTxIns txs =
-  Set.unions (inputs . body <$> txs)
+  Set.unions (btbInputs . body <$> txs)
 
 allTxOuts :: [Tx LedgerEra] -> [TxOut]
 allTxOuts txs =
@@ -395,7 +395,7 @@ deltaValue a b
 
 -- | NOTE: This does not account for withdrawals
 knownInputBalance :: Map TxIn TxOut -> Tx LedgerEra -> Value LedgerEra
-knownInputBalance utxo = foldMap resolve . toList . inputs . body
+knownInputBalance utxo = foldMap resolve . toList . btbInputs . body
  where
   resolve :: TxIn -> Value LedgerEra
   resolve k = maybe zero getValue (Map.lookup k utxo)

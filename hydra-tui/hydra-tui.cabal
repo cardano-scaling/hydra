@@ -81,12 +81,11 @@ library
     , aeson
     , async
     , base
-    , brick
+    , brick                   ==0.73
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , containers
     , hydra-cardano-api
     , hydra-node
@@ -144,5 +143,8 @@ test-suite tests
     , unix
     , vty
 
-  build-tool-depends: hspec-discover:hspec-discover, hydra-node:hydra-node
+  build-tool-depends:
+    , hspec-discover:hspec-discover
+    , hydra-node:hydra-node
+
   ghc-options:        -threaded -rtsopts

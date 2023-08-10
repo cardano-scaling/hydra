@@ -14,16 +14,16 @@ import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeAnnotator, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
-import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
+import qualified Cardano.Ledger.Shelley.Rules as Ledger
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
@@ -38,11 +38,12 @@ import qualified Hydra.Contract.Head as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
-import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
+import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (
   choose,
   getSize,
   listOf,
+  oneof,
   scale,
   shrinkList,
   shrinkMapBy,
@@ -83,7 +84,7 @@ cardanoLedger globals ledgerEnv =
       Left err ->
         Left (tx, toValidationError err)
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-        Right . fromLedgerUTxO $ Ledger._utxo us
+        Right . fromLedgerUTxO $ Ledger.utxosUtxo us
    where
     toValidationError = ValidationError . show
 
@@ -91,8 +92,8 @@ cardanoLedger globals ledgerEnv =
 
     memPoolState =
       Ledger.LedgerState
-        { Ledger.lsUTxOState = def{Ledger._utxo = toLedgerUTxO utxo}
-        , Ledger.lsDPState = def
+        { Ledger.lsUTxOState = def{Ledger.utxosUtxo = toLedgerUTxO utxo}
+        , Ledger.lsCertState = def
         }
 
 -- * Cardano Tx
@@ -107,12 +108,12 @@ instance IsTx Tx where
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
 instance ToCBOR Tx where
-  toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
+  toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
 
 instance FromCBOR Tx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
-    decodeAnnotator "Tx" fromCBOR (fromStrict bs)
+    decodeFullAnnotator ledgerEraVersion "Tx" decCBOR (fromStrict bs)
       & either
         (fail . toString . toLazyText . build)
         (pure . fromLedgerTx)
@@ -128,7 +129,7 @@ instance Arbitrary Tx where
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
     withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
-      let body' = body{Ledger.txUpdates = SNothing}
+      let body' = body{Ledger.btbUpdate = SNothing}
        in tx{Ledger.body = body'}
 
 -- | Create a zero-fee, payment cardano transaction.
@@ -146,7 +147,7 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
  where
   bodyContent =
     emptyTxBody
-      { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
+      { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts = outs
       , txFee = TxFeeExplicit fee
       }
@@ -179,7 +180,7 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
  where
   bodyContent =
     emptyTxBody
-      { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
+      { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
             : [ TxOut @CtxTx
@@ -202,7 +203,7 @@ genSigningKey :: Gen (SigningKey PaymentKey)
 genSigningKey = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
   -- play well with pure generation from seed.
-  sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
+  sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 32 arbitrary
   pure (PaymentSigningKey sk)
 
 genVerificationKey :: Gen (VerificationKey PaymentKey)
@@ -310,9 +311,18 @@ genUTxO1 gen = do
 --  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
 genTxOut =
-  (noRefScripts . noStakeRefPtr . fromLedgerTxOut <$> arbitrary)
+  (noRefScripts . noStakeRefPtr <$> gen)
     `suchThat` notByronAddress
  where
+  gen =
+    oneof
+      [ fromLedgerTxOut <$> arbitrary
+      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      ]
+
+  notMultiAsset =
+    modifyTxOutValue (lovelaceToValue . selectLovelace)
+
   notByronAddress (TxOut addr _ _ _) = case addr of
     ByronAddressInEra{} -> False
     _ -> True
@@ -371,7 +381,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = fromLedgerValue <$> arbitrary
+genValue = scale (`div` 10) $ fromLedgerValue <$> arbitrary
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

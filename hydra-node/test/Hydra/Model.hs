@@ -33,7 +33,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Control.Monad.Class.MonadTimer (timeout)
 import Data.List (nub)
 import qualified Data.List as List
 import Data.Map ((!))
@@ -74,7 +73,6 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
-import Test.Consensus.Cardano.Generators ()
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
@@ -184,7 +182,7 @@ instance StateModel WorldState where
   arbitraryAction _ st@WorldState{hydraParties, hydraState} =
     case hydraState of
       Start -> fmap Some genSeed
-      Idle{} -> fmap Some $ genInit hydraParties
+      Idle{} -> Some <$> genInit hydraParties
       Initial{pendingCommits} ->
         frequency
           [ (5, genCommit pendingCommits)
@@ -433,6 +431,7 @@ instance
   , MonadTimer m
   , MonadThrow (STM m)
   , MonadLabelledSTM m
+  , MonadDelay m
   ) =>
   RunModel WorldState (RunMonad m)
   where
@@ -498,6 +497,7 @@ seedWorld ::
   , MonadLabelledSTM m
   , MonadFork m
   , MonadMask m
+  , MonadDelay m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
@@ -582,7 +582,7 @@ performCommit parties party paymentUTxO = do
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
 
 performNewTx ::
-  (MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
   Party ->
   Payment ->
   RunMonad m ()
@@ -658,7 +658,7 @@ performAbort party = do
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
-  gets threads >>= mapM_ (void . lift . cancel)
+  gets threads >>= mapM_ (lift . cancel)
 
 -- ** Utility functions
 
@@ -687,7 +687,7 @@ checkOutcome _ _ _ = True
 
 waitForUTxOToSpend ::
   forall m.
-  (MonadTimer m) =>
+  (MonadTimer m, MonadDelay m) =>
   UTxO ->
   CardanoSigningKey ->
   Value ->

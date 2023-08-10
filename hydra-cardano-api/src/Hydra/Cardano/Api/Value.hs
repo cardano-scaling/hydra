@@ -3,8 +3,8 @@ module Hydra.Cardano.Api.Value where
 import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
+import Cardano.Ledger.Core (getMinCoinTxOut)
 import qualified Cardano.Ledger.Mary.Value as Ledger
-import Cardano.Ledger.Shelley.API (evaluateMinLovelaceOutput)
 import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
@@ -18,18 +18,18 @@ import qualified PlutusLedgerApi.V2 as Plutus
 -- | Calculate minimum value for a UTxO. Note that cardano-api defines a
 -- 'calculateMinimumUTxO' function but it is flawed (see NOTE below) and has an
 -- unsatisfactory API because it works across multiple era.
---
--- This one is specialized to Babbage and therefore, can be pure.
+-- XXX: Check if this is still true ^^^ and use it if not.
 minUTxOValue ::
-  ProtocolParameters ->
+  BundledProtocolParameters Era ->
   TxOut CtxTx Era ->
   Value
-minUTxOValue pparams (TxOut addr val dat ref) =
+minUTxOValue bundledParams (TxOut addr val dat ref) =
   fromLedgerLovelace $
-    evaluateMinLovelaceOutput
-      (toLedgerPParams ShelleyBasedEraBabbage pparams)
+    getMinCoinTxOut
+      ledgerPparams
       (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
  where
+  BundleAsShelleyBasedProtocolParameters _ _ ledgerPparams = bundledParams
   out' =
     TxOut
       addr
@@ -72,6 +72,13 @@ txMintAssets =
 fromLedgerValue :: Ledger.MaryValue StandardCrypto -> Value
 fromLedgerValue =
   fromMaryValue
+
+-- | Convert a cardano-ledger 'MultiAsset' into a cardano-api 'Value'. The
+-- cardano-api currently does not have an asset-only type. So this conversion
+-- will construct a 'Value' with no 'AdaAssetId' entry in it.
+fromLedgerMultiAsset :: Ledger.MultiAsset StandardCrypto -> Value
+fromLedgerMultiAsset =
+  fromMaryValue . Ledger.MaryValue 0
 
 -- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.
 toLedgerValue :: Value -> Ledger.MaryValue StandardCrypto

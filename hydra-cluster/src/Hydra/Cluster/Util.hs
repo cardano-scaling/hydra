@@ -11,6 +11,7 @@ import Hydra.Cardano.Api (
   Key (VerificationKey, getVerificationKey),
   PaymentKey,
   SigningKey,
+  SocketPath,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
@@ -58,7 +59,7 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
-chainConfigFor :: HasCallStack => Actor -> FilePath -> FilePath -> [Actor] -> ContestationPeriod -> IO ChainConfig
+chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them cp = do
   when (me `elem` them) $
     failure $

@@ -135,16 +135,16 @@ you need to bump the `index-state` (and to run ``cabal update`` locally).
 
 Because of how we use Nix to manage our Haskell build, whenever you do this you
 will also need to pull in the Nix equivalent of the newer `index-state`. You can
-do this by bumping the `haskellNix` to a newer tag in our `default.nix`.
+do this by doing a `nix flake lock --update-input haskellNix/hackage`.
 
 #### From Cardano Haskell Packages (CHaP)
 
 Many Cardano packages are not on Hackage and are instead in the [Cardano Haskell
-Packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages) see the
-README for (lots) more information. Getting new packages from there works much
-like getting them from Hackage. The differences are that it has an independent
-`index-state`, and that there is the `CHaP` expression which you need to bump in
-the `default.nix`.
+Packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages)
+see the README for (lots) more information. Getting new packages from there
+works much like getting them from Hackage. The differences are that it has an
+independent `index-state`, and that there is the `CHaP` flake input which you
+need to bump with `nix flake lock --update-input CHaP`.
 
 #### Using unreleased versions of dependencies
 

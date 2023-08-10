@@ -13,7 +13,6 @@ module Hydra.Chain.Direct.Fixture (
 import Hydra.Prelude
 
 import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -24,12 +23,13 @@ import Hydra.Cardano.Api (
   PolicyId,
   ProtocolParameters (..),
   TxIn,
+  genTxIn,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
+import Hydra.Ledger.Cardano.Configuration (LedgerEnv, ProtocolParametersConversionException, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
-import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- * Cardano tx utilities
 
@@ -40,13 +40,19 @@ testPolicyId :: PolicyId
 testPolicyId = headPolicyId testSeedInput
 
 testSeedInput :: TxIn
-testSeedInput = generateWith arbitrary 42
+testSeedInput = generateWith genTxIn 42
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
-defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
+defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv =
-  newLedgerEnv defaultPParams
+  -- XXX: Ideally we would use the Either or Maybe instance of MonadThrow here,
+  -- however that is not possible in the io-classes variants of this type class.
+  unsafeDupablePerformIO $
+    try (newLedgerEnv defaultPParams) >>= \case
+      Left (err :: ProtocolParametersConversionException) ->
+        error $ "Failed to create ledger env from fixture: " <> show err
+      Right env -> pure env
 
 defaultPParams :: ProtocolParameters
 defaultPParams =
@@ -66,7 +72,7 @@ defaultGlobals =
     , Ledger.securityParameter = 10
     , Ledger.maxKESEvo = 10
     , Ledger.quorum = 5
-    , Ledger.maxMajorPV = 1000
+    , Ledger.maxMajorPV = maxBound
     , Ledger.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , Ledger.activeSlotCoeff = Ledger.mkActiveSlotCoeff . unsafeBoundRational $ 0.9
     , Ledger.networkId = Ledger.Testnet

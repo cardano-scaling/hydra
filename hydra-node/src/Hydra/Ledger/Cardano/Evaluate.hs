@@ -15,12 +15,11 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1, PlutusV2))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModels (CostModels), mkCostModel, txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
+import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
-import Cardano.Ledger.Babbage.PParams (_costmdls, _protocolVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -31,6 +30,7 @@ import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Ratio ((%))
+import Data.SOP.Counting (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Flat (flat)
 import Hydra.Cardano.Api (
@@ -45,6 +45,7 @@ import Hydra.Cardano.Api (
   LedgerEpochInfo (..),
   Lovelace,
   ProtocolParameters (..),
+  ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
@@ -78,13 +79,12 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
-import Ouroboros.Consensus.Util.Counting (NonEmpty (NonEmptyOne))
 import qualified PlutusCore as PLC
 import PlutusLedgerApi.Common (mkTermToEvaluate)
 import qualified PlutusLedgerApi.Common as Plutus
-import PlutusLedgerApi.Test.EvaluationContext (costModelParamsForTesting)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
+import UntypedPlutusCore (UnrestrictedProgram (..))
 import qualified UntypedPlutusCore as UPLC
 
 -- * Evaluate transactions
@@ -108,19 +108,22 @@ evaluateTx' ::
   Tx ->
   UTxO ->
   Either EvaluationError EvaluationReport
-evaluateTx' maxUnits tx utxo =
-  case result of
+evaluateTx' maxUnits tx utxo = do
+  bundledProtocolParams <-
+    first PParamsConversion $
+      bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits}
+  case result bundledProtocolParams of
     Left txValidityError -> Left $ TransactionInvalid txValidityError
     Right report
       -- Check overall budget when all individual scripts evaluated
       | all isRight report -> checkBudget maxUnits report
       | otherwise -> Right report
  where
-  result =
+  result bundledProtocolParams =
     evaluateTransactionExecutionUnits
       systemStart
       (LedgerEpochInfo epochInfo)
-      (bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits})
+      bundledProtocolParams
       (UTxO.toApi utxo)
       (getTxBody tx)
 
@@ -147,6 +150,7 @@ checkBudget maxUnits report
 data EvaluationError
   = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
   | TransactionInvalid TransactionValidityError
+  | PParamsConversion ProtocolParametersConversionError
   deriving (Show)
 
 -- | Evaluation result for each of the included scripts. Either they failed
@@ -200,8 +204,11 @@ estimateMinFee tx evaluationReport =
   a = Coin . fromIntegral $ protocolParamTxFeePerByte pparams
   b = Coin . fromIntegral $ protocolParamTxFeeFixed pparams
   prices =
-    fromMaybe (error "no prices in protocol param fixture") $
-      toAlonzoPrices =<< protocolParamPrices pparams
+    case protocolParamPrices pparams of
+      Nothing -> error "no prices in protocol param fixture"
+      Just executionPrices ->
+        fromRight (error "toAlonzoPrices failed to convert prices") $
+          toAlonzoPrices executionPrices
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
 
 -- * Profile transactions
@@ -217,6 +224,8 @@ prepareTxScripts ::
   UTxO ->
   Either String [ByteString]
 prepareTxScripts tx utxo = do
+  pp <- left show $ toLedgerPParams (shelleyBasedEra @Era) pparams
+
   -- Tuples with scripts and their arguments collected from the tx
   results <-
     case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pp ltx lutxo of
@@ -227,12 +236,10 @@ prepareTxScripts tx utxo = do
   programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
     let pArgs = Ledger.getPlutusData <$> arguments
     appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
-    pure $ UPLC.Program () (PLC.defaultVersion ()) appliedTerm
+    pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
-  pure $ flat <$> programs
+  pure $ flat . UnrestrictedProgram <$> programs
  where
-  pp = toLedgerPParams (shelleyBasedEra @Era) pparams
-
   ltx = toLedgerTx tx
 
   lutxo = toLedgerUTxO utxo
@@ -255,12 +262,11 @@ pparams :: ProtocolParameters
 pparams =
   (fromLedgerPParams (shelleyBasedEra @Era) def)
     { protocolParamCostModels =
-        fromAlonzoCostModels
-          . CostModels
-          $ Map.fromList
-            [ (PlutusV1, testCostModel PlutusV1)
-            , (PlutusV2, testCostModel PlutusV2)
-            ]
+        fromAlonzoCostModels $
+          emptyCostModels
+            { costModelsValid =
+                Map.fromList [(PlutusV2, plutusV2CostModel)]
+            }
     , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
     , protocolParamMaxBlockExUnits =
         Just
@@ -268,7 +274,7 @@ pparams =
             { executionMemory = 62_000_000
             , executionSteps = 40_000_000_000
             }
-    , protocolParamProtocolVersion = (7, 0)
+    , protocolParamProtocolVersion = (8, 0)
     , protocolParamMaxTxSize = maxTxSize
     , protocolParamMaxValueSize = Just 1000000000
     , protocolParamTxFeePerByte = 44 -- a
@@ -280,11 +286,6 @@ pparams =
             , priceExecutionMemory = 577 % 10000
             }
     }
- where
-  testCostModel pv =
-    case mkCostModel pv costModelParamsForTesting of
-      Left e -> error $ "testCostModel failed: " <> show e
-      Right cm -> cm
 
 -- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
@@ -397,6 +398,190 @@ slotNoToUTCTime :: HasCallStack => SlotNo -> UTCTime
 slotNoToUTCTime =
   either error posixToUTCTime
     . slotToPOSIXTime
-      (toLedgerPParams (shelleyBasedEra @Era) pparams)
       epochInfo
       systemStart
+
+-- ** Plutus cost model fixtures
+
+-- | Current (2023-08-04) mainnet PlutusV2 cost model.
+plutusV2CostModel :: CostModel
+plutusV2CostModel =
+  either (error . show) id $
+    mkCostModel
+      PlutusV2
+      [ 205665
+      , 812
+      , 1
+      , 1
+      , 1000
+      , 571
+      , 0
+      , 1
+      , 1000
+      , 24177
+      , 4
+      , 1
+      , 1000
+      , 32
+      , 117366
+      , 10475
+      , 4
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 23000
+      , 100
+      , 100
+      , 100
+      , 23000
+      , 100
+      , 19537
+      , 32
+      , 175354
+      , 32
+      , 46417
+      , 4
+      , 221973
+      , 511
+      , 0
+      , 1
+      , 89141
+      , 32
+      , 497525
+      , 14068
+      , 4
+      , 2
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 1000
+      , 28662
+      , 4
+      , 2
+      , 245000
+      , 216773
+      , 62
+      , 1
+      , 1060367
+      , 12586
+      , 1
+      , 208512
+      , 421
+      , 1
+      , 187000
+      , 1000
+      , 52998
+      , 1
+      , 80436
+      , 32
+      , 43249
+      , 32
+      , 1000
+      , 32
+      , 80556
+      , 1
+      , 57667
+      , 4
+      , 1000
+      , 10
+      , 197145
+      , 156
+      , 1
+      , 197145
+      , 156
+      , 1
+      , 204924
+      , 473
+      , 1
+      , 208896
+      , 511
+      , 1
+      , 52467
+      , 32
+      , 64832
+      , 32
+      , 65493
+      , 32
+      , 22558
+      , 32
+      , 16563
+      , 32
+      , 76511
+      , 32
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 69522
+      , 11687
+      , 0
+      , 1
+      , 60091
+      , 32
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 196500
+      , 453240
+      , 220
+      , 0
+      , 1
+      , 1
+      , 1159724
+      , 392670
+      , 0
+      , 2
+      , 806990
+      , 30482
+      , 4
+      , 1927926
+      , 82523
+      , 4
+      , 265318
+      , 0
+      , 4
+      , 0
+      , 85931
+      , 32
+      , 205665
+      , 812
+      , 1
+      , 1
+      , 41182
+      , 32
+      , 212342
+      , 32
+      , 31220
+      , 32
+      , 32696
+      , 32
+      , 43357
+      , 32
+      , 32247
+      , 32
+      , 38314
+      , 32
+      , 35892428
+      , 10
+      , 57996947
+      , 18975
+      , 10
+      , 38887044
+      , 32947
+      , 10
+      ]

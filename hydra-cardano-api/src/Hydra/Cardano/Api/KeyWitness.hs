@@ -2,10 +2,10 @@ module Hydra.Cardano.Api.KeyWitness where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
+import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
-import qualified Cardano.Ledger.Shelley.Tx as Ledger
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.Set as Set
 
 -- * Extras
@@ -58,8 +58,9 @@ fromLedgerTxWitness ::
   forall era.
   ( IsShelleyBasedEra era
   , UsesStandardCrypto era
+  , Ledger.Era (ShelleyLedgerEra era)
   ) =>
-  Ledger.TxWitness (ShelleyLedgerEra era) ->
+  Ledger.AlonzoTxWits (ShelleyLedgerEra era) ->
   [KeyWitness era]
 fromLedgerTxWitness wits =
   mconcat

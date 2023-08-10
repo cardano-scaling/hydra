@@ -16,6 +16,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV2, AsScript),
+  File (..),
   Script,
   fromPlutusScript,
   hashScript,
@@ -60,8 +61,8 @@ goldenScript name plutusScript =
   fullScriptName = "hydra-" <> name <> maybe "" ("-" <>) gitDescribe
 
   writeToFile fp script =
-    void $ writeFileTextEnvelope fp (Just $ fromString fullScriptName) script
+    void $ writeFileTextEnvelope (File fp) (Just $ fromString fullScriptName) script
 
   readFromFile fp =
     either (die . show) pure
-      =<< readFileTextEnvelope (AsScript AsPlutusScriptV2) fp
+      =<< readFileTextEnvelope (AsScript AsPlutusScriptV2) (File fp)

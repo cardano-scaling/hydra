@@ -10,7 +10,7 @@ import CardanoNode (
  )
 
 import CardanoClient (queryTipSlotNo)
-import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
 import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesFileExist)
 
@@ -20,7 +20,7 @@ spec = do
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
-    getCardanoNodeVersion >>= (`shouldContain` "1.35.7")
+    getCardanoNodeVersion >>= (`shouldContain` "8.1.2")
 
   -- NOTE: We hard-code the expected networkId here to detect any change to the
   -- genesis-shelley.json
@@ -29,7 +29,7 @@ spec = do
       showLogsOnFailure $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           withCardanoNodeDevnet tr tmp $ \RunningNode{nodeSocket, networkId} -> do
-            doesFileExist nodeSocket `shouldReturn` True
+            doesFileExist (unFile nodeSocket) `shouldReturn` True
             networkId `shouldBe` Testnet (NetworkMagic 42)
             -- Should produce blocks (tip advances)
             slot1 <- queryTipSlotNo networkId nodeSocket

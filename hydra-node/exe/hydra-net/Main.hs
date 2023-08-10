@@ -64,8 +64,9 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
   unversionedProtocol,
   unversionedProtocolDataCodec,
  )
-import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion, queryVersion)
 import Ouroboros.Network.Socket (
+  HandshakeCallbacks (..),
   NetworkConnectTracers (..),
   connectToNodeSocket,
  )
@@ -191,7 +192,7 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       noTimeLimitsHandshake
       unversionedProtocolDataCodec
       networkConnectTracers
-      acceptableVersion
+      (HandshakeCallbacks acceptableVersion queryVersion)
       (unversionedProtocol app)
       sock
 

@@ -28,7 +28,7 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Ledger.Shelley.Orphans ()
+import Cardano.Ledger.Orphans ()
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)

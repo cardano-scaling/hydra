@@ -6,10 +6,7 @@ import Test.Hydra.Prelude
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
 import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Ledger.Cardano.Configuration (
-  protocolParametersFromJson,
-  shelleyGenesisFromJson,
- )
+import Hydra.Ledger.Cardano.Configuration (protocolParametersFromJson)
 
 spec :: Spec
 spec = parallel $ do
@@ -20,11 +17,3 @@ spec = parallel $ do
         Left err -> fail err
         Right json -> do
           Json.parseEither protocolParametersFromJson json `shouldSatisfy` isRight
-
-  describe "ShelleyGenesis" $ do
-    it "can be read from JSON" $ do
-      bytes <- readConfigFile "devnet/genesis-shelley.json"
-      case Json.eitherDecodeStrict' bytes of
-        Left err -> fail err
-        Right json -> do
-          Json.parseEither shelleyGenesisFromJson json `shouldSatisfy` isRight

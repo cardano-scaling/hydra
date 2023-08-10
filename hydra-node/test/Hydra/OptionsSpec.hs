@@ -5,7 +5,11 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), serialiseToRawBytesHexText, unsafeDeserialiseFromRawBytesBase16)
+import Hydra.Cardano.Api (
+  ChainPoint (..),
+  NetworkId (..),
+  serialiseToRawBytesHexText,
+ )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -222,18 +226,16 @@ spec = parallel $
                   }
             }
 
-    it "parses --start-chain-from as a pair of slot number and block header hash" $
+    it "parses --start-chain-from as a pair of slot number and block header hash" $ do
       setFlags ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
                   { startChainFrom =
-                      Just
-                        ( ChainPoint
-                            1000
-                            (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-                        )
+                      Just $
+                        ChainPoint 1000 $
+                          fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                   }
             }
 
@@ -241,7 +243,7 @@ spec = parallel $
       setFlags ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultChainConfig{startChainFrom = Just (ChainPointAtGenesis)}
+            { chainConfig = defaultChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->

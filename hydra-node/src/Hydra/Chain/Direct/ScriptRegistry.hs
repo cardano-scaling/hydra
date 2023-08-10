@@ -17,6 +17,7 @@ import Hydra.Cardano.Api (
   ScriptHash,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
+  SocketPath,
   TxId,
   TxIn (..),
   TxIx (..),
@@ -158,11 +159,11 @@ registryUTxO scriptRegistry =
 queryScriptRegistry ::
   (MonadIO m, MonadThrow m) =>
   NetworkId ->
-  FilePath ->
+  SocketPath ->
   TxId ->
   m ScriptRegistry
-queryScriptRegistry networkId nodeSocket txId = do
-  utxo <- liftIO $ queryUTxOByTxIn networkId nodeSocket QueryTip candidates
+queryScriptRegistry networkId socketPath txId = do
+  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
   case newScriptRegistry utxo of
     Left e -> throwIO e
     Right sr -> pure sr
@@ -173,13 +174,13 @@ publishHydraScripts ::
   -- | Expected network discriminant.
   NetworkId ->
   -- | Path to the cardano-node's domain socket
-  FilePath ->
+  SocketPath ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
   IO TxId
-publishHydraScripts networkId nodeSocket sk = do
-  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-  utxo <- queryUTxOFor networkId nodeSocket QueryTip vk
+publishHydraScripts networkId socketPath sk = do
+  pparams <- queryProtocolParameters networkId socketPath QueryTip
+  utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
           <$> [ Initial.validatorScript
@@ -192,7 +193,7 @@ publishHydraScripts networkId nodeSocket sk = do
           UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
   buildTransaction
     networkId
-    nodeSocket
+    socketPath
     changeAddress
     someUTxO
     []
@@ -202,8 +203,8 @@ publishHydraScripts networkId nodeSocket sk = do
         throwErrorAsException e
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-        submitTransaction networkId nodeSocket tx
-        void $ awaitTransaction networkId nodeSocket tx
+        submitTransaction networkId socketPath tx
+        void $ awaitTransaction networkId socketPath tx
         return $ getTxId body
  where
   vk = getVerificationKey sk

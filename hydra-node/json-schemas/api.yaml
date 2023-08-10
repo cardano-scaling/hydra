@@ -76,38 +76,38 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
-          - $ref: "#/components/messages/Greetings"
-          - $ref: "#/components/messages/PeerConnected"
-          - $ref: "#/components/messages/PeerDisconnected"
-          - $ref: "#/components/messages/HeadIsInitializing"
-          - $ref: "#/components/messages/Committed"
-          - $ref: "#/components/messages/HeadIsOpen"
-          - $ref: "#/components/messages/HeadIsClosed"
-          - $ref: "#/components/messages/HeadIsContested"
-          - $ref: "#/components/messages/ReadyToFanout"
-          - $ref: "#/components/messages/HeadIsAborted"
-          - $ref: "#/components/messages/HeadIsFinalized"
-          - $ref: "#/components/messages/TxValid"
-          - $ref: "#/components/messages/TxInvalid"
-          - $ref: "#/components/messages/SnapshotConfirmed"
-          - $ref: "#/components/messages/GetUTxOResponse"
-          - $ref: "#/components/messages/InvalidInput"
-          - $ref: "#/components/messages/PostTxOnChainFailed"
-          - $ref: "#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/Greetings"
+          - $ref: "api.yaml#/components/messages/PeerConnected"
+          - $ref: "api.yaml#/components/messages/PeerDisconnected"
+          - $ref: "api.yaml#/components/messages/HeadIsInitializing"
+          - $ref: "api.yaml#/components/messages/Committed"
+          - $ref: "api.yaml#/components/messages/HeadIsOpen"
+          - $ref: "api.yaml#/components/messages/HeadIsClosed"
+          - $ref: "api.yaml#/components/messages/HeadIsContested"
+          - $ref: "api.yaml#/components/messages/ReadyToFanout"
+          - $ref: "api.yaml#/components/messages/HeadIsAborted"
+          - $ref: "api.yaml#/components/messages/HeadIsFinalized"
+          - $ref: "api.yaml#/components/messages/TxValid"
+          - $ref: "api.yaml#/components/messages/TxInvalid"
+          - $ref: "api.yaml#/components/messages/SnapshotConfirmed"
+          - $ref: "api.yaml#/components/messages/GetUTxOResponse"
+          - $ref: "api.yaml#/components/messages/InvalidInput"
+          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
+          - $ref: "api.yaml#/components/messages/CommandFailed"
 
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
       message:
         oneOf:
-          - $ref: "#/components/messages/Init"
-          - $ref: "#/components/messages/Abort"
-          - $ref: "#/components/messages/Commit"
-          - $ref: "#/components/messages/NewTx"
-          - $ref: "#/components/messages/GetUTxO"
-          - $ref: "#/components/messages/Close"
-          - $ref: "#/components/messages/Contest"
-          - $ref: "#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/Init"
+          - $ref: "api.yaml#/components/messages/Abort"
+          - $ref: "api.yaml#/components/messages/Commit"
+          - $ref: "api.yaml#/components/messages/NewTx"
+          - $ref: "api.yaml#/components/messages/GetUTxO"
+          - $ref: "api.yaml#/components/messages/Close"
+          - $ref: "api.yaml#/components/messages/Contest"
+          - $ref: "api.yaml#/components/messages/Fanout"
 
   /commit:
     servers:
@@ -116,7 +116,7 @@ channels:
       description: Draft a commit transaction, which can be completed and later submitted to the L1 network.
       operationId: draftCommitTxRequest
       message:
-        $ref: "#/components/messages/DraftCommitTxRequest"
+        $ref: "api.yaml#/components/messages/DraftCommitTxRequest"
       bindings:
         http:
           type: request
@@ -145,7 +145,7 @@ channels:
       description: Get cardano protocol parameters.
       operationId: getProtocolParameters
       message:
-        $ref: "#/components/messages/ProtocolParameters"
+        $ref: "api.yaml#/components/messages/ProtocolParameters"
       bindings:
         http:
           type: response
@@ -183,7 +183,7 @@ channels:
         - name: PostTxError
           summary: 400 Bad Request
           payload:
-            $ref: "#/components/schemas/PostTxError"
+            $ref: "api.yaml#/components/schemas/PostTxError"
       bindings:
         http:
           type: request
@@ -238,7 +238,7 @@ components:
             type: string
             enum: ["Commit"]
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
 
     NewTx:
       title: NewTx
@@ -255,9 +255,9 @@ components:
             enum: ["NewTx"]
           transaction:
             oneOf:
-              - $ref: "#/components/schemas/RawTransaction"
-              - $ref: "#/components/schemas/TextEnvelopeTransaction"
-              - $ref: "#/components/schemas/Transaction"
+              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
 
     Close:
       title: Close
@@ -335,15 +335,15 @@ components:
             type: string
             enum: ["Greetings"]
           me:
-            $ref: "#/components/schemas/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           headStatus:
-            $ref: "#/components/schemas/HeadStatus"
+            $ref: "api.yaml#/components/schemas/HeadStatus"
           snapshotUtxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
           hydraNodeVersion:
-            $ref: "#/components/schemas/HydraNodeVersion"
+            $ref: "api.yaml#/components/schemas/HydraNodeVersion"
 
     PeerConnected:
       title: PeerConnected
@@ -361,11 +361,11 @@ components:
             type: string
             enum: ["PeerConnected"]
           peer:
-            $ref: "#/components/schemas/NodeId"
+            $ref: "api.yaml#/components/schemas/NodeId"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     PeerDisconnected:
       title: PeerDisconnected
@@ -383,11 +383,11 @@ components:
             type: string
             enum: ["PeerDisconnected"]
           peer:
-            $ref: "#/components/schemas/NodeId"
+            $ref: "api.yaml#/components/schemas/NodeId"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsInitializing:
       title: HeadIsInitializing
@@ -406,15 +406,15 @@ components:
             type: string
             enum: ["HeadIsInitializing"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           parties:
             type: array
             items:
-              $ref: "#/components/schemas/Party"
+              $ref: "api.yaml#/components/schemas/Party"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     Committed:
       title: Committed
@@ -433,13 +433,13 @@ components:
             type: string
             enum: ["Committed"]
           party:
-            $ref: "#/components/schemas/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsOpen:
       title: HeadIsOpen
@@ -458,13 +458,13 @@ components:
             type: string
             enum: ["HeadIsOpen"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsClosed:
       title: HeadIsClosed
@@ -484,15 +484,15 @@ components:
             type: string
             enum: ["HeadIsClosed"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
-            $ref: "#/components/schemas/SnapshotNumber"
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
           contestationDeadline:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsContested:
       title: HeadIsContested
@@ -513,13 +513,13 @@ components:
             type: string
             enum: ["HeadIsContested"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
-            $ref: "#/components/schemas/SnapshotNumber"
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     ReadyToFanout:
       title: ReadyToFanout
@@ -538,11 +538,11 @@ components:
             type: string
             enum: ["ReadyToFanout"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsAborted:
       title: HeadIsAborted
@@ -561,13 +561,13 @@ components:
             type: string
             enum: ["HeadIsAborted"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     HeadIsFinalized:
       title: HeadIsFinalized
@@ -586,13 +586,13 @@ components:
             type: string
             enum: ["HeadIsFinalized"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     TxValid:
       title: TxValid
@@ -613,16 +613,16 @@ components:
             type: string
             enum: ["TxValid"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "#/components/schemas/Transaction"
-              - $ref: "#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
+              - $ref: "api.yaml#/components/schemas/RawTransaction"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     TxInvalid:
       title: TxInvalid
@@ -647,23 +647,23 @@ components:
             type: string
             enum: ["TxInvalid"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "#/components/schemas/Transaction"
-              - $ref: "#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
+              - $ref: "api.yaml#/components/schemas/RawTransaction"
           validationError:
             type: object
             properties:
               reason:
                 type: string
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed
@@ -682,13 +682,13 @@ components:
             type: string
             enum: ["SnapshotConfirmed"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           snapshot:
-            $ref: "#/components/schemas/Snapshot"
+            $ref: "api.yaml#/components/schemas/Snapshot"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     GetUTxOResponse:
       title: GetUTxOResponse
@@ -707,13 +707,13 @@ components:
             type: string
             enum: ["GetUTxOResponse"]
           headId:
-            $ref: "#/components/schemas/HeadId"
+            $ref: "api.yaml#/components/schemas/HeadId"
           utxo:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     InvalidInput:
       title: InvalidInput
@@ -736,9 +736,9 @@ components:
           input:
             type: string
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     PostTxOnChainFailed:
       title: PostTxOnChainFailed
@@ -758,13 +758,13 @@ components:
             type: string
             enum: ["PostTxOnChainFailed"]
           postChainTx:
-            $ref: "#/components/schemas/PostChainTx"
+            $ref: "api.yaml#/components/schemas/PostChainTx"
           postTxError:
-            $ref: "#/components/schemas/PostTxError"
+            $ref: "api.yaml#/components/schemas/PostTxError"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     CommandFailed:
       title: CommandFailed
@@ -783,18 +783,18 @@ components:
             enum: ["CommandFailed"]
           clientInput:
             oneOf:
-              - $ref: "#/components/messages/Init/payload"
-              - $ref: "#/components/messages/Abort/payload"
-              - $ref: "#/components/messages/Commit/payload"
-              - $ref: "#/components/messages/NewTx/payload"
-              - $ref: "#/components/messages/GetUTxO/payload"
-              - $ref: "#/components/messages/Close/payload"
-              - $ref: "#/components/messages/Contest/payload"
-              - $ref: "#/components/messages/Fanout/payload"
+              - $ref: "api.yaml#/components/messages/Init/payload"
+              - $ref: "api.yaml#/components/messages/Abort/payload"
+              - $ref: "api.yaml#/components/messages/Commit/payload"
+              - $ref: "api.yaml#/components/messages/NewTx/payload"
+              - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+              - $ref: "api.yaml#/components/messages/Close/payload"
+              - $ref: "api.yaml#/components/messages/Contest/payload"
+              - $ref: "api.yaml#/components/messages/Fanout/payload"
           seq:
-            $ref: "#/components/schemas/SequenceNumber"
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
-            $ref: "#/components/schemas/UTCTime"
+            $ref: "api.yaml#/components/schemas/UTCTime"
 
     DraftCommitTxRequest:
       title: DraftCommitTxRequest
@@ -884,7 +884,7 @@ components:
           - tag
         properties:
           initialUTxO:
-            $ref: "#/components/schemas/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
           tag:
             type: string
             enum: ["InitialSnapshot"]
@@ -897,9 +897,9 @@ components:
           - signatures
         properties:
           snapshot:
-            $ref: "#/components/schemas/Snapshot"
+            $ref: "api.yaml#/components/schemas/Snapshot"
           signatures:
-            $ref: "#/components/schemas/MultiSignature"
+            $ref: "api.yaml#/components/schemas/MultiSignature"
           tag:
             type: string
             enum: ["ConfirmedSnapshot"]
@@ -926,11 +926,11 @@ components:
         - parties
       properties:
         contestationPeriod:
-          $ref: "#/components/schemas/ContestationPeriod"
+          $ref: "api.yaml#/components/schemas/ContestationPeriod"
         parties:
           type: array
           items:
-            $ref: "#/components/schemas/Party"
+            $ref: "api.yaml#/components/schemas/Party"
 
     HeadStatus:
       type: string
@@ -953,7 +953,7 @@ components:
         multiSignature:
           type: array
           items:
-            $ref: "#/components/schemas/Signature"
+            $ref: "api.yaml#/components/schemas/Signature"
 
     Party:
       type: object
@@ -1012,7 +1012,7 @@ components:
               type: string
               enum: ["InitTx"]
             headParameters:
-              $ref: "#/components/schemas/HeadParameters"
+              $ref: "api.yaml#/components/schemas/HeadParameters"
         - title: CommitTx
           type: object
           additionalProperties: false
@@ -1027,9 +1027,9 @@ components:
               type: string
               enum: ["CommitTx"]
             party:
-              $ref: "#/components/schemas/Party"
+              $ref: "api.yaml#/components/schemas/Party"
             committed:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
         - title: AbortTx
           type: object
           additionalProperties: false
@@ -1043,7 +1043,7 @@ components:
               type: string
               enum: ["AbortTx"]
             utxo:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
         - title: CollectComTx
           type: object
           additionalProperties: false
@@ -1058,7 +1058,7 @@ components:
               type: string
               enum: ["CollectComTx"]
             utxo:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
         - title: CloseTx
           type: object
           additionalProperties: false
@@ -1072,7 +1072,7 @@ components:
               type: string
               enum: ["CloseTx"]
             confirmedSnapshot:
-              $ref: "#/components/schemas/ConfirmedSnapshot"
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: ContestTx
           type: object
           additionalProperties: false
@@ -1087,7 +1087,7 @@ components:
               type: string
               enum: ["ContestTx"]
             confirmedSnapshot:
-              $ref: "#/components/schemas/ConfirmedSnapshot"
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: FanoutTx
           type: object
           additionalProperties: false
@@ -1102,9 +1102,9 @@ components:
               type: string
               enum: ["FanoutTx"]
             utxo:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
             contestationDeadline:
-              $ref: "#/components/schemas/UTCTime"
+              $ref: "api.yaml#/components/schemas/UTCTime"
 
     PostTxError:
       description: |
@@ -1146,7 +1146,7 @@ components:
               type: string
               enum: ["InternalWalletError"]
             tx:
-              $ref: "#/components/schemas/Transaction"
+              $ref: "api.yaml#/components/schemas/Transaction"
               description: |
                 A representation of the faulty transaction
             reason:
@@ -1154,7 +1154,7 @@ components:
               description: >-
                 The failure reason.
             headUTxO:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
               description: >-
                 The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
                 plus the ν_initial or ν_commit outputs.
@@ -1197,7 +1197,7 @@ components:
               type: string
               enum: ["CannotFindOwnInitial"]
             knownUTxO:
-              $ref: "#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
               description: >-
                 The known UTxO within which the Initial script was looked up for.
         - title: UnsupportedLegacyOutput
@@ -1213,7 +1213,7 @@ components:
               type: string
               enum: ["UnsupportedLegacyOutput"]
             byronAddress:
-              $ref: "#/components/schemas/ByronAddress"
+              $ref: "api.yaml#/components/schemas/ByronAddress"
         - title: CannotCommitReferenceScript
           type: object
           additionalProperties: false
@@ -1253,9 +1253,9 @@ components:
               type: string
               enum: ["InvalidStateToPost"]
             chainState:
-              $ref: "#/components/schemas/ChainState"
+              $ref: "api.yaml#/components/schemas/ChainState"
             txTried:
-              $ref: "#/components/schemas/PostChainTx"
+              $ref: "api.yaml#/components/schemas/PostChainTx"
         - title: PlutusValidationFailed
           type: object
           additionalProperties: false
@@ -1344,14 +1344,14 @@ components:
       - confirmedTransactions
       properties:
         snapshotNumber:
-          $ref: "#/components/schemas/SnapshotNumber"
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
         utxo:
           description: Choose between to display or not using the `snapshot-utxo` query parameter.
-          $ref: "#/components/schemas/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
         confirmedTransactions:
           type: array
           items:
-            $ref: "#/components/schemas/TxId"
+            $ref: "api.yaml#/components/schemas/TxId"
 
     SnapshotNumber:
       type: integer
@@ -1418,7 +1418,7 @@ components:
         description:
           type: string
         cborHex:
-          $ref: "#/components/schemas/RawTransaction"
+          $ref: "api.yaml#/components/schemas/RawTransaction"
 
     Transaction:
       type: object
@@ -1429,11 +1429,11 @@ components:
       additionalProperties: false
       properties:
         id:
-          $ref: "#/components/schemas/TxId"
+          $ref: "api.yaml#/components/schemas/TxId"
         isValid:
             type: boolean
         body:
-          $ref: "#/components/schemas/TxBody"
+          $ref: "api.yaml#/components/schemas/TxBody"
         witnesses:
           type: object
           additionalProperties: false
@@ -1441,25 +1441,25 @@ components:
             keys:
               type: array
               items:
-                $ref: "#/components/schemas/Cbor"
+                $ref: "api.yaml#/components/schemas/Cbor"
             scripts:
               type: object
               patternProperties:
                 "[0-9a-f]+":
-                  $ref: "#/components/schemas/Cbor"
+                  $ref: "api.yaml#/components/schemas/Cbor"
             redeemers:
-              $ref: "#/components/schemas/Cbor"
+              $ref: "api.yaml#/components/schemas/Cbor"
             datums:
               type: object
               patternProperties:
                 "[0-9a-f]+":
-                  $ref: "#/components/schemas/Cbor"
+                  $ref: "api.yaml#/components/schemas/Cbor"
             bootstrap:
               type: array
               items:
-                $ref: "#/components/schemas/Cbor"
+                $ref: "api.yaml#/components/schemas/Cbor"
         auxiliaryData:
-          $ref: "#/components/schemas/Cbor"
+          $ref: "api.yaml#/components/schemas/Cbor"
       example:
         {
             "id": "7ca4e30387ec4ba0e95604fdab6e867fc3d740220386e1a63d142c71e8eac4ce",
@@ -1487,8 +1487,8 @@ components:
             "witnesses": {
                 "redeemers": "84840000...e83fccf5",
                 "keys": [
-                    "82008258...01ad847b",
-                    "82008258...7944fe3e"
+                    "8258...01ad847b",
+                    "8258...7944fe3e"
                 ],
                 "scripts": {
                     "1be26e9d1710022443c8043b259f7b375ec8732191f3845a6aea28e5": "8200820181820519c355",
@@ -1511,41 +1511,41 @@ components:
           description: >-
             A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
           items:
-            $ref: "#/components/schemas/TxIn"
+            $ref: "api.yaml#/components/schemas/TxIn"
         referenceInputs:
           type: array
           description: >-
             A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
           items:
-            $ref: "#/components/schemas/TxIn"
+            $ref: "api.yaml#/components/schemas/TxIn"
         collateral:
           type: array
           description: >-
             A list of collateral inputs for this transaction.
           items:
-            $ref: "#/components/schemas/TxIn"
+            $ref: "api.yaml#/components/schemas/TxIn"
         totalCollateral:
           oneOf:
             - type: integer
               minimum: 0
             - type: "null"
         collateralReturn:
-          $ref: "#/components/schemas/TxOut"
+          $ref: "api.yaml#/components/schemas/TxOut"
         outputs:
           type: array
           description: >-
             A list of outputs. Ordering is important here because a TxOut is referenced by its
             position in the inputs of subsequent transactions.
           items:
-            $ref: "#/components/schemas/TxOut"
+            $ref: "api.yaml#/components/schemas/TxOut"
         certificates:
           type: array
           description: >-
             An array of certificates, encoded as hexadecimal representation of CBOR serialisation.
           items:
-            $ref: "#/components/schemas/Cbor"
+            $ref: "api.yaml#/components/schemas/Cbor"
         withdrawals:
-            $ref: "#/components/schemas/Withdrawals"
+            $ref: "api.yaml#/components/schemas/Withdrawals"
         fees:
           type: integer
           minimum: 0
@@ -1574,7 +1574,7 @@ components:
         mint:
           description: >-
             Values minted by this transaction
-          $ref: "#/components/schemas/Value"
+          $ref: "api.yaml#/components/schemas/Value"
         networkId:
             type: string
             enum:
@@ -1621,12 +1621,12 @@ components:
       additionalProperties: false
       properties:
         address:
-          $ref: "#/components/schemas/Address"
+          $ref: "api.yaml#/components/schemas/Address"
         value:
-          $ref: "#/components/schemas/Value"
+          $ref: "api.yaml#/components/schemas/Value"
         referenceScript:
           oneOf:
-            - $ref: "#/components/schemas/Script"
+            - $ref: "api.yaml#/components/schemas/Script"
             - type: "null"
         datumhash:
           oneOf:
@@ -1659,12 +1659,12 @@ components:
       additionalProperties: false
       properties:
         address:
-          $ref: "#/components/schemas/Address"
+          $ref: "api.yaml#/components/schemas/Address"
         value:
-          $ref: "#/components/schemas/Value"
+          $ref: "api.yaml#/components/schemas/Value"
         referenceScript:
           oneOf:
-            - $ref: "#/components/schemas/Script"
+            - $ref: "api.yaml#/components/schemas/Script"
             - type: "null"
         datumhash:
           oneOf:
@@ -1687,7 +1687,7 @@ components:
             - type: "null"
         witness:
           oneOf:
-            - $ref: "#/components/schemas/Witness"
+            - $ref: "api.yaml#/components/schemas/Witness"
             - type: "null"
 
     Witness:
@@ -1703,7 +1703,7 @@ components:
         datum:
           type: string
         plutusV2Script:
-          $ref: "#/components/schemas/PlutusV2Script"
+          $ref: "api.yaml#/components/schemas/PlutusV2Script"
         redeemer:
           type: string
     HydraNodeVersion:
@@ -1735,7 +1735,7 @@ components:
       propertyNames:
         pattern: "^[0-9a-f]{64}#[0-9]+$"
       items:
-        $ref: "#/components/schemas/TxOut"
+        $ref: "api.yaml#/components/schemas/TxOut"
       example:
         {
             "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
@@ -1751,7 +1751,7 @@ components:
       propertyNames:
         pattern: "^[0-9a-f]{64}#[0-9]+$"
       items:
-        $ref: "#/components/schemas/TxOutWithWitness"
+        $ref: "api.yaml#/components/schemas/TxOutWithWitness"
       example:
         {
             "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
@@ -1782,12 +1782,12 @@ components:
         type: object
         properties:
           redeemer:
-            $ref: "#/components/schemas/Cbor"
+            $ref: "api.yaml#/components/schemas/Cbor"
           datum:
-            $ref: "#/components/schemas/Cbor"
+            $ref: "api.yaml#/components/schemas/Cbor"
           plutusV2Script:
             type: object
-            $ref: "#/components/schemas/PlutusV2Script"
+            $ref: "api.yaml#/components/schemas/PlutusV2Script"
 
     PlutusV2Script:
       type: object
@@ -1800,7 +1800,7 @@ components:
       - type
       properties:
         cborHex:
-          $ref: "#/components/schemas/Cbor"
+          $ref: "api.yaml#/components/schemas/Cbor"
         description:
           type: string
         type:
@@ -1900,7 +1900,7 @@ components:
         - cardanoVerificationKeys
       properties:
         networkId:
-          $ref: "#/components/schemas/NetworkMagic"
+          $ref: "api.yaml#/components/schemas/NetworkMagic"
         nodeSocket:
           type: string
         cardanoSigningKey:
@@ -1913,7 +1913,7 @@ components:
           oneOf:
             - type: "null"
             - type: object
-              $ref: "#/components/schemas/ChainPoint"
+              $ref: "api.yaml#/components/schemas/ChainPoint"
 
     # NOTE: We don't want anyone to depend on this!
     ChainState: {}

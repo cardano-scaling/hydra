@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-test-utils
-version:       0.11.0
+version:       0.11.1
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG
@@ -31,7 +31,7 @@ common package-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -47,30 +47,27 @@ library
 
   build-depends:
     , base
-    , bytestring
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
     , cardano-slotting
     , containers
     , data-default
     , directory
     , filepath
     , hspec
+    , hspec-api
     , hspec-core
     , hspec-junit-formatter
     , HUnit
     , hydra-cardano-api
     , hydra-prelude
-    , io-classes
     , network
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
+    , plutus-ledger-api      >=1.1.1.0
     , plutus-tx
     , port-utils
     , process
     , QuickCheck
     , relude
     , temporary
-    , transformers
 
 test-suite hydra-test-util-tests
   import:             package-config
@@ -83,16 +80,12 @@ test-suite hydra-test-util-tests
   type:               exitcode-stdio-1.0
   build-depends:
     , base
-    , bytestring
-    , directory
     , filepath
     , hspec
     , hspec-core
     , hydra-prelude
     , hydra-test-utils
     , QuickCheck
-    , temporary
-    , text
 
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
