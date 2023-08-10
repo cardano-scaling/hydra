@@ -25,15 +25,16 @@ import PlutusLedgerApi.V1 (
   CurrencySymbol (..),
   DatumHash (..),
   PubKeyHash (..),
+  ScriptContext,
   ScriptHash (..),
   TokenName (..),
   TxOut (..),
   Value (..),
  )
 
+import Hydra.Plutus.Extras (wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import qualified PlutusTx as Plutus
-import Test.Plutus.Validator (wrapValidator)
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.
@@ -46,12 +47,13 @@ Plutus.unstableMakeIsData ''ValidatorKind
 encodeIntegerValidator :: ValidatorKind -> SerialisedScript
 encodeIntegerValidator = \case
   BaselineValidator ->
-    serialiseCompiledCode $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) _ctx -> True||])
+    serialiseCompiledCode
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() a _ctx ->
+            wrapValidator $ \() a (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeInteger a)
                in lengthOfByteString bytes > 0
             ||]
@@ -61,12 +63,12 @@ encodeByteStringValidator :: ValidatorKind -> SerialisedScript
 encodeByteStringValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: BuiltinByteString) _ctx -> True||])
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: BuiltinByteString) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() a _ctx ->
+            wrapValidator $ \() a (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeByteString a)
                in lengthOfByteString bytes > 0
             ||]
@@ -76,12 +78,12 @@ encodeListValidator :: ValidatorKind -> SerialisedScript
 encodeListValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: [BuiltinByteString]) _ctx -> True||])
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: [BuiltinByteString]) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() xs _ctx ->
+            wrapValidator $ \() xs (_ :: ScriptContext) ->
               let bytes =
                     encodingToBuiltinByteString $
                       encodeList encodeByteString xs
@@ -93,12 +95,12 @@ encodeTxOutValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: TxOut) _ctx -> True||])
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: TxOut) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() o _ctx ->
+            wrapValidator $ \() o (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeTxOut o)
                in lengthOfByteString bytes > 0
             ||]
@@ -108,12 +110,12 @@ encodeTxOutsValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutsValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: [TxOut]) _ctx -> True||])
+      $$(Plutus.compile [||wrapValidator $ \() (_ :: [TxOut]) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() xs _ctx ->
+            wrapValidator $ \() xs (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
                in lengthOfByteString bytes > 0
             ||]

@@ -122,6 +122,7 @@ benchmark on-chain-cost
     , containers
     , directory
     , filepath
+    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils       >=0.10.0
     , plutus-core

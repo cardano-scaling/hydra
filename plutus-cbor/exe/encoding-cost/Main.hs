@@ -17,7 +17,6 @@ import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Validator (
   ExecutionUnits (..),
   defaultMaxExecutionUnits,
-  distanceExecutionUnits,
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (
@@ -74,6 +73,12 @@ relativeCostOf a maxUnits mkValidator =
     ( toInteger mem % toInteger maxMem
     , toInteger cpu % toInteger maxCpu
     )
+
+distanceExecutionUnits :: ExecutionUnits -> ExecutionUnits -> ExecutionUnits
+distanceExecutionUnits (ExecutionUnits c0 m0) (ExecutionUnits c1 m1) =
+  ExecutionUnits
+    (if c0 > c1 then c0 - c1 else c1 - c0)
+    (if m0 > m1 then m0 - m1 else m1 - m0)
 
 --
 -- Helpers

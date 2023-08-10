@@ -142,6 +142,7 @@ executable encoding-cost
     , hydra-prelude
     , hydra-test-utils       >=0.10.0
     , plutus-cbor
+    , hydra-plutus-extras
     , plutus-ledger-api      >=1.1.0.0
     , plutus-tx
     , plutus-tx-plugin

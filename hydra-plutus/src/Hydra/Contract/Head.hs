@@ -12,6 +12,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
+import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
@@ -19,7 +20,7 @@ import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (.
 import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (valueOf)
@@ -612,4 +613,4 @@ validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash validatorScript
+validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript

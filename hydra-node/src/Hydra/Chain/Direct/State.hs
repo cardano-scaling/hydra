@@ -104,7 +104,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
+import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)

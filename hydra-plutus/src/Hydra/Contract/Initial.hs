@@ -12,11 +12,13 @@ module Hydra.Contract.Initial where
 
 import PlutusTx.Prelude
 
+import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (
   ScriptContext (..),
   TxInfo (txInfoMint, txInfoSignatories),
@@ -26,7 +28,6 @@ import Hydra.ScriptContext (
   scriptOutputsAt,
   valueLockedBy,
  )
-import Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (isZero)
@@ -188,7 +189,7 @@ validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash validatorScript
+validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

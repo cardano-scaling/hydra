@@ -157,6 +157,7 @@ library
     , http-types
     , hydra-cardano-api
     , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
     , io-classes                                                >=0.3.0.0
     , iohk-monitoring
@@ -223,14 +224,15 @@ executable hydra-net
   main-is:        Main.hs
   other-modules:  Log
   build-depends:
-      aeson
+    , aeson
     , contra-tracer
     , hydra-cardano-api
-    , network
     , hydra-node
     , hydra-prelude
+    , network
     , optparse-applicative
-    , ouroboros-network-framework                                       >=0.3.0.0
+    , ouroboros-network-framework  >=0.3.0.0
+
   ghc-options:    -threaded -rtsopts
 
 benchmark tx-cost
@@ -248,6 +250,7 @@ benchmark tx-cost
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
     , optparse-applicative
     , plutus-ledger-api
@@ -358,6 +361,7 @@ test-suite tests
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , io-classes

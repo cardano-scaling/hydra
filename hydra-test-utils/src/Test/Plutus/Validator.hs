@@ -65,30 +65,8 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import PlutusLedgerApi.Common (SerialisedScript)
-import PlutusLedgerApi.V2 (ScriptContext)
-import PlutusTx (BuiltinData, UnsafeFromData (..))
 import qualified PlutusTx as Plutus
-import PlutusTx.Prelude (check)
 import qualified Prelude
-
--- TODO: DRY with hydra-plutus
-
--- | Wrap a typed validator to get the basic `Validator` signature which can be passed to
--- `Plutus.compile`. Vendored from `plutus-ledger`.
--- REVIEW: There might be better ways to name this than "wrap"
-wrapValidator ::
-  (UnsafeFromData datum, UnsafeFromData redeemer) =>
-  (datum -> redeemer -> ScriptContext -> Bool) ->
-  (BuiltinData -> BuiltinData -> BuiltinData -> ())
--- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
-wrapValidator f d r p = check $ f (unsafeFromBuiltinData d) (unsafeFromBuiltinData r) (unsafeFromBuiltinData p)
-{-# INLINEABLE wrapValidator #-}
-
-distanceExecutionUnits :: ExecutionUnits -> ExecutionUnits -> ExecutionUnits
-distanceExecutionUnits (ExecutionUnits c0 m0) (ExecutionUnits c1 m1) =
-  ExecutionUnits
-    (if c0 > c1 then c0 - c1 else c1 - c0)
-    (if m0 > m1 then m0 - m1 else m1 - m0)
 
 -- TODO: DRY with Hydra.Ledger.Cardano.Evaluate
 

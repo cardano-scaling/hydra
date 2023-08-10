@@ -14,6 +14,8 @@ changes.
 
 ## [1.1.0] - UNRELEASED
 
+- Moved dependencies to `hydra-plutus-extras` instead of `hydra-test-utils`.
+
 - Added `on-chain-cost` benchmark executable.
 
 - Made compatible to latest `plutus-tx` and `cardano-api` changes (via

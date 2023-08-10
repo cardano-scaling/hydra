@@ -53,7 +53,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
  )
 import Hydra.Snapshot (genConfirmedSnapshot)
-import Plutus.Orphans ()
+import Hydra.Plutus.Orphans ()
 import PlutusLedgerApi.V2 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate)

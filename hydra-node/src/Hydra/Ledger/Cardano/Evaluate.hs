@@ -67,7 +67,7 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Data.ContestationPeriod (posixToUTCTime)
+import Hydra.Plutus.Extras (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
