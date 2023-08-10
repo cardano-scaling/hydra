@@ -42,7 +42,6 @@ import System.Process (
   proc,
   withCreateProcess,
  )
-import System.Timeout (timeout)
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
 import qualified Prelude
 
@@ -75,14 +74,14 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Tracer IO EndToEndLog -> NominalDiffTime -> [HydraClient] -> Aeson.Value -> IO ()
+waitFor :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time for an API server output to match the given predicate.
-waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch :: HasCallStack => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
-  timeout (truncate $ delay * 1_000_000) (go seenMsgs) >>= \case
+  timeout delay (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
@@ -107,7 +106,7 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
 -- | Wait up to some `delay` for some JSON `Value` to match given function.
 --
 -- This is a generalisation of `waitMatch` to multiple nodes.
-waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
+waitForAllMatch :: (Eq a, Show a, HasCallStack) => DiffTime -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
 waitForAllMatch delay nodes match = do
   when (null nodes) $
     failure "no clients to wait for"
@@ -123,13 +122,13 @@ waitForAllMatch delay nodes match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Tracer IO EndToEndLog -> NominalDiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
+waitForAll :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
     -- The chain is slow...
-    result <- timeout (truncate $ delay * 1_000_000) $ tryNext client msgs expected
+    result <- timeout delay $ tryNext client msgs expected
     case result of
       Just x -> pure x
       Nothing -> do
@@ -174,7 +173,7 @@ externalCommit' HydraClient{hydraNodeId} utxos =
       (Req.http "127.0.0.1" /: "commit")
       (ReqBodyJson $ DraftCommitTxRequest utxos)
       (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
-      (Req.port $ 4000 + hydraNodeId)
+      (Req.port $ 4_000 + hydraNodeId)
 
 -- | Helper to make it easy to externally commit non-script utxo
 externalCommit :: HydraClient -> UTxO -> IO Tx
@@ -194,7 +193,7 @@ getMetrics HydraClient{hydraNodeId} = do
       (Req.http "127.0.0.1" /: "metrics")
       NoReqBody
       Req.bsResponse
-      (Req.port $ 6000 + hydraNodeId)
+      (Req.port $ 6_000 + hydraNodeId)
 
 data EndToEndLog
   = NodeStarted {nodeId :: Int}
@@ -332,11 +331,11 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
                 , host = "127.0.0.1"
-                , port = fromIntegral $ 5000 + hydraNodeId
+                , port = fromIntegral $ 5_000 + hydraNodeId
                 , peers
                 , apiHost = "127.0.0.1"
-                , apiPort = fromIntegral $ 4000 + hydraNodeId
-                , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
+                , apiPort = fromIntegral $ 4_000 + hydraNodeId
+                , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
                 , hydraSigningKey
                 , hydraVerificationKeys
                 , hydraScriptsTxId
@@ -357,7 +356,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
   peers =
     [ Host
       { Network.hostname = "127.0.0.1"
-      , Network.port = fromIntegral $ 5000 + i
+      , Network.port = fromIntegral $ 5_000 + i
       }
     | i <- allNodeIds
     , i /= hydraNodeId
@@ -374,7 +373,7 @@ withConnectionToNode tracer hydraNodeId action = do
         False -> threadDelay 0.1 >> tryConnect connectedOnce
         True -> throwIO e
 
-  doConnect connectedOnce = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \connection -> do
+  doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
     atomicWriteIORef connectedOnce True
     traceWith tracer (NodeStarted hydraNodeId)
     res <- action $ HydraClient{hydraNodeId, connection, tracer}

@@ -97,7 +97,6 @@ import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
-import System.Timeout (timeout)
 import Test.QuickCheck (generate)
 import qualified Prelude
 
@@ -214,7 +213,7 @@ spec = around showLogsOnFailure $
                   v ^? key "contestationDeadline" . _JSON
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
-                remainingTime <- diffUTCTime deadline <$> getCurrentTime
+                remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
                 waitFor tracer (remainingTime + 3) [n1] $
                   output "ReadyToFanout" ["headId" .= headId]
 
@@ -464,10 +463,10 @@ spec = around showLogsOnFailure $
               waitForLog 10 stdErr "Detect ParamMismatchError" $ \errlines ->
                 "ParameterMismatch" `isInfixOf` errlines
 
-waitForLog :: NominalDiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
+waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
   seenLogs <- newTVarIO []
-  timeout (truncate delay * 1_000_000) (go seenLogs) >>= \case
+  timeout delay (go seenLogs) >>= \case
     Just () -> pure ()
     Nothing -> failReason seenLogs $ "within " <> show delay
  where
@@ -669,7 +668,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       v ^? key "contestationDeadline" . _JSON
 
     -- Expect to see ReadyToFanout within 3 seconds after deadline
-    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+    remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
     waitFor tracer (remainingTime + 3) [n1] $
       output "ReadyToFanout" ["headId" .= headId]
 

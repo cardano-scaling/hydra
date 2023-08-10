@@ -119,7 +119,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
                 v ^? key "contestationDeadline" . _JSON
 
               -- Expect to see ReadyToFanout within 3 seconds after deadline
-              remainingTime <- diffUTCTime deadline <$> getCurrentTime
+              remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
               waitFor tracer (remainingTime + 3) [leader] $
                 output "ReadyToFanout" ["headId" .= headId]
 
