@@ -840,7 +840,7 @@ components:
       payload:
         type: object
         additionalProperties: false
-        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters<Babbage>"
+        $ref: "cardanonical/cardano.json#/definitions/ProtocolParameters"
 
   ########
   #
