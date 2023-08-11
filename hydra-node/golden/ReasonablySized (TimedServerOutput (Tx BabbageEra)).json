@@ -4281,9 +4281,9 @@
                 }
             },
             "postTxError": {
-                "failureReason": "%\u0003󶍬\u001f",
-                "redeemerPtr": " 𰁿_󱯝",
-                "tag": "ScriptFailedInWallet"
+                "plutusDebugInfo": "%\u0003󶍬\u001f",
+                "plutusFailure": " 𰁿_󱯝",
+                "tag": "PlutusValidationFailed"
             },
             "seq": 3,
             "tag": "PostTxOnChainFailed",
@@ -4761,9 +4761,9 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "failureReason": "t\u001b$i",
-                "redeemerPtr": "P\u0008c󽄢",
-                "tag": "ScriptFailedInWallet"
+                "plutusDebugInfo": "t\u001b$i",
+                "plutusFailure": "P\u0008c󽄢",
+                "tag": "PlutusValidationFailed"
             },
             "seq": 0,
             "tag": "PostTxOnChainFailed",
@@ -9767,98 +9767,9 @@
                 "utxo": {}
             },
             "postTxError": {
-                "headUTxO": {
-                    "0601050808060103010705010006080108040401040101070006060506010203#62": {
-                        "address": "addr1y8l9h0clpt9jpsphak2smcz9xvfy6salc4fhsqrul3m27wrxugz82ah4j3qmrlnulq6n00cz7ppgrukzlml5d7mlzp8qw0wta6",
-                        "datum": null,
-                        "datumhash": null,
-                        "inlineDatum": null,
-                        "referenceScript": null,
-                        "value": {
-                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                "10e15cd28c56cb50bf26eace631d5c011e211c": 1322729075664907553
-                            },
-                            "lovelace": 881080420161510677
-                        }
-                    }
-                },
-                "reason": "",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "auxiliaryData": "d90103a2018482040b8204028200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b08254182051003814746010000220011",
-                    "body": {
-                        "auxiliaryDataHash": "04e350f62c3737ddf5fc99144047814d2459ac0cad6aee380dddb6f8dfcbcbd2",
-                        "certificates": [
-                            "8a03581cf77c7b37163c8035fe850bfce8ce1b1fa72567d9642d441149b40cfc58208a98965fb21f8aa0717c3927598e17372a6432b07aa503abf251a699980390a21a000422791a0006c7f1d81e821a002a9d451a00989680581df09c2f40f53b31e5f80924bb8fef46d314c16aac35638ae7d6754b9cde83581c01aa13ac1902ca76dc85f1c1c392c627f0f41e46acd497f408d91b51581c2b9c8de6dc4cec4a2de6c0435d27f3f253d1142e56bb686b09cc6eb7581c5e7c69427f7d89849b18157e5a718e7f243576eb04f8c0d2daef3c03848202783a5968786f5035417a5838655874306965682d537179657936512e79314333696e694a6b4756564a3674447770724359464c694c6b322e2e636f6d840006f6f68301f6782934564a43706b3345594f67346c674b4465754b554a67794b32687a3179584d6b6a455441352e636f6d830102724547525742316158634d4b454d302e636f6d82781968747470733a2f2f38496d776948396b565454514c2e636f6d4497b02a01",
-                            "82068201a28201581c19198b8c145f3d1cc8e49a870b5c8812075a55ddbf60a69ac0fc1a9b3a00050fd58200581cac995abf7bf803f7d7d36e84913e3bc73e962bfda187446912ec32793a00092aeb",
-                            "8304581cc07300eb1a70f2fa7b4c09d8b42a71d859c2b9219c2e0d5ad28502b309",
-                            "82008200581c786b704d9812392aa69487a160b4150dd7f8afd63d7fe01c0823e844"
-                        ],
-                        "collateral": [
-                            "11d57996f60c87adf46a57a47e4924f0f1d310599e3611b664f0d0b86b5b835a#13",
-                            "79b61f847de231f096686cc2774f8f3f1b85e6a84e4bb4294d985a7a900265e2#16",
-                            "f7de8dfcd71bb200864ee478a89bfef2733417731e3660bfe77768e981479c0f#1",
-                            "fba3dbaffa021a14e3498bee1aeb5ea6024d093059815b0f509ea5045d57799a#1"
-                        ],
-                        "collateralReturn": {
-                            "address": "addr1yxp6s0m9walkp4ddq2rdn88e0eadr253qgkcq2xfg4gf3m0d4d7j4w437hzjjdr5fewad9xqn2n05qugcshueqllu70s9skjg5",
-                            "datum": null,
-                            "datumhash": null,
-                            "inlineDatum": null,
-                            "referenceScript": {
-                                "script": {
-                                    "cborHex": "820401",
-                                    "description": "",
-                                    "type": "SimpleScript"
-                                },
-                                "scriptLanguage": "SimpleScriptLanguage"
-                            },
-                            "value": {
-                                "191a1aa59e452ad263daca710d5e04388985a5f7d5c4af06d35d22a6": {
-                                    "b30a08dd1c3e265d62334017c8f63bd080e69a0abd1f1b018bb66e490f9716": 8694859321770705466
-                                },
-                                "lovelace": 2830393517144455117
-                            }
-                        },
-                        "fees": 181058,
-                        "inputs": [
-                            "26d7d99436f7f5ba4aa48a8261cbf31f2318fe227c98d47d7e62c42b87c45050#11",
-                            "f6903dd3d2e11936bcd655fc6b6e2b6a31e4bbf07909ecd174b6b9093f021782#3"
-                        ],
-                        "mint": {
-                            "2da30981ea0c5bd4c1e4a04916053aeeb454a2877f6eafc24ff90871": {
-                                "33": -4450760599977701335
-                            }
-                        },
-                        "networkId": "Testnet",
-                        "outputs": [],
-                        "referenceInputs": [
-                            "2260b993c13f2b819429d60af394ec324e2f4f1d2ac06b667a3e9f2ac5d444ba#15",
-                            "939964686f3205076f6aeeb8353ca10f6c6521e7c3f320f262ffe0f13236d4a9#16"
-                        ],
-                        "scriptIntegrityHash": "6e2f0cf00f215f8a858ece49a8900cf8099ebe77be4565d1de9cc376f2c2fe23",
-                        "totalCollateral": 125650,
-                        "withdrawals": {
-                            "f0d9b0ef9ce1d703161a6aef89a0e4343c04d556abe1fcbb08d86fadc1": 687032,
-                            "f14a26c684f0c47c1bc07615a1b02679546768feed7bb1bf250da0b446": 127191
-                        }
-                    },
-                    "id": "5278ca728def7addf28e767bd27ff3bfa9e4c687aebab7032016296cd12f880c",
-                    "isValid": false,
-                    "witnesses": {
-                        "bootstrap": [
-                            "84582014dfe45527320dbaa1a9af53ca629c075eed14ea41b6223c8ca27801886bafba5840a76b470ef74386701366b7a2a69e9ff888d019ee2d70d36552bb87b6b310a81f9633a86435230ae4e357e744570b341dd22b9f9ee8348eace81c2342e54db9af4570e1d3267e45e08319d172",
-                            "84582042f9dac954b81d1252d815bc6b91e93050526d7748d034f91d98d4e2ef2fd0ab584078f37bb4ed1f7d1c48720c772089f2c4edd8d0c5a0f6b52657c734e7dbf1bd60abe065be007b090939f24918d3f53fb81dbd0588bb18df744e395eda52055d2e4568d1f719c042beb6",
-                            "8458204597e82c0a200d722baa349e055df855607217594102057c32985f1a28c7406b58401dafcc798b411872bad319d53385a8a7e83b5df9ce5a24c04ccb58dde6baca44de50fcc2303069765ee46b78c1a7aa770feaef698213d536b564ce8f3d1793b6404556aec0ffa5",
-                            "845820ba496b3efc7227af4ae5cd73baf31f91542ecc8dcbb82320202a1a31e1a977955840f38313f11d5f5080f9ba30542b9cd0e9e40cdd26e16ee2922020401bfda6ac8edc3991fefc2c57d055f0bce3c9d498348ae34121f5526574ddff1405242e11c742b5b4425430",
-                            "845820095374cda34f2601f9706e32e895277d6320f10f94f4d47cc67af7add9d172f758403e9f66fcc212a6a0cc7ce63b3707332e0d72a32e218ea73d514156529151a8deb6f2f9773069ca04a6fddff3a0cbf391fe247c38fc4b2db2cbe292cf9613a8a44446c151e945827fef3549"
-                        ],
-                        "keys": [
-                            "8258207a0211b36449033f1e261b585f93d0fd1c2f4baf0e2f878180b42efd9d3763db58406ead133bef40b1f46162f4d3463c1e1f7f91c01bb1403d2a4ba9e9c847a9ddea0de02313d56e6a6be62a84a20471eae75af03db036f719a0932003f60804a419"
-                        ],
-                        "redeemers": "85840003d87e9f809f9f0344a786087020ff20a10502ff44e4fb01ba9f80d87e9f20002040ffffff821b2dd94d796bc97e401b17b984879a7bb230840103d8799fa09f24d87b9f40210205ff422816a442f078442616320f4042e8c341b242df58416e438a6856ffa3a301410d448a7aed890443eb42ee41d823a10340a1224379d7159f050043dcd80e427e8f02ff413a00ff821b3845502c65bf46491b65abd3d222b51af984010e9fa143c42ad5a0ff821b40aba71067c361211b41fa04c1d3b5fd8784020480821b0cfdfe7cebb1098c1b736cfcd849cce60c84020901821b57b4077ea5e35bdd1b6767a2bfaf05b2e2"
-                    }
-                }
+                "mainnetLimitLovelace": 10,
+                "tag": "CommittedTooMuchADAForMainnet",
+                "userCommittedLovelace": 19
             },
             "seq": 3,
             "tag": "PostTxOnChainFailed",
@@ -11837,8 +11748,7 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "failureReason": ".𡑶𠉝忞",
-                "tag": "FailedToPostTx"
+                "tag": "FailedToDraftTxNotInitializing"
             },
             "seq": 2,
             "tag": "PostTxOnChainFailed",
@@ -15029,9 +14939,9 @@
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "mainnetLimitLovelace": 28,
-                "tag": "CommittedTooMuchADAForMainnet",
-                "userCommittedLovelace": 32
+                "plutusDebugInfo": "",
+                "plutusFailure": "4P𪍹\u0008𒒉\u0018",
+                "tag": "PlutusValidationFailed"
             },
             "seq": 5,
             "tag": "PostTxOnChainFailed",

@@ -221,6 +221,9 @@ data ErrCoverFee
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
+-- TODO: provide To/From JSON instances for ErrCoverFee so that we can reuse
+-- them in InternalWalletError instead of putting just the Text for reason.
+--
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving (Show)
 

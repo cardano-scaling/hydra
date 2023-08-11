@@ -407,7 +407,7 @@ spec = around showLogsOnFailure $ do
             -- note, that we don't try to check whether it's failing for the
             -- right reason here (see corresponding mutation test for this).
             contestAgain `shouldThrow` \case
-              (ScriptFailedInWallet{} :: PostTxError Tx) -> True
+              (InternalWalletError{} :: PostTxError Tx) -> True
               _ -> False
 
 data DirectChainTestLog
