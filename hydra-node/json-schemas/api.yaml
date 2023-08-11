@@ -223,23 +223,6 @@ components:
             type: string
             enum: ["Abort"]
 
-    Commit:
-      title: Commit
-      description: |
-        DEPRECATED: use the /commit endpoint instead to create a commit transaction and have it submitted to the node
-        Join an initialized head. This is how parties get to inject funds inside a head. Note however that the utxo is an object and can be empty should a participant wants to join a head without locking any funds.
-      payload:
-        type: object
-        required:
-          - tag
-          - utxo
-        properties:
-          tag:
-            type: string
-            enum: ["Commit"]
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-
     NewTx:
       title: NewTx
       description: |
