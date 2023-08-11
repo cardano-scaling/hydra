@@ -1085,26 +1085,172 @@
         },
         {
             "clientInput": {
-                "tag": "Commit",
-                "utxo": {
-                    "0802080302020702060406050103070808050707000400060001060800000203#67": {
-                        "address": "addr1qyue98ptl4u4nlrjhsy2urx35gccs8puchm0tg9ck0c328nxdu6su89yyjxwl7sg6fkrpzes242eznpu3ugennr5t6rsew32qa",
-                        "datum": null,
-                        "datumhash": "74b63253ff1939c84cfb4a6cd0c0aef7924c19331122693879ba160c86e2b267",
-                        "inlineDatum": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "82018482050b82050082050382050b",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
+                "tag": "NewTx",
+                "transaction": {
+                    "auxiliaryData": "d90103a300a600a3a042865d83600100616941906bf488a5bb3d2ff0a0a3a343020303030744dd09eb020e0510400185820183830301858205048201838200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78201838200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568201838200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f5482028182040c8201818202848200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54830301818201858200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78205028200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e82040c82040f8202818201858201838200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28204018201858200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8820407830300828200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b702814746010000220011",
+                    "body": {
+                        "auxiliaryDataHash": "043f8e1bd8b7daf75b7b7204cb994e96b5acd22e2353aeed00eb59bfdc2b8fe1",
+                        "certificates": [
+                            "8405581cb83964d66e65b00f790ead351db5e210d285b542987db07cae9864ef581c5d3ec77df5910853bd5ee8d677982d06b9eaae118060c440262a731b58201876bce9e86f4114d717db18d7a517b1ae6ec65cc260ee8a586ea0be7c02d16a"
+                        ],
+                        "collateral": [
+                            "1d6b98193451acf1a2fdd7823c8637c5663fbc001d6963616ca3d787e6ed6661#7",
+                            "485761240432d45ecda9bf6b19b6df227ffd2999b785685e12dc296667083b64#9",
+                            "75af42ee65e286c7bc9c5cd622d6c573498c845cf088100a345be338994bec98#7",
+                            "928796758b00335c5291bf3b49405806a4db3d7e3fa8f12d21a02be555e468f4#5",
+                            "c7ddbb64fe9d9f23406c606f5ee3326b9d7ab7dd9b9e66a6bd697e55a71453b1#8"
+                        ],
+                        "fees": 481839,
+                        "inputs": [
+                            "1099db26912fc2746464db2763562a8e93ef07df34f958a29392dca79743f2da#15",
+                            "29659f628b38434c8c1792de3e13db518e2783d9b7eb3b2baaa13820e6e106ac#12",
+                            "744e7c61b8ffd4ec021b800587bf62ab7bc81f775e58410ba598ed66b2504eba#1",
+                            "90fcee5cc4346b18133f1f47baf65365f6fce4ea1395fa6629e99cda338b06d7#2",
+                            "f697c0b0c8f25b7b1f6919a7e871f52c0fb293bc6e44d8e58164b4ece810a57f#8"
+                        ],
+                        "mint": {
+                            "7ce1e41cd06d36b14f3e6b875ae98bf0c3da73288980585333658643": {
+                                "913bc83bfc815d1a2b297ee66836a800bda3a36ac5a0cce5": -425951502809728102
+                            }
                         },
-                        "value": {
-                            "4b1e47f18898e7b8e619d3eead234d61b253e3d51124be67a5c08139": {
-                                "7c5245ab38da99b2849ea7c1c23e3b51c775273b142d19": 7599668236700303890
+                        "outputs": [
+                            {
+                                "address": "addr_test1xp5kuc5yk4l5qgy779njqckumhcdclm4ssz657l3lwggrqhcc0tel63gyws5mqfw3qu9ptejwp4tnau7cxkgdkc6dpus43c7ap",
+                                "datum": null,
+                                "inlineDatum": {
+                                    "list": [
+                                        {
+                                            "constructor": 3,
+                                            "fields": [
+                                                {
+                                                    "bytes": "76def5"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "map": []
+                                        },
+                                        {
+                                            "constructor": 0,
+                                            "fields": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "list": [
+                                                        {
+                                                            "int": 1
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "list": [
+                                                        {
+                                                            "bytes": "5c775305"
+                                                        },
+                                                        {
+                                                            "int": -1
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "bytes": "0415e012"
+                                                },
+                                                {
+                                                    "constructor": 2,
+                                                    "fields": [
+                                                        {
+                                                            "int": 0
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "inlineDatumhash": "46b78b3876121786e969c992c4e522a5165a074502ee1900ab8c0e2635e3dbe5",
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "820502",
+                                        "description": "",
+                                        "type": "SimpleScript"
+                                    },
+                                    "scriptLanguage": "SimpleScriptLanguage"
+                                },
+                                "value": {
+                                    "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                        "f04513a3db23df9cb6f138ef6529046898017f8cf5b182c9daa47b80db7cdb": 2217954705879268309
+                                    },
+                                    "lovelace": 95889640576435016
+                                }
                             },
-                            "lovelace": 4223296266341345568
+                            {
+                                "address": "EqGAuA8vHnNjisVyDHc1iJVRbmogjgzNRsVweHHy7S5sS8DJZKfGG2PDihhBHid6bJUEd8pCKf2urLqPByv3kUpkdGE96dSdNT7852Rmvnx7CYzU1Y9iRZC",
+                                "datum": null,
+                                "datumhash": "de35852126d058587b01b5fb472cff66ad324d613ea38169d073f3ea6f2cc5ec",
+                                "inlineDatum": null,
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "82040b",
+                                        "description": "",
+                                        "type": "SimpleScript"
+                                    },
+                                    "scriptLanguage": "SimpleScriptLanguage"
+                                },
+                                "value": {
+                                    "a6abe2a064aa18c9f54d113c6a1fd1f40199bbdb3d26ee3d203b9ba4": {
+                                        "0debbd356743cf608b7c7c4ee9c6ddf475d060ac545b3654f8852f28": 4534091368047615365
+                                    },
+                                    "lovelace": 8946440411890759833
+                                }
+                            },
+                            {
+                                "address": "addr_test1vqryu5vdg2vn4zghru24nuy3jzup6elv3afw4nymnrtrq4qpujsx7",
+                                "datum": null,
+                                "datumhash": null,
+                                "inlineDatum": null,
+                                "referenceScript": {
+                                    "script": {
+                                        "cborHex": "820285820282830304848200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56820285830302858200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e48200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c282040b82040d830300808201848200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825418200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78201828201818200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58205108202818200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8",
+                                        "description": "",
+                                        "type": "SimpleScript"
+                                    },
+                                    "scriptLanguage": "SimpleScriptLanguage"
+                                },
+                                "value": {
+                                    "4dfc4d1cad1f8406509ee708409cbdd95fed257d2f3c0a2130f1dc5d": {
+                                        "8f304e052d37b3ea3809068968bc842e9cbe": 2495168330782351148
+                                    },
+                                    "lovelace": 2979360252771462891
+                                }
+                            }
+                        ],
+                        "referenceInputs": [
+                            "f239be21bf21c8c02ffda2d3f34b306c773f3cf4c194982647b7b6da7dd131bb#13"
+                        ],
+                        "requiredSignatures": [
+                            "a06c1ad2a2bc3d026aea6f438475c4b37ffe54b021a3131184f89843",
+                            "c427d53e372341cbd53addea72514feec9261f053d5158a5c77e8a6f",
+                            "e76e9677394ea479100887e9418288fe9e51d64bb2f3173bd304571a",
+                            "e7c88705cdcfe81373613ca14a0bb14bbfa6f22faf2f85feaf4ee607"
+                        ],
+                        "totalCollateral": 141982
+                    },
+                    "id": "1b2d5be16901eb23c8651c02141496c86a6e9bdf5f57bbd9ad0c512158e80e40",
+                    "isValid": false,
+                    "witnesses": {
+                        "datums": {
+                            "5bd5651d4b9f83b88182bec2d6a2f2ce72337a6a39776238be48dc7557ff074f": "d87b9f0500d87d80a59f445239c1860500ff9f00ffd87c9f24032143d3d773ffa4044126002104014439409f394388600ea342cd0a4269db42f9994227b244e1dcd0ce052323443fe2678a4342e4be9f43ab8d9242f6f5ff21ff",
+                            "d36a2619a672494604e11bb447cbcf5231e9f2ba25c2169177edc941bd50ad6c": "a0"
+                        },
+                        "keys": [
+                            "8258209323fb3389b9efbbb7f15ddfc0560f8c6f3a1837ad0bb44380e40d396d49886f5840b75471882eb7596f05126ea8f3cd15f9269931d8d9d5f74e7d62c066d49c32d3a09fc4980e2aeea9a2602a9743b63a0389e1b9c9f8aac97bdf9b156cd91bf465",
+                            "825820ccb8051f6f01b629b4267c08f39333053b7f3af577c03c3b6a064661e64856bb584047a04dba5a5dfb6aaf66d760a8ada891efbe4ae122961b6af7991fec091208387c15df601e6cdf3a1f75f2c769d724e45328b36e5ab7cac4b48840915a51b3ec"
+                        ],
+                        "scripts": {
+                            "37d325aa4b7e37a356e70211f438b4780c720d2fd2a4294cf172c452": "820082050c",
+                            "a2ace700e87749dce06c5f5d4c14b6febeecd1b4eb433941b4ec6834": "8200820183820284830301828200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568204088202828200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541820180820280",
+                            "d388813c87b11a9b842672fc123512e7148e09bfc583f300366073e7": "82008200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a"
                         }
                     }
                 }
@@ -1367,7 +1513,7 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Contest"
             },
             "tag": "CommandFailed"
         },
@@ -1383,7 +1529,7 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "Fanout"
             },
             "tag": "CommandFailed"
         },
@@ -1755,7 +1901,7 @@
                 "chainState": {
                     "chainState": {
                         "contents": {
-                            "headId": "57a012519e8ad0299004ea5cf3c77a95bb12f51b6a9d2073fd22151a",
+                            "headId": "73c0810e812a6e9b6db3fe1d87378b7d5bb95f45ab767f8b2371bfdd",
                             "openThreadOutput": {
                                 "openContestationPeriod": 74753000,
                                 "openParties": [
@@ -1770,18 +1916,18 @@
                                     }
                                 ],
                                 "openThreadUTxO": [
-                                    "b6d78de2c39c572b8e1a1d93b916becc5c7a28d46b9054a7a91bf604bf820aba#0",
+                                    "d2315b118e80b57f9dbe2dbf96de4cce4c2f41160eaf0f20888c713f41d64040#0",
                                     {
                                         "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                         "datum": null,
-                                        "datumhash": "c83735665c1036d202a9c91870e4f0447ee13c28e374f77c3c6421b7d3615d0f",
+                                        "datumhash": "aefcd29221459f5ba1b9052b50790a2fe1728178da87c2e6dc06d1a1c2274d4c",
                                         "inlineDatum": null,
                                         "referenceScript": null,
                                         "value": {
                                             "4b539b944e46aeda5e6a61d9c957ffd6ac6e04f85413310a91e1f3ce": {
                                                 "35": 2495863217236765978
                                             },
-                                            "57a012519e8ad0299004ea5cf3c77a95bb12f51b6a9d2073fd22151a": {
+                                            "73c0810e812a6e9b6db3fe1d87378b7d5bb95f45ab767f8b2371bfdd": {
                                                 "1d890e564131ca43c3fd60e7af21db109f0544a02e5df14f57b42cd0": 1,
                                                 "4879647261486561645631": 1,
                                                 "5610c8b0a9124ce73e0e06cec15ed8b1dafb6c5a07f6b25f7e2ad351": 1,
@@ -1794,7 +1940,7 @@
                                             "lovelace": 5049118188882349278
                                         }
                                     },
-                                    "d87a9fd8799f1a0474a3e8ff9f582021cbe3c1381ecd8ca598754a649acd8beed349a513d97d8f0ebcd58f2f22aa185820b46abf019a4c09a1e5ed196bb22ad20aff062a74aca99a4c4ee69ecdda09b07858205ac0a26ae1694a90bf7ba5f56b4b4875c3ec3dc62e6513946448e43777b21fd9ff58209667933e1fe5c9f38aa0ba535cf57a5ce5f552e8b827be00f6b2b802dad06cf1581c57a012519e8ad0299004ea5cf3c77a95bb12f51b6a9d2073fd22151aff"
+                                    "d87a9fd8799f1a0474a3e8ff9f582021cbe3c1381ecd8ca598754a649acd8beed349a513d97d8f0ebcd58f2f22aa185820b46abf019a4c09a1e5ed196bb22ad20aff062a74aca99a4c4ee69ecdda09b07858205ac0a26ae1694a90bf7ba5f56b4b4875c3ec3dc62e6513946448e43777b21fd9ff58209667933e1fe5c9f38aa0ba535cf57a5ce5f552e8b827be00f6b2b802dad06cf1581c73c0810e812a6e9b6db3fe1d87378b7d5bb95f45ab767f8b2371bfddff"
                                 ]
                             },
                             "openUtxoHash": "9667933e1fe5c9f38aa0ba535cf57a5ce5f552e8b827be00f6b2b802dad06cf1",
@@ -1805,42 +1951,42 @@
                     "previous": {
                         "chainState": {
                             "contents": {
-                                "headId": "9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4",
+                                "headId": "6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172",
                                 "initialCommits": [],
                                 "initialInitials": [
                                     [
-                                        "394cc04696d183c6a3dae14063f980e0b3adb911b668364e904af701a90543d1#1",
+                                        "94b38babad633f71e1bae15d288451cdd8520cbb9750d19a9e3c49aeef38889a#1",
                                         {
-                                            "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                            "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                             "datum": null,
-                                            "datumhash": "12e63bacd1ff880358df7dc3ec8d24ae99ff36ae15bccf1cb3ae4154f5d1379d",
+                                            "datumhash": "7b7a8def5d6b1300ed04631cfa3312a56d701153db0865522e835db3c1110652",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4": {
+                                                "6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172": {
                                                     "3b862d05670f7cb6e7daa2ba8b518ae3eced1d519e943a4b2fc1d6c8": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "581c9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4"
+                                        "581c6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172"
                                     ],
                                     [
-                                        "394cc04696d183c6a3dae14063f980e0b3adb911b668364e904af701a90543d1#2",
+                                        "94b38babad633f71e1bae15d288451cdd8520cbb9750d19a9e3c49aeef38889a#2",
                                         {
-                                            "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                            "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                             "datum": null,
-                                            "datumhash": "12e63bacd1ff880358df7dc3ec8d24ae99ff36ae15bccf1cb3ae4154f5d1379d",
+                                            "datumhash": "7b7a8def5d6b1300ed04631cfa3312a56d701153db0865522e835db3c1110652",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4": {
+                                                "6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172": {
                                                     "5ee19f67bc2fb2e0f29e9b80726e976943c232326e09928b306000ad": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "581c9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4"
+                                        "581c6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172"
                                     ]
                                 ],
                                 "initialThreadOutput": {
@@ -1854,21 +2000,21 @@
                                         }
                                     ],
                                     "initialThreadUTxO": [
-                                        "394cc04696d183c6a3dae14063f980e0b3adb911b668364e904af701a90543d1#0",
+                                        "94b38babad633f71e1bae15d288451cdd8520cbb9750d19a9e3c49aeef38889a#0",
                                         {
                                             "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                             "datum": null,
-                                            "datumhash": "d6e0254efc4f2e2a90101c723dcb37405f835c9f0228fae82010739c6e98ef78",
+                                            "datumhash": "8019ceba96c98eec3de4567d3ad878d8df7cf9cda88dd9fb85f47cce87b0a7de",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4": {
+                                                "6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172": {
                                                     "4879647261486561645631": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "d8799fd8799f1a034f9478ff9f58203987364695f2c6b2d04759c45021518eb3d89e1d53966a680ce645028b8b3e165820bb507a526c980d5f783d1787afccbb4d2ac870345abcb40794f1bd7cfa3707b9ff581c9c460159bb685a69f50e6a81606410508e7a877d059382ffbac193e4d8799fd8799f58200708010305060001020702000008040002000508010306010204050304050001ff1856ffff"
+                                        "d8799fd8799f1a034f9478ff9f58203987364695f2c6b2d04759c45021518eb3d89e1d53966a680ce645028b8b3e165820bb507a526c980d5f783d1787afccbb4d2ac870345abcb40794f1bd7cfa3707b9ff581c6c78be4604e822661c9895fe4320525e5d26b521bdc9acf9dcca9172d8799fd8799f58200708010305060001020702000008040002000508010306010204050304050001ff1856ffff"
                                     ]
                                 },
                                 "seedTxIn": "0708010305060001020702000008040002000508010306010204050304050001#86"
@@ -1878,25 +2024,25 @@
                         "previous": {
                             "chainState": {
                                 "contents": {
-                                    "headId": "1c5bb732dff34f197fb006a140d4032432c359b665387b891eb657ea",
+                                    "headId": "9b4643d040d5be7f53fbb80990f261cb0d52e814b84949d946dc1744",
                                     "initialCommits": [],
                                     "initialInitials": [
                                         [
-                                            "cc98dbd29399b1dfd00c591fae077f29bd6727c40b8434043a29efbd5173d3ff#1",
+                                            "0f76de5eba7dd2865791b66a37a505b473c7223aeb277aae64f31358fe3ec0b7#1",
                                             {
-                                                "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                                "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                                 "datum": null,
-                                                "datumhash": "1bb06eedf0ec369cd1cc565f2dfdbe8ae973fd8736efa08034d5980a55c58610",
+                                                "datumhash": "3148594b4673a19e76e5ded34b7f599345441aeb7042241ab78b9dc3a34e7ef5",
                                                 "inlineDatum": null,
                                                 "referenceScript": null,
                                                 "value": {
-                                                    "1c5bb732dff34f197fb006a140d4032432c359b665387b891eb657ea": {
+                                                    "9b4643d040d5be7f53fbb80990f261cb0d52e814b84949d946dc1744": {
                                                         "b810dd3c0ea5707aca2b73ddb3889368da98c7e68a326973aa8cb69f": 1
                                                     },
                                                     "lovelace": 2000000
                                                 }
                                             },
-                                            "581c1c5bb732dff34f197fb006a140d4032432c359b665387b891eb657ea"
+                                            "581c9b4643d040d5be7f53fbb80990f261cb0d52e814b84949d946dc1744"
                                         ]
                                     ],
                                     "initialThreadOutput": {
@@ -1907,21 +2053,21 @@
                                             }
                                         ],
                                         "initialThreadUTxO": [
-                                            "cc98dbd29399b1dfd00c591fae077f29bd6727c40b8434043a29efbd5173d3ff#0",
+                                            "0f76de5eba7dd2865791b66a37a505b473c7223aeb277aae64f31358fe3ec0b7#0",
                                             {
                                                 "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                                 "datum": null,
-                                                "datumhash": "64c5eab609d90d4bce4501f5465a22bd0b9e061718829dcc177da1b6ff30730d",
+                                                "datumhash": "74befc284cb932febf7cf3229209a18c4590a77691771d95611626ee4d28128d",
                                                 "inlineDatum": null,
                                                 "referenceScript": null,
                                                 "value": {
-                                                    "1c5bb732dff34f197fb006a140d4032432c359b665387b891eb657ea": {
+                                                    "9b4643d040d5be7f53fbb80990f261cb0d52e814b84949d946dc1744": {
                                                         "4879647261486561645631": 1
                                                     },
                                                     "lovelace": 2000000
                                                 }
                                             },
-                                            "d8799fd8799f1a05265c00ff9f58204241d5bedc0030368fca52fd113d7357fb5e7dbde963f0e8771e1d00798dbb8eff581c1c5bb732dff34f197fb006a140d4032432c359b665387b891eb657ead8799fd8799f58200806060200060506060705080702020201050305000400050407000601030203ff181fffff"
+                                            "d8799fd8799f1a05265c00ff9f58204241d5bedc0030368fca52fd113d7357fb5e7dbde963f0e8771e1d00798dbb8eff581c9b4643d040d5be7f53fbb80990f261cb0d52e814b84949d946dc1744d8799fd8799f58200806060200060506060705080702020201050305000400050407000601030203ff181fffff"
                                         ]
                                     },
                                     "seedTxIn": "0806060200060506060705080702020201050305000400050407000601030203#31"
@@ -1943,18 +2089,18 @@
                                                 }
                                             ],
                                             "closedThreadUTxO": [
-                                                "a066fb3fe4a95a26d0b088cf81969565ed6b9f8a869ad9d83b0c93738179e66f#0",
+                                                "0eb661b7d1dee8417b10cf6958f603bceaa740b06e1b0c11af3b183dbea0325f#0",
                                                 {
                                                     "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                                     "datum": null,
-                                                    "datumhash": "be5d72b75959da87daa859f73ff728a2a9782952264ccd9d290161f30f058ef4",
+                                                    "datumhash": "3191bd259d525c7534e9117a64f8620c9ece5a7355b75d9c7e4d9989de579a7d",
                                                     "inlineDatum": null,
                                                     "referenceScript": null,
                                                     "value": {
                                                         "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
                                                             "0b28e1aba39acbf1414ed2eedcddeb666fb04e": 989622736246281222
                                                         },
-                                                        "6a0f429b407b6ba3bde9178a0d5e6d2ea3b52bdf866ba46cffe6ff88": {
+                                                        "4ff4374bc4cb7a18e88a03acab5e0c75a8d4bf32fcf48e38d10e3f55": {
                                                             "323174670595c272fbc50da6f24bcdbec7a1977e2800e38266c7845e": 1,
                                                             "4879647261486561645631": 1,
                                                             "6f419d2a11ceef44272806b38bdcc4d68636ec76261bc189c81e96a8": 1
@@ -1965,10 +2111,10 @@
                                                         "lovelace": 1662336447674654682
                                                     }
                                                 },
-                                                "d87b9f9f5820942f8be4109c72aff63c2c84fc7a7be4d11aa3afab8eaa9e23daf32661d634775820834010c88506d4b097793a1b5741c3f809714b1c40115aafc8ac78c571478401ff035820c4cc692aec09a4b779c77bc34531f55a8ca8cd985fd281c04ca12d8b9b5c55cd1aebcea360d8799f1a9a7ec800ff581c6a0f429b407b6ba3bde9178a0d5e6d2ea3b52bdf866ba46cffe6ff8880ff"
+                                                "d87b9f9f5820942f8be4109c72aff63c2c84fc7a7be4d11aa3afab8eaa9e23daf32661d634775820834010c88506d4b097793a1b5741c3f809714b1c40115aafc8ac78c571478401ff035820c4cc692aec09a4b779c77bc34531f55a8ca8cd985fd281c04ca12d8b9b5c55cd1aebcea360d8799f1a9a7ec800ff581c4ff4374bc4cb7a18e88a03acab5e0c75a8d4bf32fcf48e38d10e3f5580ff"
                                             ]
                                         },
-                                        "headId": "6a0f429b407b6ba3bde9178a0d5e6d2ea3b52bdf866ba46cffe6ff88",
+                                        "headId": "4ff4374bc4cb7a18e88a03acab5e0c75a8d4bf32fcf48e38d10e3f55",
                                         "seedTxIn": "0302030103070508010001020400060106050508080701020301020308040607#43"
                                     },
                                     "tag": "Closed"
@@ -1989,15 +2135,15 @@
                                                         }
                                                     ],
                                                     "closedThreadUTxO": [
-                                                        "68a9ac0f8fd9cadd0a54dd299a2da79f5d97c23d97cab59b394a7dae6f48d3ce#0",
+                                                        "ef6d32b7bd7d2dd37732bdb14f8326a82997790f841b2d18481c6fc14b34aa09#0",
                                                         {
                                                             "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                                             "datum": null,
-                                                            "datumhash": "5c6e376488628fcbd083df5b9852c0ca1ad9780045819ea15f759fd46836802e",
+                                                            "datumhash": "c886a7da64530e217f4a8b070ca1e165e59b2e943be0a21f19b0cbe83406770f",
                                                             "inlineDatum": null,
                                                             "referenceScript": null,
                                                             "value": {
-                                                                "ecfd11048e5a2ee2fcd848f73d2aeb5268bd9e786f0140d9aca2742d": {
+                                                                "7603e0cfde2a60d784a49a3721f17608ab1110d875fb6f3bb847e03d": {
                                                                     "4879647261486561645631": 1,
                                                                     "858ac1e5c0214e197d84d74dd99b9d5ee8951a0bb63502838d47bf72": 1
                                                                 },
@@ -2007,10 +2153,10 @@
                                                                 "lovelace": 5172060945253648777
                                                             }
                                                         },
-                                                        "d87b9f9f58201aefe8122fcb64e8dd4ad8f15c2ff176545849f706b5e1b47ac0fd22d620b92bff0058206ca41fe6920af92d5e87b4f7e2ccbe750789546192645641dab9484ed07ce27e1a02c36d90d8799f1a02932e00ff581cecfd11048e5a2ee2fcd848f73d2aeb5268bd9e786f0140d9aca2742d80ff"
+                                                        "d87b9f9f58201aefe8122fcb64e8dd4ad8f15c2ff176545849f706b5e1b47ac0fd22d620b92bff0058206ca41fe6920af92d5e87b4f7e2ccbe750789546192645641dab9484ed07ce27e1a02c36d90d8799f1a02932e00ff581c7603e0cfde2a60d784a49a3721f17608ab1110d875fb6f3bb847e03d80ff"
                                                     ]
                                                 },
-                                                "headId": "ecfd11048e5a2ee2fcd848f73d2aeb5268bd9e786f0140d9aca2742d",
+                                                "headId": "7603e0cfde2a60d784a49a3721f17608ab1110d875fb6f3bb847e03d",
                                                 "seedTxIn": "0403060504080408070503040602080402060607060508000304050302060105#41"
                                             },
                                             "tag": "Closed"
@@ -2022,7 +2168,7 @@
                                             "previous": {
                                                 "chainState": {
                                                     "contents": {
-                                                        "headId": "d53f5533eaf3e78fcfe8254b74ee963b8545811c9d3a2343faa7aa55",
+                                                        "headId": "433b19a9efe548d4ac9049041430e71307dfc9f5777bee37739ae895",
                                                         "openThreadOutput": {
                                                             "openContestationPeriod": 604800000,
                                                             "openParties": [
@@ -2034,11 +2180,11 @@
                                                                 }
                                                             ],
                                                             "openThreadUTxO": [
-                                                                "9f20972ced2cf79876448e67fbdab3e4d1dc4f4a1c86656bbbfc418b4b26d88f#0",
+                                                                "7304e88f584042ec12a0bb98487bc9183521ec52a058c25a57afa3ab2e4276c9#0",
                                                                 {
                                                                     "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                                                     "datum": null,
-                                                                    "datumhash": "1b04327f0df809d63a8405563b6894b9014341d1f173ad6c9f135ac7b54d9c86",
+                                                                    "datumhash": "9d75ed2229d5c2a82b8d4d61726dff1390e21052d28256aa8edff17b0f1f8c07",
                                                                     "inlineDatum": null,
                                                                     "referenceScript": null,
                                                                     "value": {
@@ -2048,7 +2194,7 @@
                                                                         "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
                                                                             "7f564aa8ca2c4da7cf4829dba9148f19d57b70": 1444594687148289442
                                                                         },
-                                                                        "d53f5533eaf3e78fcfe8254b74ee963b8545811c9d3a2343faa7aa55": {
+                                                                        "433b19a9efe548d4ac9049041430e71307dfc9f5777bee37739ae895": {
                                                                             "1e1d79d363d49f889e70a69ffab5fd13bbc789d5d4a0bd568362b0fa": 1,
                                                                             "346c6abbace78df481757cbc9c8d1efc99ece6031ede6e67bd88ae89": 1,
                                                                             "4879647261486561645631": 1
@@ -2056,7 +2202,7 @@
                                                                         "lovelace": 6756533687601605646
                                                                     }
                                                                 },
-                                                                "d87a9fd8799f1a240c8400ff9f582061b23f66bbadef881db1711ebac1820bc709fd0f678d800f2148c06255c0b4ef582032cbb57e4ed6273c571271723b71e1840e4d334ee3bd578cd74cca00aafcb417ff5820c2676b930002e4b25f3fa3b31d9e069277b7877114f982e40d737447d01f50a7581cd53f5533eaf3e78fcfe8254b74ee963b8545811c9d3a2343faa7aa55ff"
+                                                                "d87a9fd8799f1a240c8400ff9f582061b23f66bbadef881db1711ebac1820bc709fd0f678d800f2148c06255c0b4ef582032cbb57e4ed6273c571271723b71e1840e4d334ee3bd578cd74cca00aafcb417ff5820c2676b930002e4b25f3fa3b31d9e069277b7877114f982e40d737447d01f50a7581c433b19a9efe548d4ac9049041430e71307dfc9f5777bee37739ae895ff"
                                                             ]
                                                         },
                                                         "openUtxoHash": "c2676b930002e4b25f3fa3b31d9e069277b7877114f982e40d737447d01f50a7",
@@ -5526,59 +5672,59 @@
                 "chainState": {
                     "chainState": {
                         "contents": {
-                            "headId": "4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728",
+                            "headId": "5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c",
                             "initialCommits": [],
                             "initialInitials": [
                                 [
-                                    "6026421e00d68d5985bff7f9e2dafeea426a8732429b7556c0574c591ddd0392#1",
+                                    "14dda615db3615e937e275bec4ac530ac474b6f02277ff58944584a6a9673f55#1",
                                     {
-                                        "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                        "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                         "datum": null,
-                                        "datumhash": "61c8b5418d9a54bf773b8f6e0e305c7f31b95896a1257102786a30ec7530eaca",
+                                        "datumhash": "f8e862177d517f82b3230129f54d46e074309ce7fdb6716b0223d24d72b4c3d8",
                                         "inlineDatum": null,
                                         "referenceScript": null,
                                         "value": {
-                                            "4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728": {
+                                            "5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c": {
                                                 "8ecf6c0bea4aadf0395d8b4760bcd54c27d8683706d7819f89c64049": 1
                                             },
                                             "lovelace": 2000000
                                         }
                                     },
-                                    "581c4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728"
+                                    "581c5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c"
                                 ],
                                 [
-                                    "6026421e00d68d5985bff7f9e2dafeea426a8732429b7556c0574c591ddd0392#2",
+                                    "14dda615db3615e937e275bec4ac530ac474b6f02277ff58944584a6a9673f55#2",
                                     {
-                                        "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                        "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                         "datum": null,
-                                        "datumhash": "61c8b5418d9a54bf773b8f6e0e305c7f31b95896a1257102786a30ec7530eaca",
+                                        "datumhash": "f8e862177d517f82b3230129f54d46e074309ce7fdb6716b0223d24d72b4c3d8",
                                         "inlineDatum": null,
                                         "referenceScript": null,
                                         "value": {
-                                            "4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728": {
+                                            "5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c": {
                                                 "c2503123e954af3bf40e266b64160614cee08201e804fcbe5868162f": 1
                                             },
                                             "lovelace": 2000000
                                         }
                                     },
-                                    "581c4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728"
+                                    "581c5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c"
                                 ],
                                 [
-                                    "6026421e00d68d5985bff7f9e2dafeea426a8732429b7556c0574c591ddd0392#3",
+                                    "14dda615db3615e937e275bec4ac530ac474b6f02277ff58944584a6a9673f55#3",
                                     {
-                                        "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                        "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                         "datum": null,
-                                        "datumhash": "61c8b5418d9a54bf773b8f6e0e305c7f31b95896a1257102786a30ec7530eaca",
+                                        "datumhash": "f8e862177d517f82b3230129f54d46e074309ce7fdb6716b0223d24d72b4c3d8",
                                         "inlineDatum": null,
                                         "referenceScript": null,
                                         "value": {
-                                            "4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728": {
+                                            "5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c": {
                                                 "5f3f77c240f5509cdbc3762f9ae4b52f037f80ab050e823e17346575": 1
                                             },
                                             "lovelace": 2000000
                                         }
                                     },
-                                    "581c4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728"
+                                    "581c5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c"
                                 ]
                             ],
                             "initialThreadOutput": {
@@ -5595,21 +5741,21 @@
                                     }
                                 ],
                                 "initialThreadUTxO": [
-                                    "6026421e00d68d5985bff7f9e2dafeea426a8732429b7556c0574c591ddd0392#0",
+                                    "14dda615db3615e937e275bec4ac530ac474b6f02277ff58944584a6a9673f55#0",
                                     {
                                         "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                         "datum": null,
-                                        "datumhash": "6f5721951c9717f5abb3a244ba4d3f649f7da498a2127d1ad4cace3e0e56a491",
+                                        "datumhash": "4c9824e55a5c95af77d4bf2ed9edcca1756153d20f1ab6082e6a34fe4cff4e89",
                                         "inlineDatum": null,
                                         "referenceScript": null,
                                         "value": {
-                                            "4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728": {
+                                            "5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87c": {
                                                 "4879647261486561645631": 1
                                             },
                                             "lovelace": 2000000
                                         }
                                     },
-                                    "d8799fd8799f1b0000000757b12c00ff9f5820670c56f94d9d1a0e056b35059549c34b12cf2d0bdc8e6d6c83747ff8b9acf69f5820150fc11107a3c3aabca5ea354b1e7b603854cb85ae71ab36d4f0b92b088addf65820c756b6d0c879238e1776e37f52765204820636869fca8d50b85a7d9ee766d624ff581c4f253b49a0405a0a3e58c217a727142284159f081df0afa53946f728d8799fd8799f58200108000505080603030804080007040108080001040303080202070705080305ff1861ffff"
+                                    "d8799fd8799f1b0000000757b12c00ff9f5820670c56f94d9d1a0e056b35059549c34b12cf2d0bdc8e6d6c83747ff8b9acf69f5820150fc11107a3c3aabca5ea354b1e7b603854cb85ae71ab36d4f0b92b088addf65820c756b6d0c879238e1776e37f52765204820636869fca8d50b85a7d9ee766d624ff581c5240b5f60aed52e9293dab734a6b4e84a36d2acfffa01d6f33bef87cd8799fd8799f58200108000505080603030804080007040108080001040303080202070705080305ff1861ffff"
                                 ]
                             },
                             "seedTxIn": "0108000505080603030804080007040108080001040303080202070705080305#97"
@@ -5619,59 +5765,59 @@
                     "previous": {
                         "chainState": {
                             "contents": {
-                                "headId": "3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5",
+                                "headId": "1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce",
                                 "initialCommits": [],
                                 "initialInitials": [
                                     [
-                                        "2b94109938ca6c161ca0c8aac931add7f47cbf7a2c94725195055994fde7f2ce#1",
+                                        "4e61f7298575aee7cbce39ba2ff76d0d1d798fb6dcfb9e3afa75fd0145e561c6#1",
                                         {
-                                            "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                            "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                             "datum": null,
-                                            "datumhash": "191fa8136553057b3fe07ba921a7318f01baa359253e8d3e5b75c81d80e8b2da",
+                                            "datumhash": "cad7b7bfadd610e1eacff2eaab509d39895273ad296aa0087f60826b4d2b9ce7",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5": {
+                                                "1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce": {
                                                     "1169d59068b5fb4a37a5759e084a568489b6fe15118b26df65197797": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "581c3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5"
+                                        "581c1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce"
                                     ],
                                     [
-                                        "2b94109938ca6c161ca0c8aac931add7f47cbf7a2c94725195055994fde7f2ce#2",
+                                        "4e61f7298575aee7cbce39ba2ff76d0d1d798fb6dcfb9e3afa75fd0145e561c6#2",
                                         {
-                                            "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                            "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                             "datum": null,
-                                            "datumhash": "191fa8136553057b3fe07ba921a7318f01baa359253e8d3e5b75c81d80e8b2da",
+                                            "datumhash": "cad7b7bfadd610e1eacff2eaab509d39895273ad296aa0087f60826b4d2b9ce7",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5": {
+                                                "1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce": {
                                                     "b96c2029f7efab1d1b3d57cf2eac451f859b8d29c420f19ab3d6da5c": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "581c3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5"
+                                        "581c1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce"
                                     ],
                                     [
-                                        "2b94109938ca6c161ca0c8aac931add7f47cbf7a2c94725195055994fde7f2ce#3",
+                                        "4e61f7298575aee7cbce39ba2ff76d0d1d798fb6dcfb9e3afa75fd0145e561c6#3",
                                         {
-                                            "address": "addr_test1wpq9pt3gqqm9wkwlvm6d5q3k59x6kv2j9y7cg4gd7v56rdsp32x0g",
+                                            "address": "addr_test1wqll4a4c0he4evq62t4jxqet3u9352366wk0pyc2hjwgxws76h0cy",
                                             "datum": null,
-                                            "datumhash": "191fa8136553057b3fe07ba921a7318f01baa359253e8d3e5b75c81d80e8b2da",
+                                            "datumhash": "cad7b7bfadd610e1eacff2eaab509d39895273ad296aa0087f60826b4d2b9ce7",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5": {
+                                                "1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce": {
                                                     "8d5000a361b8286a74ba5b6968f9688c76825ac341df32b043da21fa": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "581c3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5"
+                                        "581c1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce"
                                     ]
                                 ],
                                 "initialThreadOutput": {
@@ -5688,21 +5834,21 @@
                                         }
                                     ],
                                     "initialThreadUTxO": [
-                                        "2b94109938ca6c161ca0c8aac931add7f47cbf7a2c94725195055994fde7f2ce#0",
+                                        "4e61f7298575aee7cbce39ba2ff76d0d1d798fb6dcfb9e3afa75fd0145e561c6#0",
                                         {
                                             "address": "addr_test1wzzs3qualn3ek6lxtsqcecfy4d2fyw8pktks37m93rjkq8cwhaqay",
                                             "datum": null,
-                                            "datumhash": "6c1fde950665b0a9903cbd302994e286bc3f369467a4c1941e2bd62b65753b96",
+                                            "datumhash": "6be2908cf98bf8e646d16ab64eee78a1041a002b5feeb8c44787dbf343fd9b60",
                                             "inlineDatum": null,
                                             "referenceScript": null,
                                             "value": {
-                                                "3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5": {
+                                                "1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ce": {
                                                     "4879647261486561645631": 1
                                                 },
                                                 "lovelace": 2000000
                                             }
                                         },
-                                        "d8799fd8799f1a9a7ec800ff9f5820c722a21dc3d7f27e6c1c30d83a47e2367c127d032e9c6330723f99a056f00fb458200ed88b78ab57c439ca806b5104b9ae82689f6cef9d03c827d81efadfc233dbe45820df56bb9951cecb875af977eda5f93ee7e097f7b5ead33dbee9935bb471d1bf73ff581c3a17875fd570750b6853c0e69c11c2d004e8e4181139f97e0d988bb5d8799fd8799f58200400080103040301040706080800010803020804020207080503000206050406ff10ffff"
+                                        "d8799fd8799f1a9a7ec800ff9f5820c722a21dc3d7f27e6c1c30d83a47e2367c127d032e9c6330723f99a056f00fb458200ed88b78ab57c439ca806b5104b9ae82689f6cef9d03c827d81efadfc233dbe45820df56bb9951cecb875af977eda5f93ee7e097f7b5ead33dbee9935bb471d1bf73ff581c1884a853b960972bb282164e9989001f8bb43d1a2af81012da0c75ced8799fd8799f58200400080103040301040706080800010803020804020207080503000206050406ff10ffff"
                                     ]
                                 },
                                 "seedTxIn": "0400080103040301040706080800010803020804020207080503000206050406#16"
@@ -10067,7 +10213,7 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "Fanout"
             },
             "tag": "CommandFailed"
         },
@@ -13530,7 +13676,7 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Contest"
             },
             "tag": "CommandFailed"
         },
