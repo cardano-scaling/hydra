@@ -203,9 +203,9 @@ data EndToEndLog
   | EndWaiting {nodeId :: Int}
   | FromCardanoNode NodeLog
   | FromFaucet FaucetLog
-  | StartingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
-  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, fuelUTxO :: UTxO}
-  | RemainingFunds {actor :: String, fuelUTxO :: UTxO, otherUTxO :: UTxO}
+  | StartingFunds {actor :: String, utxo :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, utxo :: UTxO}
+  | RemainingFunds {actor :: String, utxo :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)

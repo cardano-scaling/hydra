@@ -13,6 +13,7 @@ import CardanoClient (
   buildTransaction,
   queryProtocolParameters,
   queryTip,
+  queryUTxOFor,
   submitTx,
  )
 import CardanoNode (RunningNode (..))
@@ -49,7 +50,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -144,7 +145,7 @@ singlePartyHeadFullLifeCycle ::
   RunningNode ->
   TxId ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
@@ -177,12 +178,12 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
         output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
     traceRemainingFunds Alice
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{networkId, nodeSocket} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
@@ -279,7 +280,7 @@ canCloseWithLongContestationPeriod ::
   RunningNode ->
   TxId ->
   IO ()
-canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
+canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
@@ -302,12 +303,12 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
         guard $ v ^? key "tag" == Just "HeadIsClosed"
   traceRemainingFunds Alice
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{networkId, nodeSocket} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 canSubmitTransactionThroughAPI ::
   Tracer IO EndToEndLog ->
@@ -366,12 +367,14 @@ refuelIfNeeded ::
   IO ()
 refuelIfNeeded tracer node actor amount = do
   (actorVk, _) <- keysFor actor
-  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-  traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
-  let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
-  when (fuelBalance < amount) $ do
+  existingUtxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+  traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
+  let currentBalance = selectLovelace $ balance @Tx existingUtxo
+  when (currentBalance < amount) $ do
     utxo <- seedFromFaucet node actorVk amount (contramap FromFaucet tracer)
-    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
+ where
+  RunningNode{networkId, nodeSocket} = node
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::

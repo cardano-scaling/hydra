@@ -25,12 +25,10 @@ import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
-import qualified Data.Map.Strict as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
-import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
@@ -225,12 +223,3 @@ publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk
-
--- | Like 'queryUTxOFor' at the tip, but also partition outputs marked as 'Fuel' and 'Normal'.
---
--- Throws at least 'QueryException' if query fails.
-queryMarkedUTxO :: RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
-queryMarkedUTxO RunningNode{nodeSocket, networkId} vk =
-  mkPartition <$> queryUTxOFor networkId nodeSocket QueryTip vk
- where
-  mkPartition = bimap UTxO UTxO . Map.partition isMarkedOutput . UTxO.toMap
