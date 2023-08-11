@@ -53,7 +53,7 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (HeadParameters (..), maximumNumberOfParties)
+import Hydra.Chain (ChainEvent (Observation), HeadParameters (..), OnChainTx (..), maximumNumberOfParties, newChainState, observedTx)
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -555,7 +555,12 @@ performCommit parties party paymentUTxO = do
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
-      party `sendsInput` Input.Commit{Input.utxo = realUTxO}
+      forM_ nodes $ \node ->
+        lift . injectChainEvent node $
+          Observation
+            { observedTx = OnCommitTx{party, committed = realUTxO}
+            , newChainState = initialChainState
+            }
       observedUTxO <-
         lift $
           waitMatch actorNode $ \case

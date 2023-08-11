@@ -790,7 +790,7 @@ openHead chain n1 n2 = do
   waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
   simulateCommit chain (alice, utxoRef 1)
   waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
-  send n2 (Commit (utxoRef 2))
+  simulateCommit chain (bob, utxoRef 2)
   waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 

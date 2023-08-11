@@ -91,7 +91,7 @@ mockChainAndNetwork tr seedKeys cp = do
       { connectNode = connectNode nodes queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = error "Not implemented"
+      , simulateCommit = error "simulateCommit not implemented"
       }
  where
   connectNode nodes queue node = do
