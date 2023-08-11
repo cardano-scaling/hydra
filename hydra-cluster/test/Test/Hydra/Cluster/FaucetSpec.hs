@@ -8,7 +8,7 @@ import Control.Concurrent.Async (replicateConcurrently_)
 import Hydra.Cardano.Api (AssetId (AdaAssetId), txOutValue)
 import Hydra.Cardano.Api.Prelude (selectAsset)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
-import Hydra.Cluster.Faucet (Marked (Normal), returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano (genVerificationKey)
@@ -26,7 +26,7 @@ spec = do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
               replicateConcurrently_ 10 $ do
                 vk <- generate genVerificationKey
-                seedFromFaucet_ node vk 1_000_000 Normal (contramap FromFaucet tracer)
+                seedFromFaucet_ node vk 1_000_000 (contramap FromFaucet tracer)
 
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet work together" $ do
@@ -38,7 +38,7 @@ spec = do
             (vk, _) <- keysFor actor
             (faucetVk, _) <- keysFor Faucet
             initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-            seeded <- seedFromFaucet node vk 100_000_000 Normal faucetTracer
+            seeded <- seedFromFaucet node vk 100_000_000 faucetTracer
             returnFundsToFaucet faucetTracer node actor
             remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
             finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
