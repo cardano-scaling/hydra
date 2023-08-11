@@ -13,11 +13,10 @@ import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.Scripts.Data (Data (..), Datum (..))
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
 import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits, ppMaxTxExUnitsL, ppPricesL)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashData, hashScriptIntegrity, refScripts, wits)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, wits)
 import qualified Cardano.Ledger.Babbage.Tx as Babbage
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
@@ -74,7 +73,6 @@ import Hydra.Cardano.Api (
  )
 import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 
@@ -144,7 +142,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelOrLargestUTxO <$> getUTxO
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
           -- XXX: We should query pparams here. If not, we likely will have
@@ -291,7 +289,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       , wits = wits{txrdmrs = adjustedRedeemers}
       }
  where
-  findUTxOToPayFees utxo = case findFuelOrLargestUTxO utxo of
+  findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
       Left ErrNoFuelUTxOFound
     Just (i, o) ->
@@ -359,9 +357,9 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
             (floor (maxMem * approxMem % totalMem))
             (floor (maxCpu * approxCpu % totalCpu))
 
-findFuelOrLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
-findFuelOrLargestUTxO utxo =
-  findFuelUTxO utxo <|> maxLovelaceUTxO apiUtxo
+findLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
+findLargestUTxO utxo =
+  maxLovelaceUTxO apiUtxo
  where
   apiUtxo = UTxO.fromPairs $ bimap fromLedgerTxIn fromLedgerTxOut <$> Map.toList utxo
 
@@ -370,17 +368,6 @@ findFuelOrLargestUTxO utxo =
       . listToMaybe
       . List.sortOn (Down . selectLovelace . Api.txOutValue . snd)
       . UTxO.pairs
-
-  findFuelUTxO utxo' =
-    let utxosWithDatum = Map.toList $ Map.filter hasMarkerDatum utxo'
-        lovelaceOfLedgerTxOut (Babbage.BabbageTxOut _ v _ _) = coin v
-     in listToMaybe $ sortOn (Down . lovelaceOfLedgerTxOut . snd) utxosWithDatum
-
-  hasMarkerDatum (Babbage.BabbageTxOut _ _ datum _) = case datum of
-    NoDatum -> False
-    DatumHash dh ->
-      dh == hashData (Data @LedgerEra markerDatum)
-    Datum{} -> False -- Marker is not stored inline
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new

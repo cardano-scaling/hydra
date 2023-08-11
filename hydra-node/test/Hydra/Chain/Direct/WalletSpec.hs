@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Scripts.Data (Data (Data), Datum (DatumHash), hashData)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
 import qualified Cardano.Ledger.BaseTypes as Ledger
@@ -49,7 +48,6 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Util (markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -59,7 +57,7 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   applyTxs,
   coverFee_,
-  findFuelOrLargestUTxO,
+  findLargestUTxO,
   newTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor)
@@ -78,7 +76,6 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
-  (===),
  )
 import qualified Prelude
 
@@ -109,8 +106,7 @@ spec = parallel $ do
         reset wallet
         assertQueryPoint QueryTip
 
-    prop "prefers fueled utxo to pay the fees" prop_picksCorrectUTxOToPayTheFees
-    prop "prefers largest utxo if no fuel available" prop_picksLargestUTxOToPayTheFees
+    prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
 
 setupQuery ::
   VerificationKey PaymentKey ->
@@ -209,7 +205,7 @@ prop_balanceTransaction :: Property
 prop_balanceTransaction =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
-      forAllBlind genMarkedUTxO $ \walletUTxO ->
+      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
         case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
@@ -236,27 +232,15 @@ isBalanced utxo originalTx balancedTx =
 ledgerPParams :: PParams (ShelleyLedgerEra Era)
 ledgerPParams = either (error . show) id $ toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
 
-prop_picksCorrectUTxOToPayTheFees :: Property
-prop_picksCorrectUTxOToPayTheFees =
-  forAllBlind genUTxO $ \unmarked ->
-    forAllBlind genMarkedUTxO $ \marked -> do
-      let combinedUTxO = Map.union unmarked marked
-      case findFuelOrLargestUTxO combinedUTxO of
-        Nothing ->
-          property False
-            & counterexample ("No fuel in combined UTxO: \n" <> decodeUtf8 (encodePretty combinedUTxO))
-        Just (txin, txout) ->
-          Map.singleton txin txout === marked
-
 prop_picksLargestUTxOToPayTheFees :: Property
 prop_picksLargestUTxOToPayTheFees =
   forAllBlind genUTxO $ \utxo1 ->
     forAllBlind genUTxO $ \utxo2 -> do
       let combinedUTxO = Map.union utxo1 utxo2
-      case findFuelOrLargestUTxO combinedUTxO of
+      case findLargestUTxO combinedUTxO of
         Nothing ->
           property False
-            & counterexample ("No Fuel in combined UTxO: " <> decodeUtf8 (encodePretty combinedUTxO))
+            & counterexample ("No utxo found: " <> decodeUtf8 (encodePretty combinedUTxO))
         Just (_, txout) -> do
           let foundLovelace = selectLovelace $ txOutValue (fromLedgerTxOut txout)
               mapToLovelace = fmap (selectLovelace . txOutValue) . fromLedgerUTxO . Ledger.UTxO
@@ -325,7 +309,7 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (\tx -> length (outputs' (body tx)) >= 1)
+  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . outputs' . body)
   txIn <- toLedgerTxIn <$> genTxIn
   let txOut = scaleAda $ Prelude.head $ toList $ outputs' $ body tx
   pure $ Map.singleton txIn txOut
@@ -334,16 +318,6 @@ genUTxO = do
   scaleAda (BabbageTxOut addr value datum refScript) =
     let value' = value <> inject (Coin 20_000_000)
      in BabbageTxOut addr value' datum refScript
-
-genMarkedUTxO :: Gen (Map TxIn TxOut)
-genMarkedUTxO = do
-  utxo <- reasonablySized genUTxO
-  pure $ markForWallet <$> utxo
- where
-  markForWallet :: TxOut -> TxOut
-  markForWallet (BabbageTxOut addr value _ refScript) =
-    let datum' = (DatumHash $ hashData $ Data @LedgerEra markerDatum)
-     in BabbageTxOut addr value datum' refScript
 
 genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs AlonzoTx{body} = do

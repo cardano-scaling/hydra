@@ -204,7 +204,7 @@ Note that many of protocol-parameters are actually irrelevant in the context of 
 
 ### Fuel
 
-Finally, one last bit necessary to get Hydra nodes up and running is to fuel them up! All the transactions driving the Head lifecycle (Init, Commit, Close, ...) need to be submitted to the layer 1, and hence they cost money!
+Finally, one last bit necessary to get Hydra nodes up and running is to add funds to their "internal wallet". All the transactions driving the Head lifecycle (Init, Commit, Close, ...) need to be submitted to the layer 1, and hence they cost money!
 
 For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of the this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
 
@@ -213,32 +213,6 @@ For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-n
 ```sh
 cardano-cli address build --verification-key-file cardano.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
-```
-
-</TerminalWindow>
-
-:::warning Old fuel
-Marking fuel using datum hashes is not needed anymore as support for committing
-directly from it will be removed in future Hydra versions.
-Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
-:::
-
-To distinguish fuel from outputs to be committable by the `hydra-node`, we used
-to mark one output with a specific datum hash:
-
-```sh title="Fuel datum hash"
-a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3
-```
-
-To create such an output, we provide a [create-marker-utxo.sh](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/scripts/create-marker-utxo.sh) script that uses the cardano-cli to convert a normal UTxO into a marked fuel UTxO.
-
-For easy scripting purpose, `hydra-tools` provide a dedicated command to output the current marker datum hash:
-
-<TerminalWindow>
-
-```sh
-hydra-tools marker-hash
-# "a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
 ```
 
 </TerminalWindow>

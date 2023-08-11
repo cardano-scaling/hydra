@@ -9,7 +9,6 @@ import Hydra.Cardano.Api (
   getVerificationKey,
   writeFileTextEnvelope,
  )
-import Hydra.Chain.Direct.Util (markerDatumHash)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Options.Applicative (
   Parser,
@@ -30,9 +29,7 @@ import Options.Applicative (
  )
 import System.FilePath ((<.>))
 
-data Options
-  = GenerateKeyPair {outputFile :: FilePath}
-  | OutputMarkerHash
+newtype Options = GenerateKeyPair {outputFile :: FilePath}
 
 outputFileParser :: Parser FilePath
 outputFileParser =
@@ -52,12 +49,6 @@ commandsParser =
             (helper <*> (GenerateKeyPair <$> outputFileParser))
             (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
         )
-        <> command
-          "marker-hash"
-          ( info
-              (pure OutputMarkerHash)
-              (progDesc "Output the hex-encoded hash of the marker datum used for fuel.")
-          )
     )
 
 toolsOptions :: ParserInfo Options
@@ -79,4 +70,3 @@ main = do
       sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
       void $ writeFileTextEnvelope (File (outputFile <.> "sk")) Nothing sk
       void $ writeFileTextEnvelope (File (outputFile <.> "vk")) Nothing (getVerificationKey sk)
-    OutputMarkerHash -> print markerDatumHash
