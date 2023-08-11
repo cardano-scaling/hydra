@@ -78,26 +78,6 @@ cardano-cli query utxo --address $(cat ./test-head/Alice/AliceCardano.addr) --te
 cardano-cli query utxo --address $(cat ./test-head/Bob/BobCardano.addr) --testnet-magic 2
 ```
 
-:::warning Fuel is deprecated and will be removed in future Hydra versions.
-Please take a look at [external-commits](/docs/getting-started/quickstart#external-commits).
-:::
-
-Next we will mark some funds at each address so that the hydra-node can use these to pay for the hydra transactions and make sure that these are not committed in the head. Besides preventing having no funds left to close the head or contest to a false checkpoint, it also acts as the fuel for other stages of the protocol. These commands and script will make an output with a specific datum that the hydra node recognizes as fuel. Before we use the script make sure that `jq` is in your path, if not use
-
-```
-nix-shell -p jq
-```
-
-Then, to execute the script use
-
-```
-export CCLI_CMD=$(which cardano-cli)
-./sample-node-config/gcp/scripts/fuel-testnet.sh ./preview-testnet/ ./test-head/Alice/AliceCardano.sk 4900000000
-./sample-node-config/gcp/scripts/fuel-testnet.sh ./preview-testnet/ ./test-head/Bob/BobCardano.sk 4900000000
-```
-
-This will mark about 100 ada as fuel for transactions hydra related. The other funds can be committed to the head.
-
 Now we are going to set up the Hydra keys for the two parties. We can do this via the `hydra-tool` executable. Before we use this, we build this tool along with the `hydra-node` package with
 
 ```
