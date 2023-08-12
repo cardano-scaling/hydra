@@ -16,9 +16,6 @@ import Hydra.Snapshot (SnapshotNumber)
 -- TODO: Try to merge this (back) into 'Outcome'.
 data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
-  | InvalidState (HeadState tx)
-  | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
-  | LedgerError ValidationError
   | RequireFailed (RequirementFailure tx)
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)

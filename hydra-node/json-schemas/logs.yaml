@@ -666,42 +666,6 @@ definitions:
             prefixItems:
               - $ref: "logs.yaml#/definitions/Event"
               - $ref: "logs.yaml#/definitions/HeadState"
-      - title: InvalidState
-        additionalProperties: false
-        required:
-          - tag
-          - contents
-        properties:
-          tag:
-            type: string
-            enum: ["InvalidState"]
-          contents:
-            $ref: "logs.yaml#/definitions/HeadState"
-      - title: InvalidSnapshot
-        additionalProperties: false
-        required:
-          - tag
-          - expected
-          - actual
-        properties:
-          tag:
-            type: string
-            enum: ["InvalidSnapshot"]
-          expected:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          actual:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-      - title: LedgerError
-        additionalProperties: false
-        required:
-          - tag
-          - contents
-        properties:
-          tag:
-            type: string
-            enum: ["LedgerError"]
-          contents:
-            $ref: "logs.yaml#/definitions/ValidationError"
       - title: RequireFailed
         description: >-
           A precondition for some state transition within the Hydra
@@ -836,7 +800,6 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           lastSeenSn:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
-
   HeadState:
     oneOf:
       - title: "Idle"
@@ -883,7 +846,213 @@ definitions:
             enum: ["Closed"]
           contents:
             $ref: "logs.yaml#/definitions/ClosedState"
-
+  StateChanged:
+    oneOf:
+      - title: "HeadInitialized"
+        additionalProperties: false
+        required:
+          - tag
+          - parameters
+          - chainState
+          - headId
+        properties:
+          tag:
+            type: string
+            enum: ["HeadInitialized"]
+          parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+      - title: "CommittedUTxO"
+        additionalProperties: false
+        required:
+          - tag
+          - party
+          - committedUTxO
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["CommittedUTxO"]
+          party:
+            $ref: "api.yaml#/components/schemas/Party"
+          committedUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "HeadAborted"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["HeadAborted"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "HeadOpened"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - initialUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["HeadOpened"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          initialUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "TransactionAppliedToLocalUTxO"
+        additionalProperties: false
+        required:
+          - tag
+          - tx
+          - newLocalUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["TransactionAppliedToLocalUTxO"]
+          tx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "SnapshotRequestDecided"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotRequestDecided"]
+          snapshotNumber:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "SnapshotRequested"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - requestedTxIds
+          - newLocalUTxO
+          - newLocalTxs
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotRequested"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          requestedTxIds:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          newLocalTxs:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "TransactionReceived"
+        additionalProperties: false
+        required:
+          - tag
+          - tx
+        properties:
+          tag:
+            type: string
+            enum: ["TransactionReceived"]
+          tx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "PartySignedSnapshot"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - party
+          - signature
+        properties:
+          tag:
+            type: string
+            enum: ["PartySignedSnapshot"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          party:
+            $ref: "api.yaml#/components/schemas/Party"
+          signature:
+            $ref: "api.yaml#/components/schemas/Signature"
+      - title: "SnapshotConfirmed"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotConfirmed"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatures:
+            $ref: "api.yaml#/components/schemas/MultiSignature"
+      - title: "HeadClosed"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - contestationDeadline
+        properties:
+          tag:
+            type: string
+            enum: ["HeadClosed"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "HeadIsReadyToFanout"
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsReadyToFanout"]
+      - title: "HeadFannedOut"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["HeadFannedOut"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "ChainRolledBack"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["ChainRolledBack"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "TickObserved"
+        additionalProperties: false
+        required:
+          - tag
+          - chainSlot
+        properties:
+          tag:
+            type: string
+            enum: ["TickObserved"]
+          chainSlot:
+            $ref: "api.yaml#/components/schemas/ChainSlot"
   IdleState:
     type: object
     additionalProperties: false
@@ -1455,7 +1624,7 @@ definitions:
             items:
               type: object
               $ref: "logs.yaml#/definitions/Effect"
-      - title: NewState
+      - title: StateChanged
         type: object
         additionalProperties: false
         required:
@@ -1466,7 +1635,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["NewState"]
+            enum: ["StateChanged"]
           headState:
             type: object
             $ref: "logs.yaml#/definitions/HeadState"
