@@ -27,9 +27,6 @@ packages:
   hydra-tui
   hydraw
 
-package cardano-crypto-praos
-  flags: -external-libsodium-vrf
-
 -- Compile more things in parallel
 package *
   ghc-options: -j8
