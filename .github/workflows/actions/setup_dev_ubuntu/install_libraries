@@ -5,11 +5,12 @@ set -euxo pipefail
 mkdir -p src
 mkdir -p srv/bin
 # Install libsodium
+# Using revision from https://github.com/input-output-hk/iohk-nix
 (
   cd src
   git clone https://github.com/input-output-hk/libsodium
   cd libsodium
-  git checkout 66f017f1
+  git checkout dbb48cce5429cb6585c9034f002568964f1ce567
   ./autogen.sh
   ./configure --prefix="$(realpath $PWD/../../srv)"
   make
@@ -17,11 +18,12 @@ mkdir -p srv/bin
 )
 
 # Install secp256k1
+# Using revision from https://github.com/input-output-hk/iohk-nix
 (
   cd src
   git clone https://github.com/bitcoin-core/secp256k1
   cd secp256k1
-  git checkout ac83be33
+  git checkout v0.3.2
   ./autogen.sh
   ./configure --enable-module-schnorrsig --enable-experimental --prefix="$(realpath $PWD/../../srv)"
   make
