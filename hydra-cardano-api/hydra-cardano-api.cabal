@@ -61,7 +61,7 @@ common project-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances
 
   if !flag(hydra-development)
@@ -116,10 +116,8 @@ library
   -- be further upstream
   build-depends:
     , aeson
-    , array
     , base
     , base16-bytestring
-    , bech32
     , bytestring
     , cardano-api                  >=1.36.0
     , cardano-binary               >=1.5.0
@@ -132,15 +130,9 @@ library
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-test
     , cardano-prelude
-    , cborg
     , containers
-    , data-default
     , plutus-ledger-api            >=1.1.0.0 && <1.7.0.0.0
     , QuickCheck
     , serialise
-    , stm
-    , strict-containers            >=0.1.0.0
     , text                         >=2.0
-    , time

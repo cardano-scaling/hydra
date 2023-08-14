@@ -73,7 +73,6 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
-    , plutus-core
     , plutus-tx
     , plutus-tx-plugin
 
@@ -89,17 +88,13 @@ test-suite tests
   build-depends:
     , base
     , base16-bytestring
-    , binary
     , bytestring
     , cborg
-    , containers
     , hspec
     , hydra-prelude
     , hydra-test-utils   >=0.10.0
     , plutus-cbor
-    , plutus-ledger-api  >=1.1.0.0
     , plutus-tx
-    , plutus-tx-plugin
     , QuickCheck
 
   other-modules:
@@ -114,13 +109,10 @@ benchmark bench
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover
   build-depends:
-    , base
     , bytestring
-    , cborg
     , criterion
     , hydra-prelude
     , plutus-cbor
-    , plutus-core
     , plutus-ledger-api  >=1.1.0.0
     , plutus-tx
     , QuickCheck
@@ -133,17 +125,13 @@ executable encoding-cost
   other-modules:  Plutus.Codec.CBOR.Encoding.Validator
   build-depends:
     , base
-    , base16-bytestring
     , binary
     , bytestring
-    , cardano-ledger-alonzo
-    , containers
-    , hspec
-    , hydra-prelude
-    , hydra-test-utils       >=0.10.0
-    , plutus-cbor
     , hydra-plutus-extras
-    , plutus-ledger-api      >=1.1.0.0
+    , hydra-prelude
+    , hydra-test-utils     >=0.10.0
+    , plutus-cbor
+    , plutus-ledger-api    >=1.1.0.0
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck
