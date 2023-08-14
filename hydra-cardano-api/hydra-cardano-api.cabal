@@ -112,27 +112,26 @@ library
     Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
 
-  -- NOTE: Constraints to make cardano-api 1.35.4 compile, most of these should
-  -- be further upstream
+  -- NOTE: We use very narrow bounds on cardano libraries as they tend to break
+  -- their interfaces often.
   build-depends:
-    , aeson
-    , base
+    , aeson                   >=2
+    , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api                  >=1.36.0
-    , cardano-binary               >=1.5.0
-    , cardano-crypto-class         >=2.0.0
-    , cardano-ledger-allegra
-    , cardano-ledger-alonzo
-    , cardano-ledger-babbage
-    , cardano-ledger-binary
-    , cardano-ledger-byron
-    , cardano-ledger-core
-    , cardano-ledger-mary
-    , cardano-ledger-shelley
-    , cardano-prelude
+    , cardano-api             >=8.11.0 && <8.12
+    , cardano-binary          >=1.7.0  && <1.8
+    , cardano-crypto-class    >=2.1.1  && <2.2
+    , cardano-ledger-allegra  >=1.2.1  && <1.3
+    , cardano-ledger-alonzo   >=1.3.3  && <1.4
+    , cardano-ledger-babbage  >=1.4.2  && <1.5
+    , cardano-ledger-binary   >=1.1.1  && <1.2
+    , cardano-ledger-byron    >=1.0.0  && <1.1
+    , cardano-ledger-core     >=1.4.1  && <1.5
+    , cardano-ledger-mary     >=1.3.1  && <1.4
+    , cardano-ledger-shelley  >=1.4.2  && <1.5
     , containers
-    , plutus-ledger-api            >=1.1.0.0 && <1.7.0.0.0
+    , plutus-ledger-api       >=1.7.0  && <1.8
     , QuickCheck
     , serialise
-    , text                         >=2.0
+    , text                    >=2
