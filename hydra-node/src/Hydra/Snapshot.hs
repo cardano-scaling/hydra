@@ -3,7 +3,7 @@
 
 module Hydra.Snapshot where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (show)
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
@@ -15,11 +15,18 @@ import Hydra.Ledger (IsTx (..))
 import PlutusLedgerApi.V2 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
+import Text.Show (Show (..))
 
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
-  deriving (Eq, Show, Ord, Generic)
+  deriving (Eq, Ord, Generic)
   deriving newtype (ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+
+instance Show SnapshotNumber where
+  show (UnsafeSnapshotNumber n) = show n
+
+instance Arbitrary SnapshotNumber where
+  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
@@ -31,9 +38,6 @@ data Snapshot tx = Snapshot
 
 deriving instance IsTx tx => Eq (Snapshot tx)
 deriving instance IsTx tx => Show (Snapshot tx)
-
-instance Arbitrary SnapshotNumber where
-  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
