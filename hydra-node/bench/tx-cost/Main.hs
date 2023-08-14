@@ -20,7 +20,7 @@ import Options.Applicative (
   short,
   strOption,
  )
-import Plutus.Orphans ()
+import Hydra.Plutus.Orphans ()
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)

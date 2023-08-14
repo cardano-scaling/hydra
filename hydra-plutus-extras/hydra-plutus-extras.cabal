@@ -1,7 +1,9 @@
-cabal-version: 2.2
-name:          hydra-plutus
+cabal-version: 3.0
+name:          hydra-plutus-extras
 version:       0.12.0
-synopsis:      Hydra Plutus Contracts
+synopsis:
+  Several extras and extensions of plutus-tx and plutus-ledger-api
+
 author:        IOG
 copyright:     2022 IOG
 license:       Apache-2.0
@@ -61,10 +63,8 @@ common project-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
-    -Wnoncanonical-monad-instances -fobject-code
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -72,24 +72,9 @@ common project-config
 library
   import:          project-config
   exposed-modules:
-    Hydra.Contract
-    Hydra.Contract.Commit
-    Hydra.Contract.CommitError
-    Hydra.Contract.Error
-    Hydra.Contract.Hash
-    Hydra.Contract.Head
-    Hydra.Contract.HeadError
-    Hydra.Contract.HeadState
-    Hydra.Contract.HeadTokens
-    Hydra.Contract.HeadTokensError
-    Hydra.Contract.Initial
-    Hydra.Contract.InitialError
-    Hydra.Contract.MintAction
-    Hydra.Contract.Util
-    Hydra.Data.ContestationPeriod
-    Hydra.Data.Party
-    Hydra.Data.Utxo
-    Hydra.ScriptContext
+    Hydra.Plutus.Extras
+    Hydra.Plutus.Extras.Time
+    Hydra.Plutus.Orphans
 
   hs-source-dirs:  src
   build-depends:
@@ -97,26 +82,13 @@ library
     , base
     , base16-bytestring
     , bytestring
-    , containers
-    , directory
-    , hydra-cardano-api
-    , hydra-plutus-extras
+    , cardano-api
     , hydra-prelude
-    , plutus-core
-    , plutus-ledger-api
-    , plutus-tx
-    , plutus-tx-plugin
-    , prettyprinter
+    , plutus-ledger-api     >=1.1.1.0
+    , plutus-tx             >=1.1.1.0
     , QuickCheck
     , quickcheck-instances
-    , serialise
-    , template-haskell
-    , text
     , time
-
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite tests
   import:             project-config
@@ -125,45 +97,15 @@ test-suite tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:
-    Hydra.Data.ContestationPeriodSpec
-    Hydra.Plutus.GoldenSpec
+    Hydra.Plutus.Extras.TimeSpec
     Spec
 
   build-depends:
     , base
     , hspec
-    , hspec-core
-    , hspec-golden
-    , hydra-cardano-api
-    , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
-    , hydra-test-utils
-    , plutus-ledger-api
     , QuickCheck
     , time
 
   build-tool-depends: hspec-discover:hspec-discover
-
-executable inspect-script
-  import:         project-config
-  hs-source-dirs: exe/inspect-script
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , bytestring
-    , cardano-api           >=1.35.4
-    , containers
-    , data-default
-    , directory
-    , hydra-cardano-api
-    , hydra-plutus
-    , hydra-prelude
-    , optparse-applicative
-    , plutus-ledger-api
-    , plutus-tx
-    , prettyprinter
-    , serialise
-    , text
-
-  ghc-options:    -threaded -rtsopts

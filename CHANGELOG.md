@@ -62,6 +62,9 @@ changes.
   - Change `minUTxOValue` to take `BundledProtocolParameters`.
   - Add `fromLedgerMultiAsset` helper as transactions only `mint` `MultiAsset`.
 
+- Created `hydra-plutus-extras` package to re-use some utilities better between
+  packages.
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts

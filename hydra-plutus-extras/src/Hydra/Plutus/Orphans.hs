@@ -2,7 +2,7 @@
 
 -- | Orphans instances partly copied from Plutus, partly coming from us for test
 -- purpose.
-module Plutus.Orphans where
+module Hydra.Plutus.Orphans where
 
 import Hydra.Prelude
 

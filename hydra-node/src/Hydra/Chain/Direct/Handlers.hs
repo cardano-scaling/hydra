@@ -61,7 +61,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
-import Plutus.Orphans ()
+import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
 -- | Handle of a local chain state that is kept in the direct chain layer.

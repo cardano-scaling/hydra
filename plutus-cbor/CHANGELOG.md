@@ -15,6 +15,8 @@ using `plutus-cbor-x.y.z` tags.
 
 ## [1.0.1] - UNRELEASED
 
+- Moved dependencies to `hydra-plutus-extras` instead of `hydra-test-utils`.
+
 - Made compatible to latest `plutus-tx` and `cardano-api` changes (via
   `hydra-cardano-api` and `hydra-test-utils`).
 

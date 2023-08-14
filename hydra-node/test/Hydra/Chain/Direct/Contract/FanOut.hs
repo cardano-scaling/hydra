@@ -17,7 +17,6 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
-import Hydra.Data.ContestationPeriod (posixFromUTCTime)
 import qualified Hydra.Data.ContestationPeriod as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
@@ -28,7 +27,8 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Party (partyToChain)
-import Plutus.Orphans ()
+import Hydra.Plutus.Orphans ()
+import Hydra.Plutus.Extras (posixFromUTCTime)
 import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()

@@ -7,10 +7,8 @@ import Hydra.Prelude
 
 import qualified PlutusTx.Prelude as Plutus
 
-import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime (..))
 import qualified PlutusTx
@@ -44,22 +42,3 @@ contestationPeriodToDiffTime cp =
 addContestationPeriod :: POSIXTime -> ContestationPeriod -> POSIXTime
 addContestationPeriod time UnsafeContestationPeriod{milliseconds} = time Plutus.+ fromMilliSeconds milliseconds
 {-# INLINEABLE addContestationPeriod #-}
-
--- * Converting to/from time on-chain
-
--- | Convert given on-chain 'POSIXTime' to a 'UTCTime'.
-posixToUTCTime :: POSIXTime -> UTCTime
-posixToUTCTime (POSIXTime ms) =
-  -- NOTE: POSIXTime records the number of milliseconds since epoch
-  posixSecondsToUTCTime (fromRational $ ms % 1000)
-
--- | Compute on-chain 'POSIXTime' from a given 'UTCTime'.
-posixFromUTCTime :: UTCTime -> POSIXTime
-posixFromUTCTime utcTime =
-  -- NOTE: POSIXTime records the number of milliseconds since epoch
-  POSIXTime . truncate $ posixSeconds * 1000
- where
-  -- NOTE: 'Pico' is a 'Fixed' precision integer and denotes here the seconds
-  -- since epoch with picosecond precision.
-  posixSeconds :: Pico
-  posixSeconds = nominalDiffTimeToSeconds $ utcTimeToPOSIXSeconds utcTime

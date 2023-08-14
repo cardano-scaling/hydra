@@ -9,10 +9,11 @@ module Validators where
 
 import PlutusTx.Prelude
 
+import Hydra.Plutus.Extras (wrapValidator)
 import qualified Plutus.MerkleTree as MT
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
+import PlutusLedgerApi.V2 (ScriptContext)
 import qualified PlutusTx as Plutus
-import Test.Plutus.Validator (wrapValidator)
 
 -- | A validator for measuring cost of MT membership validation.
 merkleTreeMemberValidator :: SerialisedScript
@@ -21,7 +22,7 @@ merkleTreeMemberValidator =
     $$( Plutus.compile
           [||
           wrapValidator $
-            \() (e, root, proof) _ctx ->
+            \() (e, root, proof) (_ :: ScriptContext) ->
               MT.member e root proof
           ||]
       )
@@ -34,7 +35,7 @@ merkleTreeBuilderValidator =
     $$( Plutus.compile
           [||
           wrapValidator $
-            \() (utxos, root) _ctx ->
+            \() (utxos, root) (_ :: ScriptContext) ->
               MT.rootHash (MT.fromList utxos) == root
           ||]
       )

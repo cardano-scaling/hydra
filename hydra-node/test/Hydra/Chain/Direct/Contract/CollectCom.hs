@@ -49,7 +49,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party, partyToChain)
-import Plutus.Orphans ()
+import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
