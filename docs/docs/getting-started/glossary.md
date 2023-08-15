@@ -18,9 +18,6 @@ Reuses the existing smart contract system and code for offchain computations. Th
 ### Layer 2
 Layer 2 refers to a secondary framework or protocol that is built on top of an existing blockchain system. See this [page](/core-concepts/layer-two) for more details.
 
-### Marker Datum
-Its a [datum](https://docs.cardano.org/glossary/#datum) used for the sole purpose of identifying a [UTxO](https://docs.cardano.org/glossary/#utxo).
-
 ### Participation Token
 An on-chain token that entitles a party to participate in the Hydra head associated with the token.
 
