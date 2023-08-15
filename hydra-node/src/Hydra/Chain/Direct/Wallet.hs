@@ -213,15 +213,12 @@ getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
-  | ErrNoUTxOFound
+  | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure LedgerEra)}
   | ErrTranslationError (TranslationError StandardCrypto)
   deriving (Show)
 
--- TODO: provide To/From JSON instances for ErrCoverFee so that we can reuse
--- them in InternalWalletError instead of putting just the Text for reason.
---
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving (Show)
 
@@ -291,7 +288,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
  where
   findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
-      Left ErrNoUTxOFound
+      Left ErrNoFuelUTxOFound
     Just (i, o) ->
       Right (i, o)
 

@@ -54,6 +54,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
+  ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
@@ -188,7 +189,27 @@ finalizeTx ::
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO partialTx = do
   let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState <> userUTxO
   coverFee headUTxO partialTx >>= \case
-    Left e -> throwIO $ InternalWalletError{relatedUtxo = userUTxO, reason = show e, tx = partialTx}
+    Left ErrNoFuelUTxOFound ->
+      throwIO (NoFuelUTXOFound :: PostTxError Tx)
+    Left ErrNotEnoughFunds{} ->
+      throwIO (NotEnoughFuel :: PostTxError Tx)
+    Left ErrScriptExecutionFailed{scriptFailure = (redeemerPtr, scriptFailure)} ->
+      throwIO
+        ( ScriptFailedInWallet
+            { redeemerPtr = show redeemerPtr
+            , failureReason = show scriptFailure
+            } ::
+            PostTxError Tx
+        )
+    Left e -> do
+      throwIO
+        ( InternalWalletError
+            { headUTxO
+            , reason = show e
+            , tx = partialTx
+            } ::
+            PostTxError Tx
+        )
     Right balancedTx -> do
       pure $ sign balancedTx
 

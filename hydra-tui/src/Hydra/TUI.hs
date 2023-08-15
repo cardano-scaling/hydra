@@ -369,6 +369,10 @@ handleAppEvent s = \case
     s & warn' time ("Invalid input error: " <> toText reason)
   Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
     case postTxError of
+      NotEnoughFuel ->
+        s
+          & warn' time "Not enough Fuel. Please provide more to the internal wallet and try again."
+          & stopPending
       InternalWalletError{reason} ->
         s
           & warn' time reason

@@ -134,8 +134,16 @@ data PostTxError tx
   | -- | Comitting reference scripts is not supported right now.
     CannotCommitReferenceScript
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
+  | NotEnoughFuel
+  | NoFuelUTXOFound
+  | -- | Script execution failed when finalizing a transaction in the wallet.
+    -- XXX: Ideally we want a cardano-api type with corresonding JSON instance
+    -- here. But the wallet still uses ledger types and we don't want to copy the
+    -- conversion from ledger 'TransactionScriptFailure' to the cardano-api
+    -- 'ScriptExecutionError' type.
+    ScriptFailedInWallet {redeemerPtr :: Text, failureReason :: Text}
   | -- | A generic error happened when finalizing a transction in the wallet.
-    InternalWalletError {relatedUtxo :: UTxOType tx, reason :: Text, tx :: tx}
+    InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text}
   | -- | A plutus script failed in a transaction submitted to the cardano-node.
