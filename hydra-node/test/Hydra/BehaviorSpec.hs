@@ -581,7 +581,9 @@ simulatedChainAndNetwork initialChainState = do
             node
               { oc =
                   Chain
-                    { postTx = postTx nodes history chainStateVar
+                    { postTx = \tx -> do
+                        now <- getCurrentTime
+                        createAndYieldEvent nodes history chainStateVar $ toOnChainTx now tx
                     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                     , submitTx = \_ -> error "unexpected call to submitTx"
                     }
@@ -589,7 +591,8 @@ simulatedChainAndNetwork initialChainState = do
               }
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history chainStateVar
-      , simulateCommit = \(party, utxo) -> simulateCommit nodes history chainStateVar (party, utxo)
+      , simulateCommit = \(party, committed) ->
+          createAndYieldEvent nodes history chainStateVar $ OnCommitTx{party, committed}
       }
  where
   -- seconds
@@ -603,25 +606,13 @@ simulatedChainAndNetwork initialChainState = do
       pure $ Tick now (chainStateSlot cs)
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
-  postTx nodes history chainStateVar tx = do
-    now <- getCurrentTime
+  createAndYieldEvent nodes history chainStateVar tx = do
     chainEvent <- atomically $ do
       modifyTVar' chainStateVar advanceSlot
       cs' <- readTVar chainStateVar
       pure $
         Observation
-          { observedTx = toOnChainTx now tx
-          , newChainState = cs'
-          }
-    recordAndYieldEvent nodes history chainEvent
-
-  simulateCommit nodes history chainStateVar (party, committed) = do
-    chainEvent <- atomically $ do
-      modifyTVar' chainStateVar advanceSlot
-      cs' <- readTVar chainStateVar
-      pure $
-        Observation
-          { observedTx = OnCommitTx{party, committed}
+          { observedTx = tx
           , newChainState = cs'
           }
     recordAndYieldEvent nodes history chainEvent
