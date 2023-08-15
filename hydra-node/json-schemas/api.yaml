@@ -102,7 +102,6 @@ channels:
         oneOf:
           - $ref: "api.yaml#/components/messages/Init"
           - $ref: "api.yaml#/components/messages/Abort"
-          - $ref: "api.yaml#/components/messages/Commit"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
           - $ref: "api.yaml#/components/messages/Close"
