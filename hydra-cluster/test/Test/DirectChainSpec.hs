@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Test.DirectChainSpec where
@@ -7,11 +9,13 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO (UTxO' (UTxO, toMap))
 import CardanoClient (
   QueryPoint (QueryTip),
   buildAddress,
   queryTip,
   queryUTxO,
+  submitTransaction,
   waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
@@ -19,9 +23,16 @@ import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Hydra.Cardano.Api (
   ChainPoint (..),
+  CtxUTxO,
+  KeyWitnessInCtx (KeyWitnessForSpending),
+  TxOut,
+  WitCtxTxIn,
+  Witness,
   lovelaceToValue,
+  signTx,
   txOutValue,
   unFile,
+  pattern KeyWitness,
  )
 import Hydra.Chain (
   Chain (..),
@@ -59,7 +70,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
+import Hydra.Ledger.Cardano (Tx, genKeyPair, genOneUTxOFor)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
   ChainConfig (..),
@@ -108,7 +119,7 @@ spec = around showLogsOnFailure $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice [bob, carol] hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
-          \aliceChain@DirectChainTest{postTx} -> do
+          \aliceChain@DirectChainTest{postTx, draftCommitTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob [alice, carol] hydraScriptsTxId
@@ -116,29 +127,34 @@ spec = around showLogsOnFailure $ do
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 let aliceCommitment = 66_000_000
-                -- NOTE: This is still mimicking an "internal commit". It does
-                -- not matter at this level, but this could also use a different
-                -- keypair than the one given to the hydra-node/chain layer.
-                aliceUTxO <- seedFromFaucet node aliceCardanoVk aliceCommitment (contramap FromFaucet tracer)
+                -- Mimic "external commit" by using different keys for Alice.
+                (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+
+                aliceUTxO <- seedFromFaucet node aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
 
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
                 aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
                 bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                postTx $ CommitTx alice aliceUTxO
+                let aliceUTxO' =
+                      UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap aliceUTxO
+                commitTx <- draftCommitTx aliceUTxO'
+                let signedTx = signTx aliceExternalSk commitTx
+                void $ submitTransaction networkId nodeSocket signedTx
 
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
 
                 postTx $ AbortTx aliceUTxO
-
+                --
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
 
-                let aliceAddress = buildAddress aliceCardanoVk networkId
+                let aliceExternalAddress = buildAddress aliceExternalVk networkId
 
-                -- Expect that alice got her committed value back
-                utxo <- queryUTxO networkId nodeSocket QueryTip [aliceAddress]
+                -- Expect that Alice got her committed value back to her
+                -- external address
+                utxo <- queryUTxO networkId nodeSocket QueryTip [aliceExternalAddress]
                 let aliceValues = txOutValue <$> toList utxo
                 aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
@@ -419,6 +435,7 @@ data DirectChainTestLog
 data DirectChainTest tx m = DirectChainTest
   { postTx :: PostChainTx tx -> m ()
   , waitCallback :: m (ChainEvent tx)
+  , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> m tx
   }
 
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
@@ -436,11 +453,16 @@ withDirectChainTest tracer config ctx action = do
 
   wallet <- mkTinyWallet tracer config
 
-  withDirectChain tracer config ctx wallet initialChainState callback $ \Chain{postTx} -> do
+  withDirectChain tracer config ctx wallet initialChainState callback $ \Chain{postTx, draftCommitTx} -> do
     action
       DirectChainTest
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
+        , draftCommitTx = \utxo -> do
+            eTx <- draftCommitTx utxo
+            case eTx of
+              Left e -> error $ show e
+              Right tx -> pure tx
         }
 
 hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> Expectation
