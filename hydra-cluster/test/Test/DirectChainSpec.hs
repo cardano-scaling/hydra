@@ -24,7 +24,9 @@ import Control.Concurrent.STM.TMVar (putTMVar)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
+  Key (SigningKey),
   KeyWitnessInCtx (KeyWitnessForSpending),
+  PaymentKey,
   TxOut,
   WitCtxTxIn,
   Witness,
@@ -70,7 +72,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (Tx, genKeyPair, genOneUTxOFor)
+import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (
   ChainConfig (..),
@@ -119,7 +121,7 @@ spec = around showLogsOnFailure $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Bob, Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice [bob, carol] hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
-          \aliceChain@DirectChainTest{postTx, draftCommitTx} -> do
+          \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob [alice, carol] hydraScriptsTxId
@@ -136,11 +138,7 @@ spec = around showLogsOnFailure $ do
                 aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
                 bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                let aliceUTxO' =
-                      UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap aliceUTxO
-                commitTx <- draftCommitTx aliceUTxO'
-                let signedTx = signTx aliceExternalSk commitTx
-                void $ submitTransaction networkId nodeSocket signedTx
+                mimicExternalCommit node aliceChain aliceExternalSk aliceUTxO
 
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
@@ -190,29 +188,28 @@ spec = around showLogsOnFailure $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        (aliceCardanoVk, _) <- keysFor Alice
+        (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice [] hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
-            -- Scenario
-            -- NOTE: This is still mimicking an "internal commit". It does
-            -- not matter at this level, but this could also use a different
-            -- keypair than the one given to the hydra-node/chain layer.
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            randomUTxO <- generate $ genOneUTxOFor aliceCardanoVk
-            postTx (CommitTx alice randomUTxO)
+            aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            -- deliberately use alice's key known to hydra-node to trigger the error
+            mimicExternalCommit node aliceChain aliceCardanoSk aliceUTxO
               `shouldThrow` \case
-                (InternalWalletError{} :: PostTxError Tx) -> True
+                (SpendingNodeUtxoForbidden :: PostTxError Tx) -> True
                 _ -> False
 
-            postTx $ CommitTx alice aliceUTxO
-            aliceChain `observesInTime` OnCommitTx alice aliceUTxO
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+
+            mimicExternalCommit node aliceChain aliceExternalSk newAliceUTxO
+            aliceChain `observesInTime` OnCommitTx alice newAliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -461,7 +458,7 @@ withDirectChainTest tracer config ctx action = do
         , draftCommitTx = \utxo -> do
             eTx <- draftCommitTx utxo
             case eTx of
-              Left e -> error $ show e
+              Left e -> throwIO e
               Right tx -> pure tx
         }
 
@@ -499,3 +496,21 @@ delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do
   now <- getCurrentTime
   threadDelay . realToFrac $ diffUTCTime target now
+
+-- Mimic "external commit" by using keys unknown to a hydra-node.
+mimicExternalCommit ::
+  RunningNode ->
+  DirectChainTest Tx IO ->
+  SigningKey PaymentKey ->
+  UTxO' (TxOut CtxUTxO) ->
+  IO ()
+mimicExternalCommit node hydraClient externalSk utxoToCommit' = do
+  let utxoToCommit =
+        UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap utxoToCommit'
+
+  commitTx <- draftCommitTx utxoToCommit
+  let signedTx = signTx externalSk commitTx
+  void $ submitTransaction networkId nodeSocket signedTx
+ where
+  RunningNode{networkId, nodeSocket} = node
+  DirectChainTest{draftCommitTx} = hydraClient
