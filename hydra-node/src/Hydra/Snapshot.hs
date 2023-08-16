@@ -18,8 +18,11 @@ import Test.QuickCheck.Instances.Natural ()
 
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
-  deriving (Eq, Show, Ord, Generic)
-  deriving newtype (ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving (Eq, Ord, Generic)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+
+instance Arbitrary SnapshotNumber where
+  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
@@ -31,9 +34,6 @@ data Snapshot tx = Snapshot
 
 deriving instance IsTx tx => Eq (Snapshot tx)
 deriving instance IsTx tx => Show (Snapshot tx)
-
-instance Arbitrary SnapshotNumber where
-  arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
