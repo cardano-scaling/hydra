@@ -531,6 +531,16 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , simulateCommit :: (Party, UTxOType tx) -> m ()
   }
 
+dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
+dummySimulatedChainNetwork =
+  SimulatedChainNetwork
+    { connectNode = \_ -> error "connectNode"
+    , tickThread = error "tickThread"
+    , rollbackAndForward = \_ -> error "rollbackAndForward"
+    , simulateCommit = \_  -> error "simulateCommit"
+    }
+
+
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
 -- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
 -- initial chain state to play back to our test nodes.

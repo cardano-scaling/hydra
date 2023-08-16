@@ -383,6 +383,7 @@ data Nodes m = Nodes
   -- instantiated upon the test run initialisation, outiside of the model.
   , threads :: [Async m ()]
   -- ^ List of threads spawned when executing `RunMonad`
+  , chain :: SimulatedChainNetwork Tx m
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -528,7 +529,7 @@ seedWorld seedKeys seedCP = do
     pure (party, testClient)
 
   modify $ \n ->
-    n{nodes = Map.fromList clients}
+    n{nodes = Map.fromList clients, chain = mockChain}
  where
   parties = map (deriveParty . fst) seedKeys
 
@@ -545,6 +546,7 @@ performCommit ::
   RunMonad m ActualCommitted
 performCommit parties party paymentUTxO = do
   nodes <- gets nodes
+  SimulatedChainNetwork{simulateCommit} <- gets chain
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> do
@@ -555,12 +557,7 @@ performCommit parties party paymentUTxO = do
               , let vk = getVerificationKey sk
               , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
               ]
-      forM_ nodes $ \node ->
-        lift . injectChainEvent node $
-          Observation
-            { observedTx = OnCommitTx{party, committed = realUTxO}
-            , newChainState = initialChainState
-            }
+      lift $ simulateCommit (party, realUTxO)
       observedUTxO <-
         lift $
           waitMatch actorNode $ \case

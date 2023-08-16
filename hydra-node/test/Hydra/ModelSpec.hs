@@ -123,7 +123,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.BehaviorSpec (TestHydraClient (..))
+import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -327,7 +327,10 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Gen Property
 runIOSimProp p = do
   Capture eval <- capture
-  let tr = runSimTrace $ newTVarIO (Nodes mempty traceInIOSim mempty) >>= (runReaderT (runMonad $ eval $ monadic' p) . RunState)
+  let tr =
+        runSimTrace $
+          newTVarIO (Nodes mempty traceInIOSim mempty dummySimulatedChainNetwork)
+            >>= (runReaderT (runMonad $ eval $ monadic' p) . RunState)
       traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
   case traceResult False tr of
