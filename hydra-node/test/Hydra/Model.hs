@@ -53,7 +53,7 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (ChainEvent (Observation), HeadParameters (..), OnChainTx (..), maximumNumberOfParties, newChainState, observedTx)
+import Hydra.Chain (HeadParameters (..), maximumNumberOfParties)
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))

@@ -26,7 +26,7 @@ import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..))
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
@@ -91,7 +91,18 @@ mockChainAndNetwork tr seedKeys cp = do
       { connectNode = connectNode nodes queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = error "simulateCommit not implemented"
+      , simulateCommit = \(party, realUTxO) -> do
+          let chainEvent =
+                Observation
+                  { observedTx = OnCommitTx{party, committed = realUTxO}
+                  , newChainState = initialChainState
+                  }
+          hydraNodes <- readTVarIO nodes
+          forM_
+            hydraNodes
+            ( \MockHydraNode{node = HydraNode{eq = EventQueue{putEvent}}} ->
+                putEvent (OnChainEvent chainEvent)
+            )
       }
  where
   connectNode nodes queue node = do
