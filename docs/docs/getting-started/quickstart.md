@@ -204,9 +204,9 @@ Note that many of protocol-parameters are actually irrelevant in the context of 
 
 ### Fuel
 
-Finally, one last bit necessary to get Hydra nodes up and running is to add funds to their "internal wallet". All the transactions driving the Head lifecycle (Init, Commit, Close, ...) need to be submitted to the layer 1, and hence they cost money!
+Finally, one last bit necessary to get Hydra nodes up and running is to add funds to their "internal wallet". All the transactions driving the Head lifecycle (Init, Abort, Close, ...) need to be submitted to the layer 1, and hence they cost money!
 
-For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of the this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
+For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
 
 <TerminalWindow>
 

@@ -564,10 +564,20 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    1
-                ]
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "32e3adbaa1099dfdd076cbbcf5690f34b0603aacd1a6379a86c1063f4d7ee940d793df7c9fdd9d16c7f36332fa8947f04fb67f55016adb3689d872b373b3db0e"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 3,
+                        "utxo": []
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "mainnetLimitLovelace": 45,
@@ -582,7 +592,7 @@
         },
         {
             "postChainTx": {
-                "tag": "AbortTx",
+                "tag": "CollectComTx",
                 "utxo": [
                     -6,
                     4,
@@ -926,15 +936,8 @@
         },
         {
             "postChainTx": {
-                "contestationDeadline": "1864-05-10T20:53:43.472247820493Z",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -6,
-                    -5,
-                    -4,
-                    -3,
-                    3
-                ]
+                "tag": "AbortTx",
+                "utxo": []
             },
             "postTxError": {
                 "plutusDebugInfo": "<𦎤6-",
@@ -1178,16 +1181,10 @@
         },
         {
             "postChainTx": {
-                "committed": [
-                    -4,
-                    -3,
-                    4,
-                    5
-                ],
-                "party": {
-                    "vkey": "b25237580d2682a5e4336e88c6e7a2b0813f51c7b783acd52ad5fe473d9a55e4"
-                },
-                "tag": "CommitTx"
+                "tag": "AbortTx",
+                "utxo": [
+                    -4
+                ]
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZ7ptzf9dahtVnrA7ZAUvHqaAzqGLSLvdjgXF1bzHSKr8Z19uV",
@@ -1535,8 +1532,20 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": []
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 6,
+                        "utxo": [
+                            -1
+                        ]
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "tag": "FailedToDraftTxNotInitializing"
@@ -1641,7 +1650,7 @@
         },
         {
             "postChainTx": {
-                "tag": "AbortTx",
+                "tag": "CollectComTx",
                 "utxo": [
                     -1,
                     4,
@@ -1768,7 +1777,7 @@
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "tag": "CloseTx"
+                "tag": "ContestTx"
             },
             "postTxError": {
                 "tag": "FailedToDraftTxNotInitializing"
@@ -1777,11 +1786,18 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -5,
-                    -2
-                ]
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 1,
+                        "utxo": []
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZAZRj7Sjg8yqkXk3y5wCWoggj38arv81EVXAhq6E6yKKoZYek",
@@ -1887,14 +1903,11 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -6,
-                    2,
-                    3,
-                    4,
-                    6
-                ]
+                "confirmedSnapshot": {
+                    "initialUTxO": [],
+                    "tag": "InitialSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "mainnetLimitLovelace": 16,
