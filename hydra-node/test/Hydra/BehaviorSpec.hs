@@ -676,8 +676,6 @@ toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx HeadParameters{contestationPeriod, parties} ->
     OnInitTx{contestationPeriod, parties, headId = testHeadId}
-  (CommitTx pa ut) ->
-    OnCommitTx pa ut
   AbortTx{} ->
     OnAbortTx
   CollectComTx{} ->

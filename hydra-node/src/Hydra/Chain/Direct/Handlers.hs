@@ -43,7 +43,6 @@ import Hydra.Chain.Direct.State (
   abort,
   close,
   collect,
-  commit,
   commit',
   contest,
   contestationPeriod,
@@ -81,12 +80,11 @@ newLocalChainState chainStateAt = do
   tv <- newTVarIO chainStateAt
   pure
     LocalChainState
-      { getLatest = getLatest tv
+      { getLatest = readTVar tv
       , pushNew = pushNew tv
       , rollback = rollback tv
       }
  where
-  getLatest tv = readTVar tv
 
   pushNew tv cs =
     modifyTVar tv $ \prev ->
@@ -324,13 +322,6 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
           throwIO (NoSeedInput @Tx)
     (AbortTx{utxo}, Initial st) ->
       pure $ abort ctx st utxo
-    -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
-    -- here. The 'Party' is already part of the state and it is the only party
-    -- which can commit from this Hydra node.
-    (CommitTx{committed}, Initial st) ->
-      -- NOTE: Eventually we will deprecate the internal 'CommitTx' command and
-      -- only have external commits via 'draftCommitTx'.
-      either throwIO pure (commit ctx st committed)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from

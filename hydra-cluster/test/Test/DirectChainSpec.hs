@@ -226,7 +226,8 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            postTx $ CommitTx alice mempty
+            (_, aliceExternalSk) <- generate genKeyPair
+            mimicExternalCommit node aliceChain aliceExternalSk mempty
             aliceChain `observesInTime` OnCommitTx alice mempty
 
   it "can open, close & fanout a Head" $ \tracer -> do
@@ -241,12 +242,13 @@ spec = around showLogsOnFailure $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
-            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            postTx $ CommitTx alice someUTxO
+            mimicExternalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
@@ -363,16 +365,13 @@ spec = around showLogsOnFailure $ do
         aliceChainContext <- loadChainContext aliceChainConfig alice [] hydraScriptsTxId
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
-            -- Scenario
-            -- NOTE: This is still mimicking an "internal commit". It does
-            -- not matter at this level, but this could also use a different
-            -- keypair than the one given to the hydra-node/chain layer.
-            someUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            postTx $ CommitTx alice someUTxO
+            mimicExternalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
