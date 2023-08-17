@@ -52,3 +52,11 @@ function dcfile() {
 function ccli() {
     dc -f ~/docker/docker-compose.yaml exec cardano-node cardano-cli ${@}
 }
+
+function balance() {
+    ccli query utxo $(ctag) --address $(cat ~/credentials/cardano.addr)
+}
+
+function xbalance() {
+    ccli query utxo $(ctag) --address $(cat ~/credentials/external.addr)
+}

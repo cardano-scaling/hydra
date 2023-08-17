@@ -4,7 +4,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: inputoutput/cardano-node:1.35.7
+    image: inputoutput/cardano-node:8.1.2
     restart: always
     logging:
       driver: "awslogs"
@@ -93,7 +93,7 @@ services:
       "--connect", "hydra-node:4001"
       , "--node-socket", "/network/node.socket"
       , "--testnet-magic", "${NETWORK_MAGIC}"
-      , "--cardano-signing-key", "/credentials/cardano-key.sk"
+      , "--cardano-signing-key", "/credentials/external.sk"
       ]
     volumes:
       - ~/credentials:/credentials:ro
