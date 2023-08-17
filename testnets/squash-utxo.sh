@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Squash all utxo of a signing key into a single output and mark it as fuel.
+# Squash all utxo of a signing key into a single output.
 set -e
 
 function usage() {
@@ -26,7 +26,6 @@ fi
 
 addr=$(cardano-cli address build --testnet-magic ${magic} --payment-verification-key-file $vk)
 
-fuelMarker="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
 utxo=$(cardano-cli query utxo \
     --cardano-mode --epoch-slots 21600 \
     --testnet-magic ${magic} \
@@ -51,7 +50,6 @@ estimatedFee=$(cardano-cli transaction build \
     --script-valid \
     ${txInArgs} \
     --tx-out ${addr}+2000000 \
-    --tx-out-datum-hash ${fuelMarker} \
     --change-address ${addr} \
     --out-file /dev/null | sed 's/Estimated transaction fee: Lovelace //')
 

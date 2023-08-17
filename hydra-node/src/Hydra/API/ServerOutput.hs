@@ -188,7 +188,6 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
       case clientInput of
         Init -> encodedResponse
         Abort -> encodedResponse
-        Commit{} -> encodedResponse
         NewTx{Hydra.API.ClientInput.transaction = tx} ->
           handleTxOutput
             (key "transaction" .~ txToCbor tx)

@@ -32,22 +32,7 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [
-                        -6,
-                        -3,
-                        -1,
-                        0
-                    ],
-                    "outputs": [
-                        -6,
-                        -3,
-                        1,
-                        3
-                    ]
-                }
+                "tag": "GetUTxO"
             },
             "tag": "CommandFailed"
         },
@@ -196,8 +181,19 @@
         },
         {
             "clientInput": {
-                "tag": "Commit",
-                "utxo": []
+                "tag": "NewTx",
+                "transaction": {
+                    "id": 1,
+                    "inputs": [
+                        -5,
+                        1,
+                        3,
+                        4
+                    ],
+                    "outputs": [
+                        -6
+                    ]
+                }
             },
             "tag": "CommandFailed"
         },
@@ -568,10 +564,20 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    1
-                ]
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "32e3adbaa1099dfdd076cbbcf5690f34b0603aacd1a6379a86c1063f4d7ee940d793df7c9fdd9d16c7f36332fa8947f04fb67f55016adb3689d872b373b3db0e"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 3,
+                        "utxo": []
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "mainnetLimitLovelace": 45,
@@ -586,7 +592,7 @@
         },
         {
             "postChainTx": {
-                "tag": "AbortTx",
+                "tag": "CollectComTx",
                 "utxo": [
                     -6,
                     4,
@@ -621,11 +627,23 @@
         },
         {
             "clientInput": {
-                "tag": "Commit",
-                "utxo": [
-                    -1,
-                    4
-                ]
+                "tag": "NewTx",
+                "transaction": {
+                    "id": -4,
+                    "inputs": [
+                        -4,
+                        -2,
+                        0,
+                        5
+                    ],
+                    "outputs": [
+                        -5,
+                        -3,
+                        -2,
+                        -1,
+                        0
+                    ]
+                }
             },
             "tag": "CommandFailed"
         },
@@ -635,21 +653,7 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": -6,
-                    "inputs": [
-                        0,
-                        1,
-                        2,
-                        3,
-                        5
-                    ],
-                    "outputs": [
-                        -5,
-                        4
-                    ]
-                }
+                "tag": "GetUTxO"
             },
             "tag": "CommandFailed"
         },
@@ -664,7 +668,7 @@
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "Fanout"
             },
             "tag": "CommandFailed"
         },
@@ -874,25 +878,13 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [],
-                    "outputs": [
-                        -5,
-                        -3,
-                        -2,
-                        0,
-                        2,
-                        3
-                    ]
-                }
+                "tag": "GetUTxO"
             },
             "tag": "CommandFailed"
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Close"
             },
             "tag": "CommandFailed"
         },
@@ -944,15 +936,8 @@
         },
         {
             "postChainTx": {
-                "contestationDeadline": "1864-05-10T20:53:43.472247820493Z",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -6,
-                    -5,
-                    -4,
-                    -3,
-                    3
-                ]
+                "tag": "AbortTx",
+                "utxo": []
             },
             "postTxError": {
                 "plutusDebugInfo": "<𦎤6-",
@@ -1196,16 +1181,10 @@
         },
         {
             "postChainTx": {
-                "committed": [
-                    -4,
-                    -3,
-                    4,
-                    5
-                ],
-                "party": {
-                    "vkey": "b25237580d2682a5e4336e88c6e7a2b0813f51c7b783acd52ad5fe473d9a55e4"
-                },
-                "tag": "CommitTx"
+                "tag": "AbortTx",
+                "utxo": [
+                    -4
+                ]
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZ7ptzf9dahtVnrA7ZAUvHqaAzqGLSLvdjgXF1bzHSKr8Z19uV",
@@ -1469,7 +1448,7 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Contest"
             },
             "tag": "CommandFailed"
         },
@@ -1553,8 +1532,20 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": []
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 6,
+                        "utxo": [
+                            -1
+                        ]
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "tag": "FailedToDraftTxNotInitializing"
@@ -1595,18 +1586,7 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 2,
-                    "inputs": [
-                        -3,
-                        -2
-                    ],
-                    "outputs": [
-                        -3,
-                        -2
-                    ]
-                }
+                "tag": "GetUTxO"
             },
             "tag": "CommandFailed"
         },
@@ -1670,7 +1650,7 @@
         },
         {
             "postChainTx": {
-                "tag": "AbortTx",
+                "tag": "CollectComTx",
                 "utxo": [
                     -1,
                     4,
@@ -1797,7 +1777,7 @@
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "tag": "CloseTx"
+                "tag": "ContestTx"
             },
             "postTxError": {
                 "tag": "FailedToDraftTxNotInitializing"
@@ -1806,11 +1786,18 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -5,
-                    -2
-                ]
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "snapshotNumber": 1,
+                        "utxo": []
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZAZRj7Sjg8yqkXk3y5wCWoggj38arv81EVXAhq6E6yKKoZYek",
@@ -1879,29 +1866,13 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 1,
-                    "inputs": [
-                        -1,
-                        1,
-                        3,
-                        4,
-                        6
-                    ],
-                    "outputs": [
-                        -6,
-                        0,
-                        1,
-                        2
-                    ]
-                }
+                "tag": "GetUTxO"
             },
             "tag": "CommandFailed"
         },
         {
             "clientInput": {
-                "tag": "Contest"
+                "tag": "Fanout"
             },
             "tag": "CommandFailed"
         },
@@ -1932,14 +1903,11 @@
         },
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -6,
-                    2,
-                    3,
-                    4,
-                    6
-                ]
+                "confirmedSnapshot": {
+                    "initialUTxO": [],
+                    "tag": "InitialSnapshot"
+                },
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "mainnetLimitLovelace": 16,
@@ -2033,7 +2001,7 @@
         },
         {
             "clientInput": {
-                "tag": "Fanout"
+                "tag": "Close"
             },
             "tag": "CommandFailed"
         },

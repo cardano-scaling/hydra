@@ -13,6 +13,7 @@ import CardanoClient (
   buildTransaction,
   queryProtocolParameters,
   queryTip,
+  queryUTxOFor,
   submitTx,
  )
 import CardanoNode (RunningNode (..))
@@ -49,7 +50,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
-import Hydra.Cluster.Faucet (Marked (Fuel, Normal), createOutputAtAddress, queryMarkedUTxO, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -58,7 +59,7 @@ import Hydra.Ledger (IsTx (balance))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), requestCommitTx, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -80,8 +81,8 @@ restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningN
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
-  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 Fuel (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
@@ -99,7 +100,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
-    externalCommit n1 mempty >>= submitTx cardanoNode
+    requestCommitTx n1 mempty >>= submitTx cardanoNode
     waitFor tracer 10 [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
@@ -144,7 +145,7 @@ singlePartyHeadFullLifeCycle ::
   RunningNode ->
   TxId ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScriptsTxId =
+singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
@@ -158,7 +159,7 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
       -- Commit nothing for now
-      externalCommit n1 mempty >>= submitTx node
+      requestCommitTx n1 mempty >>= submitTx node
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       -- Close head
@@ -177,44 +178,12 @@ singlePartyHeadFullLifeCycle tracer workDir node@RunningNode{networkId} hydraScr
         output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
     traceRemainingFunds Alice
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{networkId, nodeSocket} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
-
--- | Ensures the _old_ way of committing (using Fuel) still works.
-singlePartyCommitsUsingFuel ::
-  Tracer IO EndToEndLog ->
-  FilePath ->
-  RunningNode ->
-  TxId ->
-  IO ()
-singlePartyCommitsUsingFuel tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
-
-    (alicesVk, _) <- keysFor Alice
-
-    let contestationPeriod = UnsafeContestationPeriod 100
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] contestationPeriod
-
-    -- submit the tx using alice's public key to get a utxo to commit
-    utxoToCommit <- seedFromFaucet node alicesVk 2_000_000 Fuel (contramap FromFaucet tracer)
-
-    let hydraNodeId = 1
-
-    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      send n1 $ input "Commit" ["utxo" .= utxoToCommit]
-
-      waitFor tracer 60 [n1] $
-        output "HeadIsOpen" ["utxo" .= utxoToCommit, "headId" .= headId]
- where
-  RunningNode{nodeSocket} = node
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
@@ -296,9 +265,9 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- present at this public key
       (userVk, _userSk) <- keysFor Alice
       -- submit the tx using our external user key to get a utxo to commit
-      utxoToCommit <- seedFromFaucet node userVk 2_000_000 Normal (contramap FromFaucet tracer)
+      utxoToCommit <- seedFromFaucet node userVk 2_000_000 (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
+      requestCommitTx n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
   RunningNode{nodeSocket} = node
 
@@ -311,7 +280,7 @@ canCloseWithLongContestationPeriod ::
   RunningNode ->
   TxId ->
   IO ()
-canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hydraScriptsTxId = do
+canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   refuelIfNeeded tracer node Alice 100_000_000
   -- Start hydra-node on chain tip
   tip <- queryTip networkId nodeSocket
@@ -324,7 +293,7 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
     send n1 $ input "Init" []
     headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
-    externalCommit n1 mempty >>= submitTx node
+    requestCommitTx n1 mempty >>= submitTx node
     waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head
@@ -334,12 +303,12 @@ canCloseWithLongContestationPeriod tracer workDir node@RunningNode{networkId} hy
         guard $ v ^? key "tag" == Just "HeadIsClosed"
   traceRemainingFunds Alice
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{networkId, nodeSocket} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 canSubmitTransactionThroughAPI ::
   Tracer IO EndToEndLog ->
@@ -357,7 +326,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
       -- create output for Bob to be sent to carol
-      bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 Normal (contramap FromFaucet tracer)
+      bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 (contramap FromFaucet tracer)
       let carolsAddress = mkVkAddress networkId cardanoCarolVk
           bobsAddress = mkVkAddress networkId cardanoBobVk
           carolsOutput =
@@ -398,12 +367,14 @@ refuelIfNeeded ::
   IO ()
 refuelIfNeeded tracer node actor amount = do
   (actorVk, _) <- keysFor actor
-  (fuelUTxO, otherUTxO) <- queryMarkedUTxO node actorVk
-  traceWith tracer $ StartingFunds{actor = actorName actor, fuelUTxO, otherUTxO}
-  let fuelBalance = selectLovelace $ balance @Tx fuelUTxO
-  when (fuelBalance < amount) $ do
-    utxo <- seedFromFaucet node actorVk amount Fuel (contramap FromFaucet tracer)
-    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, fuelUTxO = utxo}
+  existingUtxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+  traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
+  let currentBalance = selectLovelace $ balance @Tx existingUtxo
+  when (currentBalance < amount) $ do
+    utxo <- seedFromFaucet node actorVk amount (contramap FromFaucet tracer)
+    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
+ where
+  RunningNode{networkId, nodeSocket} = node
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::

@@ -4,12 +4,11 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Ledger (IsTx, UTxOType)
+import Hydra.Ledger (IsTx)
 
 data ClientInput tx
   = Init
   | Abort
-  | Commit {utxo :: UTxOType tx}
   | NewTx {transaction :: tx}
   | GetUTxO
   | Close
@@ -22,7 +21,7 @@ deriving instance IsTx tx => Show (ClientInput tx)
 deriving instance IsTx tx => ToJSON (ClientInput tx)
 deriving instance IsTx tx => FromJSON (ClientInput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) where
+instance Arbitrary tx => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
@@ -31,7 +30,6 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) w
   shrink = \case
     Init -> []
     Abort -> []
-    Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
     GetUTxO -> []
     Close -> []

@@ -30,7 +30,6 @@ import Graphics.Vty.Image (DisplayRegion)
 import Hydra.Cardano.Api (Key (getVerificationKey), Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
-  Marked (Fuel, Normal),
   publishHydraScriptsAs,
   seedFromFaucet_,
  )
@@ -189,11 +188,10 @@ setupNodeAndTUI' lovelace action =
 
         let externalVKey = getVerificationKey externalSKey
         -- Some ADA to commit
-        seedFromFaucet_ node externalVKey 42_000_000 Normal (contramap FromFaucet tracer)
+        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
 
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] hydraScriptsTxId $ \HydraClient{hydraNodeId} -> do
-          -- Fuel to pay hydra transactions
-          seedFromFaucet_ node aliceCardanoVk lovelace Fuel (contramap FromFaucet tracer)
+          seedFromFaucet_ node aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_

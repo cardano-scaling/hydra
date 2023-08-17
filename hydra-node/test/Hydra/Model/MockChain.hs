@@ -91,9 +91,11 @@ mockChainAndNetwork tr seedKeys cp = do
       { connectNode = connectNode nodes queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
+      , simulateCommit = simulateCommit nodes
       }
  where
   connectNode nodes queue node = do
+    localChainState <- newLocalChainState initialChainState
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
@@ -109,7 +111,6 @@ mockChainAndNetwork tr seedKeys cp = do
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let seedInput = genTxIn `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-    localChainState <- newLocalChainState initialChainState
     let chainHandle =
           createMockChain
             tr
@@ -133,6 +134,21 @@ mockChainAndNetwork tr seedKeys cp = do
     let mockNode = MockHydraNode{node = node', chainHandler}
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
+
+  simulateCommit nodes (party, utxoToCommit) = do
+    hydraNodes <- readTVarIO nodes
+    case find (matchingParty party) hydraNodes of
+      Nothing -> error "simulateCommit: Could not find matching HydraNode"
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} -> do
+        -- NOTE: We don't need to sign a tx here since the MockChain
+        -- doesn't actually validate transactions.
+        eTx <- draftCommitTx $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
+        case eTx of
+          Left e -> throwIO e
+          Right tx -> submitTx tx
+
+  matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
+    party == us
 
   blockTime :: DiffTime
   blockTime = 20

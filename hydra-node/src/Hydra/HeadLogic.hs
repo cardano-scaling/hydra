@@ -137,30 +137,6 @@ onIdleChainInitTx newChainState parties contestationPeriod headId =
     )
     <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
 
--- | Client request to commit a UTxO entry to the head. Provided the client
--- hasn't committed yet, this leads to a commit transaction on-chain containing
--- that UTxO entry.
---
--- __Transition__: 'InitialState' → 'InitialState'
-onInitialClientCommit ::
-  Environment ->
-  InitialState tx ->
-  ClientInput tx ->
-  Outcome tx
-onInitialClientCommit env st clientInput =
-  case clientInput of
-    (Commit utxo)
-      -- REVIEW: Is 'canCommit' something we want to handle here or have the OCV
-      -- deal with it?
-      | canCommit -> Effects [OnChainEffect{postChainTx = CommitTx party utxo}]
-    _ -> Effects [ClientEffect $ ServerOutput.CommandFailed clientInput]
- where
-  canCommit = party `Set.member` pendingCommits
-
-  InitialState{pendingCommits} = st
-
-  Environment{party} = env
-
 -- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
 -- transaction on-chain.
@@ -680,9 +656,6 @@ update env ledger st ev = case (st, ev) of
     onIdleClientInit env
   (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
     onIdleChainInitTx newChainState parties contestationPeriod headId
-  -- Initial
-  (Initial idleState, ClientEvent clientInput@(Commit _)) ->
-    onInitialClientCommit env idleState clientInput
   (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
     onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->

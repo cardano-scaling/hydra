@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# Seed a "devnet" by distributing fuel to hydra nodes and also some Ada to
-# commit to the Hydra Head.
+# Seed a "devnet" by distributing Ada to hydra nodes
 set -eo pipefail
 
 SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
@@ -54,7 +53,7 @@ function hnode() {
   fi
 }
 
-# Retrieve some lovelace from faucet, marked as "fuel" if requested
+# Retrieve some lovelace from faucet
 function seedFaucet() {
     ACTOR=${1}
     AMOUNT=${2}
@@ -97,9 +96,9 @@ function publishReferenceScripts() {
 }
 
 echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
-seedFaucet "alice" 30000000 # 30 Ada fuel available to the node
-seedFaucet "bob" 30000000 # 30 Ada fuel available to the node
-seedFaucet "carol" 30000000 # 30 Ada fuel available to the node
+seedFaucet "alice" 30000000 # 30 Ada to the node
+seedFaucet "bob" 30000000 # 30 Ada to the node
+seedFaucet "carol" 30000000 # 30 Ada to the node
 echo >&2 "Distributing funds to alice, bob and carol..."
 seedFaucet "alice-funds" 100000000 # 100 Ada to commit
 seedFaucet "bob-funds" 50000000 # 50 Ada to commit

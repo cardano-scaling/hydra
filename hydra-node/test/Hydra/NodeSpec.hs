@@ -164,7 +164,6 @@ isReqSn = \case
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
   [ observationEvent $ OnInitTx (HeadId "1234") cperiod [alice, bob, carol]
-  , ClientEvent{clientInput = Commit (utxoRef 2)}
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)
   , observationEvent $ OnCommitTx alice (utxoRef 1)

@@ -68,6 +68,10 @@ changes.
 - Fixed a bug in the `hydra-tui` dialogs where recipient and UTxO to spend where
   not correctly selected.
 
+- **BREAKING** Remove the _DEPRECATED_ `Commit` command to commit funds held by
+  the `hydra-node` internal wallet. Use the external commit feature instead.
+  Also rename the `ErrNoFuelUTxOFound` to `ErrNoUTxOFound`.
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts

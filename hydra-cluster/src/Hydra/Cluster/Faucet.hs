@@ -25,18 +25,14 @@ import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
-import qualified Data.Map.Strict as Map
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
-import Hydra.Chain.Direct.Util (isMarkedOutput, markerDatumHash)
 import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
-
-data Marked = Fuel | Normal
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
@@ -59,11 +55,9 @@ seedFromFaucet ::
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
-  -- | Marked as fuel or normal output?
-  Marked ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace marked tracer = do
+seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
@@ -82,12 +76,8 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     TxOut
       (shelleyAddressInEra receivingAddress)
       (lovelaceToValue lovelace)
-      theOutputDatum
+      TxOutDatumNone
       ReferenceScriptNone
-
-  theOutputDatum = case marked of
-    Fuel -> TxOutDatumHash markerDatumHash
-    Normal -> TxOutDatumNone
 
 findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
 findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
@@ -106,12 +96,10 @@ seedFromFaucet_ ::
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
-  -- | Marked as fuel or normal output?
-  Marked ->
   Tracer IO FaucetLog ->
   IO ()
-seedFromFaucet_ node vk ll marked tracer =
-  void $ seedFromFaucet node vk ll marked tracer
+seedFromFaucet_ node vk ll tracer =
+  void $ seedFromFaucet node vk ll tracer
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
@@ -179,8 +167,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
  where
   collateralTxIns = mempty
 
-  changeAddress vk = mkVkAddress networkId vk
-
   output =
     mkTxOutAutoBalance
       pparams
@@ -188,6 +174,8 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
       mempty
       (mkTxOutDatumHash datum)
       ReferenceScriptNone
+
+  changeAddress = mkVkAddress networkId
 
 -- | Build and sign tx and return the calculated fee.
 -- - Signing key should be the key of a sender
@@ -235,12 +223,3 @@ publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk
-
--- | Like 'queryUTxOFor' at the tip, but also partition outputs marked as 'Fuel' and 'Normal'.
---
--- Throws at least 'QueryException' if query fails.
-queryMarkedUTxO :: RunningNode -> VerificationKey PaymentKey -> IO (UTxO, UTxO)
-queryMarkedUTxO RunningNode{nodeSocket, networkId} vk =
-  mkPartition <$> queryUTxOFor networkId nodeSocket QueryTip vk
- where
-  mkPartition = bimap UTxO UTxO . Map.partition isMarkedOutput . UTxO.toMap

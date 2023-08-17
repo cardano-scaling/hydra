@@ -31,7 +31,7 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
-import Hydra.Cluster.Faucet (FaucetLog, Marked (Fuel), publishHydraScriptsAs, seedFromFaucet)
+import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (headIsInitializingWith)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -43,7 +43,7 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (FromCardanoNode, FromFaucet),
   HydraClient,
-  externalCommit,
+  requestCommitTx,
   hydraNodeId,
   input,
   output,
@@ -245,7 +245,7 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
 
   fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
-    seedFromFaucet node vk 100_000_000 Fuel tracer
+    seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
@@ -254,7 +254,7 @@ commitUTxO node clients Dataset{clientDatasets} =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
-    externalCommit client initialUTxO
+    requestCommitTx client initialUTxO
       <&> signTx externalSigningKey
       >>= submitTx node
     pure initialUTxO
