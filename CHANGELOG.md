@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.12.0] - UNRELEASED
+## [0.12.0] - 2023-08-18
 
 - **BREAKING** Support new cardano-node version 8.1.2
 
@@ -21,7 +21,11 @@ changes.
     will change this again into a more "cardanonical" form. Alternative: Use
     `cbor=true` query parameter to receive full CBOR encoded transactions.
 
-- The last stable cardano-node version 1.35.7 is not compatible anymore.
+  - The last stable cardano-node version 1.35.7 is not compatible anymore.
+
+- **BREAKING** Remove the _DEPRECATED_ `Commit` websocket command to commit
+  funds held by the `hydra-node` internal wallet. Use the external commit feature
+  instead. Also rename the `ErrNoFuelUTxOFound` to `ErrNoUTxOFound`.
 
 - **BREAKING** Changes to Hydra scripts due to upgrading our plutus version and
   toolchain to GHC 9.2.8.
@@ -29,14 +33,6 @@ changes.
 - **BREAKING** Change persisted state to be a sequence of events instead. This
   increases the performance of the `hydra-node` as less data needs to be written
   and prepares internal architecture for more event-sourced improvements.
-
-- New HTTP endpoint (`POST /cardano-transaction`) to submit a transaction on L1
-  through the `hydra-node`.
-
-- `Greetings` message now contains also the hydra-node version.
-
-- New HTTP endpoint (`GET /protocol-parameters`) which provides the current protocol parameters
-  used by the hydra-node when validating transactions.
 
 - **BREAKING** Introduce authenticated network messages [#965](965):
 
@@ -49,9 +45,20 @@ changes.
   - Wait for all transactions requested in a snapshot to be seen before
     acknowledging it, and only send transaction ids in snapshot requests.
 
+- Enhanced `hydra-node` api.
+
+  - New HTTP endpoint (`POST /cardano-transaction`) to submit a transaction on L1.
+
+  - `Greetings` message now contains also the hydra-node version.
+
+  - New HTTP endpoint (`GET /protocol-parameters`) which provides the current protocol parameters.
+
 - Fixed a bug in `hydra-node` (on-chain protocol not affected) where
   multisignature verification would silently ignore certain keys in case the
   list of verification keys is not of same length as the list of signatures.
+
+- Fixed a bug in the `hydra-tui` dialogs where recipient and UTxO to spend where
+  not correctly selected.
 
 - **BREAKING** Changes to `hydra-cardano-api`:
 
@@ -64,13 +71,6 @@ changes.
 
 - Created `hydra-plutus-extras` package to re-use some utilities better between
   packages.
-
-- Fixed a bug in the `hydra-tui` dialogs where recipient and UTxO to spend where
-  not correctly selected.
-
-- **BREAKING** Remove the _DEPRECATED_ `Commit` command to commit funds held by
-  the `hydra-node` internal wallet. Use the external commit feature instead.
-  Also rename the `ErrNoFuelUTxOFound` to `ErrNoUTxOFound`.
 
 ## [0.11.0] - 2023-06-30
 
