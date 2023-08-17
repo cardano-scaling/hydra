@@ -329,7 +329,7 @@ runIOSimProp p = do
   Capture eval <- capture
   let tr =
         runSimTrace $
-          newTVarIO (Nodes mempty traceInIOSim mempty dummySimulatedChainNetwork)
+          newTVarIO nodes
             >>= (runReaderT (runMonad $ eval $ monadic' p) . RunState)
       traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
       logsOnError = counterexample ("trace:\n" <> toString traceDump)
@@ -340,6 +340,14 @@ runIOSimProp p = do
       pure $ counterexample (show ex) $ logsOnError $ property False
     Left ex ->
       pure $ counterexample (show ex) $ logsOnError $ property False
+ where
+  nodes =
+    Nodes
+      { nodes = mempty
+      , logger = traceInIOSim
+      , threads = mempty
+      , chain = dummySimulatedChainNetwork
+      }
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case
