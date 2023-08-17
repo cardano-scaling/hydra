@@ -15,7 +15,7 @@ import CardanoClient (
   buildAddress,
   queryTip,
   queryUTxO,
-  submitTransaction,
+  submitTx,
   waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
@@ -37,7 +37,7 @@ import Hydra.Cardano.Api (
   pattern KeyWitness,
  )
 import Hydra.Chain (
-  Chain (..),
+  Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
   HeadParameters (..),
   OnChainTx (..),
@@ -509,7 +509,6 @@ externalCommit node hydraClient externalSk utxoToCommit' = do
 
   commitTx <- draftCommitTx utxoToCommit
   let signedTx = signTx externalSk commitTx
-  void $ submitTransaction networkId nodeSocket signedTx
+  submitTx node signedTx
  where
-  RunningNode{networkId, nodeSocket} = node
   DirectChainTest{draftCommitTx} = hydraClient
