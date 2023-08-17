@@ -437,3 +437,84 @@ This opens a duplex connection and we should see something like:
 Before continuing, make sure that you see a `PeerConnected` message for each of
 the configured other `hydra-node`. If this is not showing up, double-check
 network configuration and connectivity.
+
+## Step 4: Open a Hydra head
+
+Using the `jq` enhanced `websocat` session, we can now communicate with the `hydra-node` through its Websocket API on the terminal. This is a duplex connection and we can just insert commands directly.
+
+<!-- TODO: ideally we would have a ping-pong or hello command (e.g. re-sending greetings) -->
+
+Send this command to initialize a head through the Websocket connection:
+
+```json title="Websocket API"
+{"tag":"Init"}
+```
+
+Depending on the network connection, this might take a bit as the node does
+submit a transaction on-chain. Eventually, both Hydra nodes and connected clients should see `HeadIsInitializing` with a list of parties that need to commit now.
+
+Committing funds to the head means that we pick which UTxO we want to have available on the layer two. We use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
+
+<Tabs queryString="role">
+<TabItem value="alice" label="Alice">
+
+```shell
+cardano-cli query utxo \
+  --address $(cat credentials/alice-funds.addr) \
+  --out-file alice-commit-utxo.json
+
+curl -X POST 127.0.0.1:4001/commit \
+  --data @alice-commit-utxo.json \
+  > alice-commit-tx.json
+
+cardano-cli transaction sign \
+  --tx-file alice-commit-tx.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file alice-commit-tx-signed.json
+
+cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
+```
+
+</TabItem>
+<TabItem value="bob" label="Bob">
+
+```shell
+cardano-cli query utxo \
+  --address $(cat credentials/bob-funds.addr) \
+  --out-file bob-commit-utxo.json
+
+curl -X POST 127.0.0.1:4002/commit \
+  --data @bob-commit-utxo.json \
+  > bob-commit-tx.json
+
+cardano-cli transaction sign \
+  --tx-file bob-commit-tx.json \
+  --signing-key-file credentials/bob-funds.sk \
+  --out-file bob-commit-tx-signed.json
+
+cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
+```
+
+</TabItem>
+</Tabs>
+
+<details>
+<summary>Alternative: Not commit anything</summary>
+
+If you don't want to commit any funds, for example only receive things on the layer two, you can just request an empty commit transaction like this (example for `bob`):
+
+```shell
+curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
+cardano-cli transaction submit --tx-file bob-commit-tx.json
+```
+
+</details>
+
+This does find all UTxO owned by the funds key, request a commit transaction
+draft from the `hydra-node`, sign it with the funds key and submit the
+transaction to the Cardano layer one.
+
+Once this transaction was seen by the `hydra-node`, you should see a `Committed`
+message on the Websocket connection.
+
+When both parties, `alice` and `bob`, have committed, the head will automatically open and you will see a `HeadIsOpen` on the Websocket session.
