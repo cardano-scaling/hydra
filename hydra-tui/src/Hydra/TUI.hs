@@ -445,7 +445,7 @@ showCommitDialog ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-showCommitDialog Client{sk, requestCommitTx} CardanoClient{queryUTxOByAddress, networkId} s = do
+showCommitDialog Client{sk, externalCommit} CardanoClient{queryUTxOByAddress, networkId} s = do
   utxo <- liftIO $ queryUTxOByAddress [ourAddress]
   continue $ s & dialogStateL .~ commitDialog (UTxO.toMap utxo)
  where
@@ -462,7 +462,7 @@ showCommitDialog Client{sk, requestCommitTx} CardanoClient{queryUTxOByAddress, n
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
-      liftIO (requestCommitTx commitUTxO) >> setPending (s' & dialogStateL .~ NoDialog)
+      liftIO (externalCommit commitUTxO) >> setPending (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
   Client Tx IO ->
