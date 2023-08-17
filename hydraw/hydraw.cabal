@@ -44,6 +44,11 @@ common project-config
     TypeSynonymInstances
     ViewPatterns
 
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances
+
 library
   import:          project-config
   hs-source-dirs:  src
@@ -51,26 +56,17 @@ library
   build-depends:
     , aeson
     , base
-    , cardano-crypto-class
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-ledger-shelley
     , containers
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
-    , text
     , websockets
 
 executable hydraw
   import:         project-config
   hs-source-dirs: app
   main-is:        Main.hs
-  ghc-options:
-    -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
-    -Wunused-packages -threaded -rtsopts
-
+  ghc-options:    -threaded -rtsopts
   build-depends:
     , http-types
     , hydra-cardano-api

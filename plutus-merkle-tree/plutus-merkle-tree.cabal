@@ -91,9 +91,7 @@ test-suite tests
   build-tool-depends: hspec-discover:hspec-discover
   build-depends:
     , base
-    , base16-bytestring
     , bytestring
-    , containers
     , hspec
     , hydra-prelude
     , hydra-test-utils
@@ -117,16 +115,12 @@ benchmark on-chain-cost
   build-depends:
     , base
     , bytestring
-    , cardano-binary
-    , cardano-ledger-alonzo
-    , containers
     , directory
     , filepath
     , hydra-plutus-extras
     , hydra-prelude
-    , hydra-test-utils       >=0.10.0
-    , plutus-core
-    , plutus-ledger-api      >=1.1.0.0
+    , hydra-test-utils    >=0.10.0
+    , plutus-ledger-api   >=1.1.0.0
     , plutus-merkle-tree
     , plutus-tx
     , plutus-tx-plugin

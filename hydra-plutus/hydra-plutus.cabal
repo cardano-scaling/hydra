@@ -97,21 +97,16 @@ library
     , base
     , base16-bytestring
     , bytestring
-    , containers
-    , directory
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
-    , plutus-core
-    , plutus-ledger-api
-    , plutus-tx
-    , plutus-tx-plugin
-    , prettyprinter
+    , plutus-core           >=1.7 && <1.8
+    , plutus-ledger-api     >=1.7 && <1.8
+    , plutus-tx             >=1.7 && <1.8
+    , plutus-tx-plugin      >=1.7 && <1.8
     , QuickCheck
-    , quickcheck-instances
     , serialise
     , template-haskell
-    , text
     , time
 
   if flag(hydra-development)
@@ -132,7 +127,6 @@ test-suite tests
   build-depends:
     , base
     , hspec
-    , hspec-core
     , hspec-golden
     , hydra-cardano-api
     , hydra-plutus
@@ -140,7 +134,6 @@ test-suite tests
     , hydra-test-utils
     , plutus-ledger-api
     , QuickCheck
-    , time
 
   build-tool-depends: hspec-discover:hspec-discover
 
@@ -150,16 +143,10 @@ executable inspect-script
   main-is:        Main.hs
   build-depends:
     , aeson
-    , base
     , bytestring
-    , cardano-api           >=1.35.4
-    , containers
-    , data-default
-    , directory
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , optparse-applicative
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter

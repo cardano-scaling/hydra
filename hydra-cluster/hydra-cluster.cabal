@@ -101,7 +101,8 @@ common project-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -125,10 +126,8 @@ library
   build-depends:
     , aeson
     , async
-    , base                                                              >=4.7     && <5
+    , base                                         >=4.7     && <5
     , bytestring
-    , cardano-crypto-class
-    , cardano-ledger-core
     , cardano-slotting
     , containers
     , contra-tracer
@@ -139,30 +138,21 @@ library
     , http-client
     , hydra-cardano-api
     , hydra-node
-    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , io-classes
     , iohk-monitoring
     , lens
     , lens-aeson
-    , network
     , optparse-applicative
-    , ouroboros-consensus
-    , ouroboros-network
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
+    , plutus-ledger-api:plutus-ledger-api-testlib  >=1.1.1.0
     , process
     , QuickCheck
-    , random-shuffle
     , req
-    , retry
-    , say
-    , streaming-commons
     , temporary
     , text
     , time
     , unix
-    , unordered-containers
     , websockets
 
   ghc-options:     -haddock
@@ -173,8 +163,6 @@ executable hydra-cluster
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-depends:
-    , base                  >=4.7 && <5
-    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-prelude
@@ -193,7 +181,6 @@ executable log-filter
     , aeson
     , base                  >=4.7 && <5
     , bytestring
-    , contra-tracer
     , hydra-cluster
     , hydra-node
     , hydra-prelude
@@ -219,36 +206,23 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base                                                              >=4.7     && <5
-    , base16-bytestring
+    , base                >=4.7 && <5
     , bytestring
-    , cardano-crypto-class
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-ledger-shelley
     , containers
     , directory
     , filepath
-    , hedgehog-quickcheck
     , hspec
-    , hspec-core
     , hspec-golden-aeson
     , hydra-cardano-api
     , hydra-cluster
     , hydra-node
-    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , lens
     , lens-aeson
-    , ouroboros-network
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , process
     , QuickCheck
-    , say
     , stm
-    , strict-containers
-    , temporary
     , text
     , time
 
@@ -272,11 +246,9 @@ benchmark bench-e2e
     , aeson
     , base                  >=4.7 && <5
     , bytestring
-    , cardano-crypto-class
     , containers
     , directory
     , filepath
-    , hspec
     , HUnit
     , hydra-cardano-api
     , hydra-cluster
@@ -292,7 +264,6 @@ benchmark bench-e2e
     , regex-tdfa
     , scientific
     , statistics
-    , strict-containers
     , time
     , vector
 

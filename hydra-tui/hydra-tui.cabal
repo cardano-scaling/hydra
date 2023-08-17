@@ -62,7 +62,7 @@ common project-config
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances
 
   if !flag(hydra-development)
@@ -81,11 +81,7 @@ library
     , aeson
     , async
     , base
-    , brick                   ==0.73
-    , cardano-crypto-class
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-ledger-shelley
+    , brick                 ==0.73
     , containers
     , hydra-cardano-api
     , hydra-node
@@ -94,10 +90,8 @@ library
     , microlens
     , microlens-th
     , optparse-applicative
-    , QuickCheck
     , req
     , text
-    , th-env
     , time
     , vty
     , websockets
@@ -107,7 +101,6 @@ executable hydra-tui
   hs-source-dirs: exe
   main-is:        Main.hs
   build-depends:
-    , base
     , hydra-prelude
     , hydra-tui
     , optparse-applicative
@@ -125,7 +118,6 @@ test-suite tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
-    , base
     , blaze-builder
     , bytestring
     , filepath
@@ -139,7 +131,6 @@ test-suite tests
     , io-classes
     , optparse-applicative
     , regex-tdfa
-    , temporary
     , unix
     , vty
 

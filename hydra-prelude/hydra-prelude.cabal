@@ -25,13 +25,13 @@ library
     , aeson-pretty
     , base
     , base16-bytestring
-    , cardano-binary
+    , cardano-binary     >=1.7.0   && <1.8
     , generic-random
     , gitrev
     , io-classes         >=1.0.0.0
     , QuickCheck
     , relude
-    , si-timers
+    , si-timers          >=1.0.0.0
     , transformers
 
   default-extensions:
