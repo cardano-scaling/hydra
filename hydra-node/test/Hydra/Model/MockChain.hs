@@ -26,7 +26,7 @@ import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
-import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..))
+import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
@@ -86,26 +86,16 @@ mockChainAndNetwork tr seedKeys cp = do
   chain <- newTVarIO (0 :: SlotNo, 0 :: Natural, Empty)
   tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
+  localChainState <- newLocalChainState initialChainState
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes queue
+      { connectNode = connectNode localChainState nodes queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = \(party, realUTxO) -> do
-          let chainEvent =
-                Observation
-                  { observedTx = OnCommitTx{party, committed = realUTxO}
-                  , newChainState = initialChainState
-                  }
-          hydraNodes <- readTVarIO nodes
-          forM_
-            hydraNodes
-            ( \MockHydraNode{node = HydraNode{eq = EventQueue{putEvent}}} ->
-                putEvent (OnChainEvent chainEvent)
-            )
+      , simulateCommit = simulateCommit nodes
       }
  where
-  connectNode nodes queue node = do
+  connectNode localChainState nodes queue node = do
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
@@ -121,7 +111,6 @@ mockChainAndNetwork tr seedKeys cp = do
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let seedInput = genTxIn `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-    localChainState <- newLocalChainState initialChainState
     let chainHandle =
           createMockChain
             tr
@@ -145,6 +134,21 @@ mockChainAndNetwork tr seedKeys cp = do
     let mockNode = MockHydraNode{node = node', chainHandler}
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
+
+  simulateCommit nodes (party, utxoToCommit) = do
+    hydraNodes <- readTVarIO nodes
+    case find (matchingParty party) hydraNodes of
+      Nothing -> error "simulateCommit: Could not find matching HydraNode"
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} -> do
+        -- NOTE: We don't need to sign a tx here since the MockChain
+        -- doesn't actually validate transactions.
+        eTx <- draftCommitTx $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
+        case eTx of
+          Left e -> throwIO e
+          Right tx -> submitTx tx
+
+  matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
+    party == us
 
   blockTime :: DiffTime
   blockTime = 20

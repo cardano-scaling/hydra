@@ -200,7 +200,7 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
-      (MonadThrow m, MonadIO m) =>
+      (MonadThrow m) =>
       UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
