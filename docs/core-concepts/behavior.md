@@ -4,9 +4,9 @@ sidebar_position: 4
 
 # API Behavior
 
-This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](pathname:///haddock/hydra-node/Hydra-API-ClientInput.html#t:ClientInput) and what [ServerOutputs](pathname:///haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](/api-reference/) for more details about individual API messages.
+This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](pathname:///haddock/hydra-node/Hydra-API-ClientInput.html#t:ClientInput) and what [ServerOutputs](pathname:///haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](/api-reference/) for more details about individual API messages. The only discrepancy is http `POST /commit` action which is not a state transition but a user action that submits a commit transaction which should produce `Committed` output.
 
-The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_machine) language where transitions are labeled: `input [condition] / output`. When two outputs (e.g. `A` and `B`) are expected we write `A,B`, while `{A,B}` denotes mutual exclusiveness of outputs. The only discrepancy is http `POST /commit` action which is not a state transition but a user action that submits a commit transaction which should produce `Committed` output.
+The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_machine) language where transitions are labeled: `input [condition] / output`. When two outputs (e.g. `A` and `B`) are expected we write `A,B`, while `{A,B}` denotes mutual exclusiveness of outputs.
 
 ![](https://www.plantuml.com/plantuml/svg/ZP71JW8n48RlVOevge5mvs0mH2CN8RBnGZWKEiWaxNJJ3hfWV7VRBIw87hnrPhvl_-vq54K7sJchjcGGqDMo1uDn7QWMygpKucO9_VujJ9Y4jAK3yIiCsn86y8pQx2i_ziwHAFK3-YrTpQRp2WRhbhvEUl44pOMPr0TYRPDpj_8X9pscf4dCrP_uj4PEz3UNIwNQvcduXEzLav2Fgdb9hkbLpOJVZgVxfgQ0vhCtPrt7hPUnvmq5XwPy9eUChOzeO5WENLXfAtKSduCTubam2feEoh-esUzavcEabSL4BuGSGgrZn0Xw8nZ09DqIu_AqxA8fTQ7tBMxaR75btDsWRTCXtxCGXV_VmuwGpSxPBm00)
 
