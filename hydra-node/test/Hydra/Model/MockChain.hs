@@ -86,16 +86,16 @@ mockChainAndNetwork tr seedKeys cp = do
   chain <- newTVarIO (0 :: SlotNo, 0 :: Natural, Empty)
   tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
-  localChainState <- newLocalChainState initialChainState
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode localChainState nodes queue
+      { connectNode = connectNode nodes queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
       }
  where
-  connectNode localChainState nodes queue node = do
+  connectNode nodes queue node = do
+    localChainState <- newLocalChainState initialChainState
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
