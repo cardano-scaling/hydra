@@ -67,18 +67,19 @@ background with:
 
 ```shell
 docker run -d \
-    -e NETWORK=preprod \
-    -v $(pwd):$(pwd) \
-    -v $(pwd):/data \
-    -v $(pwd):/ipc \
-    -u $(id -u) \
-    --name cardano-node \
-    inputoutput/cardano-node:8.1.2
+  -e NETWORK=preprod \
+  -v $(pwd):$(pwd) \
+  -v $(pwd):/data \
+  -v $(pwd):/ipc \
+  -u $(id -u) \
+  --name cardano-node \
+  inputoutput/cardano-node:8.1.2
 ```
 
 To interact with the `cardano-node` we prepare ourselves a shell alias for the
 `cardano-cli`:
 
+<!-- TODO: This failed on mac aarch64 -->
 ```shell
 cardano-cli () {
   docker exec \
@@ -126,7 +127,7 @@ Detailed steps on bootstrapping a `cardano-node` using Mithril with more
 explanations can be found
 [here](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node)
 
-## Step 2: Prepare keys
+## Step 2: Prepare keys and funding
 
 As introduced before, the tutorial considers a minimal setup of two participants
 that together want to open a Hydra head. We will call them `alice` and `bob`
@@ -259,12 +260,13 @@ hydra-tools () {
     -v $(pwd):$(pwd) \
     -w $(pwd) \
     -u $(id -u) \
-    ghcr.io/input-output-hk/hydra-tools:latest $@
+    ghcr.io/input-output-hk/hydra-tools:unstable $@
 }
 ```
 
 With `hydra-tools` we generate the keys for `alice` and/or `bob` respectively:
 
+<!-- TODO: feedback of these commands is not great -->
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
 
@@ -293,13 +295,12 @@ layer two network using `hydra-node`. For the purpose of this tutorial we are
 assuming an IP address and port for `alice` and `bob` which works on a single
 machine, but please replace usages below with your respective addresses:
 
-export const AliceHost = () => <code>127.0.0.1:5001</code>;
 
-export const BobHost = () => <code>127.0.0.1:5002</code>;
+<!-- TODO: can we make peers configurable via some text input? -->
 
-Alice: <AliceHost />
+Alice: <code>127.0.0.1:5001</code>
 
-Bob: <BobHost />
+Bob: <code>127.0.0.1:5001</code>
 
 We still need one thing, before we can spin up the `hydra-node`, that is the
 protocol parameters that the ledger in our Hydra head will use. We can use the
@@ -320,3 +321,119 @@ In summary, the Hydra head participants exchanged and agreed on:
 - A Cardano verification key to identify them on the blockchain.
 - The protocol parameters that they want to use in the Hydra head.
 - A contestation period for the head closing (we will use the default here).
+
+## Step 3: Start the Hydra node
+
+With all these parameters defined, we now pick a version of the Head protocol we
+want to use. This is defined by the `hydra-node --version` itself and the
+`--hydra-scripts-tx-id` which point to scripts published on-chain.
+
+For all [released](https://github.com/input-output-hk/hydra/releases) versions
+of the `hydra-node` and common Cardano networks, the scripts do get
+pre-published and we can just use them. See the [user
+manual](../getting-started/quickstart#reference-scripts) for more information
+how to publish scripts yourself.
+
+Let's start the `hydra-node` with all these parameters now:
+
+<!-- TODO: add step to wipe or pull all images in the beginning? -->
+<Tabs queryString="role">
+<TabItem value="alice" label="Alice">
+
+```shell
+docker run -d \
+  -v $(pwd)/credentials:/credentials:ro \
+  -v $(pwd):/ipc \
+  -v $(pwd):/data \
+  -u $(id -u) \
+  --network host \
+  --name hydra-node-alice \
+  ghcr.io/input-output-hk/hydra-node:unstable \
+  --node-id "alice-node" \
+  --persistence-dir /data/persistence-alice \
+  --cardano-signing-key /credentials/alice-node.sk \
+  --hydra-signing-key /credentials/alice-hydra.sk \
+  --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
+  --ledger-protocol-parameters /data/protocol-parameters.json \
+  --testnet-magic 1 \
+  --node-socket /ipc/node.socket \
+  --port 5001 \
+  --api-port 4001 \
+  --peer 127.0.0.1:5002 \
+  --hydra-verification-key /credentials/bob-hydra.vk \
+  --cardano-verification-key /credentials/bob-node.vk
+```
+
+</TabItem>
+<TabItem value="bob" label="Bob">
+
+```shell
+docker run -d \
+  -v $(pwd)/credentials:/credentials:ro \
+  -v $(pwd):/ipc \
+  -v $(pwd):/data \
+  -u $(id -u) \
+  --network host \
+  --name hydra-node-bob \
+  ghcr.io/input-output-hk/hydra-node:unstable \
+  --node-id "bob-node" \
+  --persistence-dir /data/persistence-bob \
+  --cardano-signing-key /credentials/bob-node.sk \
+  --hydra-signing-key /credentials/bob-hydra.sk \
+  --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
+  --ledger-protocol-parameters /data/protocol-parameters.json \
+  --testnet-magic 1 \
+  --node-socket /ipc/node.socket \
+  --port 5002 \
+  --api-port 4002 \
+  --peer 127.0.0.1:5001 \
+  --hydra-verification-key /credentials/alice-hydra.vk \
+  --cardano-verification-key /credentials/alice-node.vk
+```
+
+</TabItem>
+</Tabs>
+
+And we can check whether it is running by opening a Websocket connection to the API port:
+
+<Tabs queryString="role">
+<TabItem value="alice" label="Alice">
+
+```shell
+websocat ws://127.0.0.1:4001 | jq
+```
+
+</TabItem>
+<TabItem value="bob" label="Bob">
+
+```shell
+websocat ws://127.0.0.1:4002 | jq
+```
+
+</TabItem>
+</Tabs>
+
+This opens a duplex connection and we should see something like:
+
+```json
+{
+  "peer": "bob-node",
+  "seq": 0,
+  "tag": "PeerConnected",
+  "timestamp": "2023-08-17T18:25:02.903974459Z"
+}
+{
+  "headStatus": "Idle",
+  "hydraNodeVersion": "0.12.0-54db2265c257c755df98773c64754c9854d879e8",
+  "me": {
+    "vkey": "ab159b29b87b498fa060f6045cccf84ecd20cf623f7820ed130ffc849633a120"
+  },
+  "seq": 1,
+  "tag": "Greetings",
+  "timestamp": "2023-08-17T18:32:29.092329511Z"
+}
+```
+
+Before continuing, make sure that you see a `PeerConnected` message for each of
+the configured other `hydra-node`. If this is not showing up, double-check
+network configuration and connectivity.
