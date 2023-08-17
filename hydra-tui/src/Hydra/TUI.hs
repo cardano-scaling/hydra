@@ -492,10 +492,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
    where
     title = "Select a recipient"
     form =
-      let field =
-            radioField
-              (lens id const)
-              [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
+      let field = radioField id [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
           addresses = getRecipientAddress <$> Map.elems utxo
           getRecipientAddress TxOut{txOutAddress = addr} = addr
        in newForm [field] (Prelude.head addresses)
@@ -512,7 +509,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 
     form =
       -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
-      let field = editShowableFieldWithValidate (lens id (\_ newValue -> newValue)) "amount" (\n -> n > 0 && n <= limit)
+      let field = editShowableFieldWithValidate id "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
 
     submit s' amount = do
@@ -841,7 +838,7 @@ utxoRadioField ::
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
-      (lens id const)
+      id
       [ (i, show i, UTxO.render i)
       | i <- Map.toList u
       ]

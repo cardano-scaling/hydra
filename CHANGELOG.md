@@ -65,6 +65,9 @@ changes.
 - Created `hydra-plutus-extras` package to re-use some utilities better between
   packages.
 
+- Fixed a bug in the `hydra-tui` dialogs where recipient and UTxO to spend where
+  not correctly selected.
+
 ## [0.11.0] - 2023-06-30
 
 This release contains breaking changes of the persistence and on-chain scripts
