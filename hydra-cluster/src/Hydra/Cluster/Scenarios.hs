@@ -59,7 +59,7 @@ import Hydra.Ledger (IsTx (balance))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), externalCommit, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), requestCommitTx, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -100,7 +100,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
-    externalCommit n1 mempty >>= submitTx cardanoNode
+    requestCommitTx n1 mempty >>= submitTx cardanoNode
     waitFor tracer 10 [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
@@ -159,7 +159,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
       -- Commit nothing for now
-      externalCommit n1 mempty >>= submitTx node
+      requestCommitTx n1 mempty >>= submitTx node
       waitFor tracer 600 [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       -- Close head
@@ -267,7 +267,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- submit the tx using our external user key to get a utxo to commit
       utxoToCommit <- seedFromFaucet node userVk 2_000_000 (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
-      externalCommit n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
+      requestCommitTx n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
   RunningNode{nodeSocket} = node
 
@@ -293,7 +293,7 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
     send n1 $ input "Init" []
     headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
-    externalCommit n1 mempty >>= submitTx node
+    requestCommitTx n1 mempty >>= submitTx node
     waitFor tracer 60 [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head

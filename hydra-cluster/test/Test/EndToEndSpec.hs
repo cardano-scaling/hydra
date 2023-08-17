@@ -78,7 +78,7 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   HydraClient (..),
-  externalCommit,
+  requestCommitTx,
   getMetrics,
   input,
   output,
@@ -185,13 +185,13 @@ spec = around showLogsOnFailure $
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
-                externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
                 committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead  (contramap FromFaucet tracer)
-                externalCommit n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
+                requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
-                externalCommit n3 mempty >>= submitTx node
+                requestCommitTx n3 mempty >>= submitTx node
 
                 let u0 = committedUTxOByAlice <> committedUTxOByBob
 
@@ -291,10 +291,10 @@ spec = around showLogsOnFailure $
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
-                externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, _bobExternalSk) <- generate genKeyPair
-                externalCommit n2 mempty >>= submitTx node
+                requestCommitTx n2 mempty >>= submitTx node
 
                 waitFor tracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
@@ -375,7 +375,7 @@ spec = around showLogsOnFailure $
                     output "HeadIsAborted" ["utxo" .= Object mempty, "headId" .= headIdAliceAndBob]
 
                   -- Alice should be able to continue working with her Head
-                  externalCommit n1 mempty >>= submitTx node
+                  requestCommitTx n1 mempty >>= submitTx node
                   waitFor tracer 10 [n1] $
                     output "HeadIsOpen" ["utxo" .= Object mempty, "headId" .= headIdAliceOnly]
 
@@ -504,7 +504,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
     committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
-    externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+    requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     waitFor tracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
@@ -584,13 +584,13 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
     committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
-    externalCommit n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+    requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
     committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead  (contramap FromFaucet tracer)
-    externalCommit n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
+    requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
-    externalCommit n3 mempty >>= submitTx node
+    requestCommitTx n3 mempty >>= submitTx node
 
     waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
 

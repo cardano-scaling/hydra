@@ -138,7 +138,7 @@ spec = around showLogsOnFailure $ do
                 aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
                 bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                mimicExternalCommit node aliceChain aliceExternalSk aliceUTxO
+                externalCommit node aliceChain aliceExternalSk aliceUTxO
 
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
@@ -200,7 +200,7 @@ spec = around showLogsOnFailure $ do
 
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
             -- deliberately use alice's key known to hydra-node to trigger the error
-            mimicExternalCommit node aliceChain aliceCardanoSk aliceUTxO
+            externalCommit node aliceChain aliceCardanoSk aliceUTxO
               `shouldThrow` \case
                 (SpendingNodeUtxoForbidden :: PostTxError Tx) -> True
                 _ -> False
@@ -208,7 +208,7 @@ spec = around showLogsOnFailure $ do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
-            mimicExternalCommit node aliceChain aliceExternalSk newAliceUTxO
+            externalCommit node aliceChain aliceExternalSk newAliceUTxO
             aliceChain `observesInTime` OnCommitTx alice newAliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
@@ -227,7 +227,7 @@ spec = around showLogsOnFailure $ do
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             (_, aliceExternalSk) <- generate genKeyPair
-            mimicExternalCommit node aliceChain aliceExternalSk mempty
+            externalCommit node aliceChain aliceExternalSk mempty
             aliceChain `observesInTime` OnCommitTx alice mempty
 
   it "can open, close & fanout a Head" $ \tracer -> do
@@ -248,7 +248,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            mimicExternalCommit node aliceChain aliceExternalSk someUTxO
+            externalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
@@ -371,7 +371,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            mimicExternalCommit node aliceChain aliceExternalSk someUTxO
+            externalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
@@ -496,14 +496,14 @@ delayUntil target = do
   now <- getCurrentTime
   threadDelay . realToFrac $ diffUTCTime target now
 
--- Mimic "external commit" by using keys unknown to a hydra-node.
-mimicExternalCommit ::
+-- Commit using a wallet/external unknown to a hydra-node.
+externalCommit ::
   RunningNode ->
   DirectChainTest Tx IO ->
   SigningKey PaymentKey ->
   UTxO' (TxOut CtxUTxO) ->
   IO ()
-mimicExternalCommit node hydraClient externalSk utxoToCommit' = do
+externalCommit node hydraClient externalSk utxoToCommit' = do
   let utxoToCommit =
         UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap utxoToCommit'
 

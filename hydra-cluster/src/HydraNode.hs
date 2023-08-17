@@ -163,8 +163,8 @@ waitForAll tracer delay nodes expected = do
           tryNext c msgs stillExpected
 
 -- | Create a commit tx using the hydra-node for later submission
-externalCommit' :: HydraClient -> UTxO' TxOutWithWitness -> IO Tx
-externalCommit' HydraClient{hydraNodeId} utxos =
+requestCommitTx' :: HydraClient -> UTxO' TxOutWithWitness -> IO Tx
+requestCommitTx' HydraClient{hydraNodeId} utxos =
   runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
@@ -175,10 +175,10 @@ externalCommit' HydraClient{hydraNodeId} utxos =
       (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
       (Req.port $ 4_000 + hydraNodeId)
 
--- | Helper to make it easy to externally commit non-script utxo
-externalCommit :: HydraClient -> UTxO -> IO Tx
-externalCommit client =
-  externalCommit' client . fmap (`TxOutWithWitness` Nothing)
+-- | Helper to make it easy to obtain a commit tx using a wallet utxo
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
+requestCommitTx client =
+  requestCommitTx' client . fmap (`TxOutWithWitness` Nothing)
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do

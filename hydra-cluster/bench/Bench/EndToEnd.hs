@@ -43,7 +43,7 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (FromCardanoNode, FromFaucet),
   HydraClient,
-  externalCommit,
+  requestCommitTx,
   hydraNodeId,
   input,
   output,
@@ -254,7 +254,7 @@ commitUTxO node clients Dataset{clientDatasets} =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
-    externalCommit client initialUTxO
+    requestCommitTx client initialUTxO
       <&> signTx externalSigningKey
       >>= submitTx node
     pure initialUTxO

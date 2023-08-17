@@ -41,7 +41,7 @@ data Client tx m = Client
   { sendInput :: ClientInput tx -> m ()
   -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
-  , externalCommit :: UTxO.UTxO -> m ()
+  , requestCommitTx :: UTxO.UTxO -> m ()
   }
 
 -- | Callback for receiving server outputs.
@@ -66,7 +66,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
       Client
         { sendInput = atomically . writeTBQueue q
         , sk
-        , externalCommit = externalCommit' sk
+        , requestCommitTx = requestCommitTx' sk
         }
  where
   readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
@@ -95,7 +95,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
   handleDisconnect f =
     callback ClientDisconnected >> threadDelay 1 >> reconnect f
 
-  externalCommit' sk payload =
+  requestCommitTx' sk payload =
     runReq defaultHttpConfig request
       <&> responseBody
       >>= \DraftCommitTxResponse{commitTx} ->
