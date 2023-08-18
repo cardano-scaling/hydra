@@ -18,15 +18,6 @@ in
     };
   };
 
-  hydra-tools = pkgs.dockerTools.buildImage {
-    name = "hydra-tools";
-    tag = "latest";
-    created = "now";
-    config = {
-      Entrypoint = [ "${hydraPackages.hydra-tools-static}/bin/hydra-tools" ];
-    };
-  };
-
   hydra-tui = pkgs.dockerTools.buildImage {
     name = "hydra-tui";
     tag = "latest";
