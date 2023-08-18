@@ -4,7 +4,7 @@ This guide is meant to be a tutorial on how to develop an application on Hydra. 
 
 ## On-chain code
 
-On-chain code will be exactly the same between Cardano and a hydra head. This is one of the main selling points of the hydra design (heads are also called isomorphic state channels) the only caveat being that (at the time of writing 07/22) Hydra Heads do not support validity ranges for transactions, the reason for this is there is currently no notion of time inside of a Hydra Head. See also this [feature on the roadmap](https://github.com/input-output-hk/hydra/issues/196)
+On-chain code will be exactly the same between Cardano and a hydra head. This is one of the main selling points of the hydra design (heads are also called isomorphic state channels). Note that Hydra Heads now also support validity ranges for L2 transactions through the `Tick` event which contains the current L1 slot.
 
 ## Off-chain code
 
