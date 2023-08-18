@@ -50,7 +50,7 @@ To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
 
 ```sh
-hydra-cluster --preview --state-directory state-testnet
+hydra-cluster --preview --state-directory state-testnet --hydra-scripts-tx-id 4793d318ec98741c0eebff7c62af6389a860c6e51c4fa1961cc5b7eab5a46f58
 ```
 
 > Note: If you want to do it on mainnet
