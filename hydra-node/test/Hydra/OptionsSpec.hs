@@ -18,6 +18,7 @@ import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Options (
   ChainConfig (..),
   Command (..),
+  GenerateKeyPair (GenerateKeyPair),
   InvalidOptions (..),
   LedgerConfig (..),
   ParserResult (..),
@@ -25,6 +26,7 @@ import Hydra.Options (
   RunOptions (..),
   defaultChainConfig,
   defaultLedgerConfig,
+  outputFile,
   parseHydraCommandFromArgs,
   renderFailure,
   toArgs,
@@ -314,6 +316,13 @@ spec = parallel $
               , publishNetworkId = Mainnet
               , publishSigningKey = "crux"
               }
+    describe "gen-hydra-keys sub-command" $ do
+      it "should be able to parse gen-hydra-keys sub-command" $
+        mconcat
+          [ ["gen-hydra-key"]
+          , ["--output-file", "foo"]
+          ]
+          `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "foo"}
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =

@@ -56,6 +56,7 @@ import Options.Applicative (
   header,
   help,
   helper,
+  hsubparser,
   info,
   infoOption,
   listCompleter,
@@ -89,6 +90,7 @@ instance Arbitrary ParamMismatch where
 data Command
   = Run RunOptions
   | Publish PublishOptions
+  | GenHydraKey GenerateKeyPair
   deriving (Show, Eq)
 
 commandParser :: Parser Command
@@ -96,6 +98,7 @@ commandParser =
   asum
     [ Run <$> runOptionsParser
     , Publish <$> publishScriptsParser
+    , GenHydraKey <$> genHydraKeyParser
     ]
  where
   publishScriptsParser :: Parser PublishOptions
@@ -212,6 +215,31 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+
+newtype GenerateKeyPair = GenerateKeyPair
+  { outputFile :: FilePath
+  }
+  deriving (Eq, Show)
+
+genHydraKeyParser :: Parser GenerateKeyPair
+genHydraKeyParser =
+  hsubparser
+    ( command
+        "gen-hydra-key"
+        ( info
+            (helper <*> (GenerateKeyPair <$> outputFileParser))
+            (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
+        )
+    )
+
+outputFileParser :: Parser FilePath
+outputFileParser =
+  strOption
+    ( long "output-file"
+        <> metavar "FILE"
+        <> value "hydra-key"
+        <> help "Basename of files to generate key-pair into. Signing key will be suffixed '.sk' and verification key '.vk'"
+    )
 
 newtype LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerProtocolParametersFile :: FilePath
