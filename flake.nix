@@ -21,8 +21,7 @@
     flake-utils.lib.eachSystem [
       "x86_64-linux"
       "x86_64-darwin"
-      # XXX: Disabled until cardano-node releases a verison supporting this
-      # "aarch64-darwin"
+      "aarch64-darwin"
     ]
       (system:
       let
