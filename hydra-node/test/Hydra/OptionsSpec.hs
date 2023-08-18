@@ -324,6 +324,9 @@ spec = parallel $
           ]
           `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "foo"}
 
+      it "should parse gen-hydra-keys without the output-file flag using default file name" $
+        ["gen-hydra-key"] `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "hydra-key"}
+
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
   let args = toArgs opts

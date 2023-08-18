@@ -198,6 +198,8 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
+    , cryptonite
+    , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
