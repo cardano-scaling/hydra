@@ -220,6 +220,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , "genesis" </> "byron.json"
       , "genesis" </> "shelley.json"
       , "genesis" </> "alonzo.json"
+      , "genesis" </> "conway.json"
       ]
       $ \fn -> unlessM (doesFileExist $ workDir </> fn) $ do
         createDirectoryIfMissing True $ workDir </> takeDirectory fn
