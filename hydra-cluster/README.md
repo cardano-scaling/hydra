@@ -49,13 +49,17 @@ signing key safely stored. See how the C.I overrides these files in
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
 
+Note: To get the transaction id for `--hydra-scripts-tx-id` parameter you can
+consult our [release page](https://github.com/input-output-hk/hydra/releases)
+where you can find pre-published Hydra scripts for different networks.
+
 ```sh
-hydra-cluster --preview --state-directory state-testnet --hydra-scripts-tx-id 4793d318ec98741c0eebff7c62af6389a860c6e51c4fa1961cc5b7eab5a46f58
+hydra-cluster --preview --state-directory state-testnet --hydra-scripts-tx-id <tx-id>
 ```
 
 > Note: If you want to do it on mainnet
 > ```sh
-> hydra-cluster --mainnet --state-directory state-mainnet --hydra-scripts-tx-id eb4c5f213ffb646046cf1d3543ae240ac922deccdc99826edd9af8ad52ddb877
+> hydra-cluster --mainnet --state-directory state-mainnet --hydra-scripts-tx-id <tx-id>
 > ```
 
 :warning: the C.I. overrides these files for mainnet. On the C.I. the
