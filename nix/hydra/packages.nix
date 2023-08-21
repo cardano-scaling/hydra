@@ -66,8 +66,6 @@ rec {
       "hydra-node"
       paddedRevision;
 
-  hydra-tools-static = musl64Pkgs.hydra-node.components.exes.hydra-tools;
-
   hydra-tui =
     embedRevision
       nativePkgs.hydra-tui.components.exes.hydra-tui

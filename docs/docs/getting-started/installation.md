@@ -27,7 +27,7 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 
 ## Using prebuilt static binaries
 
-We provide builds for `hydra-node`, `hydra-tools` and `hydra-tui` as statically
+We provide builds for `hydra-node` and `hydra-tui` as statically
 linked `x64_86` binaries. These binaries can be found in our CI or attached to
 [github releases](https://github.com/input-output-hk/hydra/releases)
 starting with version `0.8.1`.

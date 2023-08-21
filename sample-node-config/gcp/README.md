@@ -67,7 +67,7 @@ $ terraform plan -out vm.plan
 
 The configuration process expects to find some files which are not provided by default and which are required for starting the Hydra node:
 * A Hydra signing key file `keys/arnaud-hydra.sk` which will be used in the Head to sign snapshots.
-  This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
+  This can be generated using [hydra-node](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
 * A cardano signing key file  `keys/arnaud.sk` which is required to identify the parties on-chain and sign transactions.
   This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
 * 0 or more hydra verification keys and cardano verification keys for the other Head parties,

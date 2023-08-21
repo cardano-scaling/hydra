@@ -9,7 +9,7 @@ This directory contains some [Terraform](https://www.hashicorp.com/products/terr
 
 ### Pre-requisites
 - you have access to an aws account with root priviledges.
-- you have configured your local aws credentials. 
+- you have configured your local aws credentials.
 for this example in `~/.aws/credentials` we have:
     ```
     [personal]
@@ -99,11 +99,11 @@ prepare the funds to be marked as fuel.
 To get some funds from the preview faucet to your address, you can either:
     + claim them from site:
         https://faucet.preview.world.dev.cardano.org/basic-faucet
-    + or request them via http: 
+    + or request them via http:
         ```sh
         $ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat credentials/cardano.addr)?api_key="
         ```
-    
+
         > to request via http you must first obtain your api_key.
 
 Note: From now on we are assuming that the following commands will be executed inside of `sample-node-config/aws`
@@ -139,7 +139,7 @@ $ fuel
 ## Configuring Hydra Node
 We need to make sure some files, which are not provided by default and which are required for starting the `hydra-node`, are in place at the home folder of your VM:
 * A Hydra signing key file `hydra-key.sk` which will be used in the Head to sign snapshots.
-  This can be generated using [hydra-tools](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
+  This can be generated using [hydra-node](https://hydra.family/head-protocol/docs/getting-started/quickstart#hydra-keys),
 * A cardano signing key file  `cardano-key.sk` which is required to identify the parties on-chain and sign transactions.
   This is a standard Cardano key so one can reuse an existing key or [generate a new one](https://hydra.family/head-protocol/docs/getting-started/quickstart#cardano-keys),
 * 0 or more hydra verification keys and cardano verification keys for the other Head parties,
@@ -174,7 +174,7 @@ Finally, execute the hydra-tui and open the head:
 $ tui
 ```
 
-> If you take down your hydra-node instance once the head is open. you will loose access to your funds commited to the head. 
+> If you take down your hydra-node instance once the head is open. you will loose access to your funds commited to the head.
 To get them back, currently you need to start the head from a point time in the past.
 For that you must run hydra-node the using parameter `--start-chain-from`.
 i.e.: --start-chain-from 2730515.c7a3629911ef004c873ef07313842df5d1331f61e0eb632432ac8c0636dfd391

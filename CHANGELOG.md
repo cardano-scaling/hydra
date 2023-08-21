@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.13.0] - UNRELEASED
+
+- Remove hydra-tools package. Move functionality to generate hydra keys to the
+  hydra-node executable.
+
 ## [0.12.0] - 2023-08-18
 
 - **BREAKING** Support new cardano-node version 8.1.2

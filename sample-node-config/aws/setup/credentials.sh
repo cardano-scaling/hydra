@@ -10,8 +10,8 @@ test -d $DIR || mkdir $DIR
 
 echo "building personal keys"
 
-test -f $DIR/hydra-key.sk || 
-    cabal run hydra-tools gen-hydra-key
+test -f $DIR/hydra-key.sk ||
+    cabal run hydra-node gen-hydra-key
 
 test -f hydra-key.sk &&
     mv hydra-key.sk $DIR
@@ -19,7 +19,7 @@ test -f hydra-key.sk &&
 test -f hydra-key.vk &&
     mv hydra-key.vk $DIR
 
-test -f $DIR/cardano-key.sk || 
+test -f $DIR/cardano-key.sk ||
     cardano-cli address key-gen \
         --signing-key-file "$DIR/cardano-key.sk" \
         --verification-key-file "$DIR/cardano-key.vk"
@@ -36,7 +36,7 @@ MEMBERS=$(echo $TEAM_JSON | jq keys | jq -r '.[]')
 for member in $MEMBERS; do
     echo "Processing peer: $member"
     MEMBER_JSON=$(echo $TEAM_JSON  | jq ".$member")
-    
+
     cardanoVK=$(echo $MEMBER_JSON | jq '.["cardano-vk"]')
     cat << EOF >./$DIR/$member.cardano.vk
 {
