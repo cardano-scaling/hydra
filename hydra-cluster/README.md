@@ -55,7 +55,7 @@ hydra-cluster --preview --state-directory state-testnet --hydra-scripts-tx-id 47
 
 > Note: If you want to do it on mainnet
 > ```sh
-> hydra-cluster --mainnet --state-directory state-mainnet
+> hydra-cluster --mainnet --state-directory state-mainnet --hydra-scripts-tx-id eb4c5f213ffb646046cf1d3543ae240ac922deccdc99826edd9af8ad52ddb877
 > ```
 
 :warning: the C.I. overrides these files for mainnet. On the C.I. the
