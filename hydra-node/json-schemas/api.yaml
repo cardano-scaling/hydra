@@ -821,7 +821,7 @@ components:
       payload:
         type: object
         additionalProperties: false
-        $ref: "cardanonical/cardano.json#/definitions/ProtocolParameters"
+        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters"
 
   ########
   #
