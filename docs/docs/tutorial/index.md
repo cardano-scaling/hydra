@@ -612,3 +612,48 @@ and want to realize the exchanged funds from the Hydra head back to the Cardano
 layer one.
 
 ## Step 6: Closing the Hydra head
+
+Each participant of the head can close it at any point in time. To do this, we
+can use the websocket API and submit this command:
+
+```json title="Websocket API"
+{ "tag": "Close" }
+```
+
+This will have the `hydra-node` submit a protocol transaction to the Cardano
+network with the last known snapshot. A smart contract on the layer one will
+check the snapshot signatures and confirm the head closed. When this close
+transaction is observed, the websocket API sends a `HeadIsClosed` message (this
+can also happen if any other `hydra-node` closes the head).
+
+Included in the message will be a `contestationDeadline` which gets set using
+the configurable `--contestation-period`. Until this deadline, the closing
+snapshot can be contested with a more recent, multi-signed snapshot. Your
+`hydra-node` would contest automatically for you if the closed snapshot is not
+the last known one.
+
+We need to wait now until the deadline has passed, which will be notified by the
+`hydra-node` through the websocket API with a `ReadyToFanout` message.
+
+At this point any head member can issue distribution of funds on the layer one.
+You can do this through the websocket API one last time:
+
+```json title="Websocket API"
+{ "tag": "Fanout" }
+```
+
+This will again submit a transactin to the layer one and once successful is
+indicated by a `HeadIsFinalized` message which includes the distributed `utxo`.
+
+To confirm, you can query the funds of both, `alice` and `bob`, on the layer
+one:
+
+```shell
+echo "# UTxO of alice"
+cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
+
+echo "# UTxO of bob"
+cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
+```
+
+That's it. That's the full life-cycle of a Hydra head.
