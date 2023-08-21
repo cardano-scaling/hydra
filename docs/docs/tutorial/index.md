@@ -72,6 +72,7 @@ docker run -d \
   -v $(pwd):/data \
   -v $(pwd):/ipc \
   -u $(id -u) \
+  --restart unless-stopped \
   --name cardano-node \
   inputoutput/cardano-node:8.1.2
 ```
@@ -80,6 +81,7 @@ To interact with the `cardano-node` we prepare ourselves a shell alias for the
 `cardano-cli`:
 
 <!-- TODO: This failed on mac aarch64 -->
+
 ```shell
 cardano-cli () {
   docker exec \
@@ -295,7 +297,6 @@ layer two network using `hydra-node`. For the purpose of this tutorial we are
 assuming an IP address and port for `alice` and `bob` which works on a single
 machine, but please replace usages below with your respective addresses:
 
-
 <!-- TODO: can we make peers configurable via some text input? -->
 
 Alice: <code>127.0.0.1:5001</code>
@@ -346,6 +347,7 @@ docker run -d \
   -v $(pwd):/ipc \
   -v $(pwd):/data \
   -u $(id -u) \
+  --restart unless-stopped \
   --network host \
   --name hydra-node-alice \
   ghcr.io/input-output-hk/hydra-node:unstable \
@@ -373,6 +375,7 @@ docker run -d \
   -v $(pwd):/ipc \
   -v $(pwd):/data \
   -u $(id -u) \
+  --restart unless-stopped \
   --network host \
   --name hydra-node-bob \
   ghcr.io/input-output-hk/hydra-node:unstable \
@@ -447,13 +450,17 @@ Using the `jq` enhanced `websocat` session, we can now communicate with the `hyd
 Send this command to initialize a head through the Websocket connection:
 
 ```json title="Websocket API"
-{"tag":"Init"}
+{ "tag": "Init" }
 ```
 
 Depending on the network connection, this might take a bit as the node does
-submit a transaction on-chain. Eventually, both Hydra nodes and connected clients should see `HeadIsInitializing` with a list of parties that need to commit now.
+submit a transaction on-chain. Eventually, both Hydra nodes and connected
+clients should see `HeadIsInitializing` with a list of parties that need to
+commit now.
 
-Committing funds to the head means that we pick which UTxO we want to have available on the layer two. We use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
+Committing funds to the head means that we pick which UTxO we want to have
+available on the layer two. We use the HTTP API of `hydra-node` to commit all
+funds given to `{alice,bob}-funds.vk` beforehand:
 
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
@@ -501,7 +508,9 @@ cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 <details>
 <summary>Alternative: Not commit anything</summary>
 
-If you don't want to commit any funds, for example only receive things on the layer two, you can just request an empty commit transaction like this (example for `bob`):
+If you don't want to commit any funds, for example only receive things on the
+layer two, you can just request an empty commit transaction like this (example
+for `bob`):
 
 ```shell
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
@@ -517,4 +526,89 @@ transaction to the Cardano layer one.
 Once this transaction was seen by the `hydra-node`, you should see a `Committed`
 message on the Websocket connection.
 
-When both parties, `alice` and `bob`, have committed, the head will automatically open and you will see a `HeadIsOpen` on the Websocket session.
+When both parties, `alice` and `bob`, have committed, the head will
+automatically open and you will see a `HeadIsOpen` on the Websocket session.
+This message also includes the starting balance `utxo`. Notice that the entries
+correspond exactly the ones which were committed to the Head (even the Tx hash
+and index are the same). The head is now open and ready to be used!
+
+## Step 5: Using the Hydra head
+
+We want to make a basic transaction between `alice` and `bob`. Since Hydra Head
+is an isomorphic protocol, all things that work on the layer one also work in
+the head. This means that constructing transactions is no different than on
+Cardano. This is great since it allows us to use already existing tools like the
+`cardano-cli` or frameworks to create transactions!
+
+In this example, we will send `10₳` from `alice` to `bob`, hence you may need to
+change the values depending on what you (and your partner) committed to the
+head.
+
+First, we need to select a UTxO to spend. We can do this either by looking at
+the `utxo` field of the last `HeadIsOpen` or `SnapshotConfirmed` message, or
+query the API for the current UTxO set through the websocket session:
+
+```json title="Websocket API"
+{ "tag": "GetUTxO" }
+```
+
+From the response, we would need to select a UTxO that is owned by `alice` to
+spend. We can do that also via the `snapshotUtxo` field in the `Greetings`
+message and using this `websocat` and `jq` invocation:
+
+```shell
+websocat -U "ws://0.0.0.0:4001?history=no" \
+  | jq "select(.tag == \"Greetings\") \
+    | .snapshotUtxo \
+    | with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
+  > utxo.json
+```
+
+Then, just like on the Cardano layer one, we can construct a transaction via the
+`cardano-cli` that spends this UTxO:
+
+```shell
+cardano-cli transaction build-raw \
+  --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
+  --tx-out $(cat credentials/bob-funds.addr)+10000000 \
+  --tx-out $(cat credentials/alice-funds.addr)+$(jq 'to_entries[0].value.value.lovelace - 10000000' < utxo.json) \
+  --fee 0 \
+  --out-file tx.json
+```
+
+Note that we need to use the `build-raw` version, since the client cannot (yet?)
+index the Hydra head directly and would not find the UTxO to spend. This means
+we need to also create a change output with the right amount. Also, because we
+have set the protocol parameters of the head to have zero fees, we can use the
+`--fee 0` option.
+
+Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
+
+```shell
+cardano-cli transaction sign \
+  --tx-body-file tx.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file tx-signed.json
+```
+
+To submit the transaction we can use our websocket session again. This command
+will print the `NewTx` command to copy paste into an already open websocket
+connection:
+
+```shell
+cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .cborHex}'
+```
+
+The transation will be validated by both `hydra-node`s and either result in a
+`TxInvalid` message with a reason, or a `TxValid` message and a
+`SnapshotConfirmed` with the new UTxO available in the head shortly after.
+
+🎉 Congratulations, you just processed your first Cardano transaction off-chain
+in a Hydra head!
+
+At this stage you can continue experimenting with constructing & submitting
+transactions to the head as you wish. Proceed in the tutorial once you're done
+and want to realize the exchanged funds from the Hydra head back to the Cardano
+layer one.
+
+## Step 6: Closing the Hydra head
