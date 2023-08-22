@@ -21,6 +21,7 @@
     flake-utils.lib.eachSystem [
       "x86_64-linux"
       "x86_64-darwin"
+      "aarch64-linux"
       "aarch64-darwin"
     ]
       (system:
@@ -64,8 +65,14 @@
 
         # Build selected derivations in CI for caching
         hydraJobs = {
-          packages = { inherit (packages) hydra-node hydra-tui hydraw spec; };
-          devShells = { inherit (devShells) default ci; };
+          packages = {
+            inherit (packages) hydra-node hydra-tui hydraw spec;
+          } // (if pkgs.stdenv.isDarwin then { } else {
+            inherit (packages) docker-hydra-node docker-hydra-tui;
+          });
+          devShells = {
+            inherit (devShells) default ci;
+          };
         };
       });
 
