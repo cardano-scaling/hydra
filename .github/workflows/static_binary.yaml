@@ -31,7 +31,6 @@ jobs:
       run: |
         mkdir -p bin/
         nix build .#hydra-node-static && cp result/bin/* bin/
-        nix build .#hydra-tools-static && cp result/bin/* bin/
         nix build .#hydra-tui-static && cp result/bin/* bin/
 
     - name: 💾 Upload executables
