@@ -657,3 +657,58 @@ cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /d
 ```
 
 That's it. That's the full life-cycle of a Hydra head.
+
+## Bonus: Be a good citizen
+
+As we have taken our funds from the testnet faucet and we do not need them
+anymore, we can return all the remaining tADA of `alice` and `bob` back to the
+faucet (before we throw away the keys):
+
+<Tabs queryString="role">
+<TabItem value="alice" label="Alice">
+
+```shell
+cardano-cli query utxo \
+  --address $(cat credentials/alice-node.addr) \
+  --address $(cat credentials/alice-funds.addr) \
+  --out-file alice-return-utxo.json
+
+cardano-cli transaction build \
+  $(cat alice-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
+  --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
+  --out-file alice-return-tx.json
+
+cardano-cli transaction sign \
+  --tx-file alice-return-tx.json \
+  --signing-key-file credentials/alice-node.sk \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file alice-return-tx-signed.json
+
+cardano-cli transaction submit --tx-file alice-return-tx-signed.json
+```
+
+</TabItem>
+<TabItem value="bob" label="Bob">
+
+```shell
+cardano-cli query utxo \
+  --address $(cat credentials/bob-node.addr) \
+  --address $(cat credentials/bob-funds.addr) \
+  --out-file bob-return-utxo.json
+
+cardano-cli transaction build \
+  $(cat bob-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
+  --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
+  --out-file bob-return-tx.json
+
+cardano-cli transaction sign \
+  --tx-file bob-return-tx.json \
+  --signing-key-file credentials/bob-node.sk \
+  --signing-key-file credentials/bob-funds.sk \
+  --out-file bob-return-tx-signed.json
+
+cardano-cli transaction submit --tx-file bob-return-tx-signed.json
+```
+
+</TabItem>
+</Tabs>
