@@ -62,8 +62,7 @@ SNAPSHOT_DIGEST=$(mithril-client snapshot list --json | jq -r '.[0].digest')
 mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
-Then we can follow the instructions on-screen or run a `cardano-node` in the
-background with:
+Then we can run a `cardano-node` in the background with:
 
 ```shell
 docker run -d \
