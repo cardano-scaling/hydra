@@ -80,16 +80,16 @@ docker run -d \
 To interact with the `cardano-node` we prepare ourselves a shell alias for the
 `cardano-cli`:
 
-<!-- TODO: This failed on mac aarch64 -->
-
 ```shell
 cardano-cli () {
-  docker exec \
+  docker run --rm -it --init \
+    -v $(pwd):$(pwd) \
+    -v $(pwd):/ipc \
     -w $(pwd) \
     -u $(id -u) \
     -e CARDANO_NODE_SOCKET_PATH=/ipc/node.socket \
     -e CARDANO_NODE_NETWORK_ID=1 \
-    cardano-node cardano-cli $@
+    inputoutput/cardano-node:8.1.2 cli $@
 }
 ```
 
