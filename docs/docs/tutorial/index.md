@@ -262,7 +262,7 @@ hydra-tools () {
     -v $(pwd):$(pwd) \
     -w $(pwd) \
     -u $(id -u) \
-    ghcr.io/input-output-hk/hydra-tools:unstable $@
+    ghcr.io/input-output-hk/hydra-tools:0.12.0 $@
 }
 ```
 
@@ -350,7 +350,7 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   --name hydra-node-alice \
-  ghcr.io/input-output-hk/hydra-node:unstable \
+  ghcr.io/input-output-hk/hydra-node:0.12.0 \
   --node-id "alice-node" \
   --persistence-dir /data/persistence-alice \
   --cardano-signing-key /credentials/alice-node.sk \
@@ -378,7 +378,7 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   --name hydra-node-bob \
-  ghcr.io/input-output-hk/hydra-node:unstable \
+  ghcr.io/input-output-hk/hydra-node:0.12.0 \
   --node-id "bob-node" \
   --persistence-dir /data/persistence-bob \
   --cardano-signing-key /credentials/bob-node.sk \
