@@ -385,8 +385,8 @@ hydra-node \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
-  --port 5001 \
   --api-port 4001 \
+  --port 5001 \
   --peer 127.0.0.1:5002 \
   --hydra-verification-key credentials/bob-hydra.vk \
   --cardano-verification-key credentials/bob-node.vk
@@ -405,8 +405,8 @@ hydra-node \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
-  --port 5002 \
   --api-port 4002 \
+  --port 5002 \
   --peer 127.0.0.1:5001 \
   --hydra-verification-key credentials/alice-hydra.vk \
   --cardano-verification-key credentials/alice-node.vk
@@ -475,6 +475,8 @@ Depending on the network connection, this might take a bit as the node does
 submit a transaction on-chain. Eventually, both Hydra nodes and connected
 clients should see `HeadIsInitializing` with a list of parties that need to
 commit now.
+
+<!-- TODO: Add troubleshooting here + abort and checking keys -->
 
 Committing funds to the head means that we pick which UTxO we want to have
 available on the layer two. We use the HTTP API of `hydra-node` to commit all
@@ -574,6 +576,8 @@ From the response, we would need to select a UTxO that is owned by `alice` to
 spend. We can do that also via the `snapshotUtxo` field in the `Greetings`
 message and using this `websocat` and `jq` invocation:
 
+<!-- TODO: make this for both parties -->
+
 ```shell
 websocat -U "ws://0.0.0.0:4001?history=no" \
   | jq "select(.tag == \"Greetings\") \
@@ -583,13 +587,16 @@ websocat -U "ws://0.0.0.0:4001?history=no" \
 ```
 
 Then, just like on the Cardano layer one, we can construct a transaction via the
-`cardano-cli` that spends this UTxO:
+`cardano-cli` that spends this UTxO and send it to an address. If you have not
+yet, enquire the address of your partner to send something to (here
+`credentials/bob-funds.addr` which `alice` would not have automatically):
 
 ```shell
+LOVELACE=1000000
 cardano-cli transaction build-raw \
   --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
-  --tx-out $(cat credentials/bob-funds.addr)+10000000 \
-  --tx-out $(cat credentials/alice-funds.addr)+$(jq 'to_entries[0].value.value.lovelace - 10000000' < utxo.json) \
+  --tx-out $(cat credentials/bob-funds.addr)+${LOVELACE} \
+  --tx-out $(cat credentials/alice-funds.addr)+$(jq "to_entries[0].value.value.lovelace - ${LOVELACE}" < utxo.json) \
   --fee 0 \
   --out-file tx.json
 ```
@@ -643,6 +650,8 @@ network with the last known snapshot. A smart contract on the layer one will
 check the snapshot signatures and confirm the head closed. When this close
 transaction is observed, the websocket API sends a `HeadIsClosed` message (this
 can also happen if any other `hydra-node` closes the head).
+
+<!-- TODO: mention that this might need to be tried multiple times (bug) -->
 
 Included in the message will be a `contestationDeadline` which gets set using
 the configurable `--contestation-period`. Until this deadline, the closing
