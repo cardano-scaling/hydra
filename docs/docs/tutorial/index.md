@@ -28,6 +28,8 @@ below:
 Required tools, this tutorial assumes to be available on your system:
 
 - [ ] `curl`
+- [ ] `tar`
+- [ ] `unzip`
 - [ ] [`websocat`](https://github.com/vi/websocat)
 - [ ] [`jq`](https://jqlang.github.io/jq/)
 
