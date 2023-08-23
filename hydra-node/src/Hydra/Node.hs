@@ -171,8 +171,7 @@ stepHydraNode tracer node = do
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
   handleOutcome e outcome
-  let effs = collectEffects outcome
-  mapM_ (uncurry $ flip $ processEffect node tracer) $ zip effs (map (eventId,) [0 ..])
+  processEffects node tracer eventId outcome
   traceWith tracer EndEvent{by = party, eventId}
  where
   handleOutcome e = \case
@@ -212,26 +211,29 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
  where
   NodeState{modifyHeadState} = nodeState
 
-processEffect ::
+processEffects ::
   ( MonadAsync m
   , MonadCatch m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
-  (Word64, Word32) ->
-  Effect tx ->
+  Word64 ->
+  Outcome tx ->
   m ()
-processEffect HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer (eventId, effectId) e = do
-  traceWith tracer $ BeginEffect party eventId effectId e
-  case e of
-    ClientEffect i -> sendOutput server i
-    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL party msg)
-    OnChainEffect{postChainTx} ->
-      postTx postChainTx
-        `catch` \(postTxError :: PostTxError tx) ->
-          putEvent eq $ PostTxError{postChainTx, postTxError}
-  traceWith tracer $ EndEffect party eventId effectId
+processEffects HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer eventId outcome = do
+  mapM_ processEffect $ zip (collectEffects outcome) [0 ..]
+ where
+  processEffect (effect, effectId) = do
+    traceWith tracer $ BeginEffect party eventId effectId effect
+    case effect of
+      ClientEffect i -> sendOutput server i
+      NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL party msg)
+      OnChainEffect{postChainTx} ->
+        postTx postChainTx
+          `catch` \(postTxError :: PostTxError tx) ->
+            putEvent eq $ PostTxError{postChainTx, postTxError}
+    traceWith tracer $ EndEffect party eventId effectId
 
 -- ** Manage state
 
