@@ -15,29 +15,7 @@ below:
 
 ![](../../topologies/basic/basic-hydra-head.jpg)
 
-The tutorial will be using pre-built binaries of the Cardano
-eco-system software components involved, with instructions to download
-and install them for specific architectures.
-
-
-<details>
-<summary>Other install options</summary>
-
-There are other ways to acquire and run the Cardano, Mithril, and Hydra
-nodes which might be better suited depending on your environment:
-* Docker containers are published regularly,
-* Some projects provide system-level packages for installation and/or pre-built binaries for various platforms,
-* Building from source is always an option.
-
-Please check-out each project's GitHub pages for more options.
-
-</details>
-
 ## What you will need
-
-### General setup
-
-This tutorial assumes your environment is setup with:
 
 - [ ] Terminal access to a machine that can connect to and can be reached from the internet.
 - [ ] Either
@@ -45,22 +23,22 @@ This tutorial assumes your environment is setup with:
   - [ ] two such machines (or you can run it on one machine).
 - [ ] 100 tADA in a wallet on `preprod` (per participant)
 
-### Software installation
+## Step 0: Installation
 
-The following tools are assumed to be available on your system:
-  - [ ] `curl`
-  - [ ] [`websocat`](https://github.com/vi/websocat)
-  - [ ] [`docker`](https://docs.docker.com/get-docker)
-  - [ ] [`jq`](https://jqlang.github.io/jq/)
+Required tools, this tutorial assumes to be available on your system:
 
+- [ ] `curl`
+- [ ] [`websocat`](https://github.com/vi/websocat)
+- [ ] [`jq`](https://jqlang.github.io/jq/)
 
-Then we need to download the various executables that we'll use, putting them in a `bin/` directory:
+We will start with downloading pre-built binaries of the involved software
+components of the Cardano ecosystem, putting them in a `bin/` directory:
 
 <Tabs queryString="system">
 <TabItem value="linux" label="Linux x86-64">
 
 ```shell
-mkdir bin
+mkdir -p bin
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/0.12.0/hydra-x86_64-unknown-linux-musl.zip
 unzip -d bin hydra-x86_64-unknown-linux-musl.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz \
@@ -74,7 +52,7 @@ chmod +x bin/*
 <TabItem value="macos" label="Mac OS aarch64">
 
 ```shell
-mkdir bin
+mkdir -p bin
 curl -L -o - https://github.com/input-output-hk/hydra/releases/download/0.12.0/tutorial-binaries-aarch64-darwin.tar.gz \
   | tar xz -C bin
 ```
@@ -108,6 +86,19 @@ export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 </TabItem>
 </Tabs>
 
+<details>
+<summary>Other installation options</summary>
+
+There are other ways to acquire and run the Cardano, Mithril, and Hydra
+nodes which might be better suited depending on your environment:
+
+- Docker containers are published regularly,
+- Some projects provide system-level packages for installation and/or pre-built binaries for various platforms,
+- Building from source is always an option.
+
+Please check-out each project's GitHub pages for more options.
+
+</details>
 
 ## Step 1: Connect to Cardano
 
@@ -170,7 +161,6 @@ source <(bin/cardano-cli --bash-completion-script cardano-cli)
 ```
 
 </details>
-
 
 Detailed steps on bootstrapping a `cardano-node` using Mithril with more
 explanations can be found
