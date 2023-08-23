@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 4
 ---
 
 # Hydra Node Architecture
@@ -33,7 +33,7 @@ _Network_ component is responsible for all of the communications related to the 
 
 #### Chain
 
-The _Chain_ component is responsible for interfacing the Hydra node with the Cardano (aka. Layer 1) chain. The current, so-called `Direct`, implementation uses the `Node-to-Client` protocol to both "follow the chain" and observe new blocks and transactions which can change the state of the head, and submit transactions in response to client's requests or as needed to advance the protocol's state. It connects to a locally spun cardano-node using the _local socket_and contains the _off-chain_ logic, based on cardano-api, that knows how to observe and build transactions relevant to the Hydra protocol. See  [ADR-10](/adr/10) for more details.
+The _Chain_ component is responsible for interfacing the Hydra node with the Cardano (aka. Layer 1) chain. The current, so-called `Direct`, implementation uses the `Node-to-Client` protocol to both "follow the chain" and observe new blocks and transactions which can change the state of the head, and submit transactions in response to client's requests or as needed to advance the protocol's state. It connects to a locally spun cardano-node using the _local socket_and contains the \_off-chain_ logic, based on cardano-api, that knows how to observe and build transactions relevant to the Hydra protocol. See [ADR-10](/adr/10) for more details.
 
 #### Wallet
 
@@ -43,14 +43,14 @@ The Hydra node maintains an internal wallet using the Cardano signing key provid
 
 This is the component which is the heart of the Hydra node, implementing the protocol's _input-output state machine_. It is structured around the concepts of `Event`s and `Effect`s:
 
-* `Event`s are _inputs_ to the state machine from various parts of the node that can change the state and they ...
-* ... produce `Effect`s which are _outputs_ from the state machine interpreted by other components to produce "side-effects".
+- `Event`s are _inputs_ to the state machine from various parts of the node that can change the state and they ...
+- ... produce `Effect`s which are _outputs_ from the state machine interpreted by other components to produce "side-effects".
 
 The _Head Logic_ of course maintains the internal state of the head and persists it when it changes. This state consists in both the content of the Head itself (eg. current Ledger, transactions pending) _and_ the data from the Layer 1 that's needed to observe and trigger on-chain transitions.
 
 ### Hydra Smart Contracts
 
-This "component" represents  all of the Hydra smart contracts needed for Head protocol operation. Currently the contracts are written using `Plutus-Tx`. The scripts are optimized using custom `ScriptContext` and error codes for now.
+This "component" represents all of the Hydra smart contracts needed for Head protocol operation. Currently the contracts are written using `Plutus-Tx`. The scripts are optimized using custom `ScriptContext` and error codes for now.
 
 ### API
 

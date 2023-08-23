@@ -61,10 +61,9 @@ how something is implemented in a feature idea or bug ticket beforehand.
 ### Building & Testing
 
 We use and require [nix](https://nixos.org/download.html) to provide a
-consistent development environment via our `flake.nix`. So a simple call to `nix develop` should put everything in place for building, testing and general
-development.
+consistent development environment via our `flake.nix`.
 
-Before that, make sure the following caches are listed in your `nix.conf` for a speedy setup and that you have activated flakes:
+Make sure that you have activated flakes in your `nix.conf`:
 
 ```
 substituters = https://cache.iog.io https://cache.nixos.org
@@ -75,7 +74,9 @@ experimental-features = nix-command flakes
 <details>
 <summary>For Mac OS X users</summary>
 
-Daemon mode is the recommended way to install and run nix on Mac OS. Therefore, you might want to add yourself as a _trusted user_ in order to ensure flake's substituters will be picked up:
+Daemon mode is the recommended way to install and run nix on Mac OS. Therefore,
+you might want to add yourself as a _trusted user_ in order to ensure flake's
+substituters will be picked up:
 
 ```
 build-users-group = nixbld
@@ -84,17 +85,22 @@ trusted-users = root pascal
 
 </details>
 
-From there you can:
+Then `nix build` will ask you about using our caches and download or build the
+`hydra-node` into `result/bin/hydra-node`. Other things you might want to build:
+
+- Build the `hydra-node` using nix: `nix build .#hydra-node`
+- Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
+- Build the `hydra-node` docker image: `nix build .#docker-hydra-node`
+- Build the specification as pdf: `nix build .#spec`
+
+For development, a call to `nix develop` will put everything in place so that
+you can:
 
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
 - Build & run all tests: `cabal test all`
 - Build & run all benchmarks: `cabal bench all`
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
-- Build the `hydra-node` using nix: `nix build .#hydra-node`
-- Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` docker image: `nix build .#docker-hydra-node`
-- Build the specification as pdf: `nix build .#spec`
 
 Also, some of us use [direnv](https://direnv.net/) and
 [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
