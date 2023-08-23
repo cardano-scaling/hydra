@@ -379,8 +379,8 @@ Let's start the `hydra-node` with all these parameters now:
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
-  --cardano-signing-key credentials/alice-node-cardano.sk \
-  --hydra-signing-key credentials/alice-node-hydra.sk \
+  --cardano-signing-key credentials/alice-node.sk \
+  --hydra-signing-key credentials/alice-hydra.sk \
   --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
@@ -388,8 +388,8 @@ hydra-node \
   --port 5001 \
   --api-port 4001 \
   --peer 127.0.0.1:5002 \
-  --hydra-verification-key /credentials/bob-hydra.vk \
-  --cardano-verification-key /credentials/bob-node.vk
+  --hydra-verification-key credentials/bob-hydra.vk \
+  --cardano-verification-key credentials/bob-node.vk
 ```
 
 </TabItem>
