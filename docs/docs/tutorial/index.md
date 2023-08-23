@@ -66,6 +66,7 @@ We also need to define various environment variables that will simplify our comm
 <TabItem value="linux" label="Linux x86-64">
 
 ```shell
+export PATH=$(pwd)/bin:$PATH
 export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
@@ -76,6 +77,7 @@ export CARDANO_NODE_NETWORK_ID=1
 <TabItem value="macos" label="Mac OS aarch64">
 
 ```shell
+export PATH=$(pwd)/bin:$PATH
 export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
@@ -110,9 +112,11 @@ synchronizing the whole history and get started quickly.
 We will be using the `mithril-client` configured to download from
 `preprod` network to download the latest blockchain snapshot:
 
+<!-- TODO: nixos does not work out of the box with debian dynamic binaries and requires alias mithril-client="steam-run mithril-client" -->
+
 ```shell
-SNAPSHOT_DIGEST=$(bin/mithril-client snapshot list --json | jq -r '.[0].digest')
-bin/mithril-client snapshot download $SNAPSHOT_DIGEST
+SNAPSHOT_DIGEST=$(mithril-client snapshot list --json | jq -r '.[0].digest')
+mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
 Then we can run a `cardano-node`, first downloading some configuration files, with:
@@ -124,16 +128,19 @@ curl -O https://book.world.dev.cardano.org/environments/preprod/byron-genesis.js
 curl -O https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
 curl -O https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
 curl -O https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
-curl -O https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-cluster/config/protocol-parameters.json
 
-bin/cardano-node run --database-path db --socket-path ./node.socket --config config.json --topology topology.json
+cardano-node run \
+  --config config.json \
+  --topology topology.json \
+  --socket-path ./node.socket \
+  --database-path db
 ```
 
 To interact with the `cardano-node` we will be using the `cardano-cli`
 with `cardano-cli` we can now check the synchronization status:
 
 ```shell
-bin/cardano-cli query tip
+cardano-cli query tip
 ```
 
 This should show something like:
@@ -157,7 +164,7 @@ This should show something like:
 If you are using `bash`, you can get auto-completion of `cardano-cli` using:
 
 ```shell
-source <(bin/cardano-cli --bash-completion-script cardano-cli)
+source <(cardano-cli --bash-completion-script cardano-cli)
 ```
 
 </details>
@@ -185,19 +192,19 @@ import TabItem from '@theme/TabItem';
 ```shell
 mkdir -p credentials
 
-bin/cardano-cli address key-gen \
+cardano-cli address key-gen \
   --verification-key-file credentials/alice-node.vk \
   --signing-key-file credentials/alice-node.sk
 
-bin/cardano-cli address build \
+cardano-cli address build \
   --verification-key-file credentials/alice-node.vk \
   --out-file credentials/alice-node.addr
 
-bin/cardano-cli address key-gen \
+cardano-cli address key-gen \
   --verification-key-file credentials/alice-funds.vk \
   --signing-key-file credentials/alice-funds.sk
 
-bin/cardano-cli address build \
+cardano-cli address build \
   --verification-key-file credentials/alice-funds.vk \
   --out-file credentials/alice-funds.addr
 ```
@@ -208,19 +215,19 @@ bin/cardano-cli address build \
 ```shell
 mkdir -p credentials
 
-bin/cardano-cli address key-gen \
+cardano-cli address key-gen \
   --verification-key-file credentials/bob-node.vk \
   --signing-key-file credentials/bob-node.sk
 
-bin/cardano-cli address build \
+cardano-cli address build \
   --verification-key-file credentials/bob-node.vk \
   --out-file credentials/bob-node.addr
 
-bin/cardano-cli address key-gen \
+cardano-cli address key-gen \
   --verification-key-file credentials/bob-funds.vk \
   --signing-key-file credentials/bob-funds.sk
 
-bin/cardano-cli address build \
+cardano-cli address build \
   --verification-key-file credentials/bob-funds.vk \
   --out-file credentials/bob-funds.addr
 ```
@@ -269,10 +276,10 @@ You can check the balance of your addresses via:
 
 ```shell
 echo "# UTxO of alice-node"
-bin/cardano-cli query utxo --address $(cat credentials/alice-node.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/alice-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of alice-funds"
-bin/cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
 ```
 
 </TabItem>
@@ -280,10 +287,10 @@ bin/cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-f
 
 ```shell
 echo "# UTxO of bob-node"
-bin/cardano-cli query utxo --address $(cat credentials/bob-node.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/bob-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of bob-funds"
-bin/cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
 ```
 
 </TabItem>
@@ -298,14 +305,14 @@ will be used on the layer two by the `hydra-node`. For this, we will use the
 <TabItem value="alice" label="Alice">
 
 ```shell
-bin/hydra-tools gen-hydra-key --output-file credentials/alice-hydra
+hydra-tools gen-hydra-key --output-file credentials/alice-hydra
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-bin/hydra-tools gen-hydra-key --output-file credentials/bob-hydra
+hydra-tools gen-hydra-key --output-file credentials/bob-hydra
 ```
 
 </TabItem>
@@ -335,7 +342,7 @@ such that there are no fees! This will fetch the parameters and sets fees +
 prices to zero:
 
 ```
-bin/cardano-cli query protocol-parameters \
+cardano-cli query protocol-parameters \
   | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0' \
   > protocol-parameters.json
 ```
@@ -367,7 +374,7 @@ Let's start the `hydra-node` with all these parameters now:
 <TabItem value="alice" label="Alice">
 
 ```shell
-bin/hydra-node \
+hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
   --cardano-signing-key credentials/alice-node-cardano.sk \
@@ -387,7 +394,7 @@ bin/hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-bin/hydra-node \
+hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
   --cardano-signing-key credentials/bob-node.sk \
@@ -475,7 +482,7 @@ funds given to `{alice,bob}-funds.vk` beforehand:
 <TabItem value="alice" label="Alice">
 
 ```shell
-bin/cardano-cli query utxo \
+cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-commit-utxo.json
 
@@ -483,19 +490,19 @@ curl -X POST 127.0.0.1:4001/commit \
   --data @alice-commit-utxo.json \
   > alice-commit-tx.json
 
-bin/cardano-cli transaction sign \
+cardano-cli transaction sign \
   --tx-file alice-commit-tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-commit-tx-signed.json
 
-bin/cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
+cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-bin/cardano-cli query utxo \
+cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-commit-utxo.json
 
@@ -503,12 +510,12 @@ curl -X POST 127.0.0.1:4002/commit \
   --data @bob-commit-utxo.json \
   > bob-commit-tx.json
 
-bin/cardano-cli transaction sign \
+cardano-cli transaction sign \
   --tx-file bob-commit-tx.json \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-commit-tx-signed.json
 
-bin/cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
+cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 ```
 
 </TabItem>
@@ -523,7 +530,7 @@ for `bob`):
 
 ```shell
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
-bin/cardano-cli transaction submit --tx-file bob-commit-tx.json
+cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
 
 </details>
@@ -577,7 +584,7 @@ Then, just like on the Cardano layer one, we can construct a transaction via the
 `cardano-cli` that spends this UTxO:
 
 ```shell
-bin/cardano-cli transaction build-raw \
+cardano-cli transaction build-raw \
   --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
   --tx-out $(cat credentials/bob-funds.addr)+10000000 \
   --tx-out $(cat credentials/alice-funds.addr)+$(jq 'to_entries[0].value.value.lovelace - 10000000' < utxo.json) \
@@ -594,7 +601,7 @@ have set the protocol parameters of the head to have zero fees, we can use the
 Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
 
 ```shell
-bin/cardano-cli transaction sign \
+cardano-cli transaction sign \
   --tx-body-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
@@ -659,10 +666,10 @@ one:
 
 ```shell
 echo "# UTxO of alice"
-bin/cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of bob"
-bin/cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
+cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
 ```
 
 That's it. That's the full life-cycle of a Hydra head.
@@ -677,46 +684,46 @@ faucet (before we throw away the keys):
 <TabItem value="alice" label="Alice">
 
 ```shell
-bin/cardano-cli query utxo \
+cardano-cli query utxo \
   --address $(cat credentials/alice-node.addr) \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-return-utxo.json
 
-bin/cardano-cli transaction build \
+cardano-cli transaction build \
   $(cat alice-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file alice-return-tx.json
 
-bin/cardano-cli transaction sign \
+cardano-cli transaction sign \
   --tx-file alice-return-tx.json \
   --signing-key-file credentials/alice-node.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-return-tx-signed.json
 
-bin/cardano-cli transaction submit --tx-file alice-return-tx-signed.json
+cardano-cli transaction submit --tx-file alice-return-tx-signed.json
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-bin/cardano-cli query utxo \
+cardano-cli query utxo \
   --address $(cat credentials/bob-node.addr) \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-return-utxo.json
 
-bin/cardano-cli transaction build \
+cardano-cli transaction build \
   $(cat bob-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file bob-return-tx.json
 
-bin/cardano-cli transaction sign \
+cardano-cli transaction sign \
   --tx-file bob-return-tx.json \
   --signing-key-file credentials/bob-node.sk \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-return-tx-signed.json
 
-bin/cardano-cli transaction submit --tx-file bob-return-tx-signed.json
+cardano-cli transaction submit --tx-file bob-return-tx-signed.json
 ```
 
 </TabItem>
