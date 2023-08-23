@@ -15,22 +15,88 @@ below:
 
 ![](../../topologies/basic/basic-hydra-head.jpg)
 
-The tutorial will be using the `docker` images of the software components
-involved. There are usually other ways to acquire and run the Cardano, Mithril,
-and Hydra nodes.
+The tutorial will be using pre-built binaries of the Cardano
+eco-system software components involved, with instructions to download
+and install them for specific architectures.
+
+
+<details>
+<summary>Other install options</summary>
+
+There are other ways to acquire and run the Cardano, Mithril, and Hydra
+nodes which might be better suited depending on your environment:
+* Docker containers are published regularly,
+* Some projects provide system-level packages for installation and/or pre-built binaries for various platforms,
+* Building from source is always an option.
+
+Please check-out each project's GitHub pages for more options.
+
+</details>
 
 ## What you will need
+
+### General setup
+
+This tutorial assumes your environment is setup with:
 
 - [ ] Terminal access to a machine that can connect to and can be reached from the internet.
 - [ ] Either
   - [ ] someone else following this tutorial as well to connect to (recommended), or
   - [ ] two such machines (or you can run it on one machine).
 - [ ] 100 tADA in a wallet on `preprod` (per participant)
-- [ ] Some tools installed
+
+### Software installation
+
+The following tools are assumed to be available on your system:
   - [ ] `curl`
   - [ ] [`websocat`](https://github.com/vi/websocat)
   - [ ] [`docker`](https://docs.docker.com/get-docker)
   - [ ] [`jq`](https://jqlang.github.io/jq/)
+
+
+Then we need to download the various executables that we'll use, putting them in a `bin/` directory:
+
+<Tabs queryString="system">
+<TabItem value="linux" label="Linux x86-64">
+
+</TabItem>
+<TabItem value="macos" label="Mac OS aarch64">
+
+```shell
+mkdir bin
+curl -L -o - https://github.com/input-output-hk/hydra/releases/download/0.12.0/tutorial-binaries-aarch64-darwin.tar.gz \
+  | tar xz -C bin
+```
+
+</TabItem>
+</Tabs>
+
+We also need to define various environment variables that will simplify our commands. Make sure each terminal you'll be opening to run those commands has those environment variables defined.
+
+<Tabs queryString="system">
+<TabItem value="linux" label="Linux x86-64">
+
+```shell
+export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
+export CARDANO_NODE_NETWORK_ID=1
+```
+
+</TabItem>
+<TabItem value="macos" label="Mac OS aarch64">
+
+```shell
+export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
+export CARDANO_NODE_NETWORK_ID=1
+export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
+```
+
+</TabItem>
+</Tabs>
+
 
 ## Step 1: Connect to Cardano
 
@@ -39,74 +105,33 @@ and post protocol transactions in a trustless way. Hence, the first step is to
 set up a `cardano-node` on a public testnet. Using Mithril, we can skip
 synchronizing the whole history and get started quickly.
 
-We will be using the `mithril-client` docker image using the `preprod`
-configuration via a shell alias:
+We will be using the `mithril-client` configured to download from
+`preprod` network to download the latest blockchain snapshot:
 
 ```shell
-mithril-client () {
-  docker run --rm -it --init \
-    -e NETWORK=preprod \
-    -e GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null) \
-    -e AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator \
-    -v $(pwd):/app/data \
-    -w /app/data \
-    -u $(id -u) \
-    ghcr.io/input-output-hk/mithril-client:latest $@
-}
+SNAPSHOT_DIGEST=$(bin/mithril-client snapshot list --json | jq -r '.[0].digest')
+bin/mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
-And download the latest blockchain snapshot:
+Then we can run a `cardano-node`, first downloading some configuration files, with:
 
 ```shell
-SNAPSHOT_DIGEST=$(mithril-client snapshot list --json | jq -r '.[0].digest')
-mithril-client snapshot download $SNAPSHOT_DIGEST
+curl -O https://book.world.dev.cardano.org/environments/preprod/config.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/topology.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/byron-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
+curl -O https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-cluster/config/protocol-parameters.json
+
+bin/cardano-node run --database-path db --socket-path ./node.socket --config config.json --topology topology.json
 ```
 
-Then we can run a `cardano-node` in the background with:
+To interact with the `cardano-node` we will be using the `cardano-cli`
+with `cardano-cli` we can now check the synchronization status:
 
 ```shell
-docker run -d \
-  -e NETWORK=preprod \
-  -v $(pwd):$(pwd) \
-  -v $(pwd):/data \
-  -v $(pwd):/ipc \
-  -u $(id -u) \
-  --restart unless-stopped \
-  --name cardano-node \
-  inputoutput/cardano-node:8.1.2
-```
-
-To interact with the `cardano-node` we prepare ourselves a shell alias for the
-`cardano-cli`:
-
-```shell
-cardano-cli () {
-  docker run --rm -it --init \
-    -v $(pwd):$(pwd) \
-    -v $(pwd):/ipc \
-    -w $(pwd) \
-    -u $(id -u) \
-    -e CARDANO_NODE_SOCKET_PATH=/ipc/node.socket \
-    -e CARDANO_NODE_NETWORK_ID=1 \
-    inputoutput/cardano-node:8.1.2 cli $@
-}
-```
-
-<details>
-<summary>Bash auto-completion</summary>
-
-If you are using `bash`, you can get auto-completion of `cardano-cli` using:
-
-```shell
-source <(cardano-cli --bash-completion-script cardano-cli)
-```
-
-</details>
-
-With `cardano-cli` we can now check the synchronization status:
-
-```shell
-cardano-cli query tip
+bin/cardano-cli query tip
 ```
 
 This should show something like:
@@ -123,6 +148,18 @@ This should show something like:
   "syncProgress": "100.00"
 }
 ```
+
+<details>
+<summary>Bash auto-completion</summary>
+
+If you are using `bash`, you can get auto-completion of `cardano-cli` using:
+
+```shell
+source <(bin/cardano-cli --bash-completion-script cardano-cli)
+```
+
+</details>
+
 
 Detailed steps on bootstrapping a `cardano-node` using Mithril with more
 explanations can be found
@@ -147,19 +184,19 @@ import TabItem from '@theme/TabItem';
 ```shell
 mkdir -p credentials
 
-cardano-cli address key-gen \
+bin/cardano-cli address key-gen \
   --verification-key-file credentials/alice-node.vk \
   --signing-key-file credentials/alice-node.sk
 
-cardano-cli address build \
+bin/cardano-cli address build \
   --verification-key-file credentials/alice-node.vk \
   --out-file credentials/alice-node.addr
 
-cardano-cli address key-gen \
+bin/cardano-cli address key-gen \
   --verification-key-file credentials/alice-funds.vk \
   --signing-key-file credentials/alice-funds.sk
 
-cardano-cli address build \
+bin/cardano-cli address build \
   --verification-key-file credentials/alice-funds.vk \
   --out-file credentials/alice-funds.addr
 ```
@@ -170,19 +207,19 @@ cardano-cli address build \
 ```shell
 mkdir -p credentials
 
-cardano-cli address key-gen \
+bin/cardano-cli address key-gen \
   --verification-key-file credentials/bob-node.vk \
   --signing-key-file credentials/bob-node.sk
 
-cardano-cli address build \
+bin/cardano-cli address build \
   --verification-key-file credentials/bob-node.vk \
   --out-file credentials/bob-node.addr
 
-cardano-cli address key-gen \
+bin/cardano-cli address key-gen \
   --verification-key-file credentials/bob-funds.vk \
   --signing-key-file credentials/bob-funds.sk
 
-cardano-cli address build \
+bin/cardano-cli address build \
   --verification-key-file credentials/bob-funds.vk \
   --out-file credentials/bob-funds.addr
 ```
@@ -221,7 +258,7 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 :::info Where to get funds
 
-In case you have no tADA on `preprod`, you can use the [Testnet Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/) to seed your wallet or the addresses above.
+In case you have no tADA on `preprod`, you can use the [Testnet Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/) to seed your wallet or the addresses above. Note that due to rate limiting, it's better to request a large sums for a single address and then dispatch to other addresses.
 :::
 
 You can check the balance of your addresses via:
@@ -231,10 +268,10 @@ You can check the balance of your addresses via:
 
 ```shell
 echo "# UTxO of alice-node"
-cardano-cli query utxo --address $(cat credentials/alice-node.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/alice-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of alice-funds"
-cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
 ```
 
 </TabItem>
@@ -242,10 +279,10 @@ cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file 
 
 ```shell
 echo "# UTxO of bob-node"
-cardano-cli query utxo --address $(cat credentials/bob-node.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/bob-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of bob-funds"
-cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
 ```
 
 </TabItem>
@@ -253,33 +290,21 @@ cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /d
 
 Besides the Cardano keys, we now also need to generate Hydra key pairs which
 will be used on the layer two by the `hydra-node`. For this, we will use the
-`hydra-tools` via docker and a shell alias again:
-
-```shell
-hydra-tools () {
-  docker run --rm \
-    -v $(pwd):$(pwd) \
-    -w $(pwd) \
-    -u $(id -u) \
-    ghcr.io/input-output-hk/hydra-tools:0.12.0 $@
-}
-```
-
-With `hydra-tools` we generate the keys for `alice` and/or `bob` respectively:
+`hydra-tools` to generate the keys for `alice` and/or `bob` respectively:
 
 <!-- TODO: feedback of these commands is not great -->
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra-tools gen-hydra-key --output-file credentials/alice-hydra
+bin/hydra-tools gen-hydra-key --output-file credentials/alice-hydra
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra-tools gen-hydra-key --output-file credentials/bob-hydra
+bin/hydra-tools gen-hydra-key --output-file credentials/bob-hydra
 ```
 
 </TabItem>
@@ -309,7 +334,7 @@ such that there are no fees! This will fetch the parameters and sets fees +
 prices to zero:
 
 ```
-cardano-cli query protocol-parameters \
+bin/cardano-cli query protocol-parameters \
   | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0' \
   > protocol-parameters.json
 ```
@@ -341,23 +366,15 @@ Let's start the `hydra-node` with all these parameters now:
 <TabItem value="alice" label="Alice">
 
 ```shell
-docker run -d \
-  -v $(pwd)/credentials:/credentials:ro \
-  -v $(pwd):/ipc \
-  -v $(pwd):/data \
-  -u $(id -u) \
-  --restart unless-stopped \
-  --network host \
-  --name hydra-node-alice \
-  ghcr.io/input-output-hk/hydra-node:0.12.0 \
+bin/hydra-node \
   --node-id "alice-node" \
-  --persistence-dir /data/persistence-alice \
-  --cardano-signing-key /credentials/alice-node.sk \
-  --hydra-signing-key /credentials/alice-hydra.sk \
+  --persistence-dir persistence-alice \
+  --cardano-signing-key credentials/alice-node-cardano.sk \
+  --hydra-signing-key credentials/alice-node-hydra.sk \
   --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
-  --ledger-protocol-parameters /data/protocol-parameters.json \
+  --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
-  --node-socket /ipc/node.socket \
+  --node-socket node.socket \
   --port 5001 \
   --api-port 4001 \
   --peer 127.0.0.1:5002 \
@@ -369,28 +386,20 @@ docker run -d \
 <TabItem value="bob" label="Bob">
 
 ```shell
-docker run -d \
-  -v $(pwd)/credentials:/credentials:ro \
-  -v $(pwd):/ipc \
-  -v $(pwd):/data \
-  -u $(id -u) \
-  --restart unless-stopped \
-  --network host \
-  --name hydra-node-bob \
-  ghcr.io/input-output-hk/hydra-node:0.12.0 \
+bin/hydra-node \
   --node-id "bob-node" \
-  --persistence-dir /data/persistence-bob \
-  --cardano-signing-key /credentials/bob-node.sk \
-  --hydra-signing-key /credentials/bob-hydra.sk \
+  --persistence-dir persistence-bob \
+  --cardano-signing-key credentials/bob-node.sk \
+  --hydra-signing-key credentials/bob-hydra.sk \
   --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
-  --ledger-protocol-parameters /data/protocol-parameters.json \
+  --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
-  --node-socket /ipc/node.socket \
+  --node-socket node.socket \
   --port 5002 \
   --api-port 4002 \
   --peer 127.0.0.1:5001 \
-  --hydra-verification-key /credentials/alice-hydra.vk \
-  --cardano-verification-key /credentials/alice-node.vk
+  --hydra-verification-key credentials/alice-hydra.vk \
+  --cardano-verification-key credentials/alice-node.vk
 ```
 
 </TabItem>
@@ -465,7 +474,7 @@ funds given to `{alice,bob}-funds.vk` beforehand:
 <TabItem value="alice" label="Alice">
 
 ```shell
-cardano-cli query utxo \
+bin/cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-commit-utxo.json
 
@@ -473,19 +482,19 @@ curl -X POST 127.0.0.1:4001/commit \
   --data @alice-commit-utxo.json \
   > alice-commit-tx.json
 
-cardano-cli transaction sign \
+bin/cardano-cli transaction sign \
   --tx-file alice-commit-tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-commit-tx-signed.json
 
-cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
+bin/cardano-cli transaction submit --tx-file alice-commit-tx-signed.json
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-cardano-cli query utxo \
+bin/cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-commit-utxo.json
 
@@ -493,12 +502,12 @@ curl -X POST 127.0.0.1:4002/commit \
   --data @bob-commit-utxo.json \
   > bob-commit-tx.json
 
-cardano-cli transaction sign \
+bin/cardano-cli transaction sign \
   --tx-file bob-commit-tx.json \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-commit-tx-signed.json
 
-cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
+bin/cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 ```
 
 </TabItem>
@@ -513,7 +522,7 @@ for `bob`):
 
 ```shell
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
-cardano-cli transaction submit --tx-file bob-commit-tx.json
+bin/cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
 
 </details>
@@ -567,7 +576,7 @@ Then, just like on the Cardano layer one, we can construct a transaction via the
 `cardano-cli` that spends this UTxO:
 
 ```shell
-cardano-cli transaction build-raw \
+bin/cardano-cli transaction build-raw \
   --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
   --tx-out $(cat credentials/bob-funds.addr)+10000000 \
   --tx-out $(cat credentials/alice-funds.addr)+$(jq 'to_entries[0].value.value.lovelace - 10000000' < utxo.json) \
@@ -584,7 +593,7 @@ have set the protocol parameters of the head to have zero fees, we can use the
 Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
 
 ```shell
-cardano-cli transaction sign \
+bin/cardano-cli transaction sign \
   --tx-body-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
@@ -649,10 +658,10 @@ one:
 
 ```shell
 echo "# UTxO of alice"
-cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of bob"
-cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
+bin/cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
 ```
 
 That's it. That's the full life-cycle of a Hydra head.
@@ -667,46 +676,46 @@ faucet (before we throw away the keys):
 <TabItem value="alice" label="Alice">
 
 ```shell
-cardano-cli query utxo \
+bin/cardano-cli query utxo \
   --address $(cat credentials/alice-node.addr) \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-return-utxo.json
 
-cardano-cli transaction build \
+bin/cardano-cli transaction build \
   $(cat alice-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file alice-return-tx.json
 
-cardano-cli transaction sign \
+bin/cardano-cli transaction sign \
   --tx-file alice-return-tx.json \
   --signing-key-file credentials/alice-node.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-return-tx-signed.json
 
-cardano-cli transaction submit --tx-file alice-return-tx-signed.json
+bin/cardano-cli transaction submit --tx-file alice-return-tx-signed.json
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-cardano-cli query utxo \
+bin/cardano-cli query utxo \
   --address $(cat credentials/bob-node.addr) \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-return-utxo.json
 
-cardano-cli transaction build \
+bin/cardano-cli transaction build \
   $(cat bob-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file bob-return-tx.json
 
-cardano-cli transaction sign \
+bin/cardano-cli transaction sign \
   --tx-file bob-return-tx.json \
   --signing-key-file credentials/bob-node.sk \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-return-tx-signed.json
 
-cardano-cli transaction submit --tx-file bob-return-tx-signed.json
+bin/cardano-cli transaction submit --tx-file bob-return-tx-signed.json
 ```
 
 </TabItem>
