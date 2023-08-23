@@ -116,9 +116,7 @@ bin/hydra-node \
   --node-socket node.socket \
   --port 5001 \
   --api-port 4001 \
-  --peer 127.0.0.1:5002 \
-  --hydra-verification-key credentials/bob-hydra.vk \
-  --cardano-verification-key credentials/bob-node.vk
+  --peer 127.0.0.1:5002
 ```
 
 ## Step 4: Open a Hydra head
