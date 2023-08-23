@@ -59,6 +59,17 @@ Then we need to download the various executables that we'll use, putting them in
 <Tabs queryString="system">
 <TabItem value="linux" label="Linux x86-64">
 
+```shell
+mkdir bin
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/0.12.0/hydra-x86_64-unknown-linux-musl.zip
+unzip -d bin hydra-x86_64-unknown-linux-musl.zip
+curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz \
+  | tar xz -C bin ./cardano-node ./cardano-cli
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2331.1/mithril-2331.1-linux-x64.tar.gz \
+  | tar xz -C bin mithril-client
+chmod +x bin/*
+```
+
 </TabItem>
 <TabItem value="macos" label="Mac OS aarch64">
 
