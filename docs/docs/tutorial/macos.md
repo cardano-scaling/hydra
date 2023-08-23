@@ -51,12 +51,13 @@ bin/mithril-client snapshot download $SNAPSHOT_DIGEST
 Download proper configuration
 
 ```
-curl -o config.json https://book.world.dev.cardano.org/environments/preprod/config.json
-curl -o topology.json https://book.world.dev.cardano.org/environments/preprod/topology.json
-curl -o byron-genesis.json https://book.world.dev.cardano.org/environments/preprod/byron-genesis.json
-curl -o shelley-genesis.json https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
-curl -o alonzo-genesis.json https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
-curl -o conway-genesis.json https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/config.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/topology.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/byron-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
+curl -O https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
+curl -O https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-cluster/config/protocol-parameters.json
 ```
 
 Run a cardano-node
