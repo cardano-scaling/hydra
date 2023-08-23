@@ -16,7 +16,6 @@ brew install openssl zlib websocat jq
 
 You can download pre-built executables for `cardano-node`, `cardano-cli`, `hydra-node`, `mithril-client`, and the accompanying needed libraries from the [Hydra release 0.12.0](https://github.com/input-output-hk/hydra/releases/tag/0.12.0) page.
 
-
 ```
 curl -L -o darwin.tgz https://github.com/input-output-hk/hydra/releases/download/0.12.0/tutorial-binaries-aarch64-darwin.tar.gz
 ```
@@ -33,11 +32,11 @@ tar xzf darwin.tgz -C bin
 A number of environment variables need to be set in order to run the tutorial and provide basic configuration for the various tools. Make sure those variables are available in all shells you will be running various commands in:
 
 ```
-GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
-AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
-CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
-CARDANO_NODE_NETWORK_ID=1
-DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
+export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
+export CARDANO_NODE_NETWORK_ID=1
+export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 ```
 
 ## Step 1: Connect to Cardano
@@ -45,8 +44,8 @@ DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 Download  mithril snapshot for `preprod` network
 
 ```
-SNAPSHOT_DIGEST=$(mithril-client snapshot list --json | jq -r '.[0].digest')
-mithril-client snapshot download $SNAPSHOT_DIGEST
+SNAPSHOT_DIGEST=$(bin/mithril-client snapshot list --json | jq -r '.[0].digest')
+bin/mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
 Download proper configuration
@@ -69,7 +68,7 @@ bin/cardano-node run --database-path db --socket-path ./node.socket --config con
 To check the cardano-node is working correctly, open another terminal, setting the environment variables as above and run:
 
 ```
-cardano-cli query tip --socket-path ./node.socket --testnet-magic 1
+bin/cardano-cli query tip --socket-path ./node.socket --testnet-magic 1
 ```
 
 If it works you should see something like:
