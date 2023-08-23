@@ -93,10 +93,19 @@ Note that if the cardano-node is not yet ready because it's still verifying its 
 
 Preparing cardano keys/addresses and funding those is identical to the main tutorial.
 
+To generate cardano key for the node to pay transaction fees,
+
+```
+bin/cardano-cli address key-gen \
+    --verification-key-file credentials/alice-node-cardano.vk \
+    --signing-key-file credentials/alice-node-cardano.sk
+```
+
 To generate Hydra keys,
 
 ```
-bin/hydra-node gen-hydra-key --output-file credentials/alice-hydra
+bin/hydra-node gen-hydra-key \
+    --output-file credentials/alice-node-hydra
 ```
 
 ## Step 3: Start the Hydra node
@@ -108,8 +117,8 @@ Make sure you replace bob's address, hydra verification key, and cardano verific
 bin/hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
-  --cardano-signing-key credentials/alice-node.sk \
-  --hydra-signing-key credentials/alice-hydra.sk \
+  --cardano-signing-key credentials/alice-node-cardano.sk \
+  --hydra-signing-key credentials/alice-node-hydra.sk \
   --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
