@@ -39,8 +39,6 @@ commit and decommit in priority:
 
 ## Development
 
-TODO
-
 [Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-23)
 
 This month, the team worked on the following:
@@ -74,12 +72,16 @@ now to be signed with the hydra signing key of the peer sending it.
 
 #### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/TODO)
 
+<!-- TODO @franco ? -->
+
 First spike confirmed performance improvements  (master ~300ms → spike ~6ms)
 Also opens up interesting possibilities for state observation in clients
 Needed to refactor in between
 Currently carefully porting protocol logic to be event sourced
 
 #### New API endpoints [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
+<!-- TODO @sasha ? -->
 
 - submitTx
   - Submit L1 transactions through hydra-node #966
@@ -90,20 +92,18 @@ Currently carefully porting protocol logic to be event sourced
   - Also small story to increase developer experience
   - Should cover everything but current time + conversion (projection possible)
 
-TODO
-
 #### Removal of “internal commit” endpoint [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
+<!-- TODO @sasha ? -->
 
 Remove commit from internal wallet
 
 - No “fuel marking” anymore
 - Simplifies setup
 
-TODO
-
 #### Security fixes [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
 
-TODO @abailly to write this section
+<!-- TODO @abailly ? -->
 
 ## Community
 
@@ -153,7 +153,7 @@ will expose internal hydra event stream to external consumers. This should allow
 The monthly review meeting for Aug was held on 2023-08-23 via Google Meet with
 these [slides][slides] and here is the [recording][recording].
 
-TODO
+<!-- TODO @sebastian ? -->
 
 [slides]: https://docs.google.com/presentation/d/1MrCeUsYb3FQk7aCwMZdQs8mc5BfLOIjkK9gcWzgDdDc/edit#slide=id.g1f87a7454a5_0_1392
 [recording]: https://drive.google.com/file/d/14pDsf0hDyh9HK8sCSMmkmT8gY8YxgOQ8/view
