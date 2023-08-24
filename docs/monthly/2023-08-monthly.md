@@ -85,52 +85,57 @@ to reflect the latest developments and ideas from the starmap:
 This month, the team worked on the following:
 
 #### Authenticated messages [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
 TODO
 
 #### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/TODO)
+
 First spike confirmed performance improvements  (master ~300ms → spike ~6ms)
 Also opens up interesting possibilities for state observation in clients
 Needed to refactor in between
 Currently carefully porting protocol logic to be event sourced
 
-
 #### New API endpoints [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
 - submitTx
-  + Submit L1 transactions through hydra-node #966
-  + API improvement to not need a tx submission server / cardano-node on client side
+  - Submit L1 transactions through hydra-node #966
+  - API improvement to not need a tx submission server / cardano-node on client side
 
 - getProtocolParameters
-  + Ability to read protocol parameters via API #735
-  + Also small story to increase developer experience
-  + Should cover everything but current time + conversion (projection possible)
+  - Ability to read protocol parameters via API #735
+  - Also small story to increase developer experience
+  - Should cover everything but current time + conversion (projection possible)
 
 TODO
 
 #### Removal of “internal commit” endpoint [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
 Remove commit from internal wallet
+
 - No “fuel marking” anymore
 - Simplifies setup
 
 TODO
 
 #### Security fixes [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+
 TODO @abailly to write this section
 
 ## Community
 
 ### Hydra master-class
-- Saturday, August 26
-9:30-12:30 MDT / 15:30-18:30 UTC
 
-- About 40 registered for on-site event
+We already mentioned our intention to have an educational session at the upcoming
+Rare Evo event. The Preparation is still in progress and we fear we might have
+some network connectivity challenges but here are some practical information:
 
-- Planning to stream it on #hydra-live + support people on #ask-hydra -> on the IOG Discord: https://discord.gg/Qq5vNTg9PT
-
-- Preparation still on-going and maybe some network connectivity challenges..
-
-TODO
+- Saturday, August 26, 9:30-12:30 MDT / 15:30-18:30 UTC
+- About 40 people registered for on-site event
+- Planning to stream it on #hydra-live
+- Planning to support people on #ask-hydra on the [IOG Discord](https://discord.gg/Qq5vNTg9PT)
 
 ### Catalyst Fund10
+
 TODO
 
 ## Conclusion
