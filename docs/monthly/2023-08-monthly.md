@@ -136,7 +136,33 @@ some network connectivity challenges but here are some practical information:
 
 ### Catalyst Fund10
 
-TODO
+The team screened all the proposals mentioning Hydra and
+[Mithril](https://mithril.network/doc/). We submitted eleven community reviews and
+noticed, in particular, the following proposals:
+
+- [Sundae Labs Hydra Ledger-only Mode](https://cardano.ideascale.com/c/idea/102138)
+- [Sundae Labs Hydra Transaction Stream Plugin](https://cardano.ideascale.com/c/idea/102200)
+- [Hydra as a B2B layer for DeFi- a white paper and a MVP](https://cardano.ideascale.com/c/idea/101626)
+- [Decentralized Demeter.run - Federated Frontend Hosting - New revenue stream for SPOs](https://cardano.ideascale.com/c/idea/104411)
+- [Mithril - Open-source contributor](https://cardano.ideascale.com/c/idea/105113)
+
+[Sundae Labs Hydra Ledger-only Mode](https://cardano.ideascale.com/c/idea/102138)
+proposes a Hydra node which would only receive and validate transactions, and
+maintain a ledger state but not run a head per se. It should allow many useful scenarios:
+
+- Run the ledger validation as a component in a larger layer-2 protocol
+- Scenario testing frameworks
+- Speculative execution
+
+An ADR is under review on our github project:
+<https://github.com/input-output-hk/hydra/pull/1012>
+
+[Sundae Labs Hydra Transaction Stream Plugin](https://cardano.ideascale.com/c/idea/102200)
+will expose internal hydra event stream to external consumers. This should allow:
+
+- Custom Persistence formats
+- Chain-explorers
+- Chain indexing integration with existing ecosystem tools
 
 ## Conclusion
 
