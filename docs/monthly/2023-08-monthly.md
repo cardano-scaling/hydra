@@ -10,32 +10,6 @@ preparation for the monthly review meeting (see [slides][slides] and
 [recording][recording]), where the team updates project stakeholders on recent
 developments to gather their feedback on proposed plans.
 
-### Starmap update
-
-Every couple of months, the team reflects on the themes identified for 2023 (as
-presented in [January](/monthly/2023-01#themes-for-2023)), and creates a high
-level list of possible deliverables,
-eg using [impact maps](./img/2022-11-impact.png). This time, the team has come up
-with the following items:
-
-<!-- TODO: add missing img: ./img/2023-08-starmap.png -->
-![](./img/2023-08-starmap.png)
-
-- Sustainable open-source :green_heart:
-
-  - **TODO**: TODO
-
-- Mainnet mature application :purple_heart:
-
-  - **TODO**: TODO
-
-- Drive adoption :blue_heart:
-
-  - **TODO**: TODO
-
-Work packages related to these items appear on the technical
-roadmap (especially [in this view](https://github.com/orgs/input-output-hk/projects/21/views/26)) and in our community activities.
-
 ## Roadmap
 
 This month, the team released version 0.12.0, which TODO. The project
