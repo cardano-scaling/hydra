@@ -39,7 +39,7 @@ import Hydra.Network (Host (..))
 import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
-import Hydra.Network.Ouroboros (withOuroborosNetwork)
+import Hydra.Network.P2P.P2P (withP2PNetwork)
 import Hydra.Node (
   HydraNode (..),
   checkHeadState,
@@ -130,7 +130,7 @@ main = do
         connectionMessages = \case
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
+     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withP2PNetwork (contramap Network tracer) localhost peers
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

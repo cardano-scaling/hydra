@@ -119,6 +119,7 @@ library
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
+    Hydra.Network.P2P.P2P
     Hydra.Node
     Hydra.Node.EventQueue
     Hydra.Options
@@ -312,6 +313,7 @@ test-suite tests
     Hydra.Node.EventQueueSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
+    Hydra.P2PSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
     Paths_hydra_node
