@@ -41,7 +41,7 @@ commit and decommit in priority:
 
 TODO
 
-[Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-24)
+[Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-23)
 
 This month, the team worked on the following:
 
