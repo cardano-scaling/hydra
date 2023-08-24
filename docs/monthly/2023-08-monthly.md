@@ -37,34 +37,21 @@ commit and decommit in priority:
 
 - See [full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.12.0) and a list of [delivered features](https://github.com/input-output-hk/hydra/milestone/12?closed=1)
 
-#### Notable updates
-
-- TODO
-
-- Support cardano-node 8.1.2 [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
-  + Updated client and plutus versions
-
-- Layer 2 protocol changes
-  + Removed redundancy
-
-- Event-sourced persistence [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
-  + Improved off-chain tx processing performance
-
-- Update tutorial and include Mithril #997
-  + Make tutorial work with latest version of hydra-node
-  + Support a wide range of platforms
-  + Ensure it’s kept up-to-date (using continuous integration)
-  + Preparation for Hydra master-class at RareEvo
-
-
-<!-- TODO: add missing img: ./img/2023-08-roadmap.png -->
-![The latest roadmap with features and ideas](./img/2023-08-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
-
 ## Development
+
+TODO
 
 [Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-24)
 
 This month, the team worked on the following:
+
+- Update tutorial and include Mithril #997
+  - Make tutorial work with latest version of hydra-node
+  - Support a wide range of platforms
+  - Ensure it’s kept up-to-date (using continuous integration)
+  - Preparation for Hydra master-class at RareEvo
+
+- Support cardano-node 8.1.2 [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
 
 #### Authenticated messages [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
 
