@@ -22,13 +22,18 @@ commit and decommit in priority:
 
 ![The roadmap](./img/2023-08-roadmap.jpg) <small><center>The roadmap</center></small>
 
-#### Release 0.12.0
+### Release 0.12.0
 
-- TODO
-
-- Support cardano-node 8.1.2 [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
-
-- Authenticated messages [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+- Support cardano-node 8.1.2
+  - Updated client and plutus versions
+- Layer 2 protocol changes
+  - Authenticated messages
+  - Removed redundancy
+- Event-sourced persistence
+- New API endpoints
+- Removal of _internal commit_ endpoint
+- Improved off-chain tx processing performance
+- Security fixes
 
 - See [full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.12.0) and a list of [delivered features](https://github.com/input-output-hk/hydra/milestone/12?closed=1)
 
