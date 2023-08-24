@@ -45,17 +45,32 @@ TODO
 
 This month, the team worked on the following:
 
-- Update tutorial and include Mithril #997
-  - Make tutorial work with latest version of hydra-node
-  - Support a wide range of platforms
-  - Ensure it’s kept up-to-date (using continuous integration)
-  - Preparation for Hydra master-class at RareEvo
+#### Update tutorial and include Mithril [#997](https://github.com/input-output-hk/hydra/issues/997)
 
-- Support cardano-node 8.1.2 [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+- Make tutorial work with latest version of hydra-node
+- Support a wide range of platforms
+- Ensure it’s kept up-to-date (using continuous integration)
+- Preparation for Hydra master-class at RareEvo
 
-#### Authenticated messages [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+#### Support cardano-node 8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
 
-TODO
+We were still using cardano node 1.35.7 so we took some time to upgrade to the
+last release 8.1.2.
+
+#### Authenticated messages [#727](https://github.com/input-output-hk/hydra/pull/727)
+
+The Hydra Head protocol had to be immune from adversaries trying to
+impersonate protocol actors via the L2 network. Otherwise an attacker
+could, for example, forge ReqSn messages to make the Head stuck (because they
+likely will not be consistent with other messages delivered).
+
+Note, however, that an attacker would not be able to sign snapshots nor create
+valid layer 2 transactions to spend funds even without any authenticated messages
+because both require the respective signing (private) keys.
+
+The HydraV1 specification expects messages to be authenticated. We implemented that
+by inserting a new authentication component in our network stack. All messages have
+now to be signed with the hydra signing key of the peer sending it.
 
 #### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/TODO)
 
