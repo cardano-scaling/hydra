@@ -12,12 +12,15 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month, the team released version 0.12.0, which TODO. The project
-[roadmap](https://github.com/orgs/input-output-hk/projects/21) was also updated
-to reflect the latest developments and ideas from the starmap:
+This month, the team released version 0.12.0, which changes the way a client
+can commit funds to a hydra head by leveraging the external commit feature.
 
-<!-- TODO: add missing img: ./img/2023-08-roadmap-ex-ideas.png -->
-![The roadmap without idea items](./img/2023-08-roadmap-ex-ideas.png) <small><center>The roadmap without idea items</center></small>
+The project
+[roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has been
+slightly updated to focus 0.13 on network resiliency and bump incremental
+commit and decommit in priority:
+
+![The roadmap](./img/2023-08-roadmap.jpg) <small><center>The roadmap</center></small>
 
 #### Release 0.12.0
 
