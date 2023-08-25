@@ -12,7 +12,6 @@ import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Ledger.Cardano (emptyTxBody)
 import Hydra.Network (Host (..))
 import Network.WebSockets (
   Connection,
@@ -66,22 +65,14 @@ mkPaintTx ::
   Either TxBodyError Tx
 mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, blue} = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
-  pure $ makeSignedTransaction witnesses body
+  pure $ signShelleyTransaction body [WitnessPaymentKey sk]
  where
-  metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(14, listOfInts)]
-
-  listOfInts = TxMetaList $ TxMetaNumber . fromIntegral <$> [x, y, red, green, blue]
-
-  TxOut{txOutValue = valueIn} = txOutBefore
-
   bodyContent =
-    emptyTxBody
-      { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
-      , txOuts = outs
-      , txFee = TxFeeExplicit fee
-      , txMetadata = metadata
-      }
+    defaultTxBodyContent
+      & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+      & setTxOuts outs
+      & setTxFee (TxFeeExplicit $ Lovelace 0)
+      & setTxMetadata metadata
 
   outs =
     TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
@@ -89,4 +80,8 @@ mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, b
         | valueOut /= valueIn
         ]
 
-  fee = Lovelace 0
+  metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(14, listOfInts)]
+
+  listOfInts = TxMetaList $ TxMetaNumber . fromIntegral <$> [x, y, red, green, blue]
+
+  TxOut{txOutValue = valueIn} = txOutBefore
