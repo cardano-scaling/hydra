@@ -70,14 +70,20 @@ The HydraV1 specification expects messages to be authenticated. We implemented t
 by inserting a new authentication component in our network stack. All messages have
 now to be signed with the hydra signing key of the peer sending it.
 
-#### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/TODO)
+#### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/913)
 
-<!-- TODO @franco ? -->
+We want the hydra-node to be efficient in processing events to yield high throughput on processing transactions.
 
-First spike confirmed performance improvements  (master ~300ms → spike ~6ms)
-Also opens up interesting possibilities for state observation in clients
-Needed to refactor in between
-Currently carefully porting protocol logic to be event sourced
+Work done as part of [#186](https://github.com/input-output-hk/hydra/issues/186) has demonstrated that
+the primary bottleneck to faster transaction processing inside the node was the state persistence logic.
+which simply overwrites the full state with whatever new state has been produced.
+
+For that reason, we changed the persistent state to a sequence of events according to ADR 24.
+Persistence is now done incrementally after each StateChanged outcome.
+
+As a consequence, the first spike confirmed the following performance improvements: master ~300ms → spike ~6ms.
+
+Finally, this also opens up interesting possibilities for state observation in clients.
 
 #### New API endpoints [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
 
