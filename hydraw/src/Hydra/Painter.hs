@@ -47,9 +47,13 @@ paintPixel networkId signingKeyPath cnx pixel = do
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue cnx)
 
 withClient :: Host -> (Connection -> IO ()) -> IO ()
-withClient Host{hostname, port} action = retry
+withClient Host{hostname, port} action =
+  retry
  where
-  retry = runClient (toString hostname) (fromIntegral port) "/" action `catch` \(_ :: IOException) -> retry
+  retry = do
+    putTextLn $ "Connecting to Hydra API on " <> hostname <> ":" <> show port <> ".."
+    runClient (toString hostname) (fromIntegral port) "/" action
+      `catch` \(e :: IOException) -> print e >> threadDelay 1 >> retry
 
 -- | Create a zero-fee, payment cardano transaction.
 mkPaintTx ::

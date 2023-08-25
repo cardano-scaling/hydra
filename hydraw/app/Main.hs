@@ -31,6 +31,7 @@ main = do
       & Warp.runSettings settings
  where
   port = 1337
+
   settings =
     Warp.defaultSettings
       & Warp.setPort port
