@@ -2,15 +2,12 @@ module Main where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient)
-import Network.HTTP.Types.Header (HeaderName)
-import Network.HTTP.Types.Status (status200, status404, status500)
+import Network.HTTP.Types.Status (status200, status400, status404)
 import Network.Wai (
   Application,
-  Response,
   pathInfo,
   requestMethod,
   responseFile,
@@ -26,9 +23,9 @@ main = do
   key <- requireEnv "HYDRAW_CARDANO_SIGNING_KEY"
   host <- parseHost =<< requireEnv "HYDRA_API_HOST"
   network <- parseNetwork =<< requireEnv "HYDRAW_NETWORK"
-  withClient host $ \cnx -> do
-    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
-      & Warp.runSettings settings
+  withClient host $ \cnx ->
+    Warp.runSettings settings $
+      Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
  where
   port = 1337
 
@@ -76,42 +73,32 @@ websocketApp host pendingConnection = do
 httpApp :: NetworkId -> FilePath -> WS.Connection -> Application
 httpApp networkId key cnx req send =
   case (requestMethod req, pathInfo req) of
-    ("HEAD", _) -> do
-      send $ responseLBS status200 corsHeaders ""
+    ("GET", "paint" : args) -> do
+      case traverse (readMay . toString) args of
+        Just [x, y, red, green, blue] -> do
+          putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
+          paintPixel networkId key cnx Pixel{x, y, red, green, blue}
+          send $ responseLBS status200 corsHeaders "OK"
+        _ ->
+          send handleError
+    ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
+    -- Statically serve files
     ("GET", []) -> send $ handleFile "index.html"
     ("GET", ["index.html"]) -> send $ handleFile "index.html"
     ("GET", ["bundle.js"]) -> send $ handleFile "bundle.js"
     ("GET", ["style.css"]) -> send $ handleFile "style.css"
     ("GET", ["logo.png"]) -> send $ handleFile "logo.png"
-    ("GET", "paint" : args) -> do
-      case traverse (readMay . toString) args of
-        Just [x, y, r, g, b] ->
-          send =<< handleGetPaint networkId key cnx (x, y) (r, g, b)
-        _ ->
-          send handleError
-    (_, _) ->
+    _ ->
       send handleNotFound
+ where
+  handleError = responseLBS status400 corsHeaders "INVALID REQUEST"
 
-handleGetPaint :: NetworkId -> FilePath -> WS.Connection -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
-handleGetPaint networkId key cnx (x, y) (red, green, blue) = do
-  putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-  paintPixel networkId key cnx Pixel{x, y, red, green, blue}
-  pure $ responseLBS status200 corsHeaders "OK"
+  handleNotFound = responseLBS status404 corsHeaders "NOT FOUND"
 
-handleError :: Response
-handleError =
-  responseLBS status500 corsHeaders "INVALID REQUEST"
+  handleFile filepath = responseFile status200 corsHeaders filepath Nothing
 
-handleNotFound :: Response
-handleNotFound =
-  responseLBS status404 corsHeaders "NOT FOUND"
-
-handleFile :: FilePath -> Response
-handleFile filepath = responseFile status200 corsHeaders filepath Nothing
-
-corsHeaders :: [(HeaderName, ByteString)]
-corsHeaders =
-  [ ("Access-Control-Allow-Origin", "*")
-  , ("Access-Control-Allow-Methods", "*")
-  , ("Access-Control-Allow-Headers", "*")
-  ]
+  corsHeaders =
+    [ ("Access-Control-Allow-Origin", "*")
+    , ("Access-Control-Allow-Methods", "*")
+    , ("Access-Control-Allow-Headers", "*")
+    ]
