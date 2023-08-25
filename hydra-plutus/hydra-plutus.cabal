@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-plutus
-version:       0.12.0
+version:       0.13.0
 synopsis:      Hydra Plutus Contracts
 author:        IOG
 copyright:     2022 IOG
@@ -100,10 +100,10 @@ library
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
-    , plutus-core           >=1.7 && <1.8
-    , plutus-ledger-api     >=1.7 && <1.8
-    , plutus-tx             >=1.7 && <1.8
-    , plutus-tx-plugin      >=1.7 && <1.8
+    , plutus-core          >=1.7 && <1.8
+    , plutus-ledger-api    >=1.7 && <1.8
+    , plutus-tx            >=1.7 && <1.8
+    , plutus-tx-plugin     >=1.7 && <1.8
     , QuickCheck
     , serialise
     , template-haskell

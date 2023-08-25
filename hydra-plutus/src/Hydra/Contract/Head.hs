@@ -281,7 +281,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
       tMax - tMin <= cp
 
-  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, headId', contesters') =
+  (closedSnapshotNumber, closedUtxoHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
     -- XXX: fromBuiltinData is super big (and also expensive?)
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
@@ -292,7 +292,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
           , contestationDeadline
           , headId
           , contesters
-          } -> (snapshotNumber, utxoHash, p, contestationDeadline, headId, contesters)
+          , contestationPeriod
+          } -> (snapshotNumber, utxoHash, p, contestationDeadline, contestationPeriod, headId, contesters)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
   checkSnapshot
@@ -321,6 +322,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     traceIfFalse $(errorCode ChangedParameters) $
       headId' == headPolicyId
         && parties' == parties
+        && cperiod' == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $

@@ -17,6 +17,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeHeadOutputDatum,
   changeMintedTokens,
   replaceContestationDeadline,
+  replaceContestationPeriod,
   replaceContesters,
   replaceHeadId,
   replaceParties,
@@ -42,9 +43,9 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
@@ -284,6 +285,8 @@ data CloseMutation
     --
     -- Ensures values are preserved between head input and output.
     MutateValueInOutput
+  | -- | Invalidate the tx by changing the contestation period.
+    MutateContestationPeriod
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -330,6 +333,9 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
+    , SomeMutation (Just $ toErrorCode ChangedParameters) MutateContestationPeriod <$> do
+        mutatedPeriod <- arbitrary
+        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationPeriod mutatedPeriod) headTxOut
     , SomeMutation (Just $ toErrorCode InfiniteLowerBound) MutateInfiniteLowerBound . ChangeValidityLowerBound <$> do
         pure TxValidityNoLowerBound
     , SomeMutation (Just $ toErrorCode InfiniteUpperBound) MutateInfiniteUpperBound . ChangeValidityUpperBound <$> do

@@ -10,6 +10,8 @@ changes.
 
 ## [0.13.0] - UNRELEASED
 
+- **BREAKING** Changes to `hydra-plutus` scripts.
+
 - Remove hydra-tools package. Move functionality to generate hydra keys to the
   hydra-node executable.
 
