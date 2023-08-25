@@ -5,19 +5,15 @@ module Hydra.Painter where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
-import qualified Data.Map as Map
 import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Network (Host (..))
-import Network.WebSockets (
-  Connection,
-  runClient,
-  sendTextData,
- )
+import Network.WebSockets (Connection, runClient, sendTextData)
 import Network.WebSockets.Connection (receive, receiveData)
 
 data Pixel = Pixel
@@ -27,23 +23,24 @@ data Pixel = Pixel
 paintPixel :: NetworkId -> FilePath -> Connection -> Pixel -> IO ()
 paintPixel networkId signingKeyPath cnx pixel = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
-  let vk = getVerificationKey sk
-  flushQueue cnx
+  let myAddress = mkVkAddress networkId $ getVerificationKey sk
+  flushQueue
   sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
   msg <- receiveData cnx
-  putStrLn $ "Received from Hydra-node: " <> show msg
+  putStrLn $ "Received from hydra-node: " <> show msg
   case Aeson.eitherDecode @(ServerOutput Tx) msg of
-    Left e -> error $ "Failed to decode server answer:  " <> show e
-    Right (GetUTxOResponse _ (UTxO utxo)) -> do
-      let myAddress = mkVkAddress networkId vk
-          (txIn, txOut) = Map.findMin $ Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) utxo
-      case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of
-        Left err -> error $ "failed to build pixel transaction " <> show err
-        Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
-    Right other -> error $ "Unexpected server answer:  " <> decodeUtf8 msg
+    Right (GetUTxOResponse _ utxo) ->
+      case UTxO.find (\TxOut{txOutAddress} -> txOutAddress == myAddress) utxo of
+        Nothing -> fail $ "No UTxO owned by " <> show myAddress
+        Just (txIn, txOut) ->
+          case mkPaintTx (txIn, txOut) sk pixel of
+            Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
+            Left err -> fail $ "Failed to build pixel transaction " <> show err
+    Right _ -> fail $ "Unexpected server answer:  " <> decodeUtf8 msg
+    Left e -> fail $ "Failed to decode server answer:  " <> show e
  where
-  flushQueue cnx =
-    race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue cnx)
+  flushQueue =
+    race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue)
 
 withClient :: Host -> (Connection -> IO ()) -> IO ()
 withClient Host{hostname, port} action =
@@ -54,34 +51,26 @@ withClient Host{hostname, port} action =
     runClient (toString hostname) (fromIntegral port) "/" action
       `catch` \(e :: IOException) -> print e >> threadDelay 1 >> retry
 
--- | Create a zero-fee, payment cardano transaction.
+-- | Create a zero-fee, payment cardano transaction with pixel metadata, which
+-- just re-spends the given UTxO.
 mkPaintTx ::
+  -- | UTxO to spend
   (TxIn, TxOut CtxUTxO) ->
-  -- | Recipient address and amount.
-  (AddressInEra, Value) ->
-  -- | Sender's signing key.
+  -- | Signing key which owns the UTxO.
   SigningKey PaymentKey ->
   Pixel ->
   Either TxBodyError Tx
-mkPaintTx (txin, txOutBefore) (recipient, valueOut) sk Pixel{x, y, red, green, blue} = do
+mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
   body <- createAndValidateTransactionBody bodyContent
   pure $ signShelleyTransaction body [WitnessPaymentKey sk]
  where
   bodyContent =
     defaultTxBodyContent
       & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-      & setTxOuts outs
+      & addTxOut (toTxContext txOut)
       & setTxFee (TxFeeExplicit $ Lovelace 0)
       & setTxMetadata metadata
 
-  outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-      : [ toTxContext $ txOutBefore{txOutValue = valueIn <> negateValue valueOut}
-        | valueOut /= valueIn
-        ]
-
-  metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(14, listOfInts)]
+  metadata = TxMetadataInEra $ TxMetadata $ fromList [(14, listOfInts)]
 
   listOfInts = TxMetaList $ TxMetaNumber . fromIntegral <$> [x, y, red, green, blue]
-
-  TxOut{txOutValue = valueIn} = txOutBefore
