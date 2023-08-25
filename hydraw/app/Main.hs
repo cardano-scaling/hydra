@@ -23,9 +23,9 @@ import Safe (readMay)
 
 main :: IO ()
 main = do
-  key <- fromMaybe (error "set HYDRAW_CARDANO_SIGNING_KEY environment variable") <$> lookupEnv "HYDRAW_CARDANO_SIGNING_KEY"
-  host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
-  network <- parseNetwork <$> lookupEnv "HYDRAW_NETWORK"
+  key <- requireEnv "HYDRAW_CARDANO_SIGNING_KEY"
+  host <- parseHost =<< requireEnv "HYDRA_API_HOST"
+  network <- parseNetwork =<< requireEnv "HYDRAW_NETWORK"
   withClient host $ \cnx -> do
     Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
       & Warp.runSettings settings
@@ -40,15 +40,29 @@ main = do
             putStrLn "Server started..."
             putStrLn $ "Listening on: tcp/" <> show port
         )
-  -- in case expected network string is not set default to `Testnet (NetworkMagic 42)`
-  parseNetwork mStr =
-    case mStr of
-      Nothing -> Testnet (NetworkMagic 42)
-      Just i ->
-        -- try to parse magic number and if it fails just default to 'Mainnet'
-        case readMaybe i :: Maybe Word32 of
-          Nothing -> Mainnet
-          Just m -> Testnet (NetworkMagic m)
+
+  parseHost str =
+    case readHost str of
+      Nothing -> fail $ "Could not parse host address: " <> str
+      Just host -> pure host
+
+  -- Like cardano-cli: "mainnet" or a number for a given testnet network magic.
+  parseNetwork str =
+    case parseMainnet str <|> parseTestnetMagic str of
+      Nothing -> fail $ "Could not parse network id: " <> str <> " (Expected 'mainnet' or a number)"
+      Just nid -> pure nid
+
+  parseMainnet str = Mainnet <$ guard (str == "mainnet")
+
+  parseTestnetMagic = fmap (Testnet . NetworkMagic) . readMaybe
+
+-- | Like 'lookupEnv' but terminate program with a message if environment
+-- variable is not set.
+requireEnv :: String -> IO String
+requireEnv name =
+  lookupEnv name >>= \case
+    Just value -> pure value
+    Nothing -> die $ "Error: Required environment variable " <> name <> " not set"
 
 websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
