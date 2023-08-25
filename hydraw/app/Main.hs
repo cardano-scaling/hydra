@@ -67,31 +67,17 @@ requireEnv name =
 
 websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
-  qA <- newTQueueIO
-  qB <- newTQueueIO
-
-  cnx <- WS.acceptRequest pendingConnection
-  concurrently_
-    (producer cnx (atomically . writeTQueue qA) (atomically (readTQueue qB)))
-    (consumer (atomically . writeTQueue qB) (atomically (readTQueue qA)))
- where
-  consumer yield await =
-    withClient host $ \cnx ->
-      concurrently_
-        (forever $ await >>= WS.send cnx)
-        (forever $ WS.receive cnx >>= yield)
-
-  producer cnx yield await =
+  frontend <- WS.acceptRequest pendingConnection
+  withClient host $ \backend ->
     concurrently_
-      (forever $ await >>= WS.send cnx)
-      (forever $ WS.receive cnx >>= yield)
+      (forever $ WS.receive frontend >>= WS.send backend)
+      (forever $ WS.receive backend >>= WS.send frontend)
 
 httpApp :: NetworkId -> FilePath -> WS.Connection -> Application
 httpApp networkId key cnx req send =
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> do
-      send $
-        responseLBS status200 corsHeaders ""
+      send $ responseLBS status200 corsHeaders ""
     ("GET", []) -> send $ handleFile "index.html"
     ("GET", ["index.html"]) -> send $ handleFile "index.html"
     ("GET", ["bundle.js"]) -> send $ handleFile "bundle.js"
