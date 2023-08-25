@@ -85,27 +85,38 @@ As a consequence, the first spike confirmed the following performance improvemen
 
 Finally, this also opens up interesting possibilities for state observation in clients.
 
-#### New API endpoints [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+#### New API endpoints
 
-<!-- TODO @sasha ? -->
+This release also includes some nice changes to the Hydra API. We added the
+[endpoint](https://github.com/input-output-hk/hydra/pull/1001) to submit a
+transaction to the L1 network. This feature is trying to improve developer
+experience and it seemed like a nice addition for anybody developing on Hydra
+since they already have hydra-node running and don't need to run cardano-node
+on the client side to be able to submit transactions.
 
-- submitTx
-  - Submit L1 transactions through hydra-node #966
-  - API improvement to not need a tx submission server / cardano-node on client side
+There is another new
+[endpoint](https://github.com/input-output-hk/hydra/pull/989) that serves the
+protocol parameters used in hydra-node. This provides more flexibility when
+developing and also allows us to make
+[projections](https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/API/Projection.hs#L4)
+over protocol parameters data.
 
-- getProtocolParameters
-  - Ability to read protocol parameters via API #735
-  - Also small story to increase developer experience
-  - Should cover everything but current time + conversion (projection possible)
+On top of this we also provided the hydra-node
+[version](https://github.com/input-output-hk/hydra/pull/985) inside of the
+`Greetings` message. This is very useful for debugging purposes for detecting
+possible version missmatch.
 
-#### Removal of “internal commit” endpoint [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
+#### Removal of “internal commit” endpoint [#1018](https://github.com/input-output-hk/hydra/pull/1018)
 
-<!-- TODO @sasha ? -->
+In the last release we announced that we will deprecate committing to the Head
+using the websocket command. Now we went ahead and removed this client command
+which also led to removing the _fuel_ markers we used in the past to mark the
+utxo of the internal Hydra wallet which should be used in the Head.
 
-Remove commit from internal wallet
-
-- No “fuel marking” anymore
-- Simplifies setup
+This simplifies the setup needed to run the Head protocol and improves trust
+needed to run the hydra-node since the user commits using the funds not known
+to a hydra-node and doesn't need to wonder how hydra-node uses these funds -
+they are available in the opened Head.
 
 #### Security fixes [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
 
