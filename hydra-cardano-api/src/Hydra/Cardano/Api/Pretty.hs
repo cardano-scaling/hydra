@@ -48,6 +48,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
       <> redeemerLines
       <> [""]
       <> requiredSignersLines
+      <> [""]
+      <> metadataLines
  where
   Api.ShelleyTxBody _lbody scripts scriptsData _auxData _validity = body
   outs = txOuts content
@@ -182,3 +184,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
     "== REQUIRED SIGNERS" : case txExtraKeyWits content of
       Api.TxExtraKeyWitnessesNone -> ["[]"]
       Api.TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
+
+  metadataLines =
+    [ "== REQUIRED SIGNERS"
+    , show (txMetadata content)
+    ]
