@@ -1,0 +1,43 @@
+module Hydra.Model.MockChainSpec where
+
+import Cardano.Api.UTxO (pairs)
+import Data.Text (unpack)
+import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON, renderUTxO)
+import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (txId), Ledger (applyTransactions))
+import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Hydra.Model.MockChain (scriptLedger)
+import Hydra.Prelude
+import Test.Hydra.Prelude
+import Test.QuickCheck (Property, Testable (property), counterexample, forAll, forAllBlind, (===))
+
+spec :: Spec
+spec =
+  prop "works with valid transaction" appliesValidTransaction
+
+appliesValidTransaction :: Property
+appliesValidTransaction =
+  forAll arbitrary $ \txin ->
+    forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+      let result = applyTransactions (scriptLedger txin) (ChainSlot 0) utxo txs
+       in case result of
+            Right u ->
+              isOutputOfLastTransaction txs u
+            Left (tx, err) ->
+              property False
+                & counterexample ("Error: " <> show err)
+                & counterexample ("Failing tx: " <> renderTx tx)
+                & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+                & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
+
+isOutputOfLastTransaction :: [Tx] -> UTxO -> Property
+isOutputOfLastTransaction txs utxo =
+  case (listToMaybe $ reverse txs, pairs utxo) of
+    (Just tx, [(TxIn txid _, _)]) ->
+      txId tx === txid
+    (Just _, _) ->
+      property False
+        & counterexample ("Resulting Utxo: " <> renderUTxO utxo)
+        & counterexample ("Txs: " <> show (txId <$> txs))
+    (Nothing, _) ->
+      property True

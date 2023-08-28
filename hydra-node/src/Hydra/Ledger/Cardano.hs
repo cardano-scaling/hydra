@@ -96,6 +96,10 @@ cardanoLedger globals ledgerEnv =
         , Ledger.lsCertState = def
         }
 
+-- | Simple conversion from a generic slot to a specific local one.
+fromChainSlot :: ChainSlot -> SlotNo
+fromChainSlot (ChainSlot s) = fromIntegral s
+
 -- * Cardano Tx
 
 instance IsTx Tx where

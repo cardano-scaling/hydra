@@ -304,6 +304,7 @@ test-suite tests
     Hydra.LoggingSpec
     Hydra.Model
     Hydra.Model.MockChain
+    Hydra.Model.MockChainSpec
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec

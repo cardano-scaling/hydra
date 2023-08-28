@@ -38,7 +38,6 @@ import qualified Data.List as List
 import Data.Map ((!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import qualified Data.Set as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import qualified Hydra.API.ClientInput as Input
@@ -61,7 +60,6 @@ import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Committed (),
   IdleState (..),
-  PendingCommits,
  )
 import qualified Hydra.HeadLogic as HeadState
 import Hydra.Ledger (IsTx (..))
@@ -98,20 +96,21 @@ data WorldState = WorldState
 -- stem from the consensus built into the Head protocol. In other words, this
 -- state is what each node's local state should be /eventually/.
 data GlobalState
-  = -- |Start of the "world".
-    -- This state is left implicit in the node's logic as it
-    -- represents that state where the node does not even
-    -- exist.
+  = -- | Start of the "world".
+    --  This state is left implicit in the node's logic as it
+    --  represents that state where the node does not even
+    --  exist.
     Start
   | Idle
       { idleParties :: [Party]
       , cardanoKeys :: [VerificationKey PaymentKey]
       , idleContestationPeriod :: ContestationPeriod
+      , toCommit :: Uncommitted
       }
   | Initial
       { headParameters :: HeadParameters
       , commits :: Committed Payment
-      , pendingCommits :: PendingCommits
+      , pendingCommits :: Uncommitted
       }
   | Open
       { headParameters :: HeadParameters
@@ -138,8 +137,10 @@ isIdleState _ = False
 
 isPendingCommitFrom :: Party -> GlobalState -> Bool
 isPendingCommitFrom party Initial{pendingCommits} =
-  party `Set.member` pendingCommits
+  party `Map.member` pendingCommits
 isPendingCommitFrom _ _ = False
+
+type Uncommitted = Map.Map Party (UTxOType Payment)
 
 data OffChainState = OffChainState
   { confirmedUTxO :: UTxOType Payment
@@ -159,7 +160,12 @@ instance StateModel WorldState where
   -- can represent _observations_ which are useful when defining properties in
   -- DL. Those observations would usually not be generated.
   data Action WorldState a where
-    Seed :: {seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)], seedContestationPeriod :: ContestationPeriod} -> Action WorldState ()
+    Seed ::
+      { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
+      , seedContestationPeriod :: ContestationPeriod
+      , toCommit :: Uncommitted
+      } ->
+      Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
     Init :: Party -> Action WorldState ()
@@ -192,12 +198,10 @@ instance StateModel WorldState where
         genNewTx
       _ -> fmap Some genSeed
    where
+    genCommit :: Uncommitted -> Gen (Any (Action WorldState))
     genCommit pending = do
-      party <- elements $ toList pending
-      let (_, sk) = fromJust $ find ((== party) . deriveParty . fst) hydraParties
-      value <- genAdaValue
-      let utxo = [(sk, value)]
-      pure . Some $ Commit party utxo
+      (party, commits) <- elements $ Map.toList pending
+      pure . Some $ Commit party commits
 
     genAbort = do
       (key, _) <- elements hydraParties
@@ -229,8 +233,10 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
-      Seed{seedKeys, seedContestationPeriod} -> WorldState{hydraParties = seedKeys, hydraState = Idle{idleParties, cardanoKeys, idleContestationPeriod}}
+      Seed{seedKeys, seedContestationPeriod, toCommit} ->
+        WorldState{hydraParties = seedKeys, hydraState = idleState}
        where
+        idleState = Idle{idleParties, cardanoKeys, idleContestationPeriod, toCommit}
         idleParties = map (deriveParty . fst) seedKeys
         cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
         idleContestationPeriod = seedContestationPeriod
@@ -239,7 +245,7 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
         mkInitialState = \case
-          Idle{idleParties, idleContestationPeriod} ->
+          Idle{idleParties, idleContestationPeriod, toCommit} ->
             Initial
               { headParameters =
                   HeadParameters
@@ -247,7 +253,7 @@ instance StateModel WorldState where
                     , contestationPeriod = idleContestationPeriod
                     }
               , commits = mempty
-              , pendingCommits = Set.fromList idleParties
+              , pendingCommits = toCommit
               }
           _ -> error "unexpected state"
       --
@@ -258,7 +264,7 @@ instance StateModel WorldState where
           Initial{headParameters, commits, pendingCommits} -> updatedState
            where
             commits' = Map.insert party utxo commits
-            pendingCommits' = party `Set.delete` pendingCommits
+            pendingCommits' = party `Map.delete` pendingCommits
             updatedState =
               if null pendingCommits'
                 then
@@ -322,7 +328,16 @@ deriving instance Eq (Action WorldState a)
 -- ** Generator Helper
 
 genSeed :: Gen (Action WorldState ())
-genSeed = Seed <$> resize maximumNumberOfParties partyKeys <*> genContestationPeriod
+genSeed = do
+  seedKeys <- resize maximumNumberOfParties partyKeys
+  seedContestationPeriod <- genContestationPeriod
+  toCommit <- mconcat <$> mapM genToCommit seedKeys
+  pure $ Seed{seedKeys, seedContestationPeriod, toCommit}
+
+genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
+genToCommit (hk, ck) = do
+  value <- genAdaValue
+  pure $ Map.singleton (deriveParty hk) [(ck, value)]
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
@@ -361,13 +376,14 @@ genPayment WorldState{hydraParties, hydraState} =
 unsafeConstructorName :: (Show a) => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
 
--- |Generate a list of pairs of Hydra/Cardano signing keys.
--- All the keys in this list are guaranteed to be unique.
+-- | Generate a list of pairs of Hydra/Cardano signing keys.
+--  All the keys in this list are guaranteed to be unique.
 partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
 partyKeys =
   sized $ \len -> do
-    hks <- nub <$> vectorOf len arbitrary
-    cks <- nub . fmap CardanoSigningKey <$> vectorOf len genSigningKey
+    numParties <- choose (1, len)
+    hks <- nub <$> vectorOf numParties arbitrary
+    cks <- nub . fmap CardanoSigningKey <$> vectorOf numParties genSigningKey
     pure $ zip hks cks
 
 -- * Running the model
@@ -457,8 +473,8 @@ instance
 
   perform st action _ = do
     case action of
-      Seed{seedKeys, seedContestationPeriod} ->
-        seedWorld seedKeys seedContestationPeriod
+      Seed{seedKeys, seedContestationPeriod, toCommit} ->
+        seedWorld seedKeys seedContestationPeriod toCommit
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
@@ -502,13 +518,14 @@ seedWorld ::
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
+  Uncommitted ->
   RunMonad m ()
-seedWorld seedKeys seedCP = do
+seedWorld seedKeys seedCP futureCommits = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
     lift $
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys seedCP
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys seedCP (foldMap toRealUTxO $ Map.elems futureCommits)
   pushThread tickThread
 
   clients <- forM seedKeys $ \(hsk, _csk) -> do
@@ -550,13 +567,7 @@ performCommit parties party paymentUTxO = do
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> do
-      let realUTxO =
-            UTxO.fromPairs $
-              [ (mkMockTxIn vk ix, txOut)
-              | (ix, (CardanoSigningKey sk, val)) <- zip [0 ..] paymentUTxO
-              , let vk = getVerificationKey sk
-              , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
-              ]
+      let realUTxO = toRealUTxO paymentUTxO
       lift $ simulateCommit (party, realUTxO)
       observedUTxO <-
         lift $
@@ -582,6 +593,15 @@ performCommit parties party paymentUTxO = do
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
+
+toRealUTxO :: [(CardanoSigningKey, Value)] -> UTxO
+toRealUTxO paymentUTxO =
+  UTxO.fromPairs $
+    [ (mkMockTxIn vk ix, txOut)
+    | (ix, (CardanoSigningKey sk, val)) <- zip [0 ..] paymentUTxO
+    , let vk = getVerificationKey sk
+    , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
+    ]
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
