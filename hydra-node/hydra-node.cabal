@@ -168,6 +168,8 @@ library
     , modern-uri
     , network
     , network-mux
+    , network-transport
+    , network-transport-tcp
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
