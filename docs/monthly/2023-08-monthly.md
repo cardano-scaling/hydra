@@ -1,7 +1,7 @@
 ---
 title: August 2023
 slug: 2023-08
-authors: [ch1bo, abailly, v0d1ch, ffakenz, locallycompact, pgrange]
+authors: [pgrange, v0d1ch, ffakenz, ch1bo]
 tags: [monthly]
 ---
 
