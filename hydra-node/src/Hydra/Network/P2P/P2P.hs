@@ -5,39 +5,20 @@ module Hydra.Network.P2P.P2P where
 import Hydra.Prelude hiding (Proxy, atomically, get, handle, put)
 
 import Cardano.Binary (toStrictByteString)
+import Cardano.Prelude (MVar, async, decodeUtf8, newEmptyMVar, putMVar, readMVar)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Control.Concurrent.STM (TChan, atomically, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List
+import Data.Map ((!))
+import qualified Data.Map.Strict as Map
 import Data.Text (unpack)
 import Hydra.Logging (Tracer, traceWith)
 import qualified Hydra.Network as HN
-import Network.Socket (
-  AddrInfo (addrFlags, addrSocketType),
-  AddrInfoFlag (..),
-  HostName,
-  ServiceName,
-  Socket,
-  SocketOption (ReuseAddr),
-  SocketType (Stream),
-  accept,
-  addrAddress,
-  bind,
-  close,
-  connect,
-  defaultHints,
-  getAddrInfo,
-  gracefulClose,
-  listen,
-  openSocket,
-  setCloseOnExecIfNeeded,
-  setSocketOption,
-  withFdSocket,
-  withSocketsDo,
- )
-import Network.Socket.ByteString (recv, sendAll)
-import Cardano.Prelude (async)
+import Network.Socket (withSocketsDo)
+import Network.Transport
+import Network.Transport.TCP (createTransport, defaultTCPAddr, defaultTCPParameters)
 
 data P2PLog msg
   = P2PLog
@@ -50,78 +31,105 @@ data P2PLog msg
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-runServer :: Tracer IO (P2PLog msg) -> Maybe HostName -> ServiceName -> (Socket -> IO a) -> IO a
-runServer tracer mhost port server = withSocketsDo $ do
-  addr <- resolve
-  bracket (open addr) onClose loop
- where
-  onClose s = do
-    traceWith tracer (P2PServerDisconnected $ show s)
-    close s
-  resolve = do
-    let hints =
-          defaultHints
-            { addrFlags = [AI_PASSIVE]
-            , addrSocketType = Stream
-            }
-    serverAddresses <- getAddrInfo (Just hints) mhost (Just port)
-    case serverAddresses of
-      [addr] -> return addr
-      _ -> error "Could not resolve server address"
-  open addr = bracketOnError (openSocket addr) onClose $ \sock -> do
-    setSocketOption sock ReuseAddr 1
-    withFdSocket sock setCloseOnExecIfNeeded
-    bind sock $ addrAddress addr
-    listen sock 1024
-    return sock
-  loop sock = forever $
-    bracketOnError (accept sock) (close . fst) $
-      \(conn, _peer) ->
-        do
-          traceWith tracer (P2PServerConnected $ "Server connected: " <> show sock)
-          server conn
-          `finally` gracefulClose conn 5000
-
-runClient :: Tracer IO (P2PLog msg) -> HostName -> ServiceName -> (Socket -> IO a) -> IO a
-runClient tracer host port client = withSocketsDo $ do
-  addr <- resolve
-  bracket (open addr) onClose client
- where
-  onClose s = do
-    traceWith tracer (P2PClientDisconnected $ "Closed client connection: " <> show s)
-    close s
-  resolve = do
-    let hints = defaultHints{addrSocketType = Stream}
-    Data.List.head <$> getAddrInfo (Just hints) (Just host) (Just port)
-  open addr = bracketOnError (openSocket addr) onClose $ \sock -> do
-    traceWith tracer (P2PClientConnected $ "Trying to open addr client: " <> show addr)
-    connect sock $ addrAddress addr
-    return sock
-
-connectClient :: ToCBOR msg => HN.Host -> Tracer IO (P2PLog msg) -> IO (TChan msg) -> IO ()
-connectClient host tracer newChannel = do
-  traceWith tracer (P2PClientConnected $ "Client trying to connect: " <> show hostname)
-  runClient tracer (unpack hostname) (show port) $ \s -> do
-    traceWith tracer (P2PClientConnected $ "Connection established to " ++ (show hostname <> ":" <> show port))
-    chan <- newChannel
-    msg <- atomically (readTChan chan)
-    sendAll s (toStrictByteString (toCBOR msg))
+remoteServerAddr :: HN.Host -> Tracer IO (P2PLog msg) -> IO EndPointAddress
+remoteServerAddr host tracer = withSocketsDo $ do
+  etransport <- createTransport (defaultTCPAddr (unpack hostname) (show port)) defaultTCPParameters
+  case etransport of
+    Left _ -> traceWith tracer (P2PServerDisconnected $ "Failed to create transport") >> error ""
+    Right transport -> do
+      eendpoint <- newEndPoint transport
+      case eendpoint of
+        Left _ -> traceWith tracer (P2PServerDisconnected $ "Failed to create endpoint") >> error ""
+        Right endpoint -> pure $ address endpoint
  where
   HN.Host{HN.hostname, HN.port} = host
 
 spawnServer :: forall msg. FromCBOR msg => HN.Host -> Tracer IO (P2PLog msg) -> HN.NetworkCallback msg IO -> IO ()
-spawnServer host tracer callback = do
-  traceWith tracer (P2PServerConnected $ "Spawn server on: " <> show hostname)
-  runServer tracer (Just $ unpack hostname) (show port) talk
+spawnServer host tracer callback = withSocketsDo $ do
+  etransport <- createTransport (defaultTCPAddr (unpack hostname) (show port)) defaultTCPParameters
+  case etransport of
+    Left _ -> traceWith tracer (P2PServerDisconnected $ "Failed to create transport") >> error ""
+    Right transport -> do
+      eendpoint <- newEndPoint transport
+      case eendpoint of
+        Left _ -> traceWith tracer (P2PServerDisconnected $ "Failed to create endpoint") >> error ""
+        Right endpoint -> do
+          serverClosed <- newEmptyMVar
+          void $ async $ networkServer endpoint serverClosed
+          traceWith tracer (P2PServerConnected $ "Network server started at " ++ show (address endpoint))
+ where
+  networkServer endpoint serverDone =
+    go Map.empty
+   where
+    go :: Map ConnectionId (MVar Connection) -> IO ()
+    go cs = do
+      traceWith tracer (P2PServerConnected "Staring server async")
+      event <- receive endpoint
+      traceWith tracer (P2PServerConnected "After receive event")
+      case event of
+        ConnectionOpened cid rel addr -> do
+          traceWith tracer (P2PServerConnected "Connection opened")
+          connMVar <- newEmptyMVar
+          void $ async $ do
+            Right conn <- connect endpoint addr rel defaultConnectHints
+            putMVar connMVar conn
+          go (insert cid connMVar cs)
+        Received _cid bytes -> do
+          void $ async $ do
+            case deserialiseFromBytes (fromCBOR @msg) (LBS.fromStrict $ Data.List.head bytes) of
+              Left err -> traceWith tracer (P2PDecodeFailure $ show err)
+              Right (_, msg) -> traceWith tracer (P2PReceived msg) >> callback msg >> go cs
+        ConnectionClosed cid -> do
+          traceWith tracer (P2PServerDisconnected "Connection closed")
+          void $ async $ do
+            conn <- readMVar (cs ! cid)
+            close conn
+          go (delete cid cs)
+        EndPointClosed -> do
+          traceWith tracer (P2PServerDisconnected "server exiting")
+          putMVar serverDone ()
+        ReceivedMulticast{} -> traceWith tracer (P2PServerDisconnected "Multicast")
+        ErrorEvent{} -> traceWith tracer (P2PServerDisconnected "ErrorEvent")
+
+  HN.Host{HN.hostname, HN.port} = host
+
+tryConnect :: Int -> HN.Host -> Tracer IO (P2PLog msg) -> EndPointAddress -> IO (Either () Connection)
+tryConnect n host tracer serverAddress =
+  if n == 0
+    then do
+      traceWith tracer (P2PClientDisconnected "Client failed to connect!")
+      pure $ Left ()
+    else do
+      Right transport <- createTransport (defaultTCPAddr (unpack hostname) (show port)) defaultTCPParameters
+      Right endpoint <- newEndPoint transport
+      econn <- connect endpoint serverAddress ReliableOrdered defaultConnectHints
+      case econn of
+        Left _ -> do
+          traceWith tracer (P2PClientDisconnected "Client reconnecting")
+          threadDelay 1000000
+          tryConnect (n - 1) host tracer serverAddress
+        Right conn -> pure $ Right conn
  where
   HN.Host{HN.hostname, HN.port} = host
-  talk connectionSocket = do
-    traceWith tracer (P2PClientConnected $ "TCP connection established from " ++ (show hostname <> ":" <> show port))
-    bytes <- recv connectionSocket 1024
-    unless (BS.null bytes) $
-      case deserialiseFromBytes (fromCBOR @msg) (LBS.fromStrict bytes) of
-        Left err -> traceWith tracer (P2PDecodeFailure $ show err)
-        Right (_, msg) -> traceWith tracer (P2PReceived msg) >> callback msg
+
+connectClient :: ToCBOR msg => HN.Host -> Tracer IO (P2PLog msg) -> IO (TChan msg) -> EndPointAddress -> IO ()
+connectClient host tracer newChannel serverAddress = withSocketsDo $ do
+  econn <- tryConnect 5 host tracer serverAddress
+  case econn of
+    Left _ -> traceWith tracer (P2PClientConnected $ "Failed to connect to server" <> show serverAddress)
+    Right conn -> do
+      traceWith tracer (P2PClientConnected "Client connected")
+      chan <- newChannel
+      traceWith tracer (P2PClientConnected "Reading message from queue")
+      readAndSend conn chan
+ where
+  readAndSend conn chan = do
+    msg <- atomically (readTChan chan)
+    traceWith tracer (P2PClientConnected $ "Read message " <> C8.unpack (toStrictByteString (toCBOR msg)))
+    sendResult <- send conn [toStrictByteString (toCBOR msg)]
+    case sendResult of
+      Left e -> traceWith tracer (P2PClientConnected "Failed to send a message to the server") >> threadDelay 1000000 >> readAndSend conn chan
+      Right _ -> traceWith tracer (P2PClientConnected "Sent message from client") >> threadDelay 1000000 >> readAndSend conn chan
 
 withP2PNetwork ::
   (ToCBOR msg, FromCBOR msg) =>
@@ -136,11 +144,12 @@ withP2PNetwork tracer localHost remoteHosts networkCallback between = withSocket
  where
   doIt = do
     bchan <- newBroadcastTChanIO
-    withAsync (spawnServer localHost tracer networkCallback) $ \_ahandle ->
-      withAsync (connectAllClients bchan) $ \_cHandle ->
-        void $ async (between $ HN.Network{HN.broadcast = atomically . writeTChan bchan})
+    withAsync (spawnServer localHost tracer networkCallback) $ \_ ->
+      withAsync (connectAllClients bchan) $ \_ ->
+        between $ HN.Network{HN.broadcast = atomically . writeTChan bchan}
 
   connectAllClients chan =
-    forM_ remoteHosts $ \client -> do
+    forM_ remoteHosts $ \server -> do
       let newChannel = atomically $ dupTChan chan
-      connectClient client tracer newChannel
+      serverAddress <- remoteServerAddr server tracer
+      connectClient server tracer newChannel serverAddress
