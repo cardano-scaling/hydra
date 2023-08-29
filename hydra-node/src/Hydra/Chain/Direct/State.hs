@@ -141,11 +141,33 @@ data ChainStateAt = ChainStateAt
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
 
+data ChainChangedAt = ChainChangedAt
+  { chainState :: ChainState
+  , recordedAt :: Maybe ChainPoint
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary ChainChangedAt where
+  arbitrary = genericArbitrary
+
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
+  type ChainChanged Tx = ChainChangedAt
 
   chainStateSlot ChainStateAt{recordedAt} =
     maybe (ChainSlot 0) chainSlotFromPoint recordedAt
+
+  chainStateChanged ChainStateAt{chainState, recordedAt} =
+    ChainChangedAt{chainState, recordedAt}
+
+  chainChangedAt ChainChangedAt{recordedAt} = recordedAt
+
+  aggregateChainState previous chainChanged@ChainChangedAt{chainState} =
+    ChainStateAt
+      { chainState
+      , recordedAt = chainChangedAt chainChanged
+      , previous = Just previous
+      }
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.

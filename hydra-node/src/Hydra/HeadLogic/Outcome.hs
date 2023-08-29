@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Chain (ChainChanged, ChainStateType, HeadId, HeadParameters, IsChainState (ChainStateType), PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -35,6 +35,7 @@ deriving instance (IsChainState tx) => FromJSON (Effect tx)
 instance
   ( IsTx tx
   , Arbitrary (ChainStateType tx)
+  , Arbitrary (ChainChanged tx)
   ) =>
   Arbitrary (Effect tx)
   where
@@ -45,16 +46,16 @@ instance
 data StateChanged tx
   = HeadInitialized
       { parameters :: HeadParameters
-      , chainState :: ChainStateType tx
+      , chainChanged :: ChainChanged tx
       , headId :: HeadId
       }
   | CommittedUTxO
       { party :: Party
       , committedUTxO :: UTxOType tx
-      , chainState :: ChainStateType tx
+      , chainChanged :: ChainChanged tx
       }
-  | HeadAborted {chainState :: ChainStateType tx}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | HeadAborted {chainChanged :: ChainChanged tx}
+  | HeadOpened {chainChanged :: ChainChanged tx, initialUTxO :: UTxOType tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
@@ -72,20 +73,20 @@ data StateChanged tx
   | TransactionReceived {tx :: tx}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadClosed {chainChanged :: ChainChanged tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
-  | HeadFannedOut {chainState :: ChainStateType tx}
-  | ChainRolledBack {chainState :: ChainStateType tx}
+  | HeadFannedOut {chainChanged :: ChainChanged tx}
+  | ChainRolledBack {chainChanged :: ChainChanged tx}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 
-instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
+instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainChanged tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving instance (IsTx tx, Eq (HeadState tx), Eq (ChainChanged tx)) => Eq (StateChanged tx)
+deriving instance (IsTx tx, Show (HeadState tx), Show (ChainChanged tx)) => Show (StateChanged tx)
+deriving instance (IsTx tx, ToJSON (ChainChanged tx)) => ToJSON (StateChanged tx)
+deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainChanged tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = Effects {effects :: [Effect tx]}
@@ -103,7 +104,10 @@ deriving instance (IsChainState tx) => Show (Outcome tx)
 deriving instance (IsChainState tx) => ToJSON (Outcome tx)
 deriving instance (IsChainState tx) => FromJSON (Outcome tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
+instance
+  (IsTx tx, Arbitrary (ChainChanged tx), Arbitrary (ChainStateType tx)) =>
+  Arbitrary (Outcome tx)
+  where
   arbitrary = genericArbitrary
 
 collectEffects :: Outcome tx -> [Effect tx]

@@ -20,7 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, HeadParameters (..), IsChainState, PostTxError)
+import Hydra.Chain (Chain (..), ChainChanged, ChainStateType, HeadParameters (..), IsChainState, PostTxError)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (AsType (AsHydraKey))
@@ -141,7 +141,10 @@ deriving instance (IsChainState tx) => Show (HydraNodeLog tx)
 deriving instance (IsChainState tx) => ToJSON (HydraNodeLog tx)
 deriving instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
+instance
+  (IsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainChanged tx)) =>
+  Arbitrary (HydraNodeLog tx)
+  where
   arbitrary = genericArbitrary
 
 runHydraNode ::

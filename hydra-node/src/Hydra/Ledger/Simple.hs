@@ -94,8 +94,12 @@ instance Arbitrary SimpleChainState where
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
+  type ChainChanged SimpleTx = SimpleChainState
 
   chainStateSlot SimpleChainState{slot} = slot
+  chainStateChanged = id
+  chainChangedAt = error "unexpected call to chainChangedAt"
+  aggregateChainState _ c = c
 
 --
 -- MockTxIn

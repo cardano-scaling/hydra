@@ -38,6 +38,8 @@ import Hydra.Chain (
   IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
+  aggregateChainState,
+  chainStateChanged,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
@@ -121,7 +123,8 @@ onIdleClientInit env =
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
-  -- | New chain state.
+  -- \| New chain state.
+  IsChainState tx =>
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
@@ -131,7 +134,7 @@ onIdleChainInitTx newChainState parties contestationPeriod headId =
   StateChanged
     ( HeadInitialized
         { parameters = HeadParameters{contestationPeriod, parties}
-        , chainState = newChainState
+        , chainChanged = chainStateChanged newChainState
         , headId
         }
     )
@@ -143,7 +146,7 @@ onIdleChainInitTx newChainState parties contestationPeriod headId =
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialChainCommitTx ::
-  Monoid (UTxOType tx) =>
+  (IsChainState tx) =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -153,7 +156,7 @@ onInitialChainCommitTx ::
   UTxOType tx ->
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
-  StateChanged CommittedUTxO{party = pt, committedUTxO = utxo, chainState = newChainState}
+  StateChanged CommittedUTxO{party = pt, committedUTxO = utxo, chainChanged = chainStateChanged newChainState}
     <> Effects
       ( notifyClient
           : [postCollectCom | canCollectCom]
@@ -192,14 +195,13 @@ onInitialClientAbort st =
 --
 -- __Transition__: 'InitialState' → 'IdleState'
 onInitialChainAbortTx ::
-  Monoid (UTxOType tx) =>
-  -- | New chain state
+  (IsChainState tx) =>
   ChainStateType tx ->
   Committed tx ->
   HeadId ->
   Outcome tx
 onInitialChainAbortTx newChainState committed headId =
-  StateChanged HeadAborted{chainState = newChainState}
+  StateChanged HeadAborted{chainChanged = chainStateChanged newChainState}
     <> Effects [ClientEffect $ ServerOutput.HeadIsAborted{headId, utxo = fold committed}]
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -214,7 +216,7 @@ onInitialChainCollectTx ::
   ChainStateType tx ->
   Outcome tx
 onInitialChainCollectTx st newChainState =
-  StateChanged HeadOpened{chainState = newChainState, initialUTxO = u0}
+  StateChanged HeadOpened{chainChanged = chainStateChanged newChainState, initialUTxO = u0}
     <> Effects [ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0}]
  where
   u0 = fold committed
@@ -545,6 +547,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  IsChainState tx =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -554,7 +557,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  StateChanged HeadClosed{chainState = newChainState, contestationDeadline}
+  StateChanged HeadClosed{chainChanged = chainStateChanged newChainState, contestationDeadline}
     <> Effects
       ( notifyClient
           : [ OnChainEffect
@@ -626,13 +629,14 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  IsChainState tx =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   StateChanged
-    HeadFannedOut{chainState = newChainState}
+    HeadFannedOut{chainChanged = chainStateChanged newChainState}
     <> Effects [ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo}]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
@@ -704,7 +708,7 @@ update env ledger st ev = case (st, ev) of
     onClosedChainFanoutTx closedState newChainState
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
-    StateChanged ChainRolledBack{chainState = rolledBackChainState}
+    StateChanged ChainRolledBack{chainChanged = chainStateChanged rolledBackChainState}
   (_, OnChainEvent Tick{chainSlot}) ->
     StateChanged (TickObserved{chainSlot})
   (_, PostTxError{postChainTx, postTxError}) ->
@@ -719,16 +723,16 @@ update env ledger st ev = case (st, ev) of
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: (IsChainState tx) => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
+  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainChanged} ->
     Initial
       InitialState
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState
+        , chainState = aggregateChainState (getChainState st) chainChanged
         , headId
         }
-  CommittedUTxO{committedUTxO, chainState, party} ->
+  CommittedUTxO{committedUTxO, chainChanged, party} ->
     case st of
       Initial InitialState{parameters, pendingCommits, committed, headId} ->
         Initial
@@ -736,7 +740,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState
+            , chainState = aggregateChainState (getChainState st) chainChanged
             , headId
             }
        where
@@ -804,8 +808,12 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  HeadAborted{chainState} -> Idle $ IdleState{chainState}
-  HeadClosed{chainState, contestationDeadline} ->
+  HeadAborted{chainChanged} ->
+    Idle $
+      IdleState
+        { chainState = aggregateChainState (getChainState st) chainChanged
+        }
+  HeadClosed{chainChanged, contestationDeadline} ->
     case st of
       Open
         OpenState
@@ -822,32 +830,37 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState
+              , chainState = aggregateChainState (getChainState st) chainChanged
               , headId
               }
       _otherState -> st
-  HeadFannedOut{chainState} ->
+  HeadFannedOut{chainChanged} ->
     case st of
-      Closed _ -> Idle $ IdleState{chainState}
+      Closed _ ->
+        Idle $
+          IdleState
+            { chainState = aggregateChainState (getChainState st) chainChanged
+            }
       _otherState -> st
-  HeadOpened{chainState, initialUTxO} ->
+  HeadOpened{chainChanged, initialUTxO} ->
     case st of
       Initial InitialState{parameters, headId} ->
-        Open
-          OpenState
-            { parameters
-            , coordinatedHeadState =
-                CoordinatedHeadState
-                  { localUTxO = initialUTxO
-                  , allTxs = mempty
-                  , localTxs = mempty
-                  , confirmedSnapshot = InitialSnapshot{initialUTxO}
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-            , chainState
-            , headId
-            , currentSlot = chainStateSlot chainState
-            }
+        let chainState = aggregateChainState (getChainState st) chainChanged
+         in Open
+              OpenState
+                { parameters
+                , coordinatedHeadState =
+                    CoordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , allTxs = mempty
+                      , localTxs = mempty
+                      , confirmedSnapshot = InitialSnapshot{initialUTxO}
+                      , seenSnapshot = NoSeenSnapshot
+                      }
+                , chainState = aggregateChainState (getChainState st) chainChanged
+                , headId
+                , currentSlot = chainStateSlot chainState
+                }
       _otherState -> st
   SnapshotConfirmed{snapshot, signatures} ->
     case st of
@@ -888,7 +901,9 @@ aggregate st = \case
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
-  ChainRolledBack{chainState} -> setChainState chainState st
+  ChainRolledBack{chainChanged} ->
+    let chainState = aggregateChainState (getChainState st) chainChanged
+     in setChainState chainState st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}

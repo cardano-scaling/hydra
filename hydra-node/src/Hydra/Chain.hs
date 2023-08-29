@@ -20,6 +20,7 @@ import Data.List (nub)
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  ChainPoint,
   CtxUTxO,
   HasTypeProxy (..),
   Lovelace (..),
@@ -176,18 +177,30 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) 
 class
   ( IsTx tx
   , Eq (ChainStateType tx)
+  , Eq (ChainChanged tx)
   , Show (ChainStateType tx)
+  , Show (ChainChanged tx)
   , FromJSON (ChainStateType tx)
+  , FromJSON (ChainChanged tx)
   , ToJSON (ChainStateType tx)
+  , ToJSON (ChainChanged tx)
   ) =>
   IsChainState tx
   where
   -- | Types of what to keep as L1 chain state.
   type ChainStateType tx = c | c -> tx
 
+  type ChainChanged tx = c | c -> tx
+
   -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
+
+  chainStateChanged :: ChainStateType tx -> ChainChanged tx
+
+  chainChangedAt :: ChainChanged tx -> Maybe ChainPoint
+
+  aggregateChainState :: ChainStateType tx -> ChainChanged tx -> ChainStateType tx
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
