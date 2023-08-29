@@ -72,21 +72,6 @@ led to improvements to our on-chain scripts efficiency.
 
 TODO: how much?
 
-#### Authenticated messages [#727](https://github.com/input-output-hk/hydra/pull/727)
-
-The Hydra Head protocol had to be immune from adversaries trying to
-impersonate protocol actors via the L2 network. Otherwise an attacker
-could, for example, forge ReqSn messages to make the Head stuck (because they
-likely will not be consistent with other messages delivered).
-
-Note, however, that an attacker would not be able to sign snapshots nor create
-valid layer 2 transactions to spend funds even without any authenticated messages
-because both require the respective signing (private) keys.
-
-The HydraV1 specification expects messages to be authenticated. We implemented that
-by inserting a new authentication component in our network stack. All messages have
-now to be signed with the hydra signing key of the peer sending it.
-
 #### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/913)
 
 We want the hydra-node to be efficient in processing events to yield high throughput on processing transactions.
@@ -108,7 +93,7 @@ This release also includes some nice changes to the Hydra API. We added the
 [endpoint](https://github.com/input-output-hk/hydra/pull/1001) to submit a
 transaction to the L1 network. This feature is trying to improve developer
 experience and it seemed like a nice addition for anybody developing on Hydra
-since they already have hydra-node running and don't need to run cardano-node
+since they already have hydra-node running and don't need to run `cardano-node`
 on the client side to be able to submit transactions.
 
 There is another new
