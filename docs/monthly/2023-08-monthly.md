@@ -127,53 +127,66 @@ the Head operator beforehand.
 
 ## Community
 
-### Hydra master-class
+#### Hydra master-class at RareEvo
 
-We already mentioned our intention to have an educational session at the upcoming
-Rare Evo event. The Preparation is still in progress and we fear we might have
-some network connectivity challenges but here are some practical information:
+We were happy to run a Hydra master-class session at RareEvo 2023. The session
+attracted 30+ attendees for the introductory parts including a presentation on
+Hydra & Mithril. About 10-15 participants remained for the practical part and
+following discussion.
 
-- Saturday, August 26, 9:30-12:30 MDT / 15:30-18:30 UTC
-- About 40 people registered for on-site event
-- Planning to stream it on #hydra-live
-- Planning to support people on #ask-hydra on the [IOG Discord](https://discord.gg/Qq5vNTg9PT)
+We also streamed the event live on Discord, but were not able to interact much
+there. The responses were positive though and we should be doing more things in
+the public on this #hydra-live channel.
 
-### Catalyst Fund10
+While multiple participants achieved to use Mithril and synchronize a preprod
+cardano-node, two teams successfully opened Hydra heads, transacted funds in
+them and closed them again. The biggest challenges were (as expected)
+installation and networking and next time we make sure to bring prebuilt
+binaries for a wider range of platforms.
+
+#### Catalyst Fund10
 
 The team screened all the proposals mentioning Hydra and
-[Mithril](https://mithril.network/doc/). We submitted eleven community reviews and
+[Mithril](https://mithril.network/doc/). We submitted 11 community reviews and
 noticed, in particular, the following proposals:
 
 - [Sundae Labs Hydra Ledger-only Mode](https://cardano.ideascale.com/c/idea/102138)
 - [Sundae Labs Hydra Transaction Stream Plugin](https://cardano.ideascale.com/c/idea/102200)
-- [Hydra as a B2B layer for DeFi- a white paper and a MVP](https://cardano.ideascale.com/c/idea/101626)
+- [Hydra as a B2B layer for DeFi - a white paper and a MVP](https://cardano.ideascale.com/c/idea/101626)
 - [Decentralized Demeter.run - Federated Frontend Hosting - New revenue stream for SPOs](https://cardano.ideascale.com/c/idea/104411)
 - [Mithril - Open-source contributor](https://cardano.ideascale.com/c/idea/105113)
 
-[Sundae Labs Hydra Ledger-only Mode](https://cardano.ideascale.com/c/idea/102138)
-proposes a Hydra node which would only receive and validate transactions, and
-maintain a ledger state but not run a head per se. It should allow many useful scenarios:
-
-- Run the ledger validation as a component in a larger layer-2 protocol
-- Scenario testing frameworks
-- Speculative execution
-
-An ADR is under review on our github project:
-<https://github.com/input-output-hk/hydra/pull/1012>
-
-[Sundae Labs Hydra Transaction Stream Plugin](https://cardano.ideascale.com/c/idea/102200)
-will expose internal hydra event stream to external consumers. This should allow:
-
-- Custom Persistence formats
-- Chain-explorers
-- Chain indexing integration with existing ecosystem tools
-
 ## Conclusion
 
-The monthly review meeting for Aug was held on 2023-08-23 via Google Meet with
-these [slides][slides] and here is the [recording][recording].
+The monthly review meeting for August 2023 was held on 2023-08-23 via Google
+Meet with these [slides][slides] and here is the [recording][recording] .. this
+time "broadcasting live from warm & sunny Colorado"!
 
-<!-- TODO @sebastian ? -->
+It has been an interesting & unusal month. Some of the team had been in
+Longmont, CO to prepare for the RareEvo event and we used the chance to have the
+meeting in a hybrid setting with some IO stakeholders attending live on-site and
+about 20 community members on-line.
+
+This time, the demo was about the updated tutorial and demonstrating the full
+setup of cardano-node, opening a Hydra head on `preprod` network and submitting
+transactions off-chain in 15 minutes!
+
+Notable feedback we got was about whether, when and how the Head protocol is
+going to be audited. While we will have an internal audit, which is already
+helping us hardening the protocol, there will be no big external audit being
+funded. We also had the chance to look into and learn about some Catalyst Fund10
+proposals involving Hydra. Hopefully some or all of them get funded and we are
+looking forward to put Hydrazoa concept to test, realize ledger-mode operation,
+enable federated Heads besides other things.
+
+At the RareEvo event, we had the chance to meet and discuss with various people
+from the community. This ranges from known Hydra collaborators, over tech-savvy
+stake pool operators, to representatives of successful applications running on
+Cardano in need for scaling like [book.io](https://book.io/).
+
+Also with a new full-time contributor on-board, we are keen to add more
+functionality while first applications ready up to utilize Hydra in production
+on mainnet.
 
 [slides]: https://docs.google.com/presentation/d/1MrCeUsYb3FQk7aCwMZdQs8mc5BfLOIjkK9gcWzgDdDc/edit#slide=id.g1f87a7454a5_0_1392
 [recording]: https://drive.google.com/file/d/14pDsf0hDyh9HK8sCSMmkmT8gY8YxgOQ8/view
