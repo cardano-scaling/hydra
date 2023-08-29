@@ -2,15 +2,12 @@ module Main where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient)
-import Network.HTTP.Types.Header (HeaderName)
-import Network.HTTP.Types.Status (status200, status404, status500)
+import Network.HTTP.Types.Status (status200, status400, status404)
 import Network.Wai (
   Application,
-  Response,
   pathInfo,
   requestMethod,
   responseFile,
@@ -23,14 +20,15 @@ import Safe (readMay)
 
 main :: IO ()
 main = do
-  key <- fromMaybe (error "set HYDRAW_CARDANO_SIGNING_KEY environment variable") <$> lookupEnv "HYDRAW_CARDANO_SIGNING_KEY"
-  host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
-  network <- parseNetwork <$> lookupEnv "HYDRAW_NETWORK"
-  withClient host $ \cnx -> do
-    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
-      & Warp.runSettings settings
+  key <- requireEnv "HYDRAW_CARDANO_SIGNING_KEY"
+  host <- parseHost =<< requireEnv "HYDRA_API_HOST"
+  network <- parseNetwork =<< requireEnv "HYDRAW_NETWORK"
+  withClient host $ \cnx ->
+    Warp.runSettings settings $
+      Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
  where
   port = 1337
+
   settings =
     Warp.defaultSettings
       & Warp.setPort port
@@ -40,77 +38,67 @@ main = do
             putStrLn "Server started..."
             putStrLn $ "Listening on: tcp/" <> show port
         )
-  -- in case expected network string is not set default to `Testnet (NetworkMagic 42)`
-  parseNetwork mStr =
-    case mStr of
-      Nothing -> Testnet (NetworkMagic 42)
-      Just i ->
-        -- try to parse magic number and if it fails just default to 'Mainnet'
-        case readMaybe i :: Maybe Word32 of
-          Nothing -> Mainnet
-          Just m -> Testnet (NetworkMagic m)
+
+  parseHost str =
+    case readHost str of
+      Nothing -> fail $ "Could not parse host address: " <> str
+      Just host -> pure host
+
+  -- Like cardano-cli: "mainnet" or a number for a given testnet network magic.
+  parseNetwork str =
+    case parseMainnet str <|> parseTestnetMagic str of
+      Nothing -> fail $ "Could not parse network id: " <> str <> " (Expected 'mainnet' or a number)"
+      Just nid -> pure nid
+
+  parseMainnet str = Mainnet <$ guard (str == "mainnet")
+
+  parseTestnetMagic = fmap (Testnet . NetworkMagic) . readMaybe
+
+-- | Like 'lookupEnv' but terminate program with a message if environment
+-- variable is not set.
+requireEnv :: String -> IO String
+requireEnv name =
+  lookupEnv name >>= \case
+    Just value -> pure value
+    Nothing -> die $ "Error: Required environment variable " <> name <> " not set"
 
 websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
-  qA <- newTQueueIO
-  qB <- newTQueueIO
-
-  cnx <- WS.acceptRequest pendingConnection
-  concurrently_
-    (producer cnx (atomically . writeTQueue qA) (atomically (readTQueue qB)))
-    (consumer (atomically . writeTQueue qB) (atomically (readTQueue qA)))
- where
-  consumer yield await =
-    withClient host $ \cnx ->
-      concurrently_
-        (forever $ await >>= WS.send cnx)
-        (forever $ WS.receive cnx >>= yield)
-
-  producer cnx yield await =
+  frontend <- WS.acceptRequest pendingConnection
+  withClient host $ \backend ->
     concurrently_
-      (forever $ await >>= WS.send cnx)
-      (forever $ WS.receive cnx >>= yield)
+      (forever $ WS.receive frontend >>= WS.send backend)
+      (forever $ WS.receive backend >>= WS.send frontend)
 
 httpApp :: NetworkId -> FilePath -> WS.Connection -> Application
 httpApp networkId key cnx req send =
   case (requestMethod req, pathInfo req) of
-    ("HEAD", _) -> do
-      send $
-        responseLBS status200 corsHeaders ""
+    ("GET", "paint" : args) -> do
+      case traverse (readMay . toString) args of
+        Just [x, y, red, green, blue] -> do
+          putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
+          paintPixel networkId key cnx Pixel{x, y, red, green, blue}
+          send $ responseLBS status200 corsHeaders "OK"
+        _ ->
+          send handleError
+    ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
+    -- Statically serve files
     ("GET", []) -> send $ handleFile "index.html"
     ("GET", ["index.html"]) -> send $ handleFile "index.html"
     ("GET", ["bundle.js"]) -> send $ handleFile "bundle.js"
     ("GET", ["style.css"]) -> send $ handleFile "style.css"
     ("GET", ["logo.png"]) -> send $ handleFile "logo.png"
-    ("GET", "paint" : args) -> do
-      case traverse (readMay . toString) args of
-        Just [x, y, r, g, b] ->
-          send =<< handleGetPaint networkId key cnx (x, y) (r, g, b)
-        _ ->
-          send handleError
-    (_, _) ->
+    _ ->
       send handleNotFound
+ where
+  handleError = responseLBS status400 corsHeaders "INVALID REQUEST"
 
-handleGetPaint :: NetworkId -> FilePath -> WS.Connection -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
-handleGetPaint networkId key cnx (x, y) (red, green, blue) = do
-  putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-  paintPixel networkId key cnx Pixel{x, y, red, green, blue}
-  pure $ responseLBS status200 corsHeaders "OK"
+  handleNotFound = responseLBS status404 corsHeaders "NOT FOUND"
 
-handleError :: Response
-handleError =
-  responseLBS status500 corsHeaders "INVALID REQUEST"
+  handleFile filepath = responseFile status200 corsHeaders filepath Nothing
 
-handleNotFound :: Response
-handleNotFound =
-  responseLBS status404 corsHeaders "NOT FOUND"
-
-handleFile :: FilePath -> Response
-handleFile filepath = responseFile status200 corsHeaders filepath Nothing
-
-corsHeaders :: [(HeaderName, ByteString)]
-corsHeaders =
-  [ ("Access-Control-Allow-Origin", "*")
-  , ("Access-Control-Allow-Methods", "*")
-  , ("Access-Control-Allow-Headers", "*")
-  ]
+  corsHeaders =
+    [ ("Access-Control-Allow-Origin", "*")
+    , ("Access-Control-Allow-Methods", "*")
+    , ("Access-Control-Allow-Headers", "*")
+    ]

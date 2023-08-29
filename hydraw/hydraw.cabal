@@ -56,7 +56,6 @@ library
   build-depends:
     , aeson
     , base
-    , containers
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -73,7 +72,6 @@ executable hydraw
     , hydra-node
     , hydra-prelude
     , hydraw
-    , io-classes
     , safe
     , wai
     , wai-websockets
