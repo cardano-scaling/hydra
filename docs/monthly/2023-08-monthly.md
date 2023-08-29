@@ -74,55 +74,56 @@ TODO: how much?
 
 #### Event-sourced persistence [#913](https://github.com/input-output-hk/hydra/issues/913)
 
-We want the hydra-node to be efficient in processing events to yield high throughput on processing transactions.
+We want the hydra-node to be efficient in processing events to yield high
+throughput on processing transactions off-chain.
 
-Work done as part of [#186](https://github.com/input-output-hk/hydra/issues/186) has demonstrated that
-the primary bottleneck to faster transaction processing inside the node was the state persistence logic.
-which simply overwrites the full state with whatever new state has been produced.
+Work done as part of [#186](https://github.com/input-output-hk/hydra/issues/186)
+has demonstrated that the primary bottleneck to faster transaction processing
+inside the node was the state persistence logic. which simply overwrites the
+full state with whatever new state has been produced.
 
-For that reason, we changed the persistent state to a sequence of events according to ADR 24.
-Persistence is now done incrementally after each StateChanged outcome.
+For that reason, we changed the persistent state to a sequence of events
+according to [ADR24](/adr/24). Persistence is now done incrementally by saving
+only the `StateChanged` deltas.
 
-As a consequence, the first spike confirmed the following performance improvements: master ~300ms → spike ~6ms.
+As a consequence, the first spike confirmed the following performance
+improvements: master ~300ms → spike ~6ms.
 
-Finally, this also opens up interesting possibilities for state observation in clients.
+TODO: what are the numbers on master before/after?
+
+Finally, this also opens up interesting possibilities for state observation in
+clients.
 
 #### New API endpoints
 
-This release also includes some nice changes to the Hydra API. We added the
-[endpoint](https://github.com/input-output-hk/hydra/pull/1001) to submit a
-transaction to the L1 network. This feature is trying to improve developer
-experience and it seemed like a nice addition for anybody developing on Hydra
-since they already have hydra-node running and don't need to run `cardano-node`
-on the client side to be able to submit transactions.
+This release also includes several additions to the Hydra API. We added the
+[/cardano-transation
+endpoint](https://github.com/input-output-hk/hydra/pull/1001) to submit a
+transaction to the L1 network. This feature improves developer experience as
+hydra clients do not need a direct chain access (e.g. connect to `cardano-node`)
+to be able to submit transactions.
 
-There is another new
-[endpoint](https://github.com/input-output-hk/hydra/pull/989) that serves the
-protocol parameters used in hydra-node. This provides more flexibility when
-developing and also allows us to make
-[projections](https://github.com/input-output-hk/hydra/blob/master/hydra-node/src/Hydra/API/Projection.hs#L4)
-over protocol parameters data.
+The other new [/protocol-parameters
+endpoint](https://github.com/input-output-hk/hydra/pull/989) serves the
+currently configured protocol parameters used in `hydra-node`. This provides
+more flexibility when creating transactions for the head on the client side and
+avoids configuration or hard-coded values.
 
-On top of this we also provided the hydra-node
+On top of this we also added the hydra-node
 [version](https://github.com/input-output-hk/hydra/pull/985) inside of the
-`Greetings` message. This is very useful for debugging purposes for detecting
-possible version missmatch.
+`Greetings` message. This is very useful for debugging purposes and detecting
+possible version missmatches.
 
 #### Removal of “internal commit” endpoint [#1018](https://github.com/input-output-hk/hydra/pull/1018)
 
 In the last release we announced that we will deprecate committing to the Head
 using the websocket command. Now we went ahead and removed this client command
 which also led to removing the _fuel_ markers we used in the past to mark the
-utxo of the internal Hydra wallet which should be used in the Head.
+UTxO of the internal Hydra wallet which should be used in the Head.
 
-This simplifies the setup needed to run the Head protocol and improves trust
-needed to run the hydra-node since the user commits using the funds not known
-to a hydra-node and doesn't need to wonder how hydra-node uses these funds -
-they are available in the opened Head.
-
-#### Security fixes [#TODO](https://github.com/input-output-hk/hydra/issues/TODO)
-
-<!-- TODO @abailly ? -->
+This simplifies the setup needed to run the Head protocol and improves security
+since users can directly commit funds from their wallet without sending them to
+the Head operator beforehand.
 
 ## Community
 
