@@ -43,15 +43,34 @@ This month, the team worked on the following:
 
 #### Update tutorial and include Mithril [#997](https://github.com/input-output-hk/hydra/issues/997)
 
-- Make tutorial work with latest version of hydra-node
-- Support a wide range of platforms
-- Ensure it’s kept up-to-date (using continuous integration)
-- Preparation for Hydra master-class at RareEvo
+To prepare for the Hydra master-class at RareEvo, we have taken the tutorial
+originally written for version 0.8.0 of Hydra and updated it to work with latest
+versions.
+
+The challenge here is to write it to be easy to follow and working for a wide
+range of user platforms (operating system and processor architectures).
+
+Besides writing the tutorial, a challenge here is to also ensure it’s kept
+up-to-date, e.g. using continuous integration.
 
 #### Support cardano-node 8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
 
-We were still using cardano node 1.35.7 so we took some time to upgrade to the
-last release 8.1.2.
+In order to be able to use latest Mithril snapshots to bootstrap a
+`cardano-node` for the `hydra-node`, we needed to update.
+
+The `hydra-node` uses `cardano-api` to connect to the node using the so-called
+node-to-client protocols. The format there changed slightly (although versioned)
+and hence we needed to update the version of `cardano-api` used in the
+`hydra-node`.
+
+The way Haskell dependencies are managed, this required us to bump also the
+`cardano-ledger` and `plutus` versions used to create our off-chain ledger and
+on-chain Hydra Head protocol scripts respectively.
+
+Hence, this has been more involved than it sounds at first, but ultimately it
+led to improvements to our on-chain scripts efficiency.
+
+TODO: how much?
 
 #### Authenticated messages [#727](https://github.com/input-output-hk/hydra/pull/727)
 
