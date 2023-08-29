@@ -5,24 +5,21 @@ authors: [pgrange, v0d1ch, ffakenz, ch1bo]
 tags: [monthly]
 ---
 
-This report summarizes the work on Hydra since August 2023. It serves as
+This report summarizes the work on Hydra since July 2023. It serves as
 preparation for the monthly review meeting (see [slides][slides] and
 [recording][recording]), where the team updates project stakeholders on recent
 developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month, the team released version 0.12.0, which changes the way a client
-can commit funds to a hydra head by leveraging the external commit feature.
-
-The project
+This month, the team released version 0.12.0 and the project
 [roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has been
-slightly updated to focus 0.13 on network resiliency and bump incremental
+slightly updated to focus 0.13.0 on network resiliency and bump incremental
 commit and decommit in priority:
 
-![The roadmap](./img/2023-08-roadmap.jpg) <small><center>The roadmap</center></small>
+![The roadmap with features and ideas](./img/2023-08-roadmap.jpg) <small><center>The latest roadmap with features and ideas</center></small>
 
-### Release 0.12.0
+#### Release 0.12.0
 
 - Support cardano-node 8.1.2
   - Updated client and plutus versions
@@ -39,7 +36,8 @@ commit and decommit in priority:
 
 ## Development
 
-[Issues and pull requests closed since last report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-23)
+[Issues and pull requests closed since last
+report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-29)
 
 This month, the team worked on the following:
 
