@@ -17,6 +17,9 @@ changes.
 - Remove hydra-tools package. Move functionality to generate hydra keys to the
   hydra-node executable.
 
+- Remove the recursive definition of the chain state.
+  This makes the event store more lightweight and easier to read and work with.
+
 ## [0.12.0] - 2023-08-18
 
 - **BREAKING** Support new cardano-node version 8.1.2
