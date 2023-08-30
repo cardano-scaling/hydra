@@ -13,6 +13,8 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
+import Test.QuickCheck.Instances.Semigroup ()
+
 data Environment = Environment
   { party :: Party
   -- ^ This is the p_i from the paper
@@ -57,7 +59,7 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
 -- | Get the chain state in any 'HeadState'.
-getChainState :: HeadState tx -> ChainStateType tx
+getChainState :: HeadState tx -> NonEmpty (ChainStateType tx)
 getChainState = \case
   Idle IdleState{chainState} -> chainState
   Initial InitialState{chainState} -> chainState
@@ -65,7 +67,7 @@ getChainState = \case
   Closed ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
-setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
+setChainState :: NonEmpty (ChainStateType tx) -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
   Initial st -> Initial st{chainState}
@@ -83,7 +85,7 @@ getHeadParameters = \case
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
-newtype IdleState tx = IdleState {chainState :: ChainStateType tx}
+newtype IdleState tx = IdleState {chainState :: NonEmpty (ChainStateType tx)}
   deriving (Generic)
 
 deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
@@ -101,7 +103,7 @@ data InitialState tx = InitialState
   { parameters :: HeadParameters
   , pendingCommits :: PendingCommits
   , committed :: Committed tx
-  , chainState :: ChainStateType tx
+  , chainState :: NonEmpty (ChainStateType tx)
   , headId :: HeadId
   }
   deriving (Generic)
@@ -131,7 +133,7 @@ type Committed tx = Map Party (UTxOType tx)
 data OpenState tx = OpenState
   { parameters :: HeadParameters
   , coordinatedHeadState :: CoordinatedHeadState tx
-  , chainState :: ChainStateType tx
+  , chainState :: NonEmpty (ChainStateType tx)
   , headId :: HeadId
   , currentSlot :: ChainSlot
   }
@@ -223,7 +225,7 @@ data ClosedState tx = ClosedState
   , readyToFanoutSent :: Bool
   -- ^ Tracks whether we have informed clients already about being
   -- 'ReadyToFanout'.
-  , chainState :: ChainStateType tx
+  , chainState :: NonEmpty (ChainStateType tx)
   , headId :: HeadId
   }
   deriving (Generic)

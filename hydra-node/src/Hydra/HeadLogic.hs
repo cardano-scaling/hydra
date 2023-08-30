@@ -725,7 +725,7 @@ aggregate st = \case
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState
+        , chainState = chainState :| toList (getChainState st)
         , headId
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
@@ -736,7 +736,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState
+            , chainState = chainState :| toList (getChainState st)
             , headId
             }
        where
@@ -804,7 +804,11 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  HeadAborted{chainState} -> Idle $ IdleState{chainState}
+  HeadAborted{chainState} ->
+    Idle $
+      IdleState
+        { chainState = chainState :| toList (getChainState st)
+        }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
       Open
@@ -822,13 +826,17 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState
+              , chainState = chainState :| toList (getChainState st)
               , headId
               }
       _otherState -> st
   HeadFannedOut{chainState} ->
     case st of
-      Closed _ -> Idle $ IdleState{chainState}
+      Closed _ ->
+        Idle $
+          IdleState
+            { chainState = chainState :| toList (getChainState st)
+            }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of
@@ -844,7 +852,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
-            , chainState
+            , chainState = chainState :| toList (getChainState st)
             , headId
             , currentSlot = chainStateSlot chainState
             }
@@ -888,7 +896,8 @@ aggregate st = \case
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
-  ChainRolledBack{chainState} -> setChainState chainState st
+  ChainRolledBack{chainState} ->
+    setChainState (chainState :| toList (getChainState st)) st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}

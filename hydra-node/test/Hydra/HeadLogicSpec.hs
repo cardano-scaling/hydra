@@ -548,7 +548,7 @@ inInitialState parties =
       { parameters
       , pendingCommits = Set.fromList parties
       , committed = mempty
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = fromList [SimpleChainState{slot = ChainSlot 0}]
       , headId = testHeadId
       }
  where
@@ -580,7 +580,7 @@ inOpenState' parties coordinatedHeadState =
     OpenState
       { parameters
       , coordinatedHeadState
-      , chainState = SimpleChainState{slot = chainSlot}
+      , chainState = fromList [SimpleChainState{slot = chainSlot}]
       , headId = testHeadId
       , currentSlot = chainSlot
       }
@@ -603,7 +603,7 @@ inClosedState' parties confirmedSnapshot =
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
-      , chainState = SimpleChainState{slot = ChainSlot 0}
+      , chainState = fromList [SimpleChainState{slot = ChainSlot 0}]
       , headId = testHeadId
       }
  where

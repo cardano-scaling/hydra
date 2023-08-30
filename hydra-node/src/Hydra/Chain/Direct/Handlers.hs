@@ -77,30 +77,39 @@ newLocalChainState ::
   ChainStateAt ->
   m (LocalChainState m)
 newLocalChainState chainStateAt = do
-  tv <- newTVarIO chainStateAt
+  tv <- newTVarIO (fromList [chainStateAt])
   pure
     LocalChainState
-      { getLatest = readTVar tv
+      { getLatest = getLatest tv
       , pushNew = pushNew tv
       , rollback = rollback tv
       }
  where
+  getLatest tv = do
+    currentChainState <- readTVar tv
+    return (head currentChainState)
 
   pushNew tv cs =
-    modifyTVar tv $ \prev ->
-      cs{previous = Just prev}
+    modifyTVar tv $ \prev -> cs :| toList prev
 
   rollback tv point = do
     latest <- readTVar tv
     let rolledBack = go point latest
     writeTVar tv rolledBack
-    pure rolledBack
+    pure (head rolledBack)
 
-  go rollbackChainPoint = \case
-    cs@ChainStateAt{recordedAt = Just recordPoint}
-      | recordPoint <= rollbackChainPoint -> cs
-    ChainStateAt{previous = Just prev} -> go rollbackChainPoint prev
-    cs -> cs
+  go rollbackChainPoint cs =
+    let rolledBack =
+          dropWhile
+            ( \ChainStateAt{recordedAt} ->
+                case recordedAt of
+                  Nothing -> True
+                  Just recordPoint -> recordPoint > rollbackChainPoint
+            )
+            (toList cs)
+     in if null rolledBack
+          then fromList [chainStateAt]
+          else fromList rolledBack
 
 -- * Posting Transactions
 
@@ -291,7 +300,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
-    csa@ChainStateAt{chainState} <- getLatest
+    ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Nothing -> pure Nothing
       Just (observedTx, cs') -> do
@@ -299,7 +308,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
-                , previous = Just csa
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}

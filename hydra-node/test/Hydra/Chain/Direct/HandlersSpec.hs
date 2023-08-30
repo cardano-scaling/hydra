@@ -138,7 +138,6 @@ spec = do
             ChainStateAt
               { chainState = st
               , recordedAt = Nothing
-              , previous = Nothing
               }
       timeHandle <- pickBlind arbitrary
       let callback = \case

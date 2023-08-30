@@ -111,7 +111,6 @@ initialChainState =
   ChainStateAt
     { chainState = Idle
     , recordedAt = Nothing
-    , previous = Nothing
     }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.

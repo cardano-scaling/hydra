@@ -537,9 +537,8 @@ dummySimulatedChainNetwork =
     { connectNode = \_ -> error "connectNode"
     , tickThread = error "tickThread"
     , rollbackAndForward = \_ -> error "rollbackAndForward"
-    , simulateCommit = \_  -> error "simulateCommit"
+    , simulateCommit = \_ -> error "simulateCommit"
     }
-
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
 -- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
@@ -718,7 +717,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = fromList [SimpleChainState{slot = ChainSlot 0}]}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)

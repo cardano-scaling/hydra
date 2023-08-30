@@ -92,7 +92,7 @@ main = do
           -- Chain
           ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
           wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
+          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (head (getChainState hs)) (putEvent . OnChainEvent) $ \chain -> do
             -- API
             let RunOptions{host, port, peers, nodeId} = opts
                 putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg

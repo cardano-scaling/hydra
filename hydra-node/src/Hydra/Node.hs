@@ -266,4 +266,4 @@ loadState tracer persistence defaultChainState = do
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   pure $ recoverState initialState events
  where
-  initialState = Idle IdleState{chainState = defaultChainState}
+  initialState = Idle IdleState{chainState = fromList [defaultChainState]}
