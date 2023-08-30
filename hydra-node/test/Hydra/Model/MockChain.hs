@@ -1,10 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Model.MockChain where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
+import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -40,7 +42,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
@@ -51,6 +53,9 @@ import Hydra.HeadLogic (
   Event (..),
   defaultTTL,
  )
+import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
+import Hydra.Ledger.Cardano (fromChainSlot, genTxOutAdaOnly)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -77,23 +82,34 @@ mockChainAndNetwork ::
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
+  UTxO ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys cp = do
+mockChainAndNetwork tr seedKeys cp commits = do
   nodes <- newTVarIO []
   labelTVarIO nodes "nodes"
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
-  chain <- newTVarIO (0 :: SlotNo, 0 :: Natural, Empty)
+  chain <- newTVarIO (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
   tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
   pure
-    SimulatedChainNetwork
-      { connectNode = connectNode nodes queue
-      , tickThread
-      , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = simulateCommit nodes
-      }
+      SimulatedChainNetwork
+        { connectNode = connectNode nodes queue
+        , tickThread
+        , rollbackAndForward = rollbackAndForward nodes chain
+        , simulateCommit = simulateCommit nodes
+        }
  where
+  initialUTxO = initUTxO <> commits <> registryUTxO scriptRegistry
+
+  seedInput = genTxIn `generateWith` 42
+
+  ledger = scriptLedger seedInput
+
+  Ledger{applyTransactions, initUTxO} = ledger
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
+
   connectNode nodes queue node = do
     localChainState <- newLocalChainState initialChainState
     let Environment{party = ownParty, otherParties} = env node
@@ -105,17 +121,21 @@ mockChainAndNetwork tr seedKeys cp = do
             , ownVerificationKey = vkey
             , ownParty
             , otherParties
-            , scriptRegistry = genScriptRegistry `generateWith` 42
+            , scriptRegistry
             , contestationPeriod = cp
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
-    let seedInput = genTxIn `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
+    let -- NOTE: this very simple function put the transaction in a queue for
+        -- inclusion into the chain. We could want to simulate the local
+        -- submission of a transaction and the possible failures it introduces,
+        -- perhaps caused by the node lagging behind
+      submitTx = atomically . writeTQueue queue
     let chainHandle =
           createMockChain
             tr
             ctx
-            (atomically . writeTQueue queue)
+            submitTx
             getTimeHandle
             seedInput
             localChainState
@@ -141,7 +161,7 @@ mockChainAndNetwork tr seedKeys cp = do
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
       Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} -> do
         -- NOTE: We don't need to sign a tx here since the MockChain
-        -- doesn't actually validate transactions.
+        -- doesn't actually validate transactions using a real ledger.
         eTx <- draftCommitTx $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
         case eTx of
           Left e -> throwIO e
@@ -167,12 +187,12 @@ mockChainAndNetwork tr seedKeys cp = do
     doRollForward nodes chain
 
   doRollForward nodes chain = do
-    (slotNum, position, blocks) <- readTVarIO chain
+    (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
-      Just (header, txs) -> do
+      Just (header, txs, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (\h -> onRollForward h header txs)
-        atomically $ writeTVar chain (slotNum, position + 1, blocks)
+        atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
         pure ()
 
@@ -182,23 +202,69 @@ mockChainAndNetwork tr seedKeys cp = do
       doRollForward nodes chain
 
   doRollBackward nodes chain nbBlocks = do
-    (slotNum, position, blocks) <- readTVarIO chain
+    (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
-      Just (header, _) -> do
+      Just (header, _, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = getChainPoint header
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks)
+        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
       Nothing ->
         pure ()
 
   addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks) ->
+    modifyTVar chain $ \(slotNum, position, blocks, utxo) ->
       -- NOTE: Assumes 1 slot = 1 second
-      let newSlot = slotNum + SlotNo (truncate blockTime)
-          header = genBlockHeaderAt newSlot `generateWith` 42
-          block = (header, transactions)
-       in (newSlot, position, blocks :|> block)
+      let newSlot = slotNum + ChainSlot (truncate blockTime)
+          header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
+       in case applyTransactions newSlot utxo transactions of
+            Left err ->
+              error $
+                toText $
+                  "On-chain transactions are not supposed to fail: "
+                    <> show err
+                    <> "\nTx:\n"
+                    <> (show @String $ txId <$> transactions)
+                    <> "\nUTxO:\n"
+                    <> (show $ fst <$> pairs utxo)
+            Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
+
+-- | A trimmed down ledger whose only purpose is to validate
+-- on-chain scripts.
+--
+-- The initial UTxO set is primed with a dedicated UTxO for the `seedInput` and
+scriptLedger ::
+  TxIn ->
+  Ledger Tx
+scriptLedger seedInput =
+  Ledger{applyTransactions, initUTxO}
+ where
+  initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
+
+  applyTransactions slot utxo = \case
+    [] -> Right utxo
+    (tx : txs) ->
+      case evaluateTx tx utxo of
+        Left _ ->
+          -- Transactions that do not apply to the current state (eg. UTxO) are
+          -- silently dropped which emulates the chain behaviour that only the
+          -- client is potentially witnessing the failure, and no invalid
+          -- transaction will ever be included in the chain
+          applyTransactions slot utxo txs
+        Right _ ->
+          let utxo' = adjustUTxO tx utxo
+           in applyTransactions slot utxo' txs
+
+  adjustUTxO :: Tx -> UTxO -> UTxO
+  adjustUTxO tx utxo =
+    let txid = txId tx
+        consumed = txIns' tx
+        produced =
+          toUTxOContext
+            <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+        utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
+     in utxo' <> produced
+
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
