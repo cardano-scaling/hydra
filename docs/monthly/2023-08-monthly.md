@@ -12,7 +12,7 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month, the team released  v.0.12.0, and the project
+This month, the team released version 0.12.0, and the project
 [roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has been
 slightly updated to focus 0.13.0 on network resiliency and bump incremental
 commit and decommit in priority:
@@ -21,7 +21,7 @@ commit and decommit in priority:
 
 #### Release 0.12.0
 
-- Support cardano-node v.8.1.2
+- Support cardano-node 8.1.2
   - Updated client and Plutus versions
 - Layer 2 protocol changes
   - Authenticated messages
@@ -44,7 +44,7 @@ This month, the team worked on the following:
 #### Update the tutorial and include Mithril [#997](https://github.com/input-output-hk/hydra/issues/997)
 
 To prepare for the Hydra master class at RareEvo, the team has taken the
-originally written tutorial for Hydra v.0.8.0 and updated it to work with the latest
+originally written tutorial for Hydra version 0.8.0 and updated it to work with the latest
 versions.
 
 The challenge was to write content that is both easily comprehensible and functional across a wide
@@ -53,7 +53,7 @@ range of user platforms, including operating system and processor architectures.
 Besides writing the tutorial, it is essential to ensure that it is kept
 up-to-date (eg, using continuous integration).
 
-#### Support cardano-node v.8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
+#### Support cardano-node 8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
 
 To be able to use the latest Mithril snapshots to bootstrap a
 `cardano-node` for the `hydra-node`, we needed to make some updates.
@@ -139,7 +139,7 @@ noticed, in particular, the following proposals:
 
 - [Sundae Labs Hydra Ledger-only Mode](https://cardano.ideascale.com/c/idea/102138)
 - [Sundae Labs Hydra Transaction Stream Plugin](https://cardano.ideascale.com/c/idea/102200)
-- [Hydra as a B2B layer for DeFi - a white paper and a MVP](https://cardano.ideascale.com/c/idea/101626)
+- [Hydra as a B2B layer for DeFi - a white paper and an MVP](https://cardano.ideascale.com/c/idea/101626)
 - [Decentralized Demeter.run - Federated Frontend Hosting - New revenue stream for SPOs](https://cardano.ideascale.com/c/idea/104411)
 - [Mithril - Open-source contributor](https://cardano.ideascale.com/c/idea/105113)
 
