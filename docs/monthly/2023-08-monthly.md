@@ -12,7 +12,7 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month, the team released version 0.12.0 and the project
+This month, the team released  v.0.12.0, and the project
 [roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has been
 slightly updated to focus 0.13.0 on network resiliency and bump incremental
 commit and decommit in priority:
@@ -21,54 +21,48 @@ commit and decommit in priority:
 
 #### Release 0.12.0
 
-- Support cardano-node 8.1.2
-  - Updated client and plutus versions
+- Support cardano-node v.8.1.2
+  - Updated client and Plutus versions
 - Layer 2 protocol changes
   - Authenticated messages
   - Removed redundancy
 - Event-sourced persistence
 - New API endpoints
 - Removal of _internal commit_ endpoint
-- Improved off-chain tx processing performance
+- Improved off-chain transaction processing performance
 - Security fixes
 
 - See [full release notes](https://github.com/input-output-hk/hydra/releases/tag/0.12.0) and a list of [delivered features](https://github.com/input-output-hk/hydra/milestone/12?closed=1)
 
 ## Development
 
-[Issues and pull requests closed since last
+[Issues and pull requests closed since the last
 report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-07-28..2023-08-29)
 
 This month, the team worked on the following:
 
-#### Update tutorial and include Mithril [#997](https://github.com/input-output-hk/hydra/issues/997)
+#### Update the tutorial and include Mithril [#997](https://github.com/input-output-hk/hydra/issues/997)
 
-To prepare for the Hydra master-class at RareEvo, we have taken the tutorial
-originally written for version 0.8.0 of Hydra and updated it to work with latest
+To prepare for the Hydra master class at RareEvo, the team has taken the
+originally written tutorial for Hydra v.0.8.0 and updated it to work with the latest
 versions.
 
-The challenge here is to write it to be easy to follow and working for a wide
-range of user platforms (operating system and processor architectures).
+The challenge was to write content that is both easily comprehensible and functional across a wide
+range of user platforms, including operating system and processor architectures.
 
-Besides writing the tutorial, a challenge here is to also ensure it’s kept
-up-to-date, e.g. using continuous integration.
+Besides writing the tutorial, it is essential to ensure that it is kept
+up-to-date (eg, using continuous integration).
 
-#### Support cardano-node 8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
+#### Support cardano-node v.8.1.2 [#1007](https://github.com/input-output-hk/hydra/issues/1007)
 
-In order to be able to use latest Mithril snapshots to bootstrap a
-`cardano-node` for the `hydra-node`, we needed to update.
+To be able to use the latest Mithril snapshots to bootstrap a
+`cardano-node` for the `hydra-node`, we needed to make some updates.
 
-The `hydra-node` uses `cardano-api` to connect to the node using the so-called
-node-to-client protocols. The format there changed slightly (although versioned)
-and hence we needed to update the version of `cardano-api` used in the
-`hydra-node`.
+The `hydra-node` uses the `cardano-api` to establish a connection with the node using the node-to-client protocols. The format there has slightly changed (although versioned), necessitating an update to the version of `cardano-api` used within the `hydra-node`.
 
-The way Haskell dependencies are managed, this required us to bump also the
-`cardano-ledger` and `plutus` versions used to create our off-chain ledger and
-on-chain Hydra Head protocol scripts respectively.
+The way Haskell dependencies are managed required an adjustment of the versions for both `cardano-ledger` and `plutus`. These versions are used to construct our off-chain ledger and on-chain Hydra Head protocol scripts, respectively.
 
-Hence, this has been more involved than it sounds at first, but ultimately it
-led to improvements to our on-chain scripts efficiency.
+As a result, this process has proven to be more intricate than it might initially sound. However, it has ultimately resulted in enhancements to the efficiency of our on-chain scripts.
 
 TODO: how much?
 
@@ -79,7 +73,7 @@ throughput on processing transactions off-chain.
 
 Work done as part of [#186](https://github.com/input-output-hk/hydra/issues/186)
 has demonstrated that the primary bottleneck to faster transaction processing
-inside the node was the state persistence logic. which simply overwrites the
+inside the node was the state persistence logic, which simply overwrites the
 full state with whatever new state has been produced.
 
 For that reason, we changed the persistent state to a sequence of events
@@ -97,10 +91,10 @@ clients.
 #### New API endpoints
 
 This release also includes several additions to the Hydra API. We added the
-[/cardano-transation
+[/cardano-transaction
 endpoint](https://github.com/input-output-hk/hydra/pull/1001) to submit a
-transaction to the L1 network. This feature improves developer experience as
-hydra clients do not need a direct chain access (e.g. connect to `cardano-node`)
+transaction to the layer 1 network. This feature improves developer experience as
+Hydra clients do not need direct chain access (eg, connect to `cardano-node`)
 to be able to submit transactions.
 
 The other new [/protocol-parameters
@@ -109,40 +103,33 @@ currently configured protocol parameters used in `hydra-node`. This provides
 more flexibility when creating transactions for the head on the client side and
 avoids configuration or hard-coded values.
 
-On top of this we also added the hydra-node
+On top of this, we also included the hydra-node
 [version](https://github.com/input-output-hk/hydra/pull/985) inside of the
 `Greetings` message. This is very useful for debugging purposes and detecting
-possible version missmatches.
+possible version mismatches.
 
-#### Removal of “internal commit” endpoint [#1018](https://github.com/input-output-hk/hydra/pull/1018)
+#### Removal of 'internal commit' endpoint [#1018](https://github.com/input-output-hk/hydra/pull/1018)
 
-In the last release we announced that we will deprecate committing to the Head
-using the websocket command. Now we went ahead and removed this client command
-which also led to removing the _fuel_ markers we used in the past to mark the
-UTxO of the internal Hydra wallet which should be used in the Head.
+In the previous release, we made an announcement regarding the deprecation of committing to the head through the websocket command. Subsequently, we have taken steps to eliminate this client command, which in turn resulted in the removal of the _fuel_ markers that were previously used to mark the UTXO of the internal Hydra wallet meant for use in the Head.
 
 This simplifies the setup needed to run the Head protocol and improves security
-since users can directly commit funds from their wallet without sending them to
+since users can directly commit funds from their wallets without sending them to
 the Head operator beforehand.
 
 ## Community
 
-#### Hydra master-class at RareEvo
+#### Hydra master class at RareEvo
 
-We were happy to run a Hydra master-class session at RareEvo 2023. The session
+We were happy to run a Hydra master class session at RareEvo 2023. The session
 attracted 30+ attendees for the introductory parts including a presentation on
-Hydra & Mithril. About 10-15 participants remained for the practical part and
+Hydra and Mithril. About 10-15 participants remained for the practical part and
 following discussion.
 
 We also streamed the event live on Discord, but were not able to interact much
 there. The responses were positive though and we should be doing more things in
 the public on this #hydra-live channel.
 
-While multiple participants achieved to use Mithril and synchronize a preprod
-cardano-node, two teams successfully opened Hydra heads, transacted funds in
-them and closed them again. The biggest challenges were (as expected)
-installation and networking and next time we make sure to bring prebuilt
-binaries for a wider range of platforms.
+Several participants managed to use Mithril and synchronize a pre-production cardano-node; two teams effectively initiated Hydra heads, conducted fund transactions within them, and subsequently closed them. The major challenges, as expected, concerned installation and networking. In the future, we intend to ensure the availability of prebuilt binaries catering to a wider range of platforms.
 
 #### Catalyst Fund10
 
@@ -159,33 +146,29 @@ noticed, in particular, the following proposals:
 ## Conclusion
 
 The monthly review meeting for August 2023 was held on 2023-08-23 via Google
-Meet with these [slides][slides] and here is the [recording][recording] .. this
-time "broadcasting live from warm & sunny Colorado"!
+Meet with these [slides][slides] and the [recording][recording], 'broadcasting live from warm and sunny Colorado'!
 
-It has been an interesting & unusal month. Some of the team had been in
+It has been an interesting and unusual month. Some of the team had been in
 Longmont, CO to prepare for the RareEvo event and we used the chance to have the
 meeting in a hybrid setting with some IO stakeholders attending live on-site and
-about 20 community members on-line.
+about 20 community members online.
 
 This time, the demo was about the updated tutorial and demonstrating the full
-setup of cardano-node, opening a Hydra head on `preprod` network and submitting
+setup of the cardano-node, opening a Hydra head on the pre-production network, and submitting
 transactions off-chain in 15 minutes!
 
-Notable feedback we got was about whether, when and how the Head protocol is
-going to be audited. While we will have an internal audit, which is already
-helping us hardening the protocol, there will be no big external audit being
-funded. We also had the chance to look into and learn about some Catalyst Fund10
-proposals involving Hydra. Hopefully some or all of them get funded and we are
-looking forward to put Hydrazoa concept to test, realize ledger-mode operation,
-enable federated Heads besides other things.
+The feedback we received included inquiries about the timing, method, and extent of the audit for the Head protocol. While we will have an internal audit, which is already
+helping us improve the protocol, there are no plans for a significant external audit with funding. We also had the chance to look into and learn about some Catalyst Fund10
+proposals involving Hydra. Hopefully, some or all of them get funded and we are
+looking forward to testing the Hydrazoa concept, implementing the ledger-mode operation, enabling federated Heads, and achieving other objectives.
 
-At the RareEvo event, we had the chance to meet and discuss with various people
-from the community. This ranges from known Hydra collaborators, over tech-savvy
+At the RareEvo event, we had the chance to meet and communicate with various people
+from the community. This ranges from known Hydra collaborators to tech-savvy
 stake pool operators, to representatives of successful applications running on
-Cardano in need for scaling like [book.io](https://book.io/).
+Cardano for scaling purposes like [book.io](https://book.io/).
 
-Also with a new full-time contributor on-board, we are keen to add more
-functionality while first applications ready up to utilize Hydra in production
+Also with a new full-time contributor on board, we are keen to add more
+functionality while the first applications prepare to utilize Hydra in production
 on mainnet.
 
 [slides]: https://docs.google.com/presentation/d/1MrCeUsYb3FQk7aCwMZdQs8mc5BfLOIjkK9gcWzgDdDc/edit#slide=id.g1f87a7454a5_0_1392
