@@ -19,7 +19,7 @@ import Hydra.Cardano.Api (
   KeyWitnessInCtx (..),
   PlutusScript,
   ProtocolParameters,
-  ScriptDatum (ScriptDatumForTxIn),
+  ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
   TxOut,
@@ -72,7 +72,9 @@ instance Arbitrary DraftCommitTxResponse where
 -- witnessing via reference inputs
 data ScriptInfo = ScriptInfo
   { redeemer :: HashableScriptData
-  , datum :: HashableScriptData
+  , -- TODO: rename this field to signal it is referring only to `TxOutDatumHash`
+    -- if present?
+    datum :: Maybe HashableScriptData
   , plutusV2Script :: PlutusScript
   }
   deriving stock (Show, Eq, Generic)
@@ -212,8 +214,14 @@ handleDraftCommitUtxo directChain body = do
       Nothing ->
         KeyWitness KeyWitnessForSpending
       Just ScriptInfo{redeemer, datum, plutusV2Script} ->
+        -- in case the datum field is not populated we are assumming the datum
+        -- is inlined.
         ScriptWitness ScriptWitnessForSpending $
-          mkScriptWitness plutusV2Script (ScriptDatumForTxIn datum) redeemer
+          case datum of
+            Nothing ->
+              mkScriptWitness plutusV2Script InlineScriptDatum redeemer
+            Just d ->
+              mkScriptWitness plutusV2Script (ScriptDatumForTxIn d) redeemer
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::

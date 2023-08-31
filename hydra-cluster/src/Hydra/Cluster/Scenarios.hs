@@ -42,6 +42,8 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   makeSignedTransaction,
   mkScriptAddress,
+  mkTxOutDatumHash,
+  mkTxOutDatumInline,
   mkTxOutValue,
   mkVkAddress,
   selectLovelace,
@@ -185,6 +187,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
+-- | Exercise committing a script utxo that uses inline datums.
 singlePartyCommitsExternalScriptWithInlineDatum ::
   Tracer IO EndToEndLog ->
   FilePath ->
@@ -205,9 +208,9 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
           scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
           reedemer = 1 :: Integer
           datum = 2 :: Integer
-          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
+          scriptInfo = ScriptInfo (toScriptData reedemer) Nothing script
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress datum
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress (mkTxOutDatumInline datum)
 
       -- Commit the script output using known witness
       let clientPayload =
@@ -229,7 +232,6 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
             (ReqBodyJson clientPayload)
             (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
             (port $ 4000 + hydraNodeId)
-      error "here"
       let DraftCommitTxResponse{commitTx} = responseBody res
       submitTx node commitTx
 
@@ -264,9 +266,9 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
           reedemer = 1 :: Integer
           datum = 2 :: Integer
-          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
+          scriptInfo = ScriptInfo (toScriptData reedemer) (Just $ toScriptData datum) script
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress datum
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress (mkTxOutDatumHash datum)
 
       -- Commit the script output using known witness
       let clientPayload =
