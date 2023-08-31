@@ -59,7 +59,7 @@ import Hydra.Ledger (IsTx (balance))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), requestCommitTx, input, output, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -184,6 +184,62 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     (actorVk, _) <- keysFor actor
     utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+
+singlePartyCommitsExternalScriptWithInlineDatum ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    withHydraNode tracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Prepare a script output on the network
+      let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
+          scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
+          reedemer = 1 :: Integer
+          datum = 2 :: Integer
+          scriptInfo = ScriptInfo (toScriptData reedemer) (toScriptData datum) script
+      pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress datum
+
+      -- Commit the script output using known witness
+      let clientPayload =
+            DraftCommitTxRequest
+              { utxoToCommit =
+                  UTxO.singleton
+                    ( scriptTxIn
+                    , TxOutWithWitness
+                        { txOut = scriptTxOut
+                        , witness = Just scriptInfo
+                        }
+                    )
+              }
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
+            (port $ 4000 + hydraNodeId)
+      error "here"
+      let DraftCommitTxResponse{commitTx} = responseBody res
+      submitTx node commitTx
+
+      lockedUTxO <- waitMatch 60 n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
+ where
+  RunningNode{networkId, nodeSocket} = node
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
