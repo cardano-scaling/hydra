@@ -12,6 +12,8 @@ changes.
 
 - **BREAKING** Changes to `hydra-plutus` scripts.
 
+- Add option to draft a commit tx using inline datums.
+
 - Remove hydra-tools package. Move functionality to generate hydra keys to the
   hydra-node executable.
 
