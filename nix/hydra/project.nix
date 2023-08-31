@@ -62,16 +62,6 @@ let
         packages.plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
         packages.plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
       }
-      # Set libsodium-vrf on cardano-crypto-{praos,class}. Otherwise they depend
-      # on libsodium, which lacks the vrf functionality.
-      ({ pkgs, lib, ... }:
-        # Override libsodium with local 'pkgs' to make sure it's using
-        # overriden 'pkgs', e.g. musl64 packages
-        {
-          packages.cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf pkgs.secp256k1 ] ];
-          packages.cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf ] ];
-        }
-      )
       # Fix compliation of strict-containers (see also cabal.project)
       {
         packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
