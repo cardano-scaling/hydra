@@ -134,7 +134,7 @@ spec = around showLogsOnFailure $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternalScript tracer tmpDir node
-      fit "commit external wallet utxo with inline datum in the script" $ \tracer -> do
+      it "commit external wallet utxo with inline datum in the script" $ \tracer -> do
         withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet

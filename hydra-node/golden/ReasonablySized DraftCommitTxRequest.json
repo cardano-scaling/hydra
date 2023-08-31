@@ -394,7 +394,7 @@
                     "lovelace": 271543124021309882
                 },
                 "witness": {
-                    "datum": "a2a0a0a020",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "420306",
                         "description": "",
@@ -720,7 +720,7 @@
                     "lovelace": 5766218989659432303
                 },
                 "witness": {
-                    "datum": "21",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "4400040607",
                         "description": "",
@@ -742,7 +742,7 @@
                     "lovelace": 5976638209443889943
                 },
                 "witness": {
-                    "datum": "d87b9f01a14000ff",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "450404020507",
                         "description": "",
@@ -764,7 +764,7 @@
                     "lovelace": 1843262988328056744
                 },
                 "witness": {
-                    "datum": "a280a1d87980d879809fa0ff20",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "450703020803",
                         "description": "",
@@ -814,7 +814,7 @@
                     "lovelace": 5843215053844247820
                 },
                 "witness": {
-                    "datum": "d87a80",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "420804",
                         "description": "",
@@ -836,7 +836,7 @@
                     "lovelace": 4447531785567921497
                 },
                 "witness": {
-                    "datum": "4100",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "420405",
                         "description": "",
@@ -858,7 +858,7 @@
                     "lovelace": 6487280984433666445
                 },
                 "witness": {
-                    "datum": "20",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "40",
                         "description": "",
@@ -909,7 +909,7 @@
                     "lovelace": 5520595152106620071
                 },
                 "witness": {
-                    "datum": "01",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "43030300",
                         "description": "",
@@ -931,7 +931,7 @@
                     "lovelace": 4373376211459732200
                 },
                 "witness": {
-                    "datum": "d87c9f9fa0ffff",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "450208080807",
                         "description": "",
@@ -953,7 +953,7 @@
                     "lovelace": 5259479376345712015
                 },
                 "witness": {
-                    "datum": "d87b9f4101ff",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "4400010808",
                         "description": "",
@@ -977,7 +977,7 @@
                     "lovelace": 4781614040683040837
                 },
                 "witness": {
-                    "datum": "9f4100a14040ff",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "40",
                         "description": "",
@@ -1060,7 +1060,7 @@
                     "lovelace": 4921964667370734808
                 },
                 "witness": {
-                    "datum": "00",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "40",
                         "description": "",
@@ -1086,7 +1086,7 @@
                     "lovelace": 2165122643119105628
                 },
                 "witness": {
-                    "datum": "a10101",
+                    "datum": null,
                     "plutusV2Script": {
                         "cborHex": "40",
                         "description": "",
