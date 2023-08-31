@@ -58,11 +58,7 @@ Draft
 
 ## Decision
 
-- Do not add a general purpose querying interface (e.g. graphql) to the
-  `hydra-node` and stay true to [ADR-3](/adr/3) of using duplex communication
-  channels (using websockets).
-
-- **Drop** `GetUTxO` and `GetUTxOResponse` messages as they advocate a
+- Drop `GetUTxO` and `GetUTxOResponse` messages as they advocate a
   request/response way of querying.
 
 - Realize that `ClientInput` data is actually a `ClientCommand` (renaming them)
@@ -72,72 +68,54 @@ Draft
 - Compose the API out of resource `models`, which compartmentalize the domain
   into topics on the API layer.
 
-  - Each resource has a _latest_ state, which can be queried or clients may
-    subscribe to any model changes.
-
-  - A resource's `model` type needs to be a result of a pure `projection` from
-    server output events, i.e. `project :: model -> StateChanged -> model`.
+  - A resource has a `model` type and the _latest_ value is the result of a pure
+    `projection` folded over the `StateChanged` event stream, i.e. `project :: model -> StateChanged -> model`.
 
   - Each resource is available at some HTTP path, also called "endpoint":
 
     - `GET` requests must respond with the _latest_ state in a single response.
 
-    - `GET` requests with websocket upgrade headers must start a websocket
+    - `GET` requests with `Upgrade: websocket` headers must start a websocket
       connection, push the _latest_ state as first message and any resource
       state updates after.
 
     - Other HTTP verbs may be accepted by a resource handler, i.e. to issue
-      resource-specific commands. Any commands accepted must also be available
+      resource-specific _commands_. Any commands accepted must also be available
       via the corresponding websocket connection.
 
-  - Each resource is only available as `JSON` encoding (for now).
+  - `Accept` request headers can be used to configure the `Content-Type` of the
+    response
 
-    - (TBD): already specify that `Accept` headers should be used to negotiate a
-      `content-type`?
+    - All resources must provide `application/json` responses
 
-- (TBD): Keep the direct/raw output of `ServerOutput` events on `/`, which
-  also accepts all `ClientCommand` messages.
+    - Some resources might support more content types (e.g. CBOR-encoded binary)
 
-### Resources
+  - Query parameters may be used to further configure responses of some
+    resources. For example, `?address=<bech32>` could be used to filter UTxO by
+    some address.
 
-Resource paths + HTTP verbs mapped to existing things:
+- Keep the semantics of `/`, which accepts websocket upgrade connections and
+  sends direct/raw output of `ServerOutput` events on `/`, while accepting all
+  `ClientCommand` messages.
 
-| Path                        | GET                         | POST                   | PATCH   | DELETE             |
-| :-------------------------- | :-------------------------- | :--------------------- | ------- | :----------------- |
-| `/node/head/status`         | `HeadStatus(..)`            | -                      | -       | -                  |
-| `/node/head/utxo`           | confirmed utxo              | -                      | -       | -                  |
-| `/node/head/transactions`   | confirmed txs               | `NewTx` + responses    | -       | -                  |
-| `/node/head/ledger`         | `localUTxO` and `localTxs`  | -                      | -       | -                  |
-| `/node/head/commit`         | -                           | `Chain{draftCommitTx}` | -       | -                  |
-| `/node/head`                | all `/node/head/*` data     | `Init`                 | `Close` | `Fanout` / `Abort` |
-| `/node/protocol-parameters` | current protocol parameters |                        |         |                    |
-| `/node/cardano-transaction` | -                           | `Chain{submitTx}`      | -       | -                  |
-| `/node/peers`               | a list of peers             | -                      | -       | -                  |
-| `/node`                     | all `/node/*` data          | -                      | -       | -                  |
-
-Each `GET` entry would also be available as a websocket on HTTP connections with
-the `Upgrade: websocket` header and deliver the same data as repeated `GET`
-queries would yield.
-
-Similarly, any `POST`, `PUT`, `PATCH` or `DELETE` request bodies (= commands)
-must be accepted on the corresponding websocket and have the same effect.
-
+  - Define `ServerOutput` also in terms of the `StateChanged` event stream
 Multiple heads are out of scope now and hence paths are not including a
 `<headId>` variable section.
 
 ## Consequences
 
 - Clear separation of what types are used for querying and gets subscribed to by
-  clients and we have dedicated types for sending data to clients (TBD: only if
-  we not keep the raw `/`).
+  clients and we have dedicated types for sending data to clients
 
-- Changes on the querying side of the API are separated from the business logic
-  (Head protocol).
+- Changes on the querying side of the API are separated from the business logic.
 
 - Clients do not need to aggregate data that is already available on the server
   side without coupling the API to internal state representation.
 
-- Need to rewrite how the `hydra-tui` is implemented.
-
 - Separation of Head operation and Head usage, e.g. some HTTP endpoints can be
   operated with authentication.
+
+- Clients have a fine-grained control over what to subscribe to and what to
+  query.
+
+- Need to rewrite how the `hydra-tui` is implemented.
