@@ -52,5 +52,8 @@ package strict-containers
 -- Always show detailed output for tests
 test-show-details: direct
 
--- See https://github.com/input-output-hk/haskell.nix/issues/2042
-constraints: concurrent-output < 1.10.19
+constraints: 
+  -- See https://github.com/input-output-hk/haskell.nix/issues/2042
+  concurrent-output < 1.10.19
+  -- Has problems with finding libblst, remove once we fix that
+  , cardano-crypto-class < 2.1.2.0
