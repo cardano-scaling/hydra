@@ -18,19 +18,19 @@ Draft
 - The Client API communicates several types of messages to clients. Currently
   this ranges from node-level `PeerConnected`, over head-specific `HeadIsOpen`
   to messages about transactions like `TxValid`. These messages are all of type
-  `ServerOutput`.
+  `StateChanged`.
 
 - Current capabilities of the API:
 
-  - Clients can retrieve the whole history of `ServerOutput` messages or
+  - Clients can retrieve the whole history of `StateChanged` messages or
     opt-out using a query parameter - all or nothing.
 
   - There is a welcome message called `Greetings` which is always sent, that
     contains the last `headStatus`.
 
   - There exists a `GetUTxO` query-like `ClientInput`, which will respond with a
-    `GetUTxOResponse` containing the confirmed UTxO in an open head, or (!) the
-    currently committed UTxO when the head is initializing.
+    `GetUTxOResponse` containing the confirmed UTxO set in an open head, or (!)
+    the currently committed UTxO set when the head is initializing.
 
   - While overall `json` encoded, clients can choose choose between `json` or
     binary (`cbor`) output of `transaction` fields in several of these using a
@@ -45,9 +45,9 @@ Draft
     very basic `headStatus` from the `Greetings`).
 
   - Need to poll `GetUTxO` _or_ aggregate confirmed transactions on client side
-    to know the latest UTxO for constructing transactions.
+    to know the latest UTxO set for constructing transactions.
 
-  - Inclusion of the whole UTxO in the head is not always desirable and
+  - Inclusion of the whole UTxO set in the head is not always desirable and
     filtering by address would be beneficial. (not addressed in this ADR though)
 
   - As [ADR-15](/adr/15) also proposes, some clients may not need (or should
@@ -76,10 +76,7 @@ Draft
     subscribe to any model changes.
 
   - A resource's `model` type needs to be a result of a pure `projection` from
-    server output events, i.e. `project :: model -> ServerOutput -> model`.
-
-    - TBD: or use the event stream type `StateChanged` instead? potentially
-      renaming it?
+    server output events, i.e. `project :: model -> StateChanged -> model`.
 
   - Each resource is available at some HTTP path, also called "endpoint":
 
