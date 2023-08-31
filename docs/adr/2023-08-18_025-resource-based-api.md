@@ -65,8 +65,8 @@ Draft
   and that `ServerOutput` are just `projections` of the [internal event stream
   (see ADR-24)](/adr/24) into read `models` on the API layer.
 
-- Compose the API out of resource `models`, which compartmentalize the domain
-  into topics on the API layer.
+- Compose a versioned (`/v1`) API out of resource `models`, which
+  compartmentalize the domain into topics on the API layer.
 
   - A resource has a `model` type and the _latest_ value is the result of a pure
     `projection` folded over the `StateChanged` event stream, i.e. `project :: model -> StateChanged -> model`.
@@ -99,6 +99,28 @@ Draft
   `ClientCommand` messages.
 
   - Define `ServerOutput` also in terms of the `StateChanged` event stream
+
+### Example resources
+
+Example resource paths + HTTP verbs mapped to existing things to demonstrate the
+effects of the decision points above. The mappings may change and are to be
+documented by an API specification instead.
+
+| Path                             | GET                            | POST                   | PATCH   | DELETE             |
+| :------------------------------- | :----------------------------- | :--------------------- | ------- | :----------------- |
+| `/v1/head/status`                | `HeadStatus(..)`               | -                      | -       | -                  |
+| `/v1/head/snapshot/utxo`         | last confirmed snapshot utxo   | -                      | -       | -                  |
+| `/v1/head/snapshot/transactions` | confirmed snapshot txs         | `NewTx` + responses    | -       | -                  |
+| `/v1/head/ledger/utxo`           | `localUTxO`                    | -                      | -       | -                  |
+| `/v1/head/ledger/transactions`   | `localTxs`                     | `NewTx` + responses    | -       | -                  |
+| `/v1/head/commit`                | -                              | `Chain{draftCommitTx}` | -       | -                  |
+| `/v1/head`                       | all `/v1/head/*` data          | `Init`                 | `Close` | `Fanout` / `Abort` |
+| `/v1/protocol-parameters`        | current protocol parameters    |                        |         |                    |
+| `/v1/cardano-transaction`        | -                              | `Chain{submitTx}`      | -       | -                  |
+| `/v1/peers`                      | a list of peers                | -                      | -       | -                  |
+| `/v1/node-version`               | node version as in `Greetings` | -                      | -       | -                  |
+| `/v1/`                           | all `/v1/*` data               | -                      | -       | -                  |
+
 Multiple heads are out of scope now and hence paths are not including a
 `<headId>` variable section.
 
@@ -117,5 +139,7 @@ Multiple heads are out of scope now and hence paths are not including a
 
 - Clients have a fine-grained control over what to subscribe to and what to
   query.
+
+- Versioned API allows clients to detect incompatibility easily.
 
 - Need to rewrite how the `hydra-tui` is implemented.
