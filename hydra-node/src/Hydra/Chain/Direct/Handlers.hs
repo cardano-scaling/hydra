@@ -68,7 +68,7 @@ import System.IO.Error (userError)
 data LocalChainState m = LocalChainState
   { getLatest :: STM m ChainStateAt
   , pushNew :: ChainStateAt -> STM m ()
-  , rollback :: ChainPoint -> STM m ChainStateAt
+  , rollback :: ChainPoint -> STM m (NonEmpty ChainStateAt)
   , history :: STM m (NonEmpty ChainStateAt)
   }
 
@@ -96,15 +96,14 @@ newLocalChainState chainState = do
     modifyTVar tv $ \prev -> cs :| toList prev
 
   rollback tv point = do
-    latest <- readTVar tv
-    let rolledBack = go point latest
+    history <- readTVar tv
+    let rolledBack = fromMaybe (initialChainState :| []) (go point history)
     writeTVar tv rolledBack
-    pure (head rolledBack)
+    pure rolledBack
 
-  go rollbackChainPoint cs =
+  go rollbackChainPoint history =
     case rollbackChainPoint of
-      ChainPointAtGenesis ->
-        fromList [initialChainState]
+      ChainPointAtGenesis -> Nothing
       ChainPoint{} ->
         let rolledBack =
               dropWhile
@@ -113,10 +112,10 @@ newLocalChainState chainState = do
                       Nothing -> False
                       Just recordPoint -> recordPoint > rollbackChainPoint
                 )
-                (toList cs)
+                (toList history)
          in if null rolledBack
-              then fromList [initialChainState]
-              else fromList rolledBack
+              then Nothing
+              else Just (fromList rolledBack)
 
 -- * Posting Transactions
 

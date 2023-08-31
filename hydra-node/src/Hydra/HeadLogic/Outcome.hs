@@ -75,7 +75,7 @@ data StateChanged tx
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
   | HeadFannedOut {chainState :: ChainStateType tx}
-  | ChainRolledBack {chainState :: ChainStateType tx}
+  | ChainRolledBack {chainStateHistory :: NonEmpty (ChainStateType tx)}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 

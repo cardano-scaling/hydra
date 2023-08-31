@@ -36,6 +36,7 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
+import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
@@ -220,7 +221,7 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: ChainStateType tx
+      { rolledBackChainState :: NonEmpty (ChainStateType tx)
       }
   | -- | Indicate time has advanced on the chain.
     --

@@ -580,7 +580,7 @@ simulatedChainAndNetwork ::
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
-  chainStateVar <- newTVarIO initialChainState
+  chainStateVar <- newTVarIO (initialChainState :| [])
   tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     SimulatedChainNetwork
@@ -612,13 +612,14 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- readTVar chainStateVar
-      pure $ Tick now (chainStateSlot cs)
+      pure $ Tick now (chainStateSlot (head cs))
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history chainStateVar tx = do
     chainEvent <- atomically $ do
-      modifyTVar' chainStateVar advanceSlot
-      cs' <- readTVar chainStateVar
+      cs <- head <$> readTVar chainStateVar
+      let cs' = advanceSlot cs
+      modifyTVar' chainStateVar $ \prev -> cs' :| tail prev
       pure $
         Observation
           { observedTx = tx
@@ -640,14 +641,18 @@ simulatedChainAndNetwork initialChainState = do
       writeTVar history kept
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
-    let rolledBackChainState = case kept of
-          [] -> initialChainState
-          (Observation{newChainState} : _) -> newChainState
-          _NoObservation -> error "unexpected non-observation ChainEvent"
-    atomically $ writeTVar chainStateVar rolledBackChainState
+    let rolledBackChainStateHistory =
+          fromList $
+            map
+              ( \case
+                  Observation{newChainState} -> newChainState
+                  _NoObservation -> error "unexpected non-observation ChainEvent"
+              )
+              kept
+    atomically $ writeTVar chainStateVar rolledBackChainStateHistory
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
+    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState = rolledBackChainStateHistory}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev

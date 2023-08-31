@@ -182,7 +182,8 @@ spec = do
       monitor . counterexample $ "try onRollBackward: " <> show result
       assert $ isRight result
 
-      mRolledBackChainState <- run . atomically $ tryReadTMVar rolledBackTo
+      mRolledBackChainStateHistory <- run . atomically $ tryReadTMVar rolledBackTo
+      let mRolledBackChainState = fmap head mRolledBackChainStateHistory
       monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
       pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 

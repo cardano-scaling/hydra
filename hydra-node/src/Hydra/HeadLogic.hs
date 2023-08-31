@@ -704,7 +704,7 @@ update env ledger st ev = case (st, ev) of
     onClosedChainFanoutTx closedState newChainState
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
-    StateChanged ChainRolledBack{chainState = rolledBackChainState}
+    StateChanged ChainRolledBack{chainStateHistory = rolledBackChainState}
   (_, OnChainEvent Tick{chainSlot}) ->
     StateChanged (TickObserved{chainSlot})
   (_, PostTxError{postChainTx, postTxError}) ->
@@ -896,8 +896,8 @@ aggregate st = \case
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
-  ChainRolledBack{chainState} ->
-    setChainState (chainState :| toList (getChainState st)) st
+  ChainRolledBack{chainStateHistory} ->
+    setChainState chainStateHistory st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
