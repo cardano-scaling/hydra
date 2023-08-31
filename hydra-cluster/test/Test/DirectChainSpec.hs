@@ -46,14 +46,13 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (
   IntersectionNotFoundException (..),
-  initialChainState,
   loadChainContext,
   mkTinyWallet,
   withDirectChain,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
-import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -449,7 +448,7 @@ withDirectChainTest tracer config ctx action = do
 
   wallet <- mkTinyWallet tracer config
 
-  withDirectChain tracer config ctx wallet initialChainState callback $ \Chain{postTx, draftCommitTx} -> do
+  withDirectChain tracer config ctx wallet (fromList [initialChainState]) callback $ \Chain{postTx, draftCommitTx} -> do
     action
       DirectChainTest
         { postTx

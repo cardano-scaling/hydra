@@ -52,7 +52,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainComponent,
-  ChainStateType,
   PostTxError (..),
  )
 import Hydra.Chain.CardanoClient (
@@ -75,7 +74,6 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Idle),
   ChainStateAt (..),
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
@@ -104,14 +102,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
-
--- | Defines the starting state of the direct chain layer.
-initialChainState :: ChainStateType Tx
-initialChainState =
-  ChainStateAt
-    { chainState = Idle
-    , recordedAt = Nothing
-    }
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
@@ -178,12 +168,13 @@ withDirectChain ::
   ChainConfig ->
   ChainContext ->
   TinyWallet IO ->
-  -- | Last known chain state as loaded from persistence.
-  ChainStateAt ->
+  -- | Chain state loaded from persistence.
+  NonEmpty ChainStateAt ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainStateAt callback action = do
-  -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt chainStateAt
+withDirectChain tracer config ctx wallet chainState callback action = do
+  let chainStateAt = head chainState
+      -- Last known point on chain as loaded from persistence.
+      persistedPoint = recordedAt chainStateAt
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
@@ -192,7 +183,7 @@ withDirectChain tracer config ctx wallet chainStateAt callback action = do
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
-  localChainState <- newLocalChainState chainStateAt
+  localChainState <- newLocalChainState chainState
 
   let chainHandle =
         mkChain

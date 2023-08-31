@@ -29,7 +29,6 @@ import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -43,7 +42,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollForward,
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -93,12 +92,12 @@ mockChainAndNetwork tr seedKeys cp commits = do
   tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
   pure
-      SimulatedChainNetwork
-        { connectNode = connectNode nodes queue
-        , tickThread
-        , rollbackAndForward = rollbackAndForward nodes chain
-        , simulateCommit = simulateCommit nodes
-        }
+    SimulatedChainNetwork
+      { connectNode = connectNode nodes queue
+      , tickThread
+      , rollbackAndForward = rollbackAndForward nodes chain
+      , simulateCommit = simulateCommit nodes
+      }
  where
   initialUTxO = initUTxO <> commits <> registryUTxO scriptRegistry
 
@@ -111,7 +110,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   connectNode nodes queue node = do
-    localChainState <- newLocalChainState initialChainState
+    localChainState <- newLocalChainState (fromList [initialChainState])
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
@@ -126,10 +125,11 @@ mockChainAndNetwork tr seedKeys cp commits = do
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-    let -- NOTE: this very simple function put the transaction in a queue for
-        -- inclusion into the chain. We could want to simulate the local
-        -- submission of a transaction and the possible failures it introduces,
-        -- perhaps caused by the node lagging behind
+    let
+      -- NOTE: this very simple function put the transaction in a queue for
+      -- inclusion into the chain. We could want to simulate the local
+      -- submission of a transaction and the possible failures it introduces,
+      -- perhaps caused by the node lagging behind
       submitTx = atomically . writeTQueue queue
     let chainHandle =
           createMockChain
@@ -264,7 +264,6 @@ scriptLedger seedInput =
             <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
         utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
      in utxo' <> produced
-
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no

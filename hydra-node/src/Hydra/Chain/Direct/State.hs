@@ -188,6 +188,14 @@ instance HasKnownUTxO ChainState where
     Open st -> getKnownUTxO st
     Closed st -> getKnownUTxO st
 
+-- | Defines the starting state of the direct chain layer.
+initialChainState :: ChainStateType Tx
+initialChainState =
+  ChainStateAt
+    { chainState = Idle
+    , recordedAt = Nothing
+    }
+
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only contains data known to single peer.
 data ChainContext = ChainContext

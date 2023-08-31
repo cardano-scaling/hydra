@@ -48,6 +48,7 @@ import Hydra.Chain.Direct.State (
   contestationPeriod,
   fanout,
   getKnownUTxO,
+  initialChainState,
   initialize,
   observeSomeTx,
  )
@@ -68,21 +69,23 @@ data LocalChainState m = LocalChainState
   { getLatest :: STM m ChainStateAt
   , pushNew :: ChainStateAt -> STM m ()
   , rollback :: ChainPoint -> STM m ChainStateAt
+  , history :: STM m (NonEmpty ChainStateAt)
   }
 
 -- | Initialize a new local chain state with given 'ChainStateAt' (see also
 -- 'initialChainState').
 newLocalChainState ::
   MonadSTM m =>
-  ChainStateAt ->
+  NonEmpty ChainStateAt ->
   m (LocalChainState m)
-newLocalChainState chainStateAt = do
-  tv <- newTVarIO (fromList [chainStateAt])
+newLocalChainState chainState = do
+  tv <- newTVarIO chainState
   pure
     LocalChainState
       { getLatest = getLatest tv
       , pushNew = pushNew tv
       , rollback = rollback tv
+      , history = readTVar tv
       }
  where
   getLatest tv = do
@@ -99,17 +102,21 @@ newLocalChainState chainStateAt = do
     pure (head rolledBack)
 
   go rollbackChainPoint cs =
-    let rolledBack =
-          dropWhile
-            ( \ChainStateAt{recordedAt} ->
-                case recordedAt of
-                  Nothing -> True
-                  Just recordPoint -> recordPoint > rollbackChainPoint
-            )
-            (toList cs)
-     in if null rolledBack
-          then fromList [chainStateAt]
-          else fromList rolledBack
+    case rollbackChainPoint of
+      ChainPointAtGenesis ->
+        fromList [initialChainState]
+      ChainPoint{} ->
+        let rolledBack =
+              dropWhile
+                ( \ChainStateAt{recordedAt} ->
+                    case recordedAt of
+                      Nothing -> False
+                      Just recordPoint -> recordPoint > rollbackChainPoint
+                )
+                (toList cs)
+         in if null rolledBack
+              then fromList [initialChainState]
+              else fromList rolledBack
 
 -- * Posting Transactions
 

@@ -15,8 +15,9 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
-import Hydra.Chain.Direct (initialChainState, loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
+import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (
@@ -92,7 +93,7 @@ main = do
           -- Chain
           ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
           wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (head (getChainState hs)) (putEvent . OnChainEvent) $ \chain -> do
+          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainState hs) (putEvent . OnChainEvent) $ \chain -> do
             -- API
             let RunOptions{host, port, peers, nodeId} = opts
                 putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
