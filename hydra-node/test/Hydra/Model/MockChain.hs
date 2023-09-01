@@ -44,6 +44,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import Hydra.Chain.Direct.Tx (ResolvedTx, resolveTx)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -186,12 +187,17 @@ mockChainAndNetwork tr seedKeys cp commits = do
       addNewBlockToChain chain transactions
     doRollForward nodes chain
 
+  doRollForward ::
+    TVar m [MockHydraNode m] ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    m ()
   doRollForward nodes chain = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers (\h -> onRollForward h header txs)
+        let resolvedTxs = mapMaybe (resolveTx utxo) txs
+        forM_ allHandlers (\h -> onRollForward h header resolvedTxs)
         atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
         pure ()

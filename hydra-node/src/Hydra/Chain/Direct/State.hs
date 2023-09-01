@@ -83,6 +83,7 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   NotAnInitReason,
   OpenThreadOutput (..),
+  ResolvedTx,
   UTxOHash (UTxOHash),
   UTxOWithScript,
   abortTx,
@@ -91,6 +92,7 @@ import Hydra.Chain.Direct.Tx (
   commitTx,
   contestTx,
   fanoutTx,
+  fromResolvedTx,
   headTokensFromValue,
   initTx,
   observeAbortTx,
@@ -529,8 +531,8 @@ fanout ctx st utxo deadlineSlotNo = do
 -- | Observe a transition without knowing the starting or ending state. This
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
-observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst tx = case cst of
+observeSomeTx :: ChainContext -> ChainState -> ResolvedTx -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx ctx cst resolvedTx = case cst of
   Idle ->
     second Initial <$> hush (observeInit ctx tx)
   Initial st ->
@@ -541,6 +543,8 @@ observeSomeTx ctx cst tx = case cst of
   Closed st ->
     second Closed <$> observeContest st tx
       <|> (,Idle) <$> observeFanout st tx
+ where
+  tx = fromResolvedTx resolvedTx
 
 -- ** IdleState transitions
 

@@ -58,6 +58,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Tx (ResolvedTx, fromResolvedTx)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -217,7 +218,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO part
 
 -- | A /handler/ that takes care of following the chain.
 data ChainSyncHandler m = ChainSyncHandler
-  { onRollForward :: BlockHeader -> [Tx] -> m ()
+  { onRollForward :: BlockHeader -> [ResolvedTx] -> m ()
   , onRollBackward :: ChainPoint -> m ()
   }
 
@@ -267,13 +268,13 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
     callback Rollback{rolledBackChainState}
 
-  onRollForward :: BlockHeader -> [Tx] -> m ()
+  onRollForward :: BlockHeader -> [ResolvedTx] -> m ()
   onRollForward header receivedTxs = do
     let point = getChainPoint header
     traceWith tracer $
       RolledForward
         { point
-        , receivedTxIds = getTxId . getTxBody <$> receivedTxs
+        , receivedTxIds = getTxId . getTxBody . fromResolvedTx <$> receivedTxs
         }
 
     case chainPointToSlotNo point of
@@ -292,6 +293,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Nothing -> pure ()
         Just event -> callback event
 
+  maybeObserveSomeTx :: ChainPoint -> ResolvedTx -> m (Maybe (ChainEvent Tx))
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of

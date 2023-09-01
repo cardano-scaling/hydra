@@ -55,7 +55,7 @@ class
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
   deriving (Ord, Eq, Show, Generic)
-  deriving newtype (Num, ToJSON,FromJSON)
+  deriving newtype (Num, ToJSON, FromJSON)
 
 instance Arbitrary ChainSlot where
   arbitrary = genericArbitrary

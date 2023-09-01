@@ -49,9 +49,9 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
+import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
-import Hydra.Plutus.Extras (posixFromUTCTime)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import qualified PlutusLedgerApi.V2 as Plutus
 
@@ -614,6 +614,18 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
   reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
 
 -- * Observe Hydra Head transactions
+
+-- | Similar to a Tx but including the UTxO it spends.
+data ResolvedTx = ResolvedTx
+  { inputUTxO :: UTxO
+  , fromResolvedTx :: Tx
+  }
+  deriving stock (Show, Eq)
+
+-- | Resolve the transaction inputs of a 'Tx' using given 'UTxO'. If not
+-- resolvable, Nothing is returned.
+resolveTx :: UTxO -> Tx -> Maybe ResolvedTx
+resolveTx = undefined
 
 data InitObservation = InitObservation
   { threadOutput :: InitialThreadOutput

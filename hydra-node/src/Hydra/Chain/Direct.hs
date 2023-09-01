@@ -308,7 +308,8 @@ chainSyncClient handler wallet startingPoint =
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
-              onRollForward handler header txs
+              let resolvedTxs = undefined txs
+              onRollForward handler header resolvedTxs
               pure clientStIdle
             _ ->
               -- NOTE: We are just ignoring different era blocks. It's not
