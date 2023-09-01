@@ -83,7 +83,7 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   NotAnInitReason,
   OpenThreadOutput (..),
-  ResolvedTx,
+  ResolvedTx (ResolvedTx, inputUTxO),
   UTxOHash (UTxOHash),
   UTxOWithScript,
   abortTx,
@@ -107,7 +107,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxOut, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
@@ -747,7 +747,7 @@ genChainState =
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
-genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+genChainStateWithTx :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
@@ -758,45 +758,53 @@ genChainStateWithTx =
     , genFanoutWithState
     ]
  where
-  genInitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genInitWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genInitWithState = do
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
+    o <- genTxOut
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-    pure (cctx, Idle, tx, Init)
+    let rtx = ResolvedTx{inputUTxO = UTxO.singleton (seedInput, o), fromResolvedTx = tx}
+    pure (cctx, Idle, rtx, Init)
 
-  genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCommitWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
+    let initialUTxO = getKnownUTxO stInitial
     let tx = unsafeCommit cctx stInitial utxo
-    pure (cctx, Initial stInitial, tx, Commit)
+    let rtx = ResolvedTx{inputUTxO = initialUTxO <> utxo, fromResolvedTx = tx}
+    pure (cctx, Initial stInitial, rtx, Commit)
 
-  genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCollectWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genCollectWithState = do
     (ctx, _, st, tx) <- genCollectComTx
-    pure (ctx, Initial st, tx, Collect)
+    let rtx = ResolvedTx{inputUTxO = getKnownUTxO st, fromResolvedTx = tx}
+    pure (ctx, Initial st, rtx, Collect)
 
-  genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCloseWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genCloseWithState = do
     (ctx, st, tx, _) <- genCloseTx maxGenParties
-    pure (ctx, Open st, tx, Close)
+    let rtx = ResolvedTx{inputUTxO = getKnownUTxO st, fromResolvedTx = tx}
+    pure (ctx, Open st, rtx, Close)
 
-  genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genContestWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genContestWithState = do
     (hctx, _, st, tx) <- genContestTx
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Contest)
+    let rtx = ResolvedTx{inputUTxO = getKnownUTxO st, fromResolvedTx = tx}
+    pure (ctx, Closed st, rtx, Contest)
 
-  genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genFanoutWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
     (hctx, st, tx) <- genFanoutTx numParties numOutputs
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Fanout)
+    let rtx = ResolvedTx{inputUTxO = getKnownUTxO st, fromResolvedTx = tx}
+    pure (ctx, Closed st, rtx, Fanout)
 
 -- ** Warning zone
 
