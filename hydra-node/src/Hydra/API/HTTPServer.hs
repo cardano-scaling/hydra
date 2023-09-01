@@ -72,9 +72,7 @@ instance Arbitrary DraftCommitTxResponse where
 -- witnessing via reference inputs
 data ScriptInfo = ScriptInfo
   { redeemer :: HashableScriptData
-  , -- TODO: rename this field to signal it is referring only to `TxOutDatumHash`
-    -- if present?
-    datum :: Maybe HashableScriptData
+  , datum :: Maybe HashableScriptData
   , plutusV2Script :: PlutusScript
   }
   deriving stock (Show, Eq, Generic)
@@ -182,6 +180,79 @@ httpApp tracer directChain pparams request respond = do
 -- * Handlers
 
 -- | Handle request to obtain a draft commit tx.
+--
+-- Users can decide to commit a public key as well as script outputs.
+--
+-- ==== __Request body examples:__
+--
+-- @
+--
+-- // Committing public key output
+--
+-- {
+--  "0406060506030602040508060506060306050406020207000508040704040203#89": {
+--     "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
+--     "value": {
+--       "lovelace": 7620669
+--     }
+-- }
+--
+-- @
+--
+-- @
+--
+-- // Committing a script output
+--
+-- {
+--  "6f066e0f6ba373c0ea7d8b47aefd7e14d1a781698cd052d0254afe65e039b083#0": {
+--   "address": "addr_test1wqv4z4hc0u5e2c3sppfdu8ckn82hfegpkjagsm4t8ttvlycg9mkca",
+--   "datum": null,
+--   "datumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
+--   "inlineDatum": null,
+--   "referenceScript": null,
+--   "value": {
+--     "lovelace": 1034400
+--   },
+--   "witness": {
+--     "datum": "02",
+--     "plutusV2Script": {
+--       "cborHex": "484701000022200101",
+--       "description": "",
+--       "type": "PlutusScriptV2"
+--     },
+--     "redeemer": "01"
+--   }
+-- }
+--
+-- @
+--
+-- @
+-- // Committing a script output using inline datum
+--
+-- {
+--
+-- "87a0c1e14be2cd8c385b6fe5a40b024b7201da9df375542029d91ccaba01ac82#0": {
+--     "address": "addr_test1wqv4z4hc0u5e2c3sppfdu8ckn82hfegpkjagsm4t8ttvlycg9mkca",
+--     "datum": null,
+--     "inlineDatum": {
+--       "int": 2
+--     },
+--     "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
+--     "referenceScript": null,
+--     "value": {
+--       "lovelace": 905100
+--     },
+--     "witness": {
+--       "datum": null,
+--       "plutusV2Script": {
+--         "cborHex": "484701000022200101",
+--         "description": "",
+--         "type": "PlutusScriptV2"
+--       },
+--       "redeemer": "01"
+--     }
+--   }
+--   @
 handleDraftCommitUtxo ::
   Chain tx IO ->
   -- | Request body.
@@ -214,11 +285,11 @@ handleDraftCommitUtxo directChain body = do
       Nothing ->
         KeyWitness KeyWitnessForSpending
       Just ScriptInfo{redeemer, datum, plutusV2Script} ->
-        -- in case the datum field is not populated we are assumming the datum
-        -- is inlined.
         ScriptWitness ScriptWitnessForSpending $
           case datum of
             Nothing ->
+              -- In case the datum field is not present we are assumming the datum
+              -- is inlined.
               mkScriptWitness plutusV2Script InlineScriptDatum redeemer
             Just d ->
               mkScriptWitness plutusV2Script (ScriptDatumForTxIn d) redeemer
