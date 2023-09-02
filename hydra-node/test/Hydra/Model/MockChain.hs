@@ -28,7 +28,7 @@ import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), initialHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -110,7 +110,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   connectNode nodes queue node = do
-    localChainState <- newLocalChainState (fromList [initialChainState])
+    localChainState <- newLocalChainState (initialHistory initialChainState)
     let Environment{party = ownParty, otherParties} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =

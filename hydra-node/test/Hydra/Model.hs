@@ -52,7 +52,7 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Chain (HeadParameters (..), maximumNumberOfParties)
+import Hydra.Chain (HeadParameters (..), initialHistory, maximumNumberOfParties)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -536,7 +536,7 @@ seedWorld seedKeys seedCP futureCommits = do
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = fromList [initialChainState]}
+      nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialHistory initialChainState}
       node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
       let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node

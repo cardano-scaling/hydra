@@ -52,7 +52,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainComponent,
+  ChainStateHistory,
   PostTxError (..),
+  currentState,
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
@@ -169,10 +171,10 @@ withDirectChain ::
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.
-  NonEmpty ChainStateAt ->
+  ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain tracer config ctx wallet chainState callback action = do
-  let chainStateAt = head chainState
+withDirectChain tracer config ctx wallet chainStateHistory callback action = do
+  let chainStateAt = currentState chainStateHistory
       -- Last known point on chain as loaded from persistence.
       persistedPoint = recordedAt chainStateAt
   queue <- newTQueueIO
@@ -183,7 +185,7 @@ withDirectChain tracer config ctx wallet chainState callback action = do
       <|> startChainFrom
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
-  localChainState <- newLocalChainState chainState
+  localChainState <- newLocalChainState chainStateHistory
 
   let chainHandle =
         mkChain

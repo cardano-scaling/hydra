@@ -38,6 +38,7 @@ import Hydra.Chain (
   IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
+  pushNewState,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
@@ -75,9 +76,9 @@ import Hydra.HeadLogic.State (
   OpenState (..),
   PendingCommits,
   SeenSnapshot (..),
-  getChainState,
+  getChainStateHistory,
   seenSnapshotNumber,
-  setChainState,
+  setChainStateHistory,
  )
 import Hydra.Ledger (
   IsTx,
@@ -90,8 +91,6 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
-
-import Data.List.NonEmpty ((<|))
 
 defaultTTL :: TTL
 defaultTTL = 5
@@ -727,7 +726,7 @@ aggregate st = \case
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState = chainState <| getChainState st
+        , chainState = pushNewState chainState (getChainStateHistory st)
         , headId
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
@@ -738,7 +737,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState = chainState <| getChainState st
+            , chainState = pushNewState chainState (getChainStateHistory st)
             , headId
             }
        where
@@ -809,7 +808,7 @@ aggregate st = \case
   HeadAborted{chainState} ->
     Idle $
       IdleState
-        { chainState = chainState <| getChainState st
+        { chainState = pushNewState chainState (getChainStateHistory st)
         }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
@@ -828,7 +827,7 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState = chainState <| getChainState st
+              , chainState = pushNewState chainState (getChainStateHistory st)
               , headId
               }
       _otherState -> st
@@ -837,7 +836,7 @@ aggregate st = \case
       Closed _ ->
         Idle $
           IdleState
-            { chainState = chainState <| getChainState st
+            { chainState = pushNewState chainState (getChainStateHistory st)
             }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
@@ -854,7 +853,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
-            , chainState = chainState <| getChainState st
+            , chainState = pushNewState chainState (getChainStateHistory st)
             , headId
             , currentSlot = chainStateSlot chainState
             }
@@ -899,7 +898,7 @@ aggregate st = \case
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
   ChainRolledBack{chainStateHistory} ->
-    setChainState chainStateHistory st
+    setChainStateHistory chainStateHistory st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}

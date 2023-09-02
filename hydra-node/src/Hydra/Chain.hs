@@ -17,6 +17,7 @@ import Hydra.Prelude
 
 import qualified Data.ByteString as BS
 import Data.List (nub)
+import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
@@ -172,6 +173,32 @@ instance Arbitrary Lovelace where
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
+newtype ChainStateHistory tx = UnsafeChainStateHistory (NonEmpty (ChainStateType tx))
+  deriving (Generic)
+
+currentState :: ChainStateHistory tx -> ChainStateType tx
+currentState (UnsafeChainStateHistory history) = head history
+
+pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs (UnsafeChainStateHistory history) = UnsafeChainStateHistory (cs <| history)
+
+initialHistory :: ChainStateType tx -> ChainStateHistory tx
+initialHistory cs = UnsafeChainStateHistory (cs :| [])
+
+withHistory ::
+  ChainStateHistory tx ->
+  (NonEmpty (ChainStateType tx) -> NonEmpty (ChainStateType tx)) ->
+  ChainStateHistory tx
+withHistory (UnsafeChainStateHistory history) f = UnsafeChainStateHistory (f history)
+
+deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
+deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
+deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
+deriving anyclass instance (FromJSON (ChainStateType tx)) => FromJSON (ChainStateHistory tx)
+
+instance (Arbitrary (ChainStateType tx)) => Arbitrary (ChainStateHistory tx) where
+  arbitrary = genericArbitrary
+
 -- | Interface available from a chain state. Expected to be instantiated by all
 -- 'ChainStateType tx'.
 class
@@ -221,7 +248,7 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: NonEmpty (ChainStateType tx)
+      { rolledBackChainState :: ChainStateHistory tx
       }
   | -- | Indicate time has advanced on the chain.
     --

@@ -15,7 +15,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.List.NonEmpty ((<|))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
@@ -33,9 +32,13 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
+  ChainStateHistory,
   ChainStateType,
   PostChainTx (..),
   PostTxError (..),
+  currentState,
+  pushNewState,
+  withHistory,
  )
 import Hydra.Chain.Direct.State (
   ChainContext,
@@ -69,15 +72,15 @@ import System.IO.Error (userError)
 data LocalChainState m = LocalChainState
   { getLatest :: STM m ChainStateAt
   , pushNew :: ChainStateAt -> STM m ()
-  , rollback :: ChainPoint -> STM m (NonEmpty ChainStateAt)
-  , history :: STM m (NonEmpty ChainStateAt)
+  , rollback :: ChainPoint -> STM m (ChainStateHistory Tx)
+  , history :: STM m (ChainStateHistory Tx)
   }
 
 -- | Initialize a new local chain state with given 'ChainStateAt' (see also
 -- 'initialChainState').
 newLocalChainState ::
   MonadSTM m =>
-  NonEmpty ChainStateAt ->
+  ChainStateHistory Tx ->
   m (LocalChainState m)
 newLocalChainState chainState = do
   tv <- newTVarIO chainState
@@ -90,33 +93,35 @@ newLocalChainState chainState = do
       }
  where
   getLatest tv = do
-    currentChainState <- readTVar tv
-    return (head currentChainState)
+    chainStateHisotry <- readTVar tv
+    return (currentState chainStateHisotry)
 
   pushNew tv cs =
-    modifyTVar tv $ \prev -> cs <| prev
+    modifyTVar tv (pushNewState cs)
 
   rollback tv point = do
-    history <- readTVar tv
-    let rolledBack = fromMaybe (initialChainState :| []) (go point history)
+    chainStateHisotry <- readTVar tv
+    let rolledBack = rollbackHistory point chainStateHisotry
     writeTVar tv rolledBack
     pure rolledBack
 
-  go rollbackChainPoint history =
-    case rollbackChainPoint of
-      ChainPointAtGenesis -> Nothing
-      ChainPoint{} ->
-        let rolledBack =
-              dropWhile
-                ( \ChainStateAt{recordedAt} ->
-                    case recordedAt of
-                      Nothing -> False
-                      Just recordPoint -> recordPoint > rollbackChainPoint
-                )
-                (toList history)
-         in if null rolledBack
-              then Nothing
-              else Just (fromList rolledBack)
+  rollbackHistory rollbackChainPoint chainStateHisotry =
+    withHistory chainStateHisotry $ \history ->
+      let rolledBackHistory = case rollbackChainPoint of
+            ChainPointAtGenesis -> Nothing
+            ChainPoint{} ->
+              let rolledBack =
+                    dropWhile
+                      ( \ChainStateAt{recordedAt} ->
+                          case recordedAt of
+                            Nothing -> False
+                            Just recordPoint -> recordPoint > rollbackChainPoint
+                      )
+                      (toList history)
+               in if null rolledBack
+                    then Nothing
+                    else Just (fromList rolledBack)
+       in fromMaybe (initialChainState :| []) rolledBackHistory
 
 -- * Posting Transactions
 

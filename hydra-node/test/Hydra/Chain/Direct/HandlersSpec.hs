@@ -21,6 +21,8 @@ import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
   chainStateSlot,
+  currentState,
+  initialHistory,
   maximumNumberOfParties,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -134,7 +136,7 @@ spec = do
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (fromList [ChainStateAt{chainState = st, recordedAt = Nothing}])
+        run $ newLocalChainState (initialHistory ChainStateAt{chainState = st, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->
@@ -166,7 +168,7 @@ spec = do
             Rollback{rolledBackChainState} ->
               atomically $ putTMVar rolledBackTo rolledBackChainState
             _ -> pure ()
-      localChainState <- run $ newLocalChainState (fromList [chainStateAt])
+      localChainState <- run $ newLocalChainState (initialHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -183,7 +185,7 @@ spec = do
       assert $ isRight result
 
       mRolledBackChainStateHistory <- run . atomically $ tryReadTMVar rolledBackTo
-      let mRolledBackChainState = fmap head mRolledBackChainStateHistory
+      let mRolledBackChainState = fmap currentState mRolledBackChainStateHistory
       monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
       pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 
@@ -193,7 +195,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
 
       -- Use the handler to evolve the chain state to some new, latest version
-      localChainState <- run $ newLocalChainState (fromList [chainStateAt])
+      localChainState <- run $ newLocalChainState (initialHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -232,7 +234,7 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  localChainState <- newLocalChainState (fromList [cs])
+  localChainState <- newLocalChainState (initialHistory cs)
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where

@@ -28,6 +28,7 @@ import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
+  ChainStateHistory (UnsafeChainStateHistory),
   ChainStateType,
   HeadId (HeadId),
   HeadParameters (..),
@@ -35,6 +36,8 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   chainStateSlot,
+  currentState,
+  initialHistory,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
@@ -580,7 +583,7 @@ simulatedChainAndNetwork ::
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
-  chainStateVar <- newTVarIO (initialChainState :| [])
+  chainStateVar <- newTVarIO (initialHistory initialChainState)
   tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     SimulatedChainNetwork
@@ -612,14 +615,14 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- readTVar chainStateVar
-      pure $ Tick now (chainStateSlot (head cs))
+      pure $ Tick now (chainStateSlot (currentState cs))
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history chainStateVar tx = do
     chainEvent <- atomically $ do
-      cs <- head <$> readTVar chainStateVar
+      cs <- currentState <$> readTVar chainStateVar
       let cs' = advanceSlot cs
-      modifyTVar' chainStateVar $ \prev -> cs' :| tail prev
+      modifyTVar' chainStateVar $ \(UnsafeChainStateHistory prev) -> UnsafeChainStateHistory (cs' :| tail prev)
       pure $
         Observation
           { observedTx = tx
@@ -642,7 +645,7 @@ simulatedChainAndNetwork initialChainState = do
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
     let rolledBackChainStateHistory =
-          fromList $
+          UnsafeChainStateHistory . fromList $
             map
               ( \case
                   Observation{newChainState} -> newChainState
@@ -722,7 +725,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = fromList [SimpleChainState{slot = ChainSlot 0}]}
+  nodeState <- createNodeState $ Idle IdleState{chainState = initialHistory SimpleChainState{slot = ChainSlot 0}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)

@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateHistory, ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -75,7 +75,7 @@ data StateChanged tx
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
   | HeadFannedOut {chainState :: ChainStateType tx}
-  | ChainRolledBack {chainStateHistory :: NonEmpty (ChainStateType tx)}
+  | ChainRolledBack {chainStateHistory :: ChainStateHistory tx}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 
