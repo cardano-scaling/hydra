@@ -226,7 +226,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
                     <> "\nTx:\n"
                     <> (show @String $ txId <$> transactions)
                     <> "\nUTxO:\n"
-                    <> (show $ fst <$> pairs utxo)
+                    <> show (fst <$> pairs utxo)
             Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
 
 -- | A trimmed down ledger whose only purpose is to validate

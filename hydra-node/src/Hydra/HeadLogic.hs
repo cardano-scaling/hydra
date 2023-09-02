@@ -91,6 +91,8 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
+import Data.List.NonEmpty ((<|))
+
 defaultTTL :: TTL
 defaultTTL = 5
 
@@ -725,7 +727,7 @@ aggregate st = \case
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState = chainState :| toList (getChainState st)
+        , chainState = chainState <| getChainState st
         , headId
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
@@ -736,7 +738,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState = chainState :| toList (getChainState st)
+            , chainState = chainState <| getChainState st
             , headId
             }
        where
@@ -807,7 +809,7 @@ aggregate st = \case
   HeadAborted{chainState} ->
     Idle $
       IdleState
-        { chainState = chainState :| toList (getChainState st)
+        { chainState = chainState <| getChainState st
         }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
@@ -826,7 +828,7 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState = chainState :| toList (getChainState st)
+              , chainState = chainState <| getChainState st
               , headId
               }
       _otherState -> st
@@ -835,7 +837,7 @@ aggregate st = \case
       Closed _ ->
         Idle $
           IdleState
-            { chainState = chainState :| toList (getChainState st)
+            { chainState = chainState <| getChainState st
             }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
@@ -852,7 +854,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
-            , chainState = chainState :| toList (getChainState st)
+            , chainState = chainState <| getChainState st
             , headId
             , currentSlot = chainStateSlot chainState
             }

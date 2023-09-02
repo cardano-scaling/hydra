@@ -15,6 +15,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Data.List.NonEmpty ((<|))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
@@ -93,7 +94,7 @@ newLocalChainState chainState = do
     return (head currentChainState)
 
   pushNew tv cs =
-    modifyTVar tv $ \prev -> cs :| toList prev
+    modifyTVar tv $ \prev -> cs <| prev
 
   rollback tv point = do
     history <- readTVar tv
