@@ -174,9 +174,8 @@ withDirectChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withDirectChain tracer config ctx wallet chainStateHistory callback action = do
-  let chainStateAt = currentState chainStateHistory
-      -- Last known point on chain as loaded from persistence.
-      persistedPoint = recordedAt chainStateAt
+  -- Last known point on chain as loaded from persistence.
+  let persistedPoint = recordedAt (currentState chainStateHistory)
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do

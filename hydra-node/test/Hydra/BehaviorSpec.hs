@@ -622,7 +622,8 @@ simulatedChainAndNetwork initialChainState = do
     chainEvent <- atomically $ do
       cs <- currentState <$> readTVar chainStateVar
       let cs' = advanceSlot cs
-      modifyTVar' chainStateVar $ \(UnsafeChainStateHistory prev) -> UnsafeChainStateHistory (cs' :| tail prev)
+      modifyTVar' chainStateVar $ \(UnsafeChainStateHistory prev) ->
+        UnsafeChainStateHistory (cs' :| tail prev)
       pure $
         Observation
           { observedTx = tx

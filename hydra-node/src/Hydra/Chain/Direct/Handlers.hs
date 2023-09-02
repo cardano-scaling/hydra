@@ -107,21 +107,21 @@ newLocalChainState chainState = do
 
   rollbackHistory rollbackChainPoint chainStateHisotry =
     withHistory chainStateHisotry $ \history ->
-      let rolledBackHistory = case rollbackChainPoint of
-            ChainPointAtGenesis -> Nothing
-            ChainPoint{} ->
-              let rolledBack =
-                    dropWhile
-                      ( \ChainStateAt{recordedAt} ->
-                          case recordedAt of
-                            Nothing -> False
-                            Just recordPoint -> recordPoint > rollbackChainPoint
-                      )
-                      (toList history)
-               in if null rolledBack
-                    then Nothing
-                    else Just (fromList rolledBack)
-       in fromMaybe (initialChainState :| []) rolledBackHistory
+      fromMaybe (initialChainState :| []) $
+        case rollbackChainPoint of
+          ChainPointAtGenesis -> Nothing
+          ChainPoint{} ->
+            let rolledBack =
+                  dropWhile
+                    ( \ChainStateAt{recordedAt} ->
+                        case recordedAt of
+                          Nothing -> False
+                          Just recordPoint -> recordPoint > rollbackChainPoint
+                    )
+                    (toList history)
+             in if null rolledBack
+                  then Nothing
+                  else Just (fromList rolledBack)
 
 -- * Posting Transactions
 
