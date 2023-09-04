@@ -317,12 +317,19 @@ queryStakePools networkId socket queryPoint =
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Throws at least 'QueryException' if query fails.
+-- We don't expect the query to fail but this can easily happen in case of a
+-- rollback. So what we do is retry 5 times and then give up.
 runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
 runQuery networkId socket point query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
-    Left err -> throwIO $ QueryAcquireException err
-    Right result -> pure result
+  go 5
  where
+  go n =
+    queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
+      Left err ->
+        if n == (0 :: Int)
+          then throwIO $ QueryAcquireException err
+          else threadDelay 1000000 >> go (n - 1)
+      Right result -> pure result
   maybePoint =
     case point of
       QueryTip -> Nothing
