@@ -185,7 +185,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
   rollForward nodes chain queue = do
     threadDelay blockTime
     atomically $ do
-      transactions <- flushTQueue queue
+      transactions <- reverse <$> flushTQueue queue
       addNewBlockToChain chain transactions
     doRollForward nodes chain
 
