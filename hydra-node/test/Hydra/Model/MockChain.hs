@@ -66,6 +66,13 @@ import Hydra.Node (
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
 
+data MockChainData = MockChainData {
+    slotNum :: ChainSlot
+  , position :: Natural
+  , blocks :: Seq (BlockHeader, [ResolvedTx], UTxO)
+  , currentUTxO :: UTxO
+}
+
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on
 -- every 'blockTime' and performs 'rollbackAndForward' every couple blocks.
@@ -89,7 +96,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
   labelTVarIO nodes "nodes"
   queue <- newTQueueIO
   labelTQueueIO queue "chain-queue"
-  chain <- newTVarIO (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
+  chain <- newTVarIO $ MockChainData (0 :: ChainSlot) (0 :: Natural) Empty initialUTxO
   tickThread <- async (labelThisThread "chain" >> simulateChain nodes chain queue)
   link tickThread
   pure
@@ -156,6 +163,9 @@ mockChainAndNetwork tr seedKeys cp commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
+  simulateCommit :: TVar m [MockHydraNode m]
+                 -> (Party, UTxO' (TxOut CtxUTxO))
+                 -> m ()
   simulateCommit nodes (party, utxoToCommit) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
@@ -174,12 +184,20 @@ mockChainAndNetwork tr seedKeys cp commits = do
   blockTime :: DiffTime
   blockTime = 20
 
+  simulateChain :: TVar m [MockHydraNode m]
+                -> TVar m MockChainData
+                -> TQueue m Tx
+                -> m b
   simulateChain nodes chain queue =
     forever $ do
       rollForward nodes chain queue
       rollForward nodes chain queue
       rollbackAndForward nodes chain 2
 
+  rollForward :: TVar m [MockHydraNode m]
+              -> TVar m MockChainData
+              -> TQueue m Tx
+              -> m ()
   rollForward nodes chain queue = do
     threadDelay blockTime
     atomically $ do
@@ -189,45 +207,53 @@ mockChainAndNetwork tr seedKeys cp commits = do
 
   doRollForward ::
     TVar m [MockHydraNode m] ->
-    TVar m (ChainSlot, Natural, Seq (BlockHeader, [ResolvedTx], UTxO), UTxO) ->
+    TVar m MockChainData ->
     m ()
   doRollForward nodes chain = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
+    MockChainData{slotNum, position, blocks} <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         forM_ allHandlers (\h -> onRollForward h header txs)
-        atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
+        atomically $ writeTVar chain (MockChainData slotNum (position + 1) blocks utxo)
       Nothing ->
         pure ()
 
+  rollbackAndForward :: TVar m [MockHydraNode m]
+                  -> TVar m MockChainData
+                  -> Natural
+                  -> m ()
   rollbackAndForward nodes chain numberOfBlocks = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
       doRollForward nodes chain
 
+  doRollBackward :: TVar m [MockHydraNode m]
+                 -> TVar m MockChainData
+                 -> Natural
+                 -> m ()
   doRollBackward nodes chain nbBlocks = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
+    MockChainData{slotNum, position, blocks} <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
       Just (header, _, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = getChainPoint header
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
+        atomically $ writeTVar chain $ MockChainData slotNum (position - nbBlocks + 1) blocks utxo
       Nothing ->
         pure ()
 
   addNewBlockToChain ::
-    TVar m (ChainSlot, b, Seq (BlockHeader, [ResolvedTx], UTxO), UTxO) ->
+    TVar m MockChainData ->
     [Tx] ->
     STM m ()
   addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks, utxo) ->
+    modifyTVar chain $ \MockChainData{slotNum, position, blocks, currentUTxO} ->
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
           header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
-          (resolvedTxs, utxo') = validateAndResolveTxs ledger newSlot utxo transactions
-       in (newSlot, position, blocks :|> (header, resolvedTxs, utxo), utxo')
+          (resolvedTxs, utxo') = validateAndResolveTxs ledger newSlot currentUTxO transactions
+       in MockChainData newSlot position (blocks :|> (header, resolvedTxs, currentUTxO)) utxo'
 
 -- | Apply transactions to the ledger and directly resolve them against the
 -- respective 'UTxO' to get a 'ResolvedTx'. The returned 'UTxO' is the final
@@ -260,6 +286,7 @@ scriptLedger seedInput =
  where
   initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
+  applyTransactions :: ChainSlot -> UTxO -> [Tx] -> Either a UTxO
   applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->
