@@ -196,7 +196,10 @@ mockChainAndNetwork tr seedKeys cp commits = do
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        let resolvedTxs = mapMaybe (resolveTx utxo) txs
+        let resolvedTxs =
+              fromMaybe (error "failed to resolve tx inputs") $
+                -- FIXME: This does not work for multiple txs in a "block"
+                mapM (resolveTx utxo) txs
         forM_ allHandlers (\h -> onRollForward h header resolvedTxs)
         atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
