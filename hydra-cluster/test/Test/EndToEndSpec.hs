@@ -64,6 +64,7 @@ import Hydra.Cluster.Scenarios (
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   singlePartyCannotCommitExternallyWalletUtxo,
+  singlePartyCommitsExternalScriptWithInlineDatum,
   singlePartyCommitsFromExternalScript,
   singlePartyHeadFullLifeCycle,
  )
@@ -78,10 +79,10 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (..),
   HydraClient (..),
-  requestCommitTx,
   getMetrics,
   input,
   output,
+  requestCommitTx,
   send,
   waitFor,
   waitForAllMatch,
@@ -133,6 +134,11 @@ spec = around showLogsOnFailure $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternalScript tracer tmpDir node
+      it "commit external wallet utxo with inline datum in the script" $ \tracer -> do
+        withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCommitsExternalScriptWithInlineDatum tracer tmpDir node
       it "can't commit externally with internal wallet utxo" $ \tracer -> do
         withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
@@ -184,11 +190,11 @@ spec = around showLogsOnFailure $
 
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
-                committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead  (contramap FromFaucet tracer)
+                committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
                 requestCommitTx n3 mempty >>= submitTx node
@@ -290,7 +296,7 @@ spec = around showLogsOnFailure $
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, _bobExternalSk) <- generate genKeyPair
@@ -503,7 +509,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     waitFor tracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
@@ -583,11 +589,11 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead  (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
-    committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead  (contramap FromFaucet tracer)
+    committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
     requestCommitTx n3 mempty >>= submitTx node

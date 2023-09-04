@@ -136,11 +136,10 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
-  ToScriptData a =>
   RunningNode ->
   BundledProtocolParameters ->
   AddressInEra ->
-  a ->
+  TxOutDatum CtxTx ->
   IO (TxIn, TxOut CtxUTxO)
 createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress datum = do
   (faucetVk, faucetSk) <- keysFor Faucet
@@ -172,7 +171,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
       pparams
       atAddress
       mempty
-      (mkTxOutDatumHash datum)
+      datum
       ReferenceScriptNone
 
   changeAddress = mkVkAddress networkId
