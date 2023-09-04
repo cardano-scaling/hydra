@@ -773,9 +773,8 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
-    let initialUTxO = getKnownUTxO stInitial
     let tx = unsafeCommit cctx stInitial utxo
-    let rtx = ResolvedTx{inputUTxO = initialUTxO <> utxo, fromResolvedTx = tx}
+    let rtx = ResolvedTx{inputUTxO = getKnownUTxO stInitial <> utxo, fromResolvedTx = tx}
     pure (cctx, Initial stInitial, rtx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, ResolvedTx, ChainTransition)
