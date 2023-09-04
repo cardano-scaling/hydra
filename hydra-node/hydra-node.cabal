@@ -311,6 +311,7 @@ test-suite tests
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
     Hydra.Network.HeartbeatSpec
+    Hydra.Network.ReliableNetworkSpec
     Hydra.NetworkSpec
     Hydra.Node.EventQueueSpec
     Hydra.NodeSpec
