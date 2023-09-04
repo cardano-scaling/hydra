@@ -54,6 +54,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import qualified PlutusLedgerApi.V2 as Plutus
+import Cardano.Api.UTxO (resolve, fromPairs)
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
@@ -625,7 +626,13 @@ data ResolvedTx = ResolvedTx
 -- | Resolve the transaction inputs of a 'Tx' using given 'UTxO'. If not
 -- resolvable, Nothing is returned.
 resolveTx :: UTxO -> Tx -> Maybe ResolvedTx
-resolveTx = undefined
+resolveTx lookupUTxO tx = do
+  inputUTxO <- fmap fromPairs . mapM (\a -> (a,) <$> resolve a lookupUTxO) $ txIns' tx
+  pure $
+    ResolvedTx
+      { inputUTxO
+      , fromResolvedTx = tx
+      }
 
 data InitObservation = InitObservation
   { threadOutput :: InitialThreadOutput
