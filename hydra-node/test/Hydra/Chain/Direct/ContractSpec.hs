@@ -46,8 +46,8 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
-import Hydra.Snapshot (Snapshot (..))
 import Hydra.Plutus.Orphans ()
+import Hydra.Snapshot (Snapshot (..))
 import PlutusLedgerApi.V2 (fromBuiltin, toBuiltin)
 import Test.QuickCheck (
   Property,

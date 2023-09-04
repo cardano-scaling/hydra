@@ -28,7 +28,9 @@ import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (Chain (..), initHistory)
+import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -106,7 +108,7 @@ mockChainAndNetwork tr seedKeys cp commits = do
 
   ledger = scriptLedger seedInput
 
-  Ledger{applyTransactions, initUTxO} = ledger
+  Ledger{initUTxO} = ledger
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -189,18 +191,14 @@ mockChainAndNetwork tr seedKeys cp commits = do
 
   doRollForward ::
     TVar m [MockHydraNode m] ->
-    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [ResolvedTx], UTxO), UTxO) ->
     m ()
   doRollForward nodes chain = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        let resolvedTxs =
-              fromMaybe (error "failed to resolve tx inputs") $
-                -- FIXME: This does not work for multiple txs in a "block"
-                mapM (resolveTx utxo) txs
-        forM_ allHandlers (\h -> onRollForward h header resolvedTxs)
+        forM_ allHandlers (\h -> onRollForward h header txs)
         atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
         pure ()
@@ -221,22 +219,46 @@ mockChainAndNetwork tr seedKeys cp commits = do
       Nothing ->
         pure ()
 
+  addNewBlockToChain ::
+    TVar m (ChainSlot, b, Seq (BlockHeader, [ResolvedTx], UTxO), UTxO) ->
+    [Tx] ->
+    STM m ()
   addNewBlockToChain chain transactions =
     modifyTVar chain $ \(slotNum, position, blocks, utxo) ->
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
           header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
-       in case applyTransactions newSlot utxo transactions of
+       in case validateAndResolveTxs ledger newSlot utxo transactions of
             Left err ->
               error $
                 toText $
                   "On-chain transactions are not supposed to fail: "
-                    <> show err
+                    <> err
                     <> "\nTx:\n"
                     <> (show @String $ txId <$> transactions)
                     <> "\nUTxO:\n"
                     <> show (fst <$> pairs utxo)
-            Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
+            Right (resolvedTxs, utxo') ->
+              (newSlot, position, blocks :|> (header, resolvedTxs, utxo), utxo')
+
+-- | Apply transactions to the ledger and directly resolve them against the
+-- respective 'UTxO' to get 'ResolvedTx'. The returned 'UTxO' is the final
+-- unspent transaction outputs.
+validateAndResolveTxs :: Ledger Tx -> ChainSlot -> UTxO -> [Tx] -> Either String ([ResolvedTx], UTxO)
+validateAndResolveTxs Ledger{applyTransactions} slot = go
+ where
+  go :: UTxO -> [Tx] -> Either String ([ResolvedTx], UTxO)
+  go u = \case
+    [] -> pure ([], u)
+    (tx : rest) -> do
+      u' <-
+        first (\err -> "validation error: " <> show err) $
+          applyTransactions slot u [tx]
+      rtx <-
+        maybe (Left $ "failed to resolve inputs of transaction " <> renderTxWithUTxO u tx) Right $
+          resolveTx u tx
+      (rtxs, u'') <- go u' rest
+      pure (rtx : rtxs, u'')
 
 -- | A trimmed down ledger whose only purpose is to validate
 -- on-chain scripts.
