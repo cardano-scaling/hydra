@@ -28,9 +28,7 @@ import qualified Data.Sequence as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (Chain (..), initHistory)
-import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -228,42 +226,32 @@ mockChainAndNetwork tr seedKeys cp commits = do
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
           header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
-       in case validateAndResolveTxs ledger newSlot utxo transactions of
-            Left err ->
-              error $
-                toText $
-                  "On-chain transactions are not supposed to fail: "
-                    <> err
-                    <> "\nTx:\n"
-                    <> (show @String $ txId <$> transactions)
-                    <> "\nUTxO:\n"
-                    <> show (fst <$> pairs utxo)
-            Right (resolvedTxs, utxo') ->
-              (newSlot, position, blocks :|> (header, resolvedTxs, utxo), utxo')
+          (resolvedTxs, utxo') = validateAndResolveTxs ledger newSlot utxo transactions
+       in (newSlot, position, blocks :|> (header, resolvedTxs, utxo), utxo')
 
 -- | Apply transactions to the ledger and directly resolve them against the
--- respective 'UTxO' to get 'ResolvedTx'. The returned 'UTxO' is the final
--- unspent transaction outputs.
-validateAndResolveTxs :: Ledger Tx -> ChainSlot -> UTxO -> [Tx] -> Either String ([ResolvedTx], UTxO)
+-- respective 'UTxO' to get a 'ResolvedTx'. The returned 'UTxO' is the final
+-- unspent transaction outputs. NOTE: If not valid or not resolvable, a
+-- transaction gets dropped silently.
+validateAndResolveTxs :: Ledger Tx -> ChainSlot -> UTxO -> [Tx] -> ([ResolvedTx], UTxO)
 validateAndResolveTxs Ledger{applyTransactions} slot = go
  where
-  go :: UTxO -> [Tx] -> Either String ([ResolvedTx], UTxO)
+  go :: UTxO -> [Tx] -> ([ResolvedTx], UTxO)
   go u = \case
-    [] -> pure ([], u)
+    [] -> ([], u)
     (tx : rest) -> do
-      u' <-
-        first (\err -> "validation error: " <> show err) $
-          applyTransactions slot u [tx]
-      rtx <-
-        first (\txIn -> "failed to resolve input " <> show txIn <> " of transaction " <> renderTxWithUTxO u tx) $
-          resolveTx u tx
-      (rtxs, u'') <- go u' rest
-      pure (rtx : rtxs, u'')
+      case applyTransactions slot u [tx] of
+        Left _ -> go u rest
+        Right u' ->
+          case resolveTx u tx of
+            Left _ -> go u rest
+            Right rtx ->
+              first (rtx :) $ go u' rest
 
--- | A trimmed down ledger whose only purpose is to validate
--- on-chain scripts.
---
--- The initial UTxO set is primed with a dedicated UTxO for the `seedInput` and
+-- | A trimmed down ledger whose only purpose is to validate on-chain scripts.
+-- The initial UTxO set is primed with an arbitrary UTxO that can be used for
+-- the `seedInput`. NOTE: This ledger is silently dropping any transactions that
+-- are not valid.
 scriptLedger ::
   TxIn ->
   Ledger Tx
