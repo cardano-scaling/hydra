@@ -255,7 +255,7 @@ validateAndResolveTxs Ledger{applyTransactions} slot = go
         first (\err -> "validation error: " <> show err) $
           applyTransactions slot u [tx]
       rtx <-
-        maybe (Left $ "failed to resolve inputs of transaction " <> renderTxWithUTxO u tx) Right $
+        first (\txIn -> "failed to resolve input " <> show txIn <> " of transaction " <> renderTxWithUTxO u tx) $
           resolveTx u tx
       (rtxs, u'') <- go u' rest
       pure (rtx : rtxs, u'')

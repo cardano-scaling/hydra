@@ -13,6 +13,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.UTxO (fromPairs, resolve)
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
@@ -54,7 +55,6 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import qualified PlutusLedgerApi.V2 as Plutus
-import Cardano.Api.UTxO (resolve, fromPairs)
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
@@ -624,15 +624,21 @@ data ResolvedTx = ResolvedTx
   deriving stock (Show, Eq)
 
 -- | Resolve the transaction inputs of a 'Tx' using given 'UTxO'. If not
--- resolvable, Nothing is returned.
-resolveTx :: UTxO -> Tx -> Maybe ResolvedTx
+-- resolvable, the missing TxIn is in Left.
+resolveTx :: UTxO -> Tx -> Either TxIn ResolvedTx
 resolveTx lookupUTxO tx = do
-  inputUTxO <- fmap fromPairs . mapM (\a -> (a,) <$> resolve a lookupUTxO) $ txIns' tx
+  inputUTxO <- fmap fromPairs . mapM resolveTxIn $ txIns' tx
   pure $
     ResolvedTx
       { inputUTxO
       , fromResolvedTx = tx
       }
+ where
+  resolveTxIn :: TxIn -> Either TxIn (TxIn, TxOut CtxUTxO)
+  resolveTxIn a =
+    case resolve a lookupUTxO of
+      Nothing -> Left a
+      Just b -> Right (a, b)
 
 data InitObservation = InitObservation
   { threadOutput :: InitialThreadOutput
