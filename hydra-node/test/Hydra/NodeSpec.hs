@@ -216,7 +216,7 @@ createHydraNode' ::
 createHydraNode' persistence signingKey otherParties contestationPeriod events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
-  headState <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
+  (headState, _) <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
   nodeState <- createNodeState headState
   pure $
     HydraNode

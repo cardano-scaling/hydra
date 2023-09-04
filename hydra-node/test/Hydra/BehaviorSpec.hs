@@ -37,7 +37,7 @@ import Hydra.Chain (
   PostChainTx (..),
   chainStateSlot,
   currentState,
-  initialHistory,
+  initHistory,
  )
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
@@ -583,7 +583,7 @@ simulatedChainAndNetwork ::
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
-  chainStateVar <- newTVarIO (initialHistory initialChainState)
+  chainStateVar <- newTVarIO (initHistory initialChainState)
   tickThread <- async $ simulateTicks nodes chainStateVar
   pure $
     SimulatedChainNetwork
@@ -726,7 +726,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = initialHistory SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)

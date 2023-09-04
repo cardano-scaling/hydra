@@ -182,8 +182,8 @@ currentState (UnsafeChainStateHistory history) = head history
 pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
 pushNewState cs (UnsafeChainStateHistory history) = UnsafeChainStateHistory (cs <| history)
 
-initialHistory :: ChainStateType tx -> ChainStateHistory tx
-initialHistory cs = UnsafeChainStateHistory (cs :| [])
+initHistory :: ChainStateType tx -> ChainStateHistory tx
+initHistory cs = UnsafeChainStateHistory (cs :| [])
 
 withHistory ::
   ChainStateHistory tx ->

@@ -22,7 +22,7 @@ import Hydra.Chain (
   HeadParameters,
   chainStateSlot,
   currentState,
-  initialHistory,
+  initHistory,
   maximumNumberOfParties,
  )
 import Hydra.Chain.Direct.Handlers (
@@ -136,7 +136,7 @@ spec = do
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (initialHistory ChainStateAt{chainState = st, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{chainState = st, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->
@@ -168,7 +168,7 @@ spec = do
             Rollback{rolledBackChainState} ->
               atomically $ putTMVar rolledBackTo rolledBackChainState
             _ -> pure ()
-      localChainState <- run $ newLocalChainState (initialHistory chainStateAt)
+      localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -195,7 +195,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
 
       -- Use the handler to evolve the chain state to some new, latest version
-      localChainState <- run $ newLocalChainState (initialHistory chainStateAt)
+      localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -234,7 +234,7 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  localChainState <- newLocalChainState (initialHistory cs)
+  localChainState <- newLocalChainState (initHistory cs)
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where

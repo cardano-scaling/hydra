@@ -20,7 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateType, HeadParameters (..), IsChainState, PostTxError, initialHistory)
+import Hydra.Chain (Chain (..), ChainStateHistory, ChainStateType, HeadParameters (..), IsChainState, PostTxError, initHistory)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (AsType (AsHydraKey))
@@ -34,6 +34,7 @@ import Hydra.HeadLogic (
   aggregateState,
   collectEffects,
   defaultTTL,
+  recoverChainStateHistory,
   recoverState,
  )
 import qualified Hydra.HeadLogic as Logic
@@ -260,10 +261,12 @@ loadState ::
   Tracer m (HydraNodeLog tx) ->
   PersistenceIncremental (StateChanged tx) m ->
   ChainStateType tx ->
-  m (HeadState tx)
+  m (HeadState tx, ChainStateHistory tx)
 loadState tracer persistence defaultChainState = do
   events <- loadAll persistence
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  pure $ recoverState initialState events
+  let headState = recoverState initialState events
+      chainStateHistory = recoverChainStateHistory (initHistory defaultChainState) events
+  pure (headState, chainStateHistory)
  where
-  initialState = Idle IdleState{chainState = initialHistory defaultChainState}
+  initialState = Idle IdleState{chainState = defaultChainState}

@@ -43,7 +43,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
-  initialHistory,
+  initHistory,
  )
 import Hydra.Chain.Direct (
   IntersectionNotFoundException (..),
@@ -449,7 +449,7 @@ withDirectChainTest tracer config ctx action = do
 
   wallet <- mkTinyWallet tracer config
 
-  withDirectChain tracer config ctx wallet (initialHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
+  withDirectChain tracer config ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action
       DirectChainTest
         { postTx

@@ -5,7 +5,7 @@
 module Hydra.HeadLogic.State where
 
 import qualified Data.Map as Map
-import Hydra.Chain (ChainStateHistory, ChainStateType, HeadId, HeadParameters)
+import Hydra.Chain (ChainStateHistory, ChainStateType, HeadId, HeadParameters, currentState)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
@@ -59,8 +59,8 @@ deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
 -- | Get the chain state in any 'HeadState'.
-getChainStateHistory :: HeadState tx -> ChainStateHistory tx
-getChainStateHistory = \case
+getChainState :: HeadState tx -> ChainStateType tx
+getChainState = \case
   Idle IdleState{chainState} -> chainState
   Initial InitialState{chainState} -> chainState
   Open OpenState{chainState} -> chainState
@@ -68,11 +68,11 @@ getChainStateHistory = \case
 
 -- | Update the chain state in any 'HeadState'.
 setChainStateHistory :: ChainStateHistory tx -> HeadState tx -> HeadState tx
-setChainStateHistory chainState = \case
-  Idle st -> Idle st{chainState}
-  Initial st -> Initial st{chainState}
-  Open st -> Open st{chainState}
-  Closed st -> Closed st{chainState}
+setChainStateHistory chainStateHistory = \case
+  Idle st -> Idle st{chainState = currentState chainStateHistory}
+  Initial st -> Initial st{chainState = currentState chainStateHistory}
+  Open st -> Open st{chainState = currentState chainStateHistory}
+  Closed st -> Closed st{chainState = currentState chainStateHistory}
 
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
@@ -85,7 +85,7 @@ getHeadParameters = \case
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
-newtype IdleState tx = IdleState {chainState :: ChainStateHistory tx}
+newtype IdleState tx = IdleState {chainState :: ChainStateType tx}
   deriving (Generic)
 
 deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
@@ -103,7 +103,7 @@ data InitialState tx = InitialState
   { parameters :: HeadParameters
   , pendingCommits :: PendingCommits
   , committed :: Committed tx
-  , chainState :: ChainStateHistory tx
+  , chainState :: ChainStateType tx
   , headId :: HeadId
   }
   deriving (Generic)
@@ -133,7 +133,7 @@ type Committed tx = Map Party (UTxOType tx)
 data OpenState tx = OpenState
   { parameters :: HeadParameters
   , coordinatedHeadState :: CoordinatedHeadState tx
-  , chainState :: ChainStateHistory tx
+  , chainState :: ChainStateType tx
   , headId :: HeadId
   , currentSlot :: ChainSlot
   }
@@ -225,7 +225,7 @@ data ClosedState tx = ClosedState
   , readyToFanoutSent :: Bool
   -- ^ Tracks whether we have informed clients already about being
   -- 'ReadyToFanout'.
-  , chainState :: ChainStateHistory tx
+  , chainState :: ChainStateType tx
   , headId :: HeadId
   }
   deriving (Generic)

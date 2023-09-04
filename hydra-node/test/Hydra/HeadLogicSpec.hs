@@ -25,7 +25,6 @@ import Hydra.Chain (
   IsChainState,
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
-  initialHistory,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.State ()
@@ -549,7 +548,7 @@ inInitialState parties =
       { parameters
       , pendingCommits = Set.fromList parties
       , committed = mempty
-      , chainState = initialHistory SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where
@@ -581,7 +580,7 @@ inOpenState' parties coordinatedHeadState =
     OpenState
       { parameters
       , coordinatedHeadState
-      , chainState = initialHistory SimpleChainState{slot = chainSlot}
+      , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
       , currentSlot = chainSlot
       }
@@ -604,7 +603,7 @@ inClosedState' parties confirmedSnapshot =
       , confirmedSnapshot
       , contestationDeadline
       , readyToFanoutSent = False
-      , chainState = initialHistory SimpleChainState{slot = ChainSlot 0}
+      , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       }
  where

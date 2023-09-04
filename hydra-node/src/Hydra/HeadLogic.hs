@@ -32,6 +32,7 @@ import Hydra.API.ClientInput (ClientInput (..))
 import qualified Hydra.API.ServerOutput as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
+  ChainStateHistory,
   ChainStateType,
   HeadId,
   HeadParameters (..),
@@ -76,7 +77,6 @@ import Hydra.HeadLogic.State (
   OpenState (..),
   PendingCommits,
   SeenSnapshot (..),
-  getChainStateHistory,
   seenSnapshotNumber,
   setChainStateHistory,
  )
@@ -726,7 +726,7 @@ aggregate st = \case
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState = pushNewState chainState (getChainStateHistory st)
+        , chainState = chainState
         , headId
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
@@ -737,7 +737,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState = pushNewState chainState (getChainStateHistory st)
+            , chainState = chainState
             , headId
             }
        where
@@ -808,7 +808,7 @@ aggregate st = \case
   HeadAborted{chainState} ->
     Idle $
       IdleState
-        { chainState = pushNewState chainState (getChainStateHistory st)
+        { chainState = chainState
         }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
@@ -827,7 +827,7 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState = pushNewState chainState (getChainStateHistory st)
+              , chainState = chainState
               , headId
               }
       _otherState -> st
@@ -836,7 +836,7 @@ aggregate st = \case
       Closed _ ->
         Idle $
           IdleState
-            { chainState = pushNewState chainState (getChainStateHistory st)
+            { chainState = chainState
             }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
@@ -853,7 +853,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
-            , chainState = pushNewState chainState (getChainStateHistory st)
+            , chainState = chainState
             , headId
             , currentSlot = chainStateSlot chainState
             }
@@ -919,6 +919,31 @@ aggregateState s outcome =
     Effects{} -> []
     Combined l r ->
       collectStateChanged l <> collectStateChanged r
+
+recoverChainStateHistory ::
+  (Foldable t) =>
+  ChainStateHistory tx ->
+  t (StateChanged tx) ->
+  ChainStateHistory tx
+recoverChainStateHistory =
+  foldl' aggregateChainStateHistory
+ where
+  aggregateChainStateHistory history = \case
+    HeadInitialized{chainState} -> pushNewState chainState history
+    CommittedUTxO{chainState} -> pushNewState chainState history
+    HeadAborted{chainState} -> pushNewState chainState history
+    HeadOpened{chainState} -> pushNewState chainState history
+    TransactionAppliedToLocalUTxO{} -> history
+    SnapshotRequestDecided{} -> history
+    SnapshotRequested{} -> history
+    TransactionReceived{} -> history
+    PartySignedSnapshot{} -> history
+    SnapshotConfirmed{} -> history
+    HeadClosed{chainState} -> pushNewState chainState history
+    HeadIsReadyToFanout -> history
+    HeadFannedOut{chainState} -> pushNewState chainState history
+    ChainRolledBack{chainStateHistory} -> chainStateHistory
+    TickObserved{} -> history
 
 recoverState ::
   (Foldable t, IsChainState tx) =>

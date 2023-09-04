@@ -24,7 +24,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   defaultTTL,
-  getChainStateHistory,
  )
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Ledger.Cardano.Configuration (
@@ -87,13 +86,13 @@ main = do
         protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
         withCardanoLedger chainConfig protocolParams $ \ledger -> do
           persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-          hs <- loadState (contramap Node tracer) persistence initialChainState
+          (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
           checkHeadState (contramap Node tracer) env hs
           nodeState <- createNodeState hs
           -- Chain
           ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
           wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet (getChainStateHistory hs) (putEvent . OnChainEvent) $ \chain -> do
+          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
             -- API
             let RunOptions{host, port, peers, nodeId} = opts
                 putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
