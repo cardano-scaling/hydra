@@ -2,83 +2,9 @@
     "samples": [
         {
             "contents": {
-                "chainState": [
-                    {
-                        "slot": 24
-                    },
-                    {
-                        "slot": 12
-                    },
-                    {
-                        "slot": 22
-                    },
-                    {
-                        "slot": 8
-                    },
-                    {
-                        "slot": 2
-                    },
-                    {
-                        "slot": 4
-                    },
-                    {
-                        "slot": 14
-                    },
-                    {
-                        "slot": 22
-                    },
-                    {
-                        "slot": 14
-                    },
-                    {
-                        "slot": 29
-                    },
-                    {
-                        "slot": 5
-                    },
-                    {
-                        "slot": 20
-                    },
-                    {
-                        "slot": 25
-                    },
-                    {
-                        "slot": 2
-                    },
-                    {
-                        "slot": 26
-                    },
-                    {
-                        "slot": 7
-                    },
-                    {
-                        "slot": 12
-                    },
-                    {
-                        "slot": 8
-                    },
-                    {
-                        "slot": 14
-                    },
-                    {
-                        "slot": 12
-                    },
-                    {
-                        "slot": 6
-                    },
-                    {
-                        "slot": 26
-                    },
-                    {
-                        "slot": 23
-                    },
-                    {
-                        "slot": 30
-                    },
-                    {
-                        "slot": 30
-                    }
-                ],
+                "chainState": {
+                    "slot": 21
+                },
                 "committed": [
                     [
                         {
@@ -541,35 +467,9 @@
         },
         {
             "contents": {
-                "chainState": [
-                    {
-                        "slot": 23
-                    },
-                    {
-                        "slot": 17
-                    },
-                    {
-                        "slot": 6
-                    },
-                    {
-                        "slot": 9
-                    },
-                    {
-                        "slot": 20
-                    },
-                    {
-                        "slot": 27
-                    },
-                    {
-                        "slot": 5
-                    },
-                    {
-                        "slot": 0
-                    },
-                    {
-                        "slot": 0
-                    }
-                ],
+                "chainState": {
+                    "slot": 6
+                },
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
@@ -712,96 +612,17 @@
         },
         {
             "contents": {
-                "chainState": [
-                    {
-                        "slot": 25
-                    },
-                    {
-                        "slot": 6
-                    },
-                    {
-                        "slot": 0
-                    },
-                    {
-                        "slot": 29
-                    },
-                    {
-                        "slot": 16
-                    },
-                    {
-                        "slot": 1
-                    }
-                ]
+                "chainState": {
+                    "slot": 11
+                }
             },
             "tag": "Idle"
         },
         {
             "contents": {
-                "chainState": [
-                    {
-                        "slot": 16
-                    },
-                    {
-                        "slot": 20
-                    },
-                    {
-                        "slot": 11
-                    },
-                    {
-                        "slot": 12
-                    },
-                    {
-                        "slot": 27
-                    },
-                    {
-                        "slot": 6
-                    },
-                    {
-                        "slot": 7
-                    },
-                    {
-                        "slot": 23
-                    },
-                    {
-                        "slot": 9
-                    },
-                    {
-                        "slot": 8
-                    },
-                    {
-                        "slot": 25
-                    },
-                    {
-                        "slot": 22
-                    },
-                    {
-                        "slot": 18
-                    },
-                    {
-                        "slot": 0
-                    },
-                    {
-                        "slot": 28
-                    },
-                    {
-                        "slot": 15
-                    },
-                    {
-                        "slot": 29
-                    },
-                    {
-                        "slot": 1
-                    },
-                    {
-                        "slot": 5
-                    },
-                    {
-                        "slot": 30
-                    },
-                    {
-                        "slot": 23
-                    }
-                ],
+                "chainState": {
+                    "slot": 9
+                },
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
@@ -911,98 +732,9 @@
         },
         {
             "contents": {
-                "chainState": [
-                    {
-                        "slot": 11
-                    },
-                    {
-                        "slot": 8
-                    },
-                    {
-                        "slot": 16
-                    },
-                    {
-                        "slot": 29
-                    },
-                    {
-                        "slot": 21
-                    },
-                    {
-                        "slot": 21
-                    },
-                    {
-                        "slot": 27
-                    },
-                    {
-                        "slot": 24
-                    },
-                    {
-                        "slot": 5
-                    },
-                    {
-                        "slot": 16
-                    },
-                    {
-                        "slot": 3
-                    },
-                    {
-                        "slot": 4
-                    },
-                    {
-                        "slot": 23
-                    },
-                    {
-                        "slot": 0
-                    },
-                    {
-                        "slot": 7
-                    },
-                    {
-                        "slot": 14
-                    },
-                    {
-                        "slot": 2
-                    },
-                    {
-                        "slot": 13
-                    },
-                    {
-                        "slot": 28
-                    },
-                    {
-                        "slot": 7
-                    },
-                    {
-                        "slot": 13
-                    },
-                    {
-                        "slot": 11
-                    },
-                    {
-                        "slot": 20
-                    },
-                    {
-                        "slot": 26
-                    },
-                    {
-                        "slot": 12
-                    },
-                    {
-                        "slot": 6
-                    },
-                    {
-                        "slot": 8
-                    },
-                    {
-                        "slot": 28
-                    },
-                    {
-                        "slot": 14
-                    },
-                    {
-                        "slot": 5
-                    }
-                ],
+                "chainState": {
+                    "slot": 18
+                },
                 "committed": [
                     [
                         {
