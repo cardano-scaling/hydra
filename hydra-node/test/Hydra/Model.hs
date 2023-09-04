@@ -71,10 +71,10 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import qualified Hydra.Snapshot as Snapshot
-import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (Property, choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
-import Test.QuickCheck.StateModel.Variables (HasVariables (..))
+import Test.QuickCheck.StateModel (Any (..), HasVariables, LookUp, PostconditionM, Realized, RunModel (..), StateModel (..), VarContext)
+import Test.QuickCheck.StateModel.Variables (HasVariables (..), Var)
 import qualified Prelude
 
 -- * The Model
@@ -203,13 +203,16 @@ instance StateModel WorldState where
       (party, commits) <- elements $ Map.toList pending
       pure . Some $ Commit party commits
 
+    genAbort :: Gen (Any (Action WorldState))
     genAbort = do
       (key, _) <- elements hydraParties
       let party = deriveParty key
       pure . Some $ Abort party
 
+    genNewTx :: Gen (Any (Action WorldState))
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
+  precondition :: WorldState -> Action WorldState a -> Bool
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -231,6 +234,7 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
+  nextState :: WorldState -> Action WorldState a -> Var a -> WorldState
   nextState s@WorldState{hydraParties, hydraState} a _ =
     case a of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
@@ -244,6 +248,7 @@ instance StateModel WorldState where
       Init{} ->
         WorldState{hydraParties, hydraState = mkInitialState hydraState}
        where
+        mkInitialState :: GlobalState -> GlobalState
         mkInitialState = \case
           Idle{idleParties, idleContestationPeriod, toCommit} ->
             Initial
@@ -452,13 +457,16 @@ instance
   ) =>
   RunModel WorldState (RunMonad m)
   where
+  postcondition :: forall a. (WorldState, WorldState) -> Action WorldState a -> LookUp (RunMonad m) -> Realized (RunMonad m) a -> PostconditionM (RunMonad m) Bool
   postcondition (_, st) action _l result = pure $ checkOutcome st action result
 
+  monitoring :: forall a. (WorldState, WorldState) -> Action WorldState a -> LookUp (RunMonad m) -> Realized (RunMonad m) a -> Property -> Property
   monitoring (s, s') action _l result =
     decoratePostconditionFailure
       . decorateTransitions
    where
     -- REVIEW: This should be part of the quickcheck-dynamic runActions
+    decoratePostconditionFailure :: Property -> Property
     decoratePostconditionFailure
       | checkOutcome s action result = id
       | otherwise =
@@ -467,10 +475,12 @@ instance
             . counterexample ("State: " <> show s)
             . counterexample ("Result: " <> showFromAction (show result) action)
 
+    decorateTransitions :: Property -> Property
     decorateTransitions =
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
+  perform :: WorldState -> Action WorldState a -> LookUp (RunMonad m) -> RunMonad m (Realized (RunMonad m) a)
   perform st action _ = do
     case action of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->

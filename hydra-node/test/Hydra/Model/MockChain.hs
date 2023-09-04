@@ -66,12 +66,12 @@ import Hydra.Node (
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
 
-data MockChainData = MockChainData {
-    slotNum :: ChainSlot
+data MockChainData = MockChainData
+  { slotNum :: ChainSlot
   , position :: Natural
   , blocks :: Seq (BlockHeader, [ResolvedTx], UTxO)
   , currentUTxO :: UTxO
-}
+  }
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on
@@ -163,9 +163,10 @@ mockChainAndNetwork tr seedKeys cp commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit :: TVar m [MockHydraNode m]
-                 -> (Party, UTxO' (TxOut CtxUTxO))
-                 -> m ()
+  simulateCommit ::
+    TVar m [MockHydraNode m] ->
+    (Party, UTxO' (TxOut CtxUTxO)) ->
+    m ()
   simulateCommit nodes (party, utxoToCommit) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
@@ -184,20 +185,22 @@ mockChainAndNetwork tr seedKeys cp commits = do
   blockTime :: DiffTime
   blockTime = 20
 
-  simulateChain :: TVar m [MockHydraNode m]
-                -> TVar m MockChainData
-                -> TQueue m Tx
-                -> m b
+  simulateChain ::
+    TVar m [MockHydraNode m] ->
+    TVar m MockChainData ->
+    TQueue m Tx ->
+    m b
   simulateChain nodes chain queue =
     forever $ do
       rollForward nodes chain queue
       rollForward nodes chain queue
       rollbackAndForward nodes chain 2
 
-  rollForward :: TVar m [MockHydraNode m]
-              -> TVar m MockChainData
-              -> TQueue m Tx
-              -> m ()
+  rollForward ::
+    TVar m [MockHydraNode m] ->
+    TVar m MockChainData ->
+    TQueue m Tx ->
+    m ()
   rollForward nodes chain queue = do
     threadDelay blockTime
     atomically $ do
@@ -219,19 +222,21 @@ mockChainAndNetwork tr seedKeys cp commits = do
       Nothing ->
         pure ()
 
-  rollbackAndForward :: TVar m [MockHydraNode m]
-                  -> TVar m MockChainData
-                  -> Natural
-                  -> m ()
+  rollbackAndForward ::
+    TVar m [MockHydraNode m] ->
+    TVar m MockChainData ->
+    Natural ->
+    m ()
   rollbackAndForward nodes chain numberOfBlocks = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
       doRollForward nodes chain
 
-  doRollBackward :: TVar m [MockHydraNode m]
-                 -> TVar m MockChainData
-                 -> Natural
-                 -> m ()
+  doRollBackward ::
+    TVar m [MockHydraNode m] ->
+    TVar m MockChainData ->
+    Natural ->
+    m ()
   doRollBackward nodes chain nbBlocks = do
     MockChainData{slotNum, position, blocks} <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
