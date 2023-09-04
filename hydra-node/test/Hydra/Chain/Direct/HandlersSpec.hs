@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
+  OnChainTx (..),
   chainStateSlot,
   currentState,
   initHistory,
@@ -52,7 +53,6 @@ import Hydra.Chain.Direct.State (
   initialChainState,
   initialize,
   observeCommit,
-  observeSomeTx,
   unsafeCommit,
   unsafeObserveInit,
  )
@@ -123,7 +123,7 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
-        let chainSyncCallback = const $ failure "Unexpected callback"
+        let chainSyncCallback _cont = failure "Unexpected callback"
             handler =
               chainSyncHandler
                 nullTracer
@@ -147,10 +147,20 @@ spec = do
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
-            Observation{observedTx} ->
-              when ((fst <$> observeSomeTx ctx st tx) /= Just observedTx) $
-                failure $
-                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
+            Observation{observedTx} -> do
+              case (transition, observedTx) of
+                (Init, OnInitTx{}) -> pure ()
+                (Commit, OnCommitTx{}) -> pure ()
+                (Collect, OnCollectComTx{}) -> pure ()
+                (Close, OnCloseTx{}) -> pure ()
+                (Contest, OnContestTx{}) -> pure ()
+                (Fanout, OnFanoutTx{}) -> pure ()
+                _ ->
+                  failure $
+                    "unexpected observation: "
+                      <> show transition
+                      <> " /= "
+                      <> show (Just observedTx)
 
       let handler =
             chainSyncHandler
