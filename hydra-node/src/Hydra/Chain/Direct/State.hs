@@ -532,7 +532,7 @@ fanout ctx st utxo deadlineSlotNo = do
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
 observeSomeTx :: ChainContext -> ChainState -> ResolvedTx -> Maybe (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst resolvedTx = case cst of
+observeSomeTx ctx cst rtx = case cst of
   Idle ->
     second Initial <$> hush (observeInit ctx tx)
   Initial st ->
@@ -542,9 +542,9 @@ observeSomeTx ctx cst resolvedTx = case cst of
   Open st -> second Closed <$> observeClose st tx
   Closed st ->
     second Closed <$> observeContest st tx
-      <|> (,Idle) <$> observeFanout st tx
+      <|> (,Idle) <$> observeFanout rtx
  where
-  tx = fromResolvedTx resolvedTx
+  tx = fromResolvedTx rtx
 
 -- ** IdleState transitions
 
@@ -704,12 +704,10 @@ observeContest st tx = do
 
 -- | Observe a fanout transition using a 'ClosedState' and 'observeFanoutTx'.
 observeFanout ::
-  ClosedState ->
-  Tx ->
+  ResolvedTx ->
   Maybe (OnChainTx Tx)
-observeFanout st tx = do
-  let utxo = getKnownUTxO st
-  FanoutObservation <- observeFanoutTx utxo tx
+observeFanout rtx = do
+  FanoutObservation <- observeFanoutTx (inputUTxO rtx) (fromResolvedTx rtx)
   pure OnFanoutTx
 
 -- * Generators

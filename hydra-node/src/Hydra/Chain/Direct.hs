@@ -38,6 +38,7 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  ShelleyAddr,
   SocketPath,
   Tx,
   TxId,
