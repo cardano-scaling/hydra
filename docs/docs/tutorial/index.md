@@ -114,12 +114,25 @@ synchronizing the whole history and get started quickly.
 We will be using the `mithril-client` configured to download from
 `preprod` network to download the latest blockchain snapshot:
 
-<!-- TODO: nixos does not work out of the box with debian dynamic binaries and requires alias mithril-client="steam-run mithril-client" -->
-
 ```shell
 SNAPSHOT_DIGEST=$(mithril-client snapshot list --json | jq -r '.[0].digest')
 mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
+
+<details>
+<summary>NixOS workaround</summary>
+
+The dynamically linked `mithril-client` binary does not work out-of-the-box on
+NixOS. You can workaround this by emulating a common linux FHS environment:
+
+```shell
+alias mithril-client="steam-run mithril-client"
+```
+
+If you have a better solution or want to contribute static binaries to the
+mithril CI, PRs are welcome!
+
+</details>
 
 Then we can run a `cardano-node`, first downloading some configuration files, with:
 
@@ -302,7 +315,6 @@ Besides the Cardano keys, we now also need to generate Hydra key pairs which
 will be used on the layer two by the `hydra-node`. For this, we will use the
 `hydra-tools` to generate the keys for `alice` and/or `bob` respectively:
 
-<!-- TODO: feedback of these commands is not great -->
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
 
@@ -371,7 +383,6 @@ how to publish scripts yourself.
 
 Let's start the `hydra-node` with all these parameters now:
 
-<!-- TODO: add step to wipe or pull all images in the beginning? -->
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
 
@@ -655,7 +666,12 @@ check the snapshot signatures and confirm the head closed. When this close
 transaction is observed, the websocket API sends a `HeadIsClosed` message (this
 can also happen if any other `hydra-node` closes the head).
 
-<!-- TODO: mention that this might need to be tried multiple times (bug) -->
+:::caution Known bug
+You might need to submit the `Close` command multiple times if the head is not
+getting closed within ~30s.
+
+See [#1039](https://github.com/input-output-hk/hydra/issues/1039) for details.
+:::
 
 Included in the message will be a `contestationDeadline` which gets set using
 the configurable `--contestation-period`. Until this deadline, the closing
