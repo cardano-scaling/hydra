@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Control.Tracer (showTracing, stdoutTracer, traceWith)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
@@ -321,14 +322,18 @@ queryStakePools networkId socket queryPoint =
 -- rollback. So what we do is retry 5 times and then give up.
 runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
 runQuery networkId socket point query =
-  go 5
+  let tracer = traceWith $ showTracing stdoutTracer
+   in go tracer 5
  where
-  go n =
+  go tracer n =
     queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
       Left err ->
         if n == (0 :: Int)
           then throwIO $ QueryAcquireException err
-          else threadDelay 1000000 >> go (n - 1)
+          else do
+            tracer ("Retrying query... " ++ show n <> " Query: " <> show query)
+            threadDelay 1000000
+            go tracer (n - 1)
       Right result -> pure result
   maybePoint =
     case point of
