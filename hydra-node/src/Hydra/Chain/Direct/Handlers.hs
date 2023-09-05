@@ -38,13 +38,14 @@ import Hydra.Chain (
   PostTxError (..),
   currentState,
   pushNewState,
-  withHistory,
+  rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
   ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit',
@@ -72,7 +73,7 @@ import System.IO.Error (userError)
 data LocalChainState m = LocalChainState
   { getLatest :: STM m ChainStateAt
   , pushNew :: ChainStateAt -> STM m ()
-  , rollback :: ChainPoint -> STM m (ChainStateHistory Tx)
+  , rollback :: ChainPoint -> STM m (ChainStateType Tx)
   , history :: STM m (ChainStateHistory Tx)
   }
 
@@ -101,27 +102,13 @@ newLocalChainState chainState = do
 
   rollback tv point = do
     chainStateHisotry <- readTVar tv
-    let rolledBack = rollbackHistory point chainStateHisotry
+    let rolledBack =
+          rollbackHistory
+            initialChainState
+            (chainSlotFromPoint point)
+            chainStateHisotry
     writeTVar tv rolledBack
-    pure rolledBack
-
-  rollbackHistory rollbackChainPoint chainStateHisotry =
-    withHistory chainStateHisotry $ \history ->
-      fromMaybe (initialChainState :| []) $
-        case rollbackChainPoint of
-          ChainPointAtGenesis -> Nothing
-          ChainPoint{} ->
-            let rolledBack =
-                  dropWhile
-                    ( \ChainStateAt{recordedAt} ->
-                        case recordedAt of
-                          Nothing -> False
-                          Just recordPoint -> recordPoint > rollbackChainPoint
-                    )
-                    (toList history)
-             in if null rolledBack
-                  then Nothing
-                  else Just (fromList rolledBack)
+    pure (currentState rolledBack)
 
 -- * Posting Transactions
 

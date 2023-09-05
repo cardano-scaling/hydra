@@ -5,7 +5,7 @@
 module Hydra.HeadLogic.State where
 
 import qualified Data.Map as Map
-import Hydra.Chain (ChainStateHistory, ChainStateType, HeadId, HeadParameters, currentState)
+import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
@@ -67,12 +67,12 @@ getChainState = \case
   Closed ClosedState{chainState} -> chainState
 
 -- | Update the chain state in any 'HeadState'.
-setChainStateHistory :: ChainStateHistory tx -> HeadState tx -> HeadState tx
-setChainStateHistory chainStateHistory = \case
-  Idle st -> Idle st{chainState = currentState chainStateHistory}
-  Initial st -> Initial st{chainState = currentState chainStateHistory}
-  Open st -> Open st{chainState = currentState chainStateHistory}
-  Closed st -> Closed st{chainState = currentState chainStateHistory}
+setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
+setChainState chainState = \case
+  Idle st -> Idle st{chainState}
+  Initial st -> Initial st{chainState}
+  Open st -> Open st{chainState}
+  Closed st -> Closed st{chainState}
 
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters

@@ -166,7 +166,7 @@ spec = do
       rolledBackTo <- run newEmptyTMVarIO
       let callback = \case
             Rollback{rolledBackChainState} ->
-              atomically $ putTMVar rolledBackTo rolledBackChainState
+              atomically $ putTMVar rolledBackTo (initHistory rolledBackChainState)
             _ -> pure ()
       localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let handler =

@@ -20,7 +20,14 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
-import Hydra.Chain (Chain (..), ChainStateHistory, ChainStateType, HeadParameters (..), IsChainState, PostTxError, initHistory)
+import Hydra.Chain (
+  Chain (..),
+  ChainStateHistory,
+  ChainStateType,
+  HeadParameters (..),
+  IsChainState,
+  PostTxError,
+ )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (AsType (AsHydraKey))
@@ -266,7 +273,7 @@ loadState tracer persistence defaultChainState = do
   events <- loadAll persistence
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory (initHistory defaultChainState) events
+      chainStateHistory = recoverChainStateHistory defaultChainState events
   pure (headState, chainStateHistory)
  where
   initialState = Idle IdleState{chainState = defaultChainState}

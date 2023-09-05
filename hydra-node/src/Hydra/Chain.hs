@@ -191,6 +191,23 @@ withHistory ::
   ChainStateHistory tx
 withHistory (UnsafeChainStateHistory history) f = UnsafeChainStateHistory (f history)
 
+rollbackHistory ::
+  IsChainState tx =>
+  ChainStateType tx ->
+  ChainSlot ->
+  ChainStateHistory tx ->
+  ChainStateHistory tx
+rollbackHistory initialChainState rollbackChainSlot chainStateHisotry =
+  withHistory chainStateHisotry $ \history ->
+    fromMaybe (initialChainState :| []) $
+      let rolledBack =
+            dropWhile
+              (\cs -> chainStateSlot cs > rollbackChainSlot)
+              (toList history)
+       in if null rolledBack
+            then Nothing
+            else Just (fromList rolledBack)
+
 deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
 deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
 deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
@@ -248,7 +265,7 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: ChainStateHistory tx
+      { rolledBackChainState :: ChainStateType tx
       }
   | -- | Indicate time has advanced on the chain.
     --

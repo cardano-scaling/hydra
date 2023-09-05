@@ -653,10 +653,11 @@ simulatedChainAndNetwork initialChainState = do
                   _NoObservation -> error "unexpected non-observation ChainEvent"
               )
               kept
+        rolledBackChainState = currentState rolledBackChainStateHistory
     atomically $ writeTVar chainStateVar rolledBackChainStateHistory
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState = rolledBackChainStateHistory}
+    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev

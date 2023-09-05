@@ -39,7 +39,9 @@ import Hydra.Chain (
   IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
+  initHistory,
   pushNewState,
+  rollbackHistory,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
@@ -78,7 +80,7 @@ import Hydra.HeadLogic.State (
   PendingCommits,
   SeenSnapshot (..),
   seenSnapshotNumber,
-  setChainStateHistory,
+  setChainState,
  )
 import Hydra.Ledger (
   IsTx,
@@ -705,7 +707,7 @@ update env ledger st ev = case (st, ev) of
     onClosedChainFanoutTx closedState newChainState
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
-    StateChanged ChainRolledBack{chainStateHistory = rolledBackChainState}
+    StateChanged ChainRolledBack{chainState = rolledBackChainState}
   (_, OnChainEvent Tick{chainSlot}) ->
     StateChanged (TickObserved{chainSlot})
   (_, PostTxError{postChainTx, postTxError}) ->
@@ -897,8 +899,8 @@ aggregate st = \case
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
-  ChainRolledBack{chainStateHistory} ->
-    setChainStateHistory chainStateHistory st
+  ChainRolledBack{chainState} ->
+    setChainState chainState st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
@@ -921,12 +923,12 @@ aggregateState s outcome =
       collectStateChanged l <> collectStateChanged r
 
 recoverChainStateHistory ::
-  (Foldable t) =>
-  ChainStateHistory tx ->
+  (Foldable t, IsChainState tx) =>
+  ChainStateType tx ->
   t (StateChanged tx) ->
   ChainStateHistory tx
-recoverChainStateHistory =
-  foldl' aggregateChainStateHistory
+recoverChainStateHistory initialChainState =
+  foldl' aggregateChainStateHistory (initHistory initialChainState)
  where
   aggregateChainStateHistory history = \case
     HeadInitialized{chainState} -> pushNewState chainState history
@@ -942,7 +944,8 @@ recoverChainStateHistory =
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
-    ChainRolledBack{chainStateHistory} -> chainStateHistory
+    ChainRolledBack{chainState} ->
+      rollbackHistory initialChainState (chainStateSlot chainState) history
     TickObserved{} -> history
 
 recoverState ::
