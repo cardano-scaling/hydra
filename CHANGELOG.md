@@ -10,6 +10,8 @@ changes.
 
 ## [0.13.0] - UNRELEASED
 
+- Provide the option to specify arguments to hydra-node as a configuration file.
+
 - **BREAKING** Changes to `hydra-plutus` scripts.
 
 - Add option to draft a commit tx using inline datums.

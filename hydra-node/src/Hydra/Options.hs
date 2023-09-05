@@ -16,6 +16,7 @@ import Data.Text (unpack)
 import qualified Data.Text as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Data.Version (Version (..), showVersion)
+import Data.Yaml (decodeFileEither)
 import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
@@ -88,7 +89,8 @@ instance Arbitrary ParamMismatch where
   arbitrary = genericArbitrary
 
 data Command
-  = Run RunOptions
+  = RunWithArguments RunOptions
+  | RunWithConfig FilePath
   | Publish PublishOptions
   | GenHydraKey GenerateKeyPair
   deriving (Show, Eq)
@@ -96,7 +98,8 @@ data Command
 commandParser :: Parser Command
 commandParser =
   asum
-    [ Run <$> runOptionsParser
+    [ RunWithArguments <$> runOptionsParser
+    , RunWithConfig <$> configFileParser
     , Publish <$> publishScriptsParser
     , GenHydraKey <$> genHydraKeyParser
     ]
@@ -197,6 +200,16 @@ instance Arbitrary RunOptions where
         , chainConfig
         , ledgerConfig
         }
+
+configFileParser :: Parser FilePath
+configFileParser =
+  strOption
+    ( long "configuration"
+        <> short 'c'
+        <> metavar "FILE"
+        <> value "hydra-node.yaml"
+        <> help "Hydra node configuration file"
+    )
 
 runOptionsParser :: Parser RunOptions
 runOptionsParser =
@@ -663,6 +676,15 @@ parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 -- | Pure parsing of `Option` from a list of arguments.
 parseHydraCommandFromArgs :: [String] -> ParserResult Command
 parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
+
+-- | Try to parse the hydra 'RunOptions' from a yaml file.
+-- Throws at least 'ParseFailure'
+parseConfigurationOrFail :: FilePath -> IO RunOptions
+parseConfigurationOrFail fp = do
+  eConfig <- decodeFileEither fp
+  case eConfig of
+    Left e -> throwIO e
+    Right runOptions -> pure runOptions
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --

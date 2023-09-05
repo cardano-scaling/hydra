@@ -190,6 +190,7 @@ library
     , wai-websockets
     , warp
     , websockets
+    , yaml
 
   ghc-options:     -haddock
 

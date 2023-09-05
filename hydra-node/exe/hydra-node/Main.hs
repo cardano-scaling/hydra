@@ -51,12 +51,13 @@ import Hydra.Node (
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (
   ChainConfig (..),
-  Command (GenHydraKey, Publish, Run),
+  Command (GenHydraKey, Publish, RunWithArguments, RunWithConfig),
   GenerateKeyPair (GenerateKeyPair, outputFile),
   LedgerConfig (..),
   PublishOptions (..),
   RunOptions (..),
   explain,
+  parseConfigurationOrFail,
   parseHydraCommand,
   validateRunOptions,
  )
@@ -67,7 +68,11 @@ main :: IO ()
 main = do
   command <- parseHydraCommand
   case command of
-    Run options -> do
+    RunWithArguments options -> do
+      either (die . explain) pure $ validateRunOptions options
+      run (identifyNode options)
+    RunWithConfig configFilePath -> do
+      options <- parseConfigurationOrFail configFilePath
       either (die . explain) pure $ validateRunOptions options
       run (identifyNode options)
     Publish options ->

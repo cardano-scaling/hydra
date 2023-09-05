@@ -1,0 +1,28 @@
+apiHost:
+  ipv4: 127.0.0.1
+  tag: IPv4
+apiPort: 4001
+chainConfig:
+  cardanoSigningKey: cardano.sk
+  cardanoVerificationKeys: []
+  contestationPeriod: 60
+  networkId:
+    magic: 42
+    tag: Testnet
+  nodeSocket: node.socket
+  startChainFrom: null
+host:
+  ipv4: 127.0.0.1
+  tag: IPv4
+hydraScriptsTxId: "0101010101010101010101010101010101010101010101010101010101010101"
+hydraSigningKey: hydra.sk
+hydraVerificationKeys: []
+ledgerConfig:
+  cardanoLedgerProtocolParametersFile: protocol-parameters.json
+nodeId: 'node-id-1'
+peers: []
+persistenceDir: "./"
+port: 5001
+verbosity:
+  contents: HydraNode
+  tag: Verbose

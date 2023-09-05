@@ -27,6 +27,7 @@ import Hydra.Options (
   defaultChainConfig,
   defaultLedgerConfig,
   outputFile,
+  parseConfigurationOrFail,
   parseHydraCommandFromArgs,
   renderFailure,
   toArgs,
@@ -59,24 +60,24 @@ spec = parallel $
         `shouldBe` Left CardanoAndHydraKeysMissmatch
 
     it "parses with default node-id set" $
-      setFlags [] `shouldParse` Run defaultRunOptions
+      setFlags [] `shouldParse` RunWithArguments defaultRunOptions
 
     it "parses --host option given valid IPv4 and IPv6 addresses" $ do
       setFlags ["--host", "127.0.0.1"]
-        `shouldParse` Run defaultRunOptions{host = "127.0.0.1"}
+        `shouldParse` RunWithArguments defaultRunOptions{host = "127.0.0.1"}
       setFlags ["--host", "2001:db8:11e:c00::101"]
-        `shouldParse` Run defaultRunOptions{host = "2001:db8:11e:c00::101"}
+        `shouldParse` RunWithArguments defaultRunOptions{host = "2001:db8:11e:c00::101"}
       setFlags ["--host", "0.0.0.0"]
-        `shouldParse` Run defaultRunOptions{host = "0.0.0.0"}
+        `shouldParse` RunWithArguments defaultRunOptions{host = "0.0.0.0"}
       shouldNotParse ["--host", "0.0.0"]
       shouldNotParse ["--host", "2001:db8:11e:c00:101"]
 
     it "parses --port option given valid port number" $ do
       setFlags ["--port", "12345"]
-        `shouldParse` Run defaultRunOptions{port = 12345}
+        `shouldParse` RunWithArguments defaultRunOptions{port = 12345}
       shouldNotParse ["--port", "123456"]
       setFlags ["--port", "0"]
-        `shouldParse` Run defaultRunOptions{port = 0}
+        `shouldParse` RunWithArguments defaultRunOptions{port = 0}
       shouldNotParse ["--port", "-42"]
 
     -- TODO(SN): Move these examples rather into a 'instance Read Host' test and
@@ -85,24 +86,24 @@ spec = parallel $
     -- Read instance for parsing, but in a different command line flag.
     it "parses --peer `<host>:<port>` option" $ do
       setFlags ["--peer", "1.2.3.4:4567"]
-        `shouldParse` Run defaultRunOptions{peers = [Host "1.2.3.4" 4567]}
+        `shouldParse` RunWithArguments defaultRunOptions{peers = [Host "1.2.3.4" 4567]}
       setFlags ["--peer", "1.2.3.4:4567", "--peer", "1.2.3.5:4568"]
-        `shouldParse` Run defaultRunOptions{peers = [Host "1.2.3.4" 4567, Host "1.2.3.5" 4568]}
+        `shouldParse` RunWithArguments defaultRunOptions{peers = [Host "1.2.3.4" 4567, Host "1.2.3.5" 4568]}
       setFlags ["--peer", "foo.com:4567"]
-        `shouldParse` Run defaultRunOptions{peers = [Host "foo.com" 4567]}
+        `shouldParse` RunWithArguments defaultRunOptions{peers = [Host "foo.com" 4567]}
       shouldNotParse ["--peer", "foo.com:456789"]
     it "does parse --peer given ipv6 addresses" $ do
       pendingWith "we do not support it"
       setFlags ["--peer", ":::1:4567"]
-        `shouldParse` Run defaultRunOptions{peers = [Host ":::1" 4567]}
+        `shouldParse` RunWithArguments defaultRunOptions{peers = [Host ":::1" 4567]}
 
     it "parses --monitoring-port option given valid port number" $ do
       setFlags []
-        `shouldParse` Run defaultRunOptions{monitoringPort = Nothing}
+        `shouldParse` RunWithArguments defaultRunOptions{monitoringPort = Nothing}
       setFlags ["--monitoring-port", "12345"]
-        `shouldParse` Run defaultRunOptions{monitoringPort = Just 12345}
+        `shouldParse` RunWithArguments defaultRunOptions{monitoringPort = Just 12345}
       setFlags ["--monitoring-port", "65535"]
-        `shouldParse` Run defaultRunOptions{monitoringPort = Just 65535}
+        `shouldParse` RunWithArguments defaultRunOptions{monitoringPort = Just 65535}
 
     it "flag --version returns version with base version from cabal" $ do
       case parseHydraCommandFromArgs ["--version"] of
@@ -113,22 +114,22 @@ spec = parallel $
         _ -> failure "expected a version but did get something else"
     it "parses --hydra-verification-key option as a filepath" $ do
       setFlags ["--hydra-verification-key", "./alice.vk"]
-        `shouldParse` Run defaultRunOptions{hydraVerificationKeys = ["./alice.vk"]}
+        `shouldParse` RunWithArguments defaultRunOptions{hydraVerificationKeys = ["./alice.vk"]}
       setFlags ["--hydra-verification-key", "/foo"]
-        `shouldParse` Run defaultRunOptions{hydraVerificationKeys = ["/foo"]}
+        `shouldParse` RunWithArguments defaultRunOptions{hydraVerificationKeys = ["/foo"]}
       setFlags ["--hydra-verification-key", "bar"]
-        `shouldParse` Run defaultRunOptions{hydraVerificationKeys = ["bar"]}
+        `shouldParse` RunWithArguments defaultRunOptions{hydraVerificationKeys = ["bar"]}
       setFlags ["--hydra-verification-key", "alice.vk", "--hydra-verification-key", "bob.vk"]
-        `shouldParse` Run defaultRunOptions{hydraVerificationKeys = ["alice.vk", "bob.vk"]}
+        `shouldParse` RunWithArguments defaultRunOptions{hydraVerificationKeys = ["alice.vk", "bob.vk"]}
 
     it "parses --hydra-signing-key option as a filepath" $
       setFlags ["--hydra-signing-key", "./alice.sk"]
-        `shouldParse` Run defaultRunOptions{hydraSigningKey = "./alice.sk"}
+        `shouldParse` RunWithArguments defaultRunOptions{hydraSigningKey = "./alice.sk"}
 
     it "parses --testned-magic option as a number" $ do
       shouldNotParse ["--testnet-magic", "abc"]
       setFlags ["--testnet-magic", "0"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -136,7 +137,7 @@ spec = parallel $
                   }
             }
       setFlags ["--testnet-magic", "-1"] -- Word32 overflow expected
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -144,7 +145,7 @@ spec = parallel $
                   }
             }
       setFlags ["--testnet-magic", "123"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -154,7 +155,7 @@ spec = parallel $
 
     it "parses --mainnet option" $ do
       ["--node-id", "node-id-1", "--mainnet"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -169,7 +170,7 @@ spec = parallel $
       shouldNotParse ["--contestation-period", "0s"]
       shouldNotParse ["--contestation-period", "00s"]
       setFlags ["--contestation-period", "60s"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -177,7 +178,7 @@ spec = parallel $
                   }
             }
       setFlags ["--contestation-period", "300s"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -190,7 +191,7 @@ spec = parallel $
 
     it "parses --node-socket as a filepath" $
       setFlags ["--node-socket", "foo.sock"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -200,7 +201,7 @@ spec = parallel $
 
     it "parses --cardano-signing-key option as a filepath" $
       setFlags ["--cardano-signing-key", "./alice-cardano.sk"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -210,7 +211,7 @@ spec = parallel $
 
     it "parses --cardano-verification-key option as a filepath" $
       setFlags ["--cardano-verification-key", "./alice-cardano.vk"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -220,7 +221,7 @@ spec = parallel $
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
       setFlags ["--ledger-protocol-parameters", "my-custom-protocol-parameters.json"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { ledgerConfig =
                 defaultLedgerConfig
@@ -230,7 +231,7 @@ spec = parallel $
 
     it "parses --start-chain-from as a pair of slot number and block header hash" $ do
       setFlags ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig =
                 defaultChainConfig
@@ -243,14 +244,14 @@ spec = parallel $
 
     it "parses --start-chain-from 0 as starting from genesis" $
       setFlags ["--start-chain-from", "0"]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { chainConfig = defaultChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
       setFlags ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
-        `shouldParse` Run
+        `shouldParse` RunWithArguments
           defaultRunOptions
             { hydraScriptsTxId = txId
             }
@@ -327,12 +328,17 @@ spec = parallel $
       it "should parse gen-hydra-keys without the output-file flag using default file name" $
         ["gen-hydra-key"] `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "hydra-key"}
 
+    describe "Configuration file parsing" $
+      it "can parse the configuration file" $
+        parseConfigurationOrFail "./../hydra-node.example.yaml"
+          `shouldReturn` defaultRunOptions
+
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
   let args = toArgs opts
    in counterexample ("args:  " <> show args) $
         case parseHydraCommandFromArgs args of
-          Success cmd -> cmd === Run opts
+          Success cmd -> cmd === RunWithArguments opts
           err -> property False & counterexample ("error : " <> show err)
 
 shouldParse :: [String] -> Command -> Expectation
