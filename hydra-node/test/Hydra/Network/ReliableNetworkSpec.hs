@@ -8,18 +8,18 @@ import Hydra.Prelude hiding (Any, label)
 import Control.Monad.IOSim (IOSim, runSimTrace, traceResult)
 import Test.Hspec (Spec)
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Property, Testable (property), counterexample)
+import Test.QuickCheck (Property, Testable (property), counterexample, frequency, oneof)
 import Test.QuickCheck.DynamicLogic (DL, DynLogicModel, anyActions_, forAllDL)
 import Test.QuickCheck.Gen.Unsafe (Capture (..), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic')
 import Test.QuickCheck.StateModel (Action, Actions, Any (Some), LookUp, Realized, RunModel (..), StateModel (..), VarContext, runActions)
-import Test.QuickCheck.StateModel.Variables (HasVariables (..))
+import Test.QuickCheck.StateModel.Variables (HasVariables (..), Var)
 
 spec :: Spec
 spec = do
   prop "State between nodes is eventually consistent" prop_eventuallyConsistentState
 
-data ClusterModel = ClusterModel
+data ClusterModel = ClusterModel {aliceSent :: [Int], bobIsAlive :: Bool}
   deriving (Show, Eq, Generic)
 
 data Cluster = Cluster
@@ -36,17 +36,52 @@ newtype RunMonad m a = RunMonad {runMonad :: ReaderT Cluster m a}
 type instance Realized (RunMonad m) a = a
 
 instance Monad m => RunModel ClusterModel (RunMonad m) where
-  perform st action _ = case action of
+  perform _ action _ = case action of
     Noop -> pure ()
+    AliceSend{} -> pure ()
+    BobReceived{} -> pure ()
+    BobCrashes{} -> pure ()
+    BobRecovers{} -> pure ()
+
+  postcondition (_before, _after) BobReceived msgs result =
+    pure $ msgs == result
+  postcondition _ _ _ _ = pure True
 
 instance StateModel ClusterModel where
   data Action ClusterModel a where
     Noop :: Action ClusterModel ()
+    AliceSend :: Int -> Action ClusterModel ()
+    BobReceived :: Action ClusterModel [Int]
+    BobCrashes :: Action ClusterModel ()
+    BobRecovers :: Action ClusterModel ()
 
   arbitraryAction :: VarContext -> ClusterModel -> Gen (Any (Action ClusterModel))
-  arbitraryAction _ _ = pure $ Some Noop
+  arbitraryAction _ ClusterModel{aliceSent} =
+    frequency
+      [ (5, Some . AliceSend <$> arbitrary)
+      , (3, pure $ Some $ BobReceived)
+      , (1, pure $ Some BobCrashes)
+      , (1, pure $ Some BobRecovers)
+      ]
 
-  initialState = ClusterModel
+  initialState = ClusterModel [] True
+
+  precondition :: ClusterModel -> Action ClusterModel a -> Bool
+  precondition ClusterModel{bobIsAlive = False} BobCrashes = False
+  precondition ClusterModel{bobIsAlive = False} BobReceived{} = False
+  precondition ClusterModel{bobIsAlive = True} BobRecovers = False
+  precondition _ _ = True
+
+  shrinkAction _ _ _ = []
+
+  nextState :: ClusterModel -> Action ClusterModel a -> Var a -> ClusterModel
+  nextState model@ClusterModel{aliceSent} act _ =
+    case act of
+      Noop -> model
+      AliceSend i -> model{aliceSent = (aliceSent <> [i])}
+      BobReceived -> model
+      BobCrashes -> model{bobIsAlive = False}
+      BobRecovers -> model{bobIsAlive = True}
 
 runNetworkActions :: Actions ClusterModel -> Property
 runNetworkActions actions = property $
