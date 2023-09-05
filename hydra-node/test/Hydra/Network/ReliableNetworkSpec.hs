@@ -4,37 +4,55 @@ module Hydra.Network.ReliableNetworkSpec where
 
 import Hydra.Prelude hiding (Any, label)
 
-import qualified Data.Map as Data
-import Test.QuickCheck.StateModel (Action, StateModel)
-import Test.QuickCheck.StateModel.Variables
+import Hydra.ModelSpec (runIOSimProp)
+import Test.Hspec (Spec)
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (Property, Testable (property))
+import Test.QuickCheck.DynamicLogic (DL, DynLogicModel, anyActions_, forAllDL)
+import Test.QuickCheck.Monadic (assert)
+import Test.QuickCheck.StateModel (Action, Actions, Any (Some), LookUp, Realized, RunModel (..), StateModel (..), VarContext, runActions)
+import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 
-type Message = Int
+spec :: Spec
+spec = do
+  prop "State between nodes is eventually consistent" prop_eventuallyConsistentState
 
-data NetworkStack = NetworkStack
-  { received :: [Message]
-  , sent :: [Message]
-  }
-  deriving (Eq, Show)
+data ClusterState = ClusterState
+  deriving (Show, Eq, Generic)
 
-newtype Network = Network
-  { peers :: Data.Map Peer NetworkStack
-  }
-  deriving (Eq, Show)
+instance DynLogicModel ClusterState
+instance HasVariables (Action ClusterState a) where
+  getAllVariables = mempty
+deriving instance Show (Action ClusterState a)
+deriving instance Eq (Action ClusterState a)
 
-data Peer = Alice | Bob | Carol
-  deriving (Eq, Show)
+instance Monad m => RunModel ClusterState m where
+  perform ::
+    (Monad m, Typeable a) =>
+    ClusterState ->
+    Action ClusterState a ->
+    LookUp m ->
+    m (Realized (ReaderT ClusterState m) a)
+  perform st action _ = case action of
+    Noop -> pure ()
 
-instance HasVariables (Action Network a) where
-  getAllVariables _ = mempty
+instance StateModel ClusterState where
+  data Action ClusterState a where
+    Noop :: Action ClusterState ()
 
-instance HasVariables Network where
-  getAllVariables _ = mempty
+  arbitraryAction :: VarContext -> ClusterState -> Gen (Any (Action ClusterState))
+  arbitraryAction _ _ = pure $ Some Noop
 
-instance StateModel Network where
-  data Action Network a where
-    Send :: {source :: Peer, destination :: Peer, message :: Message} -> Action Network ()
+runNetworkActions :: Actions ClusterState -> Property
+runNetworkActions actions = property $
+  runIOSimProp $ do
+    _ <- runActions actions
+    assert True
 
-  initialState = Network{peers = fromList [(Alice, mempty), (Bob, mempty), (Carol, mempty)]}
+prop_eventuallyConsistentState :: Property
+prop_eventuallyConsistentState =
+  forAllDL stateIsEventuallyConsistent runNetworkActions
 
-deriving instance Show (Action Network a)
-deriving instance Eq (Action Network a)
+stateIsEventuallyConsistent :: DL ClusterState ()
+stateIsEventuallyConsistent = do
+  anyActions_
