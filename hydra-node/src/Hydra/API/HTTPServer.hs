@@ -6,6 +6,7 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import Data.Aeson (KeyValue ((.=)), Value (Object), object, withObject, (.:), (.:?))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
@@ -17,8 +18,8 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
   KeyWitnessInCtx (..),
+  LedgerEra,
   PlutusScript,
-  ProtocolParameters,
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
@@ -155,7 +156,7 @@ instance Arbitrary TransactionSubmitted where
 httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  ProtocolParameters ->
+  PParams LedgerEra ->
   Application
 httpApp tracer directChain pparams request respond = do
   traceWith tracer $

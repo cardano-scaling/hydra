@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
@@ -68,8 +69,7 @@ buildTransaction ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  bpparams <- queryProtocolParameters networkId socket QueryTip
-  let pparams = unbundleProtocolParams bpparams
+  pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -78,8 +78,9 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       makeTransactionBodyAutoBalance
         systemStart
         (toLedgerEpochInfo eraHistory)
-        pparams
+        (LedgerProtocolParameters pparams)
         stakePools
+        mempty
         mempty
         (UTxO.toApi utxoToSpend)
         (bodyContent pparams)
@@ -102,14 +103,14 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
-      (BuildTxWith $ Just pparams)
+      (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
       TxWithdrawalsNone
       TxCertificatesNone
       TxUpdateProposalNone
       TxMintValueNone
       TxScriptValidityNone
-      TxGovernanceActionsNone
-      TxVotesNone
+      Nothing
+      Nothing
 
 -- | Submit a (signed) transaction to the node.
 --
@@ -217,7 +218,11 @@ queryEraHistory networkId socket queryPoint =
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters :: NetworkId -> SocketPath -> QueryPoint -> IO BundledProtocolParameters
+queryProtocolParameters ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint = do
   let query =
         QueryInEra
@@ -226,15 +231,12 @@ queryProtocolParameters networkId socket queryPoint = do
               ShelleyBasedEraBabbage
               QueryProtocolParameters
           )
-  pparams <- runQuery networkId socket queryPoint query >>= throwOnEraMismatch
-  case bundleProtocolParams BabbageEra pparams of
-    Left err -> throwIO (QueryProtocolParamsConversionException err)
-    Right bpparams -> pure bpparams
+  runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Query 'GenesisParameters' at a given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO GenesisParameters
+queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisParameters ShelleyEra)
 queryGenesisParameters networkId socket queryPoint =
   let query =
         QueryInEra

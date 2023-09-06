@@ -129,6 +129,7 @@ library
     , async
     , base                                         >=4.7     && <5
     , bytestring
+    , cardano-ledger-core
     , cardano-slotting
     , containers
     , contra-tracer
@@ -146,7 +147,7 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
-    , plutus-ledger-api:plutus-ledger-api-testlib  >=1.1.1.0
+    , plutus-ledger-api:plutus-ledger-api-testlib  >=1.9.1.0
     , process
     , QuickCheck
     , req

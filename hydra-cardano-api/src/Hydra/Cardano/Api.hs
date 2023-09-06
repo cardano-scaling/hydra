@@ -21,6 +21,7 @@ module Hydra.Cardano.Api (
   Era,
   LedgerEra,
   ledgerEraVersion,
+  LedgerProtocolParameters(..),
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -40,7 +41,6 @@ import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
-  BundledProtocolParameters (..),
   Key (..),
   KeyWitness,
   PlutusScript,
@@ -108,8 +108,11 @@ import Cardano.Api.UTxO (
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
+  LedgerProtocolParameters,
   Map,
+  Proposal,
   StandardCrypto,
+  VotingProcedures,
   ledgerEraVersion,
  )
 
@@ -207,20 +210,6 @@ pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOu
   where
     BalancedTxBody =
       Cardano.Api.BalancedTxBody
-
--- ** BundledProtocolParameters
-
-type BundledProtocolParameters = Cardano.Api.BundledProtocolParameters Era
-
-pattern BundleAsShelleyBasedProtocolParameters ::
-  ProtocolParameters ->
-  Ledger.PParams LedgerEra ->
-  BundledProtocolParameters
-pattern BundleAsShelleyBasedProtocolParameters{shelleyPParams, ledgerParams} <-
-  Cardano.Api.Shelley.BundleAsShelleyBasedProtocolParameters _ shelleyPParams ledgerParams
-  where
-    BundleAsShelleyBasedProtocolParameters =
-      Cardano.Api.BundleAsShelleyBasedProtocolParameters ShelleyBasedEraBabbage
 
 -- ** KeyWitness
 
@@ -396,14 +385,14 @@ pattern TxBodyContent ::
   TxMetadataInEra ->
   TxAuxScripts ->
   TxExtraKeyWitnesses ->
-  BuildTxWith build (Maybe ProtocolParameters) ->
+  BuildTxWith build (Maybe (LedgerProtocolParameters Era)) ->
   TxWithdrawals build Era ->
   TxCertificates build Era ->
   TxUpdateProposal Era ->
   TxMintValue build ->
   TxScriptValidity ->
-  TxGovernanceActions Era ->
-  TxVotes Era ->
+  Maybe (Featured ConwayEraOnwards Era [Proposal Era]) ->
+  Maybe (Featured ConwayEraOnwards Era (VotingProcedures Era)) ->
   TxBodyContent build
 pattern TxBodyContent
   { txIns
