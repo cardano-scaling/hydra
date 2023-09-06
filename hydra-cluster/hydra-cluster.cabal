@@ -96,6 +96,7 @@ common project-config
     StandaloneDeriving
     TupleSections
     TypeFamilies
+    TypeOperators
     TypeSynonymInstances
     ViewPatterns
 
