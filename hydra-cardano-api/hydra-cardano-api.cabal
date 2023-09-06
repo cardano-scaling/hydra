@@ -120,7 +120,7 @@ library
     , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             >=8.11.0 && <8.12
+    , cardano-api             >=8.14.0 && <8.15
     , cardano-binary          >=1.7.0  && <1.8
     , cardano-crypto-class    >=2.1.1  && <2.2
     , cardano-ledger-allegra  >=1.2.1  && <1.3
