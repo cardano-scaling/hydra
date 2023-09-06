@@ -17,7 +17,7 @@ changes.
 - Remove hydra-tools package. Move functionality to generate hydra keys to the
   hydra-node executable.
 
-- **BREAKING** Changes to `hydra-node` state persistency:
+Changes to `hydra-node` state persistency:
   Remove the recursive definition of the chain state.
   This makes the event store more lightweight and easier to read and work with.
 
