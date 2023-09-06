@@ -94,19 +94,19 @@ newLocalChainState chainState = do
       }
  where
   getLatest tv = do
-    chainStateHisotry <- readTVar tv
-    return (currentState chainStateHisotry)
+    chainStateHistory <- readTVar tv
+    return (currentState chainStateHistory)
 
   pushNew tv cs =
     modifyTVar tv (pushNewState cs)
 
   rollback tv point = do
-    chainStateHisotry <- readTVar tv
+    chainStateHistory <- readTVar tv
     let rolledBack =
           rollbackHistory
             initialChainState
             (chainSlotFromPoint point)
-            chainStateHisotry
+            chainStateHistory
     writeTVar tv rolledBack
     pure (currentState rolledBack)
 
