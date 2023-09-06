@@ -21,7 +21,7 @@ import Test.QuickCheck (listOf)
 fromLedgerScript :: HasCallStack => Ledger.AlonzoScript era -> PlutusScript lang
 fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
-  Ledger.PlutusScript _ bytes -> PlutusScriptSerialised bytes
+  Ledger.PlutusScript (Ledger.Plutus _ (Ledger.BinaryPlutus bytes)) -> PlutusScriptSerialised bytes
 
 -- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
 toLedgerScript ::
@@ -34,7 +34,7 @@ toLedgerScript (PlutusScriptSerialised bytes) =
         PlutusScriptV1 -> Ledger.PlutusV1
         PlutusScriptV2 -> Ledger.PlutusV2
         PlutusScriptV3 -> Ledger.PlutusV3
-   in Ledger.PlutusScript lang bytes
+   in Ledger.PlutusScript $ Ledger.Plutus lang (Ledger.BinaryPlutus bytes)
 
 -- | Convert a serialized plutus script into a cardano-api 'PlutusScript'.
 fromPlutusScript :: Plutus.SerialisedScript -> PlutusScript lang
