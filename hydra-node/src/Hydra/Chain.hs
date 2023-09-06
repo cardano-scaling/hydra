@@ -185,20 +185,14 @@ pushNewState cs (UnsafeChainStateHistory history) = UnsafeChainStateHistory (cs 
 initHistory :: ChainStateType tx -> ChainStateHistory tx
 initHistory cs = UnsafeChainStateHistory (cs :| [])
 
-withHistory ::
-  ChainStateHistory tx ->
-  (NonEmpty (ChainStateType tx) -> NonEmpty (ChainStateType tx)) ->
-  ChainStateHistory tx
-withHistory (UnsafeChainStateHistory history) f = UnsafeChainStateHistory (f history)
-
 rollbackHistory ::
   IsChainState tx =>
   ChainStateType tx ->
   ChainSlot ->
   ChainStateHistory tx ->
   ChainStateHistory tx
-rollbackHistory initialChainState rollbackChainSlot chainStateHisotry =
-  withHistory chainStateHisotry $ \history ->
+rollbackHistory initialChainState rollbackChainSlot (UnsafeChainStateHistory history) =
+  UnsafeChainStateHistory $
     fromMaybe (initialChainState :| []) $
       let rolledBack =
             dropWhile
