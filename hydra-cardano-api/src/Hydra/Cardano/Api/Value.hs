@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.Value where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Ledger (PParams)
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import Cardano.Ledger.Core (getMinCoinTxOut)
 import qualified Cardano.Ledger.Mary.Value as Ledger
@@ -20,16 +21,15 @@ import qualified PlutusLedgerApi.V2 as Plutus
 -- unsatisfactory API because it works across multiple era.
 -- XXX: Check if this is still true ^^^ and use it if not.
 minUTxOValue ::
-  BundledProtocolParameters Era ->
+  PParams LedgerEra ->
   TxOut CtxTx Era ->
   Value
-minUTxOValue bundledParams (TxOut addr val dat ref) =
+minUTxOValue pparams (TxOut addr val dat ref) =
   fromLedgerLovelace $
     getMinCoinTxOut
-      ledgerPparams
-      (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
+      pparams
+      (toShelleyTxOut ShelleyBasedEraBabbage (toUTxOContext out'))
  where
-  BundleAsShelleyBasedProtocolParameters _ _ ledgerPparams = bundledParams
   out' =
     TxOut
       addr

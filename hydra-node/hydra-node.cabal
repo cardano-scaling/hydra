@@ -362,7 +362,7 @@ test-suite tests
     , plutus-tx
     , process
     , QuickCheck
-    , quickcheck-dynamic                                                >=3.0.3
+    , quickcheck-dynamic                                                >=3.0.3 && < 3.1
     , quickcheck-instances
     , regex-tdfa
     , req
