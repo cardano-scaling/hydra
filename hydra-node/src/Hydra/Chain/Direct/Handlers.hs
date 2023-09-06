@@ -71,8 +71,8 @@ import System.IO.Error (userError)
 
 -- | Handle of a local chain state that is kept in the direct chain layer.
 data LocalChainState m = LocalChainState
-  { getLatest :: STM m ChainStateAt
-  , pushNew :: ChainStateAt -> STM m ()
+  { getLatest :: STM m (ChainStateType Tx)
+  , pushNew :: ChainStateType Tx -> STM m ()
   , rollback :: ChainPoint -> STM m (ChainStateType Tx)
   , history :: STM m (ChainStateHistory Tx)
   }
@@ -93,9 +93,7 @@ newLocalChainState chainState = do
       , history = readTVar tv
       }
  where
-  getLatest tv = do
-    chainStateHistory <- readTVar tv
-    return (currentState chainStateHistory)
+  getLatest tv = currentState <$> readTVar tv
 
   pushNew tv cs =
     modifyTVar tv (pushNewState cs)

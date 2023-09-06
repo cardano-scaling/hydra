@@ -728,7 +728,7 @@ aggregate st = \case
         { parameters = parameters
         , pendingCommits = Set.fromList parties
         , committed = mempty
-        , chainState = chainState
+        , chainState
         , headId
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
@@ -739,7 +739,7 @@ aggregate st = \case
             { parameters
             , pendingCommits = remainingParties
             , committed = newCommitted
-            , chainState = chainState
+            , chainState
             , headId
             }
        where
@@ -810,7 +810,7 @@ aggregate st = \case
   HeadAborted{chainState} ->
     Idle $
       IdleState
-        { chainState = chainState
+        { chainState
         }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
@@ -829,7 +829,7 @@ aggregate st = \case
               , confirmedSnapshot
               , contestationDeadline
               , readyToFanoutSent = False
-              , chainState = chainState
+              , chainState
               , headId
               }
       _otherState -> st
@@ -838,7 +838,7 @@ aggregate st = \case
       Closed _ ->
         Idle $
           IdleState
-            { chainState = chainState
+            { chainState
             }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
@@ -855,7 +855,7 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
-            , chainState = chainState
+            , chainState
             , headId
             , currentSlot = chainStateSlot chainState
             }

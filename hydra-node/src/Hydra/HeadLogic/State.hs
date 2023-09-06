@@ -13,8 +13,6 @@ import Hydra.Party (Party, deriveParty)
 import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
-import Test.QuickCheck.Instances.Semigroup ()
-
 data Environment = Environment
   { party :: Party
   -- ^ This is the p_i from the paper
