@@ -20,7 +20,8 @@ jobs:
     - name: Check links
       uses: gaurav-nelson/github-action-markdown-link-check@v1
       with:
-        folder-path: 'docs/docs/tutorial'
+        folder-path: "docs/docs/tutorial"
+        config-file: ".github/workflows/check-links-config.json"
 
     # TODO: use javascript? https://github.com/marketplace/actions/execute-javascript-inline
 
