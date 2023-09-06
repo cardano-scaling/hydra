@@ -299,7 +299,7 @@ createMockChain ::
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
-  LocalChainState m ->
+  LocalChainState m Tx ->
   Chain Tx m
 createMockChain tracer ctx submitTx timeHandle seedInput chainState =
   -- NOTE: The wallet basically does nothing

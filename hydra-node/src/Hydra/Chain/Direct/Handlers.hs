@@ -70,11 +70,11 @@ import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
 -- | Handle of a local chain state that is kept in the direct chain layer.
-data LocalChainState m = LocalChainState
-  { getLatest :: STM m (ChainStateType Tx)
-  , pushNew :: ChainStateType Tx -> STM m ()
-  , rollback :: ChainPoint -> STM m (ChainStateType Tx)
-  , history :: STM m (ChainStateHistory Tx)
+data LocalChainState m tx = LocalChainState
+  { getLatest :: STM m (ChainStateType tx)
+  , pushNew :: ChainStateType tx -> STM m ()
+  , rollback :: ChainSlot -> STM m (ChainStateType tx)
+  , history :: STM m (ChainStateHistory tx)
   }
 
 -- | Initialize a new local chain state with given 'ChainStateAt' (see also
@@ -82,7 +82,7 @@ data LocalChainState m = LocalChainState
 newLocalChainState ::
   MonadSTM m =>
   ChainStateHistory Tx ->
-  m (LocalChainState m)
+  m (LocalChainState m Tx)
 newLocalChainState chainState = do
   tv <- newTVarIO chainState
   pure
@@ -98,13 +98,10 @@ newLocalChainState chainState = do
   pushNew tv cs =
     modifyTVar tv (pushNewState cs)
 
-  rollback tv point = do
-    chainStateHistory <- readTVar tv
-    let rolledBack =
-          rollbackHistory
-            initialChainState
-            (chainSlotFromPoint point)
-            chainStateHistory
+  rollback tv chainSlot = do
+    rolledBack <-
+      readTVar tv
+        <&> rollbackHistory initialChainState chainSlot
     writeTVar tv rolledBack
     pure (currentState rolledBack)
 
@@ -135,7 +132,7 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
-  LocalChainState m ->
+  LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
 mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
@@ -254,7 +251,7 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
-  LocalChainState m ->
+  LocalChainState m Tx ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
 chainSyncHandler tracer callback getTimeHandle ctx localChainState =
@@ -268,7 +265,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    rolledBackChainState <- atomically $ rollback point
+    rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
     callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
