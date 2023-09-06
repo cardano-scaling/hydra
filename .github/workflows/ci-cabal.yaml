@@ -24,7 +24,7 @@ jobs:
     name: "Build"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
@@ -50,7 +50,7 @@ jobs:
           - package: hydra-node
           - package: hydra-cluster
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
@@ -114,7 +114,7 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
@@ -151,7 +151,7 @@ jobs:
             bench: on-chain-cost
             options: '--output-directory $(pwd)/benchmarks'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup dev environment
       uses: ./.github/workflows/actions/setup_dev_ubuntu
@@ -213,7 +213,7 @@ jobs:
     name: "Build specification using nix"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -245,7 +245,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # For the cardanonical json schemas
         submodules: true

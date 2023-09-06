@@ -30,7 +30,7 @@ jobs:
           - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -149,7 +149,7 @@ jobs:
             options: '--output-directory $(pwd)/../benchmarks'
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -221,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -253,7 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # For the cardanonical json schemas
         submodules: true
