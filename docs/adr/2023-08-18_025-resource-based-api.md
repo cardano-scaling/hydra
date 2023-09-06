@@ -48,13 +48,15 @@ Draft
     to know the latest UTxO set for constructing transactions.
 
   - Inclusion of the whole UTxO set in the head is not always desirable and
-    filtering by address would be beneficial. (not addressed in this ADR though)
+    filtering by address would be beneficial. (not addressed in this ADR though,
+    relevant discussion
+    [#797](https://github.com/input-output-hk/hydra/discussions/797))
 
   - As [ADR-15](/adr/15) also proposes, some clients may not need (or should
     not have) access to administrative information.
 
 - It is often a good idea to separate the responsibilities of Commands and
-  Queries (CQRS), as well as the model they use.
+  Queries ([CQRS](https://martinfowler.com/bliki/CQRS.html)), as well as the model they use.
 
 ## Decision
 
