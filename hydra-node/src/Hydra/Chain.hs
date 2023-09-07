@@ -173,6 +173,9 @@ instance Arbitrary Lovelace where
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
+-- | A non empty sequence of chain states that can be rolled back.
+-- This is expected to be constructed by using the smart constructor
+-- 'initHistory'.
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   , defaultChainState :: ChainStateType tx
@@ -186,17 +189,9 @@ pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory t
 pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
 
 initHistory :: ChainStateType tx -> ChainStateHistory tx
-initHistory cs =
-  UnsafeChainStateHistory
-    { history = cs :| []
-    , defaultChainState = cs
-    }
+initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
 
-rollbackHistory ::
-  IsChainState tx =>
-  ChainSlot ->
-  ChainStateHistory tx ->
-  ChainStateHistory tx
+rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
 rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
   h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
  where

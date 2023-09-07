@@ -69,7 +69,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
--- | Handle of a local chain state that is kept in the direct chain layer.
+-- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
   { getLatest :: STM m (ChainStateType tx)
   , pushNew :: ChainStateType tx -> STM m ()
@@ -77,8 +77,7 @@ data LocalChainState m tx = LocalChainState
   , history :: STM m (ChainStateHistory tx)
   }
 
--- | Initialize a new local chain state with given 'ChainStateAt' (see also
--- 'initialChainState').
+-- | Initialize a new local chain state from a given chain state history.
 newLocalChainState ::
   (MonadSTM m, IsChainState tx) =>
   ChainStateHistory tx ->
