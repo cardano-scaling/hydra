@@ -96,15 +96,15 @@ init transactions and can be redeemed with either a $\mathsf{mint}$ or
 	      \begin{menumerate}
 		      \item The seed output is spent in this transaction. This guarantees uniqueness of the policy $\cid$ because the EUTxO ledger ensures that $\seed$ cannot be spent twice in the same chain.
 		      $(\seed, \cdot) \in \txInputs$
-            \item \textcolor{red}{All entries of $\txMint$ are of this policy and of single quantity $\forall \{c \mapsto \cdot \mapsto q\} \in \txMint : c = \cid \land q = 1$.}
-		      \item \textcolor{red}{Right number of tokens are minted
-			      $|\txMint| = \nop + 1$}
+          \item All entries of $\txMint$ are of this policy and of single quantity $\forall \{c \mapsto \cdot \mapsto q\} \in \txMint : c = \cid \land q = 1$
+		      \item Right number of tokens are minted $|\txMint| = \nop + 1$
             % TODO: |\txMint| may not be clear to the reader, maybe combine with item above, but be more explicit.
 		      \item State token is sent to the head validator $\st \in \valHead$ % TODO: fact that it is goverend by nuHead is a bit implicit here.
-		      \item \textcolor{blue}{Correct number of initial outputs $|(\cdot, \nuInitial, \cdot) \in \txOutputs| = n$}
+		      \item \textcolor{blue}{The correct number of initial outputs are present $|(\cdot, \nuInitial, \cdot) \in \txOutputs| = n$}
               % TODO: this is implied by the ledger, so can be removed
 		      \item All participation tokens are sent to the initial validator as an initial output $\forall i \in [1 \dots n] : \{\cid \mapsto \cdot \mapsto 1\} \in \valInitial{i}$
-		      \item The $\datum_{\mathsf{head}}$ contains own currency id $\cid = \cid'$ and the right seed reference $\seed = \seed'$.
+		      \item The $\datum_{\mathsf{head}}$ contains own currency id $\cid = \cid'$ and the right seed reference $\seed = \seed'$
+		      \item All initial outputs have a $\cid$ as their datum: $\forall i \in [1 \dots n] : \cid = \datumInitial{i}$
 	      \end{menumerate}
 	\item When evaluated with the $\mathsf{burn}$ redeemer,
 	      \begin{menumerate}

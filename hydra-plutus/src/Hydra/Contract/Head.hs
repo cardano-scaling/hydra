@@ -51,7 +51,7 @@ import PlutusLedgerApi.V2 (
 import PlutusLedgerApi.V2.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap as Map
+import qualified PlutusTx.AssocMap as AssocMap
 import qualified PlutusTx.Builtins as Builtins
 
 type DatumType = State
@@ -107,7 +107,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
   minted = getValue $ txInfoMint txInfo
 
   burntTokens =
-    case Map.lookup headCurrencySymbol minted of
+    case AssocMap.lookup headCurrencySymbol minted of
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
@@ -528,7 +528,7 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} headCurren
 
 findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
 findParticipationTokens headCurrency (Value val) =
-  case Map.toList <$> Map.lookup headCurrency val of
+  case AssocMap.toList <$> AssocMap.lookup headCurrency val of
     Just tokens ->
       mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
     _ ->

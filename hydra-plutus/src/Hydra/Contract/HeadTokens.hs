@@ -46,7 +46,7 @@ import PlutusLedgerApi.V2 (
  )
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap as Map
+import qualified PlutusTx.AssocMap as AssocMap
 
 validate ::
   ScriptHash ->
@@ -69,7 +69,9 @@ validate initialValidator headValidator seedInput action context =
 -- * There is single state token that is paid into v_head, which ensures
 --   continuity.
 --
--- * PTs are distributed to v_initial.
+-- * PTs are distributed to v_initial
+--
+-- * Each v_initial has the policy id as its datum
 --
 -- * Ensure out-ref and the headId are in the datum of the first output of the
 --   transaction which mints tokens.
@@ -79,6 +81,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
     && checkNumberOfTokens
     && singleSTIsPaidToTheHead
     && allInitialOutsHavePTs
+    && allInitialOutsHaveCorrectDatum
     && checkDatum
  where
   seedInputIsConsumed =
@@ -97,21 +100,39 @@ validateTokensMinting initialValidator headValidator seedInput context =
     traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == length initialTxOutValues)
       && all hasASinglePT initialTxOutValues
 
+  allInitialOutsHaveCorrectDatum =
+    all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
+
   checkDatum =
     traceIfFalse $(errorCode WrongDatum) $
       headId == currency && seed == seedInput
 
   hasASinglePT val =
-    case Map.lookup currency (getValue val) of
+    case AssocMap.lookup currency (getValue val) of
       Nothing -> traceError $(errorCode NoPT)
-      (Just tokenMap) -> case Map.toList tokenMap of
+      (Just tokenMap) -> case AssocMap.toList tokenMap of
         [(_, qty)]
           | qty == 1 -> True
         _ -> traceError $(errorCode WrongQuantity)
 
+  hasHeadIdDatum datum =
+    case datum of
+      NoOutputDatum -> traceError $(errorCode WrongInitialDatum)
+      OutputDatum dat ->
+        checkInitialDatum dat
+      OutputDatumHash dh ->
+        case findDatum dh txInfo of
+          Nothing -> traceError $(errorCode WrongDatum)
+          Just dat -> checkInitialDatum dat
+
+  checkInitialDatum dat =
+    case fromBuiltinData @Initial.DatumType $ getDatum dat of
+      Nothing -> traceError $(errorCode WrongInitialDatum)
+      Just hid -> traceIfFalse $(errorCode WrongInitialDatum) $ hid == currency
+
   mintedTokenCount =
     maybe 0 sum
-      . Map.lookup currency
+      . AssocMap.lookup currency
       . getValue
       $ txInfoMint txInfo
 
@@ -153,9 +174,9 @@ validateTokensBurning context =
   minted = getValue $ txInfoMint txInfo
 
   burnHeadTokens =
-    case Map.lookup currency minted of
+    case AssocMap.lookup currency minted of
       Nothing -> False
-      Just tokenMap -> Map.all (< 0) tokenMap
+      Just tokenMap -> AssocMap.all (< 0) tokenMap
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)

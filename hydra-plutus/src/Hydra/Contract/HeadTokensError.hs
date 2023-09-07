@@ -18,6 +18,7 @@ data HeadTokensError
   | HeadDatum
   | NoDatum
   | MultipleHeadOutput
+  | WrongInitialDatum
   deriving (Show)
 
 instance ToErrorCode HeadTokensError where
@@ -33,3 +34,4 @@ instance ToErrorCode HeadTokensError where
     HeadDatum -> "M09"
     NoDatum -> "M10"
     MultipleHeadOutput -> "M11"
+    WrongInitialDatum -> "M12"

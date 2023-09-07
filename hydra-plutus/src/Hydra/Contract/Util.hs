@@ -12,7 +12,7 @@ import PlutusLedgerApi.V2 (
   Value (getValue),
   toBuiltinData,
  )
-import qualified PlutusTx.AssocMap as Map
+import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
 
@@ -24,19 +24,19 @@ hydraHeadV1 = "HydraHeadV1"
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
   fromMaybe False $ do
-    tokenMap <- Map.lookup headPolicyId $ getValue v
-    quantity <- Map.lookup (TokenName hydraHeadV1) tokenMap
+    tokenMap <- AssocMap.lookup headPolicyId $ getValue v
+    quantity <- AssocMap.lookup (TokenName hydraHeadV1) tokenMap
     pure $ quantity == 1
 {-# INLINEABLE hasST #-}
 
--- | Checks if all the state token (ST) for list of parties containing specific
+-- | Checks if the state token (ST) for list of parties containing specific
 -- 'CurrencySymbol' are burnt.
 mustBurnST :: Value -> CurrencySymbol -> Bool
 mustBurnST val headCurrencySymbol =
-  case Map.lookup headCurrencySymbol (getValue val) of
+  case AssocMap.lookup headCurrencySymbol (getValue val) of
     Nothing -> False
     Just tokenMap ->
-      case Map.lookup (TokenName hydraHeadV1) tokenMap of
+      case AssocMap.lookup (TokenName hydraHeadV1) tokenMap of
         Nothing -> False
         Just v -> v == negate 1
 {-# INLINEABLE mustBurnST #-}
@@ -51,7 +51,7 @@ infix 4 ===
 
 -- | Checks for exact exuality between two serialized values
 -- Equality on value is very memory intensive as it's defined on associative
--- lists and Map equality is implemented. Instead we can be more strict and
+-- lists and `AssocMap` equality is implemented. Instead we can be more strict and
 -- require EXACTLY the same value and compare using the serialised bytes.
 (===) :: Value -> Value -> Bool
 (===) val val' =

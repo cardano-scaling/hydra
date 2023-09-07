@@ -154,8 +154,8 @@ import qualified Hydra.Data.Party as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
-import Hydra.Prelude hiding (label)
 import Hydra.Plutus.Orphans ()
+import Hydra.Prelude hiding (label)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
 import qualified PlutusLedgerApi.V2 as Plutus
 import qualified System.Directory.Internal.Prelude as Prelude
@@ -298,7 +298,7 @@ data Mutation
   | ChangeValidityLowerBound TxValidityLowerBound
   | ChangeValidityUpperBound TxValidityUpperBound
   | -- | Change the included minting policy (the first minted policy) and update
-    -- minted/burned and output values of this policy.
+    -- minted/burned values of this policy.
     ChangeMintingPolicy PlutusScript
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
@@ -431,7 +431,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeValidityUpperBound bound ->
     changeValidityInterval Nothing (Just bound)
   ChangeMintingPolicy pScript ->
-    ( Tx body' wits & alterTxOuts (map $ replacePolicyIdWith selectedPid mutatedPid)
+    ( Tx body' wits
     , utxo
     )
    where

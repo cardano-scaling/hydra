@@ -12,11 +12,11 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect)
-import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
   Tx,
+  TxIn,
   UTxO,
   genTxIn,
   hashScript,
@@ -41,6 +41,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   propTransactionEvaluates,
   propTransactionFailsEvaluation,
   replaceHeadId,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -82,6 +83,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
+import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxOut,
@@ -156,16 +158,7 @@ spec = parallel $ do
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
             originalIsObserved = property $ isRight (observeInit cctx tx)
-        -- We do replace the minting policy and datum of a head output to
-        -- simulate a faked init transaction.
-        let alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
-        let fakeHeadId = toPlutusCurrencySymbol . scriptPolicyId $ PlutusScript alwaysSucceedsV2
-        let headTxOut = List.head (txOuts' tx)
-        let mutation =
-              Changes
-                [ ChangeMintingPolicy alwaysSucceedsV2
-                , ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId fakeHeadId) headTxOut
-                ]
+        (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
             -- We expected mutated transaction to still be valid, but not observed.
@@ -176,7 +169,7 @@ spec = parallel $ do
                   | all isRight ok -> True
                   | otherwise -> False
             mutatedIsNotObserved =
-              observeInit cctx tx' === Left NotAHeadPolicy
+              observeInit cctx tx' === Left expected
 
         pure $
           conjoin
@@ -190,7 +183,8 @@ spec = parallel $ do
                 & counterexample (renderTx tx')
                 & counterexample "Should not observe mutated transaction"
             ]
-            & counterexample ("new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2))
+            & counterexample cex
+            & label (show expected)
 
     prop "is not observed if not invited" $
       forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
@@ -296,6 +290,29 @@ spec = parallel $ do
   describe "acceptance" $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
+
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
+genInitTxMutation seedInput tx =
+  genChangeMintingPolicy
+ where
+  genChangeMintingPolicy =
+    pure
+      ( Changes $
+          ChangeMintingPolicy alwaysSucceedsV2
+            : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
+      , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
+      , NotAHeadPolicy
+      )
+
+  -- We do replace the minting policy of all tokens and datum of a head output to
+  -- simulate a faked init transaction.
+  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+  originalPolicyId = HeadTokens.headPolicyId seedInput
+  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
+  changeMintingPolicy (out, idx)
+    | idx == 0 = ChangeOutput idx $ changeHeadOutputDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
+    | otherwise = ChangeOutput idx out
+  changedOutputsValue = replacePolicyIdWith originalPolicyId fakePolicyId <$> txOuts' tx
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
