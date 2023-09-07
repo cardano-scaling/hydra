@@ -5,11 +5,14 @@ module Hydra.Network.ReliabilitySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO, writeTVar)
 import Control.Concurrent.Class.MonadSTM.TVar (modifyTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Data.Sequence ((|>))
 import Hydra.Network (Network (..), NetworkComponent)
+import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Party (Party)
+import Test.Hydra.Fixture (alice, bob)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -26,9 +29,9 @@ spec = parallel $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO []
 
-          withReliability
+          withReliability alice
             ( \incoming _ -> do
-                incoming (Msg 1 msg)
+                incoming (Authenticated (Msg 1 msg) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -42,11 +45,11 @@ spec = parallel $ do
     let sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO mempty
 
-          withReliability (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withReliability alice (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             mapM_ broadcast messages
 
           toList <$> readTVarIO sentMessages
-     in messageId <$> sentMsgs `shouldBe` [1 .. (length messages)]
+     in messageId . payload <$> sentMsgs `shouldBe` [1 .. (length messages)]
 
   it "broadcasts messages to single connected peer" $ do
     let receivedMsgs = runSimOrThrow $ do
@@ -65,10 +68,29 @@ spec = parallel $ do
                   $ \_ ->
                     action (Network{broadcast = const $ pure ()})
 
-          withReliability aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-            withReliability bobNetwork (captureIncoming receivedMessages) $ \_ -> do
+          withReliability alice aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
+            withReliability bob bobNetwork (captureIncoming receivedMessages) $ \_ -> do
               broadcast msg
               threadDelay 1
+
+          readTVarIO receivedMessages
+
+    receivedMsgs `shouldBe` [msg]
+
+  it "drops already received messages" $ do
+    let receivedMsgs = runSimOrThrow $ do
+          receivedMessages <- newTVarIO []
+
+          withReliability
+            alice
+            ( \incoming _ -> do
+                incoming (Authenticated (Msg 1 msg) bob)
+                incoming (Authenticated (Msg 1 msg) bob)
+                incoming (Authenticated (Msg 4 msg) bob)
+            )
+            (captureIncoming receivedMessages)
+            $ \_ ->
+              pure ()
 
           readTVarIO receivedMessages
 
@@ -82,13 +104,14 @@ data Msg msg = Msg
 
 withReliability ::
   (MonadSTM m) =>
-  NetworkComponent m (Msg msg) a ->
+  Party ->
+  NetworkComponent m (Authenticated (Msg msg)) a ->
   NetworkComponent m msg a
-withReliability withRawNetwork callback action = do
-  counter <- newTVarIO 0
-  withRawNetwork dummyCallback (dummyBroadcast counter)
+withReliability us withRawNetwork callback action = do
+  broadcastCounter <- newTVarIO 0
+  incomingCounter <- newTVarIO 0
+  withRawNetwork (dummyCallback incomingCounter) (dummyBroadcast broadcastCounter)
  where
-  dummyCallback (Msg _ msg) = callback msg
   dummyBroadcast messageCounter Network{broadcast} =
     action $
       Network
@@ -97,8 +120,14 @@ withReliability withRawNetwork callback action = do
               modifyTVar messageCounter (+ 1)
               readTVar messageCounter
 
-            broadcast (Msg counter msg)
+            broadcast $ Authenticated (Msg counter msg) us
         }
+
+  dummyCallback messageCounter (Authenticated (Msg n msg) party) = do
+    count <- readTVarIO messageCounter
+    when (n == count + 1) $ do
+      atomically $ writeTVar messageCounter n
+      callback msg
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
