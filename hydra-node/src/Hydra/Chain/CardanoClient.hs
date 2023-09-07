@@ -238,9 +238,9 @@ queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO GenesisPar
 queryGenesisParameters networkId socket queryPoint =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ShelleyEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraShelley
               QueryGenesisParameters
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
