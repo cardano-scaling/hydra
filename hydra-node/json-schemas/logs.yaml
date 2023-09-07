@@ -1628,21 +1628,16 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - headState
+          - event
         description: >-
           An outcome representing the new resulting state of the node.
         properties:
           tag:
             type: string
             enum: ["StateChanged"]
-          headState:
+          event:
             type: object
-            $ref: "logs.yaml#/definitions/HeadState"
-          effects:
-            type: array
-            items:
-              type: object
-              $ref: "logs.yaml#/definitions/Effect"
+            $ref: "logs.yaml#/definitions/StateChanged"
       - title: Wait
         type: object
         additionalProperties: false

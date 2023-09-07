@@ -89,7 +89,7 @@ deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx
 
 data Outcome tx
   = Effects {effects :: [Effect tx]}
-  | StateChanged (StateChanged tx)
+  | StateChanged {event :: StateChanged tx}
   | Wait {reason :: WaitReason tx}
   | Error {error :: LogicError tx}
   | Combined {left :: Outcome tx, right :: Outcome tx}
