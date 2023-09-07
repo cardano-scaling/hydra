@@ -26,6 +26,7 @@ import Hydra.Contract.HeadState (State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
+import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import qualified Prelude
 
@@ -75,6 +76,7 @@ data InitMutation
   | MutateDropSeedInput
   | MutateInitialOutputValue
   | MutateHeadIdInDatum
+  | MutateHeadIdInInitialDatum
   | MutateSeedInDatum
   deriving (Generic, Show, Enum, Bounded)
 
@@ -100,6 +102,14 @@ genInitMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
         mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId mutatedHeadId) headTxOut
+    , SomeMutation (Just $ toErrorCode WrongInitialDatum) MutateHeadIdInInitialDatum <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (drop 1 $ zip [0 ..] outs)
+        elements
+          [ changeInitialOutputToFakeId ix out
+          , removeInitialOutputDatum ix out
+          , changeInitialOutputToNotAHeadId ix out
+          ]
     , SomeMutation (Just $ toErrorCode WrongDatum) MutateSeedInDatum <$> do
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
         pure $
@@ -111,3 +121,21 @@ genInitMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
+  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
+
+  changeInitialOutputToFakeId ix out =
+    ChangeOutput ix $
+      modifyTxOutDatum
+        ( const $
+            TxOutDatumInline $
+              toScriptData $
+                toPlutusCurrencySymbol fakePolicyId
+        )
+        out
+
+  removeInitialOutputDatum ix out =
+    ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumNone) out
+
+  changeInitialOutputToNotAHeadId ix out =
+    ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumInline $ toScriptData (42 :: Integer)) out
