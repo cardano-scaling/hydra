@@ -8,11 +8,12 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO, writeTVar)
 import Control.Concurrent.Class.MonadSTM.TVar (modifyTVar)
 import Control.Monad.IOSim (runSimOrThrow)
+import qualified Data.Map as Map
 import Data.Sequence ((|>))
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
-import Test.Hydra.Fixture (alice, bob)
+import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -29,7 +30,8 @@ spec = parallel $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO []
 
-          withReliability alice
+          withReliability
+            alice
             ( \incoming _ -> do
                 incoming (Authenticated (Msg 1 msg) bob)
             )
@@ -96,6 +98,24 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [msg]
 
+  it "do not drop messages with same ids from different peers" $ do
+    let receivedMsgs = runSimOrThrow $ do
+          receivedMessages <- newTVarIO []
+
+          withReliability
+            alice
+            ( \incoming _ -> do
+                incoming (Authenticated (Msg 1 msg) bob)
+                incoming (Authenticated (Msg 1 msg) carol)
+            )
+            (captureIncoming receivedMessages)
+            $ \_ ->
+              pure ()
+
+          readTVarIO receivedMessages
+
+    receivedMsgs `shouldBe` [msg, msg]
+
 data Msg msg = Msg
   { messageId :: Int
   , message :: msg
@@ -109,7 +129,7 @@ withReliability ::
   NetworkComponent m msg a
 withReliability us withRawNetwork callback action = do
   broadcastCounter <- newTVarIO 0
-  incomingCounter <- newTVarIO 0
+  incomingCounter <- newTVarIO mempty
   withRawNetwork (dummyCallback incomingCounter) (dummyBroadcast broadcastCounter)
  where
   dummyBroadcast messageCounter Network{broadcast} =
@@ -124,9 +144,9 @@ withReliability us withRawNetwork callback action = do
         }
 
   dummyCallback messageCounter (Authenticated (Msg n msg) party) = do
-    count <- readTVarIO messageCounter
+    count <- fromMaybe 0 . Map.lookup party <$> readTVarIO messageCounter
     when (n == count + 1) $ do
-      atomically $ writeTVar messageCounter n
+      atomically $ modifyTVar messageCounter (Map.insert party n)
       callback msg
 
 noop :: Monad m => b -> m ()
