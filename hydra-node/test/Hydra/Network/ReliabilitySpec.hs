@@ -14,7 +14,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
 import Test.Hydra.Fixture (alice, bob, carol)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (Positive (Positive), collect, counterexample, generate)
 
 spec :: Spec
 spec = parallel $ do
@@ -22,13 +22,13 @@ spec = parallel $ do
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (|> msg)}
 
       captureIncoming receivedMessages msg =
-        atomically $ modifyTVar' receivedMessages (msg :)
+        atomically $ modifyTVar' receivedMessages (|> msg)
 
   msg <- runIO $ generate @String arbitrary
 
   it "forward received messages" $ do
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newTVarIO mempty
 
           withReliability
             alice
@@ -39,7 +39,7 @@ spec = parallel $ do
             $ \_ ->
               pure ()
 
-          readTVarIO receivedMessages
+          toList <$> readTVarIO receivedMessages
 
     receivedMsgs `shouldBe` [msg]
 
@@ -55,7 +55,7 @@ spec = parallel $ do
 
   it "broadcasts messages to single connected peer" $ do
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newTVarIO mempty
           queue <- newTQueueIO
 
           let aliceNetwork _ action = do
@@ -75,32 +75,34 @@ spec = parallel $ do
               broadcast msg
               threadDelay 1
 
-          readTVarIO receivedMessages
+          toList <$> readTVarIO receivedMessages
 
     receivedMsgs `shouldBe` [msg]
 
-  it "drops already received messages" $ do
+  prop "drops already received messages" $ \(messages :: [Positive Int]) ->
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newTVarIO mempty
 
           withReliability
             alice
             ( \incoming _ -> do
-                incoming (Authenticated (Msg 1 msg) bob)
-                incoming (Authenticated (Msg 1 msg) bob)
-                incoming (Authenticated (Msg 4 msg) bob)
+                forM_ messages $ \(Positive m) ->
+                  incoming (Authenticated (Msg m m) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
               pure ()
 
-          readTVarIO receivedMessages
-
-    receivedMsgs `shouldBe` [msg]
+          toList <$> readTVarIO receivedMessages
+        receivedMessagesInOrder =
+          and (zipWith (==) receivedMsgs [1 ..])
+     in receivedMessagesInOrder
+          & counterexample (show receivedMsgs)
+          & collect (length receivedMsgs)
 
   it "do not drop messages with same ids from different peers" $ do
     let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO []
+          receivedMessages <- newTVarIO mempty
 
           withReliability
             alice
@@ -112,7 +114,7 @@ spec = parallel $ do
             $ \_ ->
               pure ()
 
-          readTVarIO receivedMessages
+          toList <$> readTVarIO receivedMessages
 
     receivedMsgs `shouldBe` [msg, msg]
 
