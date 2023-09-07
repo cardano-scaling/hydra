@@ -173,34 +173,37 @@ instance Arbitrary Lovelace where
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
-newtype ChainStateHistory tx = UnsafeChainStateHistory (NonEmpty (ChainStateType tx))
+data ChainStateHistory tx = UnsafeChainStateHistory
+  { history :: NonEmpty (ChainStateType tx)
+  , defaultChainState :: ChainStateType tx
+  }
   deriving (Generic)
 
 currentState :: ChainStateHistory tx -> ChainStateType tx
-currentState (UnsafeChainStateHistory history) = head history
+currentState UnsafeChainStateHistory{history} = head history
 
 pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs (UnsafeChainStateHistory history) = UnsafeChainStateHistory (cs <| history)
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
 
 initHistory :: ChainStateType tx -> ChainStateHistory tx
-initHistory cs = UnsafeChainStateHistory (cs :| [])
+initHistory cs =
+  UnsafeChainStateHistory
+    { history = cs :| []
+    , defaultChainState = cs
+    }
 
 rollbackHistory ::
   IsChainState tx =>
-  ChainStateType tx ->
   ChainSlot ->
   ChainStateHistory tx ->
   ChainStateHistory tx
-rollbackHistory initialChainState rollbackChainSlot (UnsafeChainStateHistory history) =
-  UnsafeChainStateHistory $
-    fromMaybe (initialChainState :| []) $
-      let rolledBack =
-            dropWhile
-              (\cs -> chainStateSlot cs > rollbackChainSlot)
-              (toList history)
-       in if null rolledBack
-            then Nothing
-            else Just (fromList rolledBack)
+rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
+  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
+ where
+  rolledBack =
+    dropWhile
+      (\cs -> chainStateSlot cs > rollbackChainSlot)
+      (toList history)
 
 deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
 deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)

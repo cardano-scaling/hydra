@@ -945,7 +945,7 @@ recoverChainStateHistory initialChainState =
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
     ChainRolledBack{chainState} ->
-      rollbackHistory initialChainState (chainStateSlot chainState) history
+      rollbackHistory (chainStateSlot chainState) history
     TickObserved{} -> history
 
 recoverState ::

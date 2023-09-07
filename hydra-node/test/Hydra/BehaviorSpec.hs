@@ -28,7 +28,6 @@ import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainStateHistory (UnsafeChainStateHistory),
   ChainStateType,
   HeadId (HeadId),
   HeadParameters (..),
@@ -36,9 +35,9 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   chainStateSlot,
-  currentState,
   initHistory,
  )
+import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
@@ -577,14 +576,15 @@ instance IsChainStateTest Tx where
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
 -- possible.
 simulatedChainAndNetwork ::
+  forall m tx.
   (MonadTime m, MonadDelay m, MonadAsync m, IsChainStateTest tx) =>
   ChainStateType tx ->
   m (SimulatedChainNetwork tx m)
 simulatedChainAndNetwork initialChainState = do
   history <- newTVarIO []
   nodes <- newTVarIO []
-  chainStateVar <- newTVarIO (initHistory initialChainState)
-  tickThread <- async $ simulateTicks nodes chainStateVar
+  localChainState <- newLocalChainState (initHistory initialChainState)
+  tickThread <- async $ simulateTicks nodes localChainState
   pure $
     SimulatedChainNetwork
       { connectNode = \node -> do
@@ -595,35 +595,35 @@ simulatedChainAndNetwork initialChainState = do
                   Chain
                     { postTx = \tx -> do
                         now <- getCurrentTime
-                        createAndYieldEvent nodes history chainStateVar $ toOnChainTx now tx
+                        createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                     , submitTx = \_ -> error "unexpected call to submitTx"
                     }
               , hn = createMockNetwork node nodes
               }
       , tickThread
-      , rollbackAndForward = rollbackAndForward nodes history chainStateVar
+      , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
-          createAndYieldEvent nodes history chainStateVar $ OnCommitTx{party, committed}
+          createAndYieldEvent nodes history localChainState $ OnCommitTx{party, committed}
       }
  where
   -- seconds
   blockTime = 20
 
-  simulateTicks nodes chainStateVar = forever $ do
+  simulateTicks nodes localChainState = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
     event <- atomically $ do
-      cs <- readTVar chainStateVar
-      pure $ Tick now (chainStateSlot (currentState cs))
+      cs <- getLatest localChainState
+      let chainSlot = chainStateSlot cs
+      pure $ Tick now chainSlot
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
-  createAndYieldEvent nodes history chainStateVar tx = do
+  createAndYieldEvent nodes history localChainState tx = do
     chainEvent <- atomically $ do
-      cs <- currentState <$> readTVar chainStateVar
+      cs <- getLatest localChainState
       let cs' = advanceSlot cs
-      modifyTVar' chainStateVar $ \(UnsafeChainStateHistory prev) ->
-        UnsafeChainStateHistory (cs' :| tail prev)
+      pushNew localChainState cs'
       pure $
         Observation
           { observedTx = tx
@@ -638,23 +638,22 @@ simulatedChainAndNetwork initialChainState = do
     forM_ ns $ \n ->
       handleChainEvent n chainEvent
 
-  rollbackAndForward nodes history chainStateVar steps = do
+  rollbackAndForward nodes history localChainState steps = do
     -- Split the history after given steps
     (toReplay, kept) <- atomically $ do
       (toReplay, kept) <- splitAt (fromIntegral steps) <$> readTVar history
       writeTVar history kept
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
-    let rolledBackChainStateHistory =
-          UnsafeChainStateHistory . fromList $
+    let chainSlot =
+          List.head $
             map
               ( \case
-                  Observation{newChainState} -> newChainState
+                  Observation{newChainState} -> chainStateSlot newChainState
                   _NoObservation -> error "unexpected non-observation ChainEvent"
               )
               kept
-        rolledBackChainState = currentState rolledBackChainStateHistory
-    atomically $ writeTVar chainStateVar rolledBackChainStateHistory
+    rolledBackChainState <- atomically $ rollback localChainState chainSlot
     -- Yield rollback events
     ns <- readTVarIO nodes
     forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}

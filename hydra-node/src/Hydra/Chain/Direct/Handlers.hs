@@ -34,6 +34,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  IsChainState,
   PostChainTx (..),
   PostTxError (..),
   currentState,
@@ -53,7 +54,6 @@ import Hydra.Chain.Direct.State (
   contestationPeriod,
   fanout,
   getKnownUTxO,
-  initialChainState,
   initialize,
   observeSomeTx,
  )
@@ -80,9 +80,9 @@ data LocalChainState m tx = LocalChainState
 -- | Initialize a new local chain state with given 'ChainStateAt' (see also
 -- 'initialChainState').
 newLocalChainState ::
-  MonadSTM m =>
-  ChainStateHistory Tx ->
-  m (LocalChainState m Tx)
+  (MonadSTM m, IsChainState tx) =>
+  ChainStateHistory tx ->
+  m (LocalChainState m tx)
 newLocalChainState chainState = do
   tv <- newTVarIO chainState
   pure
@@ -101,7 +101,7 @@ newLocalChainState chainState = do
   rollback tv chainSlot = do
     rolledBack <-
       readTVar tv
-        <&> rollbackHistory initialChainState chainSlot
+        <&> rollbackHistory chainSlot
     writeTVar tv rolledBack
     pure (currentState rolledBack)
 
