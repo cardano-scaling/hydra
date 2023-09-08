@@ -12,15 +12,15 @@ Accepted
 
 ## Context
 
-- [ADR 18](2022-04-13_018-single-state.md) merged both `headState` and
-  `chainState` into one single state in the Hydra node, giving the chain layer a
-  way to _fetch_ and update the `chainState` when observing a chain event.
+- [ADR 18](/adr/18) merged both `headState` and `chainState` into one single
+  state in the Hydra node, giving the chain layer a way to _fetch_ and update
+  the `chainState` when observing a chain event.
 - Having the `headState` containing the `chainState` made persistency easier to
   deal with: we ensure that we always save cohesive states.
 - When opening our first head on mainnet we suffered from a [commit/rollback
   issue](https://github.com/input-output-hk/hydra/issues/784) that was the
   result of a race condition in the management of the `chainState` as implemented
-  in the context of [ADR 18](2022-04-13_018-single-state.md).
+  in the context of [ADR 18](/adr/18).
 - Reproducing the issue by introducing rollbacks in the model based tests, we
   discovered that, as a client of a hydra-node, we had no idea how to deal with
   the rollback event as it is defined now.
@@ -53,11 +53,11 @@ testing.
 
 ## Decision
 
-- We supersede [ADR 18](2022-04-13_018-single-state.md) with the current ADR.
+- We supersede [ADR 18](/adr/18) with the current ADR.
 - A local chain state is re-introduced in the chain component, not shared with
   the head logic.
 - A copy of the `chainState` is kept in the `headState` to keep the benefits of
-  [ADR 18](2022-04-13_018-single-state.md) regarding persistency.
+  [ADR 18](/adr/18) regarding persistency.
 - The `RolledBack` output is removed from the API unless actionable by users or
   [#185](https://github.com/input-output-hk/hydra/issues/185) implemented.
 
