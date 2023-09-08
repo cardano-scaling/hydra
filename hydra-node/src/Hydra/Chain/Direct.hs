@@ -163,9 +163,9 @@ mkTinyWallet tracer config = do
     point <- case queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket (QueryAt point) [address]
-    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId nodeSocket (QueryAt point)
-    systemStart <- querySystemStart networkId nodeSocket (QueryAt point)
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
+    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
 
