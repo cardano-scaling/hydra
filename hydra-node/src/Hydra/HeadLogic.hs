@@ -32,12 +32,16 @@ import Hydra.API.ClientInput (ClientInput (..))
 import qualified Hydra.API.ServerOutput as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
+  ChainStateHistory,
   ChainStateType,
   HeadId,
   HeadParameters (..),
   IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
+  initHistory,
+  pushNewState,
+  rollbackHistory,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
@@ -75,7 +79,6 @@ import Hydra.HeadLogic.State (
   OpenState (..),
   PendingCommits,
   SeenSnapshot (..),
-  getChainState,
   seenSnapshotNumber,
   setChainState,
  )
@@ -804,7 +807,11 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  HeadAborted{chainState} -> Idle $ IdleState{chainState}
+  HeadAborted{chainState} ->
+    Idle $
+      IdleState
+        { chainState
+        }
   HeadClosed{chainState, contestationDeadline} ->
     case st of
       Open
@@ -828,7 +835,11 @@ aggregate st = \case
       _otherState -> st
   HeadFannedOut{chainState} ->
     case st of
-      Closed _ -> Idle $ IdleState{chainState}
+      Closed _ ->
+        Idle $
+          IdleState
+            { chainState
+            }
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of
@@ -888,7 +899,8 @@ aggregate st = \case
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
-  ChainRolledBack{chainState} -> setChainState chainState st
+  ChainRolledBack{chainState} ->
+    setChainState chainState st
   TickObserved{chainSlot} ->
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
@@ -909,6 +921,32 @@ aggregateState s outcome =
     Effects{} -> []
     Combined l r ->
       collectStateChanged l <> collectStateChanged r
+
+recoverChainStateHistory ::
+  (Foldable t, IsChainState tx) =>
+  ChainStateType tx ->
+  t (StateChanged tx) ->
+  ChainStateHistory tx
+recoverChainStateHistory initialChainState =
+  foldl' aggregateChainStateHistory (initHistory initialChainState)
+ where
+  aggregateChainStateHistory history = \case
+    HeadInitialized{chainState} -> pushNewState chainState history
+    CommittedUTxO{chainState} -> pushNewState chainState history
+    HeadAborted{chainState} -> pushNewState chainState history
+    HeadOpened{chainState} -> pushNewState chainState history
+    TransactionAppliedToLocalUTxO{} -> history
+    SnapshotRequestDecided{} -> history
+    SnapshotRequested{} -> history
+    TransactionReceived{} -> history
+    PartySignedSnapshot{} -> history
+    SnapshotConfirmed{} -> history
+    HeadClosed{chainState} -> pushNewState chainState history
+    HeadIsReadyToFanout -> history
+    HeadFannedOut{chainState} -> pushNewState chainState history
+    ChainRolledBack{chainState} ->
+      rollbackHistory (chainStateSlot chainState) history
+    TickObserved{} -> history
 
 recoverState ::
   (Foldable t, IsChainState tx) =>

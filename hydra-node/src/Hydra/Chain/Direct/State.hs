@@ -134,7 +134,6 @@ class HasKnownUTxO a where
 data ChainStateAt = ChainStateAt
   { chainState :: ChainState
   , recordedAt :: Maybe ChainPoint
-  , previous :: Maybe ChainStateAt
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
@@ -188,6 +187,14 @@ instance HasKnownUTxO ChainState where
     Initial st -> getKnownUTxO st
     Open st -> getKnownUTxO st
     Closed st -> getKnownUTxO st
+
+-- | Defines the starting state of the direct chain layer.
+initialChainState :: ChainStateType Tx
+initialChainState =
+  ChainStateAt
+    { chainState = Idle
+    , recordedAt = Nothing
+    }
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only contains data known to single peer.

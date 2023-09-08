@@ -17,6 +17,7 @@ import Hydra.Prelude
 
 import qualified Data.ByteString as BS
 import Data.List (nub)
+import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
@@ -36,6 +37,7 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat, vectorOf)
+import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
@@ -169,6 +171,41 @@ instance Arbitrary Lovelace where
   arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
+  arbitrary = genericArbitrary
+
+-- | A non empty sequence of chain states that can be rolled back.
+-- This is expected to be constructed by using the smart constructor
+-- 'initHistory'.
+data ChainStateHistory tx = UnsafeChainStateHistory
+  { history :: NonEmpty (ChainStateType tx)
+  , defaultChainState :: ChainStateType tx
+  }
+  deriving (Generic)
+
+currentState :: ChainStateHistory tx -> ChainStateType tx
+currentState UnsafeChainStateHistory{history} = head history
+
+pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
+
+initHistory :: ChainStateType tx -> ChainStateHistory tx
+initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
+
+rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
+rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
+  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
+ where
+  rolledBack =
+    dropWhile
+      (\cs -> chainStateSlot cs > rollbackChainSlot)
+      (toList history)
+
+deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
+deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
+deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
+deriving anyclass instance (FromJSON (ChainStateType tx)) => FromJSON (ChainStateHistory tx)
+
+instance (Arbitrary (ChainStateType tx)) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
 -- | Interface available from a chain state. Expected to be instantiated by all

@@ -21,15 +21,17 @@ import Hydra.Chain (
   ChainEvent (..),
   HeadParameters,
   chainStateSlot,
+  currentState,
+  initHistory,
   maximumNumberOfParties,
  )
-import Hydra.Chain.Direct (initialChainState)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
   getLatest,
+  history,
   newLocalChainState,
  )
 import Hydra.Chain.Direct.State (
@@ -43,6 +45,7 @@ import Hydra.Chain.Direct.State (
   genChainStateWithTx,
   genCommit,
   genHydraContext,
+  initialChainState,
   initialize,
   observeCommit,
   observeSomeTx,
@@ -115,7 +118,7 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
         localChainState <- run $ newLocalChainState chainState
-        let chainSyncCallback = \_cont -> failure "Unexpected callback"
+        let chainSyncCallback = const $ failure "Unexpected callback"
             handler =
               chainSyncHandler
                 nullTracer
@@ -133,22 +136,16 @@ spec = do
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $
-          newLocalChainState
-            ChainStateAt
-              { chainState = st
-              , recordedAt = Nothing
-              , previous = Nothing
-              }
+        run $ newLocalChainState (initHistory ChainStateAt{chainState = st, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
             Observation{observedTx} ->
-              if (fst <$> observeSomeTx ctx st tx) /= Just observedTx
-                then failure $ show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
-                else pure ()
+              when ((fst <$> observeSomeTx ctx st tx) /= Just observedTx) $
+                failure $
+                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
 
       let handler =
             chainSyncHandler
@@ -169,9 +166,9 @@ spec = do
       rolledBackTo <- run newEmptyTMVarIO
       let callback = \case
             Rollback{rolledBackChainState} ->
-              atomically $ putTMVar rolledBackTo rolledBackChainState
+              atomically $ putTMVar rolledBackTo (initHistory rolledBackChainState)
             _ -> pure ()
-      localChainState <- run $ newLocalChainState chainStateAt
+      localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -187,7 +184,8 @@ spec = do
       monitor . counterexample $ "try onRollBackward: " <> show result
       assert $ isRight result
 
-      mRolledBackChainState <- run . atomically $ tryReadTMVar rolledBackTo
+      mRolledBackChainStateHistory <- run . atomically $ tryReadTMVar rolledBackTo
+      let mRolledBackChainState = fmap currentState mRolledBackChainStateHistory
       monitor . counterexample $ "rolledBackTo: " <> show mRolledBackChainState
       pure $ (chainStateSlot <$> mRolledBackChainState) === Just (chainSlotFromPoint rollbackPoint)
 
@@ -197,7 +195,7 @@ spec = do
       timeHandle <- pickBlind arbitrary
 
       -- Use the handler to evolve the chain state to some new, latest version
-      localChainState <- run $ newLocalChainState chainStateAt
+      localChainState <- run $ newLocalChainState (initHistory chainStateAt)
       let handler =
             chainSyncHandler
               nullTracer
@@ -211,7 +209,8 @@ spec = do
 
       -- Provided the latest chain state the LocalChainState must be able to
       -- rollback and forward
-      resumedLocalChainState <- run $ newLocalChainState latestChainState
+      prevAdvancedChainState <- run . atomically $ history localChainState
+      resumedLocalChainState <- run $ newLocalChainState prevAdvancedChainState
       let resumedHandler =
             chainSyncHandler
               nullTracer
@@ -227,7 +226,6 @@ spec = do
       -- NOTE: Sanity check that the rollback was affecting the local state
       rolledBackChainState <- run . atomically $ getLatest resumedLocalChainState
       assert $ null blocksAfter || rolledBackChainState /= latestChainState
-
       run $ forM_ blocksAfter $ \(TestBlock header txs) -> onRollForward resumedHandler header txs
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
@@ -236,7 +234,7 @@ spec = do
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newTVarIO []
-  localChainState <- newLocalChainState cs
+  localChainState <- newLocalChainState (initHistory cs)
   let handler = chainSyncHandler nullTracer (recordEvents eventsVar) getTimeHandle ctx localChainState
   pure (handler, getEvents eventsVar)
  where

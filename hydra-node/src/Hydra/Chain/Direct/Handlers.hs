@@ -32,15 +32,21 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
+  ChainStateHistory,
   ChainStateType,
+  IsChainState,
   PostChainTx (..),
   PostTxError (..),
+  currentState,
+  pushNewState,
+  rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
   ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit',
@@ -63,44 +69,40 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
--- | Handle of a local chain state that is kept in the direct chain layer.
-data LocalChainState m = LocalChainState
-  { getLatest :: STM m ChainStateAt
-  , pushNew :: ChainStateAt -> STM m ()
-  , rollback :: ChainPoint -> STM m ChainStateAt
+-- | Handle of a mutable local chain state that is kept in the direct chain layer.
+data LocalChainState m tx = LocalChainState
+  { getLatest :: STM m (ChainStateType tx)
+  , pushNew :: ChainStateType tx -> STM m ()
+  , rollback :: ChainSlot -> STM m (ChainStateType tx)
+  , history :: STM m (ChainStateHistory tx)
   }
 
--- | Initialize a new local chain state with given 'ChainStateAt' (see also
--- 'initialChainState').
+-- | Initialize a new local chain state from a given chain state history.
 newLocalChainState ::
-  MonadSTM m =>
-  ChainStateAt ->
-  m (LocalChainState m)
-newLocalChainState chainStateAt = do
-  tv <- newTVarIO chainStateAt
+  (MonadSTM m, IsChainState tx) =>
+  ChainStateHistory tx ->
+  m (LocalChainState m tx)
+newLocalChainState chainState = do
+  tv <- newTVarIO chainState
   pure
     LocalChainState
-      { getLatest = readTVar tv
+      { getLatest = getLatest tv
       , pushNew = pushNew tv
       , rollback = rollback tv
+      , history = readTVar tv
       }
  where
+  getLatest tv = currentState <$> readTVar tv
 
   pushNew tv cs =
-    modifyTVar tv $ \prev ->
-      cs{previous = Just prev}
+    modifyTVar tv (pushNewState cs)
 
-  rollback tv point = do
-    latest <- readTVar tv
-    let rolledBack = go point latest
+  rollback tv chainSlot = do
+    rolledBack <-
+      readTVar tv
+        <&> rollbackHistory chainSlot
     writeTVar tv rolledBack
-    pure rolledBack
-
-  go rollbackChainPoint = \case
-    cs@ChainStateAt{recordedAt = Just recordPoint}
-      | recordPoint <= rollbackChainPoint -> cs
-    ChainStateAt{previous = Just prev} -> go rollbackChainPoint prev
-    cs -> cs
+    pure (currentState rolledBack)
 
 -- * Posting Transactions
 
@@ -129,7 +131,7 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
-  LocalChainState m ->
+  LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
 mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
@@ -248,7 +250,7 @@ chainSyncHandler ::
   GetTimeHandle m ->
   -- | Contextual information about our chain connection.
   ChainContext ->
-  LocalChainState m ->
+  LocalChainState m Tx ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   ChainSyncHandler m
 chainSyncHandler tracer callback getTimeHandle ctx localChainState =
@@ -262,7 +264,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    rolledBackChainState <- atomically $ rollback point
+    rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
     callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
@@ -291,7 +293,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
-    csa@ChainStateAt{chainState} <- getLatest
+    ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Nothing -> pure Nothing
       Just (observedTx, cs') -> do
@@ -299,7 +301,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
-                , previous = Just csa
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}

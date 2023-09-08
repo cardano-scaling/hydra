@@ -56,14 +56,6 @@ deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
 deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
--- | Get the chain state in any 'HeadState'.
-getChainState :: HeadState tx -> ChainStateType tx
-getChainState = \case
-  Idle IdleState{chainState} -> chainState
-  Initial InitialState{chainState} -> chainState
-  Open OpenState{chainState} -> chainState
-  Closed ClosedState{chainState} -> chainState
-
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
