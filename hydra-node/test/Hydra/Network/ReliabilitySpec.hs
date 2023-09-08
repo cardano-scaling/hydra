@@ -11,7 +11,7 @@ import Control.Monad.IOSim (runSimOrThrow)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Data.Sequence ((|>))
+import Data.Sequence ((!?), (|>))
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
@@ -131,12 +131,14 @@ spec = parallel $ do
             alice
             [alice, bob]
             ( \incoming action -> do
-                action $ Network{broadcast = \_ -> atomically $ modifyTVar' sentMessages (|> msg)}
-                incoming (Authenticated (Msg [0, 1] msg) bob)
+                race_
+                  (action $ Network{broadcast = \_ -> atomically $ modifyTVar' sentMessages (|> msg)})
+                  (incoming (Authenticated (Msg [0, 1] msg) bob))
             )
             noop
-            $ \Network{broadcast} ->
+            $ \Network{broadcast} -> do
               broadcast msg
+              threadDelay 1
 
           toList <$> readTVarIO sentMessages
 
@@ -149,7 +151,7 @@ data Msg msg = Msg
   deriving (Eq, Show)
 
 withReliability ::
-  (MonadSTM m) =>
+  (MonadSTM m, MonadAsync m) =>
   Party ->
   [Party] ->
   NetworkComponent m (Authenticated (Msg msg)) a ->
@@ -157,9 +159,14 @@ withReliability ::
 withReliability us allParties withRawNetwork callback action = do
   broadcastCounter <- newTVarIO $ replicate (length allParties) 0
   incomingCounter <- newTVarIO mempty
-  withRawNetwork (dummyCallback incomingCounter) (dummyBroadcast broadcastCounter)
+  sentMessages <- newTVarIO mempty
+  resendQ <- newTQueueIO
+  let resend = atomically . writeTQueue resendQ
+  withRawNetwork (reliableCallback broadcastCounter incomingCounter sentMessages resend) $ \network@Network{broadcast} -> do
+    withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
+      reliableBroadcast broadcastCounter network
  where
-  dummyBroadcast messageCounter Network{broadcast} =
+  reliableBroadcast messageCounter Network{broadcast} =
     action $
       Network
         { broadcast = \msg -> do
@@ -173,13 +180,28 @@ withReliability us allParties withRawNetwork callback action = do
             broadcast $ Authenticated (Msg counter msg) us
         }
 
-  dummyCallback messageCounter (Authenticated (Msg acks msg) party) = do
+  reliableCallback broadcastCounter messageCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
     let partyIndex = fromJust $ List.elemIndex party allParties
     let n = acks List.!! partyIndex
     count <- fromMaybe 0 . Map.lookup party <$> readTVarIO messageCounter
+
+    -- handle message from party iff it's next in line
     when (n == count + 1) $ do
       atomically $ modifyTVar messageCounter (Map.insert party n)
       callback msg
+
+    -- resend messages if party did not acknowledge our latest idx
+    let myIndex = fromJust $ List.elemIndex us allParties
+    let acked = acks List.!! myIndex
+    counter <- readTVarIO broadcastCounter
+    let latestMsg = (List.!! myIndex) counter
+    when (acked < latestMsg) $ do
+      let missing = [acked + 1 .. latestMsg]
+      messages <- readTVarIO sentMessages
+      forM_ missing $ \idx -> do
+        let missingMsg = fromJust $ messages !? idx
+        let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter [0 ..]
+        trace ("resending " <> show idx <> " @" <> show counter') $ resend $ Authenticated (Msg counter' missingMsg) us
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
