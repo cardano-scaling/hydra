@@ -11,9 +11,9 @@ import qualified Data.List as List
 import Data.Sequence ((|>))
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Network.Reliability (Msg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
-import Test.QuickCheck (Positive (Positive), collect, counterexample, generate)
-import Hydra.Network.Reliability (withReliability, Msg (..))
+import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, forAllShrink, generate, suchThat, (===), tabulate)
 
 spec :: Spec
 spec = parallel $ do
@@ -120,26 +120,30 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg carol]
 
-  it "sends unacknowledged messages" $ do
-    let sentMsgs = runSimOrThrow $ do
-          sentMessages <- newTVarIO mempty
+  prop "sends unacknowledged messages" $ \(Positive lastMessageKnownToBob) (msg :: Int) ->
+    forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
+      let sentMsgs = runSimOrThrow $ do
+            sentMessages <- newTVarIO mempty
 
-          withReliability
-            alice
-            [alice, bob]
-            ( \incoming action -> do
-                race_
-                  (action $ Network{broadcast = \_ -> atomically $ modifyTVar' sentMessages (|> msg)})
-                  (incoming (Authenticated (Msg [0, 1] msg) bob))
-            )
-            noop
-            $ \Network{broadcast} -> do
-              broadcast (Authenticated msg alice)
-              threadDelay 1
+            withReliability
+              alice
+              [alice, bob]
+              ( \incoming action -> do
+                  concurrently_
+                    (action $ Network{broadcast = \_ -> atomically $ modifyTVar' sentMessages (|> msg)})
+                    (threadDelay 2 >> incoming (Authenticated (Msg [lastMessageKnownToBob, 1] msg) bob))
+              )
+              noop
+              $ \Network{broadcast} -> do
+                replicateM_ totalNumberOfMessages $ broadcast (Authenticated msg alice)
+                threadDelay 10
 
-          toList <$> readTVarIO sentMessages
-
-    sentMsgs `shouldBe` [msg, msg]
+            toList <$> readTVarIO sentMessages
+       in length sentMsgs
+            <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
+            & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
+            & counterexample ("number of sent messages: " <> show (length sentMsgs))
+            & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
