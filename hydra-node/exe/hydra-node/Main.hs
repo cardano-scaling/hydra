@@ -58,6 +58,9 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
+import System.FilePath ((<.>))
+import Hydra.Party (deriveParty)
+import Hydra.Network.Reliability (withReliability)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
   deriving (Show)
@@ -129,7 +132,12 @@ main = do
         connectionMessages = \case
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
+        me = deriveParty signingKey
+        allParties = sort $ me : otherParties
+     in withReliability me allParties $
+          withAuthentication (contramap Authentication tracer) signingKey otherParties $
+            withHeartbeat nodeId connectionMessages $
+              withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

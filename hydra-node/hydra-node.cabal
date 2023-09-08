@@ -120,6 +120,7 @@ library
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
+    Hydra.Network.Reliability
     Hydra.Node
     Hydra.Node.EventQueue
     Hydra.Options
