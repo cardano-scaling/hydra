@@ -46,6 +46,7 @@ prepare_release() {
   update_cabal_version "$version"
   update_api_version "$version"
   update_demo_version "$version"
+  update_tutorial_version "$version"
 
   find . -name '*-e' -exec rm '{}' \; # cleanup BSD sed mess
   
@@ -125,6 +126,12 @@ update_api_version() {
   local api_file=hydra-node/json-schemas/api.yaml
 
   sed -i -e "s,\(version: *\)'.*',\1'$version'," $api_file
+}
+
+update_tutorial_version() {
+  local version="$1"
+  local tutorial_file=docs/docs/tutorial/index.md
+  sed -i -e "s,\(hydra/releases/download/)[^/]*,\1$version," $tutorial_file
 }
 
 update_demo_version() {

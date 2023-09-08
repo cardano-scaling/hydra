@@ -183,6 +183,9 @@ To perform a release of next `<version>`:
 2. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
 3. Run `./release.sh <version>`
+4. Check if all the bumped versions are correct. In particular, whether the demo
+   and tutorial would still work given the changelog. If everything is fine,
+   push the branches `master`, `release` and the `<version>` tag.
 5. Create a github release page containing
    * The released changes (formatted) and giving credit where credit is due
    * Attach static binaries to the release (or link the CI artifact)

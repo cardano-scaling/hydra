@@ -1,0 +1,72 @@
+name: "Check tutorial"
+
+on:
+  push:
+    branches:
+    - master
+    - release
+  pull_request:
+  schedule:
+    # Everyday at 4:00 AM
+    - cron: "0 4 * * *"
+
+jobs:
+  check-tutorial:
+    name: "Check tutorial"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check links
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        folder-path: "docs/docs/tutorial"
+        config-file: ".github/workflows/check-links-config.json"
+
+    # TODO: use javascript? https://github.com/marketplace/actions/execute-javascript-inline
+
+    - name: Using currently supported cardano-node version?
+      shell: python
+      run: |
+        import re
+        with open("docs/docs/tutorial/index.md", "r") as tutorial:
+            body = tutorial.read()
+            usedCardanoNodeVersions = re.findall(r"cardano-node/releases/download/([0-9]+\.[0-9]+\.[0-9]+)", body)
+
+        with open("hydra-cluster/test/Test/CardanoNodeSpec.hs", "r") as cardanoNodeSpecFile:
+            body = cardanoNodeSpecFile.read()
+            expectedCardanoNodeVersion = re.findall(r"getCardanoNodeVersion.*([0-9]+\.[0-9]+\.[0-9]+)", body)[0]
+
+        print("Checking used cardano-node version")
+        if all(v == expectedCardanoNodeVersion for v in usedCardanoNodeVersions):
+            print("  PASS ✓")
+        else:
+            print("  FAIL ❌")
+            print("Expected cardano-node version:", expectedCardanoNodeVersion)
+            print("Used cardano-node versions:", usedCardanoNodeVersions)
+            exit(-1)
+
+    - name: Check mithril endpoints
+      shell: python
+      run: |
+        import re
+        with open("docs/docs/tutorial/index.md", "r") as tutorial:
+            body = tutorial.read()
+            usedMithrilEndpoints = re.findall(r"AGGREGATOR_ENDPOINT=(.*)", body)
+
+        import requests
+        # TODO: ideally use a JSON document with all endpoints in it
+        resp = requests.get("https://raw.githubusercontent.com/input-output-hk/mithril/main/docs/website/versioned_docs/version-maintained/networks-matrix.md")
+        body = resp.text
+        preprodSection = body[body.find("<TabItem value=\"preprod\""):]
+        preprodSection = preprodSection[:preprodSection.find("</TabItem>")]
+        knownMithrilEndpoints = re.findall(r"Aggregator endpoint.*\((http[^\)]*)", preprodSection)
+
+        print("Checking mithril aggregator endpoints")
+        if all(v in set(knownMithrilEndpoints) for v in usedMithrilEndpoints):
+            print("  PASS ✓")
+        else:
+            print("  FAIL ❌")
+            print("  Used mithril aggregator endpoints:", usedMithrilEndpoints)
+            print("  Upstream mithril aggregator endpoints:", knownMithrilEndpoints)
+            exit(-1)
