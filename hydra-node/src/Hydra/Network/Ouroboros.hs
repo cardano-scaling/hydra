@@ -124,9 +124,7 @@ withOuroborosNetwork ::
   Tracer IO (WithHost (TraceOuroborosNetwork msg)) ->
   Host ->
   [Host] ->
-  NetworkCallback msg IO ->
-  (Network IO msg -> IO ()) ->
-  IO ()
+  NetworkComponent IO msg msg ()
 withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
   let newBroadcastChannel = atomically $ dupTChan bchan

@@ -39,8 +39,8 @@ withReliability ::
   (MonadAsync m) =>
   Party ->
   [Party] ->
-  NetworkComponent m (Authenticated (Msg msg)) a ->
-  NetworkComponent m (Authenticated msg) a
+  NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
+  NetworkComponent m (Authenticated msg) (Authenticated msg) a
 withReliability us allParties withRawNetwork callback action = do
   broadcastCounter <- newTVarIO $ replicate (length allParties) 0
   incomingCounter <- newTVarIO mempty

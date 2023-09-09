@@ -56,9 +56,9 @@ withAuthentication ::
   -- Other party members
   [Party] ->
   -- The underlying raw network.
-  NetworkComponent m (Signed msg) a ->
+  NetworkComponent m (Signed msg) (Signed msg) a ->
   -- The node internal authenticated network.
-  NetworkComponent m (Authenticated msg) a
+  NetworkComponent m (Authenticated msg) (Authenticated msg) a
 withAuthentication tracer signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where
@@ -67,7 +67,7 @@ withAuthentication tracer signingKey parties withRawNetwork callback action = do
       then callback $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 
-  authenticate = \Network{broadcast} ->
+  authenticate Network{broadcast} =
     action $
       Network
         { broadcast = \(Authenticated msg party) ->
