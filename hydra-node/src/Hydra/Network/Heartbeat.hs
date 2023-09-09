@@ -80,8 +80,8 @@ withHeartbeat ::
   ) =>
   NodeId ->
   ConnectionMessages m ->
-  NetworkComponent m (Heartbeat msg) a ->
-  NetworkComponent m msg a
+  NetworkComponent m (Heartbeat msg) (Heartbeat msg) a ->
+  NetworkComponent m msg msg a
 withHeartbeat nodeId connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
