@@ -6,6 +6,7 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, readTVarIO, writeTQueue),
+  modifyTVar',
   newTQueueIO,
   newTVarIO,
   writeTVar,
@@ -14,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM.TVar (modifyTVar)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Data.Sequence ((!?))
+import Data.Sequence ((!?), (|>))
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
@@ -36,7 +37,7 @@ instance ToCBOR msg => SignableRepresentation (Msg msg) where
   getSignableRepresentation = serialize'
 
 withReliability ::
-  (Show msg, MonadAsync m) =>
+  (MonadAsync m) =>
   Party ->
   [Party] ->
   NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
@@ -46,12 +47,12 @@ withReliability us allParties withRawNetwork callback action = do
   incomingCounter <- newTVarIO mempty
   sentMessages <- newTVarIO mempty
   resendQ <- newTQueueIO
-  let resend = atomically . writeTQueue resendQ
+  let resend = writeTQueue resendQ
   withRawNetwork (reliableCallback broadcastCounter incomingCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast broadcastCounter network
+      reliableBroadcast broadcastCounter sentMessages network
  where
-  reliableBroadcast messageCounter Network{broadcast} =
+  reliableBroadcast messageCounter sentMessages Network{broadcast} =
     action $
       Network
         { broadcast = \(Authenticated msg _) -> do
@@ -60,6 +61,7 @@ withReliability us allParties withRawNetwork callback action = do
               let ourIndex = fromJust $ List.elemIndex us allParties
               let newAcks = zipWith (\ack i -> if i == ourIndex then ack + 1 else ack) acks [0 ..]
               writeTVar messageCounter newAcks
+              modifyTVar' sentMessages (|> msg)
               readTVar messageCounter
 
             broadcast $ Authenticated (Msg counter msg) us
@@ -82,8 +84,20 @@ withReliability us allParties withRawNetwork callback action = do
     let latestMsg = (List.!! myIndex) counter
     when (acked < latestMsg) $ do
       let missing = [acked + 1 .. latestMsg]
-      messages <- readTVarIO sentMessages
-      forM_ missing $ \idx -> do
-        let missingMsg = fromJust $ messages !? idx
-        let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter [0 ..]
-        trace ("resending " <> show idx <> ", msg: " <> show missingMsg) $ resend $ Authenticated (Msg counter' missingMsg) us
+      atomically $ do
+        messages <- readTVar sentMessages
+        forM_ missing $ \idx -> do
+          case messages !? (idx - 1) of
+            Nothing ->
+              error $
+                "FIXME: this should never happen, there's no sent message at index "
+                  <> show idx
+                  <> ", messages length = "
+                  <> show (length messages)
+                  <> ", latest: "
+                  <> show latestMsg
+                  <> ", acked: "
+                  <> show acked
+            Just missingMsg -> do
+              let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter [0 ..]
+              resend $ Authenticated (Msg counter' missingMsg) us

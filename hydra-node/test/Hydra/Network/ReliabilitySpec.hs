@@ -132,7 +132,7 @@ spec = parallel $ do
               [alice, bob]
               ( \incoming action -> do
                   concurrently_
-                    (action $ Network{broadcast = \_ -> atomically $ modifyTVar' sentMessages (|> msg)})
+                    (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (|> message (payload m))})
                     (threadDelay 2 >> incoming (Authenticated (Msg [lastMessageKnownToBob, 1] msg) bob))
               )
               noop
@@ -146,7 +146,8 @@ spec = parallel $ do
             <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
             && Set.fromList messagesList == Set.fromList sentMsgs
             & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
-            & counterexample ("number of sent messages: " <> show (length sentMsgs))
+            & counterexample ("sent messages: " <> show sentMsgs)
+            & counterexample ("total messages: " <> show messagesList)
             & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
 
 noop :: Monad m => b -> m ()
