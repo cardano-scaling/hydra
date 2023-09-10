@@ -2,6 +2,7 @@ module Hydra.Network.Reliability where
 
 import Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, readTVarIO, writeTQueue),
@@ -17,7 +18,6 @@ import Data.Sequence ((!?))
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
-import Cardano.Binary (serialize')
 
 data Msg msg = Msg
   { messageId :: [Int]
@@ -36,7 +36,7 @@ instance ToCBOR msg => SignableRepresentation (Msg msg) where
   getSignableRepresentation = serialize'
 
 withReliability ::
-  (MonadAsync m) =>
+  (Show msg, MonadAsync m) =>
   Party ->
   [Party] ->
   NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
@@ -86,4 +86,4 @@ withReliability us allParties withRawNetwork callback action = do
       forM_ missing $ \idx -> do
         let missingMsg = fromJust $ messages !? idx
         let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter [0 ..]
-        resend $ Authenticated (Msg counter' missingMsg) us
+        trace ("resending " <> show idx <> ", msg: " <> show missingMsg) $ resend $ Authenticated (Msg counter' missingMsg) us
