@@ -9,11 +9,12 @@ import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writ
 import Control.Monad.IOSim (runSimOrThrow)
 import qualified Data.List as List
 import Data.Sequence ((|>))
+import qualified Data.Set as Set
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Reliability (Msg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
-import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, forAllShrink, generate, suchThat, (===), tabulate)
+import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, forAllShrink, generate, suchThat, tabulate, (===))
 
 spec :: Spec
 spec = parallel $ do
@@ -120,9 +121,10 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg carol]
 
-  prop "sends unacknowledged messages" $ \(Positive lastMessageKnownToBob) (msg :: Int) ->
+  prop "sends unacknowledged messages" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
-      let sentMsgs = runSimOrThrow $ do
+      let messagesList = show <$> [1 .. totalNumberOfMessages]
+          sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO mempty
 
             withReliability
@@ -135,12 +137,14 @@ spec = parallel $ do
               )
               noop
               $ \Network{broadcast} -> do
-                replicateM_ totalNumberOfMessages $ broadcast (Authenticated msg alice)
+                forM_ messagesList $ \m ->
+                  broadcast (Authenticated m alice)
                 threadDelay 10
 
             toList <$> readTVarIO sentMessages
        in length sentMsgs
             <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
+            && Set.fromList messagesList == Set.fromList sentMsgs
             & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
             & counterexample ("number of sent messages: " <> show (length sentMsgs))
             & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
