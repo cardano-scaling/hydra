@@ -13,6 +13,7 @@ import Hydra.Prelude
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
+import Hydra.Network.Reliability (ReliabilityLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Options (RunOptions)
 
@@ -23,6 +24,7 @@ data HydraLog tx net
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
   | Authentication {authentication :: AuthLog}
+  | Reliability {reliability :: ReliabilityLog}
   deriving (Generic)
 
 deriving instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)

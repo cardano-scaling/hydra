@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude
@@ -12,10 +14,12 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Concurrent.Class.MonadSTM.TVar (modifyTVar)
+import Control.Tracer (Tracer)
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence ((!?), (|>))
+import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Party (Party)
@@ -37,12 +41,14 @@ instance ToCBOR msg => SignableRepresentation (Msg msg) where
   getSignableRepresentation = serialize'
 
 withReliability ::
+  forall m msg a.
   (MonadAsync m) =>
+  Tracer m ReliabilityLog ->
   Party ->
   [Party] ->
   NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
   NetworkComponent m (Authenticated msg) (Authenticated msg) a
-withReliability us allParties withRawNetwork callback action = do
+withReliability tracer us allParties withRawNetwork callback action = do
   broadcastCounter <- newTVarIO $ replicate (length allParties) 0
   incomingCounter <- newTVarIO mempty
   sentMessages <- newTVarIO mempty
@@ -64,6 +70,8 @@ withReliability us allParties withRawNetwork callback action = do
               modifyTVar' sentMessages (|> msg)
               readTVar messageCounter
 
+            traceWith tracer (BroadcastCounter counter)
+
             broadcast $ Authenticated (Msg counter msg) us
         }
 
@@ -84,6 +92,7 @@ withReliability us allParties withRawNetwork callback action = do
     let latestMsg = (List.!! myIndex) counter
     when (acked < latestMsg) $ do
       let missing = [acked + 1 .. latestMsg]
+      traceWith tracer (Resending missing acks counter party)
       atomically $ do
         messages <- readTVar sentMessages
         forM_ missing $ \idx -> do
@@ -101,3 +110,12 @@ withReliability us allParties withRawNetwork callback action = do
             Just missingMsg -> do
               let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter [0 ..]
               resend $ Authenticated (Msg counter' missingMsg) us
+
+data ReliabilityLog
+  = Resending {missing :: [Int], acknowledged :: [Int], localCounter :: [Int], party :: Party}
+  | BroadcastCounter {localCounter :: [Int]}
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ReliabilityLog where
+  arbitrary = genericArbitrary
