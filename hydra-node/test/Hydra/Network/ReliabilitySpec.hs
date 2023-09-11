@@ -125,7 +125,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg carol]
 
-  prop "sends unacknowledged messages" $ \(Positive lastMessageKnownToBob) ->
+  prop "retransmits unacknowledged messages" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
       let messagesList = show <$> [1 .. totalNumberOfMessages]
           sentMsgs = runSimOrThrow $ do
