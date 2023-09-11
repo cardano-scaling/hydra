@@ -15,11 +15,11 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV2), Plutus (..), BinaryPlutus (..))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee, Prices (..))
 import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
-import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime, PlutusWithContext (..))
 import Cardano.Ledger.Api (ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes ( ProtVer(..), natVersion, BoundedRational (boundRational) )
 import Cardano.Ledger.Coin (Coin (Coin))
@@ -216,12 +216,12 @@ prepareTxScripts ::
 prepareTxScripts tx utxo = do
   -- Tuples with scripts and their arguments collected from the tx
   results <-
-    case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pparams ltx lutxo of
+    case Ledger.collectPlutusScriptsWithContext epochInfo systemStart pparams ltx lutxo of
       Left e -> Left $ show e
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(script, _language, arguments, _exUnits, _costModel) -> do
+  programs <- forM results $ \(PlutusWithContext (Plutus _ (BinaryPlutus script)) arguments _exUnits _costModel) -> do
     let pArgs = Ledger.getPlutusData <$> arguments
     appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
