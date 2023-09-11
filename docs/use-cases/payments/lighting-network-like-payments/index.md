@@ -1,6 +1,5 @@
 # Lightning Network Payments
 
-**Caution: This is a legacy article**
 
 We are in the process of restructuring the payments category to create a more user-focused roadmap for various application scenarios.
 
