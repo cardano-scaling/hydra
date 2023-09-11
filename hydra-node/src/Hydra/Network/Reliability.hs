@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude
@@ -13,10 +11,8 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Control.Concurrent.Class.MonadSTM.TVar (modifyTVar)
 import Control.Tracer (Tracer)
 import qualified Data.List as List
-import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence ((!?), (|>))
 import Hydra.Logging (traceWith)
@@ -50,11 +46,10 @@ withReliability ::
   NetworkComponent m (Authenticated msg) (Authenticated msg) a
 withReliability tracer us allParties withRawNetwork callback action = do
   broadcastCounter <- newTVarIO $ replicate (length allParties) 0
-  incomingCounter <- newTVarIO mempty
   sentMessages <- newTVarIO mempty
   resendQ <- newTQueueIO
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback broadcastCounter incomingCounter sentMessages resend) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback broadcastCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast broadcastCounter sentMessages network
  where
@@ -75,20 +70,21 @@ withReliability tracer us allParties withRawNetwork callback action = do
             broadcast $ Authenticated (Msg counter msg) us
         }
 
-  reliableCallback broadcastCounter messageCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
+  reliableCallback broadcastCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
     let partyIndex = fromJust $ List.elemIndex party allParties
     let n = acks List.!! partyIndex
-    count <- fromMaybe 0 . Map.lookup party <$> readTVarIO messageCounter
+    counter <- readTVarIO broadcastCounter
+    let count = (List.!! partyIndex) counter
 
     -- handle message from party iff it's next in line
     when (n == count + 1) $ do
-      atomically $ modifyTVar messageCounter (Map.insert party n)
+      let newAcks = zipWith (\ack i -> if i == partyIndex then ack + 1 else ack) counter [0 ..]
+      atomically $ writeTVar broadcastCounter newAcks
       callback (Authenticated msg party)
 
     -- resend messages if party did not acknowledge our latest idx
     let myIndex = fromJust $ List.elemIndex us allParties
     let acked = acks List.!! myIndex
-    counter <- readTVarIO broadcastCounter
     let latestMsg = (List.!! myIndex) counter
     when (acked < latestMsg) $ do
       let missing = [acked + 1 .. latestMsg]

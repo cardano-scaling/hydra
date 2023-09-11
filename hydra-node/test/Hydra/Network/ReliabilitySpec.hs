@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
+import Control.Tracer (nullTracer)
 import qualified Data.List as List
 import Data.Sequence ((|>))
 import qualified Data.Set as Set
@@ -14,7 +15,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Reliability (Msg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
-import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, forAllShrink, generate, suchThat, tabulate, (===))
+import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
 spec :: Spec
 spec = parallel $ do
@@ -31,6 +32,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO mempty
 
           withReliability
+            nullTracer
             alice
             [alice, bob]
             ( \incoming _ -> do
@@ -48,7 +50,7 @@ spec = parallel $ do
     let sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO mempty
 
-          withReliability alice [alice] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withReliability nullTracer alice [alice] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             mapM_ (\m -> broadcast (Authenticated m alice)) messages
 
           toList <$> readTVarIO sentMessages
@@ -71,8 +73,8 @@ spec = parallel $ do
                   $ \_ ->
                     action (Network{broadcast = const $ pure ()})
 
-          withReliability alice [alice, bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-            withReliability bob [alice, bob] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
+          withReliability nullTracer alice [alice, bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
+            withReliability nullTracer bob [alice, bob] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
               broadcast (Authenticated msg alice)
               threadDelay 1
 
@@ -85,6 +87,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO mempty
 
           withReliability
+            nullTracer
             alice
             [alice, bob]
             ( \incoming _ -> do
@@ -107,6 +110,7 @@ spec = parallel $ do
           receivedMessages <- newTVarIO mempty
 
           withReliability
+            nullTracer
             alice
             [alice, bob, carol]
             ( \incoming _ -> do
@@ -128,6 +132,7 @@ spec = parallel $ do
             sentMessages <- newTVarIO mempty
 
             withReliability
+              nullTracer
               alice
               [alice, bob]
               ( \incoming action -> do
@@ -149,6 +154,26 @@ spec = parallel $ do
             & counterexample ("sent messages: " <> show sentMsgs)
             & counterexample ("total messages: " <> show messagesList)
             & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
+
+  it "broadcast updates counter from peers" $ do
+    let receivedMsgs = runSimOrThrow $ do
+          sentMessages <- newTVarIO mempty
+          withReliability
+            nullTracer
+            alice
+            [alice, bob]
+            ( \incoming action -> do
+                concurrently_
+                  (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (|> payload m)})
+                  (incoming (Authenticated (Msg [0, 1] msg) bob))
+            )
+            noop
+            $ \Network{broadcast} -> do
+              threadDelay 1
+              broadcast (Authenticated msg bob)
+          toList <$> readTVarIO sentMessages
+
+    receivedMsgs `shouldBe` [Msg [1, 1] msg]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
