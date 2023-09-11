@@ -37,6 +37,7 @@ import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentica
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
+import Hydra.Network.Reliability (withReliability)
 import Hydra.Node (
   HydraNode (..),
   checkHeadState,
@@ -56,11 +57,10 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
+import Hydra.Party (deriveParty)
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
 import System.FilePath ((<.>))
-import Hydra.Party (deriveParty)
-import Hydra.Network.Reliability (withReliability)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
   deriving (Show)
@@ -134,7 +134,7 @@ main = do
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
         me = deriveParty signingKey
         allParties = sort $ me : otherParties
-     in withReliability me allParties $
+     in withReliability (contramap Reliability tracer) me allParties $
           withAuthentication (contramap Authentication tracer) signingKey otherParties $
             withHeartbeat nodeId connectionMessages $
               withOuroborosNetwork (contramap Network tracer) localhost peers
