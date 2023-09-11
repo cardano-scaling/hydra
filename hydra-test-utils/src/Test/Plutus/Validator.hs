@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -18,9 +19,11 @@ module Test.Plutus.Validator (
 
 import Hydra.Prelude
 
+import Control.Lens ((.~))
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel)
+import Cardano.Ledger.BaseTypes (ProtVer(..), natVersion)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
@@ -28,16 +31,12 @@ import Data.Default (def)
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
-  BundledProtocolParameters,
-  Era,
   ExecutionUnits (..),
   IsScriptWitnessInCtx (scriptWitnessInCtx),
-  IsShelleyBasedEra (shelleyBasedEra),
   LedgerEpochInfo (LedgerEpochInfo),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PlutusScriptV2,
-  ProtocolParameters (..),
   SystemStart (SystemStart),
   ToScriptData,
   TxBody,
@@ -46,8 +45,6 @@ import Hydra.Cardano.Api (
   createAndValidateTransactionBody,
   defaultTxBodyContent,
   evaluateTransactionExecutionUnits,
-  fromAlonzoCostModels,
-  fromLedgerPParams,
   fromPlutusScript,
   mkScriptAddress,
   mkScriptDatum,
@@ -55,18 +52,17 @@ import Hydra.Cardano.Api (
   mkTxOutDatumHash,
   setTxInsCollateral,
   setTxProtocolParams,
-  toLedgerPParams,
   toScriptData,
-  unbundleProtocolParams,
-  pattern BundleAsShelleyBasedProtocolParameters,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxInsCollateral,
-  pattern TxOut,
+  pattern TxOut, LedgerEra, ShelleyBasedEra (..), fromLedgerPParams,
  )
 import PlutusLedgerApi.Common (SerialisedScript)
 import qualified PlutusTx as Plutus
 import qualified Prelude
+import qualified Cardano.Ledger.Alonzo.Core as Ledger
+import Hydra.Cardano.Api.Prelude (toAlonzoExUnits)
 
 -- TODO: DRY with Hydra.Ledger.Cardano.Evaluate
 
@@ -99,33 +95,11 @@ evaluateScriptExecutionUnits validatorScript redeemer =
   systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
 
 -- | Current (2023-08-04) mainnet parameters.
-pparams :: HasCallStack => BundledProtocolParameters
-pparams =
-  -- XXX: This is a bit contrived as we need both now, api and ledger
-  -- parameters. cardano-api parameters are easier to access (just a record)
-  -- while ledger parameters have defaults and our cost models are "closer".
-  -- Maybe bite the bullet and use the cardano-ledger-api way of constructing +
-  -- modifying them, and then use fromLedgerPParams which does not fail.
-  BundleAsShelleyBasedProtocolParameters
-    apiPParams
-    ledgerPParams
- where
-  apiPParams =
-    (fromLedgerPParams (shelleyBasedEra @Era) def)
-      { protocolParamCostModels =
-          fromAlonzoCostModels $
-            emptyCostModels
-              { costModelsValid =
-                  Map.fromList [(PlutusV2, plutusV2CostModel)]
-              }
-      , protocolParamMaxTxExUnits = Just defaultMaxExecutionUnits
-      , protocolParamProtocolVersion = (8, 0)
-      }
-
-  ledgerPParams =
-    case toLedgerPParams (shelleyBasedEra @Era) apiPParams of
-      Left e -> error $ "toLedgerPParams failed: " <> show e
-      Right p -> p
+pparams :: Ledger.PParams LedgerEra
+pparams = def
+       & Ledger.ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
+       & Ledger.ppMaxTxExUnitsL .~ toAlonzoExUnits defaultMaxExecutionUnits
+       & Ledger.ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
 
 -- | Max transaction execution unit budget of the current 'pparams'.
 defaultMaxExecutionUnits :: ExecutionUnits
@@ -153,7 +127,7 @@ transactionBodyFromScript validatorScript redeemer =
         defaultTxBodyContent
           & addTxIn (defaultTxIn, scriptWitness)
           & setTxInsCollateral (TxInsCollateral mempty)
-          & setTxProtocolParams (BuildTxWith . Just $ unbundleProtocolParams pparams)
+          & setTxProtocolParams (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage pparams)
 
   utxo = UTxO.singleton (defaultTxIn, txOutFromScript)
 

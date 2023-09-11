@@ -17,6 +17,7 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
+import Cardano.Ledger.Core (PParams)
 
 -- * Helpers
 
@@ -90,13 +91,8 @@ newtype ProtocolParametersConversionException
 -- | Create a new ledger env from given protocol parameters.
 --
 -- Throws at least 'ProtocolParametersConversionException'
-newLedgerEnv :: MonadThrow m => ProtocolParameters -> m (Ledger.LedgerEnv LedgerEra)
-newLedgerEnv protocolParams = do
-  case toLedgerPParams (shelleyBasedEra @Era) protocolParams of
-    Left err -> throwIO $ ProtocolParametersConversionException err
-    Right pp ->
-      pure $
-        Ledger.LedgerEnv
+newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra
+newLedgerEnv protocolParams = Ledger.LedgerEnv
           { Ledger.ledgerSlotNo = SlotNo 0
           , -- NOTE: This can probably stay at 0 forever. This is used internally by the
             -- node's mempool to keep track of transaction seen from peers. Transactions
@@ -107,5 +103,5 @@ newLedgerEnv protocolParams = do
             -- both unused in Hydra. There might be room for interesting features in the
             -- future with these two but for now, we'll consider them empty.
             Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-          , Ledger.ledgerPp = pp
+          , Ledger.ledgerPp = protocolParams
           }

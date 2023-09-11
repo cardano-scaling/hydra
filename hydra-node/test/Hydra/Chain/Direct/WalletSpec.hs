@@ -11,7 +11,7 @@ import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), out
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams, Tx, Value)
+import Cardano.Ledger.Core (Tx, Value)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
@@ -22,12 +22,10 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   ChainPoint (ChainPoint),
-  Era,
   Hash (HeaderHash),
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  ShelleyLedgerEra,
   SlotNo,
   VerificationKey,
   fromLedgerTx,
@@ -36,8 +34,6 @@ import Hydra.Cardano.Api (
   genTxIn,
   ledgerEraVersion,
   selectLovelace,
-  shelleyBasedEra,
-  toLedgerPParams,
   toLedgerTxIn,
   toLedgerUTxO,
   txOutValue,
@@ -122,7 +118,7 @@ setupQuery vk = do
     pure $
       WalletInfoOnChain
         { walletUTxO
-        , pparams = ledgerPParams
+        , pparams = Fixture.pparams
         , systemStart = Fixture.systemStart
         , epochInfo = Fixture.epochInfo
         , tip
@@ -140,7 +136,7 @@ mockChainQuery vk _point addr = do
   pure $
     WalletInfoOnChain
       { walletUTxO
-      , pparams = ledgerPParams
+      , pparams = Fixture.pparams
       , systemStart = Fixture.systemStart
       , epochInfo = Fixture.epochInfo
       , tip
@@ -206,7 +202,7 @@ prop_balanceTransaction =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
-        case coverFee_ ledgerPParams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
+        case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
@@ -228,9 +224,6 @@ isBalanced utxo originalTx balancedTx =
         & counterexample ("Added value:     " <> show (coin inp'))
         & counterexample ("Outputs after:   " <> show (coin out'))
         & counterexample ("Outputs before:  " <> show (coin out))
-
-ledgerPParams :: PParams (ShelleyLedgerEra Era)
-ledgerPParams = either (error . show) id $ toLedgerPParams (shelleyBasedEra @Era) Fixture.pparams
 
 prop_picksLargestUTxOToPayTheFees :: Property
 prop_picksLargestUTxOToPayTheFees =

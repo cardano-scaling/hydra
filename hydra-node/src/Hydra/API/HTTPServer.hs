@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   HashableScriptData,
   KeyWitnessInCtx (..),
   PlutusScript,
-  ProtocolParameters,
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
@@ -29,7 +28,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToTextEnvelope,
   pattern KeyWitness,
-  pattern ScriptWitness,
+  pattern ScriptWitness, LedgerEra,
  )
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
@@ -44,6 +43,7 @@ import Network.Wai (
   rawPathInfo,
   responseLBS,
  )
+import Cardano.Ledger.Core (PParams)
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
@@ -155,7 +155,7 @@ instance Arbitrary TransactionSubmitted where
 httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  ProtocolParameters ->
+  PParams LedgerEra ->
   Application
 httpApp tracer directChain pparams request respond = do
   traceWith tracer $

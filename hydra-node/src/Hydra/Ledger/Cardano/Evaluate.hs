@@ -17,15 +17,20 @@ import Hydra.Prelude hiding (label)
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee, Prices (..))
 import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime)
+import Cardano.Ledger.Api (ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
+import Cardano.Ledger.BaseTypes ( ProtVer(..), natVersion, BoundedRational (boundRational) )
 import Cardano.Ledger.Coin (Coin (Coin))
+import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Control.Arrow (left)
+import Control.Lens ((.~))
+import Control.Lens.Getter
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
@@ -34,17 +39,13 @@ import Data.SOP.Counting (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Flat (flat)
 import Hydra.Cardano.Api (
-  CardanoEra (BabbageEra),
   CardanoMode,
   ConsensusMode (CardanoMode),
-  Era,
   EraHistory (EraHistory),
-  ExecutionUnitPrices (..),
   ExecutionUnits (..),
-  IsShelleyBasedEra (shelleyBasedEra),
   LedgerEpochInfo (..),
+  LedgerEra,
   Lovelace,
-  ProtocolParameters (..),
   ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
@@ -53,16 +54,10 @@ import Hydra.Cardano.Api (
   TransactionValidityError,
   Tx,
   UTxO,
-  bundleProtocolParams,
   evaluateTransactionExecutionUnits,
-  fromAlonzoCostModels,
   fromLedgerCoin,
-  fromLedgerPParams,
   getTxBody,
-  shelleyBasedEra,
-  toAlonzoPrices,
   toLedgerExUnits,
-  toLedgerPParams,
   toLedgerTx,
   toLedgerUTxO,
  )
@@ -86,6 +81,8 @@ import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
 import qualified UntypedPlutusCore as UPLC
+import Cardano.Ledger.Binary (getVersion)
+import Data.Maybe (fromJust)
 
 -- * Evaluate transactions
 
@@ -109,21 +106,19 @@ evaluateTx' ::
   UTxO ->
   Either EvaluationError EvaluationReport
 evaluateTx' maxUnits tx utxo = do
-  bundledProtocolParams <-
-    first PParamsConversion $
-      bundleProtocolParams BabbageEra pparams{protocolParamMaxTxExUnits = Just maxUnits}
-  case result bundledProtocolParams of
+  let pparams' = pparams & ppMaxTxExUnitsL .~ toLedgerExUnits maxUnits
+  case result pparams' of
     Left txValidityError -> Left $ TransactionInvalid txValidityError
     Right report
       -- Check overall budget when all individual scripts evaluated
       | all isRight report -> checkBudget maxUnits report
       | otherwise -> Right report
  where
-  result bundledProtocolParams =
+  result pparams' =
     evaluateTransactionExecutionUnits
       systemStart
       (LedgerEpochInfo epochInfo)
-      bundledProtocolParams
+      pparams'
       (UTxO.toApi utxo)
       (getTxBody tx)
 
@@ -201,14 +196,9 @@ estimateMinFee tx evaluationReport =
       <+> txscriptfee prices allExunits
  where
   txSize = BS.length $ serialiseToCBOR tx
-  a = Coin . fromIntegral $ protocolParamTxFeePerByte pparams
-  b = Coin . fromIntegral $ protocolParamTxFeeFixed pparams
-  prices =
-    case protocolParamPrices pparams of
-      Nothing -> error "no prices in protocol param fixture"
-      Just executionPrices ->
-        fromRight (error "toAlonzoPrices failed to convert prices") $
-          toAlonzoPrices executionPrices
+  a = pparams ^. ppMinFeeAL
+  b = pparams ^. ppMinFeeBL
+  prices = pparams ^. ppPricesL
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
 
 -- * Profile transactions
@@ -224,11 +214,9 @@ prepareTxScripts ::
   UTxO ->
   Either String [ByteString]
 prepareTxScripts tx utxo = do
-  pp <- left show $ toLedgerPParams (shelleyBasedEra @Era) pparams
-
   -- Tuples with scripts and their arguments collected from the tx
   results <-
-    case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pp ltx lutxo of
+    case Ledger.collectTwoPhaseScriptInputs epochInfo systemStart pparams ltx lutxo of
       Left e -> Left $ show e
       Right x -> pure x
 
@@ -245,10 +233,10 @@ prepareTxScripts tx utxo = do
   lutxo = toLedgerUTxO utxo
 
   protocolVersion =
-    let (major, minor) = protocolParamProtocolVersion pparams
+    let ProtVer{pvMajor, pvMinor} = pparams ^. ppProtocolVersionL
      in Plutus.ProtocolVersion
-          { Plutus.pvMajor = fromIntegral major
-          , Plutus.pvMinor = fromIntegral minor
+          { Plutus.pvMajor = getVersion pvMajor
+          , Plutus.pvMinor = fromIntegral pvMinor
           }
 
 -- * Fixtures
@@ -258,36 +246,27 @@ prepareTxScripts tx utxo = do
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
-pparams :: ProtocolParameters
+pparams :: PParams LedgerEra
 pparams =
-  (fromLedgerPParams (shelleyBasedEra @Era) def)
-    { protocolParamCostModels =
-        fromAlonzoCostModels $
-          emptyCostModels
-            { costModelsValid =
-                Map.fromList [(PlutusV2, plutusV2CostModel)]
-            }
-    , protocolParamMaxTxExUnits = Just maxTxExecutionUnits
-    , protocolParamMaxBlockExUnits =
-        Just
-          ExecutionUnits
-            { executionMemory = 62_000_000
-            , executionSteps = 40_000_000_000
-            }
-    , protocolParamProtocolVersion = (8, 0)
-    , protocolParamMaxTxSize = maxTxSize
-    , protocolParamMaxValueSize = Just 1000000000
-    , protocolParamTxFeePerByte = 44 -- a
-    , protocolParamTxFeeFixed = 155381 -- b
-    , protocolParamPrices =
-        Just
-          ExecutionUnitPrices
-            { priceExecutionSteps = 721 % 10000000
-            , priceExecutionMemory = 577 % 10000
-            }
-    }
+  def
+    & ppMaxTxSizeL .~ maxTxSize
+    & ppMaxValSizeL .~ 1000000000
+    & ppMinFeeAL .~ Coin 44
+    & ppMinFeeBL .~ Coin 155381
+    & ppMaxTxExUnitsL .~ toLedgerExUnits maxTxExecutionUnits
+    & ppMaxBlockExUnitsL
+      .~ ( toLedgerExUnits $
+            ExecutionUnits{executionMemory = 62_000_000, executionSteps = 40_000_000_000}
+         )
+    & ppPricesL
+      .~ ( Prices
+              { prSteps = fromJust $ boundRational $ 721 % 10000000
+              , prMem = fromJust $ boundRational $ 577 % 10000
+              }
+         )
+    & ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
+    & ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
 
--- | Max transaction size of the current 'pparams'.
 maxTxSize :: Natural
 maxTxSize = 16384
 

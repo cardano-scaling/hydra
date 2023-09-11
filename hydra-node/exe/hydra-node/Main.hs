@@ -12,7 +12,7 @@ import Hydra.Cardano.Api (
   Key (SigningKey),
   getVerificationKey,
   serialiseToRawBytesHex,
-  writeFileTextEnvelope,
+  writeFileTextEnvelope, ShelleyBasedEra (..), toLedgerPParams, ProtocolParametersConversionError,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
@@ -63,6 +63,11 @@ import Hydra.Options (
 import Hydra.Persistence (createPersistenceIncremental)
 import System.FilePath ((<.>))
 
+newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
+  deriving Show
+
+instance Exception ConfigurationParseException
+
 main :: IO ()
 main = do
   command <- parseHydraCommand
@@ -84,7 +89,10 @@ main = do
         eq@EventQueue{putEvent} <- createEventQueue
         let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
         protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-        withCardanoLedger chainConfig protocolParams $ \ledger -> do
+        pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
+          Left err -> throwIO (ConfigurationParseException err)
+          Right bpparams -> pure bpparams
+        withCardanoLedger chainConfig pparams $ \ledger -> do
           persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
           (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
           checkHeadState (contramap Node tracer) env hs
@@ -98,7 +106,7 @@ main = do
                 putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
                 RunOptions{apiHost, apiPort} = opts
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain protocolParams (putEvent . ClientEvent) $ \server -> do
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
               -- Network
               withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
@@ -135,7 +143,7 @@ main = do
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-    ledgerEnv <- newLedgerEnv protocolParams
+    let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
 identifyNode :: RunOptions -> RunOptions

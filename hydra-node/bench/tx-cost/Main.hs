@@ -5,6 +5,7 @@ import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Lovelace (Lovelace), serialiseToRawBytesHexText)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
+import Hydra.Plutus.Orphans ()
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -20,7 +21,6 @@ import Options.Applicative (
   short,
   strOption,
  )
-import Hydra.Plutus.Orphans ()
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)

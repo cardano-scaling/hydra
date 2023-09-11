@@ -20,7 +20,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
-import Hydra.Cardano.Api (ProtocolParameters)
+import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (
   Chain (..),
   IsChainState,
@@ -42,6 +42,7 @@ import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
+import Cardano.Ledger.Core (PParams)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -64,7 +65,7 @@ withAPIServer ::
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  ProtocolParameters ->
+  PParams LedgerEra ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
   handle onIOException $ do

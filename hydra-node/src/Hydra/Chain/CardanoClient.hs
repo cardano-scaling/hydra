@@ -12,6 +12,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
+import Cardano.Ledger.Core (PParams)
 
 data QueryException
   = QueryAcquireException AcquiringFailure
@@ -68,8 +69,7 @@ buildTransaction ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  bpparams <- queryProtocolParameters networkId socket QueryTip
-  let pparams = unbundleProtocolParams bpparams
+  pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -102,7 +102,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
-      (BuildTxWith $ Just pparams)
+      (BuildTxWith $ Just (fromLedgerPParams ShelleyBasedEraBabbage pparams))
       TxWithdrawalsNone
       TxCertificatesNone
       TxUpdateProposalNone
@@ -217,7 +217,11 @@ queryEraHistory networkId socket queryPoint =
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters :: NetworkId -> SocketPath -> QueryPoint -> IO BundledProtocolParameters
+queryProtocolParameters
+  :: NetworkId
+  -> SocketPath
+  -> QueryPoint
+  -> IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint = do
   let query =
         QueryInEra
@@ -227,7 +231,7 @@ queryProtocolParameters networkId socket queryPoint = do
               QueryProtocolParameters
           )
   pparams <- runQuery networkId socket queryPoint query >>= throwOnEraMismatch
-  case bundleProtocolParams BabbageEra pparams of
+  case toLedgerPParams ShelleyBasedEraBabbage pparams of
     Left err -> throwIO (QueryProtocolParamsConversionException err)
     Right bpparams -> pure bpparams
 

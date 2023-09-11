@@ -16,20 +16,26 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  ExecutionUnitPrices (ExecutionUnitPrices),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
-  ProtocolParameters (..),
   TxIn,
   genTxIn,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Configuration (LedgerEnv, ProtocolParametersConversionException, newLedgerEnv)
+import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
-import System.IO.Unsafe (unsafeDupablePerformIO)
+import Cardano.Ledger.Alonzo.Scripts (Prices(..))
+import Cardano.Ledger.Alonzo.Core (ppPricesL)
+import Control.Lens ((.~))
+import Data.Maybe (fromJust)
+import Cardano.Ledger.BaseTypes (BoundedRational(..))
+import Cardano.Ledger.Core (ppMinFeeAL)
+import Cardano.Ledger.Core (ppMinFeeBL)
+import Cardano.Ledger.Coin (Coin(..))
+import Cardano.Ledger.Core (PParams)
 
 -- * Cardano tx utilities
 
@@ -45,22 +51,15 @@ testSeedInput = generateWith genTxIn 42
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
 -- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
 defaultLedgerEnv :: LedgerEnv LedgerEra
-defaultLedgerEnv =
-  -- XXX: Ideally we would use the Either or Maybe instance of MonadThrow here,
-  -- however that is not possible in the io-classes variants of this type class.
-  unsafeDupablePerformIO $
-    try (newLedgerEnv defaultPParams) >>= \case
-      Left (err :: ProtocolParametersConversionException) ->
-        error $ "Failed to create ledger env from fixture: " <> show err
-      Right env -> pure env
+defaultLedgerEnv = newLedgerEnv defaultPParams
 
-defaultPParams :: ProtocolParameters
+defaultPParams :: PParams LedgerEra
 defaultPParams =
-  pparams
-    { protocolParamPrices = Just $ ExecutionUnitPrices 0 0
-    , protocolParamTxFeePerByte = 0
-    , protocolParamTxFeeFixed = 0
-    }
+  pparams & ppPricesL .~ (Prices {
+               prMem = fromJust $ boundRational 0
+            , prSteps = fromJust $ boundRational 0 })
+          & ppMinFeeAL .~ Coin 0
+          & ppMinFeeBL .~ Coin 0
 
 defaultGlobals :: Ledger.Globals
 defaultGlobals =

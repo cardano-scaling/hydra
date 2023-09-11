@@ -33,6 +33,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
+import Cardano.Ledger.Core (PParams)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
@@ -137,7 +138,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
   RunningNode ->
-  BundledProtocolParameters ->
+  PParams LedgerEra ->
   AddressInEra ->
   TxOutDatum CtxTx ->
   IO (TxIn, TxOut CtxUTxO)
