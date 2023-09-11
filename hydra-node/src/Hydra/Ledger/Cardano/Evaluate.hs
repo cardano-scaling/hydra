@@ -15,13 +15,14 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV2), Plutus (..), BinaryPlutus (..))
+import Cardano.Ledger.Alonzo.Language (BinaryPlutus (..), Language (PlutusV2), Plutus (..))
 import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel, txscriptfee, Prices (..))
+import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
 import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
-import Cardano.Ledger.Alonzo.TxInfo (slotToPOSIXTime, PlutusWithContext (..))
+import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (..), slotToPOSIXTime)
 import Cardano.Ledger.Api (ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
-import Cardano.Ledger.BaseTypes ( ProtVer(..), natVersion, BoundedRational (boundRational) )
+import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
+import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
@@ -34,6 +35,7 @@ import Control.Lens.Getter
 import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.SOP.Counting (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -81,8 +83,6 @@ import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
 import qualified UntypedPlutusCore as UPLC
-import Cardano.Ledger.Binary (getVersion)
-import Data.Maybe (fromJust)
 
 -- * Evaluate transactions
 
@@ -260,9 +260,9 @@ pparams =
          )
     & ppPricesL
       .~ ( Prices
-              { prSteps = fromJust $ boundRational $ 721 % 10000000
-              , prMem = fromJust $ boundRational $ 577 % 10000
-              }
+            { prSteps = fromJust $ boundRational $ 721 % 10000000
+            , prMem = fromJust $ boundRational $ 577 % 10000
+            }
          )
     & ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
     & ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}

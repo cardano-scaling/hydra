@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -33,7 +34,6 @@ import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
-import Cardano.Ledger.Core (PParams)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}

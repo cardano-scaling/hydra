@@ -19,14 +19,15 @@ module Test.Plutus.Validator (
 
 import Hydra.Prelude
 
-import Control.Lens ((.~))
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Cardano.Ledger.Alonzo.Core as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel)
-import Cardano.Ledger.BaseTypes (ProtVer(..), natVersion)
+import Cardano.Ledger.BaseTypes (ProtVer (..), natVersion)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
+import Control.Lens ((.~))
 import Data.Default (def)
 import qualified Data.Map as Map
 import Hydra.Cardano.Api (
@@ -34,9 +35,11 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   IsScriptWitnessInCtx (scriptWitnessInCtx),
   LedgerEpochInfo (LedgerEpochInfo),
+  LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PlutusScriptV2,
+  ShelleyBasedEra (..),
   SystemStart (SystemStart),
   ToScriptData,
   TxBody,
@@ -45,6 +48,7 @@ import Hydra.Cardano.Api (
   createAndValidateTransactionBody,
   defaultTxBodyContent,
   evaluateTransactionExecutionUnits,
+  fromLedgerPParams,
   fromPlutusScript,
   mkScriptAddress,
   mkScriptDatum,
@@ -56,13 +60,12 @@ import Hydra.Cardano.Api (
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxInsCollateral,
-  pattern TxOut, LedgerEra, ShelleyBasedEra (..), fromLedgerPParams,
+  pattern TxOut,
  )
+import Hydra.Cardano.Api.Prelude (toAlonzoExUnits)
 import PlutusLedgerApi.Common (SerialisedScript)
 import qualified PlutusTx as Plutus
 import qualified Prelude
-import qualified Cardano.Ledger.Alonzo.Core as Ledger
-import Hydra.Cardano.Api.Prelude (toAlonzoExUnits)
 
 -- TODO: DRY with Hydra.Ledger.Cardano.Evaluate
 
@@ -96,10 +99,11 @@ evaluateScriptExecutionUnits validatorScript redeemer =
 
 -- | Current (2023-08-04) mainnet parameters.
 pparams :: Ledger.PParams LedgerEra
-pparams = def
-       & Ledger.ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
-       & Ledger.ppMaxTxExUnitsL .~ toAlonzoExUnits defaultMaxExecutionUnits
-       & Ledger.ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
+pparams =
+  def
+    & Ledger.ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
+    & Ledger.ppMaxTxExUnitsL .~ toAlonzoExUnits defaultMaxExecutionUnits
+    & Ledger.ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
 
 -- | Max transaction execution unit budget of the current 'pparams'.
 defaultMaxExecutionUnits :: ExecutionUnits

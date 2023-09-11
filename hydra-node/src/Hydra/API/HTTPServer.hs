@@ -6,6 +6,7 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import Data.Aeson (KeyValue ((.=)), Value (Object), object, withObject, (.:), (.:?))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
@@ -17,6 +18,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
   KeyWitnessInCtx (..),
+  LedgerEra,
   PlutusScript,
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
@@ -28,7 +30,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToTextEnvelope,
   pattern KeyWitness,
-  pattern ScriptWitness, LedgerEra,
+  pattern ScriptWitness,
  )
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
@@ -43,7 +45,6 @@ import Network.Wai (
   rawPathInfo,
   responseLBS,
  )
-import Cardano.Ledger.Core (PParams)
 
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx

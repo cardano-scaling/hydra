@@ -10,9 +10,12 @@ import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (
   File (..),
   Key (SigningKey),
+  ProtocolParametersConversionError,
+  ShelleyBasedEra (..),
   getVerificationKey,
   serialiseToRawBytesHex,
-  writeFileTextEnvelope, ShelleyBasedEra (..), toLedgerPParams, ProtocolParametersConversionError,
+  toLedgerPParams,
+  writeFileTextEnvelope,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
@@ -64,7 +67,7 @@ import Hydra.Persistence (createPersistenceIncremental)
 import System.FilePath ((<.>))
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
-  deriving Show
+  deriving (Show)
 
 instance Exception ConfigurationParseException
 

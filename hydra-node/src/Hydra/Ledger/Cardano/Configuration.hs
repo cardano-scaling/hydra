@@ -11,13 +11,13 @@ import Hydra.Prelude
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import qualified Cardano.Ledger.Shelley.API.Types as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
-import Cardano.Ledger.Core (PParams)
 
 -- * Helpers
 
@@ -92,16 +92,17 @@ newtype ProtocolParametersConversionException
 --
 -- Throws at least 'ProtocolParametersConversionException'
 newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra
-newLedgerEnv protocolParams = Ledger.LedgerEnv
-          { Ledger.ledgerSlotNo = SlotNo 0
-          , -- NOTE: This can probably stay at 0 forever. This is used internally by the
-            -- node's mempool to keep track of transaction seen from peers. Transactions
-            -- in Hydra do not go through the node's mempool and follow a different
-            -- consensus path so this will remain unused.
-            Ledger.ledgerIx = minBound
-          , -- NOTE: This keeps track of the ledger's treasury and reserve which are
-            -- both unused in Hydra. There might be room for interesting features in the
-            -- future with these two but for now, we'll consider them empty.
-            Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-          , Ledger.ledgerPp = protocolParams
-          }
+newLedgerEnv protocolParams =
+  Ledger.LedgerEnv
+    { Ledger.ledgerSlotNo = SlotNo 0
+    , -- NOTE: This can probably stay at 0 forever. This is used internally by the
+      -- node's mempool to keep track of transaction seen from peers. Transactions
+      -- in Hydra do not go through the node's mempool and follow a different
+      -- consensus path so this will remain unused.
+      Ledger.ledgerIx = minBound
+    , -- NOTE: This keeps track of the ledger's treasury and reserve which are
+      -- both unused in Hydra. There might be room for interesting features in the
+      -- future with these two but for now, we'll consider them empty.
+      Ledger.ledgerAccount = Ledger.AccountState mempty mempty
+    , Ledger.ledgerPp = protocolParams
+    }

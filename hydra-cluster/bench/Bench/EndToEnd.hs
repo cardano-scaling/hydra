@@ -43,10 +43,10 @@ import Hydra.Party (deriveParty)
 import HydraNode (
   EndToEndLog (FromCardanoNode, FromFaucet),
   HydraClient,
-  requestCommitTx,
   hydraNodeId,
   input,
   output,
+  requestCommitTx,
   send,
   waitFor,
   waitForAllMatch,

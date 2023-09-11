@@ -12,8 +12,15 @@ module Hydra.Chain.Direct.Fixture (
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Alonzo.Core (ppPricesL)
+import Cardano.Ledger.Alonzo.Scripts (Prices (..))
+import Cardano.Ledger.BaseTypes (BoundedRational (..))
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
 import qualified Cardano.Slotting.Time as Slotting
+import Control.Lens ((.~))
+import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   LedgerEra,
@@ -27,15 +34,6 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
-import Cardano.Ledger.Alonzo.Scripts (Prices(..))
-import Cardano.Ledger.Alonzo.Core (ppPricesL)
-import Control.Lens ((.~))
-import Data.Maybe (fromJust)
-import Cardano.Ledger.BaseTypes (BoundedRational(..))
-import Cardano.Ledger.Core (ppMinFeeAL)
-import Cardano.Ledger.Core (ppMinFeeBL)
-import Cardano.Ledger.Coin (Coin(..))
-import Cardano.Ledger.Core (PParams)
 
 -- * Cardano tx utilities
 
@@ -55,11 +53,15 @@ defaultLedgerEnv = newLedgerEnv defaultPParams
 
 defaultPParams :: PParams LedgerEra
 defaultPParams =
-  pparams & ppPricesL .~ (Prices {
-               prMem = fromJust $ boundRational 0
-            , prSteps = fromJust $ boundRational 0 })
-          & ppMinFeeAL .~ Coin 0
-          & ppMinFeeBL .~ Coin 0
+  pparams
+    & ppPricesL
+      .~ ( Prices
+            { prMem = fromJust $ boundRational 0
+            , prSteps = fromJust $ boundRational 0
+            }
+         )
+    & ppMinFeeAL .~ Coin 0
+    & ppMinFeeBL .~ Coin 0
 
 defaultGlobals :: Ledger.Globals
 defaultGlobals =

@@ -9,10 +9,10 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
-import Cardano.Ledger.Core (PParams)
 
 data QueryException
   = QueryAcquireException AcquiringFailure
@@ -217,11 +217,11 @@ queryEraHistory networkId socket queryPoint =
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters
-  :: NetworkId
-  -> SocketPath
-  -> QueryPoint
-  -> IO (PParams LedgerEra)
+queryProtocolParameters ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint = do
   let query =
         QueryInEra

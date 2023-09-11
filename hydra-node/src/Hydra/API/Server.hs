@@ -4,6 +4,7 @@ module Hydra.API.Server where
 
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
+import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
@@ -42,7 +43,6 @@ import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
-import Cardano.Ledger.Core (PParams)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server

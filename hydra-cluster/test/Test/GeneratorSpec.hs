@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Text (unpack)
-import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx, toLedgerPParams, ShelleyBasedEra (..))
+import Hydra.Cardano.Api (LedgerEra, ShelleyBasedEra (..), UTxO, prettyPrintJSON, toLedgerPParams, utxoFromTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
