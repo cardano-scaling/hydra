@@ -1,3 +1,35 @@
+-- | A `Network` layer that guarantees delivery of `msg` in order even in the
+-- face of transient connection failures.
+--
+-- This layer implements an algorithm based on _vector clocks_ adapted from
+-- reliable consistent broadcast algorithms with FIFO ordering as presented in
+-- [Introduction to Reliable and Secure Distributed
+-- Programming](https://www.distributedprogramming.net), ch. 3.9, by Cachin and
+-- Guerraoui. Each node maintains a vector of monotonically increasing integer
+-- indices denoting the index of the last message known (sent or received) from
+-- each peer, where a peer is identified a `Party`, which is updated upon
+-- sending and receiving messages, and is sent with each message.
+--
+-- The algorithm is simple:
+--
+--   * When a message is sent, the index of the current node's party is incremented,
+--
+--   * When a message is received:
+--
+--       * It is discarded if the index for the sender's party in the message is
+--         not exactly one more than the latest known index,
+--
+--       * If our own party's index as broadcasted by the sender is lower than our
+--         latest known index, we resend all the "missing" messages.
+--
+-- As shown by the signature of the `withReliability` function, this layer
+-- relies on an authentication layer providing `Authenticated` messages in order
+-- to securely identify senders.
+--
+-- NOTE: This layer does not guarantee resilience in the crash-recovery setting,
+-- eg. if a process crashes and then later recovers. To provide this guarantee,
+-- we should add _logging_ capability that persist sent and received messages
+-- before communicating with the applicative layer.
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude
