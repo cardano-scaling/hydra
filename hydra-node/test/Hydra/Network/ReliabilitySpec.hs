@@ -100,7 +100,6 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
         receivedMessagesInOrder =
-          traceShow receivedMsgs $
             and (zipWith (==) (payload <$> receivedMsgs) [1 ..])
      in receivedMessagesInOrder
           & counterexample (show receivedMsgs)

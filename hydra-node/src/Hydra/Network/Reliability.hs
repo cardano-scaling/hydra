@@ -81,54 +81,53 @@ withReliability ::
   NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
   NetworkComponent m (Authenticated msg) (Authenticated msg) a
 withReliability tracer us allParties withRawNetwork callback action = do
-  broadcastCounter <- newTVarIO $ replicate (length allParties) 0
+  ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO mempty
   resendQ <- newTQueueIO
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback broadcastCounter sentMessages resend) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast broadcastCounter sentMessages network
+      reliableBroadcast ackCounter sentMessages network
  where
-  reliableBroadcast messageCounter sentMessages Network{broadcast} =
+  reliableBroadcast ackCounter sentMessages Network{broadcast} =
     action $
       Network
         { broadcast = \(Authenticated msg _) -> do
-            counter <- atomically $ do
-              acks <- readTVar messageCounter
+            ackCounter' <- atomically $ do
+              acks <- readTVar ackCounter
               let ourIndex = fromJust $ List.elemIndex us allParties
-              let newAcks = zipWith (\ack i -> if i == ourIndex then ack + 1 else ack) acks partyIndexes
-              writeTVar messageCounter newAcks
+              let newAcks = constructAcks acks ourIndex
+              writeTVar ackCounter newAcks
               modifyTVar' sentMessages (|> msg)
-              readTVar messageCounter
+              readTVar ackCounter
 
-            traceWith tracer (BroadcastCounter counter)
+            traceWith tracer (BroadcastCounter ackCounter')
 
-            broadcast $ Authenticated (Msg counter msg) us
+            broadcast $ Authenticated (Msg ackCounter' msg) us
         }
-  partyIndexes = generate (length allParties) id
 
-  reliableCallback broadcastCounter sentMessages resend (Authenticated (Msg acks msg) party) =
+  reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) =
     if length acks /= length allParties
       then error "Expected acks from a Msg is not the same length as the party list."
       else do
         let partyIndex = fromJust $ List.elemIndex party allParties
         let n = acks ! partyIndex
-        counter <- readTVarIO broadcastCounter
-        let count = (! partyIndex) counter
+        existingAcks <- readTVarIO ackCounter
+        let count = (! partyIndex) existingAcks
 
         -- handle message from party iff it's next in line
         when (n == count + 1) $ do
-          let newAcks = zipWith (\ack i -> if i == partyIndex then ack + 1 else ack) counter partyIndexes
-          atomically $ writeTVar broadcastCounter newAcks
+          let newAcks = constructAcks existingAcks partyIndex
+          atomically $ writeTVar ackCounter newAcks
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
         let myIndex = fromJust $ List.elemIndex us allParties
         let acked = acks ! myIndex
-        let latestMsg = (! myIndex) counter
-        when (acked < latestMsg) $ do
-          let missing = fromList [acked + 1 .. latestMsg]
-          traceWith tracer (Resending missing acks counter party)
+        let latestMsgAck = (! myIndex) existingAcks
+        when (acked < latestMsgAck) $ do
+          let missing = fromList [acked + 1 .. latestMsgAck]
+          traceWith tracer (Resending missing acks existingAcks party)
           atomically $ do
             messages <- readTVar sentMessages
             forM_ missing $ \idx -> do
@@ -139,13 +138,18 @@ withReliability tracer us allParties withRawNetwork callback action = do
                       <> show idx
                       <> ", messages length = "
                       <> show (length messages)
-                      <> ", latest: "
-                      <> show latestMsg
+                      <> ", latest message ack: "
+                      <> show latestMsgAck
                       <> ", acked: "
                       <> show acked
                 Just missingMsg -> do
-                  let counter' = zipWith (\ack i -> if i == myIndex then idx else ack) counter partyIndexes
-                  resend $ Authenticated (Msg counter' missingMsg) us
+                  let newAcks = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
+                  resend $ Authenticated (Msg newAcks missingMsg) us
+
+  partyIndexes = generate (length allParties) id
+
+  constructAcks acks wantedIndex =
+    zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
 
 data ReliabilityLog
   = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, party :: Party}
