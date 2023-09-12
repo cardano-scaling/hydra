@@ -21,7 +21,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
@@ -34,13 +34,11 @@ data HeartbeatState = HeartbeatState
   , suspected :: Set NodeId
   -- ^ The set of known parties which might be 'Disconnected'
   -- This is updated after some time no message has been received from a node.
-  , lastSent :: Maybe Time
-  -- ^ The timestamp of the last sent message.
   }
   deriving (Eq)
 
 initialHeartbeatState :: HeartbeatState
-initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty, lastSent = Nothing}
+initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty}
 
 data Heartbeat msg
   = Data NodeId msg
@@ -82,12 +80,20 @@ withHeartbeat ::
   ConnectionMessages m ->
   NetworkComponent m (Heartbeat msg) (Heartbeat msg) a ->
   NetworkComponent m msg msg a
-withHeartbeat nodeId connectionMessages withNetwork callback action = do
+withHeartbeat nodeId connectionMessages withNetwork =
+  withIncomingHeartbeat connectionMessages $
+    withOutgoingHeartbeat nodeId withNetwork
+
+withIncomingHeartbeat ::
+  (MonadAsync m, MonadDelay m) =>
+  ConnectionMessages m ->
+  NetworkComponent m (Heartbeat msg) msg a ->
+  NetworkComponent m msg msg a
+withIncomingHeartbeat connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
     withAsync (checkRemoteParties heartbeat connectionMessages) $ \_ ->
-      withAsync (checkHeartbeatState nodeId heartbeat network) $ \_ ->
-        action (updateStateFromOutgoingMessages nodeId heartbeat network)
+      action network
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
@@ -110,41 +116,51 @@ updateStateFromIncomingMessages heartbeatState connectionMessages callback = \ca
           , suspected = peer `Set.delete` suspected s
           }
 
+withOutgoingHeartbeat ::
+  (MonadAsync m, MonadDelay m) =>
+  NodeId ->
+  NetworkComponent m (Heartbeat msg) (Heartbeat msg) a ->
+  NetworkComponent m (Heartbeat msg) msg a
+withOutgoingHeartbeat nodeId withNetwork callback action = do
+  lastSent <- newTVarIO Nothing
+  withNetwork callback $ \network ->
+    withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
+      action (updateStateFromOutgoingMessages nodeId lastSent network)
+
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   NodeId ->
-  TVar m HeartbeatState ->
+  TVar m (Maybe Time) ->
   Network m (Heartbeat msg) ->
   Network m msg
-updateStateFromOutgoingMessages nodeId heartbeatState Network{broadcast} =
+updateStateFromOutgoingMessages nodeId lastSent Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
-    updateLastSent heartbeatState now
+    updateLastSent lastSent now
     broadcast (Data nodeId msg)
 
-updateLastSent :: MonadSTM m => TVar m HeartbeatState -> Time -> m ()
-updateLastSent heartbeatState now = atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
+updateLastSent :: MonadSTM m => TVar m (Maybe Time) -> Time -> m ()
+updateLastSent lastSent now = atomically (writeTVar lastSent (Just now))
 
 checkHeartbeatState ::
   ( MonadDelay m
   , MonadSTM m
   ) =>
   NodeId ->
-  TVar m HeartbeatState ->
+  TVar m (Maybe Time) ->
   Network m (Heartbeat msg) ->
   m ()
-checkHeartbeatState nodeId heartbeatState Network{broadcast} =
+checkHeartbeatState nodeId lastSent Network{broadcast} =
   forever $ do
     threadDelay heartbeatDelay
-    st <- readTVarIO heartbeatState
+    st <- readTVarIO lastSent
     now <- getMonotonicTime
     when (shouldSendHeartbeat now st) $ do
-      updateLastSent heartbeatState now
+      updateLastSent lastSent now
       broadcast (Ping nodeId)
 
-shouldSendHeartbeat :: Time -> HeartbeatState -> Bool
-shouldSendHeartbeat now HeartbeatState{lastSent} =
-  maybe True (checkTimeout id now) lastSent
+shouldSendHeartbeat :: Time -> Maybe Time -> Bool
+shouldSendHeartbeat now = maybe True (checkTimeout id now)
 
 checkRemoteParties ::
   ( MonadDelay m
