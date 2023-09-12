@@ -191,6 +191,7 @@ library
     , typed-protocols                                           >=0.1.0.0
     , typed-protocols-cborg                                     >=0.1.0.0
     , unliftio
+    , vector
     , wai
     , wai-websockets
     , warp
@@ -374,6 +375,7 @@ test-suite tests
     , text
     , time
     , typed-protocols-examples                                          >=0.1.0.0
+    , vector
     , versions
     , websockets
     , yaml
