@@ -2,15 +2,15 @@
 
 module Hydra.Network.ReliabilitySpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (fromList, head)
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (nullTracer)
-import qualified Data.List as List
 import Data.Sequence ((|>))
 import qualified Data.Set as Set
+import Data.Vector (fromList, head)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Reliability (Msg (..), withReliability)
@@ -36,7 +36,7 @@ spec = parallel $ do
             alice
             [alice, bob]
             ( \incoming _ -> do
-                incoming (Authenticated (Msg [1, 1] msg) bob)
+                incoming (Authenticated (Msg (fromList [1, 1]) msg) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -53,8 +53,8 @@ spec = parallel $ do
           withReliability nullTracer alice [alice] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             mapM_ (\m -> broadcast (Authenticated m alice)) messages
 
-          toList <$> readTVarIO sentMessages
-     in List.head . messageId . payload <$> sentMsgs `shouldBe` [1 .. (length messages)]
+          fromList . toList <$> readTVarIO sentMessages
+     in head . messageId . payload <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
   it "broadcasts messages to single connected peer" $ do
     let receivedMsgs = runSimOrThrow $ do
@@ -92,7 +92,7 @@ spec = parallel $ do
             [alice, bob]
             ( \incoming _ -> do
                 forM_ messages $ \(Positive m) ->
-                  incoming (Authenticated (Msg [0, m] m) bob)
+                  incoming (Authenticated (Msg (fromList [0, m]) m) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -100,7 +100,8 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
         receivedMessagesInOrder =
-          and (zipWith (==) (payload <$> receivedMsgs) [1 ..])
+          traceShow receivedMsgs $
+            and (zipWith (==) (payload <$> receivedMsgs) [1 ..])
      in receivedMessagesInOrder
           & counterexample (show receivedMsgs)
           & collect (length receivedMsgs)
@@ -114,8 +115,8 @@ spec = parallel $ do
             alice
             [alice, bob, carol]
             ( \incoming _ -> do
-                incoming (Authenticated (Msg [0, 1, 0] msg) bob)
-                incoming (Authenticated (Msg [0, 0, 1] msg) carol)
+                incoming (Authenticated (Msg (fromList [0, 1, 0]) msg) bob)
+                incoming (Authenticated (Msg (fromList [0, 0, 1]) msg) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -138,7 +139,7 @@ spec = parallel $ do
               ( \incoming action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (|> message (payload m))})
-                    (threadDelay 2 >> incoming (Authenticated (Msg [lastMessageKnownToBob, 1] msg) bob))
+                    (threadDelay 2 >> incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob))
               )
               noop
               $ \Network{broadcast} -> do
@@ -165,7 +166,7 @@ spec = parallel $ do
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (|> payload m)})
-                  (incoming (Authenticated (Msg [0, 1] msg) bob))
+                  (incoming (Authenticated (Msg (fromList [0, 1]) msg) bob))
             )
             noop
             $ \Network{broadcast} -> do
@@ -173,7 +174,7 @@ spec = parallel $ do
               broadcast (Authenticated msg bob)
           toList <$> readTVarIO sentMessages
 
-    receivedMsgs `shouldBe` [Msg [1, 1] msg]
+    receivedMsgs `shouldBe` [Msg (fromList [1, 1]) msg]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
