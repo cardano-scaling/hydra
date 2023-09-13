@@ -26,6 +26,6 @@ EOF
 
 test -f terraform.tfvars || setup
 
-test -f terraform.tfvars && setup/env.sh
+test -f terraform.tfvars && setup/aws.sh
 
 test -f terraform.tfvars && setup/credentials.sh

@@ -25,7 +25,7 @@ for this example in `~/.aws/credentials` we have:
 - you have terraform and aws installed on your system.
 - you have built the required 2 folder structures under aws folder:
     + credentials.
-    + env.
+    + aws.
 
 ## Project structure to build
 ```
@@ -38,7 +38,7 @@ for this example in `~/.aws/credentials` we have:
 |   +-- cardano.addr
 |   +-- hydra-key.sk
 |   +-- hydra-key.vk
-+-- env
++-- aws
 |   +-- personal.pem
 +-- terraform.tfvars
 ```
@@ -47,12 +47,13 @@ This should only be done once, when starting afresh.
 
 These are folders you must create yourself:
 - ***credentials*** to store all blockchain related credential files.
-- ***env*** to store your personal aws credentials.
+- ***aws*** to store your personal aws credentials.
 
 At the root of the `aws` project, execute:
 ```sh
 $ ./setup/setup.sh
 ```
+[Note] all scripts inside the `/setup` folder are expected to be executed at the root of the `aws` project.
 
 This will create a file called `terraform.tfvars`, used to complete the `variables.tf` definitions. For this example it would be defined as:
 ```
@@ -116,7 +117,7 @@ $ cd sample-node-config/aws
 
 One should be able to log into the VM as user `ubuntu`.
 
-Note: Please make sure your `env/personal.pem` file has correct permissions (`chmod 400 env/personal.pem`)
+Note: Please make sure your `aws/personal.pem` file has correct permissions (`chmod 400 aws/personal.pem`)
 
 To login to the VM:
 

@@ -26,8 +26,8 @@ echo 'Installing jq'
 sudo apt-get install jq -y
 
 echo 'Installing docker' # https://docs.docker.com/engine/install/ubuntu/
-curl -fsSL https://get.docker.com -o ./scripts/get-docker.sh
-sh ./scripts/get-docker.sh
+curl -fsSL https://get.docker.com -o ~/scripts/get-docker.sh
+sh ~/scripts/get-docker.sh
 sudo usermod -aG docker ubuntu                    # to add myself to docker group
 
 echo 'Installing docker-compose' # https://gist.github.com/npearce/6f3c7826c7499587f00957fee62f8ee9
@@ -35,19 +35,5 @@ sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-c
 sudo chmod +x /usr/local/bin/docker-compose     # to allow docker group users to execute it
 sudo chgrp docker /usr/local/bin/docker-compose # to give docker-compose to docker group,
 
-echo 'Defining aliases'
-cd /home/ubuntu
-touch .bashrc
-echo "alias reload='source .bashrc'" >> .bashrc
-echo "alias logs='cat /var/log/cloud-init.log'" >> .bashrc
-echo "alias udlogs='cat /var/log/user-data.log'" >> .bashrc
-echo "alias g=git" >> .bashrc
-echo "alias d=docker" >> .bashrc
-echo "alias dc=docker-compose" >> .bashrc
-echo "alias fuel='cd ~ && ./create-marker-utxo.sh'" >> .bashrc
-echo "alias up='cd ~ && ./hydraw-up.sh'" >> .bashrc
-echo "alias down='cd ~ && ./hydraw-down.sh'" >> .bashrc
-echo "alias tui='cd ~ && ./run-tui.sh'" >> .bashrc
-# [mainnet]
-# echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=1'" >> .bashrc
-echo "alias sync='docker exec -it ubuntu-cardano-node-1 cardano-cli query tip --testnet-magic=2'" >> .bashrc
+echo -e "\nsource ~/.bash_env" >> ~/.bashrc
+echo -e "\nsource ~/.bash_profile" >> ~/.bashrc

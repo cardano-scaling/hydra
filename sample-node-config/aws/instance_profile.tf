@@ -3,8 +3,8 @@ locals {
     "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
     "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
   ]
-  iam_role             = "ec2-role-${var.key_name}"
-  iam_instance_profile = "ec2-profile-${var.key_name}"
+  iam_role             = "ec2-role-${var.key_name}-${var.env}"
+  iam_instance_profile = "ec2-profile-${var.key_name}-${var.env}"
 }
 
 # define our role

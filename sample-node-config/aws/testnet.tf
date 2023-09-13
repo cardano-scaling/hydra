@@ -7,8 +7,8 @@ locals {
   userdata = templatefile("scripts/user_data.sh", {
     ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
   })
-  private_key = "./env/${var.key_name}.pem"
-  tag         = "hydraw-${var.key_name}"
+  private_key = "./aws/${var.key_name}.pem"
+  tag         = "${var.key_name}-${var.env}"
 }
 
 output "instance_dns" {
@@ -16,8 +16,21 @@ output "instance_dns" {
 }
 
 resource "aws_eip" "this" {
-  instance = aws_instance.this.id
   vpc      = true
+
+  lifecycle {
+    # `terraform apply` will not replace this resource.
+    ignore_changes = all
+  }
+
+  tags = {
+    Name        = "${var.key_name}"
+  }
+}
+
+resource "aws_eip_association" "this" {
+  instance_id   = aws_instance.this.id
+  allocation_id = aws_eip.this.id
 }
 
 output "instance_ip" {
@@ -39,9 +52,10 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "mkdir /home/ubuntu/scripts",
-      "mkdir /home/ubuntu/credentials",
-      "mkdir /home/ubuntu/config"
+      "mkdir ~/scripts",
+      "mkdir ~/credentials",
+      "mkdir ~/config",
+      "mkdir ~/docker"
     ]
 
     connection {
@@ -56,7 +70,7 @@ resource "aws_instance" "this" {
 
   provisioner "file" {
     source      = "scripts/"
-    destination = "/home/ubuntu/scripts/"
+    destination = "./scripts/"
 
     connection {
       type        = "ssh"
@@ -70,7 +84,7 @@ resource "aws_instance" "this" {
 
   provisioner "file" {
     source      = "credentials/"
-    destination = "/home/ubuntu/credentials/"
+    destination = "./credentials/"
 
     connection {
       type        = "ssh"
@@ -84,7 +98,7 @@ resource "aws_instance" "this" {
 
   provisioner "file" {
     source      = "docker/"
-    destination = "/home/ubuntu"
+    destination = "./docker/"
 
     connection {
       type        = "ssh"
@@ -97,8 +111,8 @@ resource "aws_instance" "this" {
   }
 
   provisioner "file" {
-    source      = "./config/preview/protocol-parameters.json"
-    destination = "/home/ubuntu/config/protocol-parameters.json"
+    source      = "config/"
+    destination = "./config/"
 
     connection {
       type        = "ssh"
@@ -112,7 +126,8 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "find /home/ubuntu/scripts -type f -iname \"*.sh\" -exec chmod +x {} +"
+      "mv ~/scripts/.bash_profile ~",
+      "find ~/scripts -type f -iname \"*.sh\" -exec chmod +x {} +"
     ]
 
     connection {
@@ -127,7 +142,8 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "/home/ubuntu/scripts/configure-instance.sh"
+      "export ENV=${var.env}",
+      "~/scripts/configure-instance.sh"
     ]
 
     connection {
@@ -142,7 +158,9 @@ resource "aws_instance" "this" {
 
   provisioner "remote-exec" {
     inline = [
-      "/home/ubuntu/scripts/configure-testnet.sh"
+      "export KEY_NAME=${var.key_name}",
+      "export ENV=${var.env}",
+      "~/scripts/configure-testnet.sh"
     ]
 
     connection {

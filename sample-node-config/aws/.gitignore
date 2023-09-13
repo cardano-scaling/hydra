@@ -1,3 +1,4 @@
 *terraform*
 credentials/
-env/
+aws/
+vm.plan
