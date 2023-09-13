@@ -15,6 +15,7 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    aiken.url = "github:aiken-lang/aiken";
     hls = {
       url = "github:haskell/haskell-language-server";
       flake = false;
@@ -168,6 +169,7 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
+            inherit (inputs) aiken;
             inherit inputs pkgs hsPkgs system pkgsLatest;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };

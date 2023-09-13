@@ -8,6 +8,7 @@
 , pkgs
 , ghc
 , pkgsLatest
+, aiken
 }:
 let
 
@@ -18,6 +19,8 @@ let
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
     pkgs.cabal-plan
+    # To compile hydra scripts
+    aiken.packages.${system}.aiken
     # To interact with cardano-node and integration tests
     pkgs.cardano-cli
     # For integration tests
