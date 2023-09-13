@@ -49,6 +49,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
@@ -211,7 +212,7 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
 
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript commitValidatorScript
 
   commitAddress =
     mkScriptAddress @PlutusScriptV2 networkId commitScript
@@ -304,7 +305,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   commitValue =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
-    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV2 commitValidatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
@@ -607,7 +608,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitScript =
-    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV2 commitValidatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
@@ -819,7 +820,7 @@ observeCommitTx networkId initials tx = do
 
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
-  commitScript = fromPlutusScript Commit.validatorScript
+  commitScript = fromPlutusScript commitValidatorScript
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput

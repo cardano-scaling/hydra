@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.Fixture (
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
@@ -196,7 +196,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript Commit.validatorScript
+    commitScript = fromPlutusScript commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 

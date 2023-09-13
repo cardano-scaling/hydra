@@ -50,10 +50,10 @@ import Hydra.Chain.CardanoClient (
   submitTransaction,
  )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
-import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
+import Hydra.Plutus (commitValidatorScript)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -76,7 +76,7 @@ genScriptRegistry = do
           )
       , commitReference =
           ( TxIn txId (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
           )
       , headReference =
           ( TxIn txId (TxIx 2)
@@ -184,7 +184,7 @@ publishHydraScripts networkId socketPath sk = do
   let outputs =
         mkScriptTxOut pparams
           <$> [ Initial.validatorScript
-              , Commit.validatorScript
+              , commitValidatorScript
               , Head.validatorScript
               ]
       totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
