@@ -1,0 +1,52 @@
+{
+  "preamble": {
+    "title": "hydra/hydra-plutus",
+    "description": "Aiken contracts for project 'hydra/hydra-plutus'",
+    "version": "0.0.0",
+    "plutusVersion": "v2",
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "commit.commit",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/commit~1Datum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/commit~1Redeemer"
+        }
+      },
+      "compiledCode": "5889010000323232323232323232322223232533300a4a22930b19299980519b874800000454ccc034c020010526161630080033253330093370e90000008a99980618038020a4c2c2c600e0066600200290001111199980399b8700100300b233330050053370000890011806800801001118029baa001230033754002ae6955ceaab9e5573eae855d101",
+      "hash": "36f13608185a4de81222f533a9d003b051dff021fc6f921f149646b3"
+    }
+  ],
+  "definitions": {
+    "commit/Datum": {
+      "title": "Datum",
+      "anyOf": [
+        {
+          "title": "Datum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        }
+      ]
+    },
+    "commit/Redeemer": {
+      "title": "Redeemer",
+      "anyOf": [
+        {
+          "title": "Redeemer",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        }
+      ]
+    }
+  }
+}
