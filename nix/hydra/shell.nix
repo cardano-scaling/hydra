@@ -6,6 +6,7 @@
   # Used in CI to have a smaller closure
   withoutDevTools ? false
 , hydraProject
+, aiken
 , cardano-node
 , system ? builtins.currentSystem
 }:
@@ -37,6 +38,8 @@ let
     cabal
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.cabal-plan
+    # To compile hydra scripts
+    aiken.packages.${system}.aiken
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
     # For generating plantuml drawings

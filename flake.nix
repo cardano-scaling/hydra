@@ -9,12 +9,14 @@
       flake = false;
     };
     cardano-node.url = "github:input-output-hk/cardano-node/8.1.2";
+    aiken.url = "github:aiken-lang/aiken";
   };
 
   outputs =
     { self
     , flake-utils
     , nixpkgs
+    , aiken
     , cardano-node
     , ...
     } @ inputs:
@@ -52,11 +54,11 @@
           };
 
         devShells = (import ./nix/hydra/shell.nix {
-          inherit (inputs) cardano-node;
+          inherit (inputs) aiken cardano-node;
           inherit hydraProject system;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
-            inherit (inputs) cardano-node;
+            inherit (inputs) aiken cardano-node;
             inherit hydraProject system;
             withoutDevTools = true;
           }).default;
