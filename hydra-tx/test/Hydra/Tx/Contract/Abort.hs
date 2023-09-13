@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -19,6 +18,7 @@ import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (STNotBurned))
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (
   HeadParameters (..),
   Party,
@@ -131,7 +131,7 @@ propHasCommit (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Commit.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript commitValidatorScript)
   paysToCommitScript txOut =
     txOutAddress txOut == addr
 

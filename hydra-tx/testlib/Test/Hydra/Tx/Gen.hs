@@ -17,11 +17,11 @@ import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
@@ -206,7 +206,7 @@ genScriptRegistry = do
           )
       , commitReference =
           ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
           )
       , headReference =
           ( TxIn txId' (TxIx 2)
@@ -302,7 +302,7 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
+        (mkScriptAddress @PlutusScriptV3 testNetworkId initialScript)
         (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
@@ -331,7 +331,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
+          (mkScriptAddress @PlutusScriptV3 testNetworkId commitScript)
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
@@ -347,7 +347,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript Commit.validatorScript
+    commitScript = fromPlutusScript commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 

@@ -42,11 +42,11 @@ import Hydra.Chain.Direct.Tx (
   observeHeadTx,
   txInToHeadSeed,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Builder (addInputs, addReferenceInputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx, mkCommitDatum)
 import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
@@ -375,7 +375,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript Commit.validatorScript
+    commitScript = fromPlutusScript commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 

@@ -77,13 +77,13 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   txInToHeadSeed,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -432,7 +432,7 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV2 commitValidatorScript
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -470,7 +470,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV2 commitValidatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 

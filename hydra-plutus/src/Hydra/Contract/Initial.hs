@@ -17,6 +17,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (
   ScriptContext (..),
@@ -179,7 +180,7 @@ checkCommit commitValidator headId committedRefs context =
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap . validator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Commit.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 (scriptValidatorHash PlutusScriptV2 commitValidatorScript)
  where
   wrap = wrapValidator @DatumType @RedeemerType
 

@@ -4,7 +4,6 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.Experimental.Tx (UnsignedTx (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api (
   Key (..),
@@ -18,7 +17,6 @@ import Hydra.Cardano.Api (
   TxIx (..),
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
-  fromLedgerTx,
   getTxBody,
   getTxId,
   makeShelleyKeyWitness,
@@ -33,9 +31,9 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), awaitTransaction, buildTransaction, queryProtocolParameters, queryUTxOByTxIn, queryUTxOFor, submitTransaction)
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -81,7 +79,7 @@ publishHydraScripts networkId socketPath sk = do
   let outputs =
         mkScriptTxOut pparams
           <$> [ Initial.validatorScript
-              , Commit.validatorScript
+              , commitValidatorScript
               , Head.validatorScript
               ]
       totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
