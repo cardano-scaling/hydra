@@ -12,7 +12,7 @@
       "datum": {
         "title": "datum",
         "schema": {
-          "$ref": "#/definitions/commit~1Datum"
+          "$ref": "#/definitions/Tuple$ByteArray_List$commit~1Commit_ByteArray"
         }
       },
       "redeemer": {
@@ -21,19 +21,93 @@
           "$ref": "#/definitions/commit~1Redeemer"
         }
       },
-      "compiledCode": "5889010000323232323232323232322223232533300a4a22930b19299980519b874800000454ccc034c020010526161630080033253330093370e90000008a99980618038020a4c2c2c600e0066600200290001111199980399b8700100300b233330050053370000890011806800801001118029baa001230033754002ae6955ceaab9e5573eae855d101",
-      "hash": "36f13608185a4de81222f533a9d003b051dff021fc6f921f149646b3"
+      "compiledCode": "59028e0100003232323232323232323232222323232533300b32323232533300f3370e90010008b099299980819b8748000c03c0044c8c8c8cdc3991919299980b19b874800800452000132375a60380026028004602800264a66602a66e1d200200114c0103d87a800013232323300100100222533301c00114c103d87a8000132323232533301d3371e9110b48796472614865616456310000213374a9000198109ba80014bd700998030030019bad301e003375c60380046040004603c0026eacc06c004c04c008c04c004c8cc004004008894ccc060004530103d87a800013232323253330193371e018004266e9520003301d374c00297ae0133006006003375660340066eb8c060008c070008c068005200237566601c60200029001180b00098070008b1929998098008a6103d87a800013374a90001980a180a800a5eb80dd619805980699805980680424000900218068041bae301200130120013011003149858c94ccc02ccdc3a40000022a66601c601200a2930b0a99980599b874800800454ccc038c02401452616163009004323232323232498c8cc004004010894ccc04c004526132330030033017002323253330123370e9000000899191919299980c980e00109924c64a66602e66e1d2000001132323232533301e3021002132498c94ccc070cdc3a400000226464a66604260480042930b1bae3022001301a00416301a00316375a603e002603e004603a002602a0082c602a0062c6eb8c068004c068008c060004c04000858c040004c054004dd7180900098090011bac30100013010002375c601c0026eb000ccc0040052000222233330073370e0020060184666600a00a66e000112002300e001002002230053754002460066ea80055cd2ab9d5573caae7d5d02ba157441",
+      "hash": "de59ae0874bb6c72cf4653c99b39761f4f6054b658b7aef2bcc67cbc"
     }
   ],
   "definitions": {
-    "commit/Datum": {
-      "title": "Datum",
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "List$commit/Commit": {
+      "dataType": "list",
+      "items": {
+        "$ref": "#/definitions/commit~1Commit"
+      }
+    },
+    "Tuple$ByteArray_List$commit/Commit_ByteArray": {
+      "title": "Tuple",
+      "dataType": "list",
+      "items": [
+        {
+          "$ref": "#/definitions/ByteArray"
+        },
+        {
+          "$ref": "#/definitions/List$commit~1Commit"
+        },
+        {
+          "$ref": "#/definitions/ByteArray"
+        }
+      ]
+    },
+    "aiken/transaction/OutputReference": {
+      "title": "OutputReference",
+      "description": "An `OutputReference` is a unique reference to an output on-chain. The `output_index`\n corresponds to the position in the output list of the transaction (identified by its id)\n that produced that output",
       "anyOf": [
         {
-          "title": "Datum",
+          "title": "OutputReference",
           "dataType": "constructor",
           "index": 0,
-          "fields": []
+          "fields": [
+            {
+              "title": "transaction_id",
+              "$ref": "#/definitions/aiken~1transaction~1TransactionId"
+            },
+            {
+              "title": "output_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "aiken/transaction/TransactionId": {
+      "title": "TransactionId",
+      "description": "A unique transaction identifier, as the hash of a transaction body. Note that the transaction id\n isn't a direct hash of the `Transaction` as visible on-chain. Rather, they correspond to hash\n digests of transaction body as they are serialized on the network.",
+      "anyOf": [
+        {
+          "title": "TransactionId",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "hash",
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        }
+      ]
+    },
+    "commit/Commit": {
+      "title": "Commit",
+      "anyOf": [
+        {
+          "title": "Commit",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "input",
+              "$ref": "#/definitions/aiken~1transaction~1OutputReference"
+            },
+            {
+              "title": "pre_serialized_output",
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
         }
       ]
     },
@@ -41,9 +115,15 @@
       "title": "Redeemer",
       "anyOf": [
         {
-          "title": "Redeemer",
+          "title": "ViaCollectCom",
           "dataType": "constructor",
           "index": 0,
+          "fields": []
+        },
+        {
+          "title": "ViaAbort",
+          "dataType": "constructor",
+          "index": 1,
           "fields": []
         }
       ]
