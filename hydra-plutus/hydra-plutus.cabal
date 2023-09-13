@@ -89,6 +89,7 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Data.Utxo
+    Hydra.Plutus
     Hydra.ScriptContext
 
   hs-source-dirs:  src
@@ -97,13 +98,16 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , file-embed
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
-    , plutus-core          >=1.9 && <1.10
-    , plutus-ledger-api    >=1.9 && <1.10
-    , plutus-tx            >=1.9 && <1.10
-    , plutus-tx-plugin     >=1.9 && <1.10
+    , lens
+    , lens-aeson
+    , plutus-core          >=1.7 && <1.8
+    , plutus-ledger-api    >=1.7 && <1.8
+    , plutus-tx            >=1.7 && <1.8
+    , plutus-tx-plugin     >=1.7 && <1.8
     , QuickCheck
     , serialise
     , template-haskell
