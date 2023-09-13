@@ -15,6 +15,7 @@ import PlutusLedgerApi.Common (SerialisedScript)
 -- | Loads the "plutus.json" blueprint and provides the decoded JSON.
 blueprintJSON :: Aeson.Value
 blueprintJSON =
+  -- FIXME: this does not trigger re-compilation when plutus.json gets changed
   case Aeson.decodeStrict $(makeRelativeToProject "./plutus.json" >>= embedFile) of
     Nothing -> error "Invalid blueprint: plutus.json"
     Just value -> value

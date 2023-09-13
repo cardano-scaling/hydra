@@ -9,6 +9,8 @@ license-files:
   LICENSE
   NOTICE
 
+extra-source-files: plutus.json
+
 source-repository head
   type:     git
   location: https://github.com/cardano-scaling/hydra
