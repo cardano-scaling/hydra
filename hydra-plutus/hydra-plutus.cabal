@@ -59,6 +59,7 @@ library
     Hydra.Contract.Util
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
+    Hydra.Plutus
     Hydra.ScriptContext
 
   hs-source-dirs:  src
@@ -67,9 +68,12 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , file-embed
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
+    , lens
+    , lens-aeson
     , plutus-core          >=1.30
     , plutus-ledger-api    >=1.30
     , plutus-tx            >=1.30
