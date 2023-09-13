@@ -15,6 +15,7 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial as Initial
+import Hydra.Plutus (commitValidatorScript)
 import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
@@ -91,7 +92,7 @@ main = do
 
   headScript = Head.validatorScript
 
-  commitScript = Commit.validatorScript
+  commitScript = commitValidatorScript
 
   initialScript = Initial.validatorScript
 

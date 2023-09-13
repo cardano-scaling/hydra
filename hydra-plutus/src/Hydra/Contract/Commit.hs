@@ -13,22 +13,19 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Hydra.Cardano.Api (CtxUTxO, PlutusScriptVersion (PlutusScriptV2), fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import Hydra.Cardano.Api qualified as OffChain
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
-  ScriptHash,
-  SerialisedScript,
   TxOutRef,
-  serialiseCompiledCode,
   txOutValue,
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
@@ -112,12 +109,6 @@ compiledValidator =
   $$(PlutusTx.compile [||wrap validator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
-
-validatorScript :: SerialisedScript
-validatorScript = serialiseCompiledCode compiledValidator
-
-validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

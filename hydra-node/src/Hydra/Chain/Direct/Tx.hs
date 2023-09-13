@@ -28,6 +28,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -309,7 +310,7 @@ observeCommitTx networkId utxo tx = do
 
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
-  commitScript = fromPlutusScript Commit.validatorScript
+  commitScript = fromPlutusScript commitValidatorScript
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput

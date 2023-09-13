@@ -23,11 +23,11 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -38,7 +38,8 @@ spec = do
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
   it "Commit validator script" $
-    goldenScript "vCommit" Commit.validatorScript
+    -- TODO: the script is now double in the repo. Use plutus.json for a golden file
+    goldenScript "vCommit" commitValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $

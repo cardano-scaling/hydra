@@ -11,7 +11,6 @@ import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -21,7 +20,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus.Orphans ()
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (HeadParameters (..), Party, partyToChain)
 import Hydra.Tx.CollectCom (
   collectComTx,
@@ -174,7 +173,7 @@ healthyCommitOutput participant party committed =
   txIn = genTxIn `genForParty` party
 
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript commitValidatorScript
   commitAddress =
     mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
   commitValue =

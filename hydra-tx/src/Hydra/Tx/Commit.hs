@@ -28,6 +28,7 @@ import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.Party (Party, partyToChain)
@@ -115,7 +116,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
 
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript commitValidatorScript
 
   commitAddress =
     mkScriptAddress @PlutusScriptV2 networkId commitScript
