@@ -2,8 +2,10 @@
 
 module Main where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (fromList)
 
+import Crypto.Random (getRandomBytes)
+import Data.Vector (fromList)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (
@@ -133,7 +135,7 @@ main = do
           Connected nodeid -> sendOutput $ PeerConnected nodeid
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
         me = deriveParty signingKey
-        allParties = sort $ me : otherParties
+        allParties = fromList $ sort $ me : otherParties
      in withReliability (contramap Reliability tracer) me allParties $
           withAuthentication (contramap Authentication tracer) signingKey otherParties $
             withHeartbeat nodeId connectionMessages $
