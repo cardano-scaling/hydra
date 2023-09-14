@@ -34,7 +34,7 @@
 -- before communicating with the applicative layer.
 module Hydra.Network.Reliability where
 
-import Hydra.Prelude hiding (fromList, replicate, zipWith)
+import Hydra.Prelude hiding (empty, fromList, length, replicate, zipWith)
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
@@ -46,10 +46,20 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (Tracer)
-import qualified Data.List as List
 import Data.Maybe (fromJust)
-import Data.Sequence ((!?), (|>))
-import Data.Vector (Vector, fromList, generate, replicate, zipWith, (!))
+import Data.Vector (
+  Vector,
+  elemIndex,
+  empty,
+  fromList,
+  generate,
+  length,
+  replicate,
+  snoc,
+  zipWith,
+  (!),
+  (!?),
+ )
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
@@ -72,17 +82,28 @@ instance (FromCBOR msg) => FromCBOR (Msg msg) where
 instance ToCBOR msg => SignableRepresentation (Msg msg) where
   getSignableRepresentation = serialize'
 
+data ReliabilityException
+  = -- | Signals that received acks from the peer is not of
+    -- proper length
+    ReliabilityReceivedAckedMalformed
+  | -- | This should never happen. We should always be able to find a message by
+    -- the given index.
+    ReliabilityFailedToFindMsg String
+  deriving (Eq, Show)
+
+instance Exception ReliabilityException
+
 withReliability ::
   forall m msg a.
-  (MonadAsync m) =>
+  (MonadAsync m, MonadThrow (STM m), MonadThrow m) =>
   Tracer m ReliabilityLog ->
   Party ->
-  [Party] ->
+  Vector Party ->
   NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
   NetworkComponent m (Authenticated msg) (Authenticated msg) a
 withReliability tracer us allParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
-  sentMessages <- newTVarIO mempty
+  sentMessages <- newTVarIO empty
   resendQ <- newTQueueIO
   let resend = writeTQueue resendQ
   withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
@@ -95,10 +116,10 @@ withReliability tracer us allParties withRawNetwork callback action = do
         { broadcast = \(Authenticated msg _) -> do
             ackCounter' <- atomically $ do
               acks <- readTVar ackCounter
-              let ourIndex = fromJust $ List.elemIndex us allParties
+              let ourIndex = fromJust $ elemIndex us allParties
               let newAcks = constructAcks acks ourIndex
               writeTVar ackCounter newAcks
-              modifyTVar' sentMessages (|> msg)
+              modifyTVar' sentMessages (`snoc` msg)
               readTVar ackCounter
 
             traceWith tracer (BroadcastCounter ackCounter')
@@ -106,11 +127,11 @@ withReliability tracer us allParties withRawNetwork callback action = do
             broadcast $ Authenticated (Msg ackCounter' msg) us
         }
 
-  reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) =
+  reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
     if length acks /= length allParties
-      then error "Expected acks from a Msg is not the same length as the party list."
+      then throwIO ReliabilityReceivedAckedMalformed
       else do
-        let partyIndex = fromJust $ List.elemIndex party allParties
+        let partyIndex = fromJust $ elemIndex party allParties
         let n = acks ! partyIndex
         existingAcks <- readTVarIO ackCounter
         let count = (! partyIndex) existingAcks
@@ -122,7 +143,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
-        let myIndex = fromJust $ List.elemIndex us allParties
+        let myIndex = fromJust $ elemIndex us allParties
         let acked = acks ! myIndex
         let latestMsgAck = (! myIndex) existingAcks
         when (acked < latestMsgAck) $ do
@@ -133,15 +154,16 @@ withReliability tracer us allParties withRawNetwork callback action = do
             forM_ missing $ \idx -> do
               case messages !? (idx - 1) of
                 Nothing ->
-                  error $
-                    "FIXME: this should never happen, there's no sent message at index "
-                      <> show idx
-                      <> ", messages length = "
-                      <> show (length messages)
-                      <> ", latest message ack: "
-                      <> show latestMsgAck
-                      <> ", acked: "
-                      <> show acked
+                  throwIO $
+                    ReliabilityFailedToFindMsg $
+                      "FIXME: this should never happen, there's no sent message at index "
+                        <> show idx
+                        <> ", messages length = "
+                        <> show (length messages)
+                        <> ", latest message ack: "
+                        <> show latestMsgAck
+                        <> ", acked: "
+                        <> show acked
                 Just missingMsg -> do
                   let newAcks = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
                   resend $ Authenticated (Msg newAcks missingMsg) us
