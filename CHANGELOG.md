@@ -10,9 +10,9 @@ changes.
 
 ## [0.13.0] - UNRELEASED
 
-- Added retries for local cardano-node queries. We witnessed these queries to
-  fail in case of a rollback so we ignore errors and retry for 5 times before
-  letting the query fail.
+- Query at the tip for local cardano-node queries. We witnessed these queries
+  failing in case of a rollback and always querying at the tip seems to fix
+  this.
 
 
 - **BREAKING** Changes to `hydra-plutus` scripts.
