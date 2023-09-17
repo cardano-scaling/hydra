@@ -114,15 +114,15 @@ withReliability tracer us allParties withRawNetwork callback action = do
     action $
       Network
         { broadcast = \(Authenticated msg _) -> do
+            let ourIndex = fromJust $ elemIndex us allParties
             ackCounter' <- atomically $ do
               acks <- readTVar ackCounter
-              let ourIndex = fromJust $ elemIndex us allParties
               let newAcks = constructAcks acks ourIndex
               writeTVar ackCounter newAcks
               modifyTVar' sentMessages (`snoc` msg)
               readTVar ackCounter
 
-            traceWith tracer (BroadcastCounter us ackCounter')
+            traceWith tracer (BroadcastCounter ourIndex ackCounter')
 
             broadcast $ Authenticated (Msg ackCounter' msg) us
         }
@@ -134,7 +134,9 @@ withReliability tracer us allParties withRawNetwork callback action = do
         let partyIndex = fromJust $ elemIndex party allParties
         let n = acks ! partyIndex
         existingAcks <- readTVarIO ackCounter
-        let count = (! partyIndex) existingAcks
+        let count = existingAcks ! partyIndex
+
+        traceWith tracer (Receiving acks existingAcks partyIndex)
 
         -- handle message from party iff it's next in line
         when (n == count + 1) $ do
@@ -142,13 +144,19 @@ withReliability tracer us allParties withRawNetwork callback action = do
           atomically $ writeTVar ackCounter newAcks
           callback (Authenticated msg party)
 
+        -- FIXME: we are misusing the vector clocks we carry in our messagse. We should NOT
+        -- resend messages when the message received message's clock is not behind ours, as
+        -- this means some messages are still in flight and not handled by the peer. It's only
+        -- when we receive an "old" message where both the message index and their view of our
+        -- index are behind that we should resend.
+        --
         -- read our local acks again since they might be updated above
         existingAcks' <- readTVarIO ackCounter
         -- resend messages if party did not acknowledge our latest idx
         let myIndex = fromJust $ elemIndex us allParties
         let acked = acks ! myIndex
-        let latestMsgAck = (! myIndex) existingAcks'
-        when (acked < latestMsgAck) $ do
+        let latestMsgAck = existingAcks' ! myIndex
+        when (acked < latestMsgAck && n <= count) $ do
           let missing = fromList [acked + 1 .. latestMsgAck]
           messages <- readTVarIO sentMessages
           forM_ missing $ \idx -> do
@@ -166,7 +174,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
                       <> show acked
               Just missingMsg -> do
                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks' partyIndexes
-                traceWith tracer (Resending missing acks newAcks' party)
+                traceWith tracer (Resending missing acks newAcks' partyIndex)
                 atomically $ resend $ Authenticated (Msg newAcks' missingMsg) us
 
   partyIndexes = generate (length allParties) id
@@ -175,8 +183,9 @@ withReliability tracer us allParties withRawNetwork callback action = do
     zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
 
 data ReliabilityLog
-  = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, party :: Party}
-  | BroadcastCounter {party :: Party, localCounter :: Vector Int}
+  = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
+  | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
