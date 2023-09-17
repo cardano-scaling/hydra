@@ -124,7 +124,7 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg carol]
 
-  prop "retransmits unacknowledged messages" $ \(Positive lastMessageKnownToBob) ->
+  prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
       let messagesList = show <$> [1 .. totalNumberOfMessages]
           sentMsgs = runSimOrThrow $ do
@@ -137,7 +137,11 @@ spec = parallel $ do
               ( \incoming action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message (payload m))})
-                    (threadDelay 2 >> incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob))
+                    ( do
+                        threadDelay 2
+                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob)
+                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob)
+                    )
               )
               noop
               $ \Network{broadcast} -> do

@@ -114,6 +114,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
     action $
       Network
         { broadcast = \(Authenticated msg _) -> do
+            traceWith tracer Broadcasting
             let ourIndex = fromJust $ elemIndex us allParties
             ackCounter' <- atomically $ do
               acks <- readTVar ackCounter
@@ -123,7 +124,6 @@ withReliability tracer us allParties withRawNetwork callback action = do
               readTVar ackCounter
 
             traceWith tracer (BroadcastCounter ourIndex ackCounter')
-
             broadcast $ Authenticated (Msg ackCounter' msg) us
         }
 
@@ -131,31 +131,29 @@ withReliability tracer us allParties withRawNetwork callback action = do
     if length acks /= length allParties
       then throwIO ReliabilityReceivedAckedMalformed
       else do
+        traceWith tracer Callbacking
         let partyIndex = fromJust $ elemIndex party allParties
-        let n = acks ! partyIndex
-        existingAcks <- readTVarIO ackCounter
-        let count = existingAcks ! partyIndex
+        (shouldCallback, n, count, existingAcks) <- atomically $ do
+          let n = acks ! partyIndex
+          existingAcks <- readTVar ackCounter
+          let count = existingAcks ! partyIndex
 
-        traceWith tracer (Receiving acks existingAcks partyIndex)
+          -- handle message from party iff it's next in line
+          if (n == count + 1)
+            then do
+              let newAcks = constructAcks existingAcks partyIndex
+              writeTVar ackCounter newAcks
+              return (True, n, count, newAcks)
+            else return (False, n, count, existingAcks)
 
-        -- handle message from party iff it's next in line
-        when (n == count + 1) $ do
-          let newAcks = constructAcks existingAcks partyIndex
-          atomically $ writeTVar ackCounter newAcks
+        when shouldCallback $ do
+          traceWith tracer (Receiving acks existingAcks partyIndex)
           callback (Authenticated msg party)
 
-        -- FIXME: we are misusing the vector clocks we carry in our messagse. We should NOT
-        -- resend messages when the message received message's clock is not behind ours, as
-        -- this means some messages are still in flight and not handled by the peer. It's only
-        -- when we receive an "old" message where both the message index and their view of our
-        -- index are behind that we should resend.
-        --
-        -- read our local acks again since they might be updated above
-        existingAcks' <- readTVarIO ackCounter
         -- resend messages if party did not acknowledge our latest idx
         let myIndex = fromJust $ elemIndex us allParties
         let acked = acks ! myIndex
-        let latestMsgAck = existingAcks' ! myIndex
+        let latestMsgAck = existingAcks ! myIndex
         when (acked < latestMsgAck && n <= count) $ do
           let missing = fromList [acked + 1 .. latestMsgAck]
           messages <- readTVarIO sentMessages
@@ -173,7 +171,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
                       <> ", acked: "
                       <> show acked
               Just missingMsg -> do
-                let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks' partyIndexes
+                let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
                 traceWith tracer (Resending missing acks newAcks' partyIndex)
                 atomically $ resend $ Authenticated (Msg newAcks' missingMsg) us
 
@@ -184,6 +182,8 @@ withReliability tracer us allParties withRawNetwork callback action = do
 
 data ReliabilityLog
   = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | Broadcasting
+  | Callbacking
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
   | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   deriving stock (Show, Eq, Generic)
