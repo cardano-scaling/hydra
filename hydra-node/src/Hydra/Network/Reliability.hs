@@ -63,6 +63,7 @@ import Data.Vector (
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
@@ -94,13 +95,12 @@ data ReliabilityException
 instance Exception ReliabilityException
 
 withReliability ::
-  forall m msg a.
-  (MonadAsync m, MonadThrow (STM m), MonadThrow m) =>
+  (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
   Tracer m ReliabilityLog ->
   Party ->
   Vector Party ->
-  NetworkComponent m (Authenticated (Msg msg)) (Msg msg) a ->
-  NetworkComponent m (Authenticated msg) msg a
+  NetworkComponent m (Authenticated (Msg (Heartbeat msg))) (Msg (Heartbeat msg)) a ->
+  NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer us allParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO empty
@@ -113,18 +113,24 @@ withReliability tracer us allParties withRawNetwork callback action = do
   reliableBroadcast ackCounter sentMessages Network{broadcast} =
     action $
       Network
-        { broadcast = \msg -> do
-            traceWith tracer Broadcasting
+        { broadcast = \msg ->
             let ourIndex = fromJust $ elemIndex us allParties
-            ackCounter' <- atomically $ do
-              acks <- readTVar ackCounter
-              let newAcks = constructAcks acks ourIndex
-              writeTVar ackCounter newAcks
-              modifyTVar' sentMessages (`snoc` msg)
-              readTVar ackCounter
+             in case msg of
+                  Data{} -> do
+                    traceWith tracer Broadcasting
+                    ackCounter' <- atomically $ do
+                      acks <- readTVar ackCounter
+                      let newAcks = constructAcks acks ourIndex
+                      writeTVar ackCounter newAcks
+                      modifyTVar' sentMessages (`snoc` msg)
+                      readTVar ackCounter
 
-            traceWith tracer (BroadcastCounter ourIndex ackCounter')
-            broadcast $ Msg ackCounter' msg
+                    traceWith tracer (BroadcastCounter ourIndex ackCounter')
+                    broadcast $ Msg ackCounter' msg
+                  Ping{} -> do
+                    acks <- readTVarIO ackCounter
+                    traceWith tracer (BroadcastCounter ourIndex acks)
+                    broadcast $ Msg acks msg
         }
 
   reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
@@ -138,13 +144,13 @@ withReliability tracer us allParties withRawNetwork callback action = do
           existingAcks <- readTVar ackCounter
           let count = existingAcks ! partyIndex
 
-          -- handle message from party iff it's next in line
+          -- handle message from party iff it's next in line or if it's a Ping
           if (n == count + 1)
             then do
               let newAcks = constructAcks existingAcks partyIndex
               writeTVar ackCounter newAcks
               return (True, n, count, newAcks)
-            else return (False, n, count, existingAcks)
+            else return (isPing msg, n, count, existingAcks)
 
         when shouldCallback $ do
           traceWith tracer (Receiving acks existingAcks partyIndex)
