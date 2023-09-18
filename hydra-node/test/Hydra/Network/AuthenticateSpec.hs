@@ -90,7 +90,7 @@ spec = parallel $ do
     receivedMsgs `shouldBe` []
 
   it "authenticate the message to broadcast" $ do
-    let someMessage = Authenticated msg bob
+    let someMessage = msg
         sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO []
 

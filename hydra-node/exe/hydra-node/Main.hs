@@ -114,7 +114,7 @@ main = do
                 runHydraNode (contramap Node tracer) $
                   HydraNode
                     { eq
-                    , hn = contramap (`Authenticated` party) hn
+                    , hn
                     , nodeState
                     , oc = chain
                     , server

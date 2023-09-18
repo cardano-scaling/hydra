@@ -50,10 +50,10 @@ spec = parallel $ do
           sentMessages <- newTVarIO empty
 
           withReliability nullTracer alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
-            mapM_ (\m -> broadcast (Authenticated m alice)) messages
+            mapM_ (\m -> broadcast m) messages
 
           fromList . toList <$> readTVarIO sentMessages
-     in head . messageId . payload <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+     in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
   it "broadcasts messages to single connected peer" $ do
     let receivedMsgs = runSimOrThrow $ do
@@ -61,7 +61,7 @@ spec = parallel $ do
           queue <- newTQueueIO
 
           let aliceNetwork _ action = do
-                action (Network{broadcast = atomically . writeTQueue queue})
+                action (Network{broadcast = atomically . writeTQueue queue . flip Authenticated alice})
 
           let bobNetwork callback action = do
                 withAsync
@@ -74,7 +74,7 @@ spec = parallel $ do
 
           withReliability nullTracer alice (fromList [alice, bob]) aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
             withReliability nullTracer bob (fromList [alice, bob]) bobNetwork (captureIncoming receivedMessages) $ \_ -> do
-              broadcast (Authenticated msg alice)
+              broadcast msg
               threadDelay 1
 
           toList <$> readTVarIO receivedMessages
@@ -136,7 +136,7 @@ spec = parallel $ do
               (fromList [alice, bob])
               ( \incoming action -> do
                   concurrently_
-                    (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message (payload m))})
+                    (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
                     ( do
                         threadDelay 2
                         incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob)
@@ -146,7 +146,7 @@ spec = parallel $ do
               noop
               $ \Network{broadcast} -> do
                 forM_ messagesList $ \m ->
-                  broadcast (Authenticated m alice)
+                  broadcast m
                 threadDelay 10
 
             toList <$> readTVarIO sentMessages
@@ -167,13 +167,13 @@ spec = parallel $ do
             (fromList [alice, bob])
             ( \incoming action -> do
                 concurrently_
-                  (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` payload m)})
+                  (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
                   (incoming (Authenticated (Msg (fromList [0, 1]) msg) bob))
             )
             noop
             $ \Network{broadcast} -> do
               threadDelay 1
-              broadcast (Authenticated msg bob)
+              broadcast msg
           toList <$> readTVarIO sentMessages
 
     receivedMsgs `shouldBe` [Msg (fromList [1, 1]) msg]
