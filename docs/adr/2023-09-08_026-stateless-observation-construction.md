@@ -3,12 +3,12 @@ slug: 26
 title: |
   26. Stateless transaction observaion & construction
 authors: []
-tags: [Accepted]
+tags: [Draft]
 ---
 
 ## Status
 
-Accepted
+Draft
 
 ## Context
 
