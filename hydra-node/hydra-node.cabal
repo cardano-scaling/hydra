@@ -149,6 +149,7 @@ library
     , cborg
     , containers
     , contra-tracer
+    , cryptonite
     , data-default
     , directory
     , filepath
@@ -198,7 +199,6 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
-    , cryptonite
     , filepath
     , hydra-cardano-api
     , hydra-node
@@ -295,6 +295,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.FireForgetSpec
+    Hydra.GenHydraSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
