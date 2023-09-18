@@ -34,9 +34,9 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..))
+import Hydra.Network (Host (..), NetworkCallback, NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
-import Hydra.Network.Heartbeat (withHeartbeat)
+import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Network.Reliability (withReliability)
@@ -136,10 +136,24 @@ main = do
           Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
         me = deriveParty signingKey
         allParties = fromList $ sort $ me : otherParties
-     in withReliability (contramap Reliability tracer) me allParties $
-          withAuthentication (contramap Authentication tracer) signingKey otherParties $
-            withHeartbeat nodeId connectionMessages $
-              withOuroborosNetwork (contramap Network tracer) localhost peers
+     in withHeartbeat nodeId connectionMessages $
+          withUnwrapHeartbeats $
+            withReliability (contramap Reliability tracer) me allParties $
+              withAuthentication (contramap Authentication tracer) signingKey otherParties $
+                withOuroborosNetwork (contramap Network tracer) localhost peers
+
+  withUnwrapHeartbeats ::
+    NetworkComponent IO (Authenticated (Heartbeat msg)) msg1 a ->
+    NetworkComponent IO (Heartbeat (Authenticated msg)) msg1 a
+  withUnwrapHeartbeats withBaseNetwork callback =
+    withBaseNetwork (unwrapHeartbeats callback)
+
+  unwrapHeartbeats ::
+    NetworkCallback (Heartbeat (Authenticated msg)) IO ->
+    NetworkCallback (Authenticated (Heartbeat msg)) IO
+  unwrapHeartbeats callback = \case
+    Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
+    Authenticated (Ping nid) party -> callback $ Ping nid
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

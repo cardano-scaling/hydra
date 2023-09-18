@@ -61,6 +61,11 @@ instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
 instance ToCBOR msg => SignableRepresentation (Heartbeat msg) where
   getSignableRepresentation = serialize'
 
+isPing :: Heartbeat msg -> Bool
+isPing = \case
+  Ping{} -> True
+  _ -> False
+
 -- | Delay between each heartbeat check.
 heartbeatDelay :: DiffTime
 heartbeatDelay = 0.5
@@ -78,8 +83,8 @@ withHeartbeat ::
   ) =>
   NodeId ->
   ConnectionMessages m ->
-  NetworkComponent m (Heartbeat msg) (Heartbeat msg) a ->
-  NetworkComponent m msg msg a
+  NetworkComponent m (Heartbeat msg1) (Heartbeat msg) a ->
+  NetworkComponent m msg1 msg a
 withHeartbeat nodeId connectionMessages withNetwork =
   withIncomingHeartbeat connectionMessages $
     withOutgoingHeartbeat nodeId withNetwork
@@ -87,8 +92,8 @@ withHeartbeat nodeId connectionMessages withNetwork =
 withIncomingHeartbeat ::
   (MonadAsync m, MonadDelay m) =>
   ConnectionMessages m ->
-  NetworkComponent m (Heartbeat msg) msg a ->
-  NetworkComponent m msg msg a
+  NetworkComponent m (Heartbeat msg1) msg a ->
+  NetworkComponent m msg1 msg a
 withIncomingHeartbeat connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
@@ -119,8 +124,8 @@ updateStateFromIncomingMessages heartbeatState connectionMessages callback = \ca
 withOutgoingHeartbeat ::
   (MonadAsync m, MonadDelay m) =>
   NodeId ->
-  NetworkComponent m (Heartbeat msg) (Heartbeat msg) a ->
-  NetworkComponent m (Heartbeat msg) msg a
+  NetworkComponent m msg1 (Heartbeat msg) a ->
+  NetworkComponent m msg1 msg a
 withOutgoingHeartbeat nodeId withNetwork callback action = do
   lastSent <- newTVarIO Nothing
   withNetwork callback $ \network ->
