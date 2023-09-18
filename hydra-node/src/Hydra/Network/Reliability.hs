@@ -99,8 +99,8 @@ withReliability ::
   Tracer m ReliabilityLog ->
   Party ->
   Vector Party ->
-  NetworkComponent m (Authenticated (Msg msg)) (Authenticated (Msg msg)) a ->
-  NetworkComponent m (Authenticated msg) (Authenticated msg) a
+  NetworkComponent m (Authenticated (Msg msg)) (Msg msg) a ->
+  NetworkComponent m (Authenticated msg) msg a
 withReliability tracer us allParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO empty
@@ -113,7 +113,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
   reliableBroadcast ackCounter sentMessages Network{broadcast} =
     action $
       Network
-        { broadcast = \(Authenticated msg _) -> do
+        { broadcast = \msg -> do
             traceWith tracer Broadcasting
             let ourIndex = fromJust $ elemIndex us allParties
             ackCounter' <- atomically $ do
@@ -124,7 +124,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
               readTVar ackCounter
 
             traceWith tracer (BroadcastCounter ourIndex ackCounter')
-            broadcast $ Authenticated (Msg ackCounter' msg) us
+            broadcast $ Msg ackCounter' msg
         }
 
   reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
@@ -173,7 +173,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
               Just missingMsg -> do
                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
                 traceWith tracer (Resending missing acks newAcks' partyIndex)
-                atomically $ resend $ Authenticated (Msg newAcks' missingMsg) us
+                atomically $ resend $ Msg newAcks' missingMsg
 
   partyIndexes = generate (length allParties) id
 
