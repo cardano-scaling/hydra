@@ -44,25 +44,29 @@ Accepted
 
   - Core problem is, that `observeInit` is required to take a decision whether
     it wants to "adopt" the Head by returning an `InitialState` or not.
-  - This makes it impossible to provider user feedback through the `HeadLogic`
+  - This makes it impossible to provide user feedback through the `HeadLogic`
     and `API` layers.
 
 - We want to build a [Hydra head
   explorer](https://github.com/input-output-hk/hydra/issues/696), which should
   be able to keep track and discover Hydra heads and their state changes even
-  when the heads were initialzed before starting the explorer.
+  when the heads were initialized before starting the explorer.
 
 ## Decision
 
-- We supersede [ADR 23](/adr/18) with the current ADR.
+- We supersede [ADR 18](/adr/18) with the current ADR.
 
 ### Changes internal to Direct chain layer
 
-- Introduce a `ResolvedTx` type that has its inputs resolved.
+- Introduce a `ResolvedTx` type that has its inputs resolved. Where a normal
+  `Tx` will only contain `TxIn` information of its inputs, a `ResolvedTx` also
+  includes the `TxOut` for each input.
 
 - Change `ChainSyncHandler` signature to `onRollForward :: BlockHeader -> [ResolvedTx] -> m ()`
 
-- Change observing function signature to `observeSomeTx :: ChainContext -> ResolvedTx -> Maybe (OnChainTx Tx)`. Notably there is no `ChainState` involved.
+- Change observing function signature to `observeSomeTx :: ChainContext ->
+  ResolvedTx -> Maybe (OnChainTx Tx)`. Notably there is no `ChainState`
+  involved.
 
 - Do not guard observation by `HeadId` in the chain layer and instead do it in the `HeadLogic` layer.
 
