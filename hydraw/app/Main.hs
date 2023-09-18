@@ -66,7 +66,7 @@ websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
   frontend <- WS.acceptRequest pendingConnection
   withClient host $ \backend ->
-    concurrently_
+   race_
       (forever $ WS.receive frontend >>= WS.send backend)
       (forever $ WS.receive backend >>= WS.send frontend)
 
