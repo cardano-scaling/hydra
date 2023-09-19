@@ -3,16 +3,17 @@
 -- | A `Network` layer that guarantees delivery of `msg` in order even in the
 -- face of transient connection failures.
 --
--- This layer implements an algorithm based on _vector clocks_ adapted from
--- reliable consistent broadcast algorithms with FIFO ordering as presented in
+-- This layer implements an algorithm based on _vector clocks_, loosely inspired from
+-- /Reliable consistent broadcast/ algorithms with FIFO ordering as presented in
 -- [Introduction to Reliable and Secure Distributed
--- Programming](https://www.distributedprogramming.net), ch. 3.9, by Cachin and
--- Guerraoui. Each node maintains a vector of monotonically increasing integer
--- indices denoting the index of the last message known (sent or received) from
+-- Programming](https://www.distributedprogramming.net), ch. 3.9, by Cachin et al.
+--
+-- Each node maintains a vector of monotonically increasing integer
+-- indices denoting the index of the last message known (sent or received) for
 -- each peer, where a peer is identified a `Party`, which is updated upon
 -- sending and receiving messages, and is sent with each message.
 --
--- The algorithm is simple:
+-- The basic algorithm is simple:
 --
 --   * When a message is sent, the index of the current node's party is incremented,
 --
@@ -26,12 +27,26 @@
 --
 -- As shown by the signature of the `withReliability` function, this layer
 -- relies on an authentication layer providing `Authenticated` messages in order
--- to securely identify senders.
+-- to securely identify senders, and also on `Heartbeat` messages in order to
+-- provide some "liveness".
+--
+-- `Heartbeat` messages are critical in order to /signal/ peers our current view
+-- of the world, because it could be the case that we don't have any network
+-- message to send which leads to head being stalled. `Ping` messages are
+-- treated specially, both when receiving and sending:
+--
+--   * When sending a `Ping`, we /don't increment/ our local message counter
+--     before broadcasting it,
+--
+--   * Conversely, when receiving a `Ping`, we don't update the peer's message
+--     counter but only take into account their view of /our/ counter in order
+--     to compute whether or not to resend previous messages.
 --
 -- NOTE: This layer does not guarantee resilience in the crash-recovery setting,
--- eg. if a process crashes and then later recovers. To provide this guarantee,
--- we should add _logging_ capability that persist sent and received messages
--- before communicating with the applicative layer.
+-- eg. if a process crashes and then later recovers. It may work because `Ping`s
+-- will trigger some resending to the peer which starts from scratch. To provide
+-- this guarantee in full, we should add /logging/ capability that persist sent and
+-- received messages before communicating with the applicative layer.
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude hiding (empty, fromList, length, replicate, zipWith)
@@ -94,6 +109,15 @@ data ReliabilityException
 
 instance Exception ReliabilityException
 
+-- | Middleware function to handle message counters tracking and resending logic.
+--
+-- '''NOTE''': There is some "abstraction leak" here, because the `withReliability`
+-- layer is tied to a specific structure of other layers, eg. be between
+-- `withHeartbeat` and `withAuthenticate` layers.
+--
+-- TODO: garbage-collect the `sentMessages` which otherwise will grow forever
+-- TODO: better use of Vectors? We should perhaps use a `MVector` to be able to
+-- mutate in-place and not need `zipWith`
 withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
   -- | Tracer for logging messages.
@@ -150,7 +174,21 @@ withReliability tracer me otherParties withRawNetwork callback action = do
           existingAcks <- readTVar ackCounter
           let count = existingAcks ! partyIndex
 
-          -- handle message from party iff it's next in line or if it's a Ping
+          -- handle message from party iff it's next in line OR if it's a Ping
+          --
+          -- The stream of messages from a peer is expected to look like:
+          --
+          -- @@
+          -- Msg [.., 1, ..] (Data nid m1)
+          -- Msg [.., 2, ..] (Data nid m1)
+          -- Msg [.., 3, ..] (Data nid m1)
+          -- Msg [.., 3, ..] (Ping nid)
+          -- Msg [.., 3, ..] (Ping nid)
+          -- Msg [.., 3, ..] (Ping nid)
+          -- @@
+          --
+          -- Pings are observed only for the information it provides about the
+          -- peer's view of our index
           if n == count + 1
             then do
               let newAcks = constructAcks existingAcks partyIndex

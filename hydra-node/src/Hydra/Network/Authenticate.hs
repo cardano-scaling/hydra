@@ -1,5 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
+-- | A `NetworkComponent` that handles authentication of sent and received messages.
+--
+-- This "middleware" uses `HydraKey` keys for signing own messages and verifying
+-- others', providing `Authenticated` messages to consumers.
 module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
