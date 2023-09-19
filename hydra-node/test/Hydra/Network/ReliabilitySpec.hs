@@ -13,7 +13,7 @@ import Data.Vector (empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
-import Hydra.Network.Reliability (Msg (..), withReliability)
+import Hydra.Network.Reliability (ReliableMsg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -36,7 +36,7 @@ spec = parallel $ do
             alice
             (fromList [alice, bob])
             ( \incoming _ -> do
-                incoming (Authenticated (Msg (fromList [1, 1]) (Data "node-2" msg)) bob)
+                incoming (Authenticated (ReliableMsg (fromList [1, 1]) (Data "node-2" msg)) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -92,7 +92,7 @@ spec = parallel $ do
             (fromList [alice, bob])
             ( \incoming _ -> do
                 forM_ messages $ \(Positive m) ->
-                  incoming (Authenticated (Msg (fromList [0, m]) (Data "node-2" m)) bob)
+                  incoming (Authenticated (ReliableMsg (fromList [0, m]) (Data "node-2" m)) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -114,8 +114,8 @@ spec = parallel $ do
             alice
             (fromList [alice, bob, carol])
             ( \incoming _ -> do
-                incoming (Authenticated (Msg (fromList [0, 1, 0]) (Data "node-2" msg)) bob)
-                incoming (Authenticated (Msg (fromList [0, 0, 1]) (Data "node-3" msg)) carol)
+                incoming (Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg)) bob)
+                incoming (Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg)) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -141,8 +141,8 @@ spec = parallel $ do
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
                     ( do
                         threadDelay 2
-                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
-                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
+                        incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
+                        incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
                     )
               )
               noop
@@ -170,7 +170,7 @@ spec = parallel $ do
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
-                  (incoming (Authenticated (Msg (fromList [0, 1]) (Data "node-2" msg)) bob))
+                  (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
             )
             noop
             $ \Network{broadcast} -> do
@@ -178,7 +178,7 @@ spec = parallel $ do
               broadcast (Data "node-1" msg)
           toList <$> readTVarIO sentMessages
 
-    receivedMsgs `shouldBe` [Msg (fromList [1, 1]) (Data "node-1" msg)]
+    receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
