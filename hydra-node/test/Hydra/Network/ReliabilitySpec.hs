@@ -25,7 +25,7 @@ spec = parallel $ do
       captureIncoming receivedMessages msg =
         atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
-  msg <- runIO $ generate @String arbitrary
+  msg <- Data "node-1" <$> runIO (generate @String arbitrary)
 
   it "forward received messages" $ do
     let receivedMsgs = runSimOrThrow $ do

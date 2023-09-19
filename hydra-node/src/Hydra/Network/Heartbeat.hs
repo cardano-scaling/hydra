@@ -43,7 +43,7 @@ initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty}
 data Heartbeat msg
   = Data NodeId msg
   | Ping NodeId
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
