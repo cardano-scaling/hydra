@@ -5,8 +5,6 @@ module Main where
 import Hydra.Prelude hiding (fromList)
 
 import Crypto.Random (getRandomBytes)
-import Data.Vector (fromList)
-import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
@@ -59,7 +57,6 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Party (deriveParty)
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
 import System.FilePath ((<.>))
@@ -109,7 +106,7 @@ main = do
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
               -- Network
-              withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              withNetwork tracer (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
@@ -122,6 +119,10 @@ main = do
                     , env
                     , persistence
                     }
+
+  connectionMessages Server{sendOutput} = \case
+    Connected nodeid -> sendOutput $ PeerConnected nodeid
+    Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
