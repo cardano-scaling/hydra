@@ -34,8 +34,7 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..), NetworkCallback, NetworkComponent, broadcast)
-import qualified Hydra.Network as Net
+import Hydra.Network (Host (..), NetworkCallback, NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Connectivity (..))
@@ -64,7 +63,6 @@ import Hydra.Party (deriveParty)
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
 import System.FilePath ((<.>))
-import System.Random (randomRIO)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
   deriving (Show)
@@ -142,21 +140,7 @@ main = do
           withUnwrapHeartbeats $
             withReliability (contramap Reliability tracer) me allParties $
               withAuthentication (contramap Authentication tracer) signingKey otherParties $
-                withRandomMessagesDrop $
-                  withOuroborosNetwork (contramap Network tracer) localhost peers
-
-  withRandomMessagesDrop ::
-    NetworkComponent IO msg msg a ->
-    NetworkComponent IO msg msg a
-  withRandomMessagesDrop withBaseNetwork callback action =
-    withBaseNetwork callback $ \Net.Network{broadcast} ->
-      action (failingNetwork broadcast)
-   where
-    failingNetwork broadcast =
-      Net.Network $ \msg -> do
-        -- drop 2% of messages
-        r :: Double <- randomRIO (0, 1)
-        unless (r < 0.002) $ broadcast msg
+                withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withUnwrapHeartbeats ::
     NetworkComponent IO (Authenticated (Heartbeat msg)) msg1 a ->
@@ -167,9 +151,9 @@ main = do
   unwrapHeartbeats ::
     NetworkCallback (Heartbeat (Authenticated msg)) IO ->
     NetworkCallback (Authenticated (Heartbeat msg)) IO
-  unwrapHeartbeats callback (Authenticated m party) = case m of
-    Data nid msg -> callback $ Data nid (Authenticated msg party)
-    Ping nid -> callback $ Ping nid
+  unwrapHeartbeats callback = \case
+    Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
+    Authenticated (Ping nid) party -> callback $ Ping nid
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
