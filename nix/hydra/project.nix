@@ -15,12 +15,14 @@ let
   pkgs = import nixpkgs {
     inherit system;
     overlays = [
+      # This overlay contains libsodium
       iohk-nix.overlays.crypto
       # Keep haskell.nix as the last overlay!
       #
       # Reason: haskell.nix modules/overlays neds to be last
       # https://github.com/input-output-hk/haskell.nix/issues/1954
       haskellNix.overlay
+      # This overlay contains libblst
       iohk-nix.overlays.haskell-nix-crypto
     ];
   };
