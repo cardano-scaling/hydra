@@ -22,7 +22,7 @@ let
   paddedRevision = padSuffix 40 " " gitRev;
 
   # Placeholder used to 'embedRevision'. See also hydra-prelude/cbits/revision.c
-  placeholder = "0000000000000000000000000000000000000000";
+  placeholder = "0000000001000000000100000000010000000001";
 
   # Takes a derivation with a single executable and embeds the given revision
   # into this executable.
