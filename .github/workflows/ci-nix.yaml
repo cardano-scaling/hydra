@@ -193,12 +193,11 @@ jobs:
       id: comment-body
       run: |
         # Drop first 5 header lines and demote headlines one level
-        body="$(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/')"
+        body="$(cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::')"
         body="${body//'%'/'%25'}"
         body="${body//$'\n'/'%0A'}"
         body="${body//$'\r'/'%0D'}"
         echo "::set-output name=body::$body"
-
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v2
       id: find-comment
