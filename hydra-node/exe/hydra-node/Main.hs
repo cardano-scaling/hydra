@@ -153,7 +153,7 @@ main = do
     NetworkCallback (Authenticated (Heartbeat msg)) IO
   unwrapHeartbeats callback = \case
     Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) party -> callback $ Ping nid
+    Authenticated (Ping nid) _ -> callback $ Ping nid
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
