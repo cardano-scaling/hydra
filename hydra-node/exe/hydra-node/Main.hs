@@ -65,12 +65,8 @@ main = do
       run (identifyNode options)
     Publish options ->
       publish options
-    GenHydraKey outputFile -> do
-      result <- genHydraKeys outputFile
-      case result of
-        Left fileError ->
-          die $ show fileError
-        Right _ -> pure ()
+    GenHydraKey outputFile ->
+      either (die . show) pure =<< genHydraKeys outputFile
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
