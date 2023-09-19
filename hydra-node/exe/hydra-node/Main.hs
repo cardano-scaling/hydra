@@ -7,18 +7,13 @@ import Hydra.Prelude
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (
-  File (..),
-  Key (SigningKey),
-  getVerificationKey,
   serialiseToRawBytesHex,
-  writeFileTextEnvelope,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -51,17 +46,15 @@ import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
-  GenerateKeyPair (GenerateKeyPair, outputFile),
   LedgerConfig (..),
   PublishOptions (..),
   RunOptions (..),
   explain,
-  genHydraKeys,
   parseHydraCommand,
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
-import System.FilePath ((<.>))
+import Hydra.Utils (genHydraKeys)
 
 main :: IO ()
 main = do

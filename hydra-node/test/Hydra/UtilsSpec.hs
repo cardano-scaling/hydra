@@ -1,7 +1,8 @@
-module Hydra.GenHydraSpec where
+module Hydra.UtilsSpec where
 
-import Hydra.Options (GenerateKeyPair (GenerateKeyPair), genHydraKeys)
+import Hydra.Options (GenerateKeyPair (GenerateKeyPair))
 import Hydra.Prelude
+import Hydra.Utils (genHydraKeys)
 import Test.Hydra.Prelude
 
 spec :: Spec

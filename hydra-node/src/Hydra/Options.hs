@@ -9,7 +9,6 @@ module Hydra.Options (
 import Hydra.Prelude
 
 import Control.Arrow (left)
-import Crypto.Random (getRandomBytes)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.IP (IP (IPv4), toIPv4, toIPv4w)
@@ -21,8 +20,6 @@ import Hydra.Cardano.Api (
   AsType (AsTxId),
   ChainPoint (..),
   File (..),
-  FileError,
-  Key (SigningKey, getVerificationKey),
   NetworkId (..),
   NetworkMagic (..),
   SlotNo (..),
@@ -32,12 +29,10 @@ import Hydra.Cardano.Api (
   deserialiseFromRawBytesHex,
   proxyToAsType,
   serialiseToRawBytesHexText,
-  writeFileTextEnvelope,
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import qualified Hydra.Contract as Contract
-import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
@@ -81,7 +76,6 @@ import Options.Applicative (
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
-import System.FilePath ((<.>))
 import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
 
 data ParamMismatch
@@ -237,13 +231,6 @@ genHydraKeyParser =
             (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
         )
     )
-
-genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
-genHydraKeys GenerateKeyPair{outputFile} = do
-  sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
-  runExceptT $ do
-    ExceptT $ writeFileTextEnvelope (File (outputFile <.> "sk")) Nothing sk
-    ExceptT $ writeFileTextEnvelope (File (outputFile <.> "vk")) Nothing (getVerificationKey sk)
 
 outputFileParser :: Parser FilePath
 outputFileParser =

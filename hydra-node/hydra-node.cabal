@@ -125,6 +125,7 @@ library
     Hydra.Party
     Hydra.Persistence
     Hydra.Snapshot
+    Hydra.Utils
 
   other-modules:   Paths_hydra_node
   build-depends:
@@ -199,7 +200,6 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
-    , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -295,7 +295,6 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.CryptoSpec
     Hydra.FireForgetSpec
-    Hydra.GenHydraSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
@@ -316,6 +315,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
+    Hydra.UtilsSpec
     Paths_hydra_node
     Spec
     Test.Hydra.Fixture
