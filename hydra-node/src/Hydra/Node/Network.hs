@@ -40,7 +40,7 @@
 -- │                                                    │
 -- └─────────▲───────────────────────────────────┼──────┘
 --           │                                   │
---      Authenticate (Msg (Heartbeat msg))    Msg│(Heartbeat msg)
+--      Authenticate (ReliableMsg (Heartbeat msg))    ReliableMsg│(Heartbeat msg)
 --           │                                   │
 -- ┌─────────┼───────────────────────────────────▼──────┐
 -- │                                                    │
@@ -49,7 +49,7 @@
 -- └─────────▲───────────────────────────────────┼──────┘
 --           │                                   │
 --           │                                   │
---       Signed (Msg (Heartbeat msg))       Signed (Msg (Heartbeat msg))
+--       Signed (ReliableMsg (Heartbeat msg))       Signed (ReliableMsg (Heartbeat msg))
 --           │                                   │
 -- ┌─────────┼───────────────────────────────────▼──────┐
 -- │                                                    │
@@ -72,12 +72,12 @@ import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (Msg, withReliability)
+import Hydra.Network.Reliability (ReliableMsg, withReliability)
 import Hydra.Party (Party, deriveParty)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
-type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (Msg (Heartbeat msg)))))
+type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
 
 withNetwork ::
   (ToCBOR msg, ToJSON msg, FromCBOR msg) =>
