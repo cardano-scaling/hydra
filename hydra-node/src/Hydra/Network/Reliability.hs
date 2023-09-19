@@ -67,20 +67,20 @@ import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
-data Msg msg = Msg
+data ReliableMsg msg = ReliableMsg
   { messageId :: Vector Int
   , message :: msg
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (ToCBOR msg) => ToCBOR (Msg msg) where
-  toCBOR Msg{messageId, message} = toCBOR messageId <> toCBOR message
+instance (ToCBOR msg) => ToCBOR (ReliableMsg msg) where
+  toCBOR ReliableMsg{messageId, message} = toCBOR messageId <> toCBOR message
 
-instance (FromCBOR msg) => FromCBOR (Msg msg) where
-  fromCBOR = Msg <$> fromCBOR <*> fromCBOR
+instance (FromCBOR msg) => FromCBOR (ReliableMsg msg) where
+  fromCBOR = ReliableMsg <$> fromCBOR <*> fromCBOR
 
-instance ToCBOR msg => SignableRepresentation (Msg msg) where
+instance ToCBOR msg => SignableRepresentation (ReliableMsg msg) where
   getSignableRepresentation = serialize'
 
 data ReliabilityException
@@ -99,7 +99,7 @@ withReliability ::
   Tracer m ReliabilityLog ->
   Party ->
   Vector Party ->
-  NetworkComponent m (Authenticated (Msg (Heartbeat msg))) (Msg (Heartbeat msg)) a ->
+  NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer us allParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
@@ -126,14 +126,14 @@ withReliability tracer us allParties withRawNetwork callback action = do
                       readTVar ackCounter
 
                     traceWith tracer (BroadcastCounter ourIndex ackCounter')
-                    broadcast $ Msg ackCounter' msg
+                    broadcast $ ReliableMsg ackCounter' msg
                   Ping{} -> do
                     acks <- readTVarIO ackCounter
                     traceWith tracer (BroadcastCounter ourIndex acks)
-                    broadcast $ Msg acks msg
+                    broadcast $ ReliableMsg acks msg
         }
 
-  reliableCallback ackCounter sentMessages resend (Authenticated (Msg acks msg) party) = do
+  reliableCallback ackCounter sentMessages resend (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then throwIO ReliabilityReceivedAckedMalformed
       else do
@@ -145,7 +145,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
           let count = existingAcks ! partyIndex
 
           -- handle message from party iff it's next in line or if it's a Ping
-          if (n == count + 1)
+          if n == count + 1
             then do
               let newAcks = constructAcks existingAcks partyIndex
               writeTVar ackCounter newAcks
@@ -179,7 +179,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
               Just missingMsg -> do
                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
                 traceWith tracer (Resending missing acks newAcks' partyIndex)
-                atomically $ resend $ Msg newAcks' missingMsg
+                atomically $ resend $ ReliableMsg newAcks' missingMsg
 
   partyIndexes = generate (length allParties) id
 
