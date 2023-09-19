@@ -123,6 +123,7 @@ library
     Hydra.Network.Reliability
     Hydra.Node
     Hydra.Node.EventQueue
+    Hydra.Node.Network
     Hydra.Options
     Hydra.Party
     Hydra.Persistence
@@ -207,7 +208,6 @@ executable hydra-node
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
-    , vector
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 

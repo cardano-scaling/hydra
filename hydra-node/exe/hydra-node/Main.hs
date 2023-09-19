@@ -5,7 +5,8 @@ module Main where
 import Hydra.Prelude hiding (fromList)
 
 import Crypto.Random (getRandomBytes)
-import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
+import Hydra.API.Server (Server (..), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
@@ -32,12 +33,8 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..), NetworkCallback, NetworkComponent)
-import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
-import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
+import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
-import Hydra.Network.Ouroboros (withOuroborosNetwork)
-import Hydra.Network.Reliability (withReliability)
 import Hydra.Node (
   HydraNode (..),
   checkHeadState,
@@ -47,6 +44,7 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
+import Hydra.Node.Network (withNetwork)
 import Hydra.Options (
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
@@ -129,32 +127,6 @@ main = do
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
-
-  withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
-    let localhost = Host{hostname = show host, port}
-        connectionMessages = \case
-          Connected nodeid -> sendOutput $ PeerConnected nodeid
-          Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-        me = deriveParty signingKey
-        allParties = fromList $ sort $ me : otherParties
-     in withHeartbeat nodeId connectionMessages $
-          withUnwrapHeartbeats $
-            withReliability (contramap Reliability tracer) me allParties $
-              withAuthentication (contramap Authentication tracer) signingKey otherParties $
-                withOuroborosNetwork (contramap Network tracer) localhost peers
-
-  withUnwrapHeartbeats ::
-    NetworkComponent IO (Authenticated (Heartbeat msg)) msg1 a ->
-    NetworkComponent IO (Heartbeat (Authenticated msg)) msg1 a
-  withUnwrapHeartbeats withBaseNetwork callback =
-    withBaseNetwork (unwrapHeartbeats callback)
-
-  unwrapHeartbeats ::
-    NetworkCallback (Heartbeat (Authenticated msg)) IO ->
-    NetworkCallback (Authenticated (Heartbeat msg)) IO
-  unwrapHeartbeats callback = \case
-    Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) _ -> callback $ Ping nid
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
