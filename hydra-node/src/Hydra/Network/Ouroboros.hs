@@ -7,6 +7,7 @@ module Hydra.Network.Ouroboros (
   withOuroborosNetwork,
   withIOManager,
   TraceOuroborosNetwork,
+  WithHost,
   module Hydra.Network,
   encodeTraceSendRecvFireForget,
 ) where
