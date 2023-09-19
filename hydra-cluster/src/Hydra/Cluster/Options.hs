@@ -35,9 +35,11 @@ parseOptions =
             <> help
               ( toString $
                   unlines
-                    [ "Run cardano-node over a devnet and stand-by. This is useful when one"
-                    , "wants to have a local devnet possibly primed with Hydra contracts and"
-                    , "use it for testing"
+                    [ "Create a local cardano devnet by running a cardano-node, "
+                    , "start a hydra-node and open a single-party head in it. "
+                    , "Generates a wallet key pair and commits some into the head using it. "
+                    , "The keys are available on the state-directory. This is useful as a "
+                    , "sandbox for development and testing."
                     ]
               )
         )

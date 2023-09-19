@@ -58,10 +58,11 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
+import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig, networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), HydraClient, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -78,6 +79,7 @@ import Network.HTTP.Req (
  )
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
+import Test.QuickCheck (generate)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -186,6 +188,42 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     (actorVk, _) <- keysFor actor
     utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+
+-- | Open a Hydra Head with only a single participant but some arbitrary UTxO
+-- committed.
+singlePartyOpenAHead ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  -- | Continuation called when the head is open
+  (HydraClient -> IO ()) ->
+  IO ()
+singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+
+    (walletVk, walletSk) <- generate genKeyPair
+    utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
+
+    withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      -- Commit nothing for now
+      requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+      waitFor tracer 600 [n1] $
+        output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+      callback n1
+ where
+  RunningNode{networkId, nodeSocket} = node
 
 -- | Exercise committing a script utxo that uses inline datums.
 singlePartyCommitsExternalScriptWithInlineDatum ::
