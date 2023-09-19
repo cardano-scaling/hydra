@@ -3,12 +3,12 @@ slug: 26
 title: |
   26. Network failures model
 authors: []
-tags: [Draft]
+tags: [Proposed]
 ---
 
 ## Status
 
-Draft
+Proposed
 
 ## Context
 
@@ -24,13 +24,13 @@ We have identified 3 main sources of failures in the _fail-recovery_ model that 
 
 We agree that we'll want to address all those issues in order to provide a good user experience, as not addressing 2. and 3. can lead to hard to troubleshoot issues with heads. We have not experienced those issues yet as they would probably only crop up under heavy loads, or in the wild. But we also agree we want to tackle 1. first because it's where most of the risk lies. By providing a _Reliable Broadcast_ layer, we will significantly reduce the risks and can then later on address the other points.
 
-Therefore, the scope of this ADR is to address only point 1. above: Ensure broadcast messages are eventually received by all peers, or some timeout is reached.
+Therefore, the scope of this ADR is to address only point 1. above: Ensure broadcast messages are eventually received by all peers, given the sender does not stop before.
 
 ### Discussion
 
 * We are currently using the [ouroboros-framework](https://github.com/input-output-hk/ouroboros-network) and [typed-protocols](https://github.com/input-output-hk/typed-protocols) network stack as a mere [transport](https://osi-model.com/transport-layer/) layer.
-  * Being built on top of TCP, ourboros multiplexer (Mux) provides the same reliability guarantees, plus the multiplexing capabilities of course
-  * It also takes care of reconnecting to peers when a failure is detected which relieves us of doing so, but any reconnection implies a reset of each peer's state machine which means we need to make sure any change to the state of pending/received messages is handled by the applicative layer
+  * Being built on top of TCP, ouroboros multiplexer (Mux) provides the same reliability guarantees, plus the multiplexing capabilities of course
+  * It also takes care of reconnecting to peers when a failure is detected which relieves us from doing so, but any reconnection implies a reset of each peer's state machine which means we need to make sure any change to the state of pending/received messages is handled by the applicative layer
   * Our [FireForget](https://github.com/input-output-hk/hydra/blob/8a8e0829964132bde8949e5249a1ab303af92fb8/hydra-node/src/Hydra/Network/Ouroboros/Type.hs#L31) ignores connections/disconnections
   * Ouroboros/typed-protocols provides enough machinery to implement a reliable broadcast protocol, for example by reusing existing `KeepAlive` protocol and building a more robust point-to-point protocol than what we have now
   * There is a minor limitation, namely that the subscription mechanism does not handle connections invidually, but as a set of equivalent point-to-point full duplex connections whose size (valency) needs to be maintained at a certain threshold, which means that unless backed in the protocol itself, protocol state-machine and applications are not aware of the identity of the remote peer
@@ -51,10 +51,14 @@ Therefore, the scope of this ADR is to address only point 1. above: Ensure broad
 * That layer consumes and produces `Authenticate`d messages in order to identify the source of messages
 * It uses a vector of monotonically increasing _sequence numbers_ associated with each party (including itself) to track what are the last messages from each party and to ensure FIFO delivery of messages
 * This _vector_ is also used to identify peers which are lagging behind and to resend the missing messages, or to drop messages which have already been received
+* This _vector_ is also piggybacked by the ping messages of the heartbeat mechanism so that a node informs its peers of its own situation even if it would have, otherwise, no message to sent to them
+* Sending a ping message does not influence the _vector_ of the sender
+* Any message received which index does not match what the peer expects is dropped
+* Messages deemed not received by a peer a re-sent
 
 ## Consequences
 
-* We keep our existing `Network` interface hence all message will be resent to all peers
+* We keep our existing `Network` interface hence all messages will be resent to all peers
   * This could be later optimized either by providing a smarter interface with a `send :: Peer -> msg -> m ()` unicast function, or by adding a layer with filtering capabilities, or both
 * We need to ensure messages are not kept forever when resending, eg. that the pending messages list is garbage collected
 * We need to refactor our `Heartbeat` layer to decouple the 2 capabilities it embeds, namely sending periodical heartbeats to peers, and providing listeners with information about a peer connection status, so that the `Reliability` layer can actually rely on those heartbeats to get regular update of peers' knowledge even when the actual Head is idle.
