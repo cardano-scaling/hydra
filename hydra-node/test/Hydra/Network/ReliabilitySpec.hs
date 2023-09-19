@@ -8,10 +8,11 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (nullTracer)
-import qualified Data.Set as Set
+import Data.List (nub)
 import Data.Vector (empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Network.Heartbeat (Heartbeat (..))
 import Hydra.Network.Reliability (Msg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
@@ -35,7 +36,7 @@ spec = parallel $ do
             alice
             (fromList [alice, bob])
             ( \incoming _ -> do
-                incoming (Authenticated (Msg (fromList [1, 1]) msg) bob)
+                incoming (Authenticated (Msg (fromList [1, 1]) (Data "node-2" msg)) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -43,14 +44,14 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated msg bob]
+    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg) bob]
 
   prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
     let sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO empty
 
           withReliability nullTracer alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
-            mapM_ (\m -> broadcast m) messages
+            mapM_ (broadcast . Data "node-1") messages
 
           fromList . toList <$> readTVarIO sentMessages
      in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
@@ -74,12 +75,12 @@ spec = parallel $ do
 
           withReliability nullTracer alice (fromList [alice, bob]) aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
             withReliability nullTracer bob (fromList [alice, bob]) bobNetwork (captureIncoming receivedMessages) $ \_ -> do
-              broadcast msg
+              broadcast (Data "node-1" msg)
               threadDelay 1
 
           toList <$> readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated msg alice]
+    receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
 
   prop "drops already received messages" $ \(messages :: [Positive Int]) ->
     let receivedMsgs = runSimOrThrow $ do
@@ -91,7 +92,7 @@ spec = parallel $ do
             (fromList [alice, bob])
             ( \incoming _ -> do
                 forM_ messages $ \(Positive m) ->
-                  incoming (Authenticated (Msg (fromList [0, m]) m) bob)
+                  incoming (Authenticated (Msg (fromList [0, m]) (Data "node-2" m)) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -99,7 +100,7 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
         receivedMessagesInOrder =
-          and (zipWith (==) (payload <$> receivedMsgs) [1 ..])
+          and (zipWith (==) (payload <$> receivedMsgs) (Data "node-2" <$> [1 ..]))
      in receivedMessagesInOrder
           & counterexample (show receivedMsgs)
           & collect (length receivedMsgs)
@@ -113,8 +114,8 @@ spec = parallel $ do
             alice
             (fromList [alice, bob, carol])
             ( \incoming _ -> do
-                incoming (Authenticated (Msg (fromList [0, 1, 0]) msg) bob)
-                incoming (Authenticated (Msg (fromList [0, 0, 1]) msg) carol)
+                incoming (Authenticated (Msg (fromList [0, 1, 0]) (Data "node-2" msg)) bob)
+                incoming (Authenticated (Msg (fromList [0, 0, 1]) (Data "node-3" msg)) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -122,11 +123,12 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg carol]
+    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg) bob, Authenticated (Data "node-3" msg) carol]
 
   prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
-      let messagesList = show <$> [1 .. totalNumberOfMessages]
+      let messagesList = Data "node-1" <$> [1 .. totalNumberOfMessages]
+          msg' = 42
           sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
@@ -139,8 +141,8 @@ spec = parallel $ do
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
                     ( do
                         threadDelay 2
-                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob)
-                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) msg) bob)
+                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
+                        incoming (Authenticated (Msg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
                     )
               )
               noop
@@ -152,7 +154,7 @@ spec = parallel $ do
             toList <$> readTVarIO sentMessages
        in length sentMsgs
             <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
-            && Set.fromList messagesList == Set.fromList sentMsgs
+            && nub messagesList == nub sentMsgs
             & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
             & counterexample ("sent messages: " <> show sentMsgs)
             & counterexample ("total messages: " <> show messagesList)
@@ -168,15 +170,15 @@ spec = parallel $ do
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
-                  (incoming (Authenticated (Msg (fromList [0, 1]) msg) bob))
+                  (incoming (Authenticated (Msg (fromList [0, 1]) (Data "node-2" msg)) bob))
             )
             noop
             $ \Network{broadcast} -> do
               threadDelay 1
-              broadcast msg
+              broadcast (Data "node-1" msg)
           toList <$> readTVarIO sentMessages
 
-    receivedMsgs `shouldBe` [Msg (fromList [1, 1]) msg]
+    receivedMsgs `shouldBe` [Msg (fromList [1, 1]) (Data "node-1" msg)]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
