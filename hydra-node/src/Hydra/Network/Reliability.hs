@@ -96,12 +96,16 @@ instance Exception ReliabilityException
 
 withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
+  -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
+  -- | Our own party identifier.
   Party ->
-  Vector Party ->
-  NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
+  -- | Other parties' identifiers.
+  [Party] ->
+  -- | Underlying network component providing consuming and sending channels.
+  NetworkComponent m (Authenticated (Msg (Heartbeat msg))) (Msg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer us allParties withRawNetwork callback action = do
+withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO empty
   resendQ <- newTQueueIO
@@ -110,11 +114,13 @@ withReliability tracer us allParties withRawNetwork callback action = do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast ackCounter sentMessages network
  where
+  allParties = fromList $ sort $ me : otherParties
+
   reliableBroadcast ackCounter sentMessages Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
-            let ourIndex = fromJust $ elemIndex us allParties
+            let ourIndex = fromJust $ elemIndex me allParties
              in case msg of
                   Data{} -> do
                     traceWith tracer Broadcasting
@@ -157,7 +163,7 @@ withReliability tracer us allParties withRawNetwork callback action = do
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
-        let myIndex = fromJust $ elemIndex us allParties
+        let myIndex = fromJust $ elemIndex me allParties
         let acked = acks ! myIndex
         let latestMsgAck = existingAcks ! myIndex
         when (acked < latestMsgAck && n <= count) $ do

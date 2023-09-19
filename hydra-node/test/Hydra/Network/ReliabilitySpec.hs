@@ -34,7 +34,7 @@ spec = parallel $ do
           withReliability
             nullTracer
             alice
-            (fromList [alice, bob])
+            [bob]
             ( \incoming _ -> do
                 incoming (Authenticated (ReliableMsg (fromList [1, 1]) (Data "node-2" msg)) bob)
             )
@@ -50,7 +50,7 @@ spec = parallel $ do
     let sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO empty
 
-          withReliability nullTracer alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withReliability nullTracer alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             mapM_ (broadcast . Data "node-1") messages
 
           fromList . toList <$> readTVarIO sentMessages
@@ -73,8 +73,8 @@ spec = parallel $ do
                   $ \_ ->
                     action (Network{broadcast = const $ pure ()})
 
-          withReliability nullTracer alice (fromList [alice, bob]) aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-            withReliability nullTracer bob (fromList [alice, bob]) bobNetwork (captureIncoming receivedMessages) $ \_ -> do
+          withReliability nullTracer alice [bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
+            withReliability nullTracer bob [bob] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
               broadcast (Data "node-1" msg)
               threadDelay 1
 
@@ -89,7 +89,7 @@ spec = parallel $ do
           withReliability
             nullTracer
             alice
-            (fromList [alice, bob])
+            [bob]
             ( \incoming _ -> do
                 forM_ messages $ \(Positive m) ->
                   incoming (Authenticated (ReliableMsg (fromList [0, m]) (Data "node-2" m)) bob)
@@ -112,7 +112,7 @@ spec = parallel $ do
           withReliability
             nullTracer
             alice
-            (fromList [alice, bob, carol])
+            [bob, carol]
             ( \incoming _ -> do
                 incoming (Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg)) bob)
                 incoming (Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg)) carol)
@@ -135,7 +135,7 @@ spec = parallel $ do
             withReliability
               nullTracer
               alice
-              (fromList [alice, bob])
+              [bob]
               ( \incoming action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
@@ -166,7 +166,7 @@ spec = parallel $ do
           withReliability
             nullTracer
             alice
-            (fromList [alice, bob])
+            [bob]
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
