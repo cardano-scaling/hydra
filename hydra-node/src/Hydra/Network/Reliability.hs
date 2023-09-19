@@ -109,6 +109,21 @@ data ReliabilityException
 
 instance Exception ReliabilityException
 
+data ReliabilityLog
+  = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | Broadcasting
+  | Callbacking
+  | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
+  | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary (Vector Int) where
+  arbitrary = fromList <$> listOf (getPositive <$> arbitrary)
+
+instance Arbitrary ReliabilityLog where
+  arbitrary = genericArbitrary
+
 -- | Middleware function to handle message counters tracking and resending logic.
 --
 -- '''NOTE''': There is some "abstraction leak" here, because the `withReliability`
@@ -127,7 +142,7 @@ withReliability ::
   -- | Other parties' identifiers.
   [Party] ->
   -- | Underlying network component providing consuming and sending channels.
-  NetworkComponent m (Authenticated (Msg (Heartbeat msg))) (Msg (Heartbeat msg)) a ->
+  NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
@@ -201,46 +216,34 @@ withReliability tracer me otherParties withRawNetwork callback action = do
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
-        let myIndex = fromJust $ elemIndex me allParties
-        let acked = acks ! myIndex
-        let latestMsgAck = existingAcks ! myIndex
-        when (acked < latestMsgAck && n <= count) $ do
-          let missing = fromList [acked + 1 .. latestMsgAck]
-          messages <- readTVarIO sentMessages
-          forM_ missing $ \idx -> do
-            case messages !? (idx - 1) of
-              Nothing ->
-                throwIO $
-                  ReliabilityFailedToFindMsg $
-                    "FIXME: this should never happen, there's no sent message at index "
-                      <> show idx
-                      <> ", messages length = "
-                      <> show (length messages)
-                      <> ", latest message ack: "
-                      <> show latestMsgAck
-                      <> ", acked: "
-                      <> show acked
-              Just missingMsg -> do
-                let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
-                traceWith tracer (Resending missing acks newAcks' partyIndex)
-                atomically $ resend $ ReliableMsg newAcks' missingMsg
-
-  partyIndexes = generate (length allParties) id
+        resendMessages resend partyIndex sentMessages existingAcks acks n count
 
   constructAcks acks wantedIndex =
     zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
 
-data ReliabilityLog
-  = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  | Broadcasting
-  | Callbacking
-  | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
-  | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  partyIndexes = generate (length allParties) id
 
-instance Arbitrary (Vector Int) where
-  arbitrary = fromList <$> listOf (getPositive <$> arbitrary)
-
-instance Arbitrary ReliabilityLog where
-  arbitrary = genericArbitrary
+  resendMessages resend partyIndex sentMessages existingAcks acks n count = do
+    let myIndex = fromJust $ elemIndex me allParties
+    let acked = acks ! myIndex
+    let latestMsgAck = existingAcks ! myIndex
+    when (acked < latestMsgAck && n <= count) $ do
+      let missing = fromList [acked + 1 .. latestMsgAck]
+      messages <- readTVarIO sentMessages
+      forM_ missing $ \idx -> do
+        case messages !? (idx - 1) of
+          Nothing ->
+            throwIO $
+              ReliabilityFailedToFindMsg $
+                "FIXME: this should never happen, there's no sent message at index "
+                  <> show idx
+                  <> ", messages length = "
+                  <> show (length messages)
+                  <> ", latest message ack: "
+                  <> show latestMsgAck
+                  <> ", acked: "
+                  <> show acked
+          Just missingMsg -> do
+            let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
+            traceWith tracer (Resending missing acks newAcks' partyIndex)
+            atomically $ resend $ ReliableMsg newAcks' missingMsg
