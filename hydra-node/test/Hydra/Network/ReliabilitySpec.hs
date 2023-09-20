@@ -25,143 +25,145 @@ spec = parallel $ do
   let msg' = 42 :: Int
   msg <- Data "node-1" <$> runIO (generate @String arbitrary)
 
-  it "forward received messages" $ do
-    let propagatedMessages = aliceReceivesMessages [Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-2" msg)) bob]
+  describe "receiving messages" $ do
+    it "forward received messages" $ do
+      let propagatedMessages = aliceReceivesMessages [Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-2" msg)) bob]
 
-    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg) bob]
+      propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg) bob]
 
-  prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
-    let sentMsgs = runSimOrThrow $ do
-          sentMessages <- newTVarIO empty
+    it "do not drop messages with same ids from different peers" $ do
+      let propagatedMessages =
+            aliceReceivesMessages
+              [ Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg')) bob
+              , Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg')) carol
+              ]
 
-          withReliability nullTracer alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
-            mapM_ (broadcast . Data "node-1") messages
+      propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') bob, Authenticated (Data "node-3" msg') carol]
 
-          fromList . toList <$> readTVarIO sentMessages
-     in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+    it "Ignores messages with malformed acks" $ do
+      let malFormedAck = fromList [1, 0]
+          wellFormedAck = fromList [1, 0, 1]
+          propagatedMessages =
+            aliceReceivesMessages
+              [ Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob
+              , Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol
+              ]
 
-  it "broadcasts messages to single connected peer" $ do
-    let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO empty
-          queue <- newTQueueIO
+      propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') carol]
 
-          let aliceNetwork _ action = do
-                action (Network{broadcast = atomically . writeTQueue queue . flip Authenticated alice})
+    prop "drops already received messages" $ \(messages :: [Positive Int]) ->
+      let receivedMsgs = runSimOrThrow $ do
+            receivedMessages <- newTVarIO empty
 
-          let bobNetwork callback action = do
-                withAsync
-                  ( forever $ do
-                      newMsg <- atomically $ readTQueue queue
-                      callback newMsg
-                  )
-                  $ \_ ->
-                    action (Network{broadcast = const $ pure ()})
+            withReliability
+              nullTracer
+              alice
+              [bob]
+              ( \incoming _ -> do
+                  forM_ messages $ \(Positive m) ->
+                    incoming (Authenticated (ReliableMsg (fromList [0, m]) (Data "node-2" m)) bob)
+              )
+              (captureIncoming receivedMessages)
+              $ \_ ->
+                pure ()
 
-          withReliability nullTracer alice [bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-            withReliability nullTracer bob [alice] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
-              broadcast (Data "node-1" msg)
-              threadDelay 1
+            toList <$> readTVarIO receivedMessages
+          receivedMessagesInOrder =
+            and (zipWith (==) (payload <$> receivedMsgs) (Data "node-2" <$> [1 ..]))
+       in receivedMessagesInOrder
+            & counterexample (show receivedMsgs)
+            & collect (length receivedMsgs)
 
-          toList <$> readTVarIO receivedMessages
-
-    receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
-
-  prop "drops already received messages" $ \(messages :: [Positive Int]) ->
-    let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO empty
-
-          withReliability
-            nullTracer
-            alice
-            [bob]
-            ( \incoming _ -> do
-                forM_ messages $ \(Positive m) ->
-                  incoming (Authenticated (ReliableMsg (fromList [0, m]) (Data "node-2" m)) bob)
-            )
-            (captureIncoming receivedMessages)
-            $ \_ ->
-              pure ()
-
-          toList <$> readTVarIO receivedMessages
-        receivedMessagesInOrder =
-          and (zipWith (==) (payload <$> receivedMsgs) (Data "node-2" <$> [1 ..]))
-     in receivedMessagesInOrder
-          & counterexample (show receivedMsgs)
-          & collect (length receivedMsgs)
-
-  it "do not drop messages with same ids from different peers" $ do
-    let propagatedMessages =
-          aliceReceivesMessages
-            [ Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg')) bob
-            , Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg')) carol
-            ]
-
-    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') bob, Authenticated (Data "node-3" msg') carol]
-
-  prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
-    forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
-      let messagesList = Data "node-1" <$> [1 .. totalNumberOfMessages]
-          sentMsgs = runSimOrThrow $ do
+  describe "sending messages" $ do
+    prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
+      let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
+            withReliability nullTracer alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+              mapM_ (broadcast . Data "node-1") messages
+
+            fromList . toList <$> readTVarIO sentMessages
+       in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+
+    it "broadcasts messages to single connected peer" $ do
+      let receivedMsgs = runSimOrThrow $ do
+            receivedMessages <- newTVarIO empty
+            queue <- newTQueueIO
+
+            let aliceNetwork _ action = do
+                  action (Network{broadcast = atomically . writeTQueue queue . flip Authenticated alice})
+
+            let bobNetwork callback action = do
+                  withAsync
+                    ( forever $ do
+                        newMsg <- atomically $ readTQueue queue
+                        callback newMsg
+                    )
+                    $ \_ ->
+                      action (Network{broadcast = const $ pure ()})
+
+            withReliability nullTracer alice [bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
+              withReliability nullTracer bob [alice] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
+                broadcast (Data "node-1" msg)
+                threadDelay 1
+
+            toList <$> readTVarIO receivedMessages
+
+      receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
+
+    prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
+      forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
+        let messagesList = Data "node-1" <$> [1 .. totalNumberOfMessages]
+            sentMsgs = runSimOrThrow $ do
+              sentMessages <- newTVarIO empty
+
+              withReliability
+                nullTracer
+                alice
+                [bob]
+                ( \incoming action -> do
+                    concurrently_
+                      (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
+                      ( do
+                          threadDelay 2
+                          incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
+                          incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
+                      )
+                )
+                noop
+                $ \Network{broadcast} -> do
+                  forM_ messagesList $ \m ->
+                    broadcast m
+                  threadDelay 10
+
+              toList <$> readTVarIO sentMessages
+         in length sentMsgs
+              <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
+              && nub messagesList == nub sentMsgs
+              & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
+              & counterexample ("sent messages: " <> show sentMsgs)
+              & counterexample ("total messages: " <> show messagesList)
+              & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
+
+    it "broadcast updates counter from peers" $ do
+      let receivedMsgs = runSimOrThrow $ do
+            sentMessages <- newTVarIO empty
             withReliability
               nullTracer
               alice
               [bob]
               ( \incoming action -> do
                   concurrently_
-                    (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
-                    ( do
-                        threadDelay 2
-                        incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
-                        incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
-                    )
+                    (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
+                    (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
               )
               noop
               $ \Network{broadcast} -> do
-                forM_ messagesList $ \m ->
-                  broadcast m
-                threadDelay 10
-
+                threadDelay 1
+                broadcast (Data "node-1" msg)
             toList <$> readTVarIO sentMessages
-       in length sentMsgs
-            <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
-            && nub messagesList == nub sentMsgs
-            & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
-            & counterexample ("sent messages: " <> show sentMsgs)
-            & counterexample ("total messages: " <> show messagesList)
-            & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
 
-  it "broadcast updates counter from peers" $ do
-    let receivedMsgs = runSimOrThrow $ do
-          sentMessages <- newTVarIO empty
-          withReliability
-            nullTracer
-            alice
-            [bob]
-            ( \incoming action -> do
-                concurrently_
-                  (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
-                  (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
-            )
-            noop
-            $ \Network{broadcast} -> do
-              threadDelay 1
-              broadcast (Data "node-1" msg)
-          toList <$> readTVarIO sentMessages
-
-    receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
-
-  it "Ignores messages with malformed acks" $ do
-    let malFormedAck = fromList [1, 0]
-        wellFormedAck = fromList [1, 0, 1]
-        propagatedMessages =
-          aliceReceivesMessages
-            [ Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob
-            , Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol
-            ]
-
-    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') carol]
+      receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
