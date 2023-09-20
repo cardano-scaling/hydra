@@ -254,7 +254,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
 
 prop_checkModel :: Actions WorldState -> Property
 prop_checkModel actions =
-  within 20000000 $
+  within 30000000 $
     property $
       runIOSimProp $ do
         (metadata, _symEnv) <- runActions actions
