@@ -16,7 +16,7 @@ carol = deriveParty carolSk
 aliceSk, bobSk, carolSk :: SigningKey HydraKey
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
-carolSk = generateSigningKey "carol"
+carolSk = generateSigningKey "zcarol"
 
 aliceVk, bobVk, carolVk :: VerificationKey HydraKey
 aliceVk = getVerificationKey aliceSk

@@ -25,6 +25,7 @@ spec = parallel $ do
       captureIncoming receivedMessages msg =
         atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
+  let msg' = 42 :: Int
   msg <- Data "node-1" <$> runIO (generate @String arbitrary)
 
   it "forward received messages" $ do
@@ -74,7 +75,7 @@ spec = parallel $ do
                     action (Network{broadcast = const $ pure ()})
 
           withReliability nullTracer alice [bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-            withReliability nullTracer bob [bob] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
+            withReliability nullTracer bob [alice] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
               broadcast (Data "node-1" msg)
               threadDelay 1
 
@@ -114,8 +115,8 @@ spec = parallel $ do
             alice
             [bob, carol]
             ( \incoming _ -> do
-                incoming (Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg)) bob)
-                incoming (Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg)) carol)
+                incoming (Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg')) bob)
+                incoming (Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg')) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -123,12 +124,11 @@ spec = parallel $ do
 
           toList <$> readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg) bob, Authenticated (Data "node-3" msg) carol]
+    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg') bob, Authenticated (Data "node-3" msg') carol]
 
   prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
       let messagesList = Data "node-1" <$> [1 .. totalNumberOfMessages]
-          msg' = 42
           sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
