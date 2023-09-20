@@ -4,7 +4,6 @@ module Main where
 
 import Hydra.Prelude hiding (fromList)
 
-import Crypto.Random (getRandomBytes)
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
@@ -57,7 +56,6 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
-import System.FilePath ((<.>))
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
   deriving (Show)
