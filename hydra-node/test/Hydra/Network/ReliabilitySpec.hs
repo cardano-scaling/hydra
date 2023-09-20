@@ -9,7 +9,7 @@ import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writ
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (nullTracer)
 import Data.List (nub)
-import Data.Vector (empty, fromList, head, snoc)
+import Data.Vector (Vector, empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
@@ -22,30 +22,13 @@ spec = parallel $ do
   let captureOutgoing msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (`snoc` msg)}
 
-      captureIncoming receivedMessages msg =
-        atomically $ modifyTVar' receivedMessages (`snoc` msg)
-
   let msg' = 42 :: Int
   msg <- Data "node-1" <$> runIO (generate @String arbitrary)
 
   it "forward received messages" $ do
-    let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO empty
+    let propagatedMessages = aliceReceivesMessages [Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-2" msg)) bob]
 
-          withReliability
-            nullTracer
-            alice
-            [bob]
-            ( \incoming _ -> do
-                incoming (Authenticated (ReliableMsg (fromList [1, 1]) (Data "node-2" msg)) bob)
-            )
-            (captureIncoming receivedMessages)
-            $ \_ ->
-              pure ()
-
-          toList <$> readTVarIO receivedMessages
-
-    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg) bob]
+    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg) bob]
 
   prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
     let sentMsgs = runSimOrThrow $ do
@@ -107,24 +90,13 @@ spec = parallel $ do
           & collect (length receivedMsgs)
 
   it "do not drop messages with same ids from different peers" $ do
-    let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO empty
+    let propagatedMessages =
+          aliceReceivesMessages
+            [ Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg')) bob
+            , Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg')) carol
+            ]
 
-          withReliability
-            nullTracer
-            alice
-            [bob, carol]
-            ( \incoming _ -> do
-                incoming (Authenticated (ReliableMsg (fromList [0, 1, 0]) (Data "node-2" msg')) bob)
-                incoming (Authenticated (ReliableMsg (fromList [0, 0, 1]) (Data "node-3" msg')) carol)
-            )
-            (captureIncoming receivedMessages)
-            $ \_ ->
-              pure ()
-
-          toList <$> readTVarIO receivedMessages
-
-    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg') bob, Authenticated (Data "node-3" msg') carol]
+    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') bob, Authenticated (Data "node-3" msg') carol]
 
   prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
     forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
@@ -181,26 +153,36 @@ spec = parallel $ do
     receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
   it "Ignores messages with malformed acks" $ do
-    let receivedMsgs = runSimOrThrow $ do
-          receivedMessages <- newTVarIO empty
+    let malFormedAck = fromList [1, 0]
+        wellFormedAck = fromList [1, 0, 1]
+        propagatedMessages =
+          aliceReceivesMessages
+            [ Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob
+            , Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol
+            ]
 
-          withReliability
-            nullTracer
-            alice
-            [bob, carol]
-            ( \incoming _ -> do
-                let malFormedAck = fromList [1, 0]
-                let wellFormedAck = fromList [1, 0, 1]
-                incoming (Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob)
-                incoming (Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol)
-            )
-            (captureIncoming receivedMessages)
-            $ \_ ->
-              pure ()
-
-          toList <$> readTVarIO receivedMessages
-
-    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg') carol]
+    propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') carol]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
+
+aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
+aliceReceivesMessages messages = runSimOrThrow $ do
+  receivedMessages <- newTVarIO empty
+
+  _ <- withReliability
+    nullTracer
+    alice
+    [bob, carol]
+    ( \incoming _ -> do
+        mapM incoming messages
+    )
+    (captureIncoming receivedMessages)
+    $ \_ ->
+      pure [()]
+
+  toList <$> readTVarIO receivedMessages
+
+captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
+captureIncoming receivedMessages msg =
+  atomically $ modifyTVar' receivedMessages (`snoc` msg)
