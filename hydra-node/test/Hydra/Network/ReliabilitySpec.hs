@@ -13,7 +13,7 @@ import Data.Vector (empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
-import Hydra.Network.Reliability (ReliabilityException (ReliabilityReceivedAckedMalformed), ReliableMsg (..), withReliability)
+import Hydra.Network.Reliability (ReliableMsg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -180,19 +180,27 @@ spec = parallel $ do
 
     receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
-  it "Fails with ReliabilityReceivedAckedMalformed if length acks /= all parties" $ do
-    withReliability
-      nullTracer
-      alice
-      [bob, carol]
-      ( \incoming _ -> do
-          incoming (Authenticated (ReliableMsg (fromList [1, 0]) (Data "node-2" msg')) bob)
-      )
-      noop
-      noop
-      `shouldThrow` \case
-        ReliabilityReceivedAckedMalformed -> True
-        _ -> False
+  it "Ignores messages with malformed acks" $ do
+    let receivedMsgs = runSimOrThrow $ do
+          receivedMessages <- newTVarIO empty
+
+          withReliability
+            nullTracer
+            alice
+            [bob, carol]
+            ( \incoming _ -> do
+                let malFormedAck = fromList [1, 0]
+                let wellFormedAck = fromList [1, 0, 1]
+                incoming (Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob)
+                incoming (Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol)
+            )
+            (captureIncoming receivedMessages)
+            $ \_ ->
+              pure ()
+
+          toList <$> readTVarIO receivedMessages
+
+    receivedMsgs `shouldBe` [Authenticated (Data "node-2" msg') carol]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
