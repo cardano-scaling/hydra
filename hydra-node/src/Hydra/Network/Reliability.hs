@@ -182,7 +182,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
   reliableCallback ackCounter sentMessages resend (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
-      then throwIO ReliabilityReceivedAckedMalformed
+      then ignoreMalformedMessages
       else do
         partyIndex <- findPartyIndex party
         traceWith tracer Callbacking
@@ -219,6 +219,8 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         -- resend messages if party did not acknowledge our latest idx
         resendMessages resend partyIndex sentMessages existingAcks acks n count
+
+  ignoreMalformedMessages = pure ()
 
   constructAcks acks wantedIndex =
     zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
