@@ -61,7 +61,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (Tracer)
-import Data.Maybe (fromJust)
 import Data.Vector (
   Vector,
   elemIndex,
@@ -105,6 +104,9 @@ data ReliabilityException
   | -- | This should never happen. We should always be able to find a message by
     -- the given index.
     ReliabilityFailedToFindMsg String
+  | -- | This should never happen. We should always be able to find a party
+    -- index in a list of parties.
+    ReliabilityMissingPartyIndex Party
   deriving (Eq, Show)
 
 instance Exception ReliabilityException
@@ -148,42 +150,42 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO empty
   resendQ <- newTQueueIO
+  ourIndex <- findPartyIndex me
   let resend = writeTQueue resendQ
   withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ackCounter sentMessages network
+      reliableBroadcast ourIndex ackCounter sentMessages network
  where
   allParties = fromList $ sort $ me : otherParties
 
-  reliableBroadcast ackCounter sentMessages Network{broadcast} =
+  reliableBroadcast ourIndex ackCounter sentMessages Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
-            let ourIndex = fromJust $ elemIndex me allParties
-             in case msg of
-                  Data{} -> do
-                    traceWith tracer Broadcasting
-                    ackCounter' <- atomically $ do
-                      acks <- readTVar ackCounter
-                      let newAcks = constructAcks acks ourIndex
-                      writeTVar ackCounter newAcks
-                      modifyTVar' sentMessages (`snoc` msg)
-                      readTVar ackCounter
+            case msg of
+              Data{} -> do
+                traceWith tracer Broadcasting
+                ackCounter' <- atomically $ do
+                  acks <- readTVar ackCounter
+                  let newAcks = constructAcks acks ourIndex
+                  writeTVar ackCounter newAcks
+                  modifyTVar' sentMessages (`snoc` msg)
+                  readTVar ackCounter
 
-                    traceWith tracer (BroadcastCounter ourIndex ackCounter')
-                    broadcast $ ReliableMsg ackCounter' msg
-                  Ping{} -> do
-                    acks <- readTVarIO ackCounter
-                    traceWith tracer (BroadcastCounter ourIndex acks)
-                    broadcast $ ReliableMsg acks msg
+                traceWith tracer (BroadcastCounter ourIndex ackCounter')
+                broadcast $ ReliableMsg ackCounter' msg
+              Ping{} -> do
+                acks <- readTVarIO ackCounter
+                traceWith tracer (BroadcastCounter ourIndex acks)
+                broadcast $ ReliableMsg acks msg
         }
 
   reliableCallback ackCounter sentMessages resend (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then throwIO ReliabilityReceivedAckedMalformed
       else do
+        partyIndex <- findPartyIndex party
         traceWith tracer Callbacking
-        let partyIndex = fromJust $ elemIndex party allParties
         (shouldCallback, n, count, existingAcks) <- atomically $ do
           let n = acks ! partyIndex
           existingAcks <- readTVar ackCounter
@@ -224,7 +226,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   partyIndexes = generate (length allParties) id
 
   resendMessages resend partyIndex sentMessages existingAcks acks n count = do
-    let myIndex = fromJust $ elemIndex me allParties
+    myIndex <- findPartyIndex me
     let acked = acks ! myIndex
     let latestMsgAck = existingAcks ! myIndex
     when (acked < latestMsgAck && n <= count) $ do
@@ -247,3 +249,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
             traceWith tracer (Resending missing acks newAcks' partyIndex)
             atomically $ resend $ ReliableMsg newAcks' missingMsg
+
+  -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
+  findPartyIndex party =
+    maybe (throwIO $ ReliabilityMissingPartyIndex party) pure $ elemIndex party allParties

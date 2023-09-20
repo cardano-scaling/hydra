@@ -13,7 +13,7 @@ import Data.Vector (empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
-import Hydra.Network.Reliability (ReliableMsg (..), withReliability)
+import Hydra.Network.Reliability (ReliabilityException (ReliabilityReceivedAckedMalformed), ReliableMsg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -179,6 +179,20 @@ spec = parallel $ do
           toList <$> readTVarIO sentMessages
 
     receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
+
+  it "Fails with ReliabilityReceivedAckedMalformed if length acks /= all parties" $ do
+    withReliability
+      nullTracer
+      alice
+      [bob, carol]
+      ( \incoming _ -> do
+          incoming (Authenticated (ReliableMsg (fromList [1, 0]) (Data "node-2" msg')) bob)
+      )
+      noop
+      noop
+      `shouldThrow` \case
+        ReliabilityReceivedAckedMalformed -> True
+        _ -> False
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
