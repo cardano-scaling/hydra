@@ -27,7 +27,9 @@ spec = parallel $ do
 
   describe "receiving messages" $ do
     it "forward received messages" $ do
-      let propagatedMessages = aliceReceivesMessages [Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-2" msg)) bob]
+      let propagatedMessages =
+            aliceReceivesMessages
+              [Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-2" msg)) bob]
 
       propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg) bob]
 
@@ -52,27 +54,17 @@ spec = parallel $ do
       propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') carol]
 
     prop "drops already received messages" $ \(messages :: [Positive Int]) ->
-      let receivedMsgs = runSimOrThrow $ do
-            receivedMessages <- newTVarIO empty
+      -- FIXME this property will not fail if we drop all the messages
+      let
+        propagatedMessages = aliceReceivesMessages messagesToSend
 
-            withReliability
-              nullTracer
-              alice
-              [bob]
-              ( \incoming _ -> do
-                  forM_ messages $ \(Positive m) ->
-                    incoming (Authenticated (ReliableMsg (fromList [0, m]) (Data "node-2" m)) bob)
-              )
-              (captureIncoming receivedMessages)
-              $ \_ ->
-                pure ()
-
-            toList <$> readTVarIO receivedMessages
-          receivedMessagesInOrder =
-            and (zipWith (==) (payload <$> receivedMsgs) (Data "node-2" <$> [1 ..]))
-       in receivedMessagesInOrder
-            & counterexample (show receivedMsgs)
-            & collect (length receivedMsgs)
+        messagesToSend = map (\(Positive m) -> Authenticated (ReliableMsg (fromList [0, m, 0]) (Data "node-2" m)) bob) messages
+        receivedMessagesInOrder messageReceived =
+          and (zipWith (==) (payload <$> messageReceived) (Data "node-2" <$> [1 ..]))
+       in
+        receivedMessagesInOrder propagatedMessages
+          & counterexample (show propagatedMessages)
+          & collect (length propagatedMessages)
 
   describe "sending messages" $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
