@@ -78,6 +78,11 @@ spec = parallel $ do
        in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
     it "broadcasts messages to single connected peer" $ do
+      -- FIXME: this test does not prove more than the above property:
+      --        `broadcast messages to the network assigning a sequential id`
+      --        we should drop this test as it only proves that this test
+      --        custom implementation of the network stack with a queue works
+      --        Alternative: explain to @pgrange what he is missing here.
       let receivedMsgs = runSimOrThrow $ do
             receivedMessages <- newTVarIO empty
             queue <- newTQueueIO
