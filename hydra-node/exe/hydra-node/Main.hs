@@ -4,22 +4,16 @@ module Main where
 
 import Hydra.Prelude
 
-import Crypto.Random (getRandomBytes)
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
 import Hydra.Cardano.Api (
-  File (..),
-  Key (SigningKey),
-  getVerificationKey,
   serialiseToRawBytesHex,
-  writeFileTextEnvelope,
  )
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Direct.Util (readKeyPair)
-import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -52,7 +46,6 @@ import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
-  GenerateKeyPair (GenerateKeyPair, outputFile),
   LedgerConfig (..),
   PublishOptions (..),
   RunOptions (..),
@@ -61,7 +54,7 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
-import System.FilePath ((<.>))
+import Hydra.Utils (genHydraKeys)
 
 main :: IO ()
 main = do
@@ -73,7 +66,7 @@ main = do
     Publish options ->
       publish options
     GenHydraKey outputFile ->
-      genHydraKeys outputFile
+      either (die . show) pure =<< genHydraKeys outputFile
  where
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
@@ -119,11 +112,6 @@ main = do
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
-
-  genHydraKeys GenerateKeyPair{outputFile} = do
-    sk :: SigningKey HydraKey <- generateSigningKey <$> getRandomBytes 16
-    void $ writeFileTextEnvelope (File (outputFile <.> "sk")) Nothing sk
-    void $ writeFileTextEnvelope (File (outputFile <.> "vk")) Nothing (getVerificationKey sk)
 
   withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
     let localhost = Host{hostname = show host, port}
