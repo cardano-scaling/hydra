@@ -186,10 +186,10 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       else do
         partyIndex <- findPartyIndex party
         traceWith tracer Callbacking
-        (shouldCallback, n, count, existingAcks) <- atomically $ do
-          let n = acks ! partyIndex
-          existingAcks <- readTVar ackCounter
-          let count = existingAcks ! partyIndex
+        (shouldCallback, messageAckForParty, knownAckForParty, knownAcks) <- atomically $ do
+          let messageAckForParty = acks ! partyIndex
+          knownAcks <- readTVar ackCounter
+          let knownAckForParty = knownAcks ! partyIndex
 
           -- handle message from party iff it's next in line OR if it's a Ping
           --
@@ -206,19 +206,19 @@ withReliability tracer me otherParties withRawNetwork callback action = do
           --
           -- Pings are observed only for the information it provides about the
           -- peer's view of our index
-          if n == count + 1
+          if messageAckForParty == knownAckForParty + 1
             then do
-              let newAcks = constructAcks existingAcks partyIndex
+              let newAcks = constructAcks knownAcks partyIndex
               writeTVar ackCounter newAcks
-              return (True, n, count, newAcks)
-            else return (isPing msg, n, count, existingAcks)
+              return (True, messageAckForParty, knownAckForParty, newAcks)
+            else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
 
         when shouldCallback $ do
-          traceWith tracer (Receiving acks existingAcks partyIndex)
+          traceWith tracer (Receiving acks knownAcks partyIndex)
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
-        resendMessages resend partyIndex sentMessages existingAcks acks n count
+        resendMessages resend partyIndex sentMessages knownAcks acks messageAckForParty knownAckForParty
 
   ignoreMalformedMessages = pure ()
 
@@ -227,12 +227,12 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
   partyIndexes = generate (length allParties) id
 
-  resendMessages resend partyIndex sentMessages existingAcks acks n count = do
+  resendMessages resend partyIndex sentMessages knownAcks messageAcks messageAckForParty knownAckForParty = do
     myIndex <- findPartyIndex me
-    let acked = acks ! myIndex
-    let latestMsgAck = existingAcks ! myIndex
-    when (acked < latestMsgAck && n <= count) $ do
-      let missing = fromList [acked + 1 .. latestMsgAck]
+    let messageAckForUs = messageAcks ! myIndex
+    let knownAckForUs = knownAcks ! myIndex
+    when (messageAckForUs < knownAckForUs && messageAckForParty <= knownAckForParty) $ do
+      let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
         case messages !? (idx - 1) of
@@ -244,12 +244,12 @@ withReliability tracer me otherParties withRawNetwork callback action = do
                   <> ", messages length = "
                   <> show (length messages)
                   <> ", latest message ack: "
-                  <> show latestMsgAck
+                  <> show knownAckForUs
                   <> ", acked: "
-                  <> show acked
+                  <> show messageAckForUs
           Just missingMsg -> do
-            let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) existingAcks partyIndexes
-            traceWith tracer (Resending missing acks newAcks' partyIndex)
+            let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
+            traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
             atomically $ resend $ ReliableMsg newAcks' missingMsg
 
   -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
