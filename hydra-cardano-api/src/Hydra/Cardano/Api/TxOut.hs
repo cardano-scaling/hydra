@@ -33,7 +33,7 @@ txOuts' (getTxBody -> txBody) =
 -- Number of assets, presence of datum and/or reference scripts may affect this
 -- minimum value.
 mkTxOutAutoBalance ::
-  BundledProtocolParameters Era ->
+  Ledger.PParams LedgerEra ->
   AddressInEra Era ->
   Value ->
   TxOutDatum CtxTx Era ->

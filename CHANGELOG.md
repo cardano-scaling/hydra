@@ -10,10 +10,11 @@ changes.
 
 ## [0.13.0] - UNRELEASED
 
+- **BREAKING** Update to plutus 1.9. This changes the script hashes.
+
 - Query at the tip for local cardano-node queries. We witnessed these queries
   failing in case of a rollback and always querying at the tip seems to fix
   this.
-
 
 - **BREAKING** Changes to `hydra-plutus` scripts.
 

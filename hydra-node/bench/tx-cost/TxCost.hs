@@ -52,8 +52,8 @@ import Hydra.Ledger.Cardano.Evaluate (
   slotNoFromUTCTime,
   usedExecutionUnits,
  )
-import Hydra.Snapshot (genConfirmedSnapshot)
 import Hydra.Plutus.Orphans ()
+import Hydra.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V2 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate)

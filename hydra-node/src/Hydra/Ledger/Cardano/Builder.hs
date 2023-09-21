@@ -65,14 +65,14 @@ emptyTxBody =
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraBabbage def)
+    (BuildTxWith $ Just $ LedgerProtocolParameters def)
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone
     TxMintValueNone
     TxScriptValidityNone
-    TxGovernanceActionsNone
-    TxVotesNone
+    Nothing
+    Nothing
 
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
