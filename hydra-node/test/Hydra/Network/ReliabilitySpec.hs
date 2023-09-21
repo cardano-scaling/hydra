@@ -13,7 +13,7 @@ import Data.Vector (Vector, empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
-import Hydra.Network.Reliability (ReliabilityLog (SentMessages), ReliableMsg (..), withReliability)
+import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -80,9 +80,10 @@ spec = parallel $ do
               noop
               $ \Network{broadcast} -> do
                 broadcast (Data "node-1" msg)
+            threadDelay 1
             readTVarIO emittedTraces
 
-      receivedTraces `shouldBe` [SentMessages 0]
+      receivedTraces `shouldContain` [ClearedMessageQueue{messageQueueLength = 0, deletedMessages = 1}]
 
   describe "sending messages" $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->

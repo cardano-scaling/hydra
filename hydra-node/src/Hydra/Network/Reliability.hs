@@ -117,7 +117,7 @@ data ReliabilityLog
   | Callbacking
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
   | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  | SentMessages {sentMessagesLength :: Int}
+  | ClearedMessageQueue {messageQueueLength :: Int, deletedMessages :: Int}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -220,6 +220,8 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         -- resend messages if party did not acknowledge our latest idx
         resendMessages resend partyIndex sentMessages knownAcks acks messageAckForParty knownAckForParty
+        -- TODO
+        traceWith tracer (ClearedMessageQueue 0 1)
 
   ignoreMalformedMessages = pure ()
 
