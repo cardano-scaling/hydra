@@ -7,13 +7,13 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Control.Tracer (nullTracer)
+import Control.Tracer (Tracer (..), nullTracer)
 import Data.List (nub)
 import Data.Vector (Vector, empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..))
-import Hydra.Network.Reliability (ReliableMsg (..), withReliability)
+import Hydra.Network.Reliability (ReliabilityLog (SentMessages), ReliableMsg (..), withReliability)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -65,6 +65,24 @@ spec = parallel $ do
         receivedMessagesInOrder propagatedMessages
           & counterexample (show propagatedMessages)
           & collect (length propagatedMessages)
+
+    it "garbage collects messages received by all peers" $ do
+      let receivedTraces = runSimOrThrow $ do
+            emittedTraces <- newTVarIO []
+            withReliability
+              (captureTraces emittedTraces)
+              alice
+              [bob, carol]
+              ( \incoming _ -> do
+                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) (Data "node-2" msg)) bob)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 1]) (Data "node-3" msg)) carol)
+              )
+              noop
+              $ \Network{broadcast} -> do
+                broadcast (Data "node-1" msg)
+            readTVarIO emittedTraces
+
+      receivedTraces `shouldBe` [SentMessages 0]
 
   describe "sending messages" $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
@@ -185,3 +203,10 @@ aliceReceivesMessages messages = runSimOrThrow $ do
 captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
+
+captureTraces ::
+  MonadSTM m =>
+  TVar m [ReliabilityLog] ->
+  Tracer m ReliabilityLog
+captureTraces tvar = Tracer $ \msg -> do
+  atomically $ modifyTVar' tvar (msg :)
