@@ -21,7 +21,7 @@ module Hydra.Cardano.Api (
   Era,
   LedgerEra,
   ledgerEraVersion,
-  LedgerProtocolParameters(..),
+  LedgerProtocolParameters (..),
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,

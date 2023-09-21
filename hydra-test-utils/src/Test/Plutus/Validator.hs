@@ -36,6 +36,7 @@ import Hydra.Cardano.Api (
   IsScriptWitnessInCtx (scriptWitnessInCtx),
   LedgerEpochInfo (LedgerEpochInfo),
   LedgerEra,
+  LedgerProtocolParameters (LedgerProtocolParameters),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PlutusScriptV2,
@@ -54,13 +55,13 @@ import Hydra.Cardano.Api (
   mkTxOutDatumHash,
   setTxInsCollateral,
   setTxProtocolParams,
+  toLedgerExUnits,
   toScriptData,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxInsCollateral,
   pattern TxOut,
  )
-import Hydra.Cardano.Api (LedgerProtocolParameters (LedgerProtocolParameters), toLedgerExUnits)
 import PlutusLedgerApi.Common (SerialisedScript)
 import qualified PlutusTx as Plutus
 import qualified Prelude
@@ -101,7 +102,7 @@ pparams =
   def
     & Ledger.ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
     & Ledger.ppMaxTxExUnitsL .~ toLedgerExUnits defaultMaxExecutionUnits
-    & Ledger.ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
+    & Ledger.ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @8, pvMinor = 0}
 
 -- | Max transaction execution unit budget of the current 'pparams'.
 defaultMaxExecutionUnits :: ExecutionUnits

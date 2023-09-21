@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   LedgerEpochInfo (..),
   LedgerEra,
+  LedgerProtocolParameters (..),
   Lovelace,
   ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
@@ -63,7 +64,6 @@ import Hydra.Cardano.Api (
   toLedgerTx,
   toLedgerUTxO,
  )
-import Hydra.Cardano.Api (LedgerProtocolParameters (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
@@ -256,16 +256,17 @@ pparams =
     & ppMinFeeBL .~ Coin 155381
     & ppMaxTxExUnitsL .~ toLedgerExUnits maxTxExecutionUnits
     & ppMaxBlockExUnitsL
-      .~ ( toLedgerExUnits $
-            ExecutionUnits{executionMemory = 62_000_000, executionSteps = 40_000_000_000}
-         )
+      .~ toLedgerExUnits
+        ExecutionUnits
+          { executionMemory = 62_000_000
+          , executionSteps = 40_000_000_000
+          }
     & ppPricesL
-      .~ ( Prices
-            { prSteps = fromJust $ boundRational $ 721 % 10000000
-            , prMem = fromJust $ boundRational $ 577 % 10000
-            }
-         )
-    & ppProtocolVersionL .~ (ProtVer{pvMajor = natVersion @8, pvMinor = 0})
+      .~ Prices
+        { prSteps = fromJust $ boundRational $ 721 % 10000000
+        , prMem = fromJust $ boundRational $ 577 % 10000
+        }
+    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @8, pvMinor = 0}
     & ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
 
 maxTxSize :: Natural
