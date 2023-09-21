@@ -5,7 +5,7 @@ use aiken/transaction/value.{MintedValue, PolicyId, Value}
 type Datum {
   party: Data,
   commits: Data,
-  head_id: PolicyId
+  head_id: PolicyId,
 }
 
 type Redeemer {
@@ -13,14 +13,17 @@ type Redeemer {
   ViaAbort
 }
 
-const hydra_head_v1: ByteArray = "HydraHeadV1"
+const hydra_head_v1: ByteArray =
+  "HydraHeadV1"
 
 validator {
   fn commit(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
     when redeemer is {
-      ViaAbort -> must_burn_st(datum.head_id, context.transaction.mint)?
+      ViaAbort ->
+        must_burn_st(datum.head_id, context.transaction.mint)?
       ViaCollectCom -> {
-        expect Some(head_output) = context.transaction.outputs |> list.head
+        expect Some(head_output) =
+          context.transaction.outputs |> list.head
         has_st(datum.head_id, head_output.value)?
       }
     }
