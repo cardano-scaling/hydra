@@ -73,17 +73,20 @@ spec = parallel $ do
               (captureTraces emittedTraces)
               alice
               [bob, carol]
-              ( \incoming _ -> do
-                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) (Data "node-2" msg)) bob)
-                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 1]) (Data "node-3" msg)) carol)
+              ( \incoming action -> do
+                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-1" msg)) alice)
+                  action $ Network{broadcast = \_ -> pure ()}
+                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-2" msg)) bob)
+                  action $ Network{broadcast = \_ -> pure ()}
+                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-3" msg)) carol)
+                  action $ Network{broadcast = \_ -> pure ()}
               )
               noop
               $ \Network{broadcast} -> do
                 broadcast (Data "node-1" msg)
-            threadDelay 1
             readTVarIO emittedTraces
 
-      receivedTraces `shouldContain` [ClearedMessageQueue{messageQueueLength = 0, deletedMessages = 1}]
+      receivedTraces `shouldContain` [ClearedMessageQueue{messageQueueLength = 1, deletedMessages = 1}]
 
   describe "sending messages" $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->

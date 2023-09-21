@@ -62,6 +62,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (Tracer)
+import qualified Data.IntMap as IMap
 import qualified Data.Map.Strict as Map
 import Data.Vector (
   Vector,
@@ -132,11 +133,9 @@ instance Arbitrary ReliabilityLog where
 -- layer is tied to a specific structure of other layers, eg. be between
 -- `withHeartbeat` and `withAuthenticate` layers.
 --
--- TODO: garbage-collect the `sentMessages` which otherwise will grow forever
 -- TODO: better use of Vectors? We should perhaps use a `MVector` to be able to
 -- mutate in-place and not need `zipWith`
 withReliability ::
-  forall m msg a.
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
@@ -149,7 +148,7 @@ withReliability ::
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
-  sentMessages <- newTVarIO Map.empty
+  sentMessages <- newTVarIO IMap.empty
   seenMessages <- newTVarIO $ Map.fromList $ (,0) <$> toList allParties
   resendQ <- newTQueueIO
   ourIndex <- findPartyIndex me
@@ -186,7 +185,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
     if length acks /= length allParties
       then ignoreMalformedMessages
       else do
-        deleteSeenMessages sentMessages seenMessages acks party
         partyIndex <- findPartyIndex party
         traceWith tracer Callbacking
         (shouldCallback, messageAckForParty, knownAckForParty, knownAcks) <- atomically $ do
@@ -223,6 +221,12 @@ withReliability tracer me otherParties withRawNetwork callback action = do
         -- resend messages if party did not acknowledge our latest idx
         resendMessages resend partyIndex sentMessages knownAcks acks messageAckForParty knownAckForParty
 
+        -- Update last message index sent by us and seen by some party
+        updateSeenMessages seenMessages acks party
+        -- Take the lowest number from seen messages by everyone and remove it from
+        -- our sent messages.
+        deleteSeenMessages sentMessages seenMessages
+
   ignoreMalformedMessages = pure ()
 
   constructAcks acks wantedIndex =
@@ -238,14 +242,14 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
-        case messages Map.!? (idx - 1) of
+        case messages IMap.!? (idx - 1) of
           Nothing ->
             throwIO $
               ReliabilityFailedToFindMsg $
                 "FIXME: this should never happen, there's no sent message at index "
                   <> show idx
                   <> ", messages length = "
-                  <> show (Map.size messages)
+                  <> show (IMap.size messages)
                   <> ", latest message ack: "
                   <> show knownAckForUs
                   <> ", acked: "
@@ -255,22 +259,35 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
             atomically $ resend $ ReliableMsg newAcks' missingMsg
 
-  deleteSeenMessages sentMessages seenMessages acks party = do
+  updateSeenMessages seenMessages acks party = do
     myIndex <- findPartyIndex me
     let messageAckForUs = acks ! myIndex
-    (queueLength, deleted) <- atomically $ do
-      modifyTVar' seenMessages (Map.update (const $ Just messageAckForUs) party)
-      _messages <- readTVar seenMessages
-      return (0, 1)
-    -- TODO: here we want to delete old messages but it would be good to
-    -- convert this structure from vector to map
-    -- modifyTVar' sentMessages (Map.delete (const $ Just messageAckForUs) party)
-    traceWith tracer (ClearedMessageQueue queueLength deleted)
+    atomically $ modifyTVar' seenMessages (Map.insert party messageAckForUs)
+
+  deleteSeenMessages sentMessages seenMessages = do
+    clearedMessages <- atomically $ do
+      seenMessages' <- readTVar seenMessages
+      let messageReceivedByEveryone =
+            case sortBy (\(_, a) (_, b) -> compare a b) (Map.toList seenMessages') of
+              [] -> 0 -- should not happen
+              ((_, v) : _) -> v
+      sentMessages' <- readTVar sentMessages
+      if IMap.member messageReceivedByEveryone sentMessages'
+        then do
+          let updatedMap = IMap.delete messageReceivedByEveryone sentMessages'
+          writeTVar sentMessages updatedMap
+          pure $ Just (IMap.size updatedMap, messageReceivedByEveryone)
+        else pure Nothing
+
+    case clearedMessages of
+      Nothing -> pure ()
+      Just (messageQueueLength, deletedMessages) ->
+        traceWith tracer (ClearedMessageQueue{messageQueueLength, deletedMessages})
 
   insertNewMsg msg m =
-    case Map.lookupMax m of
-      Nothing -> Map.insert 1 msg m
-      Just (k, _) -> Map.insert (k + 1) msg m
+    case IMap.lookupMax m of
+      Nothing -> IMap.insert 1 msg m
+      Just (k, _) -> IMap.insert (k + 1) msg m
 
   -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
   findPartyIndex party =
