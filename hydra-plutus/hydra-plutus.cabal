@@ -98,6 +98,7 @@ test-suite tests
 
   build-depends:
     , base
+    , filepath
     , hspec
     , hspec-golden
     , hydra-cardano-api
@@ -105,6 +106,7 @@ test-suite tests
     , hydra-prelude
     , hydra-test-utils
     , plutus-ledger-api
+    , process
     , QuickCheck
 
   build-tool-depends: hspec-discover:hspec-discover
