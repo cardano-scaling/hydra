@@ -117,6 +117,7 @@ data ReliabilityLog
   | Callbacking
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
   | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | SentMessages {sentMessagesLength :: Int}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
