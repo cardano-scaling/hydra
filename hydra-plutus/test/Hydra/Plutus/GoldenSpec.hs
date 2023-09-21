@@ -27,17 +27,47 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import PlutusLedgerApi.V2 qualified as Plutus
+import System.FilePath ((</>))
+import System.Process (
+  CreateProcess (..),
+  StdStream (UseHandle),
+  createProcess,
+  proc,
+  waitForProcess,
+ )
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
+  it "checks plutus blueprint remains the same" $ do
+    withTempDir "hydra-plutus-golden" $ \tmpDir -> do
+      -- FIXME: This requires a git working copy, do it differently.
+      -- Run 'aiken build' to re-generate plutus.json file
+      let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
+      _ <- withLogFile aikenLogFilePath $ \out -> do
+        hSetBuffering out NoBuffering
+        let aikenExec = proc "aiken" ["build"]
+            aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
+        (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
+        waitForProcess aikenProcessHandle
+      -- Run 'git status' to see if plutus.json file has changed
+      let gitLogFilePath = tmpDir </> "logs" </> "git-processes.log"
+      _ <- withLogFile gitLogFilePath $ \out -> do
+        hSetBuffering out NoBuffering
+        let gitStatusExec = proc "git" ["status", "--porcelain"]
+            gitStatusProcess = gitStatusExec{std_out = UseHandle out, std_err = UseHandle out}
+        (_, _, _, gitStatusProcessHandle) <- createProcess gitStatusProcess
+        waitForProcess gitStatusProcessHandle
+      -- Read git log file and verify plutus.json did not change
+      gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
+      gitLogContents `shouldNotContain` "plutus.json"
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
   it "Commit validator script" $
+    -- FIXME: Actually test the value of commitValidatorScript
     -- TODO: the script is now double in the repo. Use plutus.json for a golden file
     goldenScript "vCommit" commitValidatorScript
   it "Head validator script" $
