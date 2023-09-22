@@ -61,7 +61,7 @@
 --           │                                   ▼
 --
 -- @
-module Hydra.Node.Network (withNetwork) where
+module Hydra.Node.Network (withNetwork, withFlipHeartbeats) where
 
 import Hydra.Prelude hiding (fromList)
 
