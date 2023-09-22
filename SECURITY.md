@@ -21,10 +21,11 @@ GitHub](https://github.com/input-output-hk/hydra/security/advisories/new)
 to draft a new _Security advisory_.
 
 Please include as much details as needed to clearly qualify the issue:
-    - A description of the vulnerability and its potential impact.
-    - Steps to reproduce the vulnerability.
-    - The version of `hydra-node` package where the vulnerability exists.
-    - Any relevant proof-of-concept or exploit code (if applicable).
+
+* A description of the vulnerability and its potential impact.
+* Steps to reproduce the vulnerability.
+* The version of `hydra-node` package where the vulnerability exists.
+* Any relevant proof-of-concept or exploit code (if applicable).
 
 Alternatively, reporting can be done by sending a PGP signed email at
 [security@hydra.family](mailto:security@hydra.family). Please not the
@@ -67,9 +68,9 @@ unrelated to reporting and managing a security vulnerability.
 
 7. **Announcement**: Concommitant to the release annoucement, the team announces the security vulnerability by making the GitHub issue public. This is the first point that any information regarding the vulnerability is made public.
 
-  a. **Credit**: The team publicly acknowledges the contributions of the
-    reporter once the vulnerability is resolved, subject to the
-    reporter's preferences for attribution.
+    a. **Credit**: The team publicly acknowledges the contributions of the
+       reporter once the vulnerability is resolved, subject to the
+       reporter's preferences for attribution.
 
 7. **Disagreements**: In case of disagreements with the reporter on the fix, mitigation, timing, or announcement, the team has the final say.
 
