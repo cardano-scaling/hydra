@@ -1,3 +1,4 @@
+use aiken/builtin
 use aiken/list
 use aiken/transaction.{ScriptContext}
 use aiken/transaction/value.{MintedValue, PolicyId, Value}
@@ -15,13 +16,32 @@ type Redeemer {
 
 const hydra_head_v1: ByteArray = "HydraHeadV1"
 
+type CommitError {
+  STNotBurnedError
+  STIsMissingInTheOutput
+}
+
+fn toErrorCode(err: CommitError) -> ByteArray {
+  when err is {
+    STNotBurnedError -> "C01"
+    STIsMissingInTheOutput -> "C02"
+  }
+}
+
 validator {
   fn commit(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
     when redeemer is {
-      ViaAbort -> must_burn_st(datum.head_id, context.transaction.mint)?
+      ViaAbort ->
+        traceIfFalse(
+          toErrorCode(STNotBurnedError),
+          must_burn_st(datum.head_id, context.transaction.mint)?,
+        )
       ViaCollectCom -> {
         expect Some(head_output) = context.transaction.outputs |> list.head
-        has_st(datum.head_id, head_output.value)?
+        traceIfFalse(
+          toErrorCode(STIsMissingInTheOutput),
+          has_st(datum.head_id, head_output.value)?,
+        )
       }
     }
   }
@@ -38,4 +58,16 @@ fn must_burn_st(head_id: PolicyId, mint: MintedValue) -> Bool {
       |> value.quantity_of(head_id, hydra_head_v1)
 
   quantity == -1
+}
+
+// Helpers
+
+fn traceIfFalse(str: ByteArray, a: Bool) -> Bool {
+  if a {
+    True
+  } else {
+    let log = builtin.decode_utf8(str)
+    trace log
+    False
+  }
 }
