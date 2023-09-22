@@ -11,6 +11,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import qualified Cardano.Ledger.Shelley.API.Types as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -36,7 +37,7 @@ instance Exception GlobalsTranslationException
 -- | Create new L2 ledger 'Globals' from 'GenesisParameters'.
 --
 -- Throws at least 'GlobalsTranslationException'
-newGlobals :: MonadThrow m => GenesisParameters -> m Globals
+newGlobals :: MonadThrow m => GenesisParameters ShelleyEra -> m Globals
 newGlobals genesisParameters = do
   case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
     Nothing -> throwIO GlobalsTranslationException
@@ -82,30 +83,19 @@ newGlobals genesisParameters = do
 protocolParametersFromJson :: Json.Value -> Json.Parser ProtocolParameters
 protocolParametersFromJson = parseJSON
 
-newtype ProtocolParametersConversionException
-  = ProtocolParametersConversionException ProtocolParametersConversionError
-  deriving stock (Show)
-  deriving anyclass (Exception)
-
 -- | Create a new ledger env from given protocol parameters.
---
--- Throws at least 'ProtocolParametersConversionException'
-newLedgerEnv :: MonadThrow m => ProtocolParameters -> m (Ledger.LedgerEnv LedgerEra)
-newLedgerEnv protocolParams = do
-  case toLedgerPParams (shelleyBasedEra @Era) protocolParams of
-    Left err -> throwIO $ ProtocolParametersConversionException err
-    Right pp ->
-      pure $
-        Ledger.LedgerEnv
-          { Ledger.ledgerSlotNo = SlotNo 0
-          , -- NOTE: This can probably stay at 0 forever. This is used internally by the
-            -- node's mempool to keep track of transaction seen from peers. Transactions
-            -- in Hydra do not go through the node's mempool and follow a different
-            -- consensus path so this will remain unused.
-            Ledger.ledgerIx = minBound
-          , -- NOTE: This keeps track of the ledger's treasury and reserve which are
-            -- both unused in Hydra. There might be room for interesting features in the
-            -- future with these two but for now, we'll consider them empty.
-            Ledger.ledgerAccount = Ledger.AccountState mempty mempty
-          , Ledger.ledgerPp = pp
-          }
+newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra
+newLedgerEnv protocolParams =
+  Ledger.LedgerEnv
+    { Ledger.ledgerSlotNo = SlotNo 0
+    , -- NOTE: This can probably stay at 0 forever. This is used internally by the
+      -- node's mempool to keep track of transaction seen from peers. Transactions
+      -- in Hydra do not go through the node's mempool and follow a different
+      -- consensus path so this will remain unused.
+      Ledger.ledgerIx = minBound
+    , -- NOTE: This keeps track of the ledger's treasury and reserve which are
+      -- both unused in Hydra. There might be room for interesting features in the
+      -- future with these two but for now, we'll consider them empty.
+      Ledger.ledgerAccount = Ledger.AccountState mempty mempty
+    , Ledger.ledgerPp = protocolParams
+    }

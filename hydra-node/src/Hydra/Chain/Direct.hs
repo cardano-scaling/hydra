@@ -48,7 +48,6 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   toLedgerUTxO,
-  pattern BundleAsShelleyBasedProtocolParameters,
  )
 import Hydra.Chain (
   ChainComponent,
@@ -155,7 +154,7 @@ mkTinyWallet tracer config = do
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    BundleAsShelleyBasedProtocolParameters _ pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}

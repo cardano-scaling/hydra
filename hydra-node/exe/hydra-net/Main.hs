@@ -54,9 +54,9 @@ import Ouroboros.Network.Mux (
   MiniProtocol (..),
   MiniProtocolLimits (MiniProtocolLimits, maximumIngressQueue),
   MiniProtocolNum (..),
-  MuxPeer (..),
   OuroborosApplication (..),
   RunMiniProtocol (..),
+  mkMiniProtocolCbFromPeer,
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
 import Ouroboros.Network.Protocol.Handshake.Unversioned (
@@ -208,19 +208,23 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       (inf : _) -> pure inf
       _ -> die "getAdrrInfo failed"
 
-  mkApplication sk party tracer = OuroborosApplication $ \_connectionId _controlMessageSTM ->
-    [ MiniProtocol
-        { miniProtocolNum = MiniProtocolNum 42
-        , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
-        , miniProtocolRun =
-            InitiatorProtocolOnly
-              ( MuxPeer
-                  (contramap TraceSendRecv tracer)
-                  codecFireForget
-                  (fireForgetClientPeer $ client tracer sk party)
-              )
-        }
-    ]
+  mkApplication sk party tracer =
+    OuroborosApplication $
+      [ MiniProtocol
+          { miniProtocolNum = MiniProtocolNum 42
+          , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
+          , miniProtocolRun =
+              InitiatorProtocolOnly
+                ( mkMiniProtocolCbFromPeer
+                    ( \_ ->
+                        ( (contramap TraceSendRecv tracer)
+                        , codecFireForget
+                        , (fireForgetClientPeer $ client tracer sk party)
+                        )
+                    )
+                )
+          }
+      ]
 
   client tracer sk party = Idle $ do
     let msg = Data "2" (ReqSn @Tx snapshotNumber [])

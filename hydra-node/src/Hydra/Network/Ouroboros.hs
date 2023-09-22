@@ -78,12 +78,14 @@ import Ouroboros.Network.Mux (
     miniProtocolNum,
     miniProtocolRun
   ),
+  MiniProtocolCb,
   MiniProtocolLimits (..),
   MiniProtocolNum (MiniProtocolNum),
   MuxMode (..),
-  MuxPeer (MuxPeer),
   OuroborosApplication (..),
+  OuroborosApplicationWithMinimalCtx,
   RunMiniProtocol (..),
+  mkMiniProtocolCbFromPeer,
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
 import Ouroboros.Network.Protocol.Handshake.Type (Handshake, Message (..), RefuseReason (..))
@@ -227,9 +229,9 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
 
   hydraClient ::
     TChan msg ->
-    OuroborosApplication 'InitiatorMode addr LByteString IO () Void
+    OuroborosApplicationWithMinimalCtx 'InitiatorMode addr LByteString IO () Void
   hydraClient chan =
-    OuroborosApplication $ \_connectionId _controlMessageSTM ->
+    OuroborosApplication
       [ MiniProtocol
           { miniProtocolNum = MiniProtocolNum 42
           , miniProtocolLimits = maximumMiniProtocolLimits
@@ -237,16 +239,17 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
           }
       ]
    where
+    initiator :: MiniProtocolCb ctx LByteString IO ()
     initiator =
-      MuxPeer
-        nullTracer
-        codecFireForget
-        (fireForgetClientPeer $ client chan)
+      mkMiniProtocolCbFromPeer
+        ( const
+            (nullTracer, codecFireForget, fireForgetClientPeer $ client chan)
+        )
 
   hydraServer ::
-    OuroborosApplication 'ResponderMode addr LByteString IO Void ()
+    OuroborosApplicationWithMinimalCtx 'ResponderMode addr LByteString IO Void ()
   hydraServer =
-    OuroborosApplication $ \_connectionId _controlMessageSTM ->
+    OuroborosApplication
       [ MiniProtocol
           { miniProtocolNum = MiniProtocolNum 42
           , miniProtocolLimits = maximumMiniProtocolLimits
@@ -254,11 +257,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
           }
       ]
    where
-    responder =
-      MuxPeer
-        nullTracer
-        codecFireForget
-        (fireForgetServerPeer server)
+    responder :: MiniProtocolCb ctx LByteString IO ()
+    responder = mkMiniProtocolCbFromPeer (const (nullTracer, codecFireForget, fireForgetServerPeer server))
 
   -- TODO: provide sensible limits
   -- https://github.com/input-output-hk/ouroboros-network/issues/575

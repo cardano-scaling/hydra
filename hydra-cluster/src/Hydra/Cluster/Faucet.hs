@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Ledger.Core (PParams)
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -137,7 +138,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
   RunningNode ->
-  BundledProtocolParameters ->
+  PParams LedgerEra ->
   AddressInEra ->
   TxOutDatum CtxTx ->
   IO (TxIn, TxOut CtxUTxO)
