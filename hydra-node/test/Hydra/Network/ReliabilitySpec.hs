@@ -10,10 +10,11 @@ import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.List (nub)
 import Data.Vector (Vector, empty, fromList, head, snoc)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), NetworkCallback)
 import Hydra.Network.Authenticate (Authenticated (..))
-import Hydra.Network.Heartbeat (Heartbeat (..))
+import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
+import System.Random (randomRIO)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, suchThat, tabulate)
 
@@ -129,6 +130,49 @@ spec = parallel $ do
             toList <$> readTVarIO receivedMessages
 
       receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
+
+    prop "stress test networking layer" $ \(messages :: [Int]) -> do
+      let receivedMsgs = runSimOrThrow $ do
+            receivedMessages <- newTVarIO empty
+            aliceToBob <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
+            bobToAlice <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
+            let aliceWithfailingNetwork callback action =
+                  withAsync
+                    ( forever $ do
+                        newMsg <- atomically $ readTQueue bobToAlice
+                        callback newMsg
+                    )
+                    $ \_ ->
+                      action $
+                        Network
+                          { broadcast = \m -> do
+                              -- drop 0.2% of messages
+                              r :: Double <- randomRIO (0, 1)
+                              unless (r < 0.002) $ atomically (writeTQueue aliceToBob (Authenticated m alice))
+                          }
+
+            let bobNetwork callback action = do
+                  withAsync
+                    ( forever $ do
+                        newMsg <- atomically $ readTQueue aliceToBob
+                        callback newMsg
+                    )
+                    $ \_ ->
+                      action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
+
+            let bobReliability = withReliability nullTracer alice [bob] aliceWithfailingNetwork (const $ pure ())
+
+            let aliceReliability = withReliability nullTracer bob [alice] bobNetwork
+
+            bobReliability $ \Network{broadcast} ->
+              withHeartbeat "bob" noop aliceReliability (captureIncoming receivedMessages) $ \_ -> do
+                forM_ messages $ \m -> do
+                  broadcast (Data "alice" m)
+                  threadDelay 1
+
+            toList <$> readTVarIO receivedMessages
+
+      receivedMsgs `shouldBe` []
 
     prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
       forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
