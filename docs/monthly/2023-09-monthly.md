@@ -16,11 +16,21 @@ This month, the
 [roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has not
 changed much as the team mostly clarified upcoming features.
 
-![The roadmap with features and ideas](./img/2023-09-roadmap.jpg) <small><center>The latest roadmap with features and ideas</center></small>
+![The roadmap with features and ideas](./img/2023-09-roadmap.png) <small><center>The latest roadmap with features and ideas</center></small>
 
 #### Notable updates
 
-TODO sebastian
+* Added and completed [support for inline datums in commit API #1043](https://github.com/input-output-hk/hydra/issues/1043), which was reported by a user.
+
+* Current work on [network resilience #188](https://github.com/input-output-hk/hydra/issues/188) yielded two new / follow-up items [#1079](https://github.com/input-output-hk/hydra/issues/1079) and [#1080](https://github.com/input-output-hk/hydra/issues/1080). This topic easily "scope creeps" and we had narrowed down the direct goal to improve the situation incrementally.
+
+* When detailing the design of incremental de-/commits, the feature was also split in two. Each of the features would have a different impact on the user experience and relates to other ideas:
+
+  - [Incremental commit #199](https://github.com/input-output-hk/hydra/issues/199) is a bit more complicated, but paves the way for directly open heads and could make [Always abortable head #699](https://github.com/input-output-hk/hydra/issues/699) redundant.
+
+  - [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057) is fairly straight-forward and can be evolved into "partial fanouts", which solves similar problems as the [split-fanout #190](https://github.com/input-output-hk/hydra/issues/190) and [only signing closable snapshots #370](https://github.com/input-output-hk/hydra/issues/370) would address. Also, the [optimistic head closure #198](https://github.com/input-output-hk/hydra/issues/198) feature is very related to this item.
+
+* Added a new feature to improve user journey of running the `hydra-node` by [removing the command line defaults #1064](https://github.com/input-output-hk/hydra/issues/1064). This came out of prior [idea discussion #454](https://github.com/input-output-hk/hydra/discussions/454) which highlights the life-cycle of ideas and features on the Hydra project.
 
 ## Cardano Scaling workshop in Nantes, France
 
