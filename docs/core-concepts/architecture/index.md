@@ -27,7 +27,9 @@ $ plantuml -Tsvg architecture-c4.puml
 
 ### Network
 
-_Network_ component is responsible for all of the communications related to the off-chain part of the Hydra protocol between hydra-nodes. The [current implementation](./networking) is based on the [Typed Protocols](https://github.com/input-output-hk/typed-protocols) library which is also at the heart of the Cardano node's networking. It's asynchronous by nature and using push based protocol. Messages are exchanged between nodes on each event and currently there is no message authentication in place. We rely on a fact that we know each peers IP address and a port and _trust_ these messages blindly. There are [plans](https://github.com/input-output-hk/hydra/issues/727) on introducing message signing to improve on security properties of the hydra protocol.
+_Network_ component is responsible for all of the communications related to the off-chain part of the Hydra protocol between hydra-nodes. The [current implementation](./networking) is based on the [Typed Protocols](https://github.com/input-output-hk/typed-protocols) library which is also at the heart of the Cardano node's networking. It's asynchronous by nature and is using a push based protocol with a uniform _broadcast_ abstraction. 
+
+Messages are exchanged between nodes on different internal transitions and are authenticated using each peer _Hydra Key_: Each message sent is signed by the emitter and the signature is verified by the transmitter.
 
 ### Chain Interaction
 
