@@ -3,6 +3,9 @@ use aiken/list
 use aiken/transaction.{ScriptContext}
 use aiken/transaction/value.{MintedValue, PolicyId, Value}
 
+// TODO: Party is not used on-chain but is needed off-chain while it's still
+// based on mock crypto. When we move to real crypto we could simply use
+// the PT's token name to identify the committing party
 type Datum {
   party: Data,
   commits: Data,
@@ -28,9 +31,19 @@ fn toErrorCode(err: CommitError) -> ByteArray {
   }
 }
 
+// | The validator used to collect & open or abort a Head.
+// | The v_commit validator verifies that:
+//
+//   * spent in a transaction also consuming a v_head output
+//
+//   * ST is burned if the redeemer is 'ViaAbort'
+//
+//   * ST is present in the output if the redeemer is 'ViaCollectCom'
 validator {
   fn commit(datum: Datum, redeemer: Redeemer, context: ScriptContext) -> Bool {
     when redeemer is {
+      // NOTE: The reimbursement of the committed output 'commit' is
+      // delegated to the 'head' script who has more information to do it.
       ViaAbort ->
         traceIfFalse(
           toErrorCode(STNotBurnedError),
