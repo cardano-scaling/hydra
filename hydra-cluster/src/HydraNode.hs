@@ -208,6 +208,7 @@ data EndToEndLog
   | RemainingFunds {actor :: String, utxo :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
+  | CreatedKey { keyPath :: FilePath }
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can

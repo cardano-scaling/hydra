@@ -34,6 +34,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.Cardano.Api (
   BabbageEra,
+  File (File),
   Lovelace (..),
   PlutusScriptV2,
   Tx,
@@ -49,6 +50,7 @@ import Hydra.Cardano.Api (
   selectLovelace,
   signTx,
   toScriptData,
+  writeFileTextEnvelope,
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
@@ -210,6 +212,10 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
         <&> \config -> config{networkId, startChainFrom = Just tip}
 
     (walletVk, walletSk) <- generate genKeyPair
+    let keyPath = workDir <> "/wallet.sk"
+    _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
+    traceWith tracer CreatedKey{keyPath}
+
     utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
 
     withHydraNode tracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
