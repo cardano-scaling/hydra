@@ -26,38 +26,52 @@ Please include as much details as needed to clearly qualify the issue:
     - The version of `hydra-node` package where the vulnerability exists.
     - Any relevant proof-of-concept or exploit code (if applicable).
 
+Alternatively, reporting can be done by sending a PGP signed email at
+[security@hydra.family](mailto:security@hydra.family). Please not the
+Hydra team ignores any email to this box that's not signed or
+unrelated to reporting and managing a security vulnerability.
+
 ### Processing Vulnerability
 
-Upon receiving notification of a security advisory, the Hydra team is
-committed to follow this resolution process:
+1. **Acknowledgment**: The team acknowledges the receipt of your report
+   within 3 business days by commenting on the issue reporting it or replying to email.
 
-1. **Acknowledgment**: We will acknowledge the receipt of your report
-   within 3 business days by commenting on the issue reporting it.
+2. **Validation**: The team investigates the issue and either _reject_ or _validate_ the
+   reported vulnerability.
 
-2. **Validation**: Our team will promptly investigate and validate the
-   reported vulnerability, using a [private fork]() of the source code.
+   a. **Rejection**: If the team rejects the report, detailed explanations will be provided by email or commenting on the relevant issue and the latter will be made public and closed as `Won't fix`.
 
-3. **Resolution**: We will work to resolve the vulnerability in a
+   b. **Acceptance**: If the team accepts the report, a CVE identifier will be requested through GitHub and a [private fork](https://docs.github.com/en/code-security/security-advisories/working-with-repository-security-advisories/collaborating-in-a-temporary-private-fork-to-resolve-a-repository-security-vulnerability) opened to work on a fix to the issue
+
+3. **Resolution**: The team works to resolve the vulnerability in a
    timely manner. The timeline for resolution will depend on the
    complexity and severity of the vulnerability, but we will strive to
    address critical vulnerabilities as quickly as possible.
 
-4. **Communication**: We will maintain open and transparent
+4. **Collaboration**: While working on a fix, the team maintains open and transparent
    communication with the reporter throughout the process, providing
    updates on the status of the vulnerability and any steps taken to
-   remediate it.
+   remediate it. In particular this means that the reporter will be asked to review any proposed fix and to advise on the timing for public disclosure.
 
-5. **Privacy**: We are committed to maintaining the privacy of all
-   parties involved in the vulnerability disclosure process. The
-   details of the vulnerability report, as well as any communications
-   related to the report, will be treated with the utmost
-   confidentiality. Information related to the vulnerability will only
-   be shared with individuals directly involved in the resolution
-   process.
+5. **Fixing Issue**: The team agrees on the fix, the announcement, and the release schedule with the reporter. If the reporter is not responsive in a reasonable time frame this should not block the team from moving to the next steps particularly in the face of a high impact or high severity issue.
 
-6. **Credit**: We will publicly acknowledge the contributions of the
-   reporter once the vulnerability is resolved, subject to the
-   reporter's preferences for attribution.
+   a. **Mitigation**: Depending on the severity and criticity of the issue, the team can decide to disclose the issue publicly in the absence of a fix _if and only if_ a clear, simple, and effective mitigation plan is defined. This _must_ include instructions for users and operators of the software, and a time horizon at which the issue will be properly fixed (eg. version number).
+
+   b. **Fix**: When a fix is available and approved, it should be merged and made available as quickly as possible:
+
+      * All commits to the private repository are squashed into a single commit whose description _should not_ make any reference it relates to a security vulnerability
+      * A new Pull Request is created with this single commit
+      * This PR's review and merging is expedited as all the work as already been done
+
+6. **Release**: The team creates and publish a release that includes the fix
+
+7. **Announcement**: Concommitant to the release annoucement, the team announces the security vulnerability by making the GitHub issue public. This is the first point that any information regarding the vulnerability is made public.
+
+  a. **Credit**: The team publicly acknowledges the contributions of the
+    reporter once the vulnerability is resolved, subject to the
+    reporter's preferences for attribution.
+
+7. **Disagreements**: In case of disagreements with the reporter on the fix, mitigation, timing, or announcement, the team has the final say.
 
 ## Responsible Disclosure
 
