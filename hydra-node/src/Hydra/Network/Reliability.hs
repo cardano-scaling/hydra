@@ -82,6 +82,7 @@ import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
+  -- TODO: rename messageId to something more meaningful
   { messageId :: Vector Int
   , message :: msg
   }
@@ -177,6 +178,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do
                 acks <- readTVarIO ackCounter
+                -- TODO: have a separate log for Pings
                 traceWith tracer (BroadcastCounter ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
@@ -186,7 +188,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       then ignoreMalformedMessages
       else do
         partyIndex <- findPartyIndex party
-        traceWith tracer Callbacking
         (shouldCallback, messageAckForParty, knownAckForParty, knownAcks) <- atomically $ do
           let messageAckForParty = acks ! partyIndex
           knownAcks <- readTVar ackCounter
@@ -215,6 +216,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
 
         when shouldCallback $ do
+          -- TODO: Rename to Received
           traceWith tracer (Receiving acks knownAcks partyIndex)
           callback (Authenticated msg party)
 
@@ -242,7 +244,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
-        case messages IMap.!? (idx - 1) of
+        case messages IMap.!? idx of
           Nothing ->
             throwIO $
               ReliabilityFailedToFindMsg $

@@ -2,7 +2,7 @@
 
 module Hydra.Network.ReliabilitySpec where
 
-import Hydra.Prelude hiding (empty, fromList, head)
+import Hydra.Prelude hiding (empty, fromList, head, unlines)
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO, writeTVar)
@@ -17,6 +17,8 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
+import Prelude (unlines)
+import Data.Text (unpack)
 import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, property, resize, suchThat, tabulate, (===))
@@ -81,9 +83,9 @@ spec = parallel $ do
               ( \incoming action -> do
                   incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-1" msg)) alice)
                   action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-2" msg)) bob)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) (Data "node-2" msg)) bob)
                   action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-3" msg)) carol)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-3" msg)) carol)
                   action $ Network{broadcast = \_ -> pure ()}
               )
               noop
@@ -138,15 +140,22 @@ spec = parallel $ do
     prop "stress test networking layer" $ \seed ->
       forAll (resize 10 (arbitrary :: Gen [Int])) $ \messages ->
         let
-          traceDump = printTrace (Proxy :: Proxy ReliabilityLog) trace
-          logsOnError = counterexample ("trace:\n" <> toString traceDump)
-          trace = runSimTrace $ do
+          (receivedMessages, traces) = runSimOrThrow $ do
             receivedMessages <- newTVarIO empty
             emittedTraces <- newTVarIO []
             randomSeed <- newTVarIO $ mkStdGen seed
-            aliceToBob <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
-            bobToAlice <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
+            aliceToBob <- newTQueueIO
+            bobToAlice <- newTQueueIO
             let
+              waitForAllMessages n receivedMessages messages  = do
+                if n == 0
+                   then pure ()
+                   else do
+                    msgs <- readTVarIO receivedMessages
+                    if length msgs == length messages
+                       then pure ()
+                       else threadDelay 1 >> waitForAllMessages (n - 1) receivedMessages messages
+
               randomNumber = do
                 genSeed <- readTVar randomSeed
                 let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
@@ -192,19 +201,16 @@ spec = parallel $ do
                 forM_ messages $ \m -> do
                   broadcast (Data "alice" m)
                   threadDelay 1
-                traces <- readTVarIO emittedTraces
-                if (BroadcastCounter{partyIndex = 1, localCounter = fromList [length messages - 1, 0]}) `elem` traces
-                  then pure ()
-                  else threadDelay 1
 
-            toList <$> readTVarIO receivedMessages
-         in
-          case traceResult False trace of
-            Right receivedMessages -> logsOnError ((payload <$> receivedMessages) === messages)
-            Left (FailureException (SomeException ex)) -> do
-              counterexample (show ex) $ logsOnError $ property False
-            Left ex ->
-              counterexample (show ex) $ logsOnError $ property False
+                waitForAllMessages 100 receivedMessages messages
+
+
+            msgs <- toList <$> readTVarIO receivedMessages
+            traces <- readTVarIO emittedTraces
+            pure (msgs, traces)
+
+         in (payload <$> receivedMessages) === messages
+            & counterexample(unlines $ show <$> reverse traces)
 
     prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
       forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
@@ -259,6 +265,7 @@ spec = parallel $ do
             toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
+
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
