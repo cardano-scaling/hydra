@@ -84,11 +84,30 @@ TODO pascal, franco or sasha
 
 #### Incremental commits and decommits [#199](https://github.com/input-output-hk/hydra/issues/199)
 
-TODO sebastian
+In the beginning of this month, some progress on incremental commits and
+decommits was made. An early
+[experiment](https://twitter.com/ch1bo_/status/1696067253089743289) about the
+off-chain / node logic showed that we can re-use the `/commit` validator and
+motivated design work on the feature items.
 
-- Experiment conducted
-- Designed and currently in discussion with researchers
-- Split into two items (each opening different doors)
+As mentioned above, the protocol extension was split into two items [Incremental
+commits #199](https://github.com/input-output-hk/hydra/issues/199) and
+[Incremental decommits
+#1057](https://github.com/input-output-hk/hydra/issues/1057). Both items contain
+high-level description, interaction outline and a first design of the on-chain
+validators which is currently getting discussed by the Hydra contributors and
+researchers.
+
+Especially the incremental commit is not trivial as the interaction between
+layer 1 and layer 2 is quite intricate. Observing a deposit on the Cardano
+mainchain may not be seen by all parties at the same time and this should not
+lock up the layer 2 process of transactions, while premature usage of committed
+funds is to be avoided. On the other hand, each step in the protocol needs to be
+secure in presence of an adversary and unlocking of committed funds must always
+be possible.
+
+Once this validator design is clear, we can get started implementing one or both
+of the features to enable more flexible usage of the Hydra head protocol.
 
 #### Refactored chain state
 
@@ -128,7 +147,9 @@ TODO sebastian
 
 * Workshop shows again how much a motivated group can achieve in a small amount of time
 * Just sitting down and work together on something
-* Scratching our own itch
+* Scratching our own itch - contributing back
+* Need to prototype things again and explore synergies actively by experimenting together
+* Catalyst fund10 results, more community contributions incoming again
 
 [slides]: https://docs.google.com/presentation/d/1YAWR4pz1gG2dwtGvm5KOAHtrjRcchPLUKhDA16u10ps
 [recording]: https://drive.google.com/file/d/1X8QnmG9gddR-t2V6F2oE7bYCYAEs2RPe/view
