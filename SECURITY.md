@@ -7,8 +7,7 @@ its software and the privacy of its users. We value the contributions
 of the security community in helping us identify and address
 vulnerabilities in our code. This _Security Vulnerability Disclosure
 Policy_ outlines how security vulnerabilities should be reported and
-how we will respond to and remediate such reports while maintaining a
-high level of privacy for all parties involved.
+how we will respond to and remediate such reports.
 
 ## Security Vulnerability Handling Process
 
