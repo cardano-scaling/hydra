@@ -26,10 +26,6 @@ Please include as much details as needed to clearly qualify the issue:
 * The version of `hydra-node` package where the vulnerability exists.
 * Any relevant proof-of-concept or exploit code (if applicable).
 
-Alternatively, reporting can be done by sending a PGP signed email at
-[security@hydra.family](mailto:security@hydra.family). Please not the
-Hydra team ignores any email to this box that's not signed or
-unrelated to reporting and managing a security vulnerability.
 
 ### Processing Vulnerability
 
