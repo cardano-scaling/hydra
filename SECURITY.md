@@ -90,9 +90,8 @@ report security vulnerabilities to us.
 
 ## Contact Information
 
-To report a security vulnerability or for any inquiries related to
-security, please contact us at
-[security@hydra.family](mailto:security@hydra.family).
+To report a security vulnerability, please use [GitHub
+form](https://github.com/input-output-hk/hydra/security/advisories/new).
 
 ## Revision of Policy
 
