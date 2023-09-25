@@ -19,7 +19,7 @@ We want Hydra to be _Consistent_ in the presence of _Network Partitions_, under 
 We have identified 3 main sources of failures in the _fail-recovery_ model that can lead to a head being stuck:
 
 1. The network layer can drop messages from the moment a node `broadcast`s it, leading to some messages not being received at the other end
-2. The sending node can crash in between the moment the state is changed (and persisted) and the moment a message is actually sent through the network (or even it calls `broadcast`)
+2. The sending node can crash in between the moment the state is changed (and persisted) and the moment a message is actually sent through the network (or even when it calls `broadcast`)
 3. The receiving node can crash in between the moment the message has been received in the network layer, and it's processed (goes through the queue)
 
 We agree that we'll want to address all those issues in order to provide a good user experience, as not addressing 2. and 3. can lead to hard to troubleshoot issues with heads. We have not experienced those issues yet as they would probably only crop up under heavy loads, or in the wild. But we also agree we want to tackle 1. first because it's where most of the risk lies. By providing a _Reliable Broadcast_ layer, we will significantly reduce the risks and can then later on address the other points.
