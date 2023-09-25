@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSay (MonadSay (..))
-import Control.Monad.IOSim (Failure (..), runSimOrThrow, runSimTrace, traceResult)
+import Control.Monad.IOSim (Failure (..), IOSim, runSimOrThrow, runSimTrace, traceResult)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.List (nub)
 import Data.Vector (Vector, empty, fromList, head, snoc)
@@ -142,6 +142,7 @@ spec = parallel $ do
           logsOnError = counterexample ("trace:\n" <> toString traceDump)
           trace = runSimTrace $ do
             receivedMessages <- newTVarIO empty
+            emittedTraces <- newTVarIO []
             randomSeed <- newTVarIO $ mkStdGen seed
             aliceToBob <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
             bobToAlice <- newTQueueIO -- @_ @(Authenticated (ReliableMsg (Heartbeat Int)))
@@ -184,14 +185,17 @@ spec = parallel $ do
               bobReliability =
                 withHeartbeat "bob" noop $
                   withFlipHeartbeats $
-                    withReliability nullTracer bob [alice] bobNetwork
+                    withReliability (captureTraces emittedTraces) bob [alice] bobNetwork
 
-            withReliability nullTracer alice [bob] aliceFailingNetwork noop $ \Network{broadcast} ->
+            withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork noop $ \Network{broadcast} ->
               bobReliability (captureIncoming receivedMessages) $ \_ -> do
                 forM_ messages $ \m -> do
                   broadcast (Data "alice" m)
                   threadDelay 1
-                threadDelay 1000
+                traces <- readTVarIO emittedTraces
+                if (BroadcastCounter{partyIndex = 1, localCounter = fromList [length messages - 1, 0]}) `elem` traces
+                  then pure ()
+                  else threadDelay 1
 
             toList <$> readTVarIO receivedMessages
          in
