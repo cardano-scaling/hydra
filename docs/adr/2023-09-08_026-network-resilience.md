@@ -54,7 +54,7 @@ Therefore, the scope of this ADR is to address only point 1. above: Ensure broad
 * This _vector_ is also piggybacked by the ping messages of the heartbeat mechanism so that a node informs its peers of its own situation even if it would have, otherwise, no message to sent to them
 * Sending a ping message does not influence the _vector_ of the sender
 * Any message received which index does not match what the peer expects is dropped
-* Messages deemed not received by a peer a re-sent
+* Messages deemed not received by a peer are re-sent
 
 ## Consequences
 
