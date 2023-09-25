@@ -59,7 +59,5 @@ Therefore, the scope of this ADR is to address only point 1. above: Ensure broad
 
 * We keep our existing `Network` interface hence all messages will be resent to all peers
   * This could be later optimized either by providing a smarter interface with a `send :: Peer -> msg -> m ()` unicast function, or by adding a layer with filtering capabilities, or both
-* We need to ensure messages are not kept forever when resending, eg. that the pending messages list is garbage collected
-* We need to refactor our `Heartbeat` layer to decouple the 2 capabilities it embeds, namely sending periodical heartbeats to peers, and providing listeners with information about a peer connection status, so that the `Reliability` layer can actually rely on those heartbeats to get regular update of peers' knowledge even when the actual Head is idle.
 * We want to specify this protocol clearly in order to ease implementation in other languages, detailing the structure of messages and the semantics of retries and timeouts.
-* We may consider relying on the vector clock in the future to ensure perfect ordering of messages on each peer and make impossible for legit transactions to be temporarily seen as invalid. This can happen in the current version and is handled through wait and ttl
+* We may consider relying on the vector clock in the future to ensure perfect ordering of messages on each peer and make impossible for legit transactions to be temporarily seen as invalid. This can happen in the current version and is handled through wait and _TTL_
