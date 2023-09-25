@@ -38,7 +38,30 @@ TODO arnaud
 
 ### Aiken validator experiment
 
-TODO sebastian
+As part of thw workshop, we explored how hard it would be to implement one of
+the Hydra validators in `aiken`. After roughly 2 hours of work we had a
+`hydra-node` running, tests passing and benchmarks of verifying one step in the
+Hydra protocol using aiken.
+
+The `hydra-node` just uses the UPLC binary and its hash to construct
+transactions, we could rely on the same interface, with the difference that the
+script binary gets produced by `aiken`. Aiken does produce a socalled blueprint
+`plutus.json` containing the contract. We staged that file into git and embedded
+it into a Haskell interface to be able to reference the compiled script as
+`SerialisedScript` from `hydra-node`.
+
+Next, we ported the simplest contract we have, namely the
+[Commit](https://github.com/input-output-hk/hydra/blob/ec6c7a2ab651462228475d0b34264e9a182c22bb/hydra-plutus/src/Hydra/Contract/Commit.hs)
+validator, [to
+Aiken](https://github.com/input-output-hk/hydra/blob/4ec572511fc13a526b85efce3aac556ae5bd007c/hydra-plutus/validators/commit.ak).
+This was fairly straight-forward and we test were passing after some fiddling
+with internal representations of data strctures (`plutus-tx` is encoding triples
+as `Constr` data on-chain).
+
+The results? A significant reduction in script size, cpu and memory usage on
+`collect` and `abort` transactions - or in different words, [doubling the
+supported](https://github.com/input-output-hk/hydra/pull/1072#issuecomment-1717644108)
+number of parties in a Head. 🎉
 
 ### Shallow cardano-node experiment
 
@@ -102,6 +125,10 @@ The monthly review meeting for August 2023 was held on 2023-09-20 via Google
 Meet with these [slides][slides] and the [recording][recording], 'broadcasting live from warm and sunny Colorado'!
 
 TODO sebastian
+
+* Workshop shows again how much a motivated group can achieve in a small amount of time
+* Just sitting down and work together on something
+* Scratching our own itch
 
 [slides]: https://docs.google.com/presentation/d/1YAWR4pz1gG2dwtGvm5KOAHtrjRcchPLUKhDA16u10ps
 [recording]: https://drive.google.com/file/d/1X8QnmG9gddR-t2V6F2oE7bYCYAEs2RPe/view
