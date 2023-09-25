@@ -85,9 +85,7 @@ practices, which include:
 
 ## Legal Protections
 
-The Hydra team is committed to providing legal protections to
-reporters who act in good faith and follow responsible disclosure
-practices. We will not pursue legal action against individuals who
+We will not pursue legal action against individuals who
 report security vulnerabilities to us.
 
 ## Contact Information
