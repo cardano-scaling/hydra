@@ -121,11 +121,12 @@ TODO franco
 
 #### Open source contributions
 
-TODO sebastian
+This month we received some open source contributions, but also were able to
+contribute back to one project:
 
-- Hydra: Lightning network-style payments use case write-up by @k-solutions
-- Aiken: Started an emacs aiken-mode by @ch1bo (in course of our experiments)
-- Hydra: Small fix in the docs (from workshop) by @caike
+- Hydra: Lightning network-style payments [use case](https://hydra.family/head-protocol/unstable/use-cases/payments/lighting-network-like-payments/) write-up by [@k-solutions](https://github.com/k-solutions)
+- Aiken: Started an emacs [aiken-mode](https://github.com/aiken-lang/aiken-mode) by @ch1bo (triggered by our experiments)
+- Hydra: Small [fix in the docs](https://github.com/input-output-hk/hydra/pull/1042) by [@caike](http://github.com/caike) (from RareEvo workshop)
 
 #### Current scaling use cases we track
 
