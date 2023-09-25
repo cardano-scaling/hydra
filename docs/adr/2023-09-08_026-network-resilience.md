@@ -43,7 +43,7 @@ Therefore, the scope of this ADR is to address only point 1. above: Ensure broad
         withOuroborosNetwork (contramap Network tracer) localhost peers
     ```
 
-  * This has the nice property that we can basically swap the lower layers should we need to, for example to use [UDP](https://github.com/input-output-hk/hydra/blob/abailly-iohk/multi-node-udp/hydra-node/src/Hydra/Network/UDP.hs), or add other layers for example to identify [Multiple Heads](https://github.com/input-output-hk/hydra/blob/abailly-iohk/multi-node-udp/hydra-node/src/Hydra/Network/MultiHead.hs#L26)
+  * This has the nice property that we can basically swap the lower layers should we need to, for example to use [UDP](https://github.com/input-output-hk/hydra/blob/abailly-iohk/multi-node-udp/hydra-node/src/Hydra/Network/UDP.hs), or add other layers for example to address specific head instances in presence of [multiple heads](https://github.com/input-output-hk/hydra/blob/abailly-iohk/multi-node-udp/hydra-node/src/Hydra/Network/MultiHead.hs#L26)
 
 ## Decision
 
