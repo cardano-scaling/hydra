@@ -48,7 +48,7 @@ Therefore, the scope of this ADR is to address only point 1. above: Ensure broad
 ## Decision
 
 * We implement our own message tracking and resending logic as a standalone `Network` layer
-* That layer consumes and produces `Authenticate`d messages in order to identify the source of messages
+* That layer consumes and produces `Authenticated msg` messages as it relies on identifying the source of messages
 * It uses a vector of monotonically increasing _sequence numbers_ associated with each party (including itself) to track what are the last messages from each party and to ensure FIFO delivery of messages
 * This _vector_ is also used to identify peers which are lagging behind and to resend the missing messages, or to drop messages which have already been received
 * This _vector_ is also piggybacked by the ping messages of the heartbeat mechanism so that a node informs its peers of its own situation even if it would have, otherwise, no message to sent to them
