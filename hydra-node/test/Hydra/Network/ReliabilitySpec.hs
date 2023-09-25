@@ -5,24 +5,35 @@ module Hydra.Network.ReliabilitySpec where
 import Hydra.Prelude hiding (empty, fromList, head, unlines)
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTQueue, readTVarIO, writeTQueue), modifyTVar', newTQueueIO, newTVarIO, writeTVar)
-import Control.Monad.Class.MonadSay (MonadSay (..))
-import Control.Monad.IOSim (Failure (..), IOSim, runSimOrThrow, runSimTrace, traceResult)
+import Control.Concurrent.Class.MonadSTM (
+  MonadSTM (readTQueue, readTVarIO, writeTQueue),
+  modifyTVar',
+  newTQueueIO,
+  newTVarIO,
+  writeTVar,
+ )
+import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.List (nub)
 import Data.Vector (Vector, empty, fromList, head, snoc)
-import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
-import Prelude (unlines)
-import Data.Text (unpack)
 import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
-import Test.QuickCheck (Positive (Positive), collect, counterexample, forAll, generate, property, resize, suchThat, tabulate, (===))
-import Test.Util (printTrace, traceDebug)
+import Test.QuickCheck (
+  Positive (Positive),
+  collect,
+  counterexample,
+  forAll,
+  generate,
+  suchThat,
+  tabulate,
+  (===),
+ )
+import Prelude (unlines)
 
 spec :: Spec
 spec = parallel $ do
@@ -137,80 +148,79 @@ spec = parallel $ do
 
       receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
 
-    prop "stress test networking layer" $ \seed ->
-      forAll (resize 10 (arbitrary :: Gen [Int])) $ \messages ->
-        let
-          (receivedMessages, traces) = runSimOrThrow $ do
-            receivedMessages <- newTVarIO empty
-            emittedTraces <- newTVarIO []
-            randomSeed <- newTVarIO $ mkStdGen seed
-            aliceToBob <- newTQueueIO
-            bobToAlice <- newTQueueIO
-            let
-              waitForAllMessages n receivedMessages messages  = do
-                if n == 0
-                   then pure ()
-                   else do
-                    msgs <- readTVarIO receivedMessages
-                    if length msgs == length messages
-                       then pure ()
-                       else threadDelay 1 >> waitForAllMessages (n - 1) receivedMessages messages
+    prop "stress test networking layer" $ \(messages :: [Int]) seed ->
+      let
+        (receivedMessages, traces) = runSimOrThrow $ do
+          observedMessages <- newTVarIO empty
+          emittedTraces <- newTVarIO []
+          randomSeed <- newTVarIO $ mkStdGen seed
+          aliceToBob <- newTQueueIO
+          bobToAlice <- newTQueueIO
+          let
+            waitForAllMessages n = do
+              if n == (0 :: Int)
+                then pure ()
+                else do
+                  msgs <- readTVarIO observedMessages
+                  if length msgs == length messages
+                    then pure ()
+                    else threadDelay 1 >> waitForAllMessages (n - 1)
 
-              randomNumber = do
-                genSeed <- readTVar randomSeed
-                let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
-                writeTVar randomSeed newGenSeed
-                pure res
+            randomNumber = do
+              genSeed <- readTVar randomSeed
+              let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
+              writeTVar randomSeed newGenSeed
+              pure res
 
-              -- this is a NetworkComponent that broadcasts Alice's authenticated messages
-              -- to bob mediated through a TQueue but drop 0.2 % of them
-              -- messages are then sent or read from aliceToBob and bobToAlice's queues
-              aliceFailingNetwork callback action =
-                withAsync
-                  ( forever $ do
-                      newMsg <- atomically $ readTQueue bobToAlice
-                      callback newMsg
-                  )
-                  $ \_ ->
-                    action $
-                      Network
-                        { broadcast = \m -> atomically $ do
-                            -- drop 0.2% of messages
-                            r <- randomNumber
-                            unless (r < 0.002) $ writeTQueue aliceToBob (Authenticated m alice)
-                        }
+            -- this is a NetworkComponent that broadcasts Alice's authenticated messages
+            -- to bob mediated through a TQueue but drop 0.2 % of them
+            -- messages are then sent or read from aliceToBob and bobToAlice's queues
+            aliceFailingNetwork callback action =
+              withAsync
+                ( forever $ do
+                    newMsg <- atomically $ readTQueue bobToAlice
+                    callback newMsg
+                )
+                $ \_ ->
+                  action $
+                    Network
+                      { broadcast = \m -> atomically $ do
+                          -- drop 2% of messages
+                          r <- randomNumber
+                          unless (r < 0.02) $ writeTQueue aliceToBob (Authenticated m alice)
+                      }
 
-              -- this is Bob's underlying network that simply propagates messages from and to alice
-              -- using aliceToBob and bobToAlice's queue
-              bobNetwork callback action =
-                withAsync
-                  ( forever $ do
-                      newMsg <- atomically $ readTQueue aliceToBob
-                      callback newMsg
-                  )
-                  $ \_ ->
-                    action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
+            -- this is Bob's underlying network that simply propagates messages from and to alice
+            -- using aliceToBob and bobToAlice's queue
+            bobNetwork callback action =
+              withAsync
+                ( forever $ do
+                    newMsg <- atomically $ readTQueue aliceToBob
+                    callback newMsg
+                )
+                $ \_ ->
+                  action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
 
-              bobReliability =
-                withHeartbeat "bob" noop $
-                  withFlipHeartbeats $
-                    withReliability (captureTraces emittedTraces) bob [alice] bobNetwork
+            bobReliability =
+              withHeartbeat "bob" noop $
+                withFlipHeartbeats $
+                  withReliability (captureTraces emittedTraces) bob [alice] bobNetwork
 
-            withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork noop $ \Network{broadcast} ->
-              bobReliability (captureIncoming receivedMessages) $ \_ -> do
-                forM_ messages $ \m -> do
-                  broadcast (Data "alice" m)
-                  threadDelay 1
+          withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork noop $ \Network{broadcast} ->
+            bobReliability (captureIncoming observedMessages) $ \_ -> do
+              forM_ messages $ \m -> do
+                broadcast (Data "alice" m)
+                threadDelay 1
 
-                waitForAllMessages 100 receivedMessages messages
+              waitForAllMessages 100
 
-
-            msgs <- toList <$> readTVarIO receivedMessages
-            traces <- readTVarIO emittedTraces
-            pure (msgs, traces)
-
-         in (payload <$> receivedMessages) === messages
-            & counterexample(unlines $ show <$> reverse traces)
+          msgs <- toList <$> readTVarIO observedMessages
+          logs <- readTVarIO emittedTraces
+          pure (msgs, logs)
+       in
+        (payload <$> receivedMessages) === messages
+          & counterexample (unlines $ show <$> reverse traces)
+          & tabulate "Messages length" ["< " <> show ((length messages `div` 10 + 1) * 10)]
 
     prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
       forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
@@ -244,7 +254,7 @@ spec = parallel $ do
               & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
               & counterexample ("sent messages: " <> show sentMsgs)
               & counterexample ("total messages: " <> show messagesList)
-              & tabulate "Resent" [show (length sentMsgs - totalNumberOfMessages)]
+              & tabulate "Resent" ["< " <> show (((length sentMsgs - totalNumberOfMessages) `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -265,7 +275,6 @@ spec = parallel $ do
             toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
-
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
