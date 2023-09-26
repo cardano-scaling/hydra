@@ -144,7 +144,7 @@ properties:
           tag:
             type: string
             enum: ["Reliability"]
-          api:
+          reliability:
             $ref: "logs.yaml#/definitions/Reliability"
 
 definitions:
