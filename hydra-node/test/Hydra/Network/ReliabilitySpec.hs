@@ -14,7 +14,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
-import Data.List (nub)
 import Data.Vector (Vector, empty, fromList, head, snoc)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
@@ -27,9 +26,7 @@ import Test.QuickCheck (
   Positive (Positive),
   collect,
   counterexample,
-  forAll,
   generate,
-  suchThat,
   tabulate,
   (===),
  )
@@ -232,7 +229,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
           [bob, carol]
           baseNetwork
 
-  aliceReliability (captureIncoming receivedMessages) $ \_action ->
+  void $ aliceReliability (captureIncoming receivedMessages) $ \_action ->
     pure [()]
 
   toList <$> readTVarIO receivedMessages
