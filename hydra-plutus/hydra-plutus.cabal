@@ -1,10 +1,10 @@
-cabal-version: 2.2
-name:          hydra-plutus
-version:       0.19.0
-synopsis:      Hydra Plutus Contracts
-author:        IOG
-copyright:     2022 IOG
-license:       Apache-2.0
+cabal-version:      2.2
+name:               hydra-plutus
+version:            0.19.0
+synopsis:           Hydra Plutus Contracts
+author:             IOG
+copyright:          2022 IOG
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
@@ -97,7 +97,9 @@ test-suite tests
     Spec
 
   build-depends:
+    , aeson
     , base
+    , bytestring
     , filepath
     , hspec
     , hspec-golden
@@ -105,6 +107,8 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , lens
+    , lens-aeson
     , plutus-ledger-api
     , process
     , QuickCheck
