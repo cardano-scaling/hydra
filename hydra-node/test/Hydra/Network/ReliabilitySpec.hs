@@ -117,37 +117,6 @@ spec = parallel $ do
             fromList . toList <$> readTVarIO sentMessages
        in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
-    it "broadcasts messages to single connected peer" $ do
-      -- FIXME: this test does not prove more than the above property:
-      --        `broadcast messages to the network assigning a sequential id`
-      --        we should drop this test as it only proves that this test
-      --        custom implementation of the network stack with a queue works
-      --        Alternative: explain to @pgrange what he is missing here.
-      let receivedMsgs = runSimOrThrow $ do
-            receivedMessages <- newTVarIO empty
-            queue <- newTQueueIO
-
-            let aliceNetwork _ action = do
-                  action (Network{broadcast = atomically . writeTQueue queue . flip Authenticated alice})
-
-            let bobNetwork callback action = do
-                  withAsync
-                    ( forever $ do
-                        newMsg <- atomically $ readTQueue queue
-                        callback newMsg
-                    )
-                    $ \_ ->
-                      action (Network{broadcast = const $ pure ()})
-
-            withReliability nullTracer alice [bob] aliceNetwork (const $ pure ()) $ \Network{broadcast} ->
-              withReliability nullTracer bob [alice] bobNetwork (captureIncoming receivedMessages) $ \_ -> do
-                broadcast (Data "node-1" msg)
-                threadDelay 1
-
-            toList <$> readTVarIO receivedMessages
-
-      receivedMsgs `shouldBe` [Authenticated (Data "node-1" msg) alice]
-
     prop "stress test networking layer" $ \(messages :: [Int]) seed ->
       let
         (receivedMessages, traces) = runSimOrThrow $ do
