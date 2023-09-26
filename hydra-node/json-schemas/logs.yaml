@@ -132,6 +132,21 @@ properties:
             type: object
             $ref: "logs.yaml#/definitions/AuthLog"
 
+      - title: Reliability
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - reliability
+        description: >-
+          A log entry produced by Reliability network layer.
+        properties:
+          tag:
+            type: string
+            enum: ["Reliability"]
+          api:
+            $ref: "logs.yaml#/definitions/Reliability"
+
 definitions:
   APIServer:
     oneOf:
@@ -430,6 +445,125 @@ definitions:
             enum: ["SkipUpdate"]
           point:
             $ref: "api.yaml#/components/schemas/ChainPoint"
+
+  Reliability:
+    oneOf:
+      - title: Resending
+        description: >-
+          Resending missed messages. If the party detects that the vector clock for some other party is lagging behind it will try to resend messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - missing
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Resending"]
+          missing:
+            type: array
+            items:
+              type: number
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+  Broadcasting:
+    oneOf:
+      - title: Broadcasting
+        description: >-
+          Logged when broadcasting from the Reliability layer.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Broadcasting"]
+  Callbacking:
+    oneOf:
+      - title: Callbacking
+        description: >-
+          Logged when receiving a message into the Reliability layer.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Callbacking"]
+
+      - title: BroadcastCounter
+        description: >-
+          Logged when broadcasting messages from the Reliability layer.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - partyIndex
+          - localCounter
+        properties:
+          tag:
+            type: string
+            enum: ["BroadcastCounter"]
+          partyIndex:
+            type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+      - title: Receiving
+        description: >-
+          Logged only when the party receives a message and it is valid to to issue a callback.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Receiving"]
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+      - title: ClearedMessageQueue
+        description: >-
+          Logged when it is safe to delete some of the local messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - messageQueueLength
+          - deletedMessages
+        properties:
+          tag:
+            type: string
+            enum: ["ClearedMessageQueue"]
+          messageQueueLength:
+            type: number
+          deletedMessages:
+            type: number
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml
