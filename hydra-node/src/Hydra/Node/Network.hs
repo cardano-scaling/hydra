@@ -40,7 +40,7 @@
 -- │                                                    │
 -- └─────────▲───────────────────────────────────┼──────┘
 --           │                                   │
---      Authenticate (ReliableMsg (Heartbeat msg))    ReliableMsg│(Heartbeat msg)
+--      Authenticated (ReliableMsg (Heartbeat msg))    ReliableMsg (Heartbeat msg)
 --           │                                   │
 -- ┌─────────┼───────────────────────────────────▼──────┐
 -- │                                                    │
