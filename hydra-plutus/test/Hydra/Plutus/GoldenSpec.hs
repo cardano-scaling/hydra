@@ -12,7 +12,13 @@
 module Hydra.Plutus.GoldenSpec where
 
 import Hydra.Prelude
+
 import Test.Hydra.Prelude
+
+import Control.Lens ((^.))
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens (key, nth, _String)
+import qualified Data.ByteString.Lazy as BSL
 
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV2, AsScript),
@@ -21,9 +27,11 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   hashScript,
   readFileTextEnvelope,
+  serialiseToRawBytesHexText,
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
+import Hydra.Contract (ScriptInfo (commitScriptHash), scriptInfo)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
@@ -64,6 +72,16 @@ spec = do
       -- Read git log file and verify plutus.json did not change
       gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
       gitLogContents `shouldNotContain` "plutus.json"
+  fit "check plutus blueprint hash against code reference" $ do
+    withFile "./plutus.json" ReadMode $ \hdl -> do
+      plutusJson <- BSL.hGetContents hdl
+      let blueprintJSON :: Aeson.Value =
+            case Aeson.decode plutusJson of
+              Nothing -> error "Invalid blueprint: plutus.json"
+              Just value -> value
+      let base16Text = blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
+      let plutusScriptHash = commitScriptHash scriptInfo
+      base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
   it "Commit validator script" $
