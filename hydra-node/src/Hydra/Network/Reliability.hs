@@ -218,8 +218,14 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             traceWith tracer (Received acks knownAcks partyIndex)
           else traceWith tracer (Ignored acks knownAcks partyIndex)
 
-        -- resend messages if party did not acknowledge our latest idx
-        resendMessages resend partyIndex sentMessages knownAcks acks messageAckForParty knownAckForParty
+        -- NOTE: We only check whether or not our peer is lagging behind to
+        -- resend messages if the peer is quiescent, ie. it did not make any
+        -- progress since the last message we got from it ; or if it is sending
+        -- us "old" messages. This could happen if it is also resending
+        -- messages, but then we might detect later it's not actually lagging
+        -- and therefore we won't resend
+        when (messageAckForParty <= knownAckForParty) $
+          resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
 
         -- Update last message index sent by us and seen by some party
         updateSeenMessages seenMessages acks party
@@ -234,11 +240,14 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
   partyIndexes = generate (length allParties) id
 
-  resendMessages resend partyIndex sentMessages knownAcks messageAcks messageAckForParty knownAckForParty = do
+  resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks = do
     myIndex <- findPartyIndex me
     let messageAckForUs = messageAcks ! myIndex
     let knownAckForUs = knownAcks ! myIndex
-    when (messageAckForUs < knownAckForUs && messageAckForParty <= knownAckForParty) $ do
+
+    -- We resend messages if our peer notified us that it's lagging behind our
+    -- latest message sent
+    when (messageAckForUs < knownAckForUs) $ do
       let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
