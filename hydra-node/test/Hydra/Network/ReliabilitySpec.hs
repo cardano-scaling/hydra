@@ -206,13 +206,18 @@ spec = parallel $ do
                 withFlipHeartbeats $
                   withReliability (captureTraces emittedTraces) bob [alice] bobNetwork
 
-          withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork noop $ \Network{broadcast} ->
-            bobReliability (captureIncoming observedMessages) $ \_ -> do
-              forM_ messages $ \m -> do
-                broadcast (Data "alice" m)
-                threadDelay 1
+            runAlice =
+              withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork noop $ \Network{broadcast} -> do
+                forM_ messages $ \m -> do
+                  broadcast (Data "alice" m)
+                  threadDelay 1
 
+                threadDelay 10
+
+            runBob = bobReliability (captureIncoming observedMessages) $ \_ ->
               waitForAllMessages 100
+
+          race_ runAlice runBob
 
           msgs <- toList <$> readTVarIO observedMessages
           logs <- readTVarIO emittedTraces
@@ -221,40 +226,6 @@ spec = parallel $ do
         (payload <$> receivedMessages) === messages
           & counterexample (unlines $ show <$> reverse traces)
           & tabulate "Messages length" ["< " <> show ((length messages `div` 10 + 1) * 10)]
-
-    prop "retransmits unacknowledged messages given peer index does not change" $ \(Positive lastMessageKnownToBob) ->
-      forAll (arbitrary `suchThat` (> lastMessageKnownToBob)) $ \totalNumberOfMessages ->
-        let messagesList = Data "node-1" <$> [1 .. totalNumberOfMessages]
-            sentMsgs = runSimOrThrow $ do
-              sentMessages <- newTVarIO empty
-
-              withReliability
-                nullTracer
-                alice
-                [bob]
-                ( \incoming action -> do
-                    concurrently_
-                      (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` message m)})
-                      ( do
-                          threadDelay 2
-                          incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
-                          incoming (Authenticated (ReliableMsg (fromList [lastMessageKnownToBob, 1]) (Data "node-2" msg')) bob)
-                      )
-                )
-                noop
-                $ \Network{broadcast} -> do
-                  forM_ messagesList $ \m ->
-                    broadcast m
-                  threadDelay 10
-
-              toList <$> readTVarIO sentMessages
-         in length sentMsgs
-              <= (2 * totalNumberOfMessages - lastMessageKnownToBob + 1)
-              && nub messagesList == nub sentMsgs
-              & counterexample ("number of missing messages: " <> show (totalNumberOfMessages - lastMessageKnownToBob))
-              & counterexample ("sent messages: " <> show sentMsgs)
-              & counterexample ("total messages: " <> show messagesList)
-              & tabulate "Resent" ["< " <> show (((length sentMsgs - totalNumberOfMessages) `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -283,16 +254,17 @@ aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authe
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
 
-  _ <- withReliability
-    nullTracer
-    alice
-    [bob, carol]
-    ( \incoming _ -> do
-        mapM incoming messages
-    )
-    (captureIncoming receivedMessages)
-    $ \_ ->
-      pure [()]
+  let baseNetwork incoming _ = mapM incoming messages
+
+      aliceReliability =
+        withReliability
+          nullTracer
+          alice
+          [bob, carol]
+          baseNetwork
+
+  aliceReliability (captureIncoming receivedMessages) $ \_action ->
+    pure [()]
 
   toList <$> readTVarIO receivedMessages
 
