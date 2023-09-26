@@ -477,33 +477,6 @@ definitions:
               type: number
           partyIndex:
             type: number
-  Broadcasting:
-    oneOf:
-      - title: Broadcasting
-        description: >-
-          Logged when broadcasting from the Reliability layer.
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Broadcasting"]
-  Callbacking:
-    oneOf:
-      - title: Callbacking
-        description: >-
-          Logged when receiving a message into the Reliability layer.
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-        properties:
-          tag:
-            type: string
-            enum: ["Callbacking"]
-
       - title: BroadcastCounter
         description: >-
           Logged when broadcasting messages from the Reliability layer.
@@ -523,7 +496,26 @@ definitions:
             type: array
             items:
               type: number
-      - title: Receiving
+      - title: BroadcastPing
+        description: >-
+          Logged when broadcasting a Ping, which does not update the known message Ids
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - partyIndex
+          - localCounter
+        properties:
+          tag:
+            type: string
+            enum: ["BroadcastCounter"]
+          partyIndex:
+            type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+      - title: Received
         description: >-
           Logged only when the party receives a message and it is valid to to issue a callback.
         type: object
@@ -536,7 +528,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["Receiving"]
+            enum: ["Received"]
           acknowledged:
             type: array
             items:
