@@ -212,7 +212,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
 
         when shouldCallback $ do
-          -- TODO: Rename to Received
           traceWith tracer (Received acks knownAcks partyIndex)
           callback (Authenticated msg party)
 
