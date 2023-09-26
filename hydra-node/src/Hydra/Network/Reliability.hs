@@ -214,8 +214,8 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         if shouldCallback
           then do
-            traceWith tracer (Received acks knownAcks partyIndex)
             callback (Authenticated msg party)
+            traceWith tracer (Received acks knownAcks partyIndex)
           else traceWith tracer (Ignored acks knownAcks partyIndex)
 
         -- resend messages if party did not acknowledge our latest idx
