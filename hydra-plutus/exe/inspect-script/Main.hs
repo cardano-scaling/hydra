@@ -11,7 +11,6 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
-import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
@@ -103,7 +102,6 @@ main = do
   compiledScripts =
     [ (Compiled Head.compiledValidator, "headScript")
     , (Compiled Initial.compiledValidator, "initialScript")
-    , (Compiled Commit.compiledValidator, "commitScript")
     ]
 
   datums =

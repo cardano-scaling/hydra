@@ -1,13 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -fno-specialize #-}
--- Avoid trace calls to be optimized away when inlining functions.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:no-simplifier-inline #-}
--- Plutus core version to compile to. In babbage era, that is Cardano protocol
--- version 7 and 8, only plutus-core version 1.0.0 is available.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
--- | The validator used to collect & open or abort a Head.
 module Hydra.Contract.Commit where
 
 import PlutusTx.Prelude
@@ -17,27 +9,14 @@ import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import qualified Hydra.Cardano.Api as OffChain
 import Hydra.Cardano.Api.Network (Network)
-import Hydra.Contract.CommitError (CommitError (..), errorCode)
-import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
-import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
-  Datum (..),
-  Redeemer (Redeemer),
   TxOutRef,
-  txOutValue,
  )
-import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
+import PlutusTx (fromData, toData)
 import qualified PlutusTx
 import qualified Prelude as Haskell
-
-data CommitRedeemer
-  = ViaCollectCom
-  | ViaAbort
-
-PlutusTx.unstableMakeIsData ''CommitRedeemer
 
 -- | A data type representing comitted outputs on-chain. Besides recording the
 -- original 'TxOutRef', it also stores a binary representation compatible
@@ -79,40 +58,3 @@ deserializeCommit network Commit{input, preSerializedOutput} =
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
 type DatumType = (Party, [Commit], CurrencySymbol)
-type RedeemerType = CommitRedeemer
-
--- | The v_commit validator verifies that:
---
---   * spent in a transaction also consuming a v_head output
---
---   * ST is burned if the redeemer is 'ViaAbort'
---
---   * ST is present in the output if the redeemer is 'ViaCollectCom'
-validator :: DatumType -> RedeemerType -> ScriptContext -> Bool
-validator (_party, _commit, headId) r ctx =
-  case r of
-    -- NOTE: The reimbursement of the committed output 'commit' is
-    -- delegated to the 'head' script who has more information to do it.
-    ViaAbort ->
-      traceIfFalse
-        $(errorCode STNotBurnedError)
-        (mustBurnST (txInfoMint $ scriptContextTxInfo ctx) headId)
-    ViaCollectCom ->
-      traceIfFalse
-        $(errorCode STIsMissingInTheOutput)
-        (hasST headId headOutputValue)
- where
-  headOutputValue =
-    txOutValue . head $ txInfoOutputs (scriptContextTxInfo ctx)
-
-compiledValidator :: CompiledCode ValidatorType
-compiledValidator =
-  $$(PlutusTx.compile [||wrap validator||])
- where
-  wrap = wrapValidator @DatumType @RedeemerType
-
-datum :: DatumType -> Datum
-datum a = Datum (toBuiltinData a)
-
-redeemer :: RedeemerType -> Redeemer
-redeemer a = Redeemer (toBuiltinData a)

@@ -131,7 +131,9 @@ test-suite tests
     Spec
 
   build-depends:
+    , aeson
     , base
+    , bytestring
     , filepath
     , hspec
     , hspec-golden
@@ -139,6 +141,8 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , lens
+    , lens-aeson
     , plutus-ledger-api
     , process
     , QuickCheck
