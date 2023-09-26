@@ -115,7 +115,7 @@ spec = parallel $ do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
-       in head . messageId <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+       in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
     it "broadcasts messages to single connected peer" $ do
       -- FIXME: this test does not prove more than the above property:

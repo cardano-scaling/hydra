@@ -82,15 +82,14 @@ import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
-  -- TODO: rename messageId to something more meaningful
-  { messageId :: Vector Int
+  { knownMessageIds :: Vector Int
   , message :: msg
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR msg) => ToCBOR (ReliableMsg msg) where
-  toCBOR ReliableMsg{messageId, message} = toCBOR messageId <> toCBOR message
+  toCBOR ReliableMsg{knownMessageIds, message} = toCBOR knownMessageIds <> toCBOR message
 
 instance (FromCBOR msg) => FromCBOR (ReliableMsg msg) where
   fromCBOR = ReliableMsg <$> fromCBOR <*> fromCBOR
