@@ -113,10 +113,9 @@ instance Exception ReliabilityException
 
 data ReliabilityLog
   = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  | Broadcasting
-  | Callbacking
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
-  | Receiving {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | BroadcastPing {partyIndex :: Int, localCounter :: Vector Int}
+  | Received {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | ClearedMessageQueue {messageQueueLength :: Int, deletedMessages :: Int}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -133,7 +132,7 @@ instance Arbitrary ReliabilityLog where
 -- layer is tied to a specific structure of other layers, eg. be between
 -- `withHeartbeat` and `withAuthenticate` layers.
 --
--- TODO: better use of Vectors? We should perhaps use a `MVector` to be able to
+-- NOTE: better use of Vectors? We should perhaps use a `MVector` to be able to
 -- mutate in-place and not need `zipWith`
 withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
@@ -165,7 +164,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                traceWith tracer Broadcasting
                 ackCounter' <- atomically $ do
                   acks <- readTVar ackCounter
                   let newAcks = constructAcks acks ourIndex
@@ -177,8 +175,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do
                 acks <- readTVarIO ackCounter
-                -- TODO: have a separate log for Pings
-                traceWith tracer (BroadcastCounter ourIndex acks)
+                traceWith tracer (BroadcastPing ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
 
@@ -216,7 +213,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         when shouldCallback $ do
           -- TODO: Rename to Received
-          traceWith tracer (Receiving acks knownAcks partyIndex)
+          traceWith tracer (Received acks knownAcks partyIndex)
           callback (Authenticated msg party)
 
         -- resend messages if party did not acknowledge our latest idx
