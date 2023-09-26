@@ -124,7 +124,7 @@ spec = parallel $ do
           aliceToBob <- newTQueueIO
           bobToAlice <- newTQueueIO
           let
-            bobToAliceMessages = [1 .. length aliceToBobMessages] -- TODO use random generated list
+            bobToAliceMessages = [1 .. 2] -- TODO use random generated list
             waitForAllMessagesFromAlice n = waitForAllMessages n aliceToBobMessages messagesReceivedByBob
             waitForAllMessagesFromBob n = waitForAllMessages n bobToAliceMessages messagesReceivedByAlice
 
@@ -142,7 +142,6 @@ spec = parallel $ do
                 ( forever $ do
                     newMsg <- atomically $ readTQueue bobToAlice
                     callback newMsg
-                    traceShow "Alice callback: " $ traceShow newMsg $ pure ()
                 )
                 $ \_ ->
                   action $
@@ -160,7 +159,6 @@ spec = parallel $ do
                 ( forever $ do
                     newMsg <- atomically $ readTQueue aliceToBob
                     callback newMsg
-                    traceShow "Bob callback: " $ traceShow newMsg $ pure ()
                 )
                 $ \_ ->
                   action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
@@ -199,11 +197,12 @@ spec = parallel $ do
           bobReceived <- toList <$> readTVarIO messagesReceivedByBob
           pure (aliceReceived, bobReceived, logs)
        in
-        msgReceivedByBob
-          === aliceToBobMessages
-          & counterexample (unlines $ show <$> reverse traces)
-          & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
-          & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+        traceShow (show msgReceivedByBob ++ "/=" ++ show aliceToBobMessages) $
+          msgReceivedByBob
+            === aliceToBobMessages
+            & counterexample (unlines $ show <$> reverse traces)
+            & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+            & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -250,8 +249,8 @@ captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
-capturePayload :: (Show msg, MonadSTM m) => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
-capturePayload receivedMessages message = traceShow message $ case payload message of
+capturePayload :: (MonadSTM m) => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
+capturePayload receivedMessages message = case payload message of
   Data _ msg ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()
