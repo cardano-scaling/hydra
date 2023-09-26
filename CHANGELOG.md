@@ -10,6 +10,10 @@ changes.
 
 ## [0.13.0] - UNRELEASED
 
+- **BREAKING** Introduce messages resending logic in the `Network`
+  layer to improve reliability in the face of transient connection
+  issues
+
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
 
 - Query at the tip for local cardano-node queries. We witnessed these queries
