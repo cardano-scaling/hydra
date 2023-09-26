@@ -116,6 +116,7 @@ data ReliabilityLog
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
   | BroadcastPing {partyIndex :: Int, localCounter :: Vector Int}
   | Received {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
+  | Ignored {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | ClearedMessageQueue {messageQueueLength :: Int, deletedMessages :: Int}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -211,9 +212,11 @@ withReliability tracer me otherParties withRawNetwork callback action = do
               return (True, messageAckForParty, knownAckForParty, newAcks)
             else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
 
-        when shouldCallback $ do
-          traceWith tracer (Received acks knownAcks partyIndex)
-          callback (Authenticated msg party)
+        if shouldCallback
+          then do
+            traceWith tracer (Received acks knownAcks partyIndex)
+            callback (Authenticated msg party)
+          else traceWith tracer (Ignored acks knownAcks partyIndex)
 
         -- resend messages if party did not acknowledge our latest idx
         resendMessages resend partyIndex sentMessages knownAcks acks messageAckForParty knownAckForParty
