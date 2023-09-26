@@ -26,9 +26,9 @@ changed much as the team mostly clarified upcoming features.
 
 * When detailing the design of incremental de-/commits, the feature was also split in two. Each of the features would have a different impact on the user experience and relates to other ideas:
 
-  - [Incremental commit #199](https://github.com/input-output-hk/hydra/issues/199) is a bit more complicated, but paves the way for directly open heads and could make [Always abortable head #699](https://github.com/input-output-hk/hydra/issues/699) redundant.
+  * [Incremental commit #199](https://github.com/input-output-hk/hydra/issues/199) is a bit more complicated, but paves the way for directly open heads and could make [Always abortable head #699](https://github.com/input-output-hk/hydra/issues/699) redundant.
 
-  - [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057) is fairly straight-forward and can be evolved into "partial fanouts", which solves similar problems as the [split-fanout #190](https://github.com/input-output-hk/hydra/issues/190) and [only signing closable snapshots #370](https://github.com/input-output-hk/hydra/issues/370) would address. Also, the [optimistic head closure #198](https://github.com/input-output-hk/hydra/issues/198) feature is very related to this item.
+  * [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057) is fairly straight-forward and can be evolved into "partial fanouts", which solves similar problems as the [split-fanout #190](https://github.com/input-output-hk/hydra/issues/190) and [only signing closable snapshots #370](https://github.com/input-output-hk/hydra/issues/370) would address. Also, the [optimistic head closure #198](https://github.com/input-output-hk/hydra/issues/198) feature is very related to this item.
 
 * Added a new feature to improve user journey of running the `hydra-node` by [removing the command line defaults #1064](https://github.com/input-output-hk/hydra/issues/1064). This came out of prior [idea discussion #454](https://github.com/input-output-hk/hydra/discussions/454) which highlights the life-cycle of ideas and features on the Hydra project.
 
@@ -76,11 +76,31 @@ This month, the team worked on the following:
 
 #### Network resilience to disconnects [#188](https://github.com/input-output-hk/hydra/issues/188)
 
-TODO pascal, franco or sasha
+If a Hydra node crashes, it can recover its state from disk thanks to the
+[event-sourced persistency](https://github.com/input-output-hk/hydra/pull/1000)
+mechanism in place. But if a peer inside the head sends messages while the node
+is down, these messages are lost for this node and this can well lead to the
+head being stuck.
 
-- State of exploration / problem statement
-- Current strategy / next steps
-- Refined the scope -> split into multiple features (include links)
+For instance, in the following picture, we see that if Bob was down when Alice
+acknowledged snapshot 10, then it will wait forever for this acknowledgement and
+will refuse to move forward with the head, making it stuck.
+
+![Head stuck because of lost message](./img/2023-09-head-stuck.png) <small><center>Head stuck because of lost message</center></small>
+
+Hydra is designed to deal with non-cooperative peers in a very safe way:
+close the head! And this situation could be generalized as a non cooperative
+peer situation. So the safe move is to just close the head.
+
+But practically speaking, closing the head every time a node restarts or a network
+connection is interrupted can lead to an operations nightmare. So the question we're
+exploring is, can we distinguish between non cooperative peer or just transient
+communication issue?
+
+* {ADR 27)[https://github.com/input-output-hk/hydra/blob/master/docs/adr/2023-09-08_027-network-resilience.md]
+gives details about our current strategy
+* [#1074](https://github.com/input-output-hk/hydra/pull/1074) is a first implementation of this strategy
+* [#1080](https://github.com/input-output-hk/hydra/issues/1080) should specify the resulting network protocol so that others could implement compatible hydra nodes
 
 #### Incremental commits and decommits [#199](https://github.com/input-output-hk/hydra/issues/199)
 
@@ -93,7 +113,9 @@ motivated design work on the feature items.
 As mentioned above, the protocol extension was split into two items [Incremental
 commits #199](https://github.com/input-output-hk/hydra/issues/199) and
 [Incremental decommits
-#1057](https://github.com/input-output-hk/hydra/issues/1057). Both items contain
+
+# [1057](<https://github.com/input-output-hk/hydra/issues/1057>). Both items contain
+
 high-level description, interaction outline and a first design of the on-chain
 validators which is currently getting discussed by the Hydra contributors and
 researchers.
@@ -113,9 +135,9 @@ of the features to enable more flexible usage of the Hydra head protocol.
 
 TODO franco
 
-- why and how did we do it
-- backward compatible change
-- what is the benefit
+* why and how did we do it
+* backward compatible change
+* what is the benefit
 
 ## Community
 
@@ -124,20 +146,20 @@ TODO franco
 This month we received some open source contributions, but also were able to
 contribute back to one project:
 
-- Hydra: Lightning network-style payments [use case](https://hydra.family/head-protocol/unstable/use-cases/payments/lighting-network-like-payments/) write-up by [@k-solutions](https://github.com/k-solutions)
-- Aiken: Started an emacs [aiken-mode](https://github.com/aiken-lang/aiken-mode) by @ch1bo (triggered by our experiments)
-- Hydra: Small [fix in the docs](https://github.com/input-output-hk/hydra/pull/1042) by [@caike](http://github.com/caike) (from RareEvo workshop)
+* Hydra: Lightning network-style payments [use case](https://hydra.family/head-protocol/unstable/use-cases/payments/lighting-network-like-payments/) write-up by [@k-solutions](https://github.com/k-solutions)
+* Aiken: Started an emacs [aiken-mode](https://github.com/aiken-lang/aiken-mode) by @ch1bo (triggered by our experiments)
+* Hydra: Small [fix in the docs](https://github.com/input-output-hk/hydra/pull/1042) by [@caike](http://github.com/caike) (from RareEvo workshop)
 
 #### Current scaling use cases we track
 
 TODO: nebojsa? include this? or only Hypix (as the new thing)?
 
-- Hypix - productized hydraw
-- Book.io - scalable minting and distribution of tokenized books
-- Midnight - dust airdrop and side-chain operatio
-- SingularityNet - pay-per-use API / Cardano port of an existing Ethereum solution
-- SundaeLabs - scaling their DEX using gummiworm / hydra ledger-only as validators
-- Emurgo/Obsidian - general interest in creating a payment channel network
+* Hypix - productized hydraw
+* Book.io - scalable minting and distribution of tokenized books
+* Midnight - dust airdrop and side-chain operatio
+* SingularityNet - pay-per-use API / Cardano port of an existing Ethereum solution
+* SundaeLabs - scaling their DEX using gummiworm / hydra ledger-only as validators
+* Emurgo/Obsidian - general interest in creating a payment channel network
 
 ## Conclusion
 
