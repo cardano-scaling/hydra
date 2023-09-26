@@ -1,7 +1,7 @@
 ---
-slug: 26
+slug: 27
 title: |
-  26. Network failures model
+  27. Network failures model
 authors: [abailly, pgrange]
 tags: [Proposed]
 ---
