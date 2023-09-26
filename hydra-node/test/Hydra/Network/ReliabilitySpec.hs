@@ -116,7 +116,7 @@ spec = parallel $ do
 
     prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) seed ->
       let
-        (_msgReceivedByAlice, msgReceivedByBob, traces) = runSimOrThrow $ do
+        (msgReceivedByAlice, msgReceivedByBob, traces) = runSimOrThrow $ do
           messagesReceivedByBob <- newTVarIO empty
           messagesReceivedByAlice <- newTVarIO empty
           emittedTraces <- newTVarIO []
@@ -124,7 +124,7 @@ spec = parallel $ do
           aliceToBob <- newTQueueIO
           bobToAlice <- newTQueueIO
           let
-            bobToAliceMessages = [1 .. 10] -- TODO use random generated list
+            bobToAliceMessages = [1 .. length aliceToBobMessages] -- TODO use random generated list
             waitForAllMessagesFromAlice n = waitForAllMessages n aliceToBobMessages messagesReceivedByBob
             waitForAllMessagesFromBob n = waitForAllMessages n bobToAliceMessages messagesReceivedByAlice
 
@@ -142,6 +142,7 @@ spec = parallel $ do
                 ( forever $ do
                     newMsg <- atomically $ readTQueue bobToAlice
                     callback newMsg
+                    traceShow "Alice callback: " $ traceShow newMsg $ pure ()
                 )
                 $ \_ ->
                   action $
@@ -159,6 +160,7 @@ spec = parallel $ do
                 ( forever $ do
                     newMsg <- atomically $ readTQueue aliceToBob
                     callback newMsg
+                    traceShow "Bob callback: " $ traceShow newMsg $ pure ()
                 )
                 $ \_ ->
                   action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
@@ -174,10 +176,10 @@ spec = parallel $ do
                   withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork
 
             runAlice =
-              aliceReliability noop $ \Network{broadcast} -> do
+              aliceReliability (capturePayload messagesReceivedByAlice) $ \Network{broadcast} -> do
                 forM_ aliceToBobMessages $ \m -> do
                   broadcast (Data "alice" m)
-                  threadDelay 1
+                  threadDelay 10
 
                 waitForAllMessagesFromBob 100
                 threadDelay 10
@@ -185,22 +187,23 @@ spec = parallel $ do
             runBob = bobReliability (capturePayload messagesReceivedByBob) $ \Network{broadcast} -> do
               forM_ bobToAliceMessages $ \m -> do
                 broadcast (Data "bob" m)
-                threadDelay 1
+                threadDelay 10
 
               waitForAllMessagesFromAlice 100
               threadDelay 10
 
           race_ runAlice runBob
 
+          logs <- readTVarIO emittedTraces
           aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
           bobReceived <- toList <$> readTVarIO messagesReceivedByBob
-          logs <- readTVarIO emittedTraces
           pure (aliceReceived, bobReceived, logs)
        in
         msgReceivedByBob
           === aliceToBobMessages
           & counterexample (unlines $ show <$> reverse traces)
-          & tabulate "Messages length" ["< " <> show ((length aliceToBobMessages `div` 10 + 1) * 10)]
+          & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+          & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -247,13 +250,13 @@ captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
-capturePayload :: MonadSTM m => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
-capturePayload receivedMessages message = case payload message of
+capturePayload :: (Show msg, MonadSTM m) => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
+capturePayload receivedMessages message = traceShow message $ case payload message of
   Data _ msg ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()
 
-waitForAllMessages :: (MonadSTM m, MonadDelay m, MonadThrow m) => Int -> [msg] -> TVar m (Vector msg) -> m ()
+waitForAllMessages :: (MonadSTM m, MonadDelay m) => Int -> [msg] -> TVar m (Vector msg) -> m ()
 waitForAllMessages n expectedMessages capturedMessages = do
   if n == (0 :: Int)
     then pure ()
