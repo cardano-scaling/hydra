@@ -82,7 +82,10 @@ import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
-  { knownMessageIds :: Vector Int
+  { -- | Vector of highest known counter for each known party. Serves as announcement of
+    -- which messages the sender of `ReliableMsg` has seen. The individual counters have
+    -- nothing to do with the `message` also included in this.
+    knownMessageIds :: Vector Int
   , message :: msg
   }
   deriving stock (Eq, Show, Generic)
