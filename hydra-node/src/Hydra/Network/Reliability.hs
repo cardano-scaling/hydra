@@ -82,10 +82,10 @@ import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
-  { -- | Vector of highest known counter for each known party. Serves as announcement of
-    -- which messages the sender of `ReliableMsg` has seen. The individual counters have
-    -- nothing to do with the `message` also included in this.
-    knownMessageIds :: Vector Int
+  { knownMessageIds :: Vector Int
+  -- ^ Vector of highest known counter for each known party. Serves as announcement of
+  -- which messages the sender of `ReliableMsg` has seen. The individual counters have
+  -- nothing to do with the `message` also included in this.
   , message :: msg
   }
   deriving stock (Eq, Show, Generic)
@@ -208,12 +208,15 @@ withReliability tracer me otherParties withRawNetwork callback action = do
           --
           -- Pings are observed only for the information it provides about the
           -- peer's view of our index
-          if messageAckForParty == knownAckForParty + 1
-            then do
-              let newAcks = constructAcks knownAcks partyIndex
-              writeTVar ackCounter newAcks
-              return (True, messageAckForParty, knownAckForParty, newAcks)
-            else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
+          if isPing msg
+            then return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
+            else
+              if messageAckForParty == knownAckForParty + 1
+                then do
+                  let newAcks = constructAcks knownAcks partyIndex
+                  writeTVar ackCounter newAcks
+                  return (True, messageAckForParty, knownAckForParty, newAcks)
+                else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
 
         if shouldCallback
           then do
