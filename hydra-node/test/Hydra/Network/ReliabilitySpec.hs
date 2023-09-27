@@ -177,7 +177,7 @@ spec = parallel $ do
               aliceReliability (capturePayload messagesReceivedByAlice) $ \Network{broadcast} -> do
                 forM_ aliceToBobMessages $ \m -> do
                   broadcast (Data "alice" m)
-                  threadDelay 10
+                  threadDelay 1
 
                 waitForAllMessagesFromBob 100
                 threadDelay 10
@@ -185,7 +185,7 @@ spec = parallel $ do
             runBob = bobReliability (capturePayload messagesReceivedByBob) $ \Network{broadcast} -> do
               forM_ bobToAliceMessages $ \m -> do
                 broadcast (Data "bob" m)
-                threadDelay 10
+                threadDelay 1
 
               waitForAllMessagesFromAlice 100
               threadDelay 10
@@ -197,12 +197,11 @@ spec = parallel $ do
           bobReceived <- toList <$> readTVarIO messagesReceivedByBob
           pure (aliceReceived, bobReceived, logs)
        in
-        traceShow (show msgReceivedByBob ++ "/=" ++ show aliceToBobMessages) $
-          msgReceivedByBob
-            === aliceToBobMessages
-            & counterexample (unlines $ show <$> reverse traces)
-            & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
-            & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+        msgReceivedByBob
+          === aliceToBobMessages
+          & counterexample (unlines $ show <$> reverse traces)
+          & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+          & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
