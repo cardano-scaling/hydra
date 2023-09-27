@@ -89,16 +89,16 @@ spec = parallel $ do
               alice
               [bob, carol]
               ( \incoming action -> do
-                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) (Data "node-1" msg)) alice)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) msg) alice)
                   action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) (Data "node-2" msg)) bob)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) msg) bob)
                   action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 1]) (Data "node-3" msg)) carol)
+                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 1]) msg) carol)
                   action $ Network{broadcast = \_ -> pure ()}
               )
               noop
               $ \Network{broadcast} -> do
-                broadcast (Data "node-1" msg)
+                broadcast msg
             readTVarIO emittedTraces
 
       receivedTraces `shouldContain` [ClearedMessageQueue{messageQueueLength = 1, deletedMessages = 1}]
