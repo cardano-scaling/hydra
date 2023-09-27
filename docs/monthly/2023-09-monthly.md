@@ -166,8 +166,7 @@ TODO: nebojsa? include this? or only Hypix (as the new thing)?
 The monthly review meeting for August 2023 was held on 2023-09-20 via Google
 Meet with these [slides][slides] and the [recording][recording], 'broadcasting live from warm and sunny Colorado'!
 
-TODO sebastian
-
+TODO .. ideas:
 * Workshop shows again how much a motivated group can achieve in a small amount of time
 * Just sitting down and work together on something
 * Scratching our own itch - contributing back
