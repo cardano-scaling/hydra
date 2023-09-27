@@ -7,9 +7,9 @@ import CardanoNode (withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), parseOptions)
-import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle)
+import Hydra.Cluster.Scenarios (singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
-import HydraNode (EndToEndLog (..))
+import HydraNode (EndToEndLog (..), HydraClient (..))
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import Test.Hydra.Prelude (withTempDir)
 
@@ -30,8 +30,9 @@ run options =
               >>= singlePartyHeadFullLifeCycle tracer workDir node
         Nothing ->
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
-            publishOrReuseHydraScripts tracer node
-              >> forever (threadDelay 60) -- do nothing
+            txId <- publishOrReuseHydraScripts tracer node
+            singlePartyOpenAHead tracer workDir node txId $ \HydraClient{} -> do
+              forever (threadDelay 60) -- do nothing
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts} = options
 
