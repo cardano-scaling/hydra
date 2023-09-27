@@ -125,22 +125,20 @@ spec = parallel $ do
           bobToAlice <- newTQueueIO
           let
             bobToAliceMessages = [1 .. 2] -- TODO use random generated list
-            waitForAllMessagesFromAlice n = waitForAllMessages n aliceToBobMessages messagesReceivedByBob
-            waitForAllMessagesFromBob n = waitForAllMessages n bobToAliceMessages messagesReceivedByAlice
-
             randomNumber = do
               genSeed <- readTVar randomSeed
               let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
               writeTVar randomSeed newGenSeed
               pure res
 
-            -- this is a NetworkComponent that broadcasts Alice's authenticated messages
-            -- to bob mediated through a TQueue but drop 0.2 % of them
-            -- messages are then sent or read from aliceToBob and bobToAlice's queues
-            aliceFailingNetwork callback action =
+            -- this is a NetworkComponent that broadcasts authenticated messages
+            -- mediated through a read and a write TQueue but drops 0.2 % of them
+            aliceFailingNetwork = failingNetwork alice (bobToAlice, aliceToBob)
+            bobFailingNetwork = failingNetwork bob (aliceToBob, bobToAlice)
+            failingNetwork peer (readQueue, writeQueue) callback action =
               withAsync
                 ( forever $ do
-                    newMsg <- atomically $ readTQueue bobToAlice
+                    newMsg <- atomically $ readTQueue readQueue
                     callback newMsg
                 )
                 $ \_ ->
@@ -149,52 +147,26 @@ spec = parallel $ do
                       { broadcast = \m -> atomically $ do
                           -- drop 2% of messages
                           r <- randomNumber
-                          unless (r < 0.02) $ writeTQueue aliceToBob (Authenticated m alice)
+                          unless (r < 0.02) $ writeTQueue writeQueue (Authenticated m peer)
                       }
 
-            -- this is Bob's underlying network that simply propagates messages from and to alice
-            -- using aliceToBob and bobToAlice's queue
-            bobNetwork callback action =
-              withAsync
-                ( forever $ do
-                    newMsg <- atomically $ readTQueue aliceToBob
-                    callback newMsg
-                )
-                $ \_ ->
-                  action $
-                    Network
-                      { broadcast = \m -> atomically $ do
-                          -- drop 2% of messages
-                          r <- randomNumber
-                          unless (r < 0.02) $ writeTQueue bobToAlice (Authenticated m bob)
-                      }
-
-            bobReliability =
-              withHeartbeat "bob" noop $
+            bobReliabilityStack = reliabilityStack bobFailingNetwork "bob" bob [alice]
+            aliceReliabilityStack = reliabilityStack aliceFailingNetwork "alice" alice [bob]
+            reliabilityStack underlyingNetwork partyName party peers =
+              withHeartbeat partyName noop $
                 withFlipHeartbeats $
-                  withReliability (captureTraces emittedTraces) bob [alice] bobNetwork
+                  withReliability (captureTraces emittedTraces) party peers underlyingNetwork
 
-            aliceReliability =
-              withHeartbeat "alice" noop $
-                withFlipHeartbeats $
-                  withReliability (captureTraces emittedTraces) alice [bob] aliceFailingNetwork
-
-            runAlice =
-              aliceReliability (capturePayload messagesReceivedByAlice) $ \Network{broadcast} -> do
+            runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice bobToAliceMessages
+            runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob aliceToBobMessages
+            runPeer reliability partyName receivedMessageContainer expectedMessages =
+              reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
                 forM_ aliceToBobMessages $ \m -> do
-                  broadcast (Data "alice" m)
+                  broadcast (Data partyName m)
                   threadDelay 1
 
-                waitForAllMessagesFromBob 100
+                waitForAllMessages 100 expectedMessages receivedMessageContainer
                 threadDelay 10
-
-            runBob = bobReliability (capturePayload messagesReceivedByBob) $ \Network{broadcast} -> do
-              forM_ bobToAliceMessages $ \m -> do
-                broadcast (Data "bob" m)
-                threadDelay 1
-
-              waitForAllMessagesFromAlice 100
-              threadDelay 10
 
           race_ runAlice runBob
 
@@ -238,14 +210,14 @@ aliceReceivesMessages messages = runSimOrThrow $ do
 
   let baseNetwork incoming _ = mapM incoming messages
 
-      aliceReliability =
+      aliceReliabilityStack =
         withReliability
           nullTracer
           alice
           [bob, carol]
           baseNetwork
 
-  void $ aliceReliability (captureIncoming receivedMessages) $ \_action ->
+  void $ aliceReliabilityStack (captureIncoming receivedMessages) $ \_action ->
     pure [()]
 
   toList <$> readTVarIO receivedMessages
