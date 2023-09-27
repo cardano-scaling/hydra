@@ -114,7 +114,7 @@ spec = parallel $ do
             fromList . toList <$> readTVarIO sentMessages
        in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
-    prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) seed ->
+    prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) (bobToAliceMessages :: [Int]) seed ->
       let
         (msgReceivedByAlice, msgReceivedByBob, traces) = runSimOrThrow $ do
           messagesReceivedByBob <- newTVarIO empty
@@ -124,7 +124,6 @@ spec = parallel $ do
           aliceToBob <- newTQueueIO
           bobToAlice <- newTQueueIO
           let
-            bobToAliceMessages = [1 .. 2] -- TODO use random generated list
             randomNumber = do
               genSeed <- readTVar randomSeed
               let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
