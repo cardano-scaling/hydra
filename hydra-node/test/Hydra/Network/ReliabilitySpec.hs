@@ -161,7 +161,13 @@ spec = parallel $ do
                     callback newMsg
                 )
                 $ \_ ->
-                  action $ Network{broadcast = \m -> atomically (writeTQueue bobToAlice (Authenticated m bob))}
+                  action $
+                    Network
+                      { broadcast = \m -> atomically $ do
+                          -- drop 2% of messages
+                          r <- randomNumber
+                          unless (r < 0.02) $ writeTQueue bobToAlice (Authenticated m bob)
+                      }
 
             bobReliability =
               withHeartbeat "bob" noop $
