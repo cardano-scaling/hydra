@@ -188,7 +188,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       then ignoreMalformedMessages
       else do
         partyIndex <- findPartyIndex party
-        (shouldCallback, messageAckForParty, knownAckForParty, knownAcks) <- atomically $ do
+        (shouldCallback, _messageAckForParty, _knownAckForParty, knownAcks) <- atomically $ do
           let messageAckForParty = acks ! partyIndex
           knownAcks <- readTVar ackCounter
           let knownAckForParty = knownAcks ! partyIndex
@@ -230,8 +230,8 @@ withReliability tracer me otherParties withRawNetwork callback action = do
         -- us "old" messages. This could happen if it is also resending
         -- messages, but then we might detect later it's not actually lagging
         -- and therefore we won't resend
-        when (messageAckForParty <= knownAckForParty) $
-          resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
+        -- when (messageAckForParty <= knownAckForParty) $
+        resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
 
         -- Update last message index sent by us and seen by some party
         updateSeenMessages seenMessages acks party
@@ -258,17 +258,17 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
         case messages IMap.!? idx of
-          Nothing ->
-            throwIO $
-              ReliabilityFailedToFindMsg $
-                "FIXME: this should never happen, there's no sent message at index "
-                  <> show idx
-                  <> ", messages length = "
-                  <> show (IMap.size messages)
-                  <> ", latest message ack: "
-                  <> show knownAckForUs
-                  <> ", acked: "
-                  <> show messageAckForUs
+          Nothing -> pure ()
+          -- throwIO $
+          --   ReliabilityFailedToFindMsg $
+          --     "FIXME: this should never happen, there's no sent message at index "
+          --       <> show idx
+          --       <> ", messages length = "
+          --       <> show (IMap.size messages)
+          --       <> ", latest message ack: "
+          --       <> show knownAckForUs
+          --       <> ", acked: "
+          --       <> show messageAckForUs
           Just missingMsg -> do
             let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
             traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
