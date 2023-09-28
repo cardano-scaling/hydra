@@ -152,7 +152,7 @@ withReliability ::
 withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO IMap.empty
-  seenMessages <- newTVarIO $ Map.fromList $ (,0) <$> toList allParties
+  seenMessages <- newTVarIO $ Map.fromList $ (,0) <$> toList otherParties
   resendQ <- newTQueueIO
   ourIndex <- findPartyIndex me
   let resend = writeTQueue resendQ
@@ -282,10 +282,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   deleteSeenMessages sentMessages seenMessages = do
     clearedMessages <- atomically $ do
       seenMessages' <- readTVar seenMessages
-      let messageReceivedByEveryone =
-            case sortBy (\(_, a) (_, b) -> compare a b) (Map.toList seenMessages') of
-              [] -> 0 -- should not happen
-              ((_, v) : _) -> v
+      let messageReceivedByEveryone = minIndex seenMessages'
       sentMessages' <- readTVar sentMessages
       if IMap.member messageReceivedByEveryone sentMessages'
         then do
@@ -298,6 +295,11 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       Nothing -> pure ()
       Just (messageQueueLength, deletedMessages) ->
         traceWith tracer (ClearedMessageQueue{messageQueueLength, deletedMessages})
+   where
+    minIndex messages =
+      case sortBy (\(_, a) (_, b) -> compare a b) (Map.toList messages) of
+        [] -> 0 -- should not happen
+        ((_, v) : _) -> v
 
   insertNewMsg msg m =
     case IMap.lookupMax m of
