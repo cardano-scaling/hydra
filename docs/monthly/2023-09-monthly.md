@@ -34,7 +34,7 @@ changed much as the team mostly clarified upcoming features.
 
 ## Cardano Scaling workshop in Nantes, France
 
-TODO arnaud
+From 2023-09-12 to 2023-09-14, most of the _Scaling Tribe_ members, that is the two Hydra and Mithril teams, met for a 3-days long workshop in beautiful French city of [Nantes](https://en.wikipedia.org/wiki/Nantes). This workshop was ran following the [Open Space](https://openspaceworld.org/wp2/) technique which makes room for every participant to experiment and focus on what's of interest for them at the time while being engaging for the whole team. Here is a selection of topics covered that were most relevant to Hydra.
 
 ### Aiken validator experiment
 
@@ -65,7 +65,40 @@ number of parties in a Head. 🎉
 
 ### Shallow cardano-node experiment
 
-TODO arnaud
+Running a hydra-node requires running a cardano-node, and running a
+cardano-node requires synchronisation with the chain and about 150
+gigabytes of data to be downloaded and verified, which is a
+significant barrier to quickly spin-up hydra-node and Hydra
+Heads. Given a Hydra node does not need to look at the history of the
+chain, a _Shallow_ cardano-node that can run without the full database
+of immutable files would be fine, assuming we can retrieve a recent
+state of the chain with the same security guarantees than a fully
+synchronised chain. This is exactly what Mithril can provide!
+
+We ran a small experiment, trying to start a cardano-node manually
+removing all but the last files from the _immutable DB_ and it worked
+as long as one does not query the node for a block too old in the
+past. This lead us to envision an improved user experience for
+installing and running a hydra-node, by packaging it with a
+cardano-node and a mithril-client to retrieve only the minimum needed
+state and be able to start a fully functioning hydra-node in minutes.
+
+### Other topics
+
+* We continued working on [Kupo x
+  Hydra](https://github.com/input-output-hk/hydra/issues/1078)
+  integration, benefiting from the presence of Kupo's creator and
+  former Hydra team member, Matthias Benkort
+* We brainstormed possible synergies between the Hydra and Mithril
+  projects, something that solidified into the desire to explore this
+  concept of "Shallow node" and its integration within Hydra
+* We discussed and clarified our new [Security Vulnerability
+  Disclosure
+  Policy](https://github.com/input-output-hk/hydra/pull/1088)
+* Discussing the idea of a joint documentation effort, we realised the
+  existing documentation of both teams could be improved, for example
+  by following a [Standard documentation
+  framework](https://documentation.divio.com).
 
 ## Hydra development
 
@@ -164,14 +197,23 @@ TODO: nebojsa? include this? or only Hypix (as the new thing)?
 ## Conclusion
 
 The monthly review meeting for August 2023 was held on 2023-09-20 via Google
-Meet with these [slides][slides] and the [recording][recording], 'broadcasting live from warm and sunny Colorado'!
+Meet with these [slides][slides] and the [recording][recording].
 
-TODO .. ideas:
-* Workshop shows again how much a motivated group can achieve in a small amount of time
-* Just sitting down and work together on something
-* Scratching our own itch - contributing back
-* Need to prototype things again and explore synergies actively by experimenting together
-* Catalyst fund10 results, more community contributions incoming again
+This concludes yet another fully-packed month, this time not only
+focusing on Hydra but also encompassing Mithril and the broader goal of
+supporting Cardano's scaling effort to the best of our
+ability. Meeting and working together in persons demonstrated once
+more, if this were needed, how much a small group of highly motivated
+people can achieve. It also fueled our desire and consolidated our
+vision of being a small group of engineers with a clear _purpose_,
+scratching our "own itch", contributing to the whatever projects and
+tools is needed and best for the job at hand, relentlessly prototyping
+and experimenting collectively to find the best solutions solving
+actual people's problems.
+
+It is also worth mentioning that Catalyst's Fund 10 outcome shoudl
+result in more contributions to Hydra (and hopefully Mithril!) in the
+near term.
 
 [slides]: https://docs.google.com/presentation/d/1YAWR4pz1gG2dwtGvm5KOAHtrjRcchPLUKhDA16u10ps
 [recording]: https://drive.google.com/file/d/1X8QnmG9gddR-t2V6F2oE7bYCYAEs2RPe/view
