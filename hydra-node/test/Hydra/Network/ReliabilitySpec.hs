@@ -81,7 +81,7 @@ spec = parallel $ do
           & counterexample (show propagatedMessages)
           & collect (length propagatedMessages)
 
-    it "garbage collects messages received by all peers" $ do
+    it "garbage collects messages received by all other peers" $ do
       let receivedTraces = runSimOrThrow $ do
             emittedTraces <- newTVarIO []
             withReliability
@@ -89,7 +89,6 @@ spec = parallel $ do
               alice
               [bob, carol]
               ( \incoming action -> do
-                  incoming (Authenticated (ReliableMsg (fromList [1, 0, 0]) msg) alice)
                   action $ Network{broadcast = \_ -> pure ()}
                   incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) msg) bob)
                   action $ Network{broadcast = \_ -> pure ()}
