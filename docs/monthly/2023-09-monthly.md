@@ -185,14 +185,25 @@ contribute back to one project:
 
 #### Current scaling use cases we track
 
-TODO: nebojsa? include this? or only Hypix (as the new thing)?
-
-* Hypix - productized hydraw
-* Book.io - scalable minting and distribution of tokenized books
-* Midnight - dust airdrop and side-chain operatio
-* SingularityNet - pay-per-use API / Cardano port of an existing Ethereum solution
-* SundaeLabs - scaling their DEX using gummiworm / hydra ledger-only as validators
-* Emurgo/Obsidian - general interest in creating a payment channel network
+##### Hypix
+* An update of hydraw with improved usability to stimulate user engagement
+* A showcase for Hydra, with an option to productize
+##### Book.io
+* A Web3 marketplace for tokenized digital eBooks and Audiobooks
+* Requires NFT minting and distribution at scale (for each copy/instance of a book)
+* Opened a discussion to investigate possible approaches to scaling their operations on Cardano
+##### Midnight
+* DUST airdrop and side-chain operation
+##### SingularityNet
+* A Web3 marketplace for AI services offered and consumed through a pay-per-use API
+* Discussion ongoing about porting an existing Ethereum solution to Cardano
+* A chance to build on previous hydra-pay efforts and upgrade the design to support unidirectional micropayments channels
+##### SundaeLabs
+* Sundae proposed a ledger-only mode of Hydra, modelled on Gummiworm (the protocol used by SundaeSwap)
+* https://cardano.ideascale.com/c/idea/102138
+##### Emurgo
+* Initial discussions to evaluate building a payments channel network using Hydra
+* Could leverage work done on hydra-pay by Obsidian
 
 ## Conclusion
 
