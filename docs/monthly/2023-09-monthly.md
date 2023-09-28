@@ -164,13 +164,22 @@ be possible.
 Once this validator design is clear, we can get started implementing one or both
 of the features to enable more flexible usage of the Hydra head protocol.
 
-#### Refactored chain state
+#### Refactored chain state [#1049](https://github.com/input-output-hk/hydra/pull/1049)
 
-TODO franco
+Following up the implementation of ADR#24, this marks the first enhancement in
+a series of refinements, and our goal was optimization.
 
-* why and how did we do it
-* backward compatible change
-* what is the benefit
+We eliminated the need for recursive types in persisted chain states,
+transitioning to a non-empty history model, preserving full backward
+compatibility with existing systems.
+
+Importantly, throughout this refactor, we've kept the interface between the
+chain and logic layers entirely unchanged. This ensures a smooth transition and
+seamless integration with existing components. 
+
+One of the notable advantages of this refactor is a reduced persistence
+footprint. We now store individual points of the chain state, enhancing storage
+efficiency.
 
 ## Community
 
