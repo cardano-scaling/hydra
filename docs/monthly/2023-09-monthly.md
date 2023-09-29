@@ -223,7 +223,7 @@ contribute back to one project:
 ##### Emurgo
 
 * Initial discussions to evaluate building a payments channel network using Hydra
-* Could leverage work done on hydra-pay by Obsidian
+* Could leverage work done on Hydra Pay by Obsidian
 
 ## Conclusion
 
