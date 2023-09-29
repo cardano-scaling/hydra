@@ -34,7 +34,7 @@ changed much as the team mostly clarified upcoming features.
 
 ## Cardano Scaling workshop in Nantes, France
 
-From 2023-09-12 to 2023-09-14, most of the _Scaling Tribe_ members, that is the two Hydra and Mithril teams, met for a 3-days long workshop in beautiful French city of [Nantes](https://en.wikipedia.org/wiki/Nantes). This workshop was ran following the [Open Space](https://openspaceworld.org/wp2/) technique which makes room for every participant to experiment and focus on what's of interest for them at the time while being engaging for the whole team. Here is a selection of topics covered that were most relevant to Hydra.
+From 2023-09-12 to 2023-09-14, most of the _Scaling Tribe_ members, that is the two Hydra and Mithril teams, met for a three-day workshop in the beautiful French city of [Nantes](https://en.wikipedia.org/wiki/Nantes). This workshop was run following the [Open Space](https://openspaceworld.org/wp2/) technique which makes room for every participant to experiment and focus on what's of interest for them at the time while being engaging for the whole team. Here is a selection of topics covered that were most relevant to Hydra.
 
 ### Aiken validator experiment
 
