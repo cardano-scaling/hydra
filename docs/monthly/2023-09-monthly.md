@@ -185,7 +185,7 @@ efficiency.
 
 #### Open source contributions
 
-This month we received some open source contributions, but also were able to
+This month some open source contributions were received, and the team was able to
 contribute back to one project:
 
 * Hydra: Lightning network-style payments [use case](https://hydra.family/head-protocol/unstable/use-cases/payments/lighting-network-like-payments/) write-up by [@k-solutions](https://github.com/k-solutions)
