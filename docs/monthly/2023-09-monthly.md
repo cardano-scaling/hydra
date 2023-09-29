@@ -30,7 +30,7 @@ changed much as the team mostly clarified upcoming features.
 
   * [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057) is fairly straightforward and can be evolved into 'partial fanouts', which solves similar problems as the [split-fanout #190](https://github.com/input-output-hk/hydra/issues/190) and [only signing closable snapshots #370](https://github.com/input-output-hk/hydra/issues/370) would address. Also, the [optimistic head closure #198](https://github.com/input-output-hk/hydra/issues/198) feature is closely related to this item.
 
-* Added a new feature to improve user journey of running the `hydra-node` by [removing the command line defaults #1064](https://github.com/input-output-hk/hydra/issues/1064). This came out of prior [idea discussion #454](https://github.com/input-output-hk/hydra/discussions/454) which highlights the life-cycle of ideas and features on the Hydra project.
+* Added a new feature to improve user journey of running the `hydra-node` by [removing the command line defaults #1064](https://github.com/input-output-hk/hydra/issues/1064). This came out of prior [idea discussion #454](https://github.com/input-output-hk/hydra/discussions/454) which highlights the life cycle of ideas and features on the Hydra project.
 
 ## Cardano Scaling workshop in Nantes, France
 
