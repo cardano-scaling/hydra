@@ -213,7 +213,7 @@ contribute back to one project:
 
 * A Web3 marketplace for AI services offered and consumed through a pay-per-use API
 * Discussion ongoing about porting an existing Ethereum solution to Cardano
-* A chance to build on previous hydra-pay efforts and upgrade the design to support unidirectional micropayments channels
+* A chance to build on previous Hydra Pay efforts and upgrade the design to support unidirectional micropayments channels
 
 ##### SundaeLabs
 
