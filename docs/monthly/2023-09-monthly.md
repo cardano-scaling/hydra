@@ -192,7 +192,7 @@ contribute back to one project:
 * Aiken: Started an emacs [aiken-mode](https://github.com/aiken-lang/aiken-mode) by @ch1bo (triggered by our experiments)
 * Hydra: Small [fix in the docs](https://github.com/input-output-hk/hydra/pull/1042) by [@caike](http://github.com/caike) (from RareEvo workshop)
 
-#### Current scaling use cases we track
+#### Current scaling use cases being tracked
 
 ##### Hypix
 
