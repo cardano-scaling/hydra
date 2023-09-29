@@ -175,7 +175,7 @@ compatibility with existing systems.
 
 Importantly, throughout this refactor, we've kept the interface between the
 chain and logic layers entirely unchanged. This ensures a smooth transition and
-seamless integration with existing components. 
+seamless integration with existing components.
 
 One of the notable advantages of this refactor is a reduced persistence
 footprint. We now store individual points of the chain state, enhancing storage
@@ -195,22 +195,33 @@ contribute back to one project:
 #### Current scaling use cases we track
 
 ##### Hypix
+
 * An update of hydraw with improved usability to stimulate user engagement
 * A showcase for Hydra, with an option to productize
+
 ##### Book.io
+
 * A Web3 marketplace for tokenized digital eBooks and Audiobooks
 * Requires NFT minting and distribution at scale (for each copy/instance of a book)
 * Opened a discussion to investigate possible approaches to scaling their operations on Cardano
+
 ##### Midnight
+
 * DUST airdrop and side-chain operation
+
 ##### SingularityNet
+
 * A Web3 marketplace for AI services offered and consumed through a pay-per-use API
 * Discussion ongoing about porting an existing Ethereum solution to Cardano
 * A chance to build on previous hydra-pay efforts and upgrade the design to support unidirectional micropayments channels
+
 ##### SundaeLabs
+
 * Sundae proposed a ledger-only mode of Hydra, modelled on Gummiworm (the protocol used by SundaeSwap)
 * https://cardano.ideascale.com/c/idea/102138
+
 ##### Emurgo
+
 * Initial discussions to evaluate building a payments channel network using Hydra
 * Could leverage work done on hydra-pay by Obsidian
 
