@@ -39,7 +39,7 @@ From 2023-09-12 to 2023-09-14, most of the _Scaling Tribe_ members, that is the 
 ### Aiken validator experiment
 
 As part of thw workshop, we explored how hard it would be to implement one of
-the Hydra validators in `aiken`. After roughly 2 hours of work we had a
+the Hydra validators in `aiken`. After roughly two hours of work we had a
 `hydra-node` running, tests passing and benchmarks of verifying one step in the
 Hydra protocol using aiken.
 
