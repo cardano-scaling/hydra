@@ -233,7 +233,7 @@ Meet with these [slides][slides] and the [recording][recording].
 This concludes yet another fully-packed month, this time not only
 focusing on Hydra but also encompassing Mithril and the broader goal of
 supporting Cardano's scaling effort to the best of our
-ability. Meeting and working together in persons demonstrated once
+ability. Meeting and working together in person demonstrated once
 more, if this were needed, how much a small group of highly motivated
 people can achieve. It also fueled our desire and consolidated our
 vision of being a small group of engineers with a clear _purpose_,
