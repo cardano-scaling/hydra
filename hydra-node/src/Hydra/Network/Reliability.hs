@@ -104,9 +104,6 @@ data ReliabilityException
   = -- | Signals that received acks from the peer is not of
     -- proper length
     ReliabilityReceivedAckedMalformed
-  | -- | This should never happen. We should always be able to find a message by
-    -- the given index.
-    ReliabilityFailedToFindMsg String
   | -- | This should never happen. We should always be able to find a party
     -- index in a list of parties.
     ReliabilityMissingPartyIndex Party
@@ -120,7 +117,7 @@ data ReliabilityLog
   | BroadcastPing {partyIndex :: Int, localCounter :: Vector Int}
   | Received {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | Ignored {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  | ClearedMessageQueue {messageQueueLength :: Int, deletedMessages :: Int}
+  | ReliabilityFailedToFindMsg {failedToFindMessage :: String}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -249,17 +246,17 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       messages <- readTVarIO sentMessages
       forM_ missing $ \idx -> do
         case messages IMap.!? idx of
-          Nothing -> pure ()
-          -- throwIO $
-          --   ReliabilityFailedToFindMsg $
-          --     "FIXME: this should never happen, there's no sent message at index "
-          --       <> show idx
-          --       <> ", messages length = "
-          --       <> show (IMap.size messages)
-          --       <> ", latest message ack: "
-          --       <> show knownAckForUs
-          --       <> ", acked: "
-          --       <> show messageAckForUs
+          Nothing ->
+            traceWith tracer $
+              ReliabilityFailedToFindMsg $
+                "FIXME: this should never happen, there's no sent message at index "
+                  <> show idx
+                  <> ", messages length = "
+                  <> show (IMap.size messages)
+                  <> ", latest message ack: "
+                  <> show knownAckForUs
+                  <> ", acked: "
+                  <> show messageAckForUs
           Just missingMsg -> do
             let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
             traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
