@@ -508,7 +508,7 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["BroadcastCounter"]
+            enum: ["BroadcastPing"]
           partyIndex:
             type: number
           localCounter:
@@ -547,15 +547,54 @@ definitions:
         required:
           - tag
           - messageQueueLength
-          - deletedMessages
+          - deletedMessage
         properties:
           tag:
             type: string
             enum: ["ClearedMessageQueue"]
           messageQueueLength:
             type: number
-          deletedMessages:
+          deletedMessage:
             type: number
+      - title: Ignored
+        description: >-
+          Logged when node ignores the callback in case of Ping messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Ignored"]
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+      - title: ReliabilityFailedToFindMsg
+        description: >-
+          Logged when the message we want to resend was not found in the local messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - failedToFindMessage
+        properties:
+          tag:
+            type: string
+            enum: ["ReliabilityFailedToFindMsg"]
+          failedToFindMessage:
+            type: string
+
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml
