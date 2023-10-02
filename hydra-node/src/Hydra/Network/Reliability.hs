@@ -224,14 +224,8 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             traceWith tracer (Received acks knownAcks partyIndex)
           else traceWith tracer (Ignored acks knownAcks partyIndex)
 
-        -- NOTE: We only check whether or not our peer is lagging behind to
-        -- resend messages if the peer is quiescent, ie. it did not make any
-        -- progress since the last message we got from it ; or if it is sending
-        -- us "old" messages. This could happen if it is also resending
-        -- messages, but then we might detect later it's not actually lagging
-        -- and therefore we won't resend
-        -- when (messageAckForParty <= knownAckForParty) $
-        resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
+        when (isPing msg) $
+          resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
 
         -- Update last message index sent by us and seen by some party
         updateSeenMessages seenMessages acks party
