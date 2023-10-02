@@ -92,71 +92,74 @@ spec = parallel $ do
             fromList . toList <$> readTVarIO sentMessages
        in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
-    prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) (bobToAliceMessages :: [Int]) seed ->
-      let
-        (msgReceivedByAlice, msgReceivedByBob, traces) = runSimOrThrow $ do
-          messagesReceivedByBob <- newTVarIO empty
-          messagesReceivedByAlice <- newTVarIO empty
-          emittedTraces <- newTVarIO []
-          randomSeed <- newTVarIO $ mkStdGen seed
-          aliceToBob <- newTQueueIO
-          bobToAlice <- newTQueueIO
-          let
-            randomNumber = do
-              genSeed <- readTVar randomSeed
-              let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
-              writeTVar randomSeed newGenSeed
-              pure res
+    -- this test is critical (even if incomplete) to check we correctly resend messages
+    -- lost, we therefore want to run more of it
+    modifyMaxSuccess (const 5000) $
+      prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) (bobToAliceMessages :: [Int]) seed ->
+        let
+          (msgReceivedByAlice, msgReceivedByBob, traces) = runSimOrThrow $ do
+            messagesReceivedByBob <- newTVarIO empty
+            messagesReceivedByAlice <- newTVarIO empty
+            emittedTraces <- newTVarIO []
+            randomSeed <- newTVarIO $ mkStdGen seed
+            aliceToBob <- newTQueueIO
+            bobToAlice <- newTQueueIO
+            let
+              randomNumber = do
+                genSeed <- readTVar randomSeed
+                let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
+                writeTVar randomSeed newGenSeed
+                pure res
 
-            -- this is a NetworkComponent that broadcasts authenticated messages
-            -- mediated through a read and a write TQueue but drops 0.2 % of them
-            aliceFailingNetwork = failingNetwork alice (bobToAlice, aliceToBob)
-            bobFailingNetwork = failingNetwork bob (aliceToBob, bobToAlice)
-            failingNetwork peer (readQueue, writeQueue) callback action =
-              withAsync
-                ( forever $ do
-                    newMsg <- atomically $ readTQueue readQueue
-                    callback newMsg
-                )
-                $ \_ ->
-                  action $
-                    Network
-                      { broadcast = \m -> atomically $ do
-                          -- drop 2% of messages
-                          r <- randomNumber
-                          unless (r < 0.02) $ writeTQueue writeQueue (Authenticated m peer)
-                      }
+              -- this is a NetworkComponent that broadcasts authenticated messages
+              -- mediated through a read and a write TQueue but drops 0.2 % of them
+              aliceFailingNetwork = failingNetwork alice (bobToAlice, aliceToBob)
+              bobFailingNetwork = failingNetwork bob (aliceToBob, bobToAlice)
+              failingNetwork peer (readQueue, writeQueue) callback action =
+                withAsync
+                  ( forever $ do
+                      newMsg <- atomically $ readTQueue readQueue
+                      callback newMsg
+                  )
+                  $ \_ ->
+                    action $
+                      Network
+                        { broadcast = \m -> atomically $ do
+                            -- drop 2% of messages
+                            r <- randomNumber
+                            unless (r < 0.02) $ writeTQueue writeQueue (Authenticated m peer)
+                        }
 
-            bobReliabilityStack = reliabilityStack bobFailingNetwork "bob" bob [alice]
-            aliceReliabilityStack = reliabilityStack aliceFailingNetwork "alice" alice [bob]
-            reliabilityStack underlyingNetwork partyName party peers =
-              withHeartbeat partyName noop $
-                withFlipHeartbeats $
-                  withReliability (captureTraces emittedTraces) party peers underlyingNetwork
+              bobReliabilityStack = reliabilityStack bobFailingNetwork "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack aliceFailingNetwork "alice" alice [bob]
+              reliabilityStack underlyingNetwork partyName party peers =
+                withHeartbeat partyName noop $
+                  withFlipHeartbeats $
+                    withReliability (captureTraces emittedTraces) party peers underlyingNetwork
 
-            runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice bobToAliceMessages
-            runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob aliceToBobMessages
-            runPeer reliability partyName receivedMessageContainer expectedMessages =
-              reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
-                forM_ aliceToBobMessages $ \m -> do
-                  broadcast (Data partyName m)
-                  threadDelay 1
+              runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice bobToAliceMessages
+              runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob aliceToBobMessages
+              runPeer reliability partyName receivedMessageContainer expectedMessages =
+                reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
+                  forM_ aliceToBobMessages $ \m -> do
+                    broadcast (Data partyName m)
+                    threadDelay 1
 
-                waitForAllMessages 100 expectedMessages receivedMessageContainer
-                threadDelay 10
+                  waitForAllMessages 100 expectedMessages receivedMessageContainer
+                  threadDelay 10
 
-          race_ runAlice runBob
+            race_ runAlice runBob
 
-          logs <- readTVarIO emittedTraces
-          aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
-          bobReceived <- toList <$> readTVarIO messagesReceivedByBob
-          pure (aliceReceived, bobReceived, logs)
-       in
-        msgReceivedByBob
-          === aliceToBobMessages
-          & counterexample (unlines $ show <$> reverse traces)
-          & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
-          & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+            logs <- readTVarIO emittedTraces
+            aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
+            bobReceived <- toList <$> readTVarIO messagesReceivedByBob
+            pure (aliceReceived, bobReceived, logs)
+         in
+          msgReceivedByBob
+            === aliceToBobMessages
+            & counterexample (unlines $ show <$> reverse traces)
+            & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+            & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
