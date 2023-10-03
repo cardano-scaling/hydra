@@ -594,6 +594,20 @@ definitions:
             enum: ["ReliabilityFailedToFindMsg"]
           failedToFindMessage:
             type: string
+      - title: ReliabilityMissingPartyIndex
+        description: >-
+          Logged when party index could not be found. NOTE: This should never happen.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - missingParty
+        properties:
+          tag:
+            type: string
+            enum: ["ReliabilityMissingPartyIndex"]
+          missingParty:
+            $ref: "api.yaml#/components/schemas/Party"
 
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
