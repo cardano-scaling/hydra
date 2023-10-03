@@ -79,7 +79,6 @@ import Data.Vector (
   length,
   replicate,
   zipWith,
-  (!),
   (!?),
  )
 import Hydra.Logging (traceWith)
@@ -156,7 +155,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO IMap.empty
   resendQ <- newTQueueIO
-  let ourIndex = fromMaybe (error "cannot happen because we constructed the list with ourself inside") (findPartyIndex me)
+  let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
   withRawNetwork (reliableCallback ackCounter sentMessages resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
@@ -227,38 +226,41 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   partyIndexes = generate (length allParties) id
 
   resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks myIndex = do
-    let messageAckForUs = messageAcks ! myIndex
-    let knownAckForUs = knownAcks ! myIndex
+    let mmessageAckForUs = messageAcks !? myIndex
+    let mknownAckForUs = knownAcks !? myIndex
+    case (mmessageAckForUs, mknownAckForUs) of
+      (Just messageAckForUs, Just knownAckForUs) ->
+         -- We resend messages if our peer notified us that it's lagging behind our
+         -- latest message sent
+         when (messageAckForUs < knownAckForUs) $ do
+           let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
+           messages <- readTVarIO sentMessages
+           forM_ missing $ \idx -> do
+             case messages IMap.!? idx of
+               Nothing ->
+                 traceWith tracer $
+                   ReliabilityFailedToFindMsg $
+                     "FIXME: this should never happen, there's no sent message at index "
+                       <> show idx
+                       <> ", messages length = "
+                       <> show (IMap.size messages)
+                       <> ", latest message ack: "
+                       <> show knownAckForUs
+                       <> ", acked: "
+                       <> show messageAckForUs
+               Just missingMsg -> do
+                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
+                 traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
+                 atomically $ resend $ ReliableMsg newAcks' missingMsg
+      _ -> pure ()
 
-    -- We resend messages if our peer notified us that it's lagging behind our
-    -- latest message sent
-    when (messageAckForUs < knownAckForUs) $ do
-      let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
-      messages <- readTVarIO sentMessages
-      forM_ missing $ \idx -> do
-        case messages IMap.!? idx of
-          Nothing ->
-            traceWith tracer $
-              ReliabilityFailedToFindMsg $
-                "FIXME: this should never happen, there's no sent message at index "
-                  <> show idx
-                  <> ", messages length = "
-                  <> show (IMap.size messages)
-                  <> ", latest message ack: "
-                  <> show knownAckForUs
-                  <> ", acked: "
-                  <> show messageAckForUs
-          Just missingMsg -> do
-            let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
-            traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
-            atomically $ resend $ ReliableMsg newAcks' missingMsg
-
+  -- Find the maximum index and increment it by one to store the next message.
   insertNewMsg msg m =
     case IMap.lookupMax m of
       Nothing -> IMap.insert 1 msg m
       Just (k, _) -> IMap.insert (k + 1) msg m
 
-  -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
-  -- FIXME: remove exception?
+  -- Find the index of a party in the list of all parties.
+  -- NOTE: This should never fail.
   findPartyIndex party =
     elemIndex party allParties
