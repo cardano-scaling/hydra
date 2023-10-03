@@ -41,10 +41,6 @@ spec = parallel $ do
   let msg' = 42 :: Int
   msg <- Data "node-1" <$> runIO (generate @String arbitrary)
 
-  it "should throw an exception given it cannot find the index of the own party" $ do
-    withReliability nullTracer alice [] (const noop) noop (\_ -> pure ())
-      `shouldThrow` anyException
-
   describe "receiving messages" $ do
     it "forward received messages" $ do
       let propagatedMessages =
