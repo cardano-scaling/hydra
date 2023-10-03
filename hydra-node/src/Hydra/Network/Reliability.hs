@@ -23,8 +23,9 @@
 --       * It is discarded if the index for the sender's party in the message is
 --         not exactly one more than the latest known index,
 --
---       * If our own party's index as broadcasted by the sender is lower than our
---         latest known index, we resend all the "missing" messages.
+--       * If our own party's index as broadcasted by the sender is lower than
+--         our latest known index, and the peer appears /quiescent/ we resend
+--         all the "missing" messages.
 --
 -- As shown by the signature of the `withReliability` function, this layer
 -- relies on an authentication layer providing `Authenticated` messages in order
@@ -33,8 +34,10 @@
 --
 -- `Heartbeat` messages are critical in order to /signal/ peers our current view
 -- of the world, because it could be the case that we don't have any network
--- message to send which leads to head being stalled. `Ping` messages are
--- treated specially, both when receiving and sending:
+-- message to send which leads to head being stalled. `Ping` messages in
+-- particular are used to denote the fact the sender is /quiescent/, ie. it's
+-- not able to make any /observable/ progress. Those messages are treated
+-- specially, both when receiving and sending:
 --
 --   * When sending a `Ping`, we /don't increment/ our local message counter
 --     before broadcasting it,
@@ -48,6 +51,12 @@
 -- will trigger some resending to the peer which starts from scratch. To provide
 -- this guarantee in full, we should add /logging/ capability that persist sent and
 -- received messages before communicating with the applicative layer.
+--
+-- NOTE: Messages sent are /currently/ kept indefinitely in memory which, in the
+-- case of very long-running head with a high frequency of transaction
+-- submission, can lead to memory growth. In practice, this can be mitigated by
+-- closing and reopening such heads, but it must be addressed in a not too
+-- distant future, eg. perhaps when implementing persistence of messages.
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude hiding (empty, fromList, length, replicate, zipWith)
@@ -133,7 +142,7 @@ instance Arbitrary ReliabilityLog where
 -- layer is tied to a specific structure of other layers, eg. be between
 -- `withHeartbeat` and `withAuthenticate` layers.
 --
--- NOTE: better use of Vectors? We should perhaps use a `MVector` to be able to
+-- NOTE: Make better use of Vectors? We should perhaps use a `MVector` to be able to
 -- mutate in-place and not need `zipWith`
 withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
@@ -165,13 +174,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                ackCounter' <- atomically $ do
-                  acks <- readTVar ackCounter
-                  let newAcks = constructAcks acks ourIndex
-                  writeTVar ackCounter newAcks
-                  modifyTVar' sentMessages (insertNewMsg msg)
-                  readTVar ackCounter
-
+                ackCounter' <- atomically $ incrementCountersFor msg
                 traceWith tracer (BroadcastCounter ourIndex ackCounter')
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do
@@ -179,6 +182,12 @@ withReliability tracer me otherParties withRawNetwork callback action = do
                 traceWith tracer (BroadcastPing ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
+   where
+    incrementCountersFor msg = do
+      acks <- readTVar ackCounter
+      writeTVar ackCounter $ constructAcks acks ourIndex
+      modifyTVar' sentMessages (insertNewMsg msg)
+      readTVar ackCounter
 
   reliableCallback ackCounter sentMessages seenMessages resend (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
@@ -190,21 +199,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
           knownAcks <- readTVar ackCounter
           let knownAckForParty = knownAcks ! partyIndex
 
-          -- handle message from party iff it's next in line OR if it's a Ping
-          --
-          -- The stream of messages from a peer is expected to look like:
-          --
-          -- @@
-          -- Msg [.., 1, ..] (Data nid m1)
-          -- Msg [.., 2, ..] (Data nid m1)
-          -- Msg [.., 3, ..] (Data nid m1)
-          -- Msg [.., 3, ..] (Ping nid)
-          -- Msg [.., 3, ..] (Ping nid)
-          -- Msg [.., 3, ..] (Ping nid)
-          -- @@
-          --
-          -- Pings are observed only for the information it provides about the
-          -- peer's view of our index
           if isPing msg
             then return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
             else
@@ -273,5 +267,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       Just (k, _) -> IMap.insert (k + 1) msg m
 
   -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
+  -- FIXME: remove exception?
   findPartyIndex party =
     maybe (throwIO $ ReliabilityMissingPartyIndex party) pure $ elemIndex party allParties
