@@ -156,9 +156,9 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO IMap.empty
   resendQ <- newTQueueIO
-  ourIndex <- findPartyIndex' me
+  let ourIndex = fromMaybe (error "cannot happen because we constructed the list with ourself inside") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback ackCounter sentMessages resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast ourIndex ackCounter sentMessages network
  where
@@ -185,7 +185,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       modifyTVar' sentMessages (insertNewMsg msg)
       readTVar ackCounter
 
-  reliableCallback ackCounter sentMessages resend (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback ackCounter sentMessages resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then ignoreMalformedMessages
       else do
@@ -216,7 +216,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
               else traceWith tracer (Ignored acks knownAcks partyIndex)
 
             when (isPing msg) $
-              resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
+              resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks ourIndex
           Nothing -> pure ()
 
   ignoreMalformedMessages = pure ()
@@ -226,8 +226,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
   partyIndexes = generate (length allParties) id
 
-  resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks = do
-    myIndex <- findPartyIndex' me
+  resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks myIndex = do
     let messageAckForUs = messageAcks ! myIndex
     let knownAckForUs = knownAcks ! myIndex
 
@@ -263,6 +262,3 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   -- FIXME: remove exception?
   findPartyIndex party =
     elemIndex party allParties
-
-  findPartyIndex' party =
-    maybe (error "") pure $ elemIndex party allParties
