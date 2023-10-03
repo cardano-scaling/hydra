@@ -44,7 +44,7 @@ Available options:
   -q,--quiet               Turns off logging.
   -n,--node-id NODE-ID     The Hydra node identifier used on the Hydra network.
                            It is important to have a unique identifier in order
-                           to be able distinguish between connected peers.
+                           to be able to distinguish between connected peers.
   -h,--host IP             Listen address for incoming Hydra network
                            connections. (default: 127.0.0.1)
   -p,--port PORT           Listen port for incoming Hydra network connections.
@@ -151,7 +151,7 @@ From there, each participant is expected to share their verification key with ot
 
 ### Hydra keys
 
-The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra/issues/193) and the Hydra nodes are a naiive, but secure multi-signature scheme based on Ed25519 keys.
+The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra/issues/193) and the Hydra nodes are a naive, but secure multi-signature scheme based on Ed25519 keys.
 
 These are similar to cardano keys but are used only in the layer 2. We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra/tree/master/demo).
 
