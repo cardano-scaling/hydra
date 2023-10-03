@@ -130,7 +130,7 @@ connection is interrupted can lead to an operations nightmare. So the question w
 exploring is, can we distinguish between non cooperative peer or just transient
 communication issue?
 
-* {ADR 27)[https://github.com/input-output-hk/hydra/blob/master/docs/adr/2023-09-08_027-network-resilience.md]
+* [ADR 27](https://github.com/input-output-hk/hydra/blob/master/docs/adr/2023-09-08_027-network-resilience.md)
 gives details about our current strategy
 * [#1074](https://github.com/input-output-hk/hydra/pull/1074) is a first implementation of this strategy
 * [#1080](https://github.com/input-output-hk/hydra/issues/1080) should specify the resulting network protocol so that others could implement compatible hydra nodes
