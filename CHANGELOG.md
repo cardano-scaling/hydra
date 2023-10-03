@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.13.0] - UNRELEASED
+
+## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
 
