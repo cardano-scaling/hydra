@@ -29,7 +29,7 @@ import Test.QuickCheck (
   counterexample,
   generate,
   tabulate,
-  (===),
+  (===), within,
  )
 import Prelude (unlines)
 
@@ -126,7 +126,7 @@ spec = parallel $ do
             bobReceived <- toList <$> readTVarIO messagesReceivedByBob
             pure (aliceReceived, bobReceived, logs)
          in
-          msgReceivedByBob
+          within 1000000 $ msgReceivedByBob
             === aliceToBobMessages
             & counterexample (unlines $ show <$> reverse traces)
             & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
