@@ -235,9 +235,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         -- Update last message index sent by us and seen by some party
         updateSeenMessages seenMessages acks party
-        -- Take the lowest number from seen messages by everyone and remove it from
-        -- our sent messages.
-        deleteSeenMessages sentMessages seenMessages
 
   ignoreMalformedMessages = pure ()
 
@@ -278,28 +275,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
     myIndex <- findPartyIndex me
     let messageAckForUs = acks ! myIndex
     atomically $ modifyTVar' seenMessages (Map.insert party messageAckForUs)
-
-  deleteSeenMessages sentMessages seenMessages = do
-    clearedMessages <- atomically $ do
-      seenMessages' <- readTVar seenMessages
-      let messageReceivedByEveryone = minIndex seenMessages'
-      sentMessages' <- readTVar sentMessages
-      if IMap.member messageReceivedByEveryone sentMessages'
-        then do
-          let updatedMap = IMap.delete messageReceivedByEveryone sentMessages'
-          writeTVar sentMessages updatedMap
-          pure $ Just (IMap.size updatedMap, messageReceivedByEveryone)
-        else pure Nothing
-
-    case clearedMessages of
-      Nothing -> pure ()
-      Just (messageQueueLength, deletedMessages) ->
-        traceWith tracer (ClearedMessageQueue{messageQueueLength, deletedMessages})
-   where
-    minIndex messages =
-      case sortBy (\(_, a) (_, b) -> compare a b) (Map.toList messages) of
-        [] -> 0 -- should not happen
-        ((_, v) : _) -> v
 
   insertNewMsg msg m =
     case IMap.lookupMax m of
