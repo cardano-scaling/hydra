@@ -72,7 +72,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Tracer (Tracer)
 import qualified Data.IntMap as IMap
-import qualified Data.Map.Strict as Map
 import Data.Vector (
   Vector,
   elemIndex,
@@ -158,11 +157,10 @@ withReliability ::
 withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO IMap.empty
-  seenMessages <- newTVarIO $ Map.fromList $ (,0) <$> toList otherParties
   resendQ <- newTQueueIO
   ourIndex <- findPartyIndex me
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback ackCounter sentMessages seenMessages resend) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast ourIndex ackCounter sentMessages network
  where
@@ -189,25 +187,28 @@ withReliability tracer me otherParties withRawNetwork callback action = do
       modifyTVar' sentMessages (insertNewMsg msg)
       readTVar ackCounter
 
-  reliableCallback ackCounter sentMessages seenMessages resend (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback ackCounter sentMessages resend (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then ignoreMalformedMessages
       else do
         partyIndex <- findPartyIndex party
-        (shouldCallback, _messageAckForParty, _knownAckForParty, knownAcks) <- atomically $ do
+        (shouldCallback, knownAcks) <- atomically $ do
           let messageAckForParty = acks ! partyIndex
           knownAcks <- readTVar ackCounter
           let knownAckForParty = knownAcks ! partyIndex
 
-          if isPing msg
-            then return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
-            else
-              if messageAckForParty == knownAckForParty + 1
-                then do
+          if
+              | isPing msg ->
+                  -- we do not update indices on Pings but we do propagate them
+                  return (True, knownAcks)
+              | messageAckForParty == knownAckForParty + 1 -> do
+                  -- we update indices for next in line messages and propagate them
                   let newAcks = constructAcks knownAcks partyIndex
                   writeTVar ackCounter newAcks
-                  return (True, messageAckForParty, knownAckForParty, newAcks)
-                else return (isPing msg, messageAckForParty, knownAckForParty, knownAcks)
+                  return (True, newAcks)
+              | otherwise ->
+                  -- other messages are dropped
+                  return (False, knownAcks)
 
         if shouldCallback
           then do
@@ -217,9 +218,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
 
         when (isPing msg) $
           resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
-
-        -- Update last message index sent by us and seen by some party
-        updateSeenMessages seenMessages acks party
 
   ignoreMalformedMessages = pure ()
 
@@ -255,11 +253,6 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
             traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
             atomically $ resend $ ReliableMsg newAcks' missingMsg
-
-  updateSeenMessages seenMessages acks party = do
-    myIndex <- findPartyIndex me
-    let messageAckForUs = acks ! myIndex
-    atomically $ modifyTVar' seenMessages (Map.insert party messageAckForUs)
 
   insertNewMsg msg m =
     case IMap.lookupMax m of
