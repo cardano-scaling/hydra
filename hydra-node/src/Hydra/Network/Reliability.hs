@@ -107,14 +107,6 @@ instance (FromCBOR msg) => FromCBOR (ReliableMsg msg) where
 instance ToCBOR msg => SignableRepresentation (ReliableMsg msg) where
   getSignableRepresentation = serialize'
 
-data ReliabilityException
-  = -- | Signals that received acks from the peer is not of
-    -- proper length
-    ReliabilityReceivedAckedMalformed
-  deriving (Eq, Show)
-
-instance Exception ReliabilityException
-
 data ReliabilityLog
   = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
