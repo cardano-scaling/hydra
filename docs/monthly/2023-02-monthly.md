@@ -40,7 +40,7 @@ there are a few things that changed this month:
   technical specification. We expect a release in early March.
 
 - Version **0.10.0** will be the first mainnet compatible release. For this, we
-  created and groomed the main feature item [Mainnnet compatibility
+  created and groomed the main feature item [Mainnet compatibility
   #713](https://github.com/input-output-hk/hydra/issues/713):
   - Not only making it technically compatible but also adding guard rails to
     limit risk (“not shoot yourself in the foot .. with a real gun now”) and
