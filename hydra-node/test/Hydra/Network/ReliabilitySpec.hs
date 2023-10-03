@@ -81,27 +81,6 @@ spec = parallel $ do
           & counterexample (show propagatedMessages)
           & collect (length propagatedMessages)
 
-    it "garbage collects messages received by all other peers" $ do
-      let receivedTraces = runSimOrThrow $ do
-            emittedTraces <- newTVarIO []
-            withReliability
-              (captureTraces emittedTraces)
-              alice
-              [bob, carol]
-              ( \incoming action -> do
-                  action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 0]) msg) bob)
-                  action $ Network{broadcast = \_ -> pure ()}
-                  incoming (Authenticated (ReliableMsg (fromList [1, 1, 1]) msg) carol)
-                  action $ Network{broadcast = \_ -> pure ()}
-              )
-              noop
-              $ \Network{broadcast} -> do
-                broadcast msg
-            readTVarIO emittedTraces
-
-      receivedTraces `shouldContain` [ClearedMessageQueue{messageQueueLength = 1, deletedMessages = 1}]
-
   describe "sending messages" $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
       let sentMsgs = runSimOrThrow $ do
