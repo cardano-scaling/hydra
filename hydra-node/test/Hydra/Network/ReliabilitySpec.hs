@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, readTVarIO, writeTQueue),
+  check,
   modifyTVar',
   newTQueueIO,
   newTVarIO,
@@ -34,7 +35,7 @@ import Prelude (unlines)
 
 spec :: Spec
 spec = parallel $ do
-  let captureOutgoing msgqueue _cb action =
+  let captureOutgoing msgqueue _callback action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (`snoc` msg)}
 
   let msg' = 42 :: Int
@@ -63,19 +64,21 @@ spec = parallel $ do
           propagatedMessages =
             aliceReceivesMessages
               [ Authenticated (ReliableMsg malFormedAck (Data "node-2" msg')) bob
-              , Authenticated (ReliableMsg wellFormedAck (Data "node-2" msg')) carol
+              , Authenticated (ReliableMsg wellFormedAck (Data "node-3" msg')) carol
               ]
 
-      propagatedMessages `shouldBe` [Authenticated (Data "node-2" msg') carol]
+      propagatedMessages `shouldBe` [Authenticated (Data "node-3" msg') carol]
 
     prop "drops already received messages" $ \(messages :: [Positive Int]) ->
-      -- FIXME this property will not fail if we drop all the messages
       let
+        messagesToSend =
+          (\(Positive m) -> Authenticated (ReliableMsg (fromList [0, m, 0]) (Data "node-2" m)) bob)
+            <$> messages
         propagatedMessages = aliceReceivesMessages messagesToSend
 
-        messagesToSend = map (\(Positive m) -> Authenticated (ReliableMsg (fromList [0, m, 0]) (Data "node-2" m)) bob) messages
         receivedMessagesInOrder messageReceived =
-          and (zipWith (==) (payload <$> messageReceived) (Data "node-2" <$> [1 ..]))
+          let refMessages = Data "node-2" <$> [1 ..]
+           in all (`elem` refMessages) (payload <$> messageReceived)
        in
         receivedMessagesInOrder propagatedMessages
           & counterexample (show propagatedMessages)
@@ -92,8 +95,8 @@ spec = parallel $ do
             fromList . toList <$> readTVarIO sentMessages
        in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
-    -- this test is critical (even if incomplete) to check we correctly resend messages
-    -- lost, we therefore want to run more of it
+    -- this test is quite critical as it demonstrates messages dropped are properly managed and resent to the
+    -- other party whatever the length of queue, and whatever the interleaving of threads
     modifyMaxSuccess (const 5000) $
       prop "stress test networking layer" $ \(aliceToBobMessages :: [Int]) (bobToAliceMessages :: [Int]) seed ->
         let
@@ -105,50 +108,18 @@ spec = parallel $ do
             aliceToBob <- newTQueueIO
             bobToAlice <- newTQueueIO
             let
-              randomNumber = do
-                genSeed <- readTVar randomSeed
-                let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
-                writeTVar randomSeed newGenSeed
-                pure res
-
               -- this is a NetworkComponent that broadcasts authenticated messages
               -- mediated through a read and a write TQueue but drops 0.2 % of them
-              aliceFailingNetwork = failingNetwork alice (bobToAlice, aliceToBob)
-              bobFailingNetwork = failingNetwork bob (aliceToBob, bobToAlice)
-              failingNetwork peer (readQueue, writeQueue) callback action =
-                withAsync
-                  ( forever $ do
-                      newMsg <- atomically $ readTQueue readQueue
-                      callback newMsg
-                  )
-                  $ \_ ->
-                    action $
-                      Network
-                        { broadcast = \m -> atomically $ do
-                            -- drop 2% of messages
-                            r <- randomNumber
-                            unless (r < 0.02) $ writeTQueue writeQueue (Authenticated m peer)
-                        }
+              aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
+              bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack bobFailingNetwork "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack aliceFailingNetwork "alice" alice [bob]
-              reliabilityStack underlyingNetwork partyName party peers =
-                withHeartbeat partyName noop $
-                  withFlipHeartbeats $
-                    withReliability (captureTraces emittedTraces) party peers underlyingNetwork
+              bobReliabilityStack = reliabilityStack bobFailingNetwork emittedTraces "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack aliceFailingNetwork emittedTraces "alice" alice [bob]
 
-              runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice bobToAliceMessages
-              runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob aliceToBobMessages
-              runPeer reliability partyName receivedMessageContainer expectedMessages =
-                reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
-                  forM_ aliceToBobMessages $ \m -> do
-                    broadcast (Data partyName m)
-                    threadDelay 1
+              runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
+              runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
 
-                  waitForAllMessages 100 expectedMessages receivedMessageContainer
-                  threadDelay 10
-
-            race_ runAlice runBob
+            concurrently_ runAlice runBob
 
             logs <- readTVarIO emittedTraces
             aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
@@ -180,6 +151,41 @@ spec = parallel $ do
             toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
+ where
+  runPeer reliability partyName receivedMessageContainer sentMessageContainer messagesToSend expectedMessages =
+    reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
+      forM_ messagesToSend $ \m -> do
+        broadcast (Data partyName m)
+        threadDelay 0.1
+
+      concurrently_
+        (waitForAllMessages expectedMessages receivedMessageContainer)
+        (waitForAllMessages messagesToSend sentMessageContainer)
+
+  reliabilityStack underlyingNetwork tracesContainer nodeId party peers =
+    withHeartbeat nodeId noop $
+      withFlipHeartbeats $
+        withReliability (captureTraces tracesContainer) party peers underlyingNetwork
+
+  failingNetwork seed peer (readQueue, writeQueue) callback action =
+    withAsync
+      ( forever $ do
+          newMsg <- atomically $ readTQueue readQueue
+          callback newMsg
+      )
+      $ \_ ->
+        action $
+          Network
+            { broadcast = \m -> atomically $ do
+                -- drop 2% of messages
+                r <- randomNumber seed
+                unless (r < 0.02) $ writeTQueue writeQueue (Authenticated m peer)
+            }
+  randomNumber seed' = do
+    genSeed <- readTVar seed'
+    let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
+    writeTVar seed' newGenSeed
+    pure res
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
@@ -212,15 +218,10 @@ capturePayload receivedMessages message = case payload message of
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()
 
-waitForAllMessages :: (MonadSTM m, MonadDelay m) => Int -> [msg] -> TVar m (Vector msg) -> m ()
-waitForAllMessages n expectedMessages capturedMessages = do
-  if n == (0 :: Int)
-    then pure ()
-    else do
-      msgs <- readTVarIO capturedMessages
-      if length msgs == length expectedMessages
-        then pure ()
-        else threadDelay 1 >> waitForAllMessages (n - 1) expectedMessages capturedMessages
+waitForAllMessages :: MonadSTM m => [msg] -> TVar m (Vector msg) -> m ()
+waitForAllMessages expectedMessages capturedMessages = atomically $ do
+  msgs <- readTVar capturedMessages
+  check $ length msgs == length expectedMessages
 
 captureTraces ::
   MonadSTM m =>
