@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | A `Network` layer that guarantees delivery of `msg` in order even in the
@@ -81,6 +80,7 @@ import Data.Vector (
   replicate,
   zipWith,
   (!),
+  (!?),
  )
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
@@ -112,9 +112,6 @@ data ReliabilityException
   = -- | Signals that received acks from the peer is not of
     -- proper length
     ReliabilityReceivedAckedMalformed
-  | -- | This should never happen. We should always be able to find a party
-    -- index in a list of parties.
-    ReliabilityMissingPartyIndex Party
   deriving (Eq, Show)
 
 instance Exception ReliabilityException
@@ -126,6 +123,7 @@ data ReliabilityLog
   | Received {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | Ignored {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | ReliabilityFailedToFindMsg {failedToFindMessage :: String}
+  | ReliabilityMissingPartyIndex {missingParty :: Party}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -158,7 +156,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   sentMessages <- newTVarIO IMap.empty
   resendQ <- newTQueueIO
-  ourIndex <- findPartyIndex me
+  ourIndex <- findPartyIndex' me
   let resend = writeTQueue resendQ
   withRawNetwork (reliableCallback ackCounter sentMessages resend) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
@@ -191,33 +189,35 @@ withReliability tracer me otherParties withRawNetwork callback action = do
     if length acks /= length allParties
       then ignoreMalformedMessages
       else do
-        partyIndex <- findPartyIndex party
-        (shouldCallback, knownAcks) <- atomically $ do
-          let messageAckForParty = acks ! partyIndex
-          knownAcks <- readTVar ackCounter
-          let knownAckForParty = knownAcks ! partyIndex
-
+        eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
+          partyIndex <- hoistMaybe $ findPartyIndex party
+          messageAckForParty <- hoistMaybe (acks !? partyIndex)
+          knownAcks <- lift $ readTVar ackCounter
+          knownAckForParty <- hoistMaybe $ knownAcks !? partyIndex
           if
               | isPing msg ->
                   -- we do not update indices on Pings but we do propagate them
-                  return (True, knownAcks)
+                  return (True, partyIndex, knownAcks)
               | messageAckForParty == knownAckForParty + 1 -> do
                   -- we update indices for next in line messages and propagate them
                   let newAcks = constructAcks knownAcks partyIndex
-                  writeTVar ackCounter newAcks
-                  return (True, newAcks)
+                  lift $ writeTVar ackCounter newAcks
+                  return (True, partyIndex, newAcks)
               | otherwise ->
                   -- other messages are dropped
-                  return (False, knownAcks)
+                  return (False, partyIndex, knownAcks)
 
-        if shouldCallback
-          then do
-            callback (Authenticated msg party)
-            traceWith tracer (Received acks knownAcks partyIndex)
-          else traceWith tracer (Ignored acks knownAcks partyIndex)
+        case eShouldCallbackWithKnownAcks of
+          Just (shouldCallback, partyIndex, knownAcks) -> do
+            if shouldCallback
+              then do
+                callback (Authenticated msg party)
+                traceWith tracer (Received acks knownAcks partyIndex)
+              else traceWith tracer (Ignored acks knownAcks partyIndex)
 
-        when (isPing msg) $
-          resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
+            when (isPing msg) $
+              resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks
+          Nothing -> pure ()
 
   ignoreMalformedMessages = pure ()
 
@@ -227,7 +227,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   partyIndexes = generate (length allParties) id
 
   resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks = do
-    myIndex <- findPartyIndex me
+    myIndex <- findPartyIndex' me
     let messageAckForUs = messageAcks ! myIndex
     let knownAckForUs = knownAcks ! myIndex
 
@@ -262,4 +262,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
   -- find the index of a party in the list of parties or fail with 'ReliabilityMissingPartyIndex'
   -- FIXME: remove exception?
   findPartyIndex party =
-    maybe (throwIO $ ReliabilityMissingPartyIndex party) pure $ elemIndex party allParties
+    elemIndex party allParties
+
+  findPartyIndex' party =
+    maybe (error "") pure $ elemIndex party allParties
