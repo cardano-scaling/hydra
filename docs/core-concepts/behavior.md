@@ -24,8 +24,8 @@ There are some options for API clients to control the server outputs. Server out
 
 ## Replay of past server outputs
 
-When a `hydra-node` restarts, by default it will load it's history from persistence and replay previous server outputs to enable clients to re-establish their state upon re-connection. If that happens, obviously some of these outputs are not relevant anymore. One example of this is the `PeerConnected` and `PeerDisconnected`. To make it possible to determine the end of replayed history, client applications can use the `Greetings`, which will be emitted on every `hydra-node` start. See the `hydra-tui` example client for how this is handled.
+When a `hydra-node` restarts, by default it will load its history from persistence and replay previous server outputs to enable clients to re-establish their state upon re-connection. If that happens, obviously some of these outputs are not relevant anymore. One example of this is the `PeerConnected` and `PeerDisconnected`. To make it possible to determine the end of replayed history, client applications can use the `Greetings`, which will be emitted on every `hydra-node` start. See the `hydra-tui` example client for how this is handled.
 
 Clients can optionally decide to skip history outputs and receive only the `Greetings` and following ones. In order to do that they can use query param `history=no`.
 
-For example if the client wants to connect to a local `hydra-node` and doesn't want to view the server history but also want to have the transactions encoded as CBOR (base16) and prevent utxo display in `SnapshotConfirmed` messages, they would connect using default port `4001` and the full path `ws://localhost:4001/?history=no&tx-output=cbor`.
+For example if the client wants to connect to a local `hydra-node` and doesn't want to view the server history but also wants to have the transactions encoded as CBOR (base16) and prevent utxo display in `SnapshotConfirmed` messages, they would connect using default port `4001` and the full path `ws://localhost:4001/?history=no&tx-output=cbor`.
