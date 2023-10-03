@@ -40,7 +40,7 @@ Head is open:
 - Using reference scripts on the L2 is non problematic as they will
   be committed back on the L1 along with all the other UTxO
 
-There are couple of items in the roadmap around reducing the risk of loosing funds in a Hydra Head:
+There are couple of items in the roadmap around reducing the risk of losing funds in a Hydra Head:
 
 - [Always abortable Head](https://github.com/input-output-hk/hydra/issues/699)
 - [Limit size/complexity of UTxOs in the Head](https://github.com/input-output-hk/hydra/issues/698)
@@ -76,7 +76,7 @@ implemented has the following consequences:
 
 ### hydra-tui
 
-- TUI crashes when user tries to post a new transaction wihout any UTXO remaining.
+- TUI crashes when user tries to post a new transaction without any UTXO remaining.
 
 - Recipient addresses to send money to in the TUI are inferred from
   the current UTXO set. If a party does not commit a UTXO or consumes
