@@ -227,7 +227,7 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
 
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =
-  Commit.datum (partyToChain party, commits, headId)
+  Plutus.Datum $ Plutus.toBuiltinData (partyToChain party, commits, headId)
  where
   commits =
     mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
@@ -306,8 +306,9 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
     fromPlutusScript @PlutusScriptV2 commitValidatorScript
+  -- TODO: we need the parsed aiken output from 'plutus.json' here
   commitRedeemer =
-    toScriptData $ Commit.redeemer Commit.ViaCollectCom
+    toScriptData $ Plutus.Redeemer $ Plutus.toBuiltinData Commit.ViaCollectCom
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
@@ -609,8 +610,10 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
     fst (commitReference scriptRegistry)
   commitScript =
     fromPlutusScript @PlutusScriptV2 commitValidatorScript
+
+  -- TODO: we need the parsed aiken output from 'plutus.json' here
   commitRedeemer =
-    toScriptData (Commit.redeemer Commit.ViaAbort)
+    toScriptData (Plutus.Redeemer $ Plutus.toBuiltinData Commit.ViaAbort)
 
   reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
 

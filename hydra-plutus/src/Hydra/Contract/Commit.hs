@@ -58,3 +58,11 @@ deserializeCommit network Commit{input, preSerializedOutput} =
 -- based on mock crypto. When we move to real crypto we could simply use
 -- the PT's token name to identify the committing party
 type DatumType = (Party, [Commit], CurrencySymbol)
+
+data CommitRedeemer
+  = ViaCollectCom
+  | ViaAbort
+
+PlutusTx.unstableMakeIsData ''CommitRedeemer
+
+type RedeemerType = CommitRedeemer
