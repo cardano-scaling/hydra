@@ -10,7 +10,7 @@ import LastUpdated from '@theme/LastUpdated';
 import EditThisPage from '@theme/EditThisPage';
 import TagsListInline from '@theme/TagsListInline';
 import styles from './styles.module.css';
-import {ThemeClassNames} from '@docusaurus/theme-common';
+import { ThemeClassNames } from '@docusaurus/theme-common';
 import DocumentMetadata from '@site/src/components/DocumentMetadata';
 
 function TagsRow(props) {
@@ -51,12 +51,12 @@ function EditMetaRow({
 }
 
 export default function DocItemFooter(props) {
-  const {content: DocContent} = props;
-  const {metadata} = DocContent;
-  const {editUrl, lastUpdatedAt, formattedLastUpdatedAt, lastUpdatedBy, tags} =
+  const { content: DocContent } = props;
+  const { metadata } = DocContent;
+  const { editUrl, lastUpdatedAt, formattedLastUpdatedAt, lastUpdatedBy, tags } =
     metadata;
   const canDisplayTagsRow = tags.length > 0;
-  const canDisplayEditMetaRow = !!(editUrl || lastUpdatedAt || lastUpdatedBy);
+  const canDisplayEditMetaRow = editUrl && lastUpdatedAt && lastUpdatedBy;
   const canDisplayFooter = canDisplayTagsRow || canDisplayEditMetaRow;
 
   if (!canDisplayFooter) {

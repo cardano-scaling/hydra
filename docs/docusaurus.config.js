@@ -130,7 +130,6 @@ const config = {
         id: "benchmarks",
         path: "benchmarks",
         routeBasePath: "benchmarks",
-        editUrl,
         editLocalizedFiles: true,
       }),
     ],
