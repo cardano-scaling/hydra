@@ -87,6 +87,7 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
 import Test.QuickCheck (getPositive, listOf)
+import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental), append, loadAll)
 
 data ReliableMsg msg = ReliableMsg
   { knownMessageIds :: Vector Int
@@ -133,9 +134,11 @@ instance Arbitrary ReliabilityLog where
 -- NOTE: Make better use of Vectors? We should perhaps use a `MVector` to be able to
 -- mutate in-place and not need `zipWith`
 withReliability ::
-  (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
+  (MonadThrow (STM m), MonadThrow m, MonadAsync m, ToJSON msg, FromJSON msg) =>
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
+  -- | Persistence handle to store messages
+  PersistenceIncremental (Heartbeat msg) m ->
   -- | Our own party identifier.
   Party ->
   -- | Other parties' identifiers.
@@ -143,8 +146,9 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer me otherParties withRawNetwork callback action = do
+withReliability tracer PersistenceIncremental{append, loadAll} me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
+  storedMessages <- loadAll
   sentMessages <- newTVarIO IMap.empty
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
@@ -162,6 +166,7 @@ withReliability tracer me otherParties withRawNetwork callback action = do
             case msg of
               Data{} -> do
                 ackCounter' <- atomically $ incrementCountersFor msg
+                append msg
                 traceWith tracer (BroadcastCounter ourIndex ackCounter')
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do

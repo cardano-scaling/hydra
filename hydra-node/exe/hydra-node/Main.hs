@@ -88,6 +88,7 @@ main = do
           Right bpparams -> pure bpparams
         withCardanoLedger chainConfig pparams $ \ledger -> do
           persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+          reliabilityPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
           (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
           checkHeadState (contramap Node tracer) env hs
           nodeState <- createNodeState hs
@@ -102,7 +103,7 @@ main = do
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
               -- Network
-              withNetwork tracer (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              withNetwork tracer reliabilityPersistence (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
