@@ -1,5 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
+-- | A `NetworkComponent` that handles authentication of sent and received messages.
+--
+-- This "middleware" uses `HydraKey` keys for signing own messages and verifying
+-- others', providing `Authenticated` messages to consumers.
 module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
@@ -9,7 +13,7 @@ import qualified Data.Aeson as Aeson
 import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (Network, broadcast), NetworkComponent)
-import Hydra.Party (Party (Party, vkey))
+import Hydra.Party (Party (Party, vkey), deriveParty)
 import Hydra.Prelude
 
 -- | Represents a signed message over the network.
@@ -56,9 +60,9 @@ withAuthentication ::
   -- Other party members
   [Party] ->
   -- The underlying raw network.
-  NetworkComponent m (Signed msg) a ->
+  NetworkComponent m (Signed msg) (Signed msg) a ->
   -- The node internal authenticated network.
-  NetworkComponent m (Authenticated msg) a
+  NetworkComponent m (Authenticated msg) msg a
 withAuthentication tracer signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where
@@ -67,11 +71,13 @@ withAuthentication tracer signingKey parties withRawNetwork callback action = do
       then callback $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 
-  authenticate = \Network{broadcast} ->
+  me = deriveParty signingKey
+
+  authenticate Network{broadcast} =
     action $
       Network
-        { broadcast = \(Authenticated msg party) ->
-            broadcast (Signed msg (sign signingKey msg) party)
+        { broadcast = \msg ->
+            broadcast (Signed msg (sign signingKey msg) me)
         }
 
 -- | Smart constructor for 'MessageDropped'

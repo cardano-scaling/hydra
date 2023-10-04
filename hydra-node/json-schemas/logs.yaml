@@ -132,6 +132,21 @@ properties:
             type: object
             $ref: "logs.yaml#/definitions/AuthLog"
 
+      - title: Reliability
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - reliability
+        description: >-
+          A log entry produced by Reliability network layer.
+        properties:
+          tag:
+            type: string
+            enum: ["Reliability"]
+          reliability:
+            $ref: "logs.yaml#/definitions/Reliability"
+
 definitions:
   APIServer:
     oneOf:
@@ -430,6 +445,170 @@ definitions:
             enum: ["SkipUpdate"]
           point:
             $ref: "api.yaml#/components/schemas/ChainPoint"
+
+  Reliability:
+    oneOf:
+      - title: Resending
+        description: >-
+          Resending missed messages. If the party detects that the vector clock for some other party is lagging behind it will try to resend messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - missing
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Resending"]
+          missing:
+            type: array
+            items:
+              type: number
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+      - title: BroadcastCounter
+        description: >-
+          Logged when broadcasting messages from the Reliability layer.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - partyIndex
+          - localCounter
+        properties:
+          tag:
+            type: string
+            enum: ["BroadcastCounter"]
+          partyIndex:
+            type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+      - title: BroadcastPing
+        description: >-
+          Logged when broadcasting a Ping, which does not update the known message Ids
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - partyIndex
+          - localCounter
+        properties:
+          tag:
+            type: string
+            enum: ["BroadcastPing"]
+          partyIndex:
+            type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+      - title: Received
+        description: >-
+          Logged only when the party receives a message and it is valid to to issue a callback.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Received"]
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+      - title: ClearedMessageQueue
+        description: >-
+          Logged when it is safe to delete some of the local messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - messageQueueLength
+          - deletedMessage
+        properties:
+          tag:
+            type: string
+            enum: ["ClearedMessageQueue"]
+          messageQueueLength:
+            type: number
+          deletedMessage:
+            type: number
+      - title: Ignored
+        description: >-
+          Logged when node ignores the callback in case of Ping messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - acknowledged
+          - localCounter
+          - partyIndex
+        properties:
+          tag:
+            type: string
+            enum: ["Ignored"]
+          acknowledged:
+            type: array
+            items:
+              type: number
+          localCounter:
+            type: array
+            items:
+              type: number
+          partyIndex:
+            type: number
+      - title: ReliabilityFailedToFindMsg
+        description: >-
+          Logged when the message we want to resend was not found in the local messages.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - failedToFindMessage
+        properties:
+          tag:
+            type: string
+            enum: ["ReliabilityFailedToFindMsg"]
+          failedToFindMessage:
+            type: string
+      - title: ReliabilityMissingPartyIndex
+        description: >-
+          Logged when party index could not be found. NOTE: This should never happen.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - missingParty
+        properties:
+          tag:
+            type: string
+            enum: ["ReliabilityMissingPartyIndex"]
+          missingParty:
+            $ref: "api.yaml#/components/schemas/Party"
+
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml

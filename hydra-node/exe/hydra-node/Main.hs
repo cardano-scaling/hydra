@@ -2,10 +2,10 @@
 
 module Main where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (fromList)
 
-import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (PeerConnected, PeerDisconnected))
+import Hydra.API.Server (Server (..), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
@@ -32,11 +32,8 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..))
-import Hydra.Network.Authenticate (Authenticated (Authenticated), withAuthentication)
-import Hydra.Network.Heartbeat (withHeartbeat)
+import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
-import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   HydraNode (..),
   checkHeadState,
@@ -46,6 +43,7 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
+import Hydra.Node.Network (withNetwork)
 import Hydra.Options (
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
@@ -104,12 +102,12 @@ main = do
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
               -- Network
-              withNetwork tracer server signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              withNetwork tracer (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
                     { eq
-                    , hn = contramap (`Authenticated` party) hn
+                    , hn
                     , nodeState
                     , oc = chain
                     , server
@@ -118,18 +116,15 @@ main = do
                     , persistence
                     }
 
+  connectionMessages Server{sendOutput} = \case
+    Connected nodeid -> sendOutput $ PeerConnected nodeid
+    Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
+
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
-
-  withNetwork tracer Server{sendOutput} signingKey parties host port peers nodeId =
-    let localhost = Host{hostname = show host, port}
-        connectionMessages = \case
-          Connected nodeid -> sendOutput $ PeerConnected nodeid
-          Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-     in withAuthentication (contramap Authentication tracer) signingKey parties $ withHeartbeat nodeId connectionMessages $ withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withCardanoLedger chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig

@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Party (Party (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck ((==>))
 
 spec :: Spec
@@ -23,3 +24,6 @@ spec = do
     (compare x y == EQ) == (x == y)
 
   roundtripAndGoldenSpecs (Proxy @Party)
+
+  it "has alice, bob, carol sorted" $
+    sort [alice, bob, carol] `shouldBe` [alice, bob, carol]

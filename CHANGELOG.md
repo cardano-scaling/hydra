@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.14.0] - UNRELEASED
+
+- **BREAKING** Introduce messages resending logic in the `Network`
+  layer to improve reliability in the face of transient connection
+  issues
 
 ## [0.13.0] - 2023-10-03
 
