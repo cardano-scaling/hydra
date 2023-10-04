@@ -444,7 +444,7 @@ nodeIdParser =
         <> metavar "NODE-ID"
         <> help
           "The Hydra node identifier used on the Hydra network. It is \
-          \important to have a unique identifier in order to be able \
+          \important to have a unique identifier in order to be able to \
           \distinguish between connected peers."
     )
 

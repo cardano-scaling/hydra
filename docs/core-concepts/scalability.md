@@ -16,7 +16,7 @@ it's distributed globally between thousands of block-producing nodes (with quite
 a low bar in system requirements) will have it create a block on average every
 20 seconds.
 
-These limitations ultimately means that any state can only change in discrete
+These limitations ultimately mean that any state can only change in discrete
 steps of this duration. Besides, given peak hours on the blockchain when there
 is a transaction queue, the time required to settle and confirm a transaction
 might also be higher, further increasing the effective settlement time. This is

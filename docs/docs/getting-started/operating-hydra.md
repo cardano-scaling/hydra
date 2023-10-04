@@ -16,7 +16,7 @@ Following [ADR-9](/adr/9) design principles, the `hydra-node` provides [JSON](ht
 
 :::info
 
-There is an unpublished [log-filter](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/exe/log-filter/Main.hs) executable that one can attach to a hydra-node in order to trim down the volume of information in the log stream. This filter provides _some_ filtering features, namely removing transactions bodies and replacing them with transaction ids, but it's not general enough to warrant publication. Similar capabilites can be easily provided with tools like [jq](https://stedolan.github.io/jq/).
+There is an unpublished [log-filter](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/exe/log-filter/Main.hs) executable that one can attach to a hydra-node in order to trim down the volume of information in the log stream. This filter provides _some_ filtering features, namely removing transactions bodies and replacing them with transaction ids, but it's not general enough to warrant publication. Similar capabilities can be easily provided with tools like [jq](https://stedolan.github.io/jq/).
 
 :::
 
