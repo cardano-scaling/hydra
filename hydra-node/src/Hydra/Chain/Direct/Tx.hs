@@ -306,7 +306,6 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
     fromPlutusScript @PlutusScriptV2 commitValidatorScript
-  -- TODO: we need the parsed aiken output from 'plutus.json' here
   commitRedeemer =
     toScriptData $ Plutus.Redeemer $ Plutus.toBuiltinData Commit.ViaCollectCom
 
@@ -610,8 +609,6 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
     fst (commitReference scriptRegistry)
   commitScript =
     fromPlutusScript @PlutusScriptV2 commitValidatorScript
-
-  -- TODO: we need the parsed aiken output from 'plutus.json' here
   commitRedeemer =
     toScriptData (Plutus.Redeemer $ Plutus.toBuiltinData Commit.ViaAbort)
 
