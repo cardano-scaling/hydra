@@ -21,7 +21,6 @@ blueprintJSON =
     Just value -> value
 
 -- | Access the commit validator script from the 'blueprintJSON'.
--- REVIEW: make validator access less fragile?
 commitValidatorScript :: SerialisedScript
 commitValidatorScript =
   case Base16.decode base16Bytes of
@@ -30,4 +29,8 @@ commitValidatorScript =
  where
   base16Bytes = encodeUtf8 base16Text
 
+  -- NOTE: we are using a hardcoded index to access the commit validator.
+  -- This is fragile and will raise problems when we move another plutus validator
+  -- to Aiken.
+  -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
   base16Text = blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
