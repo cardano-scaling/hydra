@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
+  changeMintedTokens,
   changeMintedValueQuantityFrom,
   isHeadOutput,
   replacePolicyIdWith,
@@ -27,11 +28,13 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
+  hydraHeadV1AssetName,
   mkHeadOutputInitial,
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
@@ -42,6 +45,7 @@ import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
+import Hydra.Contract.InitialError (InitialError(STNotBurned))
 
 --
 -- AbortTx
@@ -159,6 +163,10 @@ data AbortMutation
     MintOnAbort
   | -- | Not spend from v_head and also not burn anything to extract value.
     ExtractValue
+  | -- | State token is not burned
+    DoNotBurnST
+    -- Here we want to check that the initial validator also fails on abort.
+  | DoNotBurnSTInitial
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -246,6 +254,11 @@ genAbortMutation (tx, utxo) =
             , RemoveInput healthyHeadInput
             ]
               ++ divertFunds
+    , SomeMutation (Just $ toErrorCode STNotBurnedError) DoNotBurnST
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
+    , SomeMutation (Just $ toErrorCode STNotBurned) DoNotBurnSTInitial
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
+
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
