@@ -23,6 +23,8 @@ import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import System.Directory (doesFileExist)
+import System.FilePath ((</>))
 import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
@@ -179,6 +181,8 @@ spec = parallel $ do
           toList <$> readTVarIO sentMessages
 
         allMessages <- loadAll
+        reliableMessagesFileExists <- doesFileExist $ tmpDir </> "network-messages"
+        reliableMessagesFileExists `shouldBe` True
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
         allMessages `shouldBe` [Data "node-1" msg]
  where
