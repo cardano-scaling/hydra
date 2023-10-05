@@ -20,7 +20,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addPTWithQuantity,
   changeMintedValueQuantityFrom,
   isHeadOutput,
-  replacePolicyIdWith,
+  replacePolicyIdWith, changeMintedTokens,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -28,6 +28,7 @@ import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
   mkHeadOutputInitial,
+  hydraHeadV1AssetName
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
@@ -249,8 +250,8 @@ genAbortMutation (tx, utxo) =
             , RemoveInput healthyHeadInput
             ]
               ++ divertFunds
-    , SomeMutation (Just $ toErrorCode STNotBurnedError) STNotBurned <$> do
-        pure $ Changes []
+    , SomeMutation (Just $ toErrorCode STNotBurnedError) STNotBurned <$>
+       changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName,1)])
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
