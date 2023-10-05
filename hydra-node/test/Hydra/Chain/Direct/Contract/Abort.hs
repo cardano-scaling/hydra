@@ -32,6 +32,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
@@ -159,6 +160,8 @@ data AbortMutation
     MintOnAbort
   | -- | Not spend from v_head and also not burn anything to extract value.
     ExtractValue
+  | -- | State token is not burned
+    STNotBurned
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -246,6 +249,8 @@ genAbortMutation (tx, utxo) =
             , RemoveInput healthyHeadInput
             ]
               ++ divertFunds
+    , SomeMutation (Just $ toErrorCode STNotBurnedError) STNotBurned <$> do
+        pure $ Changes []
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
