@@ -32,7 +32,7 @@ import Hydra.Chain.Direct.Tx (
   mkCommitDatum,
   mkHeadId,
   mkHeadOutput,
-  mkInitialOutput,
+  mkInitialOutput, hydraHeadV1AssetName,
  )
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Error (toErrorCode)
@@ -54,6 +54,7 @@ import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
+import Hydra.Contract.CommitError (CommitError(STIsMissingInTheOutput))
 
 --
 -- CollectComTx
@@ -197,6 +198,8 @@ data CollectComMutation
   | MutateRequiredSigner
   | -- | Minting or burning of tokens should not be possible in collectCom.
     MutateTokenMintingOrBurning
+  | -- | νCommit validator checks the ST is in the output
+    RemoveSTFromOutput
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -255,6 +258,8 @@ genCollectComMutation (tx, _utxo) =
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+    , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, -1)])
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

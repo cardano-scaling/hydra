@@ -49,7 +49,7 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
 
 infix 4 ===
 
--- | Checks for exact exuality between two serialized values
+-- | Checks for exact equality between two serialized values.
 -- Equality on value is very memory intensive as it's defined on associative
 -- lists and `AssocMap` equality is implemented. Instead we can be more strict and
 -- require EXACTLY the same value and compare using the serialised bytes.
