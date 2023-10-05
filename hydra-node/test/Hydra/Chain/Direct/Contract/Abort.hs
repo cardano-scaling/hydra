@@ -18,17 +18,18 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
+  changeMintedTokens,
   changeMintedValueQuantityFrom,
   isHeadOutput,
-  replacePolicyIdWith, changeMintedTokens,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   UTxOWithScript,
   abortTx,
+  hydraHeadV1AssetName,
   mkHeadOutputInitial,
-  hydraHeadV1AssetName
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
@@ -162,7 +163,7 @@ data AbortMutation
   | -- | Not spend from v_head and also not burn anything to extract value.
     ExtractValue
   | -- | State token is not burned
-    STNotBurned
+    DoNotBurnST
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -250,8 +251,8 @@ genAbortMutation (tx, utxo) =
             , RemoveInput healthyHeadInput
             ]
               ++ divertFunds
-    , SomeMutation (Just $ toErrorCode STNotBurnedError) STNotBurned <$>
-       changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName,1)])
+    , SomeMutation (Just $ toErrorCode STNotBurnedError) DoNotBurnST
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
