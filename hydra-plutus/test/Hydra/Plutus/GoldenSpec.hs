@@ -55,7 +55,7 @@ spec = do
       let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
       _ <- withLogFile aikenLogFilePath $ \out -> do
         hSetBuffering out NoBuffering
-        let aikenExec = proc "aiken" ["build"]
+        let aikenExec = proc "aiken" ["build", "-k"]
             aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
@@ -70,7 +70,7 @@ spec = do
       -- Read git log file and verify plutus.json did not change
       gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
       gitLogContents `shouldNotContain` "plutus.json"
-  fit "check plutus blueprint hash against code reference" $ do
+  it "check plutus blueprint hash against code reference" $ do
     withFile "./plutus.json" ReadMode $ \hdl -> do
       plutusJson <- BSL.hGetContents hdl
       let blueprintJSON :: Aeson.Value =
