@@ -1,4 +1,3 @@
-use aiken/builtin
 use aiken/list
 use aiken/transaction.{ScriptContext}
 use aiken/transaction/value.{MintedValue, PolicyId, Value}
@@ -24,10 +23,10 @@ type CommitError {
   STIsMissingInTheOutput
 }
 
-fn toErrorCode(err: CommitError) -> ByteArray {
+fn toErrorCode(err: CommitError) -> String {
   when err is {
-    STNotBurnedError -> "C01"
-    STIsMissingInTheOutput -> "C02"
+    STNotBurnedError -> @"C01"
+    STIsMissingInTheOutput -> @"C02"
   }
 }
 
@@ -75,12 +74,11 @@ fn must_burn_st(head_id: PolicyId, mint: MintedValue) -> Bool {
 
 // Helpers
 
-fn traceIfFalse(str: ByteArray, a: Bool) -> Bool {
-  if a {
+fn traceIfFalse(traceLog: String, predicate: Bool) -> Bool {
+  if predicate {
     True
   } else {
-    let log = builtin.decode_utf8(str)
-    trace log
+    trace traceLog
     False
   }
 }
