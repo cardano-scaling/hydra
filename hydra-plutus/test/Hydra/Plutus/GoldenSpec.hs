@@ -71,6 +71,7 @@ spec = do
       gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
       gitLogContents `shouldNotContain` "plutus.json"
   it "check plutus blueprint hash against code reference" $ do
+    -- FIXME: Actually test the value of commitValidatorScript
     withFile "./plutus.json" ReadMode $ \hdl -> do
       plutusJson <- BSL.hGetContents hdl
       let blueprintJSON :: Aeson.Value =
@@ -82,10 +83,6 @@ spec = do
       base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-  it "Commit validator script" $
-    -- FIXME: Actually test the value of commitValidatorScript
-    -- TODO: the script is now double in the repo. Use plutus.json for a golden file
-    goldenScript "vCommit" commitValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
