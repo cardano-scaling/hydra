@@ -68,6 +68,12 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
+-- TODO: Note that we now have datum and the redeemer duplicated in haskell and
+-- on aiken side. Idea is to remove these types from haskell land but we want to
+-- wait on the plutus team to implement
+-- [CIP-57](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057)
+-- which will allow us to parse the 'plutus.json' datum and redeemer definitions
+-- directly to Plutus `Data` .
 type RedeemerType = CommitRedeemer
 
 datum :: DatumType -> Datum
