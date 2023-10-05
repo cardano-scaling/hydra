@@ -74,7 +74,8 @@ import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbea
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (ReliableMsg, withReliability)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (PersistenceIncremental)
+import Hydra.Persistence (PersistenceIncremental, Persistence)
+import Data.Vector (Vector)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -86,6 +87,8 @@ withNetwork ::
   Tracer IO (LogEntry tx msg) ->
   -- | Persistence handle to store messages
   PersistenceIncremental (Heartbeat msg) IO ->
+  -- | Persistence handle to store acks
+  Persistence (Vector Int) IO ->
   -- | Callback/observer for connectivity changes in peers.
   ConnectionMessages IO ->
   -- | This node's signing key. This is used to sign messages sent to peers.
@@ -102,12 +105,12 @@ withNetwork ::
   NodeId ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer persistence connectionMessages signingKey otherParties host port peers nodeId =
+withNetwork tracer msgPersistence ackPersistence connectionMessages signingKey otherParties host port peers nodeId = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
-   in withHeartbeat nodeId connectionMessages $
+  withHeartbeat nodeId connectionMessages $
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) persistence me otherParties $
+          withReliability (contramap Reliability tracer) msgPersistence ackPersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 

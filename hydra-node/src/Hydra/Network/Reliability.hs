@@ -86,8 +86,8 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
+import Hydra.Persistence (Persistence (..), append, loadAll, PersistenceIncremental)
 import Test.QuickCheck (getPositive, listOf)
-import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental), append, loadAll)
 
 data ReliableMsg msg = ReliableMsg
   { knownMessageIds :: Vector Int
@@ -139,6 +139,8 @@ withReliability ::
   Tracer m ReliabilityLog ->
   -- | Persistence handle to store messages
   PersistenceIncremental (Heartbeat msg) m ->
+  -- | Persistence handle to store acks
+  Persistence (Vector Int) m ->
   -- | Our own party identifier.
   Party ->
   -- | Other parties' identifiers.
@@ -146,10 +148,14 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer PersistenceIncremental{append, loadAll} me otherParties withRawNetwork callback action = do
-  ackCounter <- newTVarIO $ replicate (length allParties) 0
-  storedMessages <- loadAll
-  sentMessages <- newTVarIO $ IMap.fromList (zip [1..] storedMessages)
+withReliability tracer msgPersistence ackPersistence me otherParties withRawNetwork callback action = do
+  startingAckCounter <-
+    load ackPersistence >>= \case
+      Nothing -> pure $ replicate (length allParties) 0
+      Just existingCounter -> pure existingCounter
+  ackCounter <- newTVarIO startingAckCounter
+  storedMessages <- loadAll msgPersistence
+  sentMessages <- newTVarIO $ IMap.fromList (zip [1 ..] storedMessages)
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
@@ -166,7 +172,8 @@ withReliability tracer PersistenceIncremental{append, loadAll} me otherParties w
             case msg of
               Data{} -> do
                 ackCounter' <- atomically $ incrementCountersFor msg
-                append msg
+                append msgPersistence msg
+                void $ save ackPersistence ackCounter'
                 traceWith tracer (BroadcastCounter ourIndex ackCounter')
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do
@@ -227,28 +234,28 @@ withReliability tracer PersistenceIncremental{append, loadAll} me otherParties w
     let mknownAckForUs = knownAcks !? myIndex
     case (mmessageAckForUs, mknownAckForUs) of
       (Just messageAckForUs, Just knownAckForUs) ->
-         -- We resend messages if our peer notified us that it's lagging behind our
-         -- latest message sent
-         when (messageAckForUs < knownAckForUs) $ do
-           let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
-           messages <- readTVarIO sentMessages
-           forM_ missing $ \idx -> do
-             case messages IMap.!? idx of
-               Nothing ->
-                 traceWith tracer $
-                   ReliabilityFailedToFindMsg $
-                     "FIXME: this should never happen, there's no sent message at index "
-                       <> show idx
-                       <> ", messages length = "
-                       <> show (IMap.size messages)
-                       <> ", latest message ack: "
-                       <> show knownAckForUs
-                       <> ", acked: "
-                       <> show messageAckForUs
-               Just missingMsg -> do
-                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
-                 traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
-                 atomically $ resend $ ReliableMsg newAcks' missingMsg
+        -- We resend messages if our peer notified us that it's lagging behind our
+        -- latest message sent
+        when (messageAckForUs < knownAckForUs) $ do
+          let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
+          messages <- readTVarIO sentMessages
+          forM_ missing $ \idx -> do
+            case messages IMap.!? idx of
+              Nothing ->
+                traceWith tracer $
+                  ReliabilityFailedToFindMsg $
+                    "FIXME: this should never happen, there's no sent message at index "
+                      <> show idx
+                      <> ", messages length = "
+                      <> show (IMap.size messages)
+                      <> ", latest message ack: "
+                      <> show knownAckForUs
+                      <> ", acked: "
+                      <> show messageAckForUs
+              Just missingMsg -> do
+                let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
+                traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
+                atomically $ resend $ ReliableMsg newAcks' missingMsg
       _ -> pure ()
 
   -- Find the maximum index and increment it by one to store the next message.

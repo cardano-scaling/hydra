@@ -22,7 +22,7 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental, Persistence (..), createPersistence)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 import System.Random (mkStdGen, uniformR)
@@ -94,7 +94,7 @@ spec = parallel $ do
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
-            withReliability nullTracer mockPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer mockPersistence ackPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
@@ -144,6 +144,7 @@ spec = parallel $ do
             withReliability
               nullTracer
               mockPersistence
+              ackPersistence
               alice
               [bob]
               ( \incoming action -> do
@@ -162,11 +163,13 @@ spec = parallel $ do
     it "appends messages to disk and can load them back" $ do
       withTempDir "" $ \tmpDir -> do
         reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
+        ackPersistence'@Persistence{load} <- createPersistence $ tmpDir <> "/acks"
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
           withReliability
             nullTracer
             reliabilityPersistence
+            ackPersistence'
             alice
             [bob]
             ( \incoming action -> do
@@ -181,10 +184,15 @@ spec = parallel $ do
           toList <$> readTVarIO sentMessages
 
         allMessages <- loadAll
+        ackMessages <- load
         reliableMessagesFileExists <- doesFileExist $ tmpDir </> "network-messages"
         reliableMessagesFileExists `shouldBe` True
+
+        ackFileExists <- doesFileExist $ tmpDir </> "acks"
+        ackFileExists `shouldBe` True
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
         allMessages `shouldBe` [Data "node-1" msg]
+        ackMessages `shouldBe` Just (fromList [1,1])
  where
   runPeer reliability partyName receivedMessageContainer sentMessageContainer messagesToSend expectedMessages =
     reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
@@ -199,7 +207,7 @@ spec = parallel $ do
   reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) persistence party peers underlyingNetwork
+        withReliability (captureTraces tracesContainer) persistence ackPersistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -234,6 +242,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
         withReliability
           nullTracer
           mockPersistence
+          ackPersistence
           alice
           [bob, carol]
           baseNetwork
@@ -264,3 +273,10 @@ captureTraces ::
   Tracer m ReliabilityLog
 captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
+
+ackPersistence :: Applicative m => Persistence a m
+ackPersistence  =
+  Persistence
+    { save = \_ -> pure ()
+    , load = pure Nothing
+    }

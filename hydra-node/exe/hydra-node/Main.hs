@@ -54,7 +54,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental)
+import Hydra.Persistence (createPersistenceIncremental, createPersistence)
 import Hydra.Utils (genHydraKeys)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
@@ -88,7 +88,6 @@ main = do
           Right bpparams -> pure bpparams
         withCardanoLedger chainConfig pparams $ \ledger -> do
           persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-          reliabilityPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
           (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
           checkHeadState (contramap Node tracer) env hs
           nodeState <- createNodeState hs
@@ -102,8 +101,12 @@ main = do
                 RunOptions{apiHost, apiPort} = opts
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
+
               -- Network
-              withNetwork tracer reliabilityPersistence (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
+              ackPersistence <- createPersistence $ persistenceDir <> "/acks"
+
+              withNetwork tracer msgPersistence ackPersistence (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
