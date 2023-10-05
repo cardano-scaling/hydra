@@ -32,6 +32,7 @@ import Test.QuickCheck (
   (===), within,
  )
 import Prelude (unlines)
+import Hydra.API.ServerSpec (mockPersistence)
 
 spec :: Spec
 spec = parallel $ do
@@ -89,11 +90,11 @@ spec = parallel $ do
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
-            withReliability nullTracer alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer mockPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
-       in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+      in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
     -- this test is quite critical as it demonstrates messages dropped are properly managed and resent to the
     -- other party whatever the length of queue, and whatever the interleaving of threads
@@ -113,8 +114,8 @@ spec = parallel $ do
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack mockPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack mockPersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -125,8 +126,7 @@ spec = parallel $ do
             aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
             bobReceived <- toList <$> readTVarIO messagesReceivedByBob
             pure (aliceReceived, bobReceived, logs)
-         in
-          within 1000000 $ msgReceivedByBob
+         in within 1000000 $ msgReceivedByBob
             === aliceToBobMessages
             & counterexample (unlines $ show <$> reverse traces)
             & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
@@ -137,6 +137,7 @@ spec = parallel $ do
             sentMessages <- newTVarIO empty
             withReliability
               nullTracer
+              mockPersistence
               alice
               [bob]
               ( \incoming action -> do
@@ -162,10 +163,10 @@ spec = parallel $ do
         (waitForAllMessages expectedMessages receivedMessageContainer)
         (waitForAllMessages messagesToSend sentMessageContainer)
 
-  reliabilityStack underlyingNetwork tracesContainer nodeId party peers =
+  reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) party peers underlyingNetwork
+        withReliability (captureTraces tracesContainer) persistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -190,7 +191,7 @@ spec = parallel $ do
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
 
-aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
+aliceReceivesMessages :: (FromJSON msg, ToJSON msg) => [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
 
@@ -199,6 +200,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
       aliceReliabilityStack =
         withReliability
           nullTracer
+          mockPersistence
           alice
           [bob, carol]
           baseNetwork

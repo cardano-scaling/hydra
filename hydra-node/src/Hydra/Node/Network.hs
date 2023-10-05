@@ -81,13 +81,13 @@ import Hydra.Persistence (PersistenceIncremental)
 type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
 
 withNetwork ::
-  (ToCBOR msg, ToJSON msg, FromCBOR msg) =>
+  (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
   -- | Tracer to use for logging messages.
   Tracer IO (LogEntry tx msg) ->
+  -- | Persistence handle to store messages
+  PersistenceIncremental (Heartbeat msg) IO ->
   -- | Callback/observer for connectivity changes in peers.
   ConnectionMessages IO ->
-  -- | Persistence handle to store messages
-  PersistenceIncremental msg IO ->
   -- | This node's signing key. This is used to sign messages sent to peers.
   SigningKey HydraKey ->
   -- | The list of peers `Party` known to this node.

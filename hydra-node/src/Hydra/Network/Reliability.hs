@@ -149,7 +149,7 @@ withReliability ::
 withReliability tracer PersistenceIncremental{append, loadAll} me otherParties withRawNetwork callback action = do
   ackCounter <- newTVarIO $ replicate (length allParties) 0
   storedMessages <- loadAll
-  sentMessages <- newTVarIO IMap.empty
+  sentMessages <- newTVarIO $ IMap.fromList (zip [1..] storedMessages)
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
