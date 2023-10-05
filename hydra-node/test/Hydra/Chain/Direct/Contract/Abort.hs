@@ -33,7 +33,6 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
-import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Contract.Error (toErrorCode)

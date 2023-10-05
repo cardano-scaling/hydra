@@ -36,7 +36,6 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
-import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Contract.Error (toErrorCode)
