@@ -35,7 +35,6 @@ import Hydra.Contract (ScriptInfo (commitScriptHash), scriptInfo)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Plutus (commitValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import qualified PlutusLedgerApi.V2 as Plutus
