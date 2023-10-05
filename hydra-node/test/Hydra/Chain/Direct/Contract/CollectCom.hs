@@ -8,6 +8,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
@@ -29,12 +30,14 @@ import Hydra.Chain.Direct.Tx (
   assetNameFromVerificationKey,
   collectComTx,
   headValue,
+  hydraHeadV1AssetName,
   mkCommitDatum,
   mkHeadId,
   mkHeadOutput,
-  mkInitialOutput, hydraHeadV1AssetName,
+  mkInitialOutput,
  )
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import qualified Hydra.Contract.HeadState as Head
@@ -54,7 +57,6 @@ import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
-import Hydra.Contract.CommitError (CommitError(STIsMissingInTheOutput))
 
 --
 -- CollectComTx
@@ -258,8 +260,11 @@ genCollectComMutation (tx, _utxo) =
         pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput
-        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, -1)])
+    , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput <$> do
+        let out = List.head $ txOuts' tx
+        let stAssetId = AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName
+        let newValue = filterValue (/= stAssetId) (txOutValue out)
+        pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
