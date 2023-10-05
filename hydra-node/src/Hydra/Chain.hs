@@ -48,7 +48,7 @@ maxMainnetLovelace = 100_000_000
 -- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 4
+maximumNumberOfParties = 7
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
