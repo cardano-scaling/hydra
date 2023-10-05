@@ -2,7 +2,7 @@
   "preamble": {
     "title": "hydra/hydra-plutus",
     "description": "Aiken contracts for project 'hydra/hydra-plutus'",
-    "version": "0.0.0",
+    "version": "0.14.0",
     "plutusVersion": "v2",
     "license": "Apache-2.0"
   },
