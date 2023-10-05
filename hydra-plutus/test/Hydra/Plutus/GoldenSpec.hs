@@ -84,9 +84,6 @@ spec = do
       base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-  it "Commit validator script" $
-    -- TODO: the script is now double in the repo. Use plutus.json for a golden file
-    goldenScript "vCommit" commitValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
