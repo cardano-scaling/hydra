@@ -11,3 +11,5 @@ name = "aiken-lang/stdlib"
 version = "1.6.0"
 requirements = []
 source = "github"
+
+[etags]
