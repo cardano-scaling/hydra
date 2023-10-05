@@ -16,6 +16,10 @@ changes.
 
 - Persist network messages on disk in order to gracefully handle crashes
 
+- Write the vCommit validator in Aiken.
+  This makes the Abort and CollectCom transactions fit double the participants.
+  But, due to execution memory limits, the maximum number of parties increased to 7.
+
 ## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
