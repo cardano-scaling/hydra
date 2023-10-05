@@ -16,11 +16,13 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Vector (Vector, empty, fromList, head, snoc)
+import Hydra.API.ServerSpec (mockPersistence)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
@@ -29,10 +31,10 @@ import Test.QuickCheck (
   counterexample,
   generate,
   tabulate,
-  (===), within,
+  within,
+  (===),
  )
 import Prelude (unlines)
-import Hydra.API.ServerSpec (mockPersistence)
 
 spec :: Spec
 spec = parallel $ do
@@ -94,7 +96,7 @@ spec = parallel $ do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
-      in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
+       in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
     -- this test is quite critical as it demonstrates messages dropped are properly managed and resent to the
     -- other party whatever the length of queue, and whatever the interleaving of threads
@@ -126,11 +128,13 @@ spec = parallel $ do
             aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
             bobReceived <- toList <$> readTVarIO messagesReceivedByBob
             pure (aliceReceived, bobReceived, logs)
-         in within 1000000 $ msgReceivedByBob
-            === aliceToBobMessages
-            & counterexample (unlines $ show <$> reverse traces)
-            & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
-            & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+         in
+          within 1000000 $
+            msgReceivedByBob
+              === aliceToBobMessages
+              & counterexample (unlines $ show <$> reverse traces)
+              & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+              & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -152,6 +156,31 @@ spec = parallel $ do
             toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
+
+    it "appends messages to disk and can load them back" $ do
+      withTempDir "" $ \tmpDir -> do
+        reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
+        receivedMsgs <- do
+          sentMessages <- newTVarIO empty
+          withReliability
+            nullTracer
+            reliabilityPersistence
+            alice
+            [bob]
+            ( \incoming action -> do
+                concurrently_
+                  (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
+                  (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
+            )
+            noop
+            $ \Network{broadcast} -> do
+              threadDelay 1
+              broadcast (Data "node-1" msg)
+          toList <$> readTVarIO sentMessages
+
+        allMessages <- loadAll
+        receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
+        allMessages `shouldBe` [Data "node-1" msg]
  where
   runPeer reliability partyName receivedMessageContainer sentMessageContainer messagesToSend expectedMessages =
     reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
