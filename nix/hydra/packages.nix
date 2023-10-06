@@ -4,6 +4,7 @@
 , system ? builtins.currentSystem
 , pkgs
 , cardano-node
+, aiken
 , gitRev ? "unknown"
 }:
 let
@@ -91,7 +92,9 @@ rec {
     };
     hydra-plutus = pkgs.mkShellNoCC {
       name = "hydra-plutus-tests";
-      buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
+      buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests
+                      aiken.packages.${system}.aiken
+                    ];
     };
     hydra-node = pkgs.mkShellNoCC {
       name = "hydra-node-tests";

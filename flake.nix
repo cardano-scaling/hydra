@@ -33,7 +33,7 @@
           inherit system nixpkgs;
         };
         hydraPackages = import ./nix/hydra/packages.nix {
-          inherit hydraProject system pkgs cardano-node;
+          inherit hydraProject system pkgs cardano-node aiken;
           gitRev = self.rev or "dirty";
         };
         hydraImages = import ./nix/hydra/docker.nix {
