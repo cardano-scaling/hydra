@@ -18,8 +18,8 @@ import Test.Hydra.Prelude
 import Control.Lens ((^.))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, nth, _String)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV2, AsScript),
   File (..),
@@ -47,7 +47,6 @@ import System.Process (
   waitForProcess,
  )
 import Test.Hspec.Golden (Golden (..))
-import Hydra.Plutus (commitValidatorScript)
 
 spec :: Spec
 spec = do
@@ -55,12 +54,13 @@ spec = do
     withTempDir "hydra-plutus-golden" $ \tmpDir -> do
       -- Run 'aiken build' to re-generate plutus.json file
       let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
-      _ <- withLogFile aikenLogFilePath $ \out -> do
+      void $ withDumpLogfileOnError aikenLogFilePath $ \out -> do
         hSetBuffering out NoBuffering
         let aikenExec = proc "aiken" ["build", "-k"]
             aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
+
       -- Run 'git status' to see if plutus.json file has changed
       let gitLogFilePath = tmpDir </> "logs" </> "git-processes.log"
       _ <- withLogFile gitLogFilePath $ \out -> do
@@ -72,7 +72,8 @@ spec = do
       -- Read git log file and verify plutus.json did not change
       gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
       gitLogContents `shouldNotContain` "plutus.json"
-  it "check plutus blueprint hash against code reference" $ do
+
+  it "Commit validator script" $ do
     withFile "./plutus.json" ReadMode $ \hdl -> do
       plutusJson <- BSL.hGetContents hdl
       let blueprintJSON :: Aeson.Value =
@@ -82,14 +83,22 @@ spec = do
       let base16Text = blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
       let plutusScriptHash = commitScriptHash scriptInfo
       base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
+
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-  it "Commit validator script" $
-    goldenScript "vCommit" commitValidatorScript
+
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
+
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
+
+withDumpLogfileOnError :: FilePath -> (Handle -> IO a) -> IO a
+withDumpLogfileOnError filepath action =
+  withLogFile filepath action
+    `onException` ( BS.readFile filepath
+                      >>= BS.hPutStr stderr
+                  )
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
