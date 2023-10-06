@@ -38,6 +38,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import qualified PlutusLedgerApi.V2 as Plutus
+import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
 import System.Process (
   CreateProcess (..),
@@ -54,12 +55,16 @@ spec = do
     withTempDir "hydra-plutus-golden" $ \tmpDir -> do
       -- Run 'aiken build' to re-generate plutus.json file
       let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
-      void $ withDumpLogfileOnError aikenLogFilePath $ \out -> do
+      result <- withLogFile aikenLogFilePath $ \out -> do
         hSetBuffering out NoBuffering
         let aikenExec = proc "aiken" ["build", "-k"]
             aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
+
+      unless (result == ExitSuccess) $ do
+        BS.readFile aikenLogFilePath >>= BS.hPutStr stderr
+        failure ("Aiken process failed with " <> show result)
 
       -- Run 'git status' to see if plutus.json file has changed
       let gitLogFilePath = tmpDir </> "logs" </> "git-processes.log"
@@ -92,13 +97,6 @@ spec = do
 
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
-
-withDumpLogfileOnError :: FilePath -> (Handle -> IO a) -> IO a
-withDumpLogfileOnError filepath action =
-  withLogFile filepath action
-    `onException` ( BS.readFile filepath
-                      >>= BS.hPutStr stderr
-                  )
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
