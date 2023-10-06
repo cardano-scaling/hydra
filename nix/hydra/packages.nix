@@ -134,7 +134,10 @@ rec {
   };
   hydra-plutus-tests = pkgs.mkShellNoCC {
     name = "hydra-plutus-tests";
-    buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
+    buildInputs = [
+      nativePkgs.hydra-plutus.components.tests.tests
+      pkgs.aiken
+    ];
   };
   hydra-node-tests = pkgs.mkShellNoCC {
     name = "hydra-node-tests";
