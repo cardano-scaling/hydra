@@ -45,6 +45,7 @@ import System.Process (
   waitForProcess,
  )
 import Test.Hspec.Golden (Golden (..))
+import Hydra.Plutus (commitValidatorScript)
 
 spec :: Spec
 spec = do
@@ -83,6 +84,8 @@ spec = do
       base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
+  it "Commit validator script" $
+    goldenScript "vCommit" commitValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
