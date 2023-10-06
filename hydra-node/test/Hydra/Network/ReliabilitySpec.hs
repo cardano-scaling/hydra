@@ -16,7 +16,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Vector (Vector, empty, fromList, head, snoc)
-import Hydra.API.ServerSpec (mockPersistence)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
@@ -94,7 +93,7 @@ spec = parallel $ do
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
 
-            withReliability nullTracer mockPersistence ackPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer msgPersistence ackPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
@@ -118,8 +117,8 @@ spec = parallel $ do
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack mockPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack mockPersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack msgPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack msgPersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -143,7 +142,7 @@ spec = parallel $ do
             sentMessages <- newTVarIO empty
             withReliability
               nullTracer
-              mockPersistence
+              msgPersistence
               ackPersistence
               alice
               [bob]
@@ -241,7 +240,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
       aliceReliabilityStack =
         withReliability
           nullTracer
-          mockPersistence
+          msgPersistence
           ackPersistence
           alice
           [bob, carol]
@@ -273,6 +272,13 @@ captureTraces ::
   Tracer m ReliabilityLog
 captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
+
+msgPersistence :: Applicative m => PersistenceIncremental a m
+msgPersistence  =
+  PersistenceIncremental
+    { append = \_ -> pure ()
+    , loadAll = pure []
+    }
 
 ackPersistence :: Applicative m => Persistence a m
 ackPersistence  =
