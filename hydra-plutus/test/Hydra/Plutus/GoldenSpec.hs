@@ -18,7 +18,6 @@ import Test.Hydra.Prelude
 import Control.Lens ((^.))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, nth, _String)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV2, AsScript),
@@ -54,16 +53,13 @@ spec = do
   it "checks plutus blueprint remains the same" $ do
     withTempDir "hydra-plutus-golden" $ \tmpDir -> do
       -- Run 'aiken build' to re-generate plutus.json file
-      let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
-      result <- withLogFile aikenLogFilePath $ \out -> do
-        hSetBuffering out NoBuffering
+      result <- do
         let aikenExec = proc "aiken" ["build", "-k"]
-            aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
+            aikenProcess = aikenExec
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
 
-      unless (result == ExitSuccess) $ do
-        BS.readFile aikenLogFilePath >>= BS.hPutStr stderr
+      unless (result == ExitSuccess) $
         failure ("Aiken process failed with " <> show result)
 
       -- Run 'git status' to see if plutus.json file has changed
