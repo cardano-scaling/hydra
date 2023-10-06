@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## Unreleased
+## [0.20.0] - UNRELEASED
 
 - **IMPORTANT - Do not release this version**
    - Incremental commits - off-chain changes to make the incremental commits possible.
@@ -22,6 +22,10 @@ changes.
       - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
 
 - Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
+
+- Write the vCommit validator in Aiken.
+  This makes the Abort and CollectCom transactions fit double the participants.
+  But, due to execution memory limits, the maximum number of parties increased to 7.
 
 ## [0.19.0] - 2024-09-13
 
