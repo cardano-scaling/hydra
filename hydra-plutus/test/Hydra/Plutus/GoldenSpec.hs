@@ -45,7 +45,6 @@ import System.Process (
   waitForProcess,
  )
 import Test.Hspec.Golden (Golden (..))
-import Hydra.Plutus (commitValidatorScript)
 
 spec :: Spec
 spec = do
@@ -53,11 +52,9 @@ spec = do
     withTempDir "hydra-plutus-golden" $ \tmpDir -> do
       -- FIXME: This requires a git working copy, do it differently.
       -- Run 'aiken build' to re-generate plutus.json file
-      let aikenLogFilePath = tmpDir </> "logs" </> "aiken-processes.log"
-      _ <- withLogFile aikenLogFilePath $ \out -> do
-        hSetBuffering out NoBuffering
+      _ <- do
         let aikenExec = proc "aiken" ["build", "-k"]
-            aikenProcess = aikenExec{std_out = UseHandle out, std_err = UseHandle out}
+            aikenProcess = aikenExec
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
       -- Run 'git status' to see if plutus.json file has changed
@@ -71,7 +68,8 @@ spec = do
       -- Read git log file and verify plutus.json did not change
       gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
       gitLogContents `shouldNotContain` "plutus.json"
-  it "check plutus blueprint hash against code reference" $ do
+
+  it "Commit validator script" $ do
     -- FIXME: Actually test the value of commitValidatorScript
     withFile "./plutus.json" ReadMode $ \hdl -> do
       plutusJson <- BSL.hGetContents hdl
@@ -79,15 +77,20 @@ spec = do
             case Aeson.decode plutusJson of
               Nothing -> error "Invalid blueprint: plutus.json"
               Just value -> value
+      -- NOTE: we are using a hardcoded index to access the commit validator.
+      -- This is fragile and will raise problems when we move another plutus validator
+      -- to Aiken.
+      -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
       let base16Text = blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
       let plutusScriptHash = commitScriptHash scriptInfo
       base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
+
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-  it "Commit validator script" $
-    goldenScript "vCommit" commitValidatorScript
+
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
+
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
   it "Deposit validator script" $
