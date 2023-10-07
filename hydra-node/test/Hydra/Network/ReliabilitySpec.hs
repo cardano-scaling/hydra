@@ -21,7 +21,7 @@ import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental, Persistence (..), createPersistence)
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 import System.Random (mkStdGen, uniformR)
@@ -163,6 +163,7 @@ spec = parallel $ do
       withTempDir "" $ \tmpDir -> do
         reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
         ackPersistence'@Persistence{load} <- createPersistence $ tmpDir <> "/acks"
+
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
           withReliability
@@ -182,16 +183,13 @@ spec = parallel $ do
               broadcast (Data "node-1" msg)
           toList <$> readTVarIO sentMessages
 
-        allMessages <- loadAll
-        ackMessages <- load
-        reliableMessagesFileExists <- doesFileExist $ tmpDir </> "network-messages"
-        reliableMessagesFileExists `shouldBe` True
-
-        ackFileExists <- doesFileExist $ tmpDir </> "acks"
-        ackFileExists `shouldBe` True
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
-        allMessages `shouldBe` [Data "node-1" msg]
-        ackMessages `shouldBe` Just (fromList [1,1])
+
+        (doesFileExist $ tmpDir </> "network-messages") `shouldReturn` True
+        loadAll `shouldReturn` [Data "node-1" msg]
+
+        (doesFileExist $ tmpDir </> "acks") `shouldReturn` True
+        load `shouldReturn` Just (fromList [1, 1])
  where
   runPeer reliability partyName receivedMessageContainer sentMessageContainer messagesToSend expectedMessages =
     reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
@@ -274,14 +272,14 @@ captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
 
 msgPersistence :: Applicative m => PersistenceIncremental a m
-msgPersistence  =
+msgPersistence =
   PersistenceIncremental
     { append = \_ -> pure ()
     , loadAll = pure []
     }
 
 ackPersistence :: Applicative m => Persistence a m
-ackPersistence  =
+ackPersistence =
   Persistence
     { save = \_ -> pure ()
     , load = pure Nothing
