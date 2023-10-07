@@ -10,9 +10,6 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
-- Persist all sent messages as well as vector clock used internally by the
-  reliability network layer which makes the hydra-node crash resistent.
-
 - **BREAKING** Introduce messages resending logic in the `Network`
   layer to improve reliability in the face of transient connection
   issues
