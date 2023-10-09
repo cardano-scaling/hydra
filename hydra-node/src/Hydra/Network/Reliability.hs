@@ -64,7 +64,6 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, readTVarIO, writeTQueue),
-  modifyTVar',
   newTQueueIO,
   newTVarIO,
   writeTVar,
@@ -86,7 +85,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence (..), append, loadAll, PersistenceIncremental)
+import Hydra.Persistence (Persistence (..), append, loadAll, PersistenceIncremental (..))
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
@@ -154,25 +153,23 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
       Nothing -> pure $ replicate (length allParties) 0
       Just existingCounter -> pure existingCounter
   ackCounter <- newTVarIO startingAckCounter
-  storedMessages <- loadAll msgPersistence
-  sentMessages <- newTVarIO $ IMap.fromList (zip [1 ..] storedMessages)
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback ackCounter sentMessages resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback ackCounter resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ourIndex ackCounter sentMessages network
+      reliableBroadcast ourIndex ackCounter msgPersistence network
  where
   allParties = fromList $ sort $ me : otherParties
 
-  reliableBroadcast ourIndex ackCounter sentMessages Network{broadcast} =
+  reliableBroadcast ourIndex ackCounter PersistenceIncremental{append} Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                ackCounter' <- atomically $ incrementCountersFor msg
-                append msgPersistence msg
+                ackCounter' <- atomically incrementAckCounter
+                append msg
                 void $ save ackPersistence ackCounter'
                 traceWith tracer (BroadcastCounter ourIndex ackCounter')
                 broadcast $ ReliableMsg ackCounter' msg
@@ -182,13 +179,12 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
                 broadcast $ ReliableMsg acks msg
         }
    where
-    incrementCountersFor msg = do
+    incrementAckCounter = do
       acks <- readTVar ackCounter
       writeTVar ackCounter $ constructAcks acks ourIndex
-      modifyTVar' sentMessages (insertNewMsg msg)
       readTVar ackCounter
 
-  reliableCallback ackCounter sentMessages resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback ackCounter resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then ignoreMalformedMessages
       else do
@@ -219,7 +215,7 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
               else traceWith tracer (Ignored acks knownAcks partyIndex)
 
             when (isPing msg) $
-              resendMessagesIfLagging resend partyIndex sentMessages knownAcks acks ourIndex
+              resendMessagesIfLagging resend partyIndex msgPersistence knownAcks acks ourIndex
           Nothing -> pure ()
 
   ignoreMalformedMessages = pure ()
@@ -229,7 +225,7 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
 
   partyIndexes = generate (length allParties) id
 
-  resendMessagesIfLagging resend partyIndex sentMessages knownAcks messageAcks myIndex = do
+  resendMessagesIfLagging resend partyIndex PersistenceIncremental{loadAll} knownAcks messageAcks myIndex = do
     let mmessageAckForUs = messageAcks !? myIndex
     let mknownAckForUs = knownAcks !? myIndex
     case (mmessageAckForUs, mknownAckForUs) of
@@ -238,7 +234,8 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
         -- latest message sent
         when (messageAckForUs < knownAckForUs) $ do
           let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
-          messages <- readTVarIO sentMessages
+          storedMessages <- loadAll
+          let messages = IMap.fromList (zip [1 ..] storedMessages)
           forM_ missing $ \idx -> do
             case messages IMap.!? idx of
               Nothing ->
@@ -257,12 +254,6 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
                 traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
                 atomically $ resend $ ReliableMsg newAcks' missingMsg
       _ -> pure ()
-
-  -- Find the maximum index and increment it by one to store the next message.
-  insertNewMsg msg m =
-    case IMap.lookupMax m of
-      Nothing -> IMap.insert 1 msg m
-      Just (k, _) -> IMap.insert (k + 1) msg m
 
   -- Find the index of a party in the list of all parties.
   -- NOTE: This should never fail.
