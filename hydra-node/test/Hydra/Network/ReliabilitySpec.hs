@@ -100,9 +100,8 @@ spec = parallel $ do
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
             messagePersistence <- mockMessagePersistence
-            messagePersistence' <- mockMessagePersistence'
 
-            withReliability nullTracer messagePersistence' messagePersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer messagePersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . Vector.toList <$> readTVarIO sentMessages
@@ -122,16 +121,14 @@ spec = parallel $ do
             bobToAlice <- newTQueueIO
             aliceMessagePersistence <- mockMessagePersistence
             bobMessagePersistence <- mockMessagePersistence
-            aliceMessagePersistence' <- mockMessagePersistence'
-            bobMessagePersistence' <- mockMessagePersistence'
             let
               -- this is a NetworkComponent that broadcasts authenticated messages
               -- mediated through a read and a write TQueue but drops 0.2 % of them
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack aliceMessagePersistence' aliceMessagePersistence bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack bobMessagePersistence' bobMessagePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack aliceMessagePersistence bobFailingNetwork emittedTraces "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack bobMessagePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -154,10 +151,8 @@ spec = parallel $ do
       let receivedMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
             messagePersistence <- mockMessagePersistence
-            messagePersistence' <- mockMessagePersistence'
             withReliability
               nullTracer
-              messagePersistence'
               messagePersistence
               alice
               [bob]
@@ -176,21 +171,22 @@ spec = parallel $ do
 
     it "appends messages to disk and can load them back" $ do
       withTempDir "" $ \tmpDir -> do
-        reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
+        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
 
-        let messagePersistence' =
+        let messagePersistence =
               MessagePersistence
                 { loadAcks = load
                 , saveAcks = save
+                , loadMessages = loadAll
+                , appendMessage = append
                 }
 
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
           withReliability
             nullTracer
-            messagePersistence'
-            reliabilityPersistence
+            messagePersistence
             alice
             [bob]
             ( \incoming action -> do
@@ -222,10 +218,10 @@ spec = parallel $ do
         (waitForAllMessages expectedMessages receivedMessageContainer)
         (waitForAllMessages messagesToSend sentMessageContainer)
 
-  reliabilityStack persistence' persistence underlyingNetwork tracesContainer nodeId party peers =
+  reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) persistence' persistence party peers underlyingNetwork
+        withReliability (captureTraces tracesContainer) persistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -250,17 +246,15 @@ spec = parallel $ do
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
 
-aliceReceivesMessages :: (FromJSON msg, ToJSON msg) => [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
+aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
   messagePersistence <- mockMessagePersistence
-  messagePersistence' <- mockMessagePersistence'
   let baseNetwork incoming _ = mapM incoming messages
 
       aliceReliabilityStack =
         withReliability
           nullTracer
-          messagePersistence'
           messagePersistence
           alice
           [bob, carol]
@@ -293,20 +287,15 @@ captureTraces ::
 captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
 
-mockMessagePersistence' :: MonadSTM m => m (MessagePersistence m msg)
-mockMessagePersistence' = do
+mockMessagePersistence :: MonadSTM m => m (MessagePersistence m msg)
+mockMessagePersistence = do
   acks <- newTVarIO empty
+  messages <- newTVarIO mempty
   pure $
     MessagePersistence
       { loadAcks = pure Nothing
       , saveAcks = atomically . writeTVar acks
+      , loadMessages = toList <$> readTVarIO messages
+      , appendMessage = \msg -> atomically $ modifyTVar' messages (|> msg)
       }
 
-mockMessagePersistence :: MonadSTM m => m (PersistenceIncremental msg m)
-mockMessagePersistence = do
-  messages <- newTVarIO mempty
-  pure
-    PersistenceIncremental
-      { append = \msg -> atomically $ modifyTVar' messages (|> msg)
-      , loadAll = toList <$> readTVarIO messages
-      }

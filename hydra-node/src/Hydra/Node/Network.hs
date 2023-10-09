@@ -74,7 +74,7 @@ import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbea
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (ReliableMsg, withReliability, MessagePersistence (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (PersistenceIncremental, Persistence (load), save)
+import Hydra.Persistence (PersistenceIncremental (..), Persistence (load), save)
 import Data.Vector (Vector)
 
 -- | An alias for logging messages output by network component.
@@ -112,10 +112,12 @@ withNetwork tracer msgPersistence ackPersistence connectionMessages signingKey o
         MessagePersistence
           { loadAcks = load ackPersistence
           , saveAcks = save ackPersistence
+          , loadMessages = loadAll msgPersistence
+          , appendMessage = append msgPersistence
           }
   withHeartbeat nodeId connectionMessages $
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence msgPersistence me otherParties $
+          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 
