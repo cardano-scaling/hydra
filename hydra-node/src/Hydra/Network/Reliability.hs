@@ -74,6 +74,7 @@ import Data.Vector (
   fromList,
   generate,
   length,
+  replicate,
   zipWith,
   (!?),
  )
@@ -82,6 +83,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
@@ -128,13 +130,43 @@ instance Arbitrary ReliabilityLog where
 -- | Handle for all persistence operations in the Reliability network layer.
 -- This handle takes care of storing and retreiving vector clock and all
 -- messages.
-data MessagePersistence m msg =
-      MessagePersistence
-        { loadAcks :: m (Vector Int)
-        , saveAcks :: Vector Int -> m ()
-        , loadMessages :: m [Heartbeat msg]
-        , appendMessage :: Heartbeat msg -> m ()
-        }
+data MessagePersistence m msg = MessagePersistence
+  { loadAcks :: m (Vector Int)
+  , saveAcks :: Vector Int -> m ()
+  , loadMessages :: m [Heartbeat msg]
+  , appendMessage :: Heartbeat msg -> m ()
+  }
+
+-- | Create 'MessagePersistence' out of 'PersistenceIncremental' and
+-- 'Persistence' handles. This handle loads and saves acks (vector clock data)
+-- and can load and append network messages.
+-- On start we construct empty ack vector from all parties in case nothing
+-- is stored on disk.
+-- NOTE: This handle is returned in the underlying context just for the sake of
+-- convenience.
+mkMessagePersistence ::
+  (MonadThrow m, FromJSON msg, ToJSON msg) =>
+  Vector a ->
+  m (PersistenceIncremental (Heartbeat msg) m) ->
+  m (Persistence (Vector Int) m) ->
+  m (MessagePersistence m msg)
+mkMessagePersistence allParties msgPersistence' ackPersistence' = do
+  msgPersistence <- msgPersistence'
+  ackPersistence <- ackPersistence'
+  pure
+    MessagePersistence
+      { loadAcks = do
+          macks <- load ackPersistence
+          case macks of
+            Nothing -> pure $ replicate (length allParties) 0
+            Just acks -> pure acks
+      , saveAcks = \acks -> do
+          save ackPersistence acks
+      , loadMessages = do
+          loadAll msgPersistence
+      , appendMessage = \msg -> do
+          append msgPersistence msg
+      }
 
 -- | Middleware function to handle message counters tracking and resending logic.
 --
@@ -148,7 +180,8 @@ withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
-  MessagePersistence m msg ->
+  -- | Our persistence handle
+  m (MessagePersistence m msg) ->
   -- | Our own party identifier.
   Party ->
   -- | All parties' identifiers.
@@ -156,16 +189,16 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me allParties withRawNetwork callback action = do
+withReliability tracer msgPersistence' me allParties withRawNetwork callback action = do
+  msgPersistence <- msgPersistence'
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback msgPersistence resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast ourIndex msgPersistence network
  where
-
-  reliableBroadcast ourIndex MessagePersistence{appendMessage} Network{broadcast} =
+  reliableBroadcast ourIndex MessagePersistence{appendMessage, loadAcks, saveAcks} Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
@@ -187,7 +220,7 @@ withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me 
       saveAcks newAcks
       pure newAcks
 
-  reliableCallback resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback msgPersistence@MessagePersistence{loadAcks, saveAcks} resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then pure ()
       else do

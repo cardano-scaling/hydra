@@ -54,7 +54,7 @@ import Hydra.Options (
   parseHydraCommand,
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental, createPersistence)
+import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
@@ -103,10 +103,7 @@ main = do
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
 
               -- Network
-              msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
-              ackPersistence <- createPersistence $ persistenceDir <> "/acks"
-
-              withNetwork tracer msgPersistence ackPersistence (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
