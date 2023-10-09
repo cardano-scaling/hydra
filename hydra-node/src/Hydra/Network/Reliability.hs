@@ -85,7 +85,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence (..), append, loadAll, PersistenceIncremental (..))
+import Hydra.Persistence (append, loadAll, PersistenceIncremental (..))
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
@@ -124,6 +124,12 @@ instance Arbitrary (Vector Int) where
 instance Arbitrary ReliabilityLog where
   arbitrary = genericArbitrary
 
+data MessagePersistence m msg =
+      MessagePersistence
+        { loadAcks :: m (Maybe (Vector Int))
+        , saveAcks :: Vector Int -> m ()
+        }
+
 -- | Middleware function to handle message counters tracking and resending logic.
 --
 -- '''NOTE''': There is some "abstraction leak" here, because the `withReliability`
@@ -136,10 +142,9 @@ withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m, ToJSON msg, FromJSON msg) =>
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
+  MessagePersistence m msg ->
   -- | Persistence handle to store messages
   PersistenceIncremental (Heartbeat msg) m ->
-  -- | Persistence handle to store acks
-  Persistence (Vector Int) m ->
   -- | Our own party identifier.
   Party ->
   -- | Other parties' identifiers.
@@ -147,9 +152,9 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer msgPersistence ackPersistence me otherParties withRawNetwork callback action = do
+withReliability tracer MessagePersistence{loadAcks, saveAcks} msgPersistence me otherParties withRawNetwork callback action = do
   startingAckCounter <-
-    load ackPersistence >>= \case
+    loadAcks >>= \case
       Nothing -> pure $ replicate (length allParties) 0
       Just existingCounter -> pure existingCounter
   ackCounter <- newTVarIO startingAckCounter
@@ -170,7 +175,7 @@ withReliability tracer msgPersistence ackPersistence me otherParties withRawNetw
               Data{} -> do
                 ackCounter' <- atomically incrementAckCounter
                 append msg
-                void $ save ackPersistence ackCounter'
+                saveAcks ackCounter'
                 traceWith tracer (BroadcastCounter ourIndex ackCounter')
                 broadcast $ ReliableMsg ackCounter' msg
               Ping{} -> do

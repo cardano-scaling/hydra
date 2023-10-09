@@ -72,9 +72,9 @@ import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (ReliableMsg, withReliability)
+import Hydra.Network.Reliability (ReliableMsg, withReliability, MessagePersistence (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (PersistenceIncremental, Persistence)
+import Hydra.Persistence (PersistenceIncremental, Persistence (load), save)
 import Data.Vector (Vector)
 
 -- | An alias for logging messages output by network component.
@@ -108,9 +108,14 @@ withNetwork ::
 withNetwork tracer msgPersistence ackPersistence connectionMessages signingKey otherParties host port peers nodeId = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
+      messagePersistence =
+        MessagePersistence
+          { loadAcks = load ackPersistence
+          , saveAcks = save ackPersistence
+          }
   withHeartbeat nodeId connectionMessages $
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) msgPersistence ackPersistence me otherParties $
+          withReliability (contramap Reliability tracer) messagePersistence msgPersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 
