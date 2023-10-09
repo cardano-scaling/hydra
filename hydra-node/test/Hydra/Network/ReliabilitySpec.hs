@@ -2,7 +2,7 @@
 
 module Hydra.Network.ReliabilitySpec where
 
-import Hydra.Prelude hiding (empty, fromList, toList, head, unlines)
+import Hydra.Prelude hiding (empty, fromList, head, unlines)
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
@@ -15,13 +15,20 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
-import Data.Vector (Vector, empty, toList, fromList, head, snoc)
+import Data.Sequence.Strict ((|>))
+import Data.Vector (Vector, empty, fromList, head, snoc)
+import qualified Data.Vector as Vector
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Reliability (ReliabilityLog (..), ReliableMsg (..), withReliability, MessagePersistence (..))
+import Hydra.Network.Reliability (MessagePersistence (..), ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.Persistence (
+  Persistence (..),
+  PersistenceIncremental (..),
+  createPersistence,
+  createPersistenceIncremental,
+ )
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 import System.Random (mkStdGen, uniformR)
@@ -98,7 +105,7 @@ spec = parallel $ do
             withReliability nullTracer messagePersistence' messagePersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
-            fromList . toList <$> readTVarIO sentMessages
+            fromList . Vector.toList <$> readTVarIO sentMessages
        in head . knownMessageIds <$> sentMsgs `shouldBe` fromList [1 .. (length messages)]
 
     -- this test is quite critical as it demonstrates messages dropped are properly managed and resent to the
@@ -132,8 +139,8 @@ spec = parallel $ do
             concurrently_ runAlice runBob
 
             logs <- readTVarIO emittedTraces
-            aliceReceived <- toList <$> readTVarIO messagesReceivedByAlice
-            bobReceived <- toList <$> readTVarIO messagesReceivedByBob
+            aliceReceived <- Vector.toList <$> readTVarIO messagesReceivedByAlice
+            bobReceived <- Vector.toList <$> readTVarIO messagesReceivedByBob
             pure (aliceReceived, bobReceived, logs)
          in
           within 1000000 $
@@ -163,14 +170,20 @@ spec = parallel $ do
               $ \Network{broadcast} -> do
                 threadDelay 1
                 broadcast (Data "node-1" msg)
-            toList <$> readTVarIO sentMessages
+            Vector.toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
     it "appends messages to disk and can load them back" $ do
       withTempDir "" $ \tmpDir -> do
         reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
-        messagePersistence'@MessagePersistence{loadAcks} <- mockMessagePersistence'
+        Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
+
+        let messagePersistence' =
+              MessagePersistence
+                { loadAcks = load
+                , saveAcks = save
+                }
 
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
@@ -189,7 +202,7 @@ spec = parallel $ do
             $ \Network{broadcast} -> do
               threadDelay 1
               broadcast (Data "node-1" msg)
-          toList <$> readTVarIO sentMessages
+          Vector.toList <$> readTVarIO sentMessages
 
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
@@ -197,7 +210,7 @@ spec = parallel $ do
         loadAll `shouldReturn` [Data "node-1" msg]
 
         doesFileExist (tmpDir </> "acks") `shouldReturn` True
-        loadAcks `shouldReturn` Just (fromList [1, 1])
+        load `shouldReturn` Just (fromList [1, 1])
  where
   runPeer reliability partyName receivedMessageContainer sentMessageContainer messagesToSend expectedMessages =
     reliability (capturePayload receivedMessageContainer) $ \Network{broadcast} -> do
@@ -256,7 +269,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
   void $ aliceReliabilityStack (captureIncoming receivedMessages) $ \_action ->
     pure [()]
 
-  toList <$> readTVarIO receivedMessages
+  Vector.toList <$> readTVarIO receivedMessages
 
 captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
@@ -281,20 +294,19 @@ captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
 
 mockMessagePersistence' :: MonadSTM m => m (MessagePersistence m msg)
-mockMessagePersistence'  = do
+mockMessagePersistence' = do
   acks <- newTVarIO empty
-  pure $ MessagePersistence
-    { loadAcks = pure Nothing
-    , saveAcks = atomically . writeTVar acks
-    }
+  pure $
+    MessagePersistence
+      { loadAcks = pure Nothing
+      , saveAcks = atomically . writeTVar acks
+      }
 
 mockMessagePersistence :: MonadSTM m => m (PersistenceIncremental msg m)
 mockMessagePersistence = do
-  -- TODO: use Sequence
-  messages <- newTVarIO []
-  pure PersistenceIncremental
-    { append = \msg -> atomically $ modifyTVar' messages (msg :)
-
-    , loadAll = readTVarIO messages
-    }
-
+  messages <- newTVarIO mempty
+  pure
+    PersistenceIncremental
+      { append = \msg -> atomically $ modifyTVar' messages (|> msg)
+      , loadAll = toList <$> readTVarIO messages
+      }
