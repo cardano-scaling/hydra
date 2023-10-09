@@ -63,7 +63,7 @@
 -- @
 module Hydra.Node.Network (withNetwork, withFlipHeartbeats) where
 
-import Hydra.Prelude hiding (fromList)
+import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
@@ -75,7 +75,7 @@ import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNe
 import Hydra.Network.Reliability (ReliableMsg, withReliability, MessagePersistence (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), Persistence (load), save)
-import Data.Vector (Vector)
+import Data.Vector (Vector, replicate, fromList)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -108,16 +108,22 @@ withNetwork ::
 withNetwork tracer msgPersistence ackPersistence connectionMessages signingKey otherParties host port peers nodeId = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
+      -- construct sorted vector of parties including ourselves
+      allParties = fromList $ sort $ me : otherParties
       messagePersistence =
         MessagePersistence
-          { loadAcks = load ackPersistence
+          { loadAcks = do
+              macks <- load ackPersistence
+              case macks of
+                Nothing -> pure $ replicate (length (me : otherParties)) 0
+                Just acks -> pure acks
           , saveAcks = save ackPersistence
           , loadMessages = loadAll msgPersistence
           , appendMessage = append msgPersistence
           }
   withHeartbeat nodeId connectionMessages $
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
+          withReliability (contramap Reliability tracer) messagePersistence me allParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 

@@ -2,7 +2,7 @@
 
 module Hydra.Network.ReliabilitySpec where
 
-import Hydra.Prelude hiding (empty, fromList, head, unlines)
+import Hydra.Prelude hiding (empty, fromList, head, unlines, replicate)
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
@@ -16,7 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
-import Data.Vector (Vector, empty, fromList, head, snoc)
+import Data.Vector (Vector, empty, fromList, head, snoc, replicate)
 import qualified Data.Vector as Vector
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
@@ -99,9 +99,9 @@ spec = parallel $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
-            messagePersistence <- mockMessagePersistence
+            messagePersistence <- mockMessagePersistence 1
 
-            withReliability nullTracer messagePersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer messagePersistence alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . Vector.toList <$> readTVarIO sentMessages
@@ -119,16 +119,16 @@ spec = parallel $ do
             randomSeed <- newTVarIO $ mkStdGen seed
             aliceToBob <- newTQueueIO
             bobToAlice <- newTQueueIO
-            aliceMessagePersistence <- mockMessagePersistence
-            bobMessagePersistence <- mockMessagePersistence
+            aliceMessagePersistence <- mockMessagePersistence 2
+            bobMessagePersistence <- mockMessagePersistence 2
             let
               -- this is a NetworkComponent that broadcasts authenticated messages
               -- mediated through a read and a write TQueue but drops 0.2 % of them
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack aliceMessagePersistence bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack bobMessagePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack aliceMessagePersistence bobFailingNetwork emittedTraces "bob" bob (fromList [alice, bob])
+              aliceReliabilityStack = reliabilityStack bobMessagePersistence aliceFailingNetwork emittedTraces "alice" alice (fromList [alice, bob])
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -150,12 +150,12 @@ spec = parallel $ do
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
-            messagePersistence <- mockMessagePersistence
+            messagePersistence <- mockMessagePersistence 2
             withReliability
               nullTracer
               messagePersistence
               alice
-              [bob]
+              (fromList [alice, bob])
               ( \incoming action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
@@ -176,7 +176,11 @@ spec = parallel $ do
 
         let messagePersistence =
               MessagePersistence
-                { loadAcks = load
+                { loadAcks = do
+                    mloaded <- load
+                    case mloaded of
+                      Nothing -> pure $ replicate (length [alice, bob]) 0
+                      Just acks -> pure acks
                 , saveAcks = save
                 , loadMessages = loadAll
                 , appendMessage = append
@@ -188,7 +192,7 @@ spec = parallel $ do
             nullTracer
             messagePersistence
             alice
-            [bob]
+            (fromList [alice, bob])
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
@@ -249,7 +253,7 @@ noop = const $ pure ()
 aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
-  messagePersistence <- mockMessagePersistence
+  messagePersistence <- mockMessagePersistence 3
   let baseNetwork incoming _ = mapM incoming messages
 
       aliceReliabilityStack =
@@ -257,7 +261,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
           nullTracer
           messagePersistence
           alice
-          [bob, carol]
+          (fromList [alice , bob, carol])
           baseNetwork
 
   void $ aliceReliabilityStack (captureIncoming receivedMessages) $ \_action ->
@@ -287,13 +291,13 @@ captureTraces ::
 captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
 
-mockMessagePersistence :: MonadSTM m => m (MessagePersistence m msg)
-mockMessagePersistence = do
-  acks <- newTVarIO empty
+mockMessagePersistence :: Int -> MonadSTM m => m (MessagePersistence m msg)
+mockMessagePersistence numberOfParties = do
+  acks <- newTVarIO $ replicate numberOfParties 0
   messages <- newTVarIO mempty
   pure $
     MessagePersistence
-      { loadAcks = pure Nothing
+      { loadAcks = readTVarIO acks
       , saveAcks = atomically . writeTVar acks
       , loadMessages = toList <$> readTVarIO messages
       , appendMessage = \msg -> atomically $ modifyTVar' messages (|> msg)

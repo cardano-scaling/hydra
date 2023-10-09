@@ -63,10 +63,8 @@ import Hydra.Prelude hiding (empty, fromList, length, replicate, zipWith)
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
-  MonadSTM (readTQueue, readTVarIO, writeTQueue),
+  MonadSTM (readTQueue, writeTQueue),
   newTQueueIO,
-  newTVarIO,
-  writeTVar,
  )
 import Control.Tracer (Tracer)
 import qualified Data.IntMap as IMap
@@ -76,7 +74,6 @@ import Data.Vector (
   fromList,
   generate,
   length,
-  replicate,
   zipWith,
   (!?),
  )
@@ -123,9 +120,12 @@ instance Arbitrary (Vector Int) where
 instance Arbitrary ReliabilityLog where
   arbitrary = genericArbitrary
 
+-- | Handle for all persistence operations in the Reliability network layer.
+-- This handle takes care of storing and retreiving vector clock and all
+-- messages.
 data MessagePersistence m msg =
       MessagePersistence
-        { loadAcks :: m (Maybe (Vector Int))
+        { loadAcks :: m (Vector Int)
         , saveAcks :: Vector Int -> m ()
         , loadMessages :: m [Heartbeat msg]
         , appendMessage :: Heartbeat msg -> m ()
@@ -146,72 +146,70 @@ withReliability ::
   MessagePersistence m msg ->
   -- | Our own party identifier.
   Party ->
-  -- | Other parties' identifiers.
-  [Party] ->
+  -- | All parties' identifiers.
+  Vector Party ->
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me otherParties withRawNetwork callback action = do
-  startingAckCounter <-
-    loadAcks >>= \case
-      Nothing -> pure $ replicate (length allParties) 0
-      Just existingCounter -> pure existingCounter
-  ackCounter <- newTVarIO startingAckCounter
+withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me allParties withRawNetwork callback action = do
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback ackCounter resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ourIndex ackCounter msgPersistence network
+      reliableBroadcast ourIndex msgPersistence network
  where
-  allParties = fromList $ sort $ me : otherParties
 
-  reliableBroadcast ourIndex ackCounter MessagePersistence{appendMessage} Network{broadcast} =
+  reliableBroadcast ourIndex MessagePersistence{appendMessage} Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                ackCounter' <- atomically incrementAckCounter
+                newAckCounter <- incrementAckCounter
                 appendMessage msg
-                saveAcks ackCounter'
-                traceWith tracer (BroadcastCounter ourIndex ackCounter')
-                broadcast $ ReliableMsg ackCounter' msg
+                traceWith tracer (BroadcastCounter ourIndex newAckCounter)
+                broadcast $ ReliableMsg newAckCounter msg
               Ping{} -> do
-                acks <- readTVarIO ackCounter
+                acks <- loadAcks
                 traceWith tracer (BroadcastPing ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
    where
     incrementAckCounter = do
-      acks <- readTVar ackCounter
-      writeTVar ackCounter $ constructAcks acks ourIndex
-      readTVar ackCounter
+      acks <- loadAcks
+      let newAcks = constructAcks acks ourIndex
+      saveAcks newAcks
+      pure newAcks
 
-  reliableCallback ackCounter resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
-      then ignoreMalformedMessages
+      then pure ()
       else do
+        loadedAcks <- loadAcks
         eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
           partyIndex <- hoistMaybe $ findPartyIndex party
           messageAckForParty <- hoistMaybe (acks !? partyIndex)
-          knownAcks <- lift $ readTVar ackCounter
-          knownAckForParty <- hoistMaybe $ knownAcks !? partyIndex
+          knownAckForParty <- hoistMaybe $ loadedAcks !? partyIndex
           if
               | isPing msg ->
                   -- we do not update indices on Pings but we do propagate them
-                  return (True, partyIndex, knownAcks)
+                  return (True, partyIndex, Left loadedAcks)
               | messageAckForParty == knownAckForParty + 1 -> do
                   -- we update indices for next in line messages and propagate them
-                  let newAcks = constructAcks knownAcks partyIndex
-                  lift $ writeTVar ackCounter newAcks
-                  return (True, partyIndex, newAcks)
+                  let newAcks = constructAcks loadedAcks partyIndex
+                  return (True, partyIndex, Right newAcks)
               | otherwise ->
                   -- other messages are dropped
-                  return (False, partyIndex, knownAcks)
+                  return (False, partyIndex, Left loadedAcks)
 
         case eShouldCallbackWithKnownAcks of
-          Just (shouldCallback, partyIndex, knownAcks) -> do
+          Just (shouldCallback, partyIndex, eknownAcks) -> do
+            knownAcks <- case eknownAcks of
+              Left existingAcks -> pure existingAcks
+              Right acksToSave -> do
+                saveAcks acksToSave
+                pure acksToSave
             if shouldCallback
               then do
                 callback (Authenticated msg party)
@@ -221,8 +219,6 @@ withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me 
             when (isPing msg) $
               resendMessagesIfLagging resend partyIndex msgPersistence knownAcks acks ourIndex
           Nothing -> pure ()
-
-  ignoreMalformedMessages = pure ()
 
   constructAcks acks wantedIndex =
     zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
