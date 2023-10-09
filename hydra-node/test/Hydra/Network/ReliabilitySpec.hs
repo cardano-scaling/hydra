@@ -93,9 +93,9 @@ spec = parallel $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
-            messagePersistence <- msgPersistence
+            messagePersistence <- mockMessagePersistence
 
-            withReliability nullTracer messagePersistence ackPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer messagePersistence mockAckPersistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . toList <$> readTVarIO sentMessages
@@ -113,8 +113,8 @@ spec = parallel $ do
             randomSeed <- newTVarIO $ mkStdGen seed
             aliceToBob <- newTQueueIO
             bobToAlice <- newTQueueIO
-            aliceMessagePersistence <- msgPersistence
-            bobMessagePersistence <- msgPersistence
+            aliceMessagePersistence <- mockMessagePersistence
+            bobMessagePersistence <- mockMessagePersistence
             let
               -- this is a NetworkComponent that broadcasts authenticated messages
               -- mediated through a read and a write TQueue but drops 0.2 % of them
@@ -144,11 +144,11 @@ spec = parallel $ do
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
-            messagePersistence <- msgPersistence
+            messagePersistence <- mockMessagePersistence
             withReliability
               nullTracer
               messagePersistence
-              ackPersistence
+              mockAckPersistence
               alice
               [bob]
               ( \incoming action -> do
@@ -167,14 +167,14 @@ spec = parallel $ do
     it "appends messages to disk and can load them back" $ do
       withTempDir "" $ \tmpDir -> do
         reliabilityPersistence@PersistenceIncremental{loadAll} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
-        ackPersistence'@Persistence{load} <- createPersistence $ tmpDir <> "/acks"
+        mockAckPersistence'@Persistence{load} <- createPersistence $ tmpDir <> "/acks"
 
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
           withReliability
             nullTracer
             reliabilityPersistence
-            ackPersistence'
+            mockAckPersistence'
             alice
             [bob]
             ( \incoming action -> do
@@ -209,7 +209,7 @@ spec = parallel $ do
   reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) persistence ackPersistence party peers underlyingNetwork
+        withReliability (captureTraces tracesContainer) persistence mockAckPersistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -237,14 +237,14 @@ noop = const $ pure ()
 aliceReceivesMessages :: (FromJSON msg, ToJSON msg) => [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
-  messagePersistence <- msgPersistence
+  messagePersistence <- mockMessagePersistence
   let baseNetwork incoming _ = mapM incoming messages
 
       aliceReliabilityStack =
         withReliability
           nullTracer
           messagePersistence
-          ackPersistence
+          mockAckPersistence
           alice
           [bob, carol]
           baseNetwork
@@ -276,8 +276,8 @@ captureTraces ::
 captureTraces tvar = Tracer $ \msg -> do
   atomically $ modifyTVar' tvar (msg :)
 
-msgPersistence :: MonadSTM m => m (PersistenceIncremental a m)
-msgPersistence = do
+mockMessagePersistence :: MonadSTM m => m (PersistenceIncremental a m)
+mockMessagePersistence = do
   messages <- newTVarIO mempty
   pure PersistenceIncremental
     { append = \msg -> atomically $ do
@@ -286,8 +286,8 @@ msgPersistence = do
     , loadAll = toList <$> readTVarIO messages
     }
 
-ackPersistence :: Applicative m => Persistence a m
-ackPersistence =
+mockAckPersistence :: Applicative m => Persistence a m
+mockAckPersistence =
   Persistence
     { save = \_ -> pure ()
     , load = pure Nothing
