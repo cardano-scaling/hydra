@@ -109,7 +109,12 @@ data ReliabilityLog
   | BroadcastPing {partyIndex :: Int, localCounter :: Vector Int}
   | Received {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | Ignored {acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
-  | ReliabilityFailedToFindMsg {failedToFindMessage :: String}
+  | ReliabilityFailedToFindMsg
+      { missingMsgIndex :: Int
+      , sentMessagesLength :: Int
+      , knownAckForUs :: Int
+      , messageAckForUs :: Int
+      }
   | ReliabilityMissingPartyIndex {missingParty :: Party}
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -240,15 +245,12 @@ withReliability tracer msgPersistence@MessagePersistence{loadAcks, saveAcks} me 
             case messages IMap.!? idx of
               Nothing ->
                 traceWith tracer $
-                  ReliabilityFailedToFindMsg $
-                    "FIXME: this should never happen, there's no sent message at index "
-                      <> show idx
-                      <> ", messages length = "
-                      <> show (IMap.size messages)
-                      <> ", latest message ack: "
-                      <> show knownAckForUs
-                      <> ", acked: "
-                      <> show messageAckForUs
+                  ReliabilityFailedToFindMsg
+                    { missingMsgIndex = idx
+                    , sentMessagesLength = IMap.size messages
+                    , knownAckForUs = knownAckForUs
+                    , messageAckForUs = messageAckForUs
+                    }
               Just missingMsg -> do
                 let newAcks' = zipWith (\ack i -> if i == myIndex then idx else ack) knownAcks partyIndexes
                 traceWith tracer (Resending missing messageAcks newAcks' partyIndex)
