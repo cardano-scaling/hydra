@@ -55,8 +55,10 @@ common project-config
     RankNTypes
     ScopedTypeVariables
     StandaloneDeriving
+    StandaloneKindSignatures
     TupleSections
     TypeFamilies
+    TypeOperators
     TypeSynonymInstances
     ViewPatterns
 
@@ -74,20 +76,30 @@ library
   exposed-modules:
     Hydra.Client
     Hydra.TUI
+    Hydra.TUI.Drawing
+    Hydra.TUI.Drawing.Utils
+    Hydra.TUI.Forms
+    Hydra.TUI.Handlers
+    Hydra.TUI.Handlers.Global
+    Hydra.TUI.Logging.Handlers
+    Hydra.TUI.Logging.Types
+    Hydra.TUI.Model
     Hydra.TUI.Options
+    Hydra.TUI.Style
 
   other-modules:   Paths_hydra_tui
   build-depends:
     , aeson
     , async
     , base
-    , brick                 ==0.73
+    , brick                 ==1.10
     , containers
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , io-classes
     , microlens
+    , microlens-mtl
     , microlens-th
     , optparse-applicative
     , req
