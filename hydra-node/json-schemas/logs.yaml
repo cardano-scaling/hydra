@@ -587,13 +587,22 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - failedToFindMessage
+          - missingMsgIndex
+          - sentMessagesLength
+          - knownAckForUs
+          - messageAckForUs
         properties:
           tag:
             type: string
             enum: ["ReliabilityFailedToFindMsg"]
-          failedToFindMessage:
-            type: string
+          missingMsgIndex:
+            type: number
+          sentMessagesLength:
+            type: number
+          knownAckForUs:
+            type: number
+          messageAckForUs:
+            type: number
       - title: ReliabilityMissingPartyIndex
         description: >-
           Logged when party index could not be found. NOTE: This should never happen.
@@ -608,6 +617,28 @@ definitions:
             enum: ["ReliabilityMissingPartyIndex"]
           missingParty:
             $ref: "api.yaml#/components/schemas/Party"
+      - title: ReceivedMalformedAcks
+        description: >-
+          Logged when we receive a message from a party but its vector clock is malformed (not having the same length as the number of parties in a Head)
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - fromParty
+          - partyAcks
+          - numberOfParties
+        properties:
+          tag:
+            type: string
+            enum: ["ReceivedMalformedAcks"]
+          fromParty:
+            $ref: "api.yaml#/components/schemas/Party"
+          partyAcks:
+            type: array
+            items:
+              type: number
+          numberOfParties:
+            type: number
 
 
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so

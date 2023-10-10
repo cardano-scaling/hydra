@@ -101,8 +101,9 @@ main = do
                 RunOptions{apiHost, apiPort} = opts
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
+
               -- Network
-              withNetwork tracer (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode

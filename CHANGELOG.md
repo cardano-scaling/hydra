@@ -14,6 +14,8 @@ changes.
   layer to improve reliability in the face of transient connection
   issues
 
+- Persist network messages on disk in order to gracefully handle crashes
+
 ## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.

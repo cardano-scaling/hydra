@@ -63,7 +63,7 @@
 -- @
 module Hydra.Node.Network (withNetwork, withFlipHeartbeats) where
 
-import Hydra.Prelude hiding (fromList)
+import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
@@ -72,17 +72,20 @@ import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (ReliableMsg, withReliability)
+import Hydra.Network.Reliability (ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Party (Party, deriveParty)
+import Hydra.Persistence (createPersistence, createPersistenceIncremental)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
 type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
 
 withNetwork ::
-  (ToCBOR msg, ToJSON msg, FromCBOR msg) =>
+  (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
   -- | Tracer to use for logging messages.
   Tracer IO (LogEntry tx msg) ->
+  -- | Persistence directory
+  FilePath ->
   -- | Callback/observer for connectivity changes in peers.
   ConnectionMessages IO ->
   -- | This node's signing key. This is used to sign messages sent to peers.
@@ -99,14 +102,21 @@ withNetwork ::
   NodeId ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer connectionMessages signingKey otherParties host port peers nodeId =
+withNetwork tracer persistenceDir connectionMessages signingKey otherParties host port peers nodeId callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
-   in withHeartbeat nodeId connectionMessages $
+      numberOfParties = length $ me : otherParties
+  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
+  ackPersistence <- createPersistence $ persistenceDir <> "/acks"
+  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence
+      reliability =
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) me otherParties $
+          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
+
+  withHeartbeat nodeId connectionMessages reliability callback $ \network ->
+    action network
 
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->
