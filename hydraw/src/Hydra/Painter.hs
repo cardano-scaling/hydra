@@ -42,6 +42,12 @@ paintPixel networkId signingKeyPath cnx pixel = do
   flushQueue =
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue)
 
+-- | Same as 'withClient' except we don't retry if connection fails.
+withClientNoRetry :: Host -> (Connection -> IO ()) -> IO ()
+withClientNoRetry Host{hostname, port} action =
+  runClient (toString hostname) (fromIntegral port) "/" action
+    `catch` \(e :: IOException) -> print e >> threadDelay 1
+
 withClient :: Host -> (Connection -> IO ()) -> IO ()
 withClient Host{hostname, port} action =
   retry
