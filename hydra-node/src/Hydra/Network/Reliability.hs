@@ -65,6 +65,9 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, writeTQueue),
   newTQueueIO,
+  newTVarIO,
+  readTVarIO,
+  writeTVar,
  )
 import Control.Tracer (Tracer)
 import qualified Data.IntMap as IMap
@@ -191,14 +194,15 @@ withReliability ::
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer msgPersistence' me allParties withRawNetwork callback action = do
   msgPersistence <- msgPersistence'
+  acksCache <- loadAcks msgPersistence >>= newTVarIO
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback msgPersistence resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback acksCache msgPersistence resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ourIndex msgPersistence network
+      reliableBroadcast ourIndex acksCache msgPersistence network
  where
-  reliableBroadcast ourIndex MessagePersistence{appendMessage, loadAcks, saveAcks} Network{broadcast} =
+  reliableBroadcast ourIndex acksCache MessagePersistence{saveAcks, appendMessage} Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
@@ -206,48 +210,45 @@ withReliability tracer msgPersistence' me allParties withRawNetwork callback act
               Data{} -> do
                 newAckCounter <- incrementAckCounter
                 appendMessage msg
+                saveAcks newAckCounter
                 traceWith tracer (BroadcastCounter ourIndex newAckCounter)
                 broadcast $ ReliableMsg newAckCounter msg
               Ping{} -> do
-                acks <- loadAcks
+                acks <- readTVarIO acksCache
                 traceWith tracer (BroadcastPing ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
    where
-    incrementAckCounter = do
-      acks <- loadAcks
+    incrementAckCounter = atomically $ do
+      acks <- readTVar acksCache
       let newAcks = constructAcks acks ourIndex
-      saveAcks newAcks
+      writeTVar acksCache newAcks
       pure newAcks
 
-  reliableCallback msgPersistence@MessagePersistence{loadAcks, saveAcks} resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback acksCache msgPersistence resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then pure ()
       else do
-        loadedAcks <- loadAcks
         eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
+          loadedAcks <- lift $ readTVar acksCache
           partyIndex <- hoistMaybe $ findPartyIndex party
           messageAckForParty <- hoistMaybe (acks !? partyIndex)
           knownAckForParty <- hoistMaybe $ loadedAcks !? partyIndex
           if
               | isPing msg ->
                   -- we do not update indices on Pings but we do propagate them
-                  return (True, partyIndex, Left loadedAcks)
+                  return (True, partyIndex, loadedAcks)
               | messageAckForParty == knownAckForParty + 1 -> do
                   -- we update indices for next in line messages and propagate them
                   let newAcks = constructAcks loadedAcks partyIndex
-                  return (True, partyIndex, Right newAcks)
+                  lift $ writeTVar acksCache newAcks
+                  return (True, partyIndex, newAcks)
               | otherwise ->
                   -- other messages are dropped
-                  return (False, partyIndex, Left loadedAcks)
+                  return (False, partyIndex, loadedAcks)
 
         case eShouldCallbackWithKnownAcks of
-          Just (shouldCallback, partyIndex, eknownAcks) -> do
-            knownAcks <- case eknownAcks of
-              Left existingAcks -> pure existingAcks
-              Right acksToSave -> do
-                saveAcks acksToSave
-                pure acksToSave
+          Just (shouldCallback, partyIndex, knownAcks) -> do
             if shouldCallback
               then do
                 callback (Authenticated msg party)
