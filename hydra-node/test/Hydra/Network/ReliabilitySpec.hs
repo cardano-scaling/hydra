@@ -99,8 +99,9 @@ spec = parallel $ do
     prop "broadcast messages to the network assigning a sequential id" $ \(messages :: [String]) ->
       let sentMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
+            persistence <- mockMessagePersistence 1
 
-            withReliability nullTracer (mockMessagePersistence 1) alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer persistence alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . Vector.toList <$> readTVarIO sentMessages
@@ -118,14 +119,16 @@ spec = parallel $ do
             randomSeed <- newTVarIO $ mkStdGen seed
             aliceToBob <- newTQueueIO
             bobToAlice <- newTQueueIO
+            alicePersistence <- mockMessagePersistence 2
+            bobPersistence <- mockMessagePersistence 2
             let
               -- this is a NetworkComponent that broadcasts authenticated messages
               -- mediated through a read and a write TQueue but drops 0.2 % of them
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack (mockMessagePersistence 2) bobFailingNetwork emittedTraces "bob" bob (fromList [alice, bob])
-              aliceReliabilityStack = reliabilityStack (mockMessagePersistence 2) aliceFailingNetwork emittedTraces "alice" alice (fromList [alice, bob])
+              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork emittedTraces "bob" bob (fromList [alice, bob])
+              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork emittedTraces "alice" alice (fromList [alice, bob])
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -147,9 +150,10 @@ spec = parallel $ do
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
+            alicePersistence <- mockMessagePersistence 2
             withReliability
               nullTracer
-              (mockMessagePersistence 2)
+              alicePersistence
               alice
               (fromList [alice, bob])
               ( \incoming action -> do
@@ -171,17 +175,16 @@ spec = parallel $ do
         PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
 
         let messagePersistence =
-              pure
-                MessagePersistence
-                  { loadAcks = do
-                      mloaded <- load
-                      case mloaded of
-                        Nothing -> pure $ replicate (length [alice, bob]) 0
-                        Just acks -> pure acks
-                  , saveAcks = save
-                  , loadMessages = loadAll
-                  , appendMessage = append
-                  }
+              MessagePersistence
+                { loadAcks = do
+                    mloaded <- load
+                    case mloaded of
+                      Nothing -> pure $ replicate (length [alice, bob]) 0
+                      Just acks -> pure acks
+                , saveAcks = save
+                , loadMessages = loadAll
+                , appendMessage = append
+                }
 
         receivedMsgs <- do
           sentMessages <- newTVarIO empty
@@ -250,12 +253,14 @@ noop = const $ pure ()
 aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
+  alicePersistence <- mockMessagePersistence 3
+
   let baseNetwork incoming _ = mapM incoming messages
 
       aliceReliabilityStack =
         withReliability
           nullTracer
-          (mockMessagePersistence 3)
+          alicePersistence
           alice
           (fromList [alice, bob, carol])
           baseNetwork

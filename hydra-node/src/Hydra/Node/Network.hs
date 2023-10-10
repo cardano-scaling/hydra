@@ -103,19 +103,22 @@ withNetwork ::
   NodeId ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer persistenceDir connectionMessages signingKey otherParties host port peers nodeId = do
+withNetwork tracer persistenceDir connectionMessages signingKey otherParties host port peers nodeId callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       -- construct sorted vector of parties including ourselves
       allParties = fromList $ sort $ me : otherParties
-      msgPersistence = createPersistenceIncremental $ persistenceDir <> "/network-messages"
-      ackPersistence = createPersistence $ persistenceDir <> "/acks"
-      messagePersistence = mkMessagePersistence allParties msgPersistence ackPersistence
-  withHeartbeat nodeId connectionMessages $
-    withFlipHeartbeats $
-      withReliability (contramap Reliability tracer) messagePersistence me allParties $
-        withAuthentication (contramap Authentication tracer) signingKey otherParties $
-          withOuroborosNetwork (contramap Network tracer) localhost peers
+  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
+  ackPersistence <- createPersistence $ persistenceDir <> "/acks"
+  let messagePersistence = mkMessagePersistence allParties msgPersistence ackPersistence
+      reliability =
+        withFlipHeartbeats $
+          withReliability (contramap Reliability tracer) messagePersistence me allParties $
+            withAuthentication (contramap Authentication tracer) signingKey otherParties $
+              withOuroborosNetwork (contramap Network tracer) localhost peers
+
+  withHeartbeat nodeId connectionMessages reliability callback $ \network ->
+    action network
 
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->

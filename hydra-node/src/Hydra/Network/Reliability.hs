@@ -150,26 +150,23 @@ data MessagePersistence m msg = MessagePersistence
 mkMessagePersistence ::
   (MonadThrow m, FromJSON msg, ToJSON msg) =>
   Vector a ->
-  m (PersistenceIncremental (Heartbeat msg) m) ->
-  m (Persistence (Vector Int) m) ->
-  m (MessagePersistence m msg)
-mkMessagePersistence allParties msgPersistence' ackPersistence' = do
-  msgPersistence <- msgPersistence'
-  ackPersistence <- ackPersistence'
-  pure
-    MessagePersistence
-      { loadAcks = do
-          macks <- load ackPersistence
-          case macks of
-            Nothing -> pure $ replicate (length allParties) 0
-            Just acks -> pure acks
-      , saveAcks = \acks -> do
-          save ackPersistence acks
-      , loadMessages = do
-          loadAll msgPersistence
-      , appendMessage = \msg -> do
-          append msgPersistence msg
-      }
+  PersistenceIncremental (Heartbeat msg) m ->
+  Persistence (Vector Int) m ->
+  MessagePersistence m msg
+mkMessagePersistence allParties msgPersistence ackPersistence =
+  MessagePersistence
+    { loadAcks = do
+        macks <- load ackPersistence
+        case macks of
+          Nothing -> pure $ replicate (length allParties) 0
+          Just acks -> pure acks
+    , saveAcks = \acks -> do
+        save ackPersistence acks
+    , loadMessages = do
+        loadAll msgPersistence
+    , appendMessage = \msg -> do
+        append msgPersistence msg
+    }
 
 -- | Middleware function to handle message counters tracking and resending logic.
 --
@@ -184,7 +181,7 @@ withReliability ::
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
   -- | Our persistence handle
-  m (MessagePersistence m msg) ->
+  MessagePersistence m msg ->
   -- | Our own party identifier.
   Party ->
   -- | All parties' identifiers.
@@ -192,17 +189,16 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer msgPersistence' me allParties withRawNetwork callback action = do
-  msgPersistence <- msgPersistence'
-  acksCache <- loadAcks msgPersistence >>= newTVarIO
+withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me allParties withRawNetwork callback action = do
+  acksCache <- loadAcks >>= newTVarIO
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback acksCache msgPersistence resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback acksCache resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ourIndex acksCache msgPersistence network
+      reliableBroadcast ourIndex acksCache network
  where
-  reliableBroadcast ourIndex acksCache MessagePersistence{saveAcks, appendMessage} Network{broadcast} =
+  reliableBroadcast ourIndex acksCache Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
@@ -225,7 +221,7 @@ withReliability tracer msgPersistence' me allParties withRawNetwork callback act
       writeTVar acksCache newAcks
       pure newAcks
 
-  reliableCallback acksCache msgPersistence resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
+  reliableCallback acksCache resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
       then pure ()
       else do
@@ -256,7 +252,7 @@ withReliability tracer msgPersistence' me allParties withRawNetwork callback act
               else traceWith tracer (Ignored acks knownAcks partyIndex)
 
             when (isPing msg) $
-              resendMessagesIfLagging resend partyIndex msgPersistence knownAcks acks ourIndex
+              resendMessagesIfLagging resend partyIndex knownAcks acks ourIndex
           Nothing -> pure ()
 
   constructAcks acks wantedIndex =
@@ -264,7 +260,7 @@ withReliability tracer msgPersistence' me allParties withRawNetwork callback act
 
   partyIndexes = generate (length allParties) id
 
-  resendMessagesIfLagging resend partyIndex MessagePersistence{loadMessages} knownAcks messageAcks myIndex = do
+  resendMessagesIfLagging resend partyIndex knownAcks messageAcks myIndex = do
     let mmessageAckForUs = messageAcks !? myIndex
     let mknownAckForUs = knownAcks !? myIndex
     case (mmessageAckForUs, mknownAckForUs) of
