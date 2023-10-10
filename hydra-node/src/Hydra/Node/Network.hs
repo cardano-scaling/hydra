@@ -66,7 +66,6 @@ module Hydra.Node.Network (withNetwork, withFlipHeartbeats) where
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
-import Data.Vector (fromList)
 import Hydra.Crypto (HydraKey, SigningKey)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
@@ -107,13 +106,13 @@ withNetwork tracer persistenceDir connectionMessages signingKey otherParties hos
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       -- construct sorted vector of parties including ourselves
-      allParties = fromList $ sort $ me : otherParties
+      numberOfParties = length $ me : otherParties
   msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
   ackPersistence <- createPersistence $ persistenceDir <> "/acks"
-  let messagePersistence = mkMessagePersistence allParties msgPersistence ackPersistence
+  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence
       reliability =
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence me allParties $
+          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 

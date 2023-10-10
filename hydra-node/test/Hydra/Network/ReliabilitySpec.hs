@@ -101,7 +101,7 @@ spec = parallel $ do
             sentMessages <- newTVarIO empty
             persistence <- mockMessagePersistence 1
 
-            withReliability nullTracer persistence alice (fromList [alice]) (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+            withReliability nullTracer persistence alice [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
               mapM_ (broadcast . Data "node-1") messages
 
             fromList . Vector.toList <$> readTVarIO sentMessages
@@ -127,8 +127,8 @@ spec = parallel $ do
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork emittedTraces "bob" bob (fromList [alice, bob])
-              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork emittedTraces "alice" alice (fromList [alice, bob])
+              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -155,7 +155,7 @@ spec = parallel $ do
               nullTracer
               alicePersistence
               alice
-              (fromList [alice, bob])
+              [bob]
               ( \incoming action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
@@ -192,7 +192,7 @@ spec = parallel $ do
             nullTracer
             messagePersistence
             alice
-            (fromList [alice, bob])
+            [bob]
             ( \incoming action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
@@ -262,7 +262,7 @@ aliceReceivesMessages messages = runSimOrThrow $ do
           nullTracer
           alicePersistence
           alice
-          (fromList [alice, bob, carol])
+          [bob, carol]
           baseNetwork
 
   void $ aliceReliabilityStack (captureIncoming receivedMessages) $ \_action ->

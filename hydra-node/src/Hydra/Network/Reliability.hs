@@ -149,16 +149,16 @@ data MessagePersistence m msg = MessagePersistence
 -- convenience.
 mkMessagePersistence ::
   (MonadThrow m, FromJSON msg, ToJSON msg) =>
-  Vector a ->
+  Int ->
   PersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence allParties msgPersistence ackPersistence =
+mkMessagePersistence numberOfParties msgPersistence ackPersistence =
   MessagePersistence
     { loadAcks = do
         macks <- load ackPersistence
         case macks of
-          Nothing -> pure $ replicate (length allParties) 0
+          Nothing -> pure $ replicate numberOfParties 0
           Just acks -> pure acks
     , saveAcks = \acks -> do
         save ackPersistence acks
@@ -184,12 +184,12 @@ withReliability ::
   MessagePersistence m msg ->
   -- | Our own party identifier.
   Party ->
-  -- | All parties' identifiers.
-  Vector Party ->
+  -- | Other parties' identifiers.
+  [Party] ->
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
-withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me allParties withRawNetwork callback action = do
+withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
   acksCache <- loadAcks >>= newTVarIO
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
@@ -198,6 +198,7 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast ourIndex acksCache network
  where
+  allParties = fromList $ sort $ me : otherParties
   reliableBroadcast ourIndex acksCache Network{broadcast} =
     action $
       Network
