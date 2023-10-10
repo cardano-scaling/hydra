@@ -105,7 +105,6 @@ withNetwork ::
 withNetwork tracer persistenceDir connectionMessages signingKey otherParties host port peers nodeId callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
-      -- construct sorted vector of parties including ourselves
       numberOfParties = length $ me : otherParties
   msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
   ackPersistence <- createPersistence $ persistenceDir <> "/acks"
