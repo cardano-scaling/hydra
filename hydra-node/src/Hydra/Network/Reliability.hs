@@ -1,9 +1,20 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | A `Network` layer that guarantees delivery of `msg` in order even in the
--- face of transient connection failures.
+-- | A `Network` layer that provides resilience in the face of network
+-- connectivity loss and (most) crashes.
 --
--- This layer implements an algorithm based on _vector clocks_, loosely inspired from
+-- This network layer takes care of 2 aspects that together improve the
+-- reliability and operability of a Hydra cluster, making it more tolerant to
+-- transient failures and therefore alleviating the need to prematurely close
+-- heads:
+--
+-- 1. To safeguard against lost of connectivity, it keeps track of messages
+-- indices and resend lost messages,
+-- 2. To safeguard against crashes, it persists all sent messages and indices on disk.
+--
+-- == Messages ordering & resending
+--
+-- This layer implements an algorithm based on /vector clocks/, loosely inspired from
 -- /Reliable consistent broadcast/ algorithms with FIFO ordering as presented in
 -- [Introduction to Reliable and Secure Distributed
 -- Programming](https://www.distributedprogramming.net), ch. 3.9, by Cachin et al.
@@ -22,7 +33,7 @@
 --       * It is discarded if the index for the sender's party in the message is
 --         not exactly one more than the latest known index,
 --
---       * If our own party's index as broadcasted by the sender is lower than
+--       * If our own party's index, as broadcasted by the sender, is lower than
 --         our latest known index, and the peer appears /quiescent/ we resend
 --         all the "missing" messages.
 --
@@ -45,17 +56,28 @@
 --     counter but only take into account their view of /our/ counter in order
 --     to compute whether or not to resend previous messages.
 --
--- NOTE: This layer does not guarantee resilience in the crash-recovery setting,
--- eg. if a process crashes and then later recovers. It may work because `Ping`s
--- will trigger some resending to the peer which starts from scratch. To provide
--- this guarantee in full, we should add /logging/ capability that persist sent and
--- received messages before communicating with the applicative layer.
+-- == Messages persistence
 --
--- NOTE: Messages sent are /currently/ kept indefinitely in memory which, in the
--- case of very long-running head with a high frequency of transaction
--- submission, can lead to memory growth. In practice, this can be mitigated by
--- closing and reopening such heads, but it must be addressed in a not too
--- distant future, eg. perhaps when implementing persistence of messages.
+-- The `MessagePersistence` handle defines an interface that's used to load and
+-- persist both the sequence of messages `broadcast`ed, and the /vector clock/
+-- representing our current view of the all peers' knowledge about
+-- messages. Because it's hard to guarantee atomicity of IO operations on files,
+-- we only save the indices when we /broadcast/ and use a local cache in the
+-- `NetworkCallback`: The underlying layers can callback us concurrently,
+-- eg. when each connection to peers is managed by a dedicated thread.
+--
+-- __NOTE__: We do not recover (at least) from one particular crash situation: When
+-- the `withReliability` "delivers" a message to the calling code, it's usually
+-- put in a queue wrapped into a `NetworkEvent` and then handled later
+-- on. Should the node crashes at that particular point, it won't be resubmitted
+-- the same message later because the message indices could have been updated
+-- and written to on disk already.
+--
+-- __NOTE__: Messages sent are /currently/ kept indefinitely on disk because we
+-- don't set any bound to how far from the past a peer would need to be resent
+-- messages. In the case of very long-running head with a high frequency of
+-- transaction submission, can lead to significant storage use. Should this
+-- become a problem, this can be mitigated by closing and reopening a head.
 module Hydra.Network.Reliability where
 
 import Hydra.Prelude hiding (empty, fromList, length, replicate, zipWith)
@@ -108,6 +130,10 @@ instance (FromCBOR msg) => FromCBOR (ReliableMsg msg) where
 instance ToCBOR msg => SignableRepresentation (ReliableMsg msg) where
   getSignableRepresentation = serialize'
 
+-- | Log entries specific to this network layer.
+--
+-- __NOTE__: Log items are documented in a YAML schema file which is not
+-- currently public, but should be.
 data ReliabilityLog
   = Resending {missing :: Vector Int, acknowledged :: Vector Int, localCounter :: Vector Int, partyIndex :: Int}
   | BroadcastCounter {partyIndex :: Int, localCounter :: Vector Int}
