@@ -121,6 +121,11 @@ data ReliabilityLog
       , messageAckForUs :: Int
       }
   | ReliabilityMissingPartyIndex {missingParty :: Party}
+  | ReceivedMalformedAcks
+      { fromParty :: Party
+      , partyAcks :: Vector Int
+      , numberOfParties :: Int
+      }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -224,7 +229,14 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
 
   reliableCallback acksCache resend ourIndex (Authenticated (ReliableMsg acks msg) party) = do
     if length acks /= length allParties
-      then pure ()
+      then
+        traceWith
+          tracer
+          ReceivedMalformedAcks
+            { fromParty = party
+            , partyAcks = acks
+            , numberOfParties = length allParties
+            }
       else do
         eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
           loadedAcks <- lift $ readTVar acksCache
