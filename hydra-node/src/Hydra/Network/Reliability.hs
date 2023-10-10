@@ -243,6 +243,7 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
                 broadcast $ ReliableMsg newAckCounter msg
               Ping{} -> do
                 acks <- readTVarIO acksCache
+                saveAcks acks
                 traceWith tracer (BroadcastPing ourIndex acks)
                 broadcast $ ReliableMsg acks msg
         }
