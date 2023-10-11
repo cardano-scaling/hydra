@@ -89,7 +89,7 @@ drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScr
 drawFocusPanelOpen networkId vk utxo = \case
   OpenHome ->
     drawUTxO
-      (\a -> withAttr (if a == ownAddress then own else mempty) $ drawAddress a)
+      (highlightOwnAddress ownAddress)
       ownAddress
       utxo
   SelectingUTxO x -> renderForm x
@@ -108,12 +108,16 @@ drawFocusPanelFinal networkId vk utxo =
       <=> padLeft
         (Pad 2)
         ( drawUTxO
-            (\a -> withAttr (if a == mkVkAddress networkId vk then own else mempty) $ drawAddress a)
+            (highlightOwnAddress ownAddress)
             ownAddress
             utxo
         )
  where
   ownAddress = mkVkAddress networkId vk
+
+highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
+highlightOwnAddress ownAddress a =
+  withAttr (if a == ownAddress then own else mempty) $ drawAddress a
 
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
