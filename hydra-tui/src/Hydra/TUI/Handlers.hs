@@ -147,7 +147,12 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
           let amountEntered = formState i
-          let field = radioField id [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
+          let ownAddress = mkVkAddress (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
+          let field =
+                radioField id
+                  [(u, show u, decodeUtf8 $ encodePretty u)
+                  | u <- filter (/= ownAddress) (nub addresses)
+                  ]
               addresses = getRecipientAddress <$> Map.elems (UTxO.toMap utxo)
               getRecipientAddress TxOut{txOutAddress = addr} = addr
           let selectingRecipientForm = newForm [field] (Prelude.head addresses)
@@ -219,7 +224,7 @@ handleHydraEventsActiveLink e = do
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
 handleHydraEventsInfo = \case
   Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
-    info time $ "Head is initializing"
+    info time "Head is initializing"
   Update TimedServerOutput{time, output = Committed{party, utxo}} -> do
     info time $ show party <> " committed " <> renderValue (balance @Tx utxo)
   Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do

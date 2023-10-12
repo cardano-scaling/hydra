@@ -87,10 +87,16 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo = \case
-  OpenHome -> drawUTxO (\a -> withAttr (if a == mkVkAddress networkId vk then own else mempty) $ drawAddress a) utxo
+  OpenHome ->
+    drawUTxO
+      (highlightOwnAddress ownAddress)
+      ownAddress
+      utxo
   SelectingUTxO x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
+ where
+  ownAddress = mkVkAddress networkId vk
 
 drawFocusPanelClosed :: UTCTime -> ClosedState -> Widget Name
 drawFocusPanelClosed now (ClosedState{contestationDeadline}) = drawRemainingContestationPeriod contestationDeadline now
@@ -99,7 +105,19 @@ drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget
 drawFocusPanelFinal networkId vk utxo =
   padLeftRight 1 $
     txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
-      <=> padLeft (Pad 2) (drawUTxO (\a -> withAttr (if a == mkVkAddress networkId vk then own else mempty) $ drawAddress a) utxo)
+      <=> padLeft
+        (Pad 2)
+        ( drawUTxO
+            (highlightOwnAddress ownAddress)
+            ownAddress
+            utxo
+        )
+ where
+  ownAddress = mkVkAddress networkId vk
+
+highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
+highlightOwnAddress ownAddress a =
+  withAttr (if a == ownAddress then own else mempty) $ drawAddress a
 
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
@@ -222,11 +240,11 @@ showHeadState = \case
     Closed{} -> "Closed"
     Final{} -> "Final"
 
-drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
-drawUTxO f utxo =
+drawUTxO :: (AddressInEra -> Widget n) -> AddressInEra -> UTxO -> Widget n
+drawUTxO f ownAddress utxo =
   let byAddress =
         Map.foldrWithKey
-          (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+          (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (if addr == ownAddress then Map.singleton addr [(k, v)] else mempty))
           mempty
           $ UTxO.toMap utxo
    in vBox
