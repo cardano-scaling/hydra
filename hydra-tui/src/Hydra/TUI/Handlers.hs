@@ -24,7 +24,7 @@ import Graphics.Vty (
 import qualified Graphics.Vty as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
-import Hydra.Chain.CardanoClient (CardanoClient (..))
+import Hydra.Chain.CardanoClient (CardanoClient (..), verificatioKeyFromSKey, cardanoVKeyFromSKey, CardanoVKey)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..), HydraEvent (..))
 import Hydra.Ledger (IsTx (..), balance)
@@ -134,7 +134,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
     OpenHome -> do
       case e of
         EvKey (KChar 'n') [] -> do
-          let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
+          let utxo' = myAvailableUTxO (networkId cardanoClient) (cardanoVKeyFromSKey $ sk hydraClient) utxo
           id .= SelectingUTxO (utxoRadioField utxo')
         _ -> pure ()
     SelectingUTxO i -> do
@@ -154,7 +154,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
           let amountEntered = formState i
-          let ownAddress = mkVkAddress (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
+          let ownAddress = mkVkAddress (networkId cardanoClient) (cardanoVKeyFromSKey $ sk hydraClient)
           let field =
                 radioField id
                   [(u, show u, decodeUtf8 $ encodePretty u)
@@ -299,7 +299,7 @@ scroll direction = do
       let vp = viewportScroll shortFeedbackViewportName
       hScrollPage vp direction
 
-myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
+myAvailableUTxO :: NetworkId -> CardanoVKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
 myAvailableUTxO networkId vk (UTxO u) =
   let myAddress = mkVkAddress networkId vk
    in Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) u
@@ -308,5 +308,5 @@ mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
 mkMyAddress cardanoClient hydraClient =
   makeShelleyAddress
     (networkId cardanoClient)
-    (PaymentCredentialByKey . verificationKeyHash $ getVerificationKey $ sk hydraClient)
+    (PaymentCredentialByKey . verificationKeyHash $ verificatioKeyFromSKey $ sk hydraClient)
     NoStakeAddress

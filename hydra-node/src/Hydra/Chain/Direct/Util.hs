@@ -8,16 +8,21 @@ import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN)
 import Hydra.Cardano.Api hiding (Block, SigningKey, VerificationKey)
 import qualified Hydra.Cardano.Api as Shelley
+import Hydra.Chain.CardanoClient (CardanoExtendedKeys, CardanoKeys, CardanoVKey)
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 
 type Block = CardanoBlock StandardCrypto
 type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
 type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
 
-readKeyPair :: FilePath -> IO (Shelley.VerificationKey PaymentKey, Shelley.SigningKey PaymentKey)
+readKeyPair :: FilePath -> IO (Either CardanoKeys CardanoExtendedKeys)
 readKeyPair keyPath = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
-  pure (getVerificationKey sk, sk)
+  sk <-
+    asum
+      [ Left <$> readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
+      , Right <$> readFileTextEnvelopeThrow (AsSigningKey AsPaymentExtendedKey) keyPath
+      ]
+  pure $ bimap (\a -> (getVerificationKey a, a)) (\a -> (getVerificationKey a, a)) sk
 
 -- XXX: Should accept a 'File' path
 readFileTextEnvelopeThrow ::
@@ -28,8 +33,12 @@ readFileTextEnvelopeThrow ::
 readFileTextEnvelopeThrow asType fileContents =
   either (fail . show) pure =<< readFileTextEnvelope asType (File fileContents)
 
-readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
-readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
+readVerificationKey :: FilePath -> IO CardanoVKey
+readVerificationKey fp =
+  asum
+    [ Left <$> readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey) fp
+    , Right <$> readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentExtendedKey) fp
+    ]
 
 -- | A simple retrying function with a constant delay. Retries only if the given
 -- predicate evaluates to 'True'.

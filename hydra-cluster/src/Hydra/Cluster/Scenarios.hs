@@ -87,8 +87,8 @@ restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningN
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode (Left aliceCardanoVk) 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode (Left bobCardanoVk) 100_000_000 (contramap FromFaucet tracer)
 
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
@@ -188,7 +188,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip (Left actorVk)
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
@@ -211,9 +211,14 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       chainConfigFor Alice workDir nodeSocket [] contestationPeriod
         <&> \config -> config{networkId, startChainFrom = Just tip}
 
-    (walletVk, walletSk) <- generate genKeyPair
+    walletKeys <- generate genKeyPair
+    let (walletVk, walletSk) = case walletKeys of
+          Left (vk, sk) -> (Left vk, Left sk)
+          Right (vk, sk) -> (Right vk, Right sk)
     let keyPath = workDir <> "/wallet.sk"
-    _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
+    _ <- case walletSk of
+      Left sk -> writeFileTextEnvelope (File keyPath) Nothing sk
+      Right sk -> writeFileTextEnvelope (File keyPath) Nothing sk
     traceWith tracer CreatedKey{keyPath}
 
     utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
@@ -367,7 +372,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- present at this public key
       (userVk, _userSk) <- keysFor Alice
       -- submit the tx using our external user key to get a utxo to commit
-      utxoToCommit <- seedFromFaucet node userVk 2_000_000 (contramap FromFaucet tracer)
+      utxoToCommit <- seedFromFaucet node (Left userVk) 2_000_000 (contramap FromFaucet tracer)
       -- Request to build a draft commit tx from hydra-node
       requestCommitTx n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
@@ -409,7 +414,7 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    utxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+    utxo <- queryUTxOFor networkId nodeSocket QueryTip (Left actorVk)
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 canSubmitTransactionThroughAPI ::
@@ -428,9 +433,9 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
       -- create output for Bob to be sent to carol
-      bobUTxO <- seedFromFaucet node cardanoBobVk 5_000_000 (contramap FromFaucet tracer)
-      let carolsAddress = mkVkAddress networkId cardanoCarolVk
-          bobsAddress = mkVkAddress networkId cardanoBobVk
+      bobUTxO <- seedFromFaucet node (Left cardanoBobVk) 5_000_000 (contramap FromFaucet tracer)
+      let carolsAddress = mkVkAddress networkId (Left cardanoCarolVk)
+          bobsAddress = mkVkAddress networkId (Left cardanoBobVk)
           carolsOutput =
             TxOut
               carolsAddress
@@ -447,7 +452,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
           let signedTx = signTx cardanoBobSk unsignedTx
-          let signedRequest = toJSON $ toLedgerTx signedTx
+          let signedRequest = SubmitTxRequest{txToSubmit = signTx (Left cardanoBobSk) unsignedTx}
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
@@ -471,11 +476,11 @@ refuelIfNeeded ::
   IO ()
 refuelIfNeeded tracer node actor amount = do
   (actorVk, _) <- keysFor actor
-  existingUtxo <- queryUTxOFor networkId nodeSocket QueryTip actorVk
+  existingUtxo <- queryUTxOFor networkId nodeSocket QueryTip (Left actorVk)
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
   let currentBalance = selectLovelace $ balance @Tx existingUtxo
   when (currentBalance < amount) $ do
-    utxo <- seedFromFaucet node actorVk amount (contramap FromFaucet tracer)
+    utxo <- seedFromFaucet node (Left actorVk) amount (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
  where
   RunningNode{networkId, nodeSocket} = node

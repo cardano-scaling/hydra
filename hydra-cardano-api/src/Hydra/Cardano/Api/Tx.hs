@@ -28,13 +28,16 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 -- You can't sign a script utxo with this.
 signTx ::
   IsShelleyBasedEra era =>
-  SigningKey PaymentKey ->
+  Either (SigningKey PaymentKey) (SigningKey PaymentExtendedKey) ->
   Tx era ->
   Tx era
-signTx signingKey (Tx body wits) =
+signTx eSigningKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
-  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
+  witness =
+    case eSigningKey of
+      Left signingKey -> makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
+      Right signingKeyExtended -> makeShelleyKeyWitness body (WitnessPaymentExtendedKey signingKeyExtended)
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency

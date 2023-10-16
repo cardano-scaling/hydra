@@ -122,7 +122,10 @@ main = do
     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
   publish opts = do
-    (_, sk) <- readKeyPair (publishSigningKey opts)
+    ecardanoKeys <- readKeyPair (publishSigningKey opts)
+    let sk = case ecardanoKeys of
+               Left (_, sk') -> Left sk'
+               Right (_, sk') -> Right sk'
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))

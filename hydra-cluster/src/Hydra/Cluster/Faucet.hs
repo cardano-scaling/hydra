@@ -20,7 +20,7 @@ import CardanoClient (
   queryUTxOFor,
   sign,
   submitTransaction,
-  waitForPayment,
+  waitForPayment, CardanoVKey,
  )
 import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
@@ -53,14 +53,14 @@ data FaucetLog
 seedFromFaucet ::
   RunningNode ->
   -- | Recipient of the funds
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+  retryOnExceptions tracer $ submitSeedTx (Left faucetVk) (Left faucetSk)
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
@@ -83,7 +83,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
 findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
 findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
   (faucetVk, _) <- keysFor Faucet
-  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
+  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress (Left faucetVk) networkId]
   let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
   when (null foundUTxO) $
     throwIO $
@@ -94,7 +94,7 @@ findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
 seedFromFaucet_ ::
   RunningNode ->
   -- | Recipient of the funds
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
@@ -110,10 +110,10 @@ returnFundsToFaucet ::
   IO ()
 returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
-  let faucetAddress = mkVkAddress networkId faucetVk
+  let faucetAddress = mkVkAddress networkId (Left faucetVk)
 
   (senderVk, senderSk) <- keysFor sender
-  utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+  utxo <- queryUTxOFor networkId nodeSocket QueryTip (Left senderVk)
 
   retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
@@ -124,7 +124,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
     -- NOTE: We use the faucet address as the change deliberately here.
     fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
     let returnBalance = allLovelace - fee
-    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
+    tx <- sign (Left senderSk) <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx
     void $ awaitTransaction networkId nodeSocket tx
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
@@ -150,7 +150,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
   buildTransaction
     networkId
     nodeSocket
-    (changeAddress faucetVk)
+    (changeAddress (Left faucetVk))
     utxo
     collateralTxIns
     [output]
@@ -192,7 +192,7 @@ calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
   let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
    in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
         Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-        Right body -> pure $ txFee' (sign secretKey body)
+        Right body -> pure $ txFee' (sign (Left secretKey) body)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
@@ -222,4 +222,4 @@ retryOnExceptions tracer action =
 publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
-  publishHydraScripts networkId nodeSocket sk
+  publishHydraScripts networkId nodeSocket (Left sk)

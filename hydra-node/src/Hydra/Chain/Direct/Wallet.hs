@@ -50,11 +50,13 @@ import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
+  PaymentExtendedKey,
   PaymentKey,
   ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  castVerificationKey,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerTxOut,
@@ -130,13 +132,14 @@ newTinyWallet ::
   -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  Either (VerificationKey PaymentKey, SigningKey PaymentKey) (VerificationKey PaymentExtendedKey, SigningKey PaymentExtendedKey) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (EpochInfo (Either Text)) ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
+newTinyWallet tracer networkId paymentKeys queryWalletInfo queryEpochInfo = do
+  let sk = bimap snd snd paymentKeys
   walletInfoVar <- newTVarIO =<< initialize
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
@@ -174,8 +177,9 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
     traceWith tracer $ EndInitialize{initialUTxO = fromLedgerUTxO (Ledger.UTxO walletUTxO), tip}
     pure walletInfo
 
-  address =
-    makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+  vk = either id id $ bimap fst (castVerificationKey . fst) paymentKeys
+
+  address = makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
   ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
 

@@ -22,7 +22,7 @@ import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
 import Data.Version (Version, showVersion)
 import Hydra.Chain (HeadId)
-import Hydra.Chain.CardanoClient (CardanoClient (..))
+import Hydra.Chain.CardanoClient (CardanoClient (..), CardanoSKey, CardanoVKey)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.Ledger (IsTx (..))
@@ -50,7 +50,7 @@ draw Client{sk} CardanoClient{networkId} s =
                       , drawPeersIfConnected (s ^. connectedStateL)
                       , hBorder
                       , drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
-                      , drawMyAddress $ mkVkAddress networkId (getVerificationKey sk)
+                      , drawMyAddress $ mkVkAddress networkId (getVKey sk)
                       , drawIfConnected (\connection -> drawIfActive (drawHeadParticipants (me connection) . parties) (headState connection)) (s ^. connectedStateL)
                       ]
               , vBorder
@@ -60,13 +60,19 @@ draw Client{sk} CardanoClient{networkId} s =
                     , hBorder
                     , case s ^. connectedStateL of
                         Disconnected -> emptyWidget
-                        Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
+                        Connected k -> drawFocusPanel networkId (getVKey sk) (s ^. nowL) k
                     ]
               , vBorder
               , hLimit 50 $ padLeftRight 1 $ drawCommandList s
               ]
           , maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
           ]
+
+getVKey :: CardanoSKey -> CardanoVKey
+getVKey evk =
+  case evk of
+    Left sk -> Left $ getVerificationKey sk
+    Right sk -> Right $ getVerificationKey sk
 
 drawCommandList :: RootState -> Widget n
 drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
@@ -85,7 +91,7 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
   InitializingHome -> drawRemainingParties me remainingParties
   CommitMenu x -> vBox [txt "Select UTxOs to commit:", renderForm x]
 
-drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScreen -> Widget Name
+drawFocusPanelOpen :: NetworkId -> CardanoVKey -> UTxO -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo = \case
   OpenHome -> drawUTxO (highlightOwnAddress ownAddress) utxo
   SelectingUTxO x -> renderForm x
@@ -97,7 +103,7 @@ drawFocusPanelOpen networkId vk utxo = \case
 drawFocusPanelClosed :: UTCTime -> ClosedState -> Widget Name
 drawFocusPanelClosed now (ClosedState{contestationDeadline}) = drawRemainingContestationPeriod contestationDeadline now
 
-drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
+drawFocusPanelFinal :: NetworkId -> CardanoVKey -> UTxO -> Widget Name
 drawFocusPanelFinal networkId vk utxo =
   padLeftRight 1 $
     txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
@@ -111,15 +117,15 @@ highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
 highlightOwnAddress ownAddress a =
   withAttr (if a == ownAddress then own else mempty) $ drawAddress a
 
-drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
-drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
+drawFocusPanel :: NetworkId -> CardanoVKey -> UTCTime -> Connection -> Widget Name
+drawFocusPanel networkId evk now (Connection{me, headState}) = case headState of
   Idle -> emptyWidget
   Active (ActiveLink{utxo, activeHeadState}) -> case activeHeadState of
     Initializing x -> drawFocusPanelInitializing me x
-    Open x -> drawFocusPanelOpen networkId vk utxo x
+    Open x -> drawFocusPanelOpen networkId evk utxo x
     Closed x -> drawFocusPanelClosed now x
     FanoutPossible -> txt "Ready to fanout!"
-    Final -> drawFocusPanelFinal networkId vk utxo
+    Final -> drawFocusPanelFinal networkId evk utxo
 
 drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget Name
 drawRemainingContestationPeriod deadline now =

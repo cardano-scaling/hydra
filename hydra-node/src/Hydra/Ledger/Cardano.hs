@@ -15,6 +15,7 @@ import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Crypto.DSIGN as CC
+import qualified Cardano.Crypto.Wallet as Crypto.HD
 import qualified Cardano.Ledger.Babbage.Tx as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import qualified Cardano.Ledger.BaseTypes as Ledger
@@ -32,8 +33,10 @@ import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
+import Data.Text (pack)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Chain.CardanoClient (CardanoExtendedKeys, CardanoKeys, CardanoSKey, CardanoVKey)
 import qualified Hydra.Contract.Head as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
@@ -142,13 +145,17 @@ mkSimpleTx ::
   -- | Recipient address and amount.
   (AddressInEra, Value) ->
   -- | Sender's signing key.
-  SigningKey PaymentKey ->
+  CardanoSKey ->
   Either TxBodyError Tx
-mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
+mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) eSk = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  let witnesses = [mkWitness body]
   pure $ makeSignedTransaction witnesses body
  where
+  mkWitness body =
+    case eSk of
+      Left sk -> makeShelleyKeyWitness body (WitnessPaymentKey sk)
+      Right esk -> makeShelleyKeyWitness body (WitnessPaymentExtendedKey esk)
   bodyContent =
     emptyTxBody
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
@@ -203,20 +210,29 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
 
 -- * Generators
 
-genSigningKey :: Gen (SigningKey PaymentKey)
+genSigningKey :: Gen CardanoSKey
 genSigningKey = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
   -- play well with pure generation from seed.
   sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 32 arbitrary
-  pure (PaymentSigningKey sk)
+  bytes <- vectorOf 32 arbitrary
+  pure $ either (const $ Left $ PaymentSigningKey sk) (Right . PaymentExtendedSigningKey) (Crypto.HD.xprv $ fromList @ByteString bytes)
 
-genVerificationKey :: Gen (VerificationKey PaymentKey)
-genVerificationKey = getVerificationKey <$> genSigningKey
+genVerificationKey :: Gen CardanoVKey
+genVerificationKey = do
+  esk <- genSigningKey
+  case esk of
+    Left sk -> pure $ Left $ getVerificationKey sk
+    Right sk -> pure $ Right $ getVerificationKey sk
 
-genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+genKeyPair :: Gen (Either CardanoKeys CardanoExtendedKeys)
 genKeyPair = do
-  sk <- genSigningKey
-  pure (getVerificationKey sk, sk)
+  esk <- genSigningKey
+  case esk of
+    Left sk ->
+      pure $ Left (getVerificationKey sk, sk)
+    Right sk ->
+      pure $ Right (getVerificationKey sk, sk)
 
 -- | Generates a sequence of simple "transfer" transactions for a single key.
 -- The kind of transactions produced by this generator is very limited, see `generateOneTransfer`.
@@ -228,7 +244,11 @@ genSequenceOfSimplePaymentTransactions = do
 
 genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
 genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
-  keyPair@(vk, _) <- genKeyPair
+  keyPair <- genKeyPair
+  let vk =
+        case keyPair of
+          Left (vk', _) -> Left vk'
+          Right (evk, _) -> Right evk
   utxo <- genOneUTxOFor vk
   txs <-
     reverse . thrd
@@ -240,16 +260,22 @@ genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
 
 generateOneTransfer ::
   NetworkId ->
-  (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
+  (UTxO, Either CardanoKeys CardanoExtendedKeys, [Tx]) ->
   Int ->
-  Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
-generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
+  Gen (UTxO, Either CardanoKeys CardanoExtendedKeys, [Tx])
+generateOneTransfer networkId (utxo, sender', txs) _ = do
+  let sender = case sender' of
+        Left (_, sk) -> Left sk
+        Right (_, esk) -> Right esk
   recipient <- genKeyPair
+  let verificationKey = case recipient of
+        Left (vk, _) -> Left vk
+        Right (evk, _) -> Right evk
   -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
   -- this function to be ever used in production, and crash will be caught in tests
   case UTxO.pairs utxo of
     [txin] ->
-      case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
+      case mkSimpleTx txin (mkVkAddress networkId verificationKey, balance @Tx utxo) sender of
         Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
         Right tx ->
           pure (utxoFromTx tx, recipient, tx : txs)
@@ -260,14 +286,14 @@ generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
 -- TODO: This should better be called 'genOutputFor'
 genOutput ::
   forall ctx.
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   Gen (TxOut ctx)
 genOutput vk = do
   value <- genValue
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
 -- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
-genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
+genTxOutAdaOnly :: CardanoVKey -> Gen (TxOut ctx)
 genTxOutAdaOnly vk = do
   value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
@@ -362,7 +388,7 @@ genTxOutWithReferenceScript = do
   genTxOut <&> \out -> out{txOutReferenceScript = refScript}
 
 -- | Generate utxos owned by the given cardano key.
-genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
+genUTxOFor :: CardanoVKey -> Gen UTxO
 genUTxOFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inps <- vectorOf n arbitrary
@@ -370,7 +396,7 @@ genUTxOFor vk = do
   pure $ UTxO $ Map.fromList $ zip inps outs
 
 -- | Generate a single UTXO owned by 'vk'.
-genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
+genOneUTxOFor :: CardanoVKey -> Gen UTxO
 genOneUTxOFor vk = do
   input <- arbitrary
   -- NOTE(AB): calling this generator while running a property will yield larger and larger
@@ -434,7 +460,16 @@ instance Arbitrary (TxOut CtxUTxO) where
   arbitrary = genTxOut
 
 instance Arbitrary (VerificationKey PaymentKey) where
-  arbitrary = fst <$> genKeyPair
+  arbitrary = do
+    eKeys <- genKeyPair
+    pure $ case eKeys of
+      Left (vk, _) -> vk
+      Right (evk, _) -> castVerificationKey evk
+
+instance Arbitrary (VerificationKey PaymentExtendedKey) where
+  arbitrary = do
+    bytes <- vectorOf 32 arbitrary
+    pure $ either (error . pack) (getVerificationKey . PaymentExtendedSigningKey) (Crypto.HD.xprv $ fromList @ByteString bytes)
 
 instance Arbitrary (Hash PaymentKey) where
   arbitrary = do

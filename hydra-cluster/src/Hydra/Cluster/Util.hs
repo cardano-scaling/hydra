@@ -16,6 +16,7 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
+import Hydra.Chain.CardanoClient (CardanoSKey)
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
@@ -37,6 +38,7 @@ readConfigFile source = do
   BS.readFile filename
 
 -- | Get the "well-known" keys for given actor.
+-- TODO: Maybe this one should return 'CardanoKeys'?
 keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
@@ -53,11 +55,17 @@ keysFor actor = do
 
 -- | Create and save new signing key at the provided path.
 -- NOTE: Uses 'TextEnvelope' format.
-createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+createAndSaveSigningKey :: FilePath -> IO CardanoSKey
 createAndSaveSigningKey path = do
-  sk <- generate genSigningKey
-  writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
-  pure sk
+  esk <- generate genSigningKey
+  case esk of
+    Left sk -> do
+      writeFileLBS path $ textEnvelopeToJSON Nothing sk
+      pure (Left sk)
+    Right sk -> do
+      writeFileLBS path $ textEnvelopeToJSON Nothing sk
+      pure (Right sk)
+
 
 chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them cp = do

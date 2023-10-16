@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
@@ -115,7 +114,8 @@ loadChainContext ::
   TxId ->
   IO ChainContext
 loadChainContext config party otherParties hydraScriptsTxId = do
-  (vk, _) <- readKeyPair cardanoSigningKey
+  paymentKeys <- readKeyPair cardanoSigningKey
+  let vk = bimap fst fst paymentKeys
   otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   pure $

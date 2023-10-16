@@ -20,6 +20,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain (HeadId (..), HeadParameters (..))
+import Hydra.Chain.CardanoClient (CardanoVKey, cardanoVKeyToHash)
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
@@ -109,7 +110,7 @@ headValue = lovelaceToValue (Lovelace 2_000_000)
 initTx ::
   NetworkId ->
   -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
+  [CardanoVKey] ->
   HeadParameters ->
   TxIn ->
   Tx
@@ -150,12 +151,15 @@ mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, partie
         , seed = toPlutusTxOutRef seedTxIn
         }
 
-mkInitialOutput :: NetworkId -> TxIn -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
-  TxOut initialAddress initialValue initialDatum ReferenceScriptNone
+mkInitialOutput :: NetworkId -> TxIn -> CardanoVKey -> TxOut CtxTx
+mkInitialOutput networkId seedTxIn everificationKey =
+  let pkh = case everificationKey of
+        Left vk -> verificationKeyHash vk
+        Right evk -> verificationKeyHash $ castVerificationKey evk
+   in TxOut initialAddress (initialValue pkh) initialDatum ReferenceScriptNone
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
-  initialValue =
+  initialValue pkh =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV2 networkId initialScript
@@ -238,7 +242,7 @@ collectComTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | Everything needed to spend the Head state-machine output.
   InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
@@ -247,14 +251,18 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
+collectComTx networkId scriptRegistry evk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
       & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+      & addExtraRequiredSigners [mkVkHash]
  where
+  mkVkHash =
+       case evk of
+         Left vk -> verificationKeyHash vk
+         Right vk -> verificationKeyHash $ castVerificationKey vk
   InitialThreadOutput
     { initialThreadUTxO =
       (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
@@ -328,7 +336,7 @@ closeTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | The snapshot to close with, can be either initial or confirmed one.
   ClosingSnapshot ->
   -- | Lower validity slot number, usually a current or quite recent slot number.
@@ -340,13 +348,13 @@ closeTx ::
   -- | Head identifier
   HeadId ->
   Tx
-closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
+closeTx scriptRegistry evk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+      & addExtraRequiredSigners [cardanoVKeyToHash evk]
       & setValidityLowerBound startSlotNo
       & setValidityUpperBound endSlotNo
  where
@@ -412,7 +420,7 @@ contestTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | Contested snapshot number (i.e. the one we contest to)
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
@@ -426,7 +434,7 @@ contestTx ::
   Tx
 contestTx
   scriptRegistry
-  vk
+  evk
   Snapshot{number, utxo}
   sig
   (slotNo, _)
@@ -438,9 +446,13 @@ contestTx
         & addInputs [(headInput, headWitness)]
         & addReferenceInputs [headScriptRef]
         & addOutputs [headOutputAfter]
-        & addExtraRequiredSigners [verificationKeyHash vk]
+        & addExtraRequiredSigners [mkVkHash]
         & setValidityUpperBound slotNo
    where
+    mkVkHash =
+       case evk of
+         Left vk -> verificationKeyHash vk
+         Right vk -> verificationKeyHash $ castVerificationKey vk
     headWitness =
       BuildTxWith $
         ScriptWitness scriptWitnessInCtx $
@@ -457,7 +469,7 @@ contestTx
     headOutputAfter =
       modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-    contester = toPlutusKeyHash (verificationKeyHash vk)
+    contester = toPlutusKeyHash mkVkHash
 
     onChainConstestationPeriod = toChain contestationPeriod
 
@@ -531,7 +543,7 @@ abortTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
-  VerificationKey PaymentKey ->
+  CardanoVKey ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, HashableScriptData) ->
   -- | Script for monetary policy to burn tokens
@@ -543,7 +555,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   Either AbortTxError Tx
-abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx committedUTxO scriptRegistry evk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
       Left OverlappingInputs
   | otherwise =
@@ -554,8 +566,12 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
             & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
             & addOutputs reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
-            & addExtraRequiredSigners [verificationKeyHash vk]
+            & addExtraRequiredSigners [mkVkHash]
  where
+  mkVkHash =
+       case evk of
+         Left vk -> verificationKeyHash vk
+         Right vk -> verificationKeyHash $ castVerificationKey vk
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
@@ -644,7 +660,7 @@ data NotAnInitReason
 
 observeInitTx ::
   NetworkId ->
-  [VerificationKey PaymentKey] ->
+  [CardanoVKey] ->
   -- | Our node's contestation period
   ContestationPeriod ->
   Party ->
@@ -1015,9 +1031,12 @@ headTokensFromValue headTokenScript v =
   , pid == scriptPolicyId (PlutusScript headTokenScript)
   ]
 
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-assetNameFromVerificationKey =
-  AssetName . serialiseToRawBytes . verificationKeyHash
+assetNameFromVerificationKey :: CardanoVKey -> AssetName
+assetNameFromVerificationKey evk =
+  case evk of
+    Left vk ->
+      AssetName . serialiseToRawBytes $ verificationKeyHash vk
+    Right vk -> AssetName . serialiseToRawBytes . verificationKeyHash @PaymentKey $ castVerificationKey vk
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

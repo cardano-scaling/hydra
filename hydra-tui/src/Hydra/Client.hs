@@ -13,12 +13,13 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (DraftCommitTxRequest), DraftCommitTxResponse (..), TxOutWithWitness (TxOutWithWitness))
 import Hydra.API.ServerOutput (TimedServerOutput)
 import Hydra.Cardano.Api (
-  AsType (AsPaymentKey, AsSigningKey),
+  AsType (AsPaymentExtendedKey, AsPaymentKey, AsSigningKey),
+  PaymentExtendedKey,
   PaymentKey,
   SigningKey,
   signTx,
  )
-import Hydra.Chain.CardanoClient (submitTransaction)
+import Hydra.Chain.CardanoClient (CardanoSKey, submitTransaction)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))
@@ -36,11 +37,16 @@ data HydraEvent tx
 deriving instance (Eq (TimedServerOutput tx)) => Eq (HydraEvent tx)
 deriving instance (Show (TimedServerOutput tx)) => Show (HydraEvent tx)
 
+type CardanoKey =
+  Either
+    (SigningKey PaymentKey)
+    (SigningKey PaymentExtendedKey)
+
 -- | Handle to interact with Hydra node
 data Client tx m = Client
   { sendInput :: ClientInput tx -> m ()
   -- ^ Send some input to the server.
-  , sk :: SigningKey PaymentKey
+  , sk :: CardanoSKey
   , externalCommit :: UTxO.UTxO -> m ()
   }
 
@@ -69,7 +75,11 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         , externalCommit = externalCommit' sk
         }
  where
-  readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  readExternalSk =
+    asum
+      [ Left <$> readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+      , Right <$> readFileTextEnvelopeThrow (AsSigningKey AsPaymentExtendedKey) cardanoSigningKey
+      ]
   -- TODO(SN): ping thread?
   client q = runClient (toString hostname) (fromIntegral port) "/" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?

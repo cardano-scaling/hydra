@@ -6,7 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
 import qualified Cardano.Api.UTxO as UTxO
-import CardanoClient (mkGenesisTx)
+import CardanoClient (CardanoSKey, cardanoVKeyFromSKey, mkGenesisTx, verificatioKeyFromSKey)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
@@ -36,26 +36,44 @@ instance Arbitrary Dataset where
     genDatasetConstantUTxO sk defaultProtocolParameters (n `div` 10) n
 
 data ClientKeys = ClientKeys
-  { signingKey :: SigningKey PaymentKey
+  { signingKey :: CardanoSKey
   -- ^ Key used by the hydra-node to authorize hydra transactions and holding fuel.
-  , externalSigningKey :: SigningKey PaymentKey
+  , externalSigningKey :: CardanoSKey
   -- ^ Key holding funds to commit.
   }
   deriving (Show)
 
 instance ToJSON ClientKeys where
-  toJSON ClientKeys{signingKey, externalSigningKey} =
-    object
-      [ "signingKey" .= serialiseToBech32 signingKey
-      , "externalSigningKey" .= serialiseToBech32 externalSigningKey
-      ]
+  toJSON ClientKeys{signingKey, externalSigningKey} = do
+    -- TODO: dry this
+    case (signingKey, externalSigningKey) of
+      (Left sk, Left esk) ->
+        object
+          [ "signingKey" .= serialiseToBech32 sk
+          , "externalSigningKey" .= serialiseToBech32 esk
+          ]
+      (Right sk, Right esk) ->
+        object
+          [ "signingKey" .= serialiseToBech32 sk
+          , "externalSigningKey" .= serialiseToBech32 esk
+          ]
+      (Left sk, Right esk) ->
+        object
+          [ "signingKey" .= serialiseToBech32 sk
+          , "externalSigningKey" .= serialiseToBech32 esk
+          ]
+      (Right sk, Left esk) ->
+        object
+          [ "signingKey" .= serialiseToBech32 sk
+          , "externalSigningKey" .= serialiseToBech32 esk
+          ]
 
 instance FromJSON ClientKeys where
   parseJSON =
     withObject "ClientKeys" $ \o ->
       ClientKeys
-        <$> (decodeSigningKey =<< o .: "signingKey")
-        <*> (decodeSigningKey =<< o .: "externalSigningKey")
+        <$> fmap Left (decodeSigningKey =<< o .: "signingKey")
+        <*> fmap Left (decodeSigningKey =<< o .: "externalSigningKey")
    where
     decodeSigningKey =
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
@@ -85,11 +103,11 @@ generateConstantUTxODataset ::
   IO Dataset
 generateConstantUTxODataset pparams nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
-  generate $ genDatasetConstantUTxO faucetSk pparams nClients nTxs
+  generate $ genDatasetConstantUTxO (Left faucetSk) pparams nClients nTxs
 
 genDatasetConstantUTxO ::
   -- | The faucet signing key
-  SigningKey PaymentKey ->
+  CardanoSKey ->
   ProtocolParameters ->
   -- | Number of clients
   Int ->
@@ -103,7 +121,7 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   -- funded in the beginning of the benchmark run.
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Lovelace <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
-    pure (getVerificationKey externalSigningKey, amount)
+    pure (cardanoVKeyFromSKey externalSigningKey, amount)
   let fundingTransaction =
         mkGenesisTx
           networkId
@@ -115,14 +133,15 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
-    let vk = getVerificationKey externalSigningKey
-        keyPair = (vk, externalSigningKey)
+    let keyPair = case externalSigningKey of
+          Left sk' -> Left (verificatioKeyFromSKey externalSigningKey, sk')
+          Right sk' -> Right (getVerificationKey sk', sk')
         -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
         -- that everything owned by the externalSigningKey will get committed
         -- into the head.
         initialUTxO =
           utxoProducedByTx fundingTransaction
-            & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
+            & UTxO.filter ((== mkVkAddress networkId (cardanoVKeyFromSKey externalSigningKey)) . txOutAddress)
     txSequence <-
       reverse . thrd
         <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]

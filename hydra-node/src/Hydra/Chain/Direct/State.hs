@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
+  PaymentExtendedKey,
   PaymentKey,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -37,6 +38,7 @@ import Hydra.Cardano.Api (
   Value,
   WitCtxTxIn,
   Witness,
+  castVerificationKey,
   chainPointToSlotNo,
   genTxIn,
   modifyTxOutValue,
@@ -63,6 +65,7 @@ import Hydra.Chain (
   maxMainnetLovelace,
   maximumNumberOfParties,
  )
+import Hydra.Chain.CardanoClient (CardanoVKey)
 import Hydra.Chain.Direct.ScriptRegistry (
   ScriptRegistry (..),
   genScriptRegistry,
@@ -196,18 +199,28 @@ initialChainState =
     , recordedAt = Nothing
     }
 
+-- TODO: These instances are missing from the cardano-api
+instance {-# OVERLAPPING #-} ToJSON (VerificationKey PaymentExtendedKey) where
+  toJSON evk = toJSON $ castVerificationKey @PaymentExtendedKey @PaymentKey evk
+
+instance {-# OVERLAPPING #-} FromJSON (VerificationKey PaymentExtendedKey) where
+  parseJSON = parseJSON
+
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it
 -- only contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
-  , peerVerificationKeys :: [VerificationKey PaymentKey]
-  , ownVerificationKey :: VerificationKey PaymentKey
+  , peerVerificationKeys :: [CardanoVKey]
+  , ownVerificationKey :: CardanoVKey
   , ownParty :: Party
   , otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
   , contestationPeriod :: ContestationPeriod
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic)
+
+deriving instance ToJSON ChainContext
+deriving instance FromJSON ChainContext
 
 instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
@@ -233,7 +246,7 @@ instance Arbitrary ChainContext where
         }
 
 -- | Get all cardano verification keys available in the chain context.
-allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
+allVerificationKeys :: ChainContext -> [CardanoVKey]
 allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
   ownVerificationKey : peerVerificationKeys
 
@@ -350,7 +363,9 @@ ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
  where
   go (Just x) _ = Just x
   go Nothing (i, out, _) = do
-    let vkh = verificationKeyHash ownVerificationKey
+    let vkh = case ownVerificationKey of
+                Left vk -> verificationKeyHash vk
+                Right vk -> verificationKeyHash $ castVerificationKey vk
     guard $ hasMatchingPT st vkh (txOutValue out)
     pure (i, out, vkh)
 
@@ -806,7 +821,7 @@ genChainStateWithTx =
 --
 -- Do not use this in production code, but only for generating test data.
 data HydraContext = HydraContext
-  { ctxVerificationKeys :: [VerificationKey PaymentKey]
+  { ctxVerificationKeys :: [CardanoVKey]
   , ctxHydraSigningKeys :: [SigningKey HydraKey]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod

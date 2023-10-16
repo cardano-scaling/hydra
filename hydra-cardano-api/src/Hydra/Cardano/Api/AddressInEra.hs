@@ -34,13 +34,17 @@ import qualified PlutusLedgerApi.V2 as Plutus
 mkVkAddress ::
   IsShelleyBasedEra era =>
   NetworkId ->
-  VerificationKey PaymentKey ->
+  Either (VerificationKey PaymentKey) (VerificationKey PaymentExtendedKey) ->
   AddressInEra era
-mkVkAddress networkId vk =
+mkVkAddress networkId eVk =
   makeShelleyAddressInEra
     networkId
     (PaymentCredentialByKey $ verificationKeyHash vk)
     NoStakeAddress
+  where
+    vk = case eVk of
+           Left vk' -> vk'
+           Right eVk' -> castVerificationKey eVk'
 
 -- | Construct a Shelley-style address from a Plutus script. This address has
 -- no stake rights.

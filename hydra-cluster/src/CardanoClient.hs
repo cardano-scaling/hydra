@@ -27,9 +27,14 @@ import Hydra.Logging (Tracer, traceWith)
 --
 -- From <runAddressBuild https://github.com/input-output-hk/cardano-node/blob/master/cardano-cli/src/Cardano/CLI/Shelley/Run/Address.hs#L106>
 -- Throws 'CardanoClientException' if the query fails.
-buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
+buildAddress :: CardanoVKey -> NetworkId -> Address ShelleyAddr
 buildAddress vKey networkId =
-  makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
+  case vKey of
+    Left vk ->
+     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
+    Right vk ->
+     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash $ castVerificationKey vk) NoStakeAddress
+
 
 buildScriptAddress :: Script -> NetworkId -> Address ShelleyAddr
 buildScriptAddress script networkId =
@@ -70,11 +75,17 @@ defaultSizes :: Sizes
 defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 
 -- | Sign a transaction body with given signing key.
-sign :: SigningKey PaymentKey -> TxBody -> Tx
-sign signingKey body =
-  makeSignedTransaction
-    [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
-    body
+sign :: CardanoSKey -> TxBody -> Tx
+sign esigningKey body =
+  case esigningKey of
+    Left signingKey ->
+      makeSignedTransaction
+        [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
+        body
+    Right signingKey ->
+      makeSignedTransaction
+        [makeShelleyKeyWitness body (WitnessPaymentExtendedKey signingKey)]
+        body
 
 -- | Submit a transaction to a 'RunningNode'
 submitTx :: RunningNode -> Tx -> IO ()
@@ -124,11 +135,11 @@ mkGenesisTx ::
   NetworkId ->
   ProtocolParameters ->
   -- | Owner of the 'initialFund'.
-  SigningKey PaymentKey ->
+  CardanoSKey ->
   -- | Amount of initialFunds
   Lovelace ->
   -- | Recipients and amounts to pay in this transaction.
-  [(VerificationKey PaymentKey, Lovelace)] ->
+  [(CardanoVKey, Lovelace)] ->
   Tx
 mkGenesisTx networkId pparams signingKey initialAmount recipients =
   case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) fee of
@@ -138,7 +149,7 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
   initialInput =
     genesisUTxOPseudoTxIn
       networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+      (unsafeCastHash $ verificationKeyHash $ verificatioKeyFromSKey signingKey)
 
   fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = length recipients + 1, witnesses = 1} pparams
   rawTx = case buildRaw [initialInput] [] 0 of
@@ -147,7 +158,7 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
 
   totalSent = foldMap snd recipients
 
-  changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
+  changeAddr = mkVkAddress networkId (cardanoVKeyFromSKey signingKey)
   changeOutput =
     TxOut
       changeAddr

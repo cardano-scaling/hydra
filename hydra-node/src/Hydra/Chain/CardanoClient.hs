@@ -14,6 +14,22 @@ import qualified Data.Set as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
 
+type CardanoSKey =
+  Either
+    (SigningKey PaymentKey)
+    (SigningKey PaymentExtendedKey)
+
+type CardanoVKey =
+  Either
+    (VerificationKey PaymentKey)
+    (VerificationKey PaymentExtendedKey)
+
+type CardanoKeys =
+  (VerificationKey PaymentKey, SigningKey PaymentKey)
+
+type CardanoExtendedKeys =
+  (VerificationKey PaymentExtendedKey, SigningKey PaymentExtendedKey)
+
 data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
@@ -296,7 +312,7 @@ queryUTxOWhole networkId socket queryPoint = do
 -- | Query UTxO for the address of given verification key at point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> CardanoVKey -> IO UTxO
 queryUTxOFor networkId nodeSocket queryPoint vk =
   case mkVkAddress networkId vk of
     ShelleyAddressInEra addr ->
@@ -347,3 +363,30 @@ cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
   -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
   -- is the default for cardano-cli
   defaultByronEpochSlots = 21600 :: Word64
+
+-- * Operations on verification/signing keys
+
+verificatioKeyFromSKey :: CardanoSKey -> VerificationKey PaymentKey
+verificatioKeyFromSKey eskey =
+  case eskey of
+    Left sk -> getVerificationKey sk
+    Right sk -> castVerificationKey $ getVerificationKey sk
+
+cardanoVKeyFromSKey :: CardanoSKey -> CardanoVKey
+cardanoVKeyFromSKey eskey =
+  case eskey of
+    Left sk -> Left $ getVerificationKey sk
+    Right sk -> Right $ getVerificationKey sk
+
+cardanoVKeyToHash :: CardanoVKey -> Hash PaymentKey
+cardanoVKeyToHash evk =
+  case evk of
+    Left vk -> verificationKeyHash vk
+    Right vk -> verificationKeyHash $ castVerificationKey vk
+
+unCardanoVKey :: CardanoVKey -> VerificationKey PaymentKey
+unCardanoVKey evk =
+  case evk of
+    Left vk -> vk
+    Right vk -> castVerificationKey vk
+

@@ -13,10 +13,8 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   Key (..),
   NetworkId,
-  PaymentKey,
   ScriptHash,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  SigningKey,
+  ShelleyWitnessSigningKey (WitnessPaymentExtendedKey, WitnessPaymentKey),
   SocketPath,
   TxId,
   TxIn (..),
@@ -41,6 +39,7 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.CardanoClient (
+  CardanoSKey,
   QueryPoint (..),
   awaitTransaction,
   buildTransaction,
@@ -176,9 +175,9 @@ publishHydraScripts ::
   -- | Path to the cardano-node's domain socket
   SocketPath ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
-  SigningKey PaymentKey ->
+  CardanoSKey ->
   IO TxId
-publishHydraScripts networkId socketPath sk = do
+publishHydraScripts networkId socketPath eSk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
@@ -202,12 +201,17 @@ publishHydraScripts networkId socketPath sk = do
       Left e ->
         throwErrorAsException e
       Right body -> do
-        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+        let tx = makeSignedTransaction [mkWitness body] body
         submitTransaction networkId socketPath tx
         void $ awaitTransaction networkId socketPath tx
         return $ getTxId body
  where
-  vk = getVerificationKey sk
+  vk = bimap getVerificationKey getVerificationKey eSk
+
+  mkWitness body =
+    case eSk of
+      Left sk -> makeShelleyKeyWitness body (WitnessPaymentKey sk)
+      Right esk -> makeShelleyKeyWitness body (WitnessPaymentExtendedKey esk)
 
   changeAddress = mkVkAddress networkId vk
 
