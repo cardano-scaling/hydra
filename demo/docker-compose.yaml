@@ -202,6 +202,17 @@ services:
       hydra_net:
         ipv4_address: 172.16.238.5
 
+  tx-submit-api:
+    image: ghcr.io/blinklabs-io/tx-submit-api:latest
+    container_name: tx-submit-api
+    environment:
+      - CARDANO_NODE_SOCKET_PATH=/devnet/node.socket
+      - CARDANO_NODE_NETWORK_MAGIC=42
+      - CARDANO_NETWORK=testnet
+    volumes:
+      - ./devnet:/devnet
+    ports:
+      - "8090:8090"
 
 networks:
   hydra_net:
