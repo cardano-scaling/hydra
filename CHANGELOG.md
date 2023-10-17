@@ -16,6 +16,9 @@ changes.
 
 - Persist network messages on disk in order to gracefully handle crashes
 
+- **BREAKING** Changes to Hydra scripts due to upgrading our toolchain to
+  GHC 9.6.2.
+
 ## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
