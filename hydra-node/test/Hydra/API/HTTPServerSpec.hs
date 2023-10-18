@@ -5,24 +5,28 @@ module Hydra.API.HTTPServerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import Data.Aeson (encode)
+import Cardano.Binary (serialize')
+import Data.Aeson (Result (Error, Success), Value (String), encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
-import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest, TransactionSubmitted, httpApp)
+import qualified Data.ByteString.Base16 as Base16
+import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
+import Hydra.Cardano.Api (toLedgerTx, serialiseToTextEnvelope)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (nullTracer)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
-import Test.QuickCheck.Property (property, withMaxSuccess)
+import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
 
 spec :: Spec
 spec = do
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized DraftCommitTxRequest))
-    roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitTxRequest))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitTxRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
 
     prop "Validate /commit publish api schema" $
@@ -40,7 +44,7 @@ spec = do
     prop "Validate /cardano-transaction publish api schema" $
       property $
         withMaxSuccess 1 $
-          prop_validateJSONSchema @SubmitTxRequest "api.json" $
+          prop_validateJSONSchema @(SubmitTxRequest Tx) "api.json" $
             key "channels"
               . key "/cardano-transaction"
               . key "publish"
@@ -60,6 +64,25 @@ spec = do
               . key "payload"
 
     apiServerSpec
+    describe "SubmitTxRequest accepted tx formats" $ do
+      prop "accepts Base16 cbor encoded bytestring" $
+        forAll (arbitrary @Tx) $ \tx ->
+          let json = String $ decodeUtf8 $ Base16.encode $ serialize' (toLedgerTx tx)
+           in case fromJSON @(SubmitTxRequest Tx) json of
+                Success{} -> property True
+                Error e -> counterexample (toString $ toText e) $ property False
+      prop "accepts json encoded transaction" $
+        forAll (arbitrary @Tx) $ \tx ->
+          let json = toJSON (toLedgerTx tx)
+           in case fromJSON @(SubmitTxRequest Tx) json of
+                Success{} -> property True
+                Error e -> counterexample (toString $ toText e) $ property False
+      prop "accepts transaction encoded as TextEnvelope" $
+        forAll (arbitrary @Tx) $ \tx ->
+          let json = toJSON $ serialiseToTextEnvelope Nothing tx
+           in case fromJSON @(SubmitTxRequest Tx) json of
+                Success{} -> property True
+                Error e -> counterexample (toString $ toText e) $ property False
 
 -- TODO: we should add more tests for other routes here (eg. /commit)
 apiServerSpec :: Spec

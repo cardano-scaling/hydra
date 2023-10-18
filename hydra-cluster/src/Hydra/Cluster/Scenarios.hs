@@ -18,7 +18,7 @@ import CardanoClient (
  )
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson (Value, encode, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
@@ -28,7 +28,7 @@ import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
-  SubmitTxRequest (..),
+  SubmitTxRequest (SubmitTxRequest),
   TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
@@ -71,6 +71,7 @@ import Network.HTTP.Req (
   JsonResponse,
   POST (POST),
   ReqBodyJson (ReqBodyJson),
+  ReqBodyLbs (ReqBodyLbs),
   defaultHttpConfig,
   http,
   port,
@@ -442,21 +443,23 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
-          let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
+          let unsignedRequest = encode unsignedTx
           sendRequest hydraNodeId unsignedRequest
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
-          let signedRequest = SubmitTxRequest{txToSubmit = signTx cardanoBobSk unsignedTx}
+          let signedRequest =
+                encode $ SubmitTxRequest (signTx cardanoBobSk unsignedTx) (Just ())
+
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
   RunningNode{networkId, nodeSocket} = node
-  sendRequest hydraNodeId tx =
+  sendRequest hydraNodeId reqBody =
     runReq defaultHttpConfig $
       req
         POST
         (http "127.0.0.1" /: "cardano-transaction")
-        (ReqBodyJson tx)
+        (ReqBodyLbs reqBody)
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
 

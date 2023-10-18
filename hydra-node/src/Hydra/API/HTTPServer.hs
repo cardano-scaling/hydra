@@ -120,17 +120,27 @@ instance Arbitrary DraftCommitTxRequest where
   shrink = \case
     DraftCommitTxRequest u -> DraftCommitTxRequest <$> shrink u
 
-newtype SubmitTxRequest = SubmitTxRequest
-  { txToSubmit :: Tx
+newtype SubmitTxRequest tx = SubmitTxRequest
+  { txToSubmit :: tx
   }
-  deriving stock (Eq, Show, Generic)
+  deriving newtype (Eq, Show, Arbitrary)
   deriving newtype (ToJSON, FromJSON)
 
-instance Arbitrary SubmitTxRequest where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    SubmitTxRequest u -> SubmitTxRequest <$> shrink u
+-- instance FromJSON SubmitTxRequest where
+--   parseJSON = withObject "SubmitTxRequest" $ \o -> do
+--     mCBOR <- o .:? "asCBOR"
+--     case mCBOR of
+--       Nothing -> do
+--         tx <- o .: "txToSubmit"
+--         pure $ SubmitTxRequest tx Nothing
+--       Just () -> do
+--         tx <- o .: "txToSubmit"
+--         case Base16.decode (T.encodeUtf8 tx) of
+--           Left e -> fail $ show e
+--           Right bytes ->
+--             case deserialiseFromCBOR (proxyToAsType Proxy) bytes of
+--               Left err -> fail $ show err
+--               Right tx' -> pure $ SubmitTxRequest tx' (Just ())
 
 data TransactionSubmitted = TransactionSubmitted
   deriving stock (Eq, Show, Generic)
@@ -302,10 +312,10 @@ handleSubmitUserTx ::
   LBS.ByteString ->
   IO Response
 handleSubmitUserTx directChain body = do
-  case Aeson.eitherDecode' body :: Either String SubmitTxRequest of
+  case Aeson.eitherDecode' body :: Either String Tx of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right SubmitTxRequest{txToSubmit} -> do
+    Right txToSubmit -> do
       try (submitTx txToSubmit) <&> \case
         Left (e :: PostTxError Tx) -> return400 e
         Right _ ->
