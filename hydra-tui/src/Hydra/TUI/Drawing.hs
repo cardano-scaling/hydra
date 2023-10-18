@@ -133,7 +133,7 @@ drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget Name
 drawRemainingContestationPeriod deadline now =
   let remaining = diffUTCTime deadline now
    in if remaining > 0
-        then padLeftRight 1 $ txt "Remaining time to contest: " <+> str (renderTime remaining)
+        then padLeftRight 1 $ vBox [txt "Remaining time to contest: ", str (renderTime remaining)]
         else txt "Contestation period passed, ready to fan out soon."
 
 drawTotalCommitted :: UTxO -> Widget n
