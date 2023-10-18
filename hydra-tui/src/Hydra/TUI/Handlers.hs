@@ -45,11 +45,17 @@ handleEvent ::
   EventM Name RootState ()
 handleEvent cardanoClient client e = do
   handleGlobalEvents e
+  handleAppEventVia handleTick () e
   zoom connectedStateL $ do
     handleAppEventVia handleHydraEventsConnectedState () e
     zoom connectionL $ handleBrickEventsConnection cardanoClient client e
   zoom (logStateL . logMessagesL) $
     handleAppEventVia handleHydraEventsInfo () e
+
+handleTick :: HydraEvent Tx -> EventM Name RootState ()
+handleTick = \case
+  Tick now -> nowL .= now
+  _ -> pure ()
 
 handleAppEventVia :: (e -> EventM n s a) -> a -> BrickEvent w e -> EventM n s a
 handleAppEventVia f x = \case
