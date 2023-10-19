@@ -28,7 +28,6 @@ import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
-  SubmitTxRequest (..),
   TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
@@ -49,6 +48,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   selectLovelace,
   signTx,
+  toLedgerTx,
   toScriptData,
   writeFileTextEnvelope,
  )
@@ -419,7 +419,7 @@ canSubmitTransactionThroughAPI ::
   TxId ->
   IO ()
 canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
+   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
@@ -442,14 +442,16 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
-          let unsignedRequest = SubmitTxRequest{txToSubmit = unsignedTx}
+          let unsignedRequest = toJSON $ toLedgerTx unsignedTx
           sendRequest hydraNodeId unsignedRequest
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
-          let signedRequest = SubmitTxRequest{txToSubmit = signTx cardanoBobSk unsignedTx}
+          let signedTx = signTx cardanoBobSk unsignedTx
+          let signedRequest = toJSON $ toLedgerTx signedTx
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
+
   RunningNode{networkId, nodeSocket} = node
   sendRequest hydraNodeId tx =
     runReq defaultHttpConfig $
