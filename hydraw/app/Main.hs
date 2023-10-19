@@ -2,9 +2,10 @@ module Main where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadAsync (async)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
-import Hydra.Painter (Pixel (..), paintPixel, withClient)
+import Hydra.Painter (Pixel (..), paintPixel, withClient, withClientNoRetry)
 import Network.HTTP.Types.Status (status200, status400, status404)
 import Network.Wai (
   Application,
@@ -23,9 +24,8 @@ main = do
   key <- requireEnv "HYDRAW_CARDANO_SIGNING_KEY"
   host <- parseHost =<< requireEnv "HYDRA_API_HOST"
   network <- parseNetwork =<< requireEnv "HYDRAW_NETWORK"
-  withClient host $ \cnx ->
-    Warp.runSettings settings $
-      Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key cnx)
+  Warp.runSettings settings $
+    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp network key host)
  where
   port = 1337
 
@@ -66,18 +66,20 @@ websocketApp :: Host -> WS.PendingConnection -> IO ()
 websocketApp host pendingConnection = do
   frontend <- WS.acceptRequest pendingConnection
   withClient host $ \backend ->
-    concurrently_
+    race_
       (forever $ WS.receive frontend >>= WS.send backend)
       (forever $ WS.receive backend >>= WS.send frontend)
 
-httpApp :: NetworkId -> FilePath -> WS.Connection -> Application
-httpApp networkId key cnx req send =
+httpApp :: NetworkId -> FilePath -> Host -> Application
+httpApp networkId key host req send =
   case (requestMethod req, pathInfo req) of
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, red, green, blue] -> do
           putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-          paintPixel networkId key cnx Pixel{x, y, red, green, blue}
+          -- | spawn a connection in a new thread
+          void $ async $ withClientNoRetry host $ \cnx ->
+            paintPixel networkId key cnx Pixel{x, y, red, green, blue}
           send $ responseLBS status200 corsHeaders "OK"
         _ ->
           send handleError
