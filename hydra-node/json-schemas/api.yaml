@@ -154,11 +154,15 @@ channels:
     servers:
       - localhost-http
     publish:
-      description: |
-          Cardano transaction to be submitted to the L1 network. Hydra node accepts both json and CBOR formats.
       operationId: submitTxRequest
       message:
-        $ref: "api.yaml#/components/messages/SubmitTxRequest"
+        summary: |
+          Cardano transaction to be submitted to the L1 network.
+        payload:
+          oneOf:
+              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: response
@@ -598,7 +602,7 @@ components:
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "api.yaml#/components/schemas/ransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
               - $ref: "api.yaml#/components/schemas/RawTransaction"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
@@ -832,23 +836,6 @@ components:
                 }
               }
           }
-
-    SubmitTxRequest:
-      title: SubmitTxRequest
-      description: |
-          Use hydra-node to submit a transaction to L1 network. Accepts both json and cbor tx formats.
-      payload:
-        type: object
-        required:
-        - txToSubmit
-        - asCBOR
-        properties:
-          txToSubmit:
-            oneOf:
-             - $ref: "api.yaml#/components/schemas/Transaction"
-             - $ref: "api.yaml#/components/schemas/RawTransaction"
-          asCBOR:
-            type: string
 
     DraftCommitTxResponse:
       title: DraftCommitTxResponse

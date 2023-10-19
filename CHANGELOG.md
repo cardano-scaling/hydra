@@ -10,6 +10,9 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- Hydra node API `submit-transaction` endpoint now accepts three types of
+  encoding: Base16 encoded CBOR string, TextEnvelope type and JSON.
+
 - **BREAKING** Introduce messages resending logic in the `Network`
   layer to improve reliability in the face of transient connection
   issues
