@@ -126,22 +126,6 @@ newtype SubmitTxRequest tx = SubmitTxRequest
   deriving newtype (Eq, Show, Arbitrary)
   deriving newtype (ToJSON, FromJSON)
 
--- instance FromJSON SubmitTxRequest where
---   parseJSON = withObject "SubmitTxRequest" $ \o -> do
---     mCBOR <- o .:? "asCBOR"
---     case mCBOR of
---       Nothing -> do
---         tx <- o .: "txToSubmit"
---         pure $ SubmitTxRequest tx Nothing
---       Just () -> do
---         tx <- o .: "txToSubmit"
---         case Base16.decode (T.encodeUtf8 tx) of
---           Left e -> fail $ show e
---           Right bytes ->
---             case deserialiseFromCBOR (proxyToAsType Proxy) bytes of
---               Left err -> fail $ show err
---               Right tx' -> pure $ SubmitTxRequest tx' (Just ())
-
 data TransactionSubmitted = TransactionSubmitted
   deriving stock (Eq, Show, Generic)
 

@@ -418,8 +418,8 @@ canSubmitTransactionThroughAPI ::
   RunningNode ->
   TxId ->
   IO ()
-canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId = do
-  -- (`finally` returnFundsToFaucet tracer node Alice) $ do
+canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
+   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
