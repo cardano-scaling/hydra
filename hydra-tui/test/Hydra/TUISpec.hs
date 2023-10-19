@@ -218,7 +218,7 @@ withTUITest region action = do
               "Expected bytes not found in frame: "
                 <> decodeUtf8 expected
                 <> "\n"
-                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
+                <> decodeUtf8 unescaped
       , shouldNotRender = \expected -> do
           bytes <- getPicture
           let unescaped = findBytes bytes
@@ -227,7 +227,7 @@ withTUITest region action = do
               "NOT Expected bytes found in frame: "
                 <> decodeUtf8 expected
                 <> "\n"
-                <> decodeUtf8 bytes -- use colored frame (= with escape codes)
+                <> decodeUtf8 unescaped
       }
  where
   -- Split at '\ESC' (27) and drop until 'm' (109)
