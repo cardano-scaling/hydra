@@ -52,7 +52,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), RunOptions (..))
+import Hydra.Options (ChainConfig (..), RunOptions (..), OfflineConfig)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), loadAll)
 

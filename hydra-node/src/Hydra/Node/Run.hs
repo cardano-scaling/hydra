@@ -140,6 +140,8 @@ run opts = do
 
   withCardanoLedgerOffline OfflineConfig{ledgerGenesisFile} protocolParams action = do
     -- TODO(Elaine): double check previous messy branch for any other places where we query node
+    -- TODO(Elaine): instead of reading file, we can embed our own defaults with shelleyGenesisDefaults
+    -- that would be more convenient, but offer less control
     genesisParameters <- readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) ledgerGenesisFile
     globals <- newGlobals $ fromShelleyGenesis genesisParameters
     -- NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately

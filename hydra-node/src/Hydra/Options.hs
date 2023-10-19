@@ -691,11 +691,14 @@ data InvalidOptions
 -- Rules we apply:
 --  - Check if number of parties is bigger than our hardcoded limit
 --      (by looking at loaded hydra or cardano keys and comparing it to the 'maximumNumberOfParties')
+--  - Check if number of parties is more than zero when running in offline mode
+--      (by looking at loaded hydra or cardano keys and checking if the offline config is set)
 --  - Check that number of loaded hydra keys match with the number of loaded cardano keys
 --      (by comparing lengths of the two lists)
 validateRunOptions :: RunOptions -> Either InvalidOptions ()
-validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
+validateRunOptions RunOptions{hydraVerificationKeys, chainConfig, offlineConfig}
   | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
+  | isJust offlineConfig && numberOfOtherParties > 0 = Left MaximumNumberOfPartiesExceeded
   | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
       Left CardanoAndHydraKeysMissmatch
   | otherwise = Right ()
