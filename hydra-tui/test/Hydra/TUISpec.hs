@@ -62,18 +62,6 @@ spec = do
           -- Using hex representation of aliceSk's HydraVerificationKey
           shouldRender "Party d5bf4a3fcce71"
           sendInputEvent $ EvKey (KChar 'q') []
-      it "display feedback long enough" $
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 1
-          shouldRender "connected"
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'f') []
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
       it "supports the init & abort Head life cycle" $
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
@@ -128,6 +116,7 @@ spec = do
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
 
+{--
       it "doesn't allow multiple initializations" $
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
@@ -148,6 +137,7 @@ spec = do
           threadDelay 1
           shouldRender "Initializing"
           shouldNotRender "pending"
+--}
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do

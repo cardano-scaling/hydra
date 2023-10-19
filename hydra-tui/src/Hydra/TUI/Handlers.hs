@@ -11,6 +11,7 @@ import Hydra.Prelude hiding (Down, padLeft)
 
 import Brick
 import Hydra.Cardano.Api
+import Hydra.Chain (PostTxError(NotEnoughFuel, InternalWalletError), reason)
 
 import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm, radioField)
 import qualified Cardano.Api.UTxO as UTxO
@@ -249,6 +250,15 @@ handleHydraEventsInfo = \case
     warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
+  Update TimedServerOutput{time, output = InvalidInput{reason}} ->
+    warn time ("Invalid input error: " <> toText reason)
+  Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
+    case postTxError of
+      NotEnoughFuel -> do
+        warn time "Not enough Fuel. Please provide more to the internal wallet and try again."
+      InternalWalletError{reason} ->
+        warn time reason
+      _ -> warn time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
   _ -> pure ()
 
 partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()
