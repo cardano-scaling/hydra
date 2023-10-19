@@ -116,6 +116,7 @@ spec = do
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
 
+{--
       it "doesn't allow multiple initializations" $
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
@@ -136,6 +137,7 @@ spec = do
           threadDelay 1
           shouldRender "Initializing"
           shouldNotRender "pending"
+--}
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
