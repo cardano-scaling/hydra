@@ -20,7 +20,7 @@ import Hydra.Chain (
   PostChainTx (InitTx),
   PostTxError (NoSeedInput),
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
@@ -28,14 +28,19 @@ import Hydra.HeadLogic (
   StateChanged,
   defaultTTL,
  )
+import qualified Hydra.HeadLogic as HeadLogic
+import Hydra.HeadLogicSpec (inInitialState)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
-import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
+import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
+import qualified Hydra.Logging as Logging
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   HydraNode (..),
-  HydraNodeLog,
+  HydraNodeLog (..),
+  ParameterMismatch (..),
+  checkHeadState,
   createNodeState,
   loadState,
   stepHydraNode,
@@ -145,6 +150,46 @@ spec = parallel $ do
         runToCompletion tracer node
 
         getServerOutputs >>= (`shouldContain` [TxValid{headId = HeadId "1234", transaction = tx1}])
+
+  describe "Configuration mismatch" $ do
+    let defaultEnv =
+          Environment
+            { party = alice
+            , signingKey = aliceSk
+            , otherParties = [bob]
+            , contestationPeriod = cperiod
+            }
+        headState = inInitialState [alice, bob]
+
+    it "accepts configuration consistent with HeadState" $
+      showLogsOnFailure $ \tracer -> do
+        checkHeadState tracer defaultEnv headState `shouldReturn` ()
+
+    it "throws exception given contestation period differs" $
+      showLogsOnFailure $ \tracer -> do
+        let invalidPeriodEnv =
+              defaultEnv{HeadLogic.contestationPeriod = defaultContestationPeriod}
+        checkHeadState tracer invalidPeriodEnv headState
+          `shouldThrow` \(_ :: ParameterMismatch) -> True
+
+    it "throws exception given parties differ" $
+      showLogsOnFailure $ \tracer -> do
+        let invalidPeriodEnv = defaultEnv{otherParties = []}
+        checkHeadState tracer invalidPeriodEnv headState
+          `shouldThrow` \(_ :: ParameterMismatch) -> True
+
+    it "log error given configuration mismatches head state" $ do
+      logs <- newTVarIO []
+      let invalidPeriodEnv = defaultEnv{otherParties = []}
+          isContestationPeriodMismatch = \case
+            Misconfiguration{} -> True
+            _ -> False
+
+      checkHeadState (traceInTVar logs) invalidPeriodEnv headState
+        `catch` \(_ :: ParameterMismatch) -> pure ()
+
+      entries <- fmap Logging.message <$> readTVarIO logs
+      entries `shouldSatisfy` any isContestationPeriodMismatch
 
 createPersistenceInMemory :: MonadLabelledSTM m => m (PersistenceIncremental a m)
 createPersistenceInMemory = do
