@@ -59,12 +59,9 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-      # TUI specs are flaky. They are failing because of SIGSEGV.
-      # There is an open issue to tackle this problem. https://github.com/input-output-hk/hydra/issues/590
-      continue-on-error: true
       run: |
         cd ${{ matrix.package  }}
-        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
+        nix develop .?submodules=1#tests.${{ matrix.package }} --build
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
