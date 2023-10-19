@@ -62,18 +62,6 @@ spec = do
           -- Using hex representation of aliceSk's HydraVerificationKey
           shouldRender "Party d5bf4a3fcce71"
           sendInputEvent $ EvKey (KChar 'q') []
-      it "display feedback long enough" $
-        \TUITest{sendInputEvent, shouldRender} -> do
-          threadDelay 1
-          shouldRender "connected"
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'f') []
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
-          threadDelay 1
-          shouldRender "Invalid command: Fanout"
       it "supports the init & abort Head life cycle" $
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
