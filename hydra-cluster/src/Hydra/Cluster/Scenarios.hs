@@ -18,7 +18,7 @@ import CardanoClient (
  )
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
-import Data.Aeson (Value, encode, object, (.=))
+import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
@@ -28,7 +28,6 @@ import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   ScriptInfo (..),
-  SubmitTxRequest (SubmitTxRequest),
   TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
@@ -49,6 +48,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   selectLovelace,
   signTx,
+  toLedgerTx,
   toScriptData,
   writeFileTextEnvelope,
  )
@@ -71,7 +71,6 @@ import Network.HTTP.Req (
   JsonResponse,
   POST (POST),
   ReqBodyJson (ReqBodyJson),
-  ReqBodyLbs (ReqBodyLbs),
   defaultHttpConfig,
   http,
   port,
@@ -419,8 +418,8 @@ canSubmitTransactionThroughAPI ::
   RunningNode ->
   TxId ->
   IO ()
-canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
+canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId = do
+  -- (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
@@ -443,23 +442,23 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
-          let unsignedRequest = encode unsignedTx
+          let unsignedRequest = toJSON $ toLedgerTx unsignedTx
           sendRequest hydraNodeId unsignedRequest
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
-          let signedRequest =
-                encode $ SubmitTxRequest (signTx cardanoBobSk unsignedTx) (Just ())
-
+          let signedTx = signTx cardanoBobSk unsignedTx
+          let signedRequest = toJSON $ toLedgerTx signedTx
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
+
   RunningNode{networkId, nodeSocket} = node
-  sendRequest hydraNodeId reqBody =
+  sendRequest hydraNodeId tx =
     runReq defaultHttpConfig $
       req
         POST
         (http "127.0.0.1" /: "cardano-transaction")
-        (ReqBodyLbs reqBody)
+        (ReqBodyJson tx)
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
 
