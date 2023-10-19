@@ -158,6 +158,7 @@ channels:
       message:
         summary: |
           Cardano transaction to be submitted to the L1 network.
+          Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
         payload:
           oneOf:
               - $ref: "api.yaml#/components/schemas/RawTransaction"
