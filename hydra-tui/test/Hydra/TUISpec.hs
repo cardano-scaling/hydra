@@ -116,28 +116,8 @@ spec = do
           shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
 
-{--
-      it "doesn't allow multiple initializations" $
-        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
-          threadDelay 1
-          shouldRender "Idle"
-          shouldNotRender "pending"
-          sendInputEvent $ EvKey (KChar 'i') []
-          -- NOTE: The timing is important here as it needs to be faster than
-          -- the devnet block production
-          threadDelay 0.01
-          shouldRender "pending"
-          shouldNotRender "Transition already pending"
-          -- we expect the application to prevent this and also to inform us about it
-          sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 0.01
-          shouldRender "Transition already pending"
-          shouldNotRender "An error happened"
-          -- Eventualy the first Init should be successful
-          threadDelay 1
-          shouldRender "Initializing"
-          shouldNotRender "pending"
---}
+  it "doesn't allow multiple initializations" $
+    pendingWith "The logic of the TUI has changed and this test should be rewritten accordingly"
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
