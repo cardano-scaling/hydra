@@ -61,7 +61,7 @@ jobs:
         TERM: "xterm"
       run: |
         cd ${{ matrix.package  }}
-        nix develop .?submodules=1#tests.${{ matrix.package }} --command tests
+        nix develop .?submodules=1#tests.${{ matrix.package }} --build
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v3
