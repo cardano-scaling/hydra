@@ -364,5 +364,5 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
-    , offlineConfig = Nothing --TODO(Elaine)
+    , offlineConfig = Nothing
     }

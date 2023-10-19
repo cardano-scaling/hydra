@@ -154,21 +154,7 @@ mkFakeL1Chain localChainState tracer ctx ownHeadId callback =
       let headId = ownHeadId
       _ <- case tx of
                 InitTx{headParameters=HeadParameters contestationPeriod parties} ->
-                  -- should only be one party, us, since offlinemode
-                  -- _us  should == ownParty ctx
-                  -- TODO: need to finish figuring out how the headId is generated, its parsed from tx in headOutput= where block in observeInitTx
-                  -- NOTE: figured this out see the txout datum in initTx that is parsed back
-                  -- FIXME: i have not been able to figure this out its like, just the raw bytestring representation of the "headpolicyid" of the seedtxin which you can get from the wallet via getSeedInput
-                  -- it seems opaque, and since its the hash of something in the first place, i dont think it matters what we set it to
-
-                  -- we're not updating the L1 chainstate at all, i think that should be fine
-
                   callback $ Observation { newChainState = cst, observedTx = OnInitTx {headId = headId, parties=parties, contestationPeriod}}
-                -- (CommitTx{..}) ->
-                --   -- normally this would be where we handle client sending commit event by initializing the L1 state
-                --   -- and then that L1 tx would get chainsycned, which we then would parse, and do the next state transition based on a finished commit transition (wait for collectcom)
-                --   -- but since we're in offline mode, and have no real L1, we just do the next state transition here
-                --   callback $ Observation { observedTx = OnCommitTx {..}}
                 AbortTx{} ->
                   callback $ Observation { newChainState = cst, observedTx = OnAbortTx {}}
                 CollectComTx{} ->
