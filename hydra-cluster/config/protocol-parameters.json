@@ -349,8 +349,8 @@
     },
     "decentralization": null,
     "executionUnitPrices": {
-        "priceMemory": 5.77e-2,
-        "priceSteps": 7.21e-5
+        "priceMemory": 0,
+        "priceSteps": 0
     },
     "extraPraosEntropy": null,
     "maxBlockBodySize": 65536,
@@ -379,8 +379,8 @@
     "stakePoolDeposit": 0,
     "stakePoolTargetNum": 100,
     "treasuryCut": 0.1,
-    "txFeeFixed": 155381,
-    "txFeePerByte": 44,
-    "utxoCostPerByte": 4310,
+    "txFeeFixed": 0,
+    "txFeePerByte": 0,
+    "utxoCostPerByte": 0,
     "utxoCostPerWord": null
 }
