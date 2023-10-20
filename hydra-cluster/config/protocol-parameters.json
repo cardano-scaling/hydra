@@ -382,5 +382,5 @@
     "txFeeFixed": 0,
     "txFeePerByte": 0,
     "utxoCostPerByte": 0,
-    "utxoCostPerWord": null
+    "utxoCostPerWord": 0
 }
