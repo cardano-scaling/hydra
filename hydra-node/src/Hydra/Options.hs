@@ -159,18 +159,41 @@ ledgerGenesisFileParser =
         <> help "File containing ledger genesis parameters."
     )
 
+data OfflineUTxOWriteBackConfig = WriteBackToInitialUTxO | WriteBackToUTxOFile FilePath
+  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
 data OfflineConfig = OfflineConfig
   {
     initialUTxOFile :: FilePath
   , ledgerGenesisFile :: FilePath
   -- TODO(Elaine): need option to dump final utxo to file without going thru snapshot
+  , utxoWriteBack :: Maybe OfflineUTxOWriteBackConfig
   } deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+-- TODO(Elaine): name this
+offlineUTxOWriteBackOptionsParser :: Parser (Maybe OfflineUTxOWriteBackConfig)
+offlineUTxOWriteBackOptionsParser =
+  optional $
+    asum
+      [ flag' WriteBackToInitialUTxO
+          ( long "write-back-to-initial-utxo"
+              <> help "Write back to initial UTxO file."
+          )
+      , WriteBackToUTxOFile
+          <$> option
+            str
+            ( long "write-back-to-utxo-file"
+                <> metavar "FILE"
+                <> help "Write back to given UTxO file."
+            )
+      ]
 
 offlineOptionsParser :: Parser OfflineConfig
 offlineOptionsParser =
   OfflineConfig
     <$> initialUTxOFileParser
     <*> ledgerGenesisFileParser
+    <*> offlineUTxOWriteBackOptionsParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -240,13 +263,20 @@ instance Arbitrary OfflineConfig where
   arbitrary = do
     ledgerGenesisFile <- genFilePath "ledgerGenesis"
     initialUTxOFile <- genFilePath "utxo.json"
+    utxoWriteBack <- arbitrary
     -- writeFileBS initialUTxOFile "{}" 
 
     pure $
       OfflineConfig {
         initialUTxOFile
       , ledgerGenesisFile
+      , utxoWriteBack
       }
+  shrink = genericShrink
+
+instance Arbitrary OfflineUTxOWriteBackConfig where
+  arbitrary = pure $ WriteBackToInitialUTxO --FIXME(Elaine): this wont be used so theres no need to fix during rebase
+
   shrink = genericShrink
 
 runOptionsParser :: Parser RunOptions

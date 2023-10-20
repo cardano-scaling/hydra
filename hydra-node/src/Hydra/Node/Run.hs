@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
   StandardCrypto,
+  Tx,
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
@@ -24,6 +25,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
+  StateChanged (..),
   defaultTTL,
  )
 import Hydra.Ledger.Cardano qualified as Ledger
@@ -52,13 +54,19 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile),
+  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile, utxoWriteBack),
+  OfflineUTxOWriteBackConfig (..),
   RunOptions (..),
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
 
 import Hydra.HeadId (HeadId (..))
+
+import Data.Aeson qualified as Aeson
+import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll))
+import Hydra.Snapshot (Snapshot (Snapshot), utxo)
+import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
@@ -94,7 +102,7 @@ run opts = do
             Just offlineConfig' -> Left offlineConfig'
 
       withCardanoLedger onlineOrOfflineConfig pparams $ \ledger -> do
-        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+        persistence <- createStateChangePersistence (persistenceDir <> "/state") (leftToMaybe onlineOrOfflineConfig)
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
@@ -158,6 +166,37 @@ run opts = do
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
+
+createStateChangePersistence :: (MonadIO m, MonadThrow m) => FilePath -> Maybe OfflineConfig -> m (PersistenceIncremental (StateChanged Tx) m)
+createStateChangePersistence persistenceFilePath = \case
+  Just OfflineConfig{initialUTxOFile, utxoWriteBack = Just writeBackConfig} ->
+    createPersistenceWithUTxOWriteBack persistenceFilePath $ case writeBackConfig of
+      WriteBackToInitialUTxO -> initialUTxOFile
+      WriteBackToUTxOFile customFile -> customFile
+  _ -> createPersistenceIncremental persistenceFilePath
+
+-- TODO(Elaine): move this elsewhere
+createPersistenceWithUTxOWriteBack ::
+  (MonadIO m, MonadThrow m) =>
+  FilePath ->
+  FilePath ->
+  m (PersistenceIncremental (StateChanged Tx) m)
+createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
+  PersistenceIncremental{append, loadAll} <- createPersistenceIncremental persistenceFilePath
+  pure
+    PersistenceIncremental
+      { loadAll
+      , append = \stateChange -> do
+          append stateChange
+          case stateChange of
+            -- TODO(Elaine): do we want to do this on snapshot confirmation or on transaction over local utxo
+            -- see onOpenNetworkReqTx
+            -- TransactionAppliedToLocalUTxO{tx, newLocalUTxO} ->
+            --   writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode newLocalUTxO
+            Hydra.HeadLogic.SnapshotConfirmed{snapshot = Snapshot{utxo}} ->
+              writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode utxo
+            _ -> pure ()
+      }
 
 -- TODO(ELAINE): figure out a less strange way to do this
 
