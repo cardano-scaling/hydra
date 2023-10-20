@@ -33,7 +33,7 @@ let
   buildInputs = [
     # Build essentials
     pkgs.git
-    pkgs.pkgconfig
+    pkgs.pkg-config
     cabal
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.cabal-plan
@@ -118,7 +118,7 @@ let
     buildInputs = libs ++ [
       pkgs.haskell-nix.compiler.${compiler}
       pkgs.cabal-install
-      pkgs.pkgconfig
+      pkgs.pkg-config
     ] ++ buildInputs ++ devInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
