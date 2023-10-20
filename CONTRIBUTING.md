@@ -170,7 +170,7 @@ During development
 + Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
 + Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
 + Ensure `unstable` version of docker images is used in demo
-  - `sed -i -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`
+  - `sed -i.bak -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`
 + All `hydra-` packages are versioned the same, at latest on release their versions are aligned.
 + Other packages are versioned independently of `hydra-` packages and keep a dedicated changelog.
 
