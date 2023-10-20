@@ -3,8 +3,10 @@ name: Static executable
 
 on:
   push:
-    branches: [ "master" ]
-    tags: [ "*.*.*" ]
+    branches:
+    - "**"
+    tags:
+    - "*.*.*"
 
 jobs:
   build-executables:
