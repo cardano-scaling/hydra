@@ -222,7 +222,8 @@ prepareTxScripts tx utxo = do
   -- Fully applied UPLC programs which we could run using the cekMachine
   programs <- forM results $ \(PlutusWithContext (Plutus _ (BinaryPlutus script)) arguments _exUnits _costModel) -> do
     let pArgs = Ledger.getPlutusData <$> arguments
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion script pArgs
+    x <- left show $ Plutus.deserialiseScript Plutus.PlutusV2 protocolVersion script
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion x pArgs
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat . UnrestrictedProgram <$> programs
@@ -232,11 +233,8 @@ prepareTxScripts tx utxo = do
   lutxo = toLedgerUTxO utxo
 
   protocolVersion =
-    let ProtVer{pvMajor, pvMinor} = pparams ^. ppProtocolVersionL
-     in Plutus.ProtocolVersion
-          { Plutus.pvMajor = getVersion pvMajor
-          , Plutus.pvMinor = fromIntegral pvMinor
-          }
+    let ProtVer{pvMajor} = pparams ^. ppProtocolVersionL
+     in Plutus.MajorProtocolVersion $ getVersion pvMajor
 
 -- * Fixtures
 

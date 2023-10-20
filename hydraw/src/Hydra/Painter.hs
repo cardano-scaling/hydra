@@ -65,11 +65,11 @@ mkPaintTx ::
   Pixel ->
   Either TxBodyError Tx
 mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
-  body <- createAndValidateTransactionBody bodyContent
-  pure $ signShelleyTransaction body [WitnessPaymentKey sk]
+  body <- createAndValidateTransactionBody BabbageEra bodyContent
+  pure $ signShelleyTransaction ShelleyBasedEraBabbage body [WitnessPaymentKey sk]
  where
   bodyContent =
-    defaultTxBodyContent
+    defaultTxBodyContent BabbageEra
       & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
       & addTxOut (toTxContext txOut)
       & setTxFee (TxFeeExplicit $ Lovelace 0)

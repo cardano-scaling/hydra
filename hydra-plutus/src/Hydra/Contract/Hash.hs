@@ -24,7 +24,7 @@ import PlutusLedgerApi.V2 (
  )
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
-import PlutusTx.Builtins (blake2b_256, equalsByteString)
+import PlutusTx.Builtins (equalsByteString)
 import PlutusTx.IsData.Class (ToData (..))
 
 data HashAlgorithm

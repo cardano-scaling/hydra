@@ -100,7 +100,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   validityLines =
     [ "== VALIDITY"
-    , show (txValidityRange content)
+    , show (txValidityLowerBound content)
+    , show (txValidityUpperBound content)
     ]
 
   mintLines =

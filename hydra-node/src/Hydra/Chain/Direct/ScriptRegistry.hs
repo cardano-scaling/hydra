@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   NetworkId,
   PaymentKey,
   ScriptHash,
+  ShelleyBasedEra (..),
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   SocketPath,
@@ -201,7 +202,7 @@ publishHydraScripts networkId socketPath sk = do
       Left e ->
         throwErrorAsException e
       Right body -> do
-        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+        let tx = makeSignedTransaction [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey sk)] body
         submitTransaction networkId socketPath tx
         void $ awaitTransaction networkId socketPath tx
         return $ getTxId body

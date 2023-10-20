@@ -39,8 +39,8 @@ buildScriptAddress script networkId =
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
 buildRaw ins outs fee =
-  createAndValidateTransactionBody $
-    defaultTxBodyContent
+  createAndValidateTransactionBody BabbageEra $
+    defaultTxBodyContent BabbageEra
       & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       & setTxOuts outs
       & setTxFee (TxFeeExplicit fee)
@@ -50,6 +50,7 @@ calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
   let tx = makeSignedTransaction [] body
       noByronWitnesses = 0
    in estimateTransactionFee
+        ShelleyBasedEraBabbage
         networkId
         (protocolParamTxFeeFixed pparams)
         (protocolParamTxFeePerByte pparams)
@@ -73,7 +74,7 @@ defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 sign :: SigningKey PaymentKey -> TxBody -> Tx
 sign signingKey body =
   makeSignedTransaction
-    [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
+    [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey signingKey)]
     body
 
 -- | Submit a transaction to a 'RunningNode'

@@ -58,7 +58,6 @@ txMintAssets :: Tx era -> [(AssetId, Quantity)]
 txMintAssets =
   asList . txMintValue . getTxBodyContent . getTxBody
  where
-  getTxBodyContent (TxBody x) = x
   asList = \case
     TxMintNone -> []
     TxMintValue _ val _ -> valueToList val

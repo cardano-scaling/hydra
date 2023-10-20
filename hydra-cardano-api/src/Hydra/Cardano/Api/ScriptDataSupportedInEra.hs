@@ -5,10 +5,10 @@ import Hydra.Cardano.Api.Prelude
 -- | Smart-constructor for 'ScriptDataSupportedInEra' to write functions
 -- manipulating scripts that do not commit to a particular era.
 class HasScriptData era where
-  scriptDataSupportedInEra :: ScriptDataSupportedInEra era
+  scriptDataSupportedInEra :: AlonzoEraOnwards era
 
 instance HasScriptData AlonzoEra where
-  scriptDataSupportedInEra = ScriptDataInAlonzoEra
+  scriptDataSupportedInEra = AlonzoEraOnwardsAlonzo
 
 instance HasScriptData BabbageEra where
-  scriptDataSupportedInEra = ScriptDataInBabbageEra
+  scriptDataSupportedInEra = AlonzoEraOnwardsBabbage

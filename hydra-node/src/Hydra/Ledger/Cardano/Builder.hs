@@ -21,7 +21,7 @@ unsafeBuildTransaction builder =
   either
     (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
     (`Tx` mempty)
-    . createAndValidateTransactionBody
+    . createAndValidateTransactionBody BabbageEra
     $ builder
 
 -- | A runtime exception to capture (programmer) failures when building
@@ -61,7 +61,8 @@ emptyTxBody =
     TxTotalCollateralNone
     TxReturnCollateralNone
     (TxFeeExplicit 0)
-    (TxValidityNoLowerBound, TxValidityNoUpperBound)
+    TxValidityNoLowerBound
+    TxValidityNoUpperBound
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
@@ -144,13 +145,9 @@ burnTokens script redeemer assets =
 -- | Set the upper validity bound for this transaction to some 'SlotNo'.
 setValidityUpperBound :: SlotNo -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 setValidityUpperBound slotNo tx =
-  tx{txValidityRange = (lower, TxValidityUpperBound slotNo)}
- where
-  (lower, _upper) = txValidityRange tx
+  tx{txValidityUpperBound = TxValidityUpperBound slotNo}
 
 -- | Set the lower validity bound for this transaction to some 'SlotNo'.
 setValidityLowerBound :: SlotNo -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 setValidityLowerBound slotNo tx =
-  tx{txValidityRange = (TxValidityLowerBound slotNo, upper)}
- where
-  (_lower, upper) = txValidityRange tx
+  tx{txValidityLowerBound = TxValidityLowerBound slotNo}

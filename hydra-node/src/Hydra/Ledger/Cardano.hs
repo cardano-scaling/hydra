@@ -147,8 +147,8 @@ mkSimpleTx ::
   SigningKey PaymentKey ->
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
-  body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  body <- createAndValidateTransactionBody BabbageEra bodyContent
+  let witnesses = [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
@@ -180,8 +180,8 @@ mkRangedTx ::
   (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) ->
   Either TxBodyError Tx
 mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk (validityLowerBound, validityUpperBound) = do
-  body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  body <- createAndValidateTransactionBody BabbageEra bodyContent
+  let witnesses = [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
@@ -197,10 +197,8 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
               | valueOut /= valueIn
               ]
       , txFee = TxFeeExplicit $ Lovelace 0
-      , txValidityRange =
-          ( fromMaybe TxValidityNoLowerBound validityLowerBound
-          , fromMaybe TxValidityNoUpperBound validityUpperBound
-          )
+      , txValidityLowerBound = fromMaybe TxValidityNoLowerBound validityLowerBound
+      , txValidityUpperBound = fromMaybe TxValidityNoUpperBound validityUpperBound
       }
 
 -- | Utility function to "adjust" a `UTxO` set given a `Tx`

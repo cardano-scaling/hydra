@@ -25,6 +25,7 @@ import Data.Default (def)
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
+  CardanoEra (..),
   ExecutionUnits (..),
   IsScriptWitnessInCtx (scriptWitnessInCtx),
   LedgerEpochInfo (LedgerEpochInfo),
@@ -119,8 +120,8 @@ transactionBodyFromScript validatorScript redeemer =
  where
   body =
     either (error . show) id $
-      createAndValidateTransactionBody $
-        defaultTxBodyContent
+      createAndValidateTransactionBody BabbageEra $
+        defaultTxBodyContent BabbageEra
           & addTxIn (defaultTxIn, scriptWitness)
           & setTxInsCollateral (TxInsCollateral mempty)
           & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)

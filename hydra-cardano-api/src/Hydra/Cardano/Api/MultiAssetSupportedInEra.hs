@@ -5,13 +5,13 @@ import Hydra.Cardano.Api.Prelude
 -- | Smart-constructor for 'MultiAssetSupportedInEra' to write functions
 -- manipulating values that do not commit to a particular era.
 class HasMultiAsset era where
-  multiAssetSupportedInEra :: MultiAssetSupportedInEra era
+  multiAssetSupportedInEra :: MaryEraOnwards era
 
 instance HasMultiAsset MaryEra where
-  multiAssetSupportedInEra = MultiAssetInMaryEra
+  multiAssetSupportedInEra = MaryEraOnwardsMary
 
 instance HasMultiAsset AlonzoEra where
-  multiAssetSupportedInEra = MultiAssetInAlonzoEra
+  multiAssetSupportedInEra = MaryEraOnwardsAlonzo
 
 instance HasMultiAsset BabbageEra where
-  multiAssetSupportedInEra = MultiAssetInBabbageEra
+  multiAssetSupportedInEra = MaryEraOnwardsBabbage

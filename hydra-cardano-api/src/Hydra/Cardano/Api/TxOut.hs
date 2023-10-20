@@ -46,7 +46,7 @@ mkTxOutAutoBalance ::
   ReferenceScript Era ->
   TxOut CtxTx Era
 mkTxOutAutoBalance pparams addr val dat ref =
-  let out = TxOut addr (TxOutValue MultiAssetInBabbageEra val) dat ref
+  let out = TxOut addr (TxOutValue MaryEraOnwardsBabbage val) dat ref
       minValue = minUTxOValue pparams out
    in modifyTxOutValue (const minValue) out
 

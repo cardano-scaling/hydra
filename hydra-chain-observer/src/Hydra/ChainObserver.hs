@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
+  CardanoEra (..),
   CardanoMode,
   ChainPoint,
   ChainSyncClient,
@@ -152,7 +153,7 @@ chainSyncClient tracer networkId startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode (Block _header txs) BabbageEraInCardanoMode -> do
+            BlockInMode BabbageEra (Block _header txs) BabbageEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
               let (utxo', logs) = observeAll networkId utxo txs
               forM_ logs (traceWith tracer)
