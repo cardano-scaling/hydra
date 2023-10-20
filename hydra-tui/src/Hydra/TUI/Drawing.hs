@@ -87,11 +87,7 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo = \case
-  OpenHome ->
-    drawUTxO
-      (highlightOwnAddress ownAddress)
-      ownAddress
-      utxo
+  OpenHome -> drawUTxO (highlightOwnAddress ownAddress) utxo
   SelectingUTxO x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
@@ -107,11 +103,7 @@ drawFocusPanelFinal networkId vk utxo =
     txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
       <=> padLeft
         (Pad 2)
-        ( drawUTxO
-            (highlightOwnAddress ownAddress)
-            ownAddress
-            utxo
-        )
+        ( drawUTxO (highlightOwnAddress ownAddress) utxo )
  where
   ownAddress = mkVkAddress networkId vk
 
@@ -240,11 +232,11 @@ showHeadState = \case
     Closed{} -> "Closed"
     Final{} -> "Final"
 
-drawUTxO :: (AddressInEra -> Widget n) -> AddressInEra -> UTxO -> Widget n
-drawUTxO f ownAddress utxo =
+drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
+drawUTxO f utxo =
   let byAddress =
         Map.foldrWithKey
-          (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (if addr == ownAddress then Map.singleton addr [(k, v)] else mempty))
+          (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
           mempty
           $ UTxO.toMap utxo
    in vBox
