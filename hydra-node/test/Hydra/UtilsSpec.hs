@@ -4,6 +4,7 @@ import Hydra.Cardano.Api (FileError)
 import Hydra.Options (GenerateKeyPair (GenerateKeyPair))
 import Hydra.Prelude
 import Hydra.Utils (genHydraKeys)
+import System.FilePath ((</>))
 import Test.Hydra.Prelude
 
 spec :: Spec
@@ -13,3 +14,12 @@ spec = do
     case result of
       Left (_ :: FileError e) -> pure ()
       Right _ -> expectationFailure "getHydraKeys should have failed with FileError"
+
+  it "Should throw if the file already exists" $
+    withTempDir "gen-hydra-keys" $ \tmp -> do
+      writeFile (tmp </> "hydra") "hydra key"
+      result <- genHydraKeys (GenerateKeyPair $ tmp </> "hydra")
+      print result
+      case result of
+        Left (_ :: FileError e) -> pure ()
+        Right _ -> expectationFailure "getHydraKeys should have failed with FileError"
