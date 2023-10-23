@@ -10,6 +10,9 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- Improved `gen-hydra-keys` command to not overwrite keys if they are present
+  already.
+
 - Hydra node API `submit-transaction` endpoint now accepts three types of
   encoding: Base16 encoded CBOR string, TextEnvelope type and JSON.
 
