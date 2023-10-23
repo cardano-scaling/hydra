@@ -46,12 +46,19 @@ handleEvent ::
   EventM Name RootState ()
 handleEvent cardanoClient client e = do
   handleGlobalEvents e
+  handleVtyEventVia (handleExtraHotkeys (handleEvent cardanoClient client)) () e
   handleAppEventVia handleTick () e
   zoom connectedStateL $ do
     handleAppEventVia handleHydraEventsConnectedState () e
     zoom connectionL $ handleBrickEventsConnection cardanoClient client e
   zoom (logStateL . logMessagesL) $
     handleAppEventVia handleHydraEventsInfo () e
+
+handleExtraHotkeys :: (BrickEvent w e -> EventM n s ()) -> Vty.Event -> EventM n s ()
+handleExtraHotkeys f = \case
+  EvKey KDown [] -> f $ VtyEvent $ EvKey (KChar '\t') []
+  EvKey KUp [] -> f $ VtyEvent $ EvKey KBackTab []
+  _ -> pure ()
 
 handleTick :: HydraEvent Tx -> EventM Name RootState ()
 handleTick = \case
@@ -62,6 +69,12 @@ handleAppEventVia :: (e -> EventM n s a) -> a -> BrickEvent w e -> EventM n s a
 handleAppEventVia f x = \case
   AppEvent e -> f e
   _ -> pure x
+
+handleVtyEventVia :: (Vty.Event -> EventM n s a) -> a -> BrickEvent w e -> EventM n s a
+handleVtyEventVia f x = \case
+  VtyEvent e -> f e
+  _ -> pure x
+
 
 handleGlobalEvents :: BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
 handleGlobalEvents = \case
