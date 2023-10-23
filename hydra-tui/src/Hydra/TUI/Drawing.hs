@@ -29,15 +29,22 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Network (NodeId)
 import Hydra.Party (Party (..))
 import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
-import Hydra.TUI.Logging.Types (LogMessage (..), logMessagesL)
+import Hydra.TUI.Logging.Types (LogMessage (..), logMessagesL, LogVerbosity (..), logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Lens.Micro ((^.), (^?), _head)
 import Paths_hydra_tui (version)
 
 -- | Main draw function
-draw :: Client Tx m -> CardanoClient -> RootState -> [Widget Name]
-draw Client{sk} CardanoClient{networkId} s =
+
+draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
+draw cardanoClient hydraClient s =
+  case s ^. logStateL . logVerbosityL of
+    Full -> drawScreenFullLog s
+    Short -> drawScreenShortLog cardanoClient hydraClient s
+
+drawScreenShortLog :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
+drawScreenShortLog CardanoClient{networkId} Client{sk} s =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -65,8 +72,19 @@ draw Client{sk} CardanoClient{networkId} s =
               , vBorder
               , hLimit 50 $ padLeftRight 1 $ drawCommandList s
               ]
+          , hBorder
           , maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
           ]
+
+drawScreenFullLog :: RootState -> [Widget n]
+drawScreenFullLog s = pure $
+  withBorderStyle ascii $
+    joinBorders $
+      vBox
+        [ drawHeadState (s ^. connectedStateL)
+        , hBorder
+        , drawUserFeedbackFull (s ^. logStateL . logMessagesL)
+        ]
 
 drawCommandList :: RootState -> Widget n
 drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
@@ -142,12 +160,15 @@ drawRemainingParties k xs =
 drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
 drawPartiesWithOwnHighlighted k = drawParties (\p -> drawParty (if k == p then own else mempty) p)
 
-drawUserFeedbackFull :: LogMessage -> Widget n
-drawUserFeedbackFull LogMessage{message, severity, time} =
-  let feedbackText = show time <> " | " <> message
-      feedbackChunks = chunksOf 150 feedbackText
-      feedbackDecorator = withAttr (severityToAttr severity) . txt
-   in vBox $ fmap feedbackDecorator feedbackChunks
+drawUserFeedbackFull :: [LogMessage] -> Widget n
+drawUserFeedbackFull = vBox . fmap f
+ where
+  f :: LogMessage -> Widget n
+  f (LogMessage{message, severity, time}) =
+    let feedbackText = show time <> " | " <> message
+        feedbackChunks = chunksOf 150 feedbackText
+        feedbackDecorator = withAttr (severityToAttr severity) . txt
+     in vBox $ fmap feedbackDecorator feedbackChunks
 
 drawUserFeedbackShort :: LogMessage -> Widget n
 drawUserFeedbackShort (LogMessage{message, severity, time}) =

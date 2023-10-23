@@ -34,7 +34,7 @@ import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Handlers.Global (handleVtyGlobalEvents)
 import Hydra.TUI.Logging.Handlers (info, report, warn)
-import Hydra.TUI.Logging.Types (LogMessage, LogVerbosity (..), Severity (..), logMessagesL)
+import Hydra.TUI.Logging.Types (LogMessage, LogVerbosity (..), Severity (..), logMessagesL, LogState, logVerbosityL)
 import Hydra.TUI.Model
 import Lens.Micro.Mtl (use, (%=), (.=))
 import qualified Prelude
@@ -47,6 +47,7 @@ handleEvent ::
 handleEvent cardanoClient client e = do
   handleGlobalEvents e
   handleVtyEventVia (handleExtraHotkeys (handleEvent cardanoClient client)) () e
+  zoom logStateL $ handleVtyEventVia handleVtyEventsLogState () e
   handleAppEventVia handleTick () e
   zoom connectedStateL $ do
     handleAppEventVia handleHydraEventsConnectedState () e
@@ -298,12 +299,20 @@ handleVtyEventsConnection ::
 handleVtyEventsConnection cardanoClient hydraClient e = do
   zoom headStateL $ handleVtyEventsHeadState cardanoClient hydraClient e
 
+handleVtyEventsLogState :: Vty.Event -> EventM Name LogState ()
+handleVtyEventsLogState = \case
+  EvKey (KChar '<') [] -> scroll Up
+  EvKey (KChar '>') [] -> scroll Down
+  EvKey (KChar 'h') [] -> logVerbosityL .= Full
+  EvKey (KChar 's') [] -> logVerbosityL .= Short
+  _ -> pure ()
+
 --
 -- View
 --
-scroll :: Direction -> EventM Name LogVerbosity ()
+scroll :: Direction -> EventM Name LogState ()
 scroll direction = do
-  x <- use id
+  x <- use logVerbosityL
   case x of
     Full -> do
       let vp = viewportScroll fullFeedbackViewportName
