@@ -51,7 +51,7 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
         vBox
           [ hBox
               [ padLeftRight 1 $
-                  hLimit 50 $
+                  hLimit 40 $
                     vBox
                       [ drawTUIVersion version <+> padLeft (Pad 1) (drawConnectedStatus s)
                       , drawPeersIfConnected (s ^. connectedStateL)
@@ -70,21 +70,31 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
                         Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
                     ]
               , vBorder
-              , hLimit 50 $ padLeftRight 1 $ drawCommandList s
+              , hLimit 20 $ joinBorders $ drawCommandPanel s
               ]
           , hBorder
-          , maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
+          , viewport shortFeedbackViewportName Horizontal $ maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
           ]
 
-drawScreenFullLog :: RootState -> [Widget n]
+drawCommandPanel :: RootState -> Widget n
+drawCommandPanel s = vBox [ drawCommandList s
+                       , hBorder
+                       , drawLogCommandList (s ^. logStateL . logVerbosityL)
+                       ]
+
+drawScreenFullLog :: RootState -> [Widget Name]
 drawScreenFullLog s = pure $
   withBorderStyle ascii $
-    joinBorders $
+    joinBorders $ hBox [
       vBox
         [ drawHeadState (s ^. connectedStateL)
         , hBorder
-        , drawUserFeedbackFull (s ^. logStateL . logMessagesL)
-        ]
+        , viewport fullFeedbackViewportName Vertical $ drawUserFeedbackFull (s ^. logStateL . logMessagesL)
+        ],
+      vBorder,
+      hLimit 20 $ joinBorders $ drawCommandPanel s
+     ]
+
 
 drawCommandList :: RootState -> Widget n
 drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
@@ -97,6 +107,19 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
       Closed{} -> ["[Q]uit"]
       FanoutPossible{} -> ["[F]anout", "[Q]uit"]
       Final{} -> ["[I]nit", "[Q]uit"]
+
+drawLogCommandList :: LogVerbosity -> Widget n
+drawLogCommandList s = vBox . fmap txt $ case s of
+    Short ->
+      [ "[<] Scroll Left"
+      , "[>] Scroll Right"
+      , "Full [H]istory Mode"
+      ]
+    Full ->
+      [ "[<] Scroll Up"
+      , "[>] Scroll Down"
+      , "[S]hort History Mode"
+      ]
 
 drawFocusPanelInitializing :: IdentifiedState -> InitializingState -> Widget Name
 drawFocusPanelInitializing me InitializingState{remainingParties, initializingScreen} = case initializingScreen of
@@ -167,7 +190,7 @@ drawUserFeedbackFull = vBox . fmap f
   f (LogMessage{message, severity, time}) =
     let feedbackText = show time <> " | " <> message
         feedbackChunks = chunksOf 150 feedbackText
-        feedbackDecorator = withAttr (severityToAttr severity) . txt
+        feedbackDecorator = withAttr (severityToAttr severity) . txtWrap
      in vBox $ fmap feedbackDecorator feedbackChunks
 
 drawUserFeedbackShort :: LogMessage -> Widget n
