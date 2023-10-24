@@ -60,7 +60,7 @@ send HydraClient{tracer, hydraNodeId, connection} v = do
   sendTextData connection (Aeson.encode v)
   traceWith tracer $ SentMessage hydraNodeId v
 
-waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
+waitNext :: (HasCallStack) => HydraClient -> IO Aeson.Value
 waitNext HydraClient{connection} = do
   bytes <- receiveData connection
   case Aeson.eitherDecode' bytes of
@@ -74,11 +74,11 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
+waitFor :: (HasCallStack) => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time for an API server output to match the given predicate.
-waitMatch :: HasCallStack => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch :: (HasCallStack) => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
   timeout delay (go seenMsgs) >>= \case
@@ -122,7 +122,7 @@ waitForAllMatch delay nodes match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
+waitForAll :: (HasCallStack) => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
@@ -180,7 +180,7 @@ requestCommitTx :: HydraClient -> UTxO -> IO Tx
 requestCommitTx client =
   requestCommitTx' client . fmap (`TxOutWithWitness` Nothing)
 
-getMetrics :: HasCallStack => HydraClient -> IO ByteString
+getMetrics :: (HasCallStack) => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
   failAfter 3 $
     try (runReq defaultHttpConfig request) >>= \case
@@ -208,13 +208,13 @@ data EndToEndLog
   | RemainingFunds {actor :: String, utxo :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
-  | CreatedKey { keyPath :: FilePath }
+  | CreatedKey {keyPath :: FilePath}
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
 withHydraCluster ::
-  HasCallStack =>
+  (HasCallStack) =>
   Tracer IO EndToEndLog ->
   FilePath ->
   SocketPath ->
@@ -248,10 +248,10 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
   startNodes clients = \case
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
-      let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVKeys = map getVerificationKey $ filter (/= hydraSKey) hydraKeys
-          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+      let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
+          hydraVerificationKeys = map getVerificationKey $ filter (/= hydraSigningKey) hydraKeys
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
+          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
             defaultChainConfig
               { nodeSocket
@@ -264,8 +264,70 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         chainConfig
         workDir
         nodeId
-        hydraSKey
-        hydraVKeys
+        hydraSigningKey
+        hydraVerificationKeys
+        allNodeIds
+        hydraScriptsTxId
+        (\c -> startNodes (c : clients) rest)
+
+-- XXX: The two lists need to be of same length. Also the verification keys can
+-- be derived from the signing keys.
+withHydraCluster' ::
+  (HasCallStack) =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  SocketPath ->
+  -- | First node id
+  -- This sets the starting point for assigning ports
+  Int ->
+  -- | NOTE: This decides on the size of the cluster!
+  [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
+  [SigningKey HydraKey] ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
+  -- | Modifies the `ChainConfig` passed to a node upon startup
+  (Int -> ChainConfig -> ChainConfig) ->
+  ContestationPeriod ->
+  (NonEmpty HydraClient -> IO a) ->
+  IO a
+withHydraCluster' tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId chainConfigDecorator contestationPeriod action = do
+  when (clusterSize == 0) $
+    failure "Cannot run a cluster with 0 number of nodes"
+  when (length allKeys /= length hydraKeys) $
+    failure "Not matching number of cardano/hydra keys"
+
+  forM_ (zip allKeys allNodeIds) $ \((vk, sk), ix) -> do
+    let vkFile = File $ workDir </> show ix <.> "vk"
+    let skFile = File $ workDir </> show ix <.> "sk"
+    void $ writeFileTextEnvelope vkFile Nothing vk
+    void $ writeFileTextEnvelope skFile Nothing sk
+  startNodes [] allNodeIds
+ where
+  clusterSize = length allKeys
+  allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
+
+  startNodes clients = \case
+    [] -> action (fromList $ reverse clients)
+    (nodeId : rest) -> do
+      let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
+          hydraVerificationKeys = map getVerificationKey $ filter (/= hydraSigningKey) hydraKeys
+          cardanoSigningKey = workDir </> show nodeId <.> "sk"
+          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+          chainConfig =
+            chainConfigDecorator nodeId $
+              defaultChainConfig
+                { nodeSocket
+                , cardanoSigningKey
+                , cardanoVerificationKeys
+                , contestationPeriod
+                }
+      withHydraNode
+        tracer
+        chainConfig
+        workDir
+        nodeId
+        hydraSigningKey
+        hydraVerificationKeys
         allNodeIds
         hydraScriptsTxId
         (\c -> startNodes (c : clients) rest)
@@ -384,7 +446,7 @@ withConnectionToNode tracer hydraNodeId action = do
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
+waitForNodesConnected :: (HasCallStack) => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =
   mapM_ waitForNodeConnected clients
  where
