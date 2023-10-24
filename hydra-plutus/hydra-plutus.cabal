@@ -75,6 +75,7 @@ library
     Hydra.Contract
     Hydra.Contract.Commit
     Hydra.Contract.CommitError
+    Hydra.Contract.Dummy
     Hydra.Contract.Error
     Hydra.Contract.Hash
     Hydra.Contract.Head

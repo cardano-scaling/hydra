@@ -1,4 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | A data-type to keep track of reference Hydra scripts published on-chain,
 -- and needed to construct transactions leveraging reference inputs.
@@ -8,51 +9,27 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  Key (..),
-  NetworkId,
-  PaymentKey,
-  ScriptHash,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  SigningKey,
-  SocketPath,
-  TxId,
-  TxIn (..),
-  TxIx (..),
-  TxOut,
-  WitCtx (..),
-  examplePlutusScriptAlwaysFails,
-  getTxId,
-  hashScriptInAnyLang,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
-  mkScriptAddress,
-  mkScriptRef,
-  mkTxOutAutoBalance,
-  mkVkAddress,
-  selectLovelace,
-  throwErrorAsException,
-  txOutReferenceScript,
-  txOutValue,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
-  pattern TxOutDatumNone,
- )
+import Hydra.Cardano.Api (CtxUTxO, Key (..), MultiAssetSupportedInEra (..), NetworkId, PaymentKey, PlutusScript, PlutusScriptV2, ScriptHash, ShelleyWitnessSigningKey (WitnessPaymentKey), SigningKey, SocketPath, TxId, TxIn (..), TxIx (..), TxOut, WitCtx (..), examplePlutusScriptAlwaysFails, fromPlutusScript, getTxId, hashScriptInAnyLang, lovelaceToValue, makeShelleyKeyWitness, makeSignedTransaction, mkScriptAddress, mkScriptRef, mkTxOutAutoBalance, mkTxOutDatumInline, mkVkAddress, renderUTxO, selectLovelace, serialiseToTextEnvelope, throwErrorAsException, txOutReferenceScript, txOutValue, pattern ReferenceScript, pattern ReferenceScriptNone, pattern ShelleyAddressInEra, pattern TxOut, pattern TxOutDatumNone, pattern TxOutValue)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
   awaitTransaction,
   buildTransaction,
   queryProtocolParameters,
+  queryUTxO,
   queryUTxOByTxIn,
   queryUTxOFor,
   submitTransaction,
  )
+import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Dummy as Dummy
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
@@ -221,3 +198,49 @@ publishHydraScripts networkId socketPath sk = do
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
+
+printUTxO socketPath networkId = do
+  let dummyScript =
+        fromPlutusScript Dummy.validatorScript
+  let (ShelleyAddressInEra scriptAddress) = mkScriptAddress @PlutusScriptV2 networkId dummyScript
+  utxo <- queryUTxO networkId socketPath QueryTip [scriptAddress]
+  print $ renderUTxO utxo
+  print $ toJSON utxo
+  print $ Aeson.encode utxo
+
+submitTestScript :: SocketPath -> FilePath -> NetworkId -> IO TxId
+submitTestScript socketPath skPath networkId = do
+  (vk, sk) <- readKeyPair skPath
+  utxo <- queryUTxOFor networkId socketPath QueryTip vk
+  pparams <- queryProtocolParameters networkId socketPath QueryTip
+  let dummyScript =
+        fromPlutusScript Dummy.validatorScript
+      scriptAddress = mkScriptAddress @PlutusScriptV2 networkId dummyScript
+      changeAddress = mkVkAddress networkId vk
+  let output =
+        TxOut scriptAddress (lovelaceToValue 9997835926) (mkTxOutDatumInline (Dummy.datum ())) ReferenceScriptNone
+
+      totalDeposit = selectLovelace $ txOutValue output
+      someUTxO =
+        maybe mempty UTxO.singleton $
+          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
+
+  buildTransaction
+    networkId
+    socketPath
+    changeAddress
+    someUTxO
+    []
+    [output]
+    >>= \case
+      Left e -> do
+        print (renderUTxO someUTxO)
+        error $ show e
+      Right body -> do
+        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+        print $ renderTx tx
+        let json = toJSON $ serialiseToTextEnvelope @PlutusScript Nothing dummyScript
+        print json
+        submitTransaction networkId socketPath tx
+        void $ awaitTransaction networkId socketPath tx
+        return $ getTxId body
