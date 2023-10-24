@@ -89,6 +89,7 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | SomeHeadInitializing
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)
@@ -142,6 +143,7 @@ instance
         <*> shrink snapshotUtxo
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
+    SomeHeadInitializing -> []
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -210,6 +212,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
     PostTxOnChainFailed{} -> encodedResponse
+    SomeHeadInitializing{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
