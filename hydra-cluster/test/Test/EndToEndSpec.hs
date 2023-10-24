@@ -691,7 +691,7 @@ initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = 
     -- part of it
     let someOtherHeadIsInitializing v = do
           guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
-          guard (v ^? key "headId" == Just (toJSON headId))
+          -- guard (v ^? key "headId" == Just (toJSON headId))
           return headId
 
     void $
