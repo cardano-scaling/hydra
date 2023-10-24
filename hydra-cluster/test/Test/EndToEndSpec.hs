@@ -228,7 +228,7 @@ spec = around showLogsOnFailure $
           withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
-                >>= initWithWrongKeys tmpDir tracer 1 node
+                >>= initWithWrongKeys tmpDir tracer node
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
@@ -657,20 +657,12 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       Data.Aeson.Success u ->
         failAfter 5 $ waitForUTxO networkId nodeSocket u
 
-initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> Int -> RunningNode -> TxId -> IO ()
-initWithWrongKeys tmpDir tracer clusterIx node@RunningNode{nodeSocket} hydraScriptsTxId = do
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys <- generate genKeyPair
   carolKeys <- generate genKeyPair
   void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing . fst =<< generate genKeyPair
-
-  let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
-  let bobSk = generateSigningKey ("bob-" <> show clusterIx)
-  let carolSk = generateSigningKey ("carol-" <> show clusterIx)
-
-  let alice = deriveParty aliceSk
-  let bob = deriveParty bobSk
-  let carol = deriveParty carolSk
 
   let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
       hydraKeys = [aliceSk, bobSk, carolSk]
@@ -703,8 +695,7 @@ initWithWrongKeys tmpDir tracer clusterIx node@RunningNode{nodeSocket} hydraScri
           return headId
 
     void $
-      waitMatch 10 n2 $
-        someOtherHeadIsInitializing
+      waitMatch 10 n2 someOtherHeadIsInitializing
 
 --
 -- Fixtures
