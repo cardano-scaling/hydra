@@ -5,6 +5,8 @@ import useHydraEvent from "../../lib/hydra-ws/hook"
 import { decode } from 'cbor-x/decode'
 import Option from '../../types/option'
 import Poll from "./poll"
+import { Toaster } from 'react-hot-toast'
+import useWalletToaster from '../../lib/wallet-toaster'
 
 export default function Main() {
     // const [state, setState] = useState(transitions.disconnected(options))
@@ -55,10 +57,13 @@ export default function Main() {
         }
     })
 
+    useWalletToaster()
+
     return (
         <div>
             <CardanoWallet />
             <Poll options={options} />
+            <Toaster />
         </div>
     )
 }

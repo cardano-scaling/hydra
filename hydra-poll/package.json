@@ -14,10 +14,11 @@
   "dependencies": {
     "@meshsdk/core": "1.5.2",
     "@meshsdk/react": "1.1.7",
+    "cbor-x": "^1.5.4",
     "next": "13.0.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "cbor-x": "^1.5.4"
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "@types/node": "18.11.9",
