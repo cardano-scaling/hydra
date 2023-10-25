@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAddress, useNetwork, useWallet } from '@meshsdk/react'
+import { useAddress, useWallet } from '@meshsdk/react'
 import { toast } from 'react-hot-toast'
 
 function useNotification() {
@@ -8,14 +8,14 @@ function useNotification() {
     const [isNotConnected, setIsNotConnected] = useState(true)
 
     function formatAddressWithPrefix(address: string): string {
-        const prefix = "addr_test";
-        const prefixLength = prefix.length;
-        const suffixLength = 5;
+        const prefix = "addr_test"
+        const prefixLength = prefix.length
+        const suffixLength = 5
 
-        const prefixPart = address.substring(0, prefixLength + suffixLength);
-        const suffixPart = address.substring(address.length - suffixLength);
+        const prefixPart = address.substring(0, prefixLength + suffixLength)
+        const suffixPart = address.substring(address.length - suffixLength)
 
-        return `${prefixPart}...${suffixPart}`;
+        return `${prefixPart}...${suffixPart}`
     }
 
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { NodeId, Party, UTCTime, UTxO, UTxOType } from "./types"
+import { NodeId, Party, UTCTime, UTxO } from "./types"
 
 export type HeadId = string
 
