@@ -1,0 +1,21 @@
+{
+  "localRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false,
+      "valency": 1
+    }
+  ],
+  "publicRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "sanchonet-node.world.dev.cardano.org",
+          "port": 30004
+        }
+      ],
+      "advertise": false
+    }
+  ],
+  "useLedgerAfterSlot": 32000
+}
