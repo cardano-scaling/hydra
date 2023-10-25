@@ -17,7 +17,6 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -35,6 +34,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  HeadId,
   IsChainState,
   PostChainTx (..),
   PostTxError (..),
@@ -290,7 +290,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
     forM_ receivedTxs $ \tx -> do
       maybeObserveSomeTx point tx >>= \case
-        Nothing -> traceWith tracer SomeHeadObserved
+        Nothing -> traceWith tracer (SomeHeadObserved undefined)
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
@@ -376,7 +376,7 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | SomeHeadObserved
+  | SomeHeadObserved {headId :: HeadId}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

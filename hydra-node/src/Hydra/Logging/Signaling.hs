@@ -41,5 +41,5 @@ decorate var tracer log = do
 
 signal :: HydraLog tx net -> Maybe (ServerOutput tx)
 signal = \case
-  DirectChain SomeHeadObserved -> Just SomeHeadInitializing
+  DirectChain (SomeHeadObserved headId) -> Just (SomeHeadInitializing headId)
   _ -> Nothing

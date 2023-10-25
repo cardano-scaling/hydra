@@ -26,7 +26,7 @@ data TimedServerOutput tx = TimedServerOutput
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
+instance (Arbitrary (ServerOutput tx)) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
 -- | Generate a random timed server output given a normal server output.
@@ -89,7 +89,7 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | SomeHeadInitializing
+  | SomeHeadInitializing {headId :: HeadId}
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)
@@ -143,7 +143,7 @@ instance
         <*> shrink snapshotUtxo
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
-    SomeHeadInitializing -> []
+    SomeHeadInitializing{} -> []
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -167,7 +167,7 @@ data ServerOutputConfig = ServerOutputConfig
 -- 'handleTxOutput' so that we don't forget to update this function if they
 -- change.
 prepareServerOutput ::
-  IsChainState tx =>
+  (IsChainState tx) =>
   -- | Decide on tx representation
   ServerOutputConfig ->
   -- | Server output
