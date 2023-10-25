@@ -68,7 +68,11 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             <div className="card" key={option.id}>
               <h3>{option.text}</h3>
               <h4>{option.votes}</h4>
-              <button className="button" onClick={() => handleVote(option.id)}>Vote</button>
+              <button className="button" onClick={() =>
+                handleVote(option.id).catch((error) => {
+                  console.log("Error on handleVote:", error)
+                })
+              }>Vote</button>
             </div>
           ))}
         </div>
