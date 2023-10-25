@@ -14,11 +14,12 @@ import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
   StandardCrypto,
+  SystemStart (SystemStart),
   Tx,
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
-import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), initHistory, maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain, withOfflineChain)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -64,6 +65,10 @@ import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.HeadId (HeadId (..))
 
 import Data.Aeson qualified as Aeson
+import Hydra.Chain.Direct.Fixture (defaultGlobals)
+import Hydra.ContestationPeriod (fromChain)
+import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
+import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll))
 import Hydra.Snapshot (Snapshot (Snapshot), utxo)
 import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
@@ -101,15 +106,27 @@ run opts = do
             Nothing -> Right chainConfig
             Just offlineConfig' -> Left offlineConfig'
 
-      withCardanoLedger onlineOrOfflineConfig pparams $ \ledger -> do
+      let DirectChainConfig{networkId, nodeSocket} = chainConfig
+
+      globals <- case offlineConfig of
+        Nothing ->
+          -- online
+          newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
+        Just _ -> do
+          -- offline
+          systemStart <- SystemStart <$> getCurrentTime
+          pure $ defaultGlobals{Ledger.systemStart = systemStart}
+
+      withCardanoLedger onlineOrOfflineConfig pparams globals $ \ledger -> do
         persistence <- createStateChangePersistence (persistenceDir <> "/state") (leftToMaybe onlineOrOfflineConfig)
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
-        let headId = HeadId "FIXME(Elaine): headId"
-        withChain onlineOrOfflineConfig tracer ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
+        let headId = HeadId "HeadId"
+
+        withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
@@ -136,30 +153,27 @@ run opts = do
     Connected nodeid -> sendOutput $ PeerConnected nodeid
     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
-  withChain onlineOrOfflineConfig tracer ctx signingKey chainStateHistory headId putEvent cont = case onlineOrOfflineConfig of
-    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig ctx headId chainStateHistory (putEvent . OnChainEvent) cont
+  withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId putEvent cont = case onlineOrOfflineConfig of
+    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig globals ctx headId chainStateHistory (putEvent . OnChainEvent) cont
     Right onlineConfig -> do
       wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
       withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
 
-  withCardanoLedger onlineOrOfflineConfig protocolParams action = case onlineOrOfflineConfig of
-    Left offlineConfig -> withCardanoLedgerOffline offlineConfig protocolParams action
-    Right onlineConfig -> withCardanoLedgerOnline onlineConfig protocolParams action
+  withCardanoLedger onlineOrOfflineConfig protocolParams globals action = case onlineOrOfflineConfig of
+    Left offlineConfig -> withCardanoLedgerOffline offlineConfig protocolParams globals action
+    Right onlineConfig -> withCardanoLedgerOnline onlineConfig protocolParams globals action
 
-  withCardanoLedgerOffline OfflineConfig{ledgerGenesisFile} protocolParams action = do
+  withCardanoLedgerOffline OfflineConfig{} protocolParams globals action = do
     -- TODO(Elaine): double check previous messy branch for any other places where we query node
     -- TODO(Elaine): instead of reading file, we can embed our own defaults with shelleyGenesisDefaults
     -- that would be more convenient, but offer less control
-    genesisParameters <- readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) ledgerGenesisFile
-    globals <- newGlobals $ fromShelleyGenesis genesisParameters
     -- NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
     -- that function could probably take less info but it's upstream of hydra itself i believe
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
-  withCardanoLedgerOnline chainConfig protocolParams action = do
+  withCardanoLedgerOnline chainConfig protocolParams globals action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
-    globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 

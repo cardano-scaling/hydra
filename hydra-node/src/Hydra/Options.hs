@@ -148,9 +148,9 @@ initialUTxOFileParser =
 
 --NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
 -- that function could probably take less info but it's upstream of hydra itself i believe
-ledgerGenesisFileParser :: Parser FilePath
+ledgerGenesisFileParser :: Parser (Maybe FilePath)
 ledgerGenesisFileParser =
-  option
+  optional $ option
     str
     ( long "ledger-genesis"
         <> metavar "FILE"
@@ -165,7 +165,7 @@ data OfflineUTxOWriteBackConfig = WriteBackToInitialUTxO | WriteBackToUTxOFile F
 data OfflineConfig = OfflineConfig
   {
     initialUTxOFile :: FilePath
-  , ledgerGenesisFile :: FilePath
+  , ledgerGenesisFile :: Maybe FilePath
   -- TODO(Elaine): need option to dump final utxo to file without going thru snapshot
   , utxoWriteBack :: Maybe OfflineUTxOWriteBackConfig
   } deriving (Eq, Show, Generic, FromJSON, ToJSON)
@@ -261,7 +261,7 @@ instance Arbitrary RunOptions where
 --FIXME(Elaine): this instance doesn't do stuff correctly but was necessary during rebasing
 instance Arbitrary OfflineConfig where
   arbitrary = do
-    ledgerGenesisFile <- genFilePath "ledgerGenesis"
+    ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "ledgerGenesis"]
     initialUTxOFile <- genFilePath "utxo.json"
     utxoWriteBack <- arbitrary
     -- writeFileBS initialUTxOFile "{}" 

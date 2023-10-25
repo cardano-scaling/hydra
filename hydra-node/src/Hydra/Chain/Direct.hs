@@ -1,8 +1,8 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -13,10 +13,13 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Ledger.Slot (EpochInfo, SlotNo(..))
-import Cardano.Slotting.EpochInfo (hoistEpochInfo, fixedEpochInfo, epochInfoSlotToUTCTime)
+import Cardano.Api.UTxO (UTxO' (toMap))
+import Cardano.Ledger.BaseTypes (epochInfoPure)
+import Cardano.Ledger.Shelley.API (fromNominalDiffTimeMicro)
+import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Slot (EpochInfo, SlotNo (..))
+import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime, fixedEpochInfo, hoistEpochInfo)
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
   newTQueueIO,
@@ -27,6 +30,8 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
+import Data.Aeson qualified as Aeson
+import Data.Time.Clock.POSIX (getPOSIXTime, systemToPOSIXTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
@@ -42,6 +47,7 @@ import Hydra.Cardano.Api (
   LocalNodeConnectInfo (..),
   NetworkId,
   SocketPath,
+  StandardCrypto,
   Tx,
   TxId,
   TxInMode (..),
@@ -50,13 +56,24 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  toLedgerUTxO, readFileJSON, StandardCrypto,
+  readFileJSON,
+  toLedgerUTxO,
  )
+import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
+import Hydra.Cardano.Api.TxOut (toLedgerTxOut)
 import Hydra.Chain (
   ChainComponent,
+  ChainEvent (Observation, Tick, observedTx),
   ChainStateHistory,
+  OnChainTx (OnCollectComTx, OnCommitTx, OnInitTx, contestationPeriod, headId, parties),
   PostTxError (..),
-  currentState, ChainEvent (Tick, Observation, observedTx), chainTime, chainSlot, initHistory, OnChainTx (OnCommitTx, OnInitTx, headId, contestationPeriod, contestationPeriod, parties, OnCollectComTx), newChainState, committed, party,
+  chainSlot,
+  chainTime,
+  committed,
+  currentState,
+  initHistory,
+  newChainState,
+  party,
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
@@ -71,16 +88,23 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (..),
   chainSyncHandler,
   mkChain,
+  mkFakeL1Chain,
   newLocalChainState,
   onRollBackward,
-  onRollForward, mkFakeL1Chain,
+  onRollForward,
  )
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainStateAt (..), initialChainState, OpenState (OpenState, headId), ChainState (Idle, Open), openThreadOutput, observeCommit,
+  ChainState (Idle, Open),
+  ChainStateAt (..),
+  OpenState (OpenState, headId),
+  initialChainState,
+  observeCommit,
+  openThreadOutput,
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import Hydra.Chain.Direct.Tx (OpenThreadOutput (OpenThreadOutput, openThreadUTxO))
 import Hydra.Chain.Direct.Util (
   readKeyPair,
  )
@@ -89,10 +113,16 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
+import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
+import Hydra.Ledger (ChainSlot (ChainSlot), UTxOType)
+import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (..), OfflineConfig(..))
+import Hydra.Options (ChainConfig (..), OfflineConfig (..))
 import Hydra.Party (Party)
+import Hydra.Plutus.Extras (posixFromUTCTime)
+import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import Ouroboros.Consensus.Util.Time (nominalDelay)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -105,22 +135,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
-import qualified Data.Map as M
-import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
-import Hydra.Cardano.Api.TxOut (toLedgerTxOut)
-import Cardano.Api.UTxO (UTxO'(toMap))
-import qualified Data.Aeson as Aeson
-import Hydra.Ledger (UTxOType, ChainSlot (ChainSlot))
-import Data.Time.Clock.POSIX (systemToPOSIXTime, getPOSIXTime, utcTimeToPOSIXSeconds)
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Chain.Direct.Tx (OpenThreadOutput(OpenThreadOutput, openThreadUTxO))
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.ContestationPeriod (fromChain)
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
-import Cardano.Slotting.Time (mkSlotLength, toRelativeTime, SystemStart (SystemStart))
-import Cardano.Ledger.Shelley.API (fromNominalDiffTimeMicro)
-import Ouroboros.Consensus.HardFork.History (neverForksSummary, mkInterpreter, wallclockToSlot, interpretQuery)
-import Ouroboros.Consensus.Util.Time (nominalDelay)
 
 import Hydra.HeadId (HeadId (..))
 
@@ -179,76 +193,69 @@ mkTinyWallet tracer config = do
 withOfflineChain ::
   Tracer IO DirectChainLog -> -- TODO(ELAINE): change type maybe ?
   OfflineConfig ->
+  _ ->
   ChainContext ->
   HeadId ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineConfig{initialUTxOFile, ledgerGenesisFile} ctx@ChainContext{ownParty} ownHeadId chainStateHistory callback action = do
-
-  initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
-  
-  let emptyChainStateHistory = initHistory initialChainState
-  
-  -- if we don't have a chainStateHistory to restore from disk from, start a new one
-  when (chainStateHistory /= emptyChainStateHistory) $ do
-    callback $ Observation { newChainState = initialChainState, observedTx =
-      OnInitTx
-      { headId = ownHeadId
-      , parties = [ownParty]
-      , contestationPeriod = fromChain $ contestationPeriodFromDiffTime (10) --TODO(Elaine): we should be able to set this to 0
-      } }
-
-    --NOTE(Elaine): should be no need to update the chain state, that's L1, there's nothing relevant there
-    -- observation events are to construct the L2 we want, with the initial utxo
-    callback $ Observation { newChainState = initialChainState, observedTx =
-      OnCommitTx 
-      { party = ownParty
-      , committed = initialUTxO
-      } }
-
-    -- TODO(Elaine): I think onInitialChainCommitTx in update will take care of posting a collectcom transaction since we shouldn't have any peers
-    -- callback $ Observation { newChainState = initialChainState, observedTx = OnCollectComTx }
-
-  localChainState <- newLocalChainState emptyChainStateHistory
+withOfflineChain tracer OfflineConfig{initialUTxOFile, ledgerGenesisFile} globals@Ledger.Globals{systemStart} ctx@ChainContext{ownParty} ownHeadId chainStateHistory callback action = do
+  localChainState <- newLocalChainState chainStateHistory
   let chainHandle = mkFakeL1Chain localChainState tracer ctx ownHeadId callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
 
+  tickForeverAction <- case ledgerGenesisFile of
+    Just filePath -> do
+      -- TODO(Elaine): confirm the latter approach in the case of empty genesis file is better
+      Ledger.ShelleyGenesis{sgSystemStart, sgSlotLength, sgEpochLength} <-
+        readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
+      let slotLengthNominalDiffTime = fromNominalDiffTimeMicro sgSlotLength
+          slotLength = mkSlotLength slotLengthNominalDiffTime
 
-  Ledger.ShelleyGenesis{ sgSystemStart, sgSlotLength, sgEpochLength } <- 
-    readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) ledgerGenesisFile
+      let interpreter = mkInterpreter $ neverForksSummary sgEpochLength slotLength
 
-  let slotLengthNominalDiffTime = fromNominalDiffTimeMicro sgSlotLength
-      slotLength = mkSlotLength slotLengthNominalDiffTime
-  let systemStart = SystemStart sgSystemStart
-  
-  let interpreter = mkInterpreter $ neverForksSummary sgEpochLength slotLength
+      let slotFromUTCTime :: HasCallStack => UTCTime -> Either Consensus.PastHorizonException ChainSlot
+          slotFromUTCTime utcTime = do
+            let relativeTime = toRelativeTime (SystemStart sgSystemStart) utcTime
+            case interpretQuery interpreter (wallclockToSlot relativeTime) of
+              Left pastHorizonEx ->
+                Left pastHorizonEx
+              Right (SlotNo slotNoWord64, _timeSpentInSlot, _timeLeftInSlot) ->
+                Right . ChainSlot . fromIntegral @Word64 @Natural $ slotNoWord64
 
-  let slotFromUTCTime :: HasCallStack => UTCTime -> Either Consensus.PastHorizonException ChainSlot
-      slotFromUTCTime utcTime = do
-        let relativeTime = toRelativeTime systemStart utcTime
-        case interpretQuery interpreter (wallclockToSlot relativeTime) of
-          Left pastHorizonEx ->
-            Left pastHorizonEx
-          Right (SlotNo slotNoWord64, _timeSpentInSlot, _timeLeftInSlot) ->
-            Right . ChainSlot . fromIntegral @Word64 @Natural $ slotNoWord64
+      let tickForever :: IO ()
+          tickForever = forever $ do
+            chainTime <- getCurrentTime
+            -- NOTE(Elaine): this shouldn't happen in offline mode, we should not construct an era history that ever ends
+            chainSlot <- either throwIO pure . slotFromUTCTime $ chainTime
+            callback $ Tick{chainTime = chainTime, chainSlot}
 
-  let tickForever :: IO ()
-      tickForever = forever $ do
+            -- NOTE(Elaine): this is just realToFrac, not sure if better etiquette to import or use directly
+            threadDelay $ nominalDelay slotLengthNominalDiffTime
+      pure tickForever
+    Nothing -> do
+      let epochInfo@EpochInfo{} = epochInfoPure globals
+          initialSlot = runIdentity $ epochInfoFirst epochInfo 0
 
-        chainTime <- getCurrentTime
-        -- NOTE(Elaine): this shouldn't happen in offline mode, we should not construct an era history that ever ends
-        chainSlot <- either throwIO pure . slotFromUTCTime $ chainTime
-        callback $ Tick { chainTime = chainTime, chainSlot }
+          nextTick upcomingSlot = do
+            let timeToSleepUntil = runIdentity $ epochInfoSlotToUTCTime epochInfo systemStart upcomingSlot
+            sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
+            threadDelay $ nominalDelay sleepDelay
+            callback $
+              Tick
+                { chainTime = timeToSleepUntil
+                , chainSlot = ChainSlot . fromIntegral @Word64 @Natural $ unSlotNo upcomingSlot
+                }
 
-        --NOTE(Elaine): this is just realToFrac, not sure if better etiquette to import or use directly
-        threadDelay $ nominalDelay slotLengthNominalDiffTime
+          tickForever = traverse_ nextTick [initialSlot ..]
+
+      pure tickForever
 
   res <-
     race
-      tickForever
+      tickForeverAction
       (action chainHandle)
 
   case res of
