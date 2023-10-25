@@ -56,6 +56,8 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
+import Hydra.Logging.Signaling (withSignaling)
+import Hydra.Logging.Signaling (installSignal)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
   deriving (Show)
@@ -77,7 +79,8 @@ main = do
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
     env@Environment{party, otherParties, signingKey} <- initEnvironment opts
-    withTracer verbosity $ \tracer' ->
+    withTracer verbosity $ \tracer'' ->
+     withSignaling tracer'' $ \ tracer' signalVar ->
       withMonitoring monitoringPort tracer' $ \tracer -> do
         traceWith tracer (NodeOptions opts)
         eq@EventQueue{putEvent} <- createEventQueue
@@ -101,7 +104,7 @@ main = do
                 RunOptions{apiHost, apiPort} = opts
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
-
+              installSignal signalVar server
               -- Network
               withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
                 -- Main loop
