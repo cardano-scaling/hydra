@@ -1,9 +1,7 @@
 import React, { PropsWithChildren, useMemo, useRef } from "react"
-import HydraSocketContext from './context'
+import { HydraSocketContext } from './context'
 
-type UserHydraSocketOptions = {
-    url: string
-}
+export type UserHydraSocketOptions = { url: string }
 
 const HydraSocketProvider: React.FC<PropsWithChildren<UserHydraSocketOptions>> = ({
     children,

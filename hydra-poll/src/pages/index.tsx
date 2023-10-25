@@ -6,17 +6,22 @@ import useWalletToaster from '../lib/wallet-toaster'
 
 export default function Home() {
   useWalletToaster()
+
   return (
     <div className="container">
       <Head>
         <title>Hydra Poll</title>
         <meta name="description" content="Poll running on Hydra Head protocol" />
       </Head>
+
       <CardanoWallet />
+
       <main className="main">
         <Main />
       </main>
+
       <Toaster />
+
       <footer className="footer">
       </footer>
     </div>

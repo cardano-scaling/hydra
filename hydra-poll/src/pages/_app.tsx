@@ -4,7 +4,7 @@ import { MeshProvider } from "@meshsdk/react"
 import dynamic from 'next/dynamic'
 
 const HydraSocketProviderNoSSR = dynamic(() => import("../lib/hydra-ws/provider"), {
-    ssr: false,
+  ssr: false,
 })
 
 const UserHydraSocketOptions = {

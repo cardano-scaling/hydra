@@ -1,11 +1,10 @@
 import React, { useContext } from 'react'
-import Option from "../../types/option"
-import HydraSocketContext from '../../lib/hydra-ws/context'
 import { useWallet } from '@meshsdk/react'
 import { Transaction, Recipient, UTxO } from '@meshsdk/core'
+import { Option } from "../../types/option"
+import { HydraSocketContext } from '../../lib/hydra-ws/context'
 
 const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
-
   const { socket } = useContext(HydraSocketContext)
   const { wallet, connected } = useWallet()
 
@@ -70,7 +69,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
               <h4>{option.votes}</h4>
               <button className="button" onClick={() =>
                 handleVote(option.id).catch((error) => {
-                  console.log("Error on handleVote:", error)
+                  console.error("Error on handleVote:", error)
                 })
               }>Vote</button>
             </div>

@@ -1,10 +1,15 @@
 import { useCallback, useContext, useEffect } from "react"
+import { HydraSocketContext } from "./context"
 import {
-    ClientConnected, ClientDisconnected, HydraEvent, HydraEventType, ServerOutput, Update
+    ClientConnected,
+    ClientDisconnected,
+    HydraEvent,
+    HydraEventType,
+    ServerOutput,
+    Update
 } from "./model/events"
-import HydraSocketContext from "./context"
 
-const useHydraEvent = (emitEvent: (evt: HydraEvent) => void) => {
+export const useHydraEvent = (emitEvent: (evt: HydraEvent) => void) => {
     // get the socket instance
     const { socket } = useContext(HydraSocketContext)
 
@@ -53,5 +58,3 @@ const useHydraEvent = (emitEvent: (evt: HydraEvent) => void) => {
         }
     }, [socket, memoizedEmitEvent])
 }
-
-export default useHydraEvent

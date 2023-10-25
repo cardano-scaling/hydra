@@ -4,9 +4,7 @@ export interface Party { vkey: string }
 
 export interface UTCTime { time: number }
 
-export interface UTxOValueType {
-    lovelace: number
-}
+export interface UTxOValueType { lovelace: number }
 
 export interface UTxOType {
     address: string,

@@ -161,7 +161,7 @@ export type ServerOutput =
     // | SnapshotConfirmed
     | GetUTxOResponse
     | InvalidInput
-    // | PostTxOnChainFailed
+// | PostTxOnChainFailed
 
 export enum ServerOutputTag {
     Greetings,
@@ -185,8 +185,11 @@ export enum ServerOutputTag {
 }
 
 export interface ClientConnected { tag: HydraEventType.ClientConnected }
+
 export interface ClientDisconnected { tag: HydraEventType.ClientDisconnected }
+
 export interface Update { tag: HydraEventType.Update, output: ServerOutput }
+
 export interface Tick { tag: HydraEventType.Tick, tick: UTCTime }
 
 export enum HydraEventType {

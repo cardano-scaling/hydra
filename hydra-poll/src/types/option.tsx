@@ -1,5 +1,5 @@
-export default interface Option {
-    id: number
-    text: string
-    votes: number
-  }
+export interface Option {
+  id: number
+  text: string
+  votes: number
+}

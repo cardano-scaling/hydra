@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAddress, useWallet } from '@meshsdk/react'
 import { toast } from 'react-hot-toast'
 
-function useNotification() {
+export default function useNotification() {
     const { connected, connecting } = useWallet()
     const address = useAddress()
     const [isNotConnected, setIsNotConnected] = useState(true)
@@ -48,5 +48,3 @@ function useNotification() {
         }
     }, [connecting, connected, address])
 }
-
-export default useNotification

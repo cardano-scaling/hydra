@@ -1,9 +1,13 @@
 import { useState } from "react"
-import { HydraEventType, HydraEvent, ServerOutputTag } from "../../lib/hydra-ws/model/events"
-import useHydraEvent from "../../lib/hydra-ws/hook"
 import { decode } from 'cbor-x/decode'
-import Option from '../../types/option'
+import { Option } from '../../types/option'
 import Poll from "./poll"
+import { useHydraEvent } from "../../lib/hydra-ws/hook"
+import {
+    HydraEventType,
+    HydraEvent,
+    ServerOutputTag
+} from "../../lib/hydra-ws/model/events"
 
 export default function Main() {
     // const [state, setState] = useState(transitions.disconnected(options))
