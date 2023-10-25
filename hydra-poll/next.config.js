@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    REACT_APP_HYDRA_NODE_URL: process.env.REACT_APP_HYDRA_NODE_URL
+  },
   webpack: function (config, options) {
     config.experiments = {
       asyncWebAssembly: true,
