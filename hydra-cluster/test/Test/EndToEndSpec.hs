@@ -679,7 +679,6 @@ initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = 
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected tracer [n1, n2, n3]
 
-    -- Funds to be used as fuel by Hydra protocol transactions
     seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send n1 $ input "Init" []
@@ -687,15 +686,12 @@ initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = 
       waitForAllMatch 10 [n1, n3] $
         headIsInitializingWith (Set.fromList [alice, bob, carol])
 
-    -- TODO: we want the client to observe headId being opened but we are not
+    -- We want the client to observe headId being opened without bob (node 2) being
     -- part of it
-    let someOtherHeadIsInitializing v = do
-          guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
-          guard (v ^? key "headId" == Just (toJSON headId))
-          return headId
-
-    void $
-      waitMatch 10 n2 someOtherHeadIsInitializing
+    waitMatch 10 n2 $ \v -> do
+      guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
+      guard (v ^? key "headId" == Just (toJSON headId))
+      return ()
 
 --
 -- Fixtures

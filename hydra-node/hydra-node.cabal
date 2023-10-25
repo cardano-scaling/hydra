@@ -148,7 +148,6 @@ library
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-prelude
     , cardano-slotting
     , cardano-strict-containers
     , cborg

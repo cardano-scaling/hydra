@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -56,7 +57,7 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
+  observeSomeTx, NoObservation (..),
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -69,6 +70,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
+import Hydra.Chain.Direct.Tx (NotAnInit(..), RawInitObservation (..), mismatchReasonObservation, mkHeadId)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -290,21 +292,28 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
     forM_ receivedTxs $ \tx -> do
       maybeObserveSomeTx point tx >>= \case
-        Nothing -> traceWith tracer (SomeHeadObserved undefined)
-        Just event -> callback event
+        Left noTx -> reportObservedTx noTx
+        Right event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
-      Nothing -> pure Nothing
-      Just (observedTx, cs') -> do
+      Left noTx -> pure $ Left noTx
+      Right (observedTx, cs') -> do
         let newChainState =
               ChainStateAt
                 { chainState = cs'
                 , recordedAt = Just point
                 }
         pushNew newChainState
-        pure $ Just Observation{observedTx, newChainState}
+        pure $ Right Observation{observedTx, newChainState}
+
+  reportObservedTx :: NoObservation -> m ()
+  reportObservedTx = \case
+    ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId})) ->
+      traceWith tracer (SomeHeadObserved $ mkHeadId headId)
+    _ -> pure ()
+
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
@@ -353,7 +362,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 
   -- See ADR21 for context
   calculateTxUpperBoundFromContestationPeriod currentTime = do
-    let effectiveDelay = min (toNominalDiffTime $ contestationPeriod ctx) maxGraceTime
+    let effectiveDelay = min (toNominalDiffTime $ ctx.contestationPeriod) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)

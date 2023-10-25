@@ -12,7 +12,6 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Prelude (hush)
 import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -81,7 +80,7 @@ import Hydra.Chain.Direct.Tx (
   FanoutObservation (FanoutObservation),
   InitObservation (..),
   InitialThreadOutput (..),
-  NotAnInitReason,
+  NotAnInit (..),
   OpenThreadOutput (..),
   UTxOHash (UTxOHash),
   UTxOWithScript,
@@ -100,6 +99,7 @@ import Hydra.Chain.Direct.Tx (
   observeContestTx,
   observeFanoutTx,
   observeInitTx,
+  observeRawInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
@@ -391,7 +391,7 @@ rejectMoreThanMainnetLimit network u = do
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
 abort ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   InitialState ->
   -- | Committed UTxOs to reimburse.
@@ -526,21 +526,33 @@ fanout ctx st utxo deadlineSlotNo = do
 
 -- * Observing Transitions
 
+data NoObservation
+  = NoObservation
+  | ObservedInitTx NotAnInit
+  deriving (Eq, Show)
+
 -- | Observe a transition without knowing the starting or ending state. This
 -- function should try to observe all relevant transitions given some
 -- 'ChainState'.
-observeSomeTx :: ChainContext -> ChainState -> Tx -> Maybe (OnChainTx Tx, ChainState)
+observeSomeTx :: ChainContext -> ChainState -> Tx -> Either NoObservation (OnChainTx Tx, ChainState)
 observeSomeTx ctx cst tx = case cst of
   Idle ->
-    second Initial <$> hush (observeInit ctx tx)
+    first ObservedInitTx $ second Initial <$> observeInit ctx tx
   Initial st ->
-    second Initial <$> observeCommit ctx st tx
-      <|> (,Idle) <$> observeAbort st tx
-      <|> second Open <$> observeCollect st tx
-  Open st -> second Closed <$> observeClose st tx
+    noObservation $
+      second Initial <$> observeCommit ctx st tx
+        <|> (,Idle) <$> observeAbort st tx
+        <|> second Open <$> observeCollect st tx
+  Open st ->
+    noObservation $
+      second Closed <$> observeClose st tx
   Closed st ->
-    second Closed <$> observeContest st tx
-      <|> (,Idle) <$> observeFanout st tx
+    noObservation $
+      second Closed <$> observeContest st tx
+        <|> (,Idle) <$> observeFanout st tx
+ where
+  noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
+  noObservation = maybe (Left NoObservation) Right
 
 -- ** IdleState transitions
 
@@ -548,16 +560,22 @@ observeSomeTx ctx cst tx = case cst of
 observeInit ::
   ChainContext ->
   Tx ->
-  Either NotAnInitReason (OnChainTx Tx, InitialState)
+  Either NotAnInit (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
+  observed <-
+    first NotAnInit $
+      observeRawInitTx
+        networkId
+        tx
+
   observation <-
-    observeInitTx
-      networkId
-      (allVerificationKeys ctx)
-      (Hydra.Chain.Direct.State.contestationPeriod ctx)
-      ownParty
-      otherParties
-      tx
+    first NotAnInitForUs $
+      observeInitTx
+        (allVerificationKeys ctx)
+        (Hydra.Chain.Direct.State.contestationPeriod ctx)
+        ownParty
+        otherParties
+        observed
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId} =

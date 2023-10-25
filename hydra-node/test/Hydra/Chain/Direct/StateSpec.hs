@@ -127,6 +127,7 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import qualified Prelude
+import Hydra.Chain.Direct.Tx (NotAnInit(NotAnInit))
 
 spec :: Spec
 spec = parallel $ do
@@ -141,7 +142,7 @@ spec = parallel $ do
       checkCoverage $
         forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
           genericCoverTable [transition] $
-            isJust (observeSomeTx ctx st tx)
+            isRight (observeSomeTx ctx st tx)
               & counterexample "observeSomeTx returned Nothing"
 
   describe "init" $ do
@@ -291,7 +292,7 @@ spec = parallel $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
 
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInit)
 genInitTxMutation seedInput tx =
   genChangeMintingPolicy
  where
@@ -301,7 +302,7 @@ genInitTxMutation seedInput tx =
           ChangeMintingPolicy alwaysSucceedsV2
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
       , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
-      , NotAHeadPolicy
+      , NotAnInit NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to

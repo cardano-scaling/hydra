@@ -143,9 +143,9 @@ spec = do
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
             Observation{observedTx} ->
-              when ((fst <$> observeSomeTx ctx st tx) /= Just observedTx) $
+              when ((fst <$> observeSomeTx ctx st tx) /= Right observedTx) $
                 failure $
-                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
+                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show observedTx
 
       let handler =
             chainSyncHandler
