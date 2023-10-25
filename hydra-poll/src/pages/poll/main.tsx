@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { HydraEventType, HydraEvent, TxValid } from "../../lib/hydra-ws/model/events"
+import { HydraEventType, HydraEvent, ServerOutputTag } from "../../lib/hydra-ws/model/events"
 import useHydraEvent from "../../lib/hydra-ws/hook"
 import { decode } from 'cbor-x/decode'
 import Option from '../../types/option'
@@ -29,8 +29,8 @@ export default function Main() {
             case HydraEventType.Update:
                 // setState(transitions.handleAppEvent(state, event.output))
                 switch (event.output.tag) {
-                    case "TxValid":
-                        const txValid = event.output as TxValid
+                    case ServerOutputTag.TxValid:
+                        const txValid = event.output
                         const metadataLabel = 14
                         if (txValid.transaction.auxiliaryData != null) {
                             const hex = Buffer.from(txValid.transaction.auxiliaryData, 'hex')
