@@ -1,9 +1,9 @@
 {
   "name": "hydra-poll",
-  "description": "A Mesh starter template",
+  "description": "A poll running on Hydra Head protocol",
   "version": "0.1.0",
   "private": true,
-  "author": "MeshJS",
+  "author": "Hydra Team",
   "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev",
@@ -12,20 +12,20 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@meshsdk/core": "1.5.2",
-    "@meshsdk/react": "1.1.7",
-    "cbor-x": "^1.5.4",
-    "next": "13.0.2",
+    "@meshsdk/core": "1.5.7",
+    "@meshsdk/react": "1.1.8",
+    "cbor-x": "1.5.4",
+    "next": "13.5.6",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "2.4.1"
   },
   "devDependencies": {
-    "@types/node": "18.11.9",
-    "@types/react": "18.0.25",
-    "@types/react-dom": "18.0.8",
-    "eslint": "8.27.0",
-    "eslint-config-next": "13.0.2",
-    "typescript": "4.8.4"
+    "@types/node": "20.8.9",
+    "@types/react": "18.2.32",
+    "@types/react-dom": "18.2.14",
+    "eslint": "8.52.0",
+    "eslint-config-next": "13.5.6",
+    "typescript": "5.2.2"
   }
 }
