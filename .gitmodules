@@ -1,6 +1,0 @@
-[submodule "testnet/cardano-configurations"]
-	path = hydra-cluster/config/cardano-configurations
-	url = https://github.com/input-output-hk/cardano-configurations.git
-[submodule "hydra-node/json-schemas/cardanonical"]
-	path = hydra-node/json-schemas/cardanonical
-	url = https://github.com/CardanoSolutions/cardanonical

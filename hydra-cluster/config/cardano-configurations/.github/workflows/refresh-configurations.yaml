@@ -1,0 +1,53 @@
+name: Refresh Configurations
+
+on:
+  schedule:
+    - cron: '00 01 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@v2.3.3
+
+    - name: Download from The Cardano Book (mainnet)
+      shell: bash
+      run: |
+        .github/scripts/download-all.sh $CARDANO_CONFIG_URL $CARDANO_NETWORK
+      env:
+        CARDANO_CONFIG_URL: https://book.world.dev.cardano.org/environments/
+        CARDANO_NETWORK: mainnet
+
+    - name: Download from The Cardano Book (preprod)
+      shell: bash
+      run: |
+        .github/scripts/download-all.sh $CARDANO_CONFIG_URL $CARDANO_NETWORK
+      env:
+        CARDANO_CONFIG_URL: https://book.world.dev.cardano.org/environments
+        CARDANO_NETWORK: preprod
+
+    - name: Download from The Cardano Book (preview)
+      shell: bash
+      run: |
+        .github/scripts/download-all.sh $CARDANO_CONFIG_URL $CARDANO_NETWORK
+      env:
+        CARDANO_CONFIG_URL: https://book.world.dev.cardano.org/environments
+        CARDANO_NETWORK: preview
+
+    - name: Download from The Cardano Book (sanchonet)
+      shell: bash
+      run: |
+        .github/scripts/download-all.sh $CARDANO_CONFIG_URL $CARDANO_NETWORK
+      env:
+        CARDANO_CONFIG_URL: https://book.world.dev.cardano.org/environments
+        CARDANO_NETWORK: sanchonet
+
+    - name: Push new configurations
+      shell: bash
+      run: |
+        .github/scripts/update-when-new.sh $CARDANO_CONFIG_URL
+      env:
+        CARDANO_CONFIG_URL: https://book.world.dev.cardano.org/environments
