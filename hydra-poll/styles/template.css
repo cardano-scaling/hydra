@@ -1,0 +1,150 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  background-color: rgb(17 24 39);
+  color: rgb(241 245 249);
+  text-align: center;
+}
+
+.main {
+  min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer {
+  display: flex;
+  flex: 1;
+  padding: 2rem 0;
+  border-top: 1px solid #eaeaea;
+  justify-content: center;
+  align-items: center;
+}
+
+.title a {
+  color: rgb(2 132 199);
+  text-decoration: none;
+}
+
+.title {
+  margin: 0;
+  line-height: 1.15;
+  font-size: 4rem;
+  font-weight: 200;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap; /* Allow responsive wrapping on smaller screens */
+  justify-content: center; /* Center the cards horizontally */
+  gap: 1rem; /* Add some spacing between the cards */
+}
+
+.card {
+  flex: 1; /* Make cards occupy equal width within the grid */
+  display: flex;
+  flex-direction: column; /* Stack card content vertically */
+  margin: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #eaeaea;
+  border-radius: 10px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  width: 300px;
+  background-color: rgb(31 41 55);
+  /* Adjust the card's height for consistent height among all cards */
+  height: 200px;
+}
+
+.card:hover,
+.card:focus,
+.card:active {
+  border-color: rgb(55 65 81);
+}
+
+.card h1
+.card h2
+.card h3
+.card h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+}
+
+.card p {
+  margin: 0;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgb(156 163 175);
+}
+
+.title,
+.description,
+.card {
+  text-align: center;
+}
+
+.description {
+  max-height: 2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  font-size: 1.1rem;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    Lucida Console, Liberation Mono, DejaVu Sans Mono,
+    Bitstream Vera Sans Mono, Courier New, monospace;
+  display: block;
+  border-radius: 5px;
+  background: #111;
+}
+
+.button {
+  padding: 1rem;
+  font-size: 24px;
+  border: 1px solid #eaeaea;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  background-color: rgb(0, 123, 255);
+  /* Add hover effect for buttons */
+  transition: background 0.2s;
+}
+
+.button:hover {
+  background: rgb(0, 175, 255); /* Lighten the background on hover */
+  border-color: rgb(55 65 81);
+}
+
+.button:disabled {
+  border: 1px solid #999999;
+  background-color: #cccccc;
+}
+
+@media (max-width: 600px) {
+  .grid {
+    width: 100%;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .card,
+  .footer {
+    border-color: #222;
+  }
+}
