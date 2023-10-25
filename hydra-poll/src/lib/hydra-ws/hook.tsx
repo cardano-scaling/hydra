@@ -1,5 +1,7 @@
 import { useCallback, useContext, useEffect } from "react"
-import HydraEventType, { ClientConnected, ClientDisconnected, HydraEvent, ServerOutput, Update } from "../../lib/model/events"
+import {
+    ClientConnected, ClientDisconnected, HydraEvent, HydraEventType, ServerOutput, Update
+} from "./model/events"
 import HydraSocketContext from "./context"
 
 const useHydraEvent = (emitEvent: (evt: HydraEvent) => void) => {
@@ -8,7 +10,7 @@ const useHydraEvent = (emitEvent: (evt: HydraEvent) => void) => {
 
     // Memoize emitEvent with useCallback
     const memoizedEmitEvent = useCallback(emitEvent, [])
-    
+
     // when the component, *which uses this hook* mounts, add listeners.
     useEffect(() => {
         // Define the listener functions

@@ -1,14 +1,13 @@
 import React, { useContext } from 'react'
-import Option from "../../lib/model/state"
-import HydraSocketContext from '../hydra-ws/context'
-import { useNetwork, useWallet } from '@meshsdk/react'
+import Option from "../../types/option"
+import HydraSocketContext from '../../lib/hydra-ws/context'
+import { useWallet } from '@meshsdk/react'
 import { Transaction, Recipient, UTxO } from '@meshsdk/core'
-import { CardanoWallet } from '@meshsdk/react'
 
 const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
+
   const { socket } = useContext(HydraSocketContext)
-  const { wallet, connected, name, connecting, connect, disconnect, error } = useWallet()
-  const network = useNetwork()
+  const { wallet, connected } = useWallet()
 
   // Function to send a vote message through WebSocket
   const handleVote = async function (voteOption: number) {
@@ -62,25 +61,6 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
           <a href="https://hydra.family">Hydra </a>Poll
         </h1>
         <h2>Vote for the next Hydra feature</h2>
-      </div>
-      <div>
-        <CardanoWallet />
-        <div>
-          <p>Connected network: <b>{network}</b>.</p>
-        </div>
-        <div>
-          <p>
-            <b>Connected?: </b> {connected ? 'Is connected' : 'Not connected'}
-          </p>
-          <p>
-            <b>Connecting wallet?: </b> {connecting ? 'Connecting...' : 'No'}
-          </p>
-          <p>
-            <b>Name of connected wallet: </b>
-            {name}
-          </p>
-          <button onClick={() => disconnect()}>Disconnect Wallet</button>
-        </div>
       </div>
       <div className="grid">
         {options.map((option) => (

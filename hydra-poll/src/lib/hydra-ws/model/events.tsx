@@ -72,14 +72,12 @@ export interface ClientDisconnected { tag: HydraEventType.ClientDisconnected }
 export interface Update { tag: HydraEventType.Update, output: ServerOutput }
 export interface Tick { tag: HydraEventType.Tick, tick: UTCTime }
 
-enum HydraEventType {
+export enum HydraEventType {
     ClientConnected,
     ClientDisconnected,
     Update,
     Tick
 }
-
-export default HydraEventType
 
 export type HydraEvent =
     ClientConnected

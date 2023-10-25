@@ -20,11 +20,12 @@ const HydraSocketProvider: React.FC<PropsWithChildren<UserHydraSocketOptions>> =
     }
 
     if (!socketRef.current) {
+        // Create and initialize your WebSocket connection here
         socketRef.current = initializeWebSocket()
     }
 
     return (
-        <HydraSocketContext.Provider value={{ socket: socketRef.current }}>
+        <HydraSocketContext.Provider value={{ socket: socketRef.current! }}>
             {children}
         </HydraSocketContext.Provider>
     )
