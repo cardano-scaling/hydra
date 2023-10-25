@@ -12,7 +12,6 @@ import System.FilePath ((<.>))
 genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
 genHydraKeys GenerateKeyPair{outputFile} = do
   fileExists <- doesFileExist outputFile
-  print fileExists
   if fileExists
     then
       pure $

@@ -19,7 +19,6 @@ spec = do
     withTempDir "gen-hydra-keys" $ \tmp -> do
       writeFile (tmp </> "hydra") "hydra key"
       result <- genHydraKeys (GenerateKeyPair $ tmp </> "hydra")
-      print result
       case result of
         Left (_ :: FileError e) -> pure ()
         Right _ -> expectationFailure "getHydraKeys should have failed with FileError"
