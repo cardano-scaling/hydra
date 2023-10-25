@@ -62,14 +62,16 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
         </h1>
         <h2>Vote for the next Hydra feature</h2>
       </div>
-      <div className="grid">
-        {options.map((option) => (
-          <div className="card" key={option.id}>
-            <h3>{option.text}</h3>
-            <h4>{option.votes}</h4>
-            <button className="button" onClick={() => handleVote(option.id)}>Vote</button>
-          </div>
-        ))}
+      <div className='container'>
+        <div className="grid">
+          {options.map((option) => (
+            <div className="card" key={option.id}>
+              <h3>{option.text}</h3>
+              <h4>{option.votes}</h4>
+              <button className="button" onClick={() => handleVote(option.id)}>Vote</button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
