@@ -622,7 +622,7 @@ data RawInitObservation = RawInitObservation
   , contestationPeriod :: ContestationPeriod
   , onChainParties :: [OnChain.Party]
   , seedTxIn :: TxIn
-  , initialOutputs :: [AssetName]
+  , headPTsNames :: [AssetName]
   , initialThreadUTxO :: UTxOWithScript
   , initials :: [UTxOWithScript]
   }
@@ -647,8 +647,10 @@ data InitObservation = InitObservation
 
 -- | An explanation for a failed tentative `InitTx` observation.
 data NotAnInit
-  = NotAnInit NotAnInitReason
-  | NotAnInitForUs MismatchReason
+  = -- | The transaction is definitely not a valid InitTx
+    NotAnInit NotAnInitReason
+  | -- | The transaction /is/ a valid  InitTx but does not match the configuration of our Head.
+  NotAnInitForUs MismatchReason
   deriving (Show, Eq)
 
 data NotAnInitReason
@@ -704,7 +706,7 @@ observeRawInitTx networkId tx = do
       , contestationPeriod
       , onChainParties
       , seedTxIn
-      , initialOutputs = mintedTokenNames headId
+      , headPTsNames = mintedTokenNames headId
       , initialThreadUTxO =
           ( mkTxIn tx ix
           , toCtxUTxOTxOut headOut
@@ -777,7 +779,7 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
     Left (PartiesMismatch rawTx)
 
   -- pub key hashes of all configured participants == the token names of PTs
-  unless (containsSameElements configuredTokenNames initialOutputs) $
+  unless (containsSameElements configuredTokenNames headPTsNames) $
     Left (PTsNotMintedCorrectly rawTx)
 
   pure
@@ -803,7 +805,7 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
   RawInitObservation
     { headId
     , contestationPeriod
-    , initialOutputs
+    , headPTsNames
     , onChainParties
     , seedTxIn
     , initialThreadUTxO

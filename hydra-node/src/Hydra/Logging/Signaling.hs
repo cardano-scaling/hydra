@@ -9,6 +9,8 @@ import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
 import Hydra.Chain.Direct.Handlers (DirectChainLog (SomeHeadObserved))
 import Hydra.Logging (Tracer (..))
 import Hydra.Logging.Messages (HydraLog (DirectChain))
+import Hydra.Cardano.Api (AssetName(..))
+import qualified Data.ByteString.Base16 as Hex
 
 withSignaling ::
   (MonadSTM m) =>
@@ -41,5 +43,9 @@ decorate var tracer log = do
 
 signal :: HydraLog tx net -> Maybe (ServerOutput tx)
 signal = \case
-  DirectChain (SomeHeadObserved headId) -> Just (SomeHeadInitializing headId)
+  DirectChain (SomeHeadObserved headId pkhs) -> Just (SomeHeadInitializing headId (asHexText <$> pkhs))
   _ -> Nothing
+
+ where
+   asHexText :: AssetName -> Text
+   asHexText (AssetName bytes) = decodeUtf8 $ Hex.encode bytes

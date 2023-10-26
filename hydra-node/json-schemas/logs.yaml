@@ -372,6 +372,31 @@ definitions:
           contents:
             $ref: "logs.yaml#/definitions/Wallet"
 
+      - title: SomeHeadObserved
+        description: >-
+          Some Head initialisation transactions has been observed
+          on-chain but this node's configured head does not match it.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - pubKeyHashes
+        properties:
+          tag:
+            type: string
+            enum: ["SomeHeadObserved"]
+          headId:
+            $ref: "logs.yaml#/definitions/HeadId"
+          pubKeyHashes:
+            type: array
+            items:
+              type: string
+              contentEncoding: base16
+              description: >-
+                Hex-encoded hash of the public Cardano keys of the
+                Head participants.
+
   Wallet:
     oneOf:
       - title: BeginInitialize

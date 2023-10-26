@@ -27,7 +27,7 @@ import Hydra.Cardano.Api (
   fromLedgerTxIn,
   getChainPoint,
   getTxBody,
-  getTxId,
+  getTxId, AssetName,
  )
 import Hydra.Chain (
   Chain (..),
@@ -311,8 +311,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   reportObservedTx :: NoObservation -> m ()
   reportObservedTx = \case
-    ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId})) ->
-      traceWith tracer (SomeHeadObserved $ mkHeadId headId)
+    ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
+      traceWith tracer (SomeHeadObserved { headId = mkHeadId headId, pubKeyHashes = headPTsNames})
     _ -> pure ()
 
 prepareTxToPost ::
@@ -385,7 +385,7 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | SomeHeadObserved {headId :: HeadId}
+  | SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [AssetName]}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

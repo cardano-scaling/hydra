@@ -17,6 +17,7 @@ import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, values, _JSON)
+import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -41,6 +42,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct.State ()
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
@@ -90,8 +92,8 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
-  withHydraCluster,
   withConfiguredHydraCluster,
+  withHydraCluster,
   withHydraNode,
   withHydraNode',
  )
@@ -661,8 +663,9 @@ initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId ->
 initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys <- generate genKeyPair
-  carolKeys <- generate genKeyPair
-  void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing . fst =<< generate genKeyPair
+  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+  (damianCardanoVk, _) <- generate genKeyPair
+  void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing damianCardanoVk
 
   let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
       hydraKeys = [aliceSk, bobSk, carolSk]
@@ -686,12 +689,18 @@ initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = 
       waitForAllMatch 10 [n1, n3] $
         headIsInitializingWith (Set.fromList [alice, bob, carol])
 
+    let expectedHashes =
+          assetNameFromVerificationKey
+            <$> [aliceCardanoVk, damianCardanoVk, carolCardanoVk]
+
     -- We want the client to observe headId being opened without bob (node 2) being
     -- part of it
-    waitMatch 10 n2 $ \v -> do
+    pubKeyHashes <- waitMatch 10 n2 $ \v -> do
       guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
       guard (v ^? key "headId" == Just (toJSON headId))
-      return ()
+      v ^? key "pubKeyHashes" . _JSON
+
+    Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
 
 --
 -- Fixtures

@@ -10,11 +10,11 @@ import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
 import Hydra.Cardano.Api (Tx)
+import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Handlers (DirectChainLog (SomeHeadObserved))
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (DirectChain))
-import Hydra.Logging.Signaling (withSignaling, installSignal)
-import Hydra.Chain (HeadId(..))
+import Hydra.Logging.Signaling (installSignal, withSignaling)
 
 spec :: Spec
 spec =
@@ -24,7 +24,7 @@ spec =
           sentSignals <- newTVarIO []
           let server = Server @Tx $ \output -> atomically (modifyTVar' sentSignals (output :))
           installSignal signalVar server
-          traceWith tracer (DirectChain $ SomeHeadObserved someHeadId)
+          traceWith tracer (DirectChain $ SomeHeadObserved someHeadId ["12345"])
           readTVarIO sentSignals
 
-    signalled `shouldBe` [SomeHeadInitializing someHeadId ]
+    signalled `shouldBe` [SomeHeadInitializing someHeadId ["3132333435"]]
