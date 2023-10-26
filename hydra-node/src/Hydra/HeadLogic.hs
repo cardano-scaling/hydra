@@ -19,8 +19,7 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
   module Hydra.HeadLogic.SnapshotOutcome,
-)
-where
+) where
 
 import Hydra.Prelude
 

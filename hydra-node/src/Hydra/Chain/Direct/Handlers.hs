@@ -1,8 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -47,6 +47,7 @@ import Hydra.Chain.Direct.State (
   ChainContext,
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
+  NoObservation (..),
   abort,
   chainSlotFromPoint,
   close,
@@ -57,9 +58,10 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx, NoObservation (..),
+  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Tx (NotAnInit (..), RawInitObservation (..), mismatchReasonObservation, mkHeadId)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -70,7 +72,6 @@ import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
-import Hydra.Chain.Direct.Tx (NotAnInit(..), RawInitObservation (..), mismatchReasonObservation, mkHeadId)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -313,7 +314,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId})) ->
       traceWith tracer (SomeHeadObserved $ mkHeadId headId)
     _ -> pure ()
-
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>

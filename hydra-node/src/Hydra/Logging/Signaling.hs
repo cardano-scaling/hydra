@@ -3,7 +3,7 @@ module Hydra.Logging.Signaling where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
 import Hydra.Chain.Direct.Handlers (DirectChainLog (SomeHeadObserved))
@@ -20,7 +20,7 @@ withSignaling (Tracer tracer) k = do
   let tracer' = Tracer $ decorate var tracer
   k tracer' var
 
-installSignal :: MonadSTM m => TVar m (Maybe (Server tx m))  -> Server tx m -> m ()
+installSignal :: MonadSTM m => TVar m (Maybe (Server tx m)) -> Server tx m -> m ()
 installSignal var server =
   atomically $ writeTVar var (Just server)
 
