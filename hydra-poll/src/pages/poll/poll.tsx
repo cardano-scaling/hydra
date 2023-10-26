@@ -1,7 +1,7 @@
 import React, { useContext } from 'react'
 import { useWallet } from '@meshsdk/react'
-import { Transaction, Recipient, UTxO } from '@meshsdk/core'
-import { Option } from "../../types/option"
+import { Transaction, Recipient, UTxO, Protocol } from '@meshsdk/core'
+import { DEFAULT_PROTOCOL_PARAMETERS, Option } from "../../types/option"
 import { HydraSocketContext } from '../../lib/hydra-ws/context'
 
 const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
@@ -34,7 +34,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
           amount: [
             {
               unit: "lovelace",
-              quantity: "9997835926"
+              quantity: "9977542748"
             }
           ],
           dataHash: "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec",
@@ -42,11 +42,23 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
           scriptRef: script
         }
       }
-      const tx = new Transaction({ initiator: wallet }).sendValue(recipient, value)
+      const parameters: Protocol = {
+        ...DEFAULT_PROTOCOL_PARAMETERS,
+        minFeeA: 0,
+        minFeeB: 0,
+        priceMem: 0,
+        priceStep: 0,
+        collateralPercent: 0,
+        coinsPerUTxOSize: '0'
+      }
+      const tx = new Transaction({ initiator: wallet, parameters })
+        .sendValue(recipient, value)
+        // .setTxInputs([value])
+        .setCollateral([])
       const unsignedTx = await tx.build()
       const signedTx = await wallet.signTx(unsignedTx)
       const messageToSend = JSON.stringify({ "tag": "NewTx", "transaction": signedTx.toString() })
-      console.log(messageToSend)
+      console.log(JSON.parse(messageToSend))
       socket.send(messageToSend)
     } else {
       console.error("Cant build tx due to missing Lucid instance")
