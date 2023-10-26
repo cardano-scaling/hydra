@@ -50,7 +50,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
                 collateralPercent: 0,
                 coinsPerUTxOSize: '0'
             }
-            const tx = new Transaction({ initiator: wallet, parameters })
+            const tx: any = new Transaction({ initiator: wallet, parameters })
                 .redeemValue({
                     value, script,
                     datum: { alternative: 0, fields: [] },
@@ -62,7 +62,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             // hack to prevent the builder from trying to balance the tx
             tx["__visits"].push("setTxInputs");
             const unsignedTx = await tx.build()
-            const signedTx = await wallet.signTx(unsignedTx)
+            const signedTx = await wallet.signTx(unsignedTx, true)
             const messageToSend = JSON.stringify({ "tag": "NewTx", "transaction": signedTx.toString() })
             console.log(JSON.parse(messageToSend))
             socket.send(messageToSend)
