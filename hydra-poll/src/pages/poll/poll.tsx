@@ -27,14 +27,14 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
       const value: UTxO = {
         input: {
           outputIndex: 0,
-          txHash: "e020bac0c84b9f317ecbab2f8632f085579e3becb4d990f28b13eb4d8e9ef0c5"
+          txHash: "f646dd59541ee90c9f933148b01c0183d8f5ca7f8ff4d37748c960878308b141"
         },
         output: {
           address: "addr_test1wrrjcfmvzn3tjuwa92yagf079lfh7xfpawak47jxjmjm62snxuzpf",
           amount: [
             {
               unit: "lovelace",
-              quantity: "913720"
+              quantity: "9997835926"
             }
           ],
           dataHash: "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec",
