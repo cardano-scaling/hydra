@@ -30,16 +30,16 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
   eventChan <- newBChan 10
   withAsync (timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
-    withClient @Tx options (writeBChan eventChan) $ \client -> do
+    withClient @Tx options (writeBChan eventChan) $ \hydraClient -> do
       initialVty <- buildVty
       now <- getCurrentTime
-      customMain initialVty buildVty (Just eventChan) (app client) (initialState now)
+      customMain initialVty buildVty (Just eventChan) (app hydraClient) (initialState now)
  where
-  app client =
+  app hydraClient =
     App
-      { appDraw = draw client cardanoClient
+      { appDraw = draw cardanoClient hydraClient
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent cardanoClient client
+      , appHandleEvent = handleEvent cardanoClient hydraClient
       , appStartEvent = pure ()
       , appAttrMap = Hydra.TUI.Style.style
       }
@@ -48,7 +48,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
       { nodeHost = hydraNodeHost
       , now
       , connectedState = Disconnected
-      , logState = LogState{logMessages = [], logVerbosity = Full}
+      , logState = LogState{logMessages = [], logVerbosity = Short}
       }
 
   cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
