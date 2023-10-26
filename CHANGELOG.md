@@ -13,6 +13,10 @@ changes.
 - Improved `gen-hydra-keys` command to not overwrite keys if they are present
   already.
 
+- Clients are notified when a Head is initialised in order to detect
+  misconfigurations
+  ([#529](https://github.com/input-output-hk/hydra/issues/529))
+
 - Hydra node API `submit-transaction` endpoint now accepts three types of
   encoding: Base16 encoded CBOR string, TextEnvelope type and JSON.
 
