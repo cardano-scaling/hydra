@@ -229,50 +229,10 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
-  when (clusterSize == 0) $
-    failure "Cannot run a cluster with 0 number of nodes"
-  when (length allKeys /= length hydraKeys) $
-    failure "Not matching number of cardano/hydra keys"
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action =
+  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const $ id) contestationPeriod action
 
-  forM_ (zip allKeys allNodeIds) $ \((vk, sk), ix) -> do
-    let vkFile = File $ workDir </> show ix <.> "vk"
-    let skFile = File $ workDir </> show ix <.> "sk"
-    void $ writeFileTextEnvelope vkFile Nothing vk
-    void $ writeFileTextEnvelope skFile Nothing sk
-  startNodes [] allNodeIds
- where
-  clusterSize = length allKeys
-  allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
-
-  startNodes clients = \case
-    [] -> action (fromList $ reverse clients)
-    (nodeId : rest) -> do
-      let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVerificationKeys = map getVerificationKey $ filter (/= hydraSigningKey) hydraKeys
-          cardanoSigningKey = workDir </> show nodeId <.> "sk"
-          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
-          chainConfig =
-            defaultChainConfig
-              { nodeSocket
-              , cardanoSigningKey
-              , cardanoVerificationKeys
-              , contestationPeriod
-              }
-      withHydraNode
-        tracer
-        chainConfig
-        workDir
-        nodeId
-        hydraSigningKey
-        hydraVerificationKeys
-        allNodeIds
-        hydraScriptsTxId
-        (\c -> startNodes (c : clients) rest)
-
--- XXX: The two lists need to be of same length. Also the verification keys can
--- be derived from the signing keys.
-withHydraCluster' ::
+withConfiguredHydraCluster ::
   (HasCallStack) =>
   Tracer IO EndToEndLog ->
   FilePath ->
@@ -290,7 +250,7 @@ withHydraCluster' ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster' tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId chainConfigDecorator contestationPeriod action = do
+withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId chainConfigDecorator contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $

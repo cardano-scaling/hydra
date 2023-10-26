@@ -91,7 +91,7 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
-  withHydraCluster',
+  withConfiguredHydraCluster,
   withHydraNode,
   withHydraNode',
  )
@@ -675,7 +675,7 @@ initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = 
           3 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "1.vk", tmpDir </> "damien.vk"]}
           _ -> chainConfig
 
-  withHydraCluster' tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId wrongCardanoKeyForBob contestationPeriod $ \nodes -> do
+  withConfiguredHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId wrongCardanoKeyForBob contestationPeriod $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected tracer [n1, n2, n3]
 
