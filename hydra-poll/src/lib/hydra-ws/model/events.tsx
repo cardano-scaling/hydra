@@ -164,23 +164,23 @@ export type ServerOutput =
 // | PostTxOnChainFailed
 
 export enum ServerOutputTag {
-    Greetings,
-    PeerConnected,
-    PeerDisconnected,
-    ReadyToCommit,
-    Committed,
-    HeadIsOpen,
-    HeadIsAborted,
-    HeadIsClosed,
-    HeadIsContested,
-    HeadIsFinalized,
-    ReadyToFanout,
-    RolledBack,
-    TxValid,
-    TxInvalid,
+    Greetings = "Greetings",
+    PeerConnected = "PeerConnected",
+    PeerDisconnected = "PeerDisconnected",
+    ReadyToCommit = "ReadyToCommit",
+    Committed = "Committed",
+    HeadIsOpen = "HeadIsOpen",
+    HeadIsAborted = "HeadIsAborted",
+    HeadIsClosed = "HeadIsClosed",
+    HeadIsContested = "HeadIsContested",
+    HeadIsFinalized = "HeadIsFinalized",
+    ReadyToFanout = "ReadyToFanout",
+    RolledBack = "RolledBack",
+    TxValid = "TxValid",
+    TxInvalid = "TxInvalid",
     // SnapshotConfirmed
-    GetUTxOResponse,
-    InvalidInput
+    GetUTxOResponse = "GetUTxOResponse",
+    InvalidInput = "InvalidInput"
     // PostTxOnChainFailed
 }
 
@@ -190,17 +190,13 @@ export interface ClientDisconnected { tag: HydraEventType.ClientDisconnected }
 
 export interface Update { tag: HydraEventType.Update, output: ServerOutput }
 
-export interface Tick { tag: HydraEventType.Tick, tick: UTCTime }
-
 export enum HydraEventType {
     ClientConnected,
     ClientDisconnected,
     Update,
-    Tick
 }
 
 export type HydraEvent =
     ClientConnected
     | ClientDisconnected
     | Update
-    | Tick
