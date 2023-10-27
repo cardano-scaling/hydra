@@ -1,4 +1,4 @@
-import { Protocol } from "@meshsdk/core";
+import { Protocol } from "@meshsdk/core"
 
 export interface Option {
   id: number

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { decode } from 'cbor-x/decode'
-import { Option, metadataLabel } from '../../types/option'
+import { Option, metadataLabel } from '../../types/types'
 import Poll from "./poll"
 import { useHydraEvent } from "../../lib/hydra-ws/hook"
 import {
@@ -10,7 +10,6 @@ import {
 } from "../../lib/hydra-ws/model/events"
 
 export default function Main() {
-    // const [state, setState] = useState(transitions.disconnected(options))
     const [options, setOptions] = useState<Option[]>([
         { id: 1, text: 'Incremental commits/decommits', votes: 0 },
         { id: 2, text: 'Dynamic Hydra Parties', votes: 0 },
@@ -29,10 +28,9 @@ export default function Main() {
     }
 
     useHydraEvent((event: HydraEvent) => {
-        // console.log("HydraEvent: %o", event)
+        // console.log("HydraEvent: %o", event.tag)
         switch (event.tag) {
             case HydraEventType.Update:
-                // setState(transitions.handleAppEvent(state, event.output))
                 switch (event.output.tag) {
                     case ServerOutputTag.HeadIsOpen:
                         const headIsOpen = event.output

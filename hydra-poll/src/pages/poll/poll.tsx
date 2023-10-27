@@ -1,18 +1,9 @@
 import React, { useContext } from 'react'
 import { useNetwork, useWallet } from '@meshsdk/react'
-import {
-    Data,
-    Transaction,
-    PlutusScript,
-    UTxO,
-    Protocol,
-    Recipient,
-    resolvePlutusScriptAddress,
-    resolveDataHash,
-    Asset
-} from '@meshsdk/core'
-import { DEFAULT_PROTOCOL_PARAMETERS, Option, metadataLabel } from "../../types/option"
+import { Protocol } from '@meshsdk/core'
+import { DEFAULT_PROTOCOL_PARAMETERS, Option } from "../../types/types"
 import { HydraSocketContext } from '../../lib/hydra-ws/context'
+import { buildScriptTx } from '../../utils/utils'
 
 const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash }) => {
     const { socket } = useContext(HydraSocketContext)
@@ -32,52 +23,13 @@ const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash
     }
 
     // Function to send a vote message through WebSocket
-    const handleVote = async function(voteOption: number) {
+    const handleVote = async (voteOption: number) => {
         if (connected) {
-            const script: PlutusScript = {
-                version: "V2",
-                code
-            }
-            const scriptAddress = resolvePlutusScriptAddress(script, network)
-            const datumValue = "d87980"
-            const dataHash = resolveDataHash(datumValue)
-            const asset: Asset = {
-                unit: "lovelace",
-                quantity: "98000000"
-            }
-            const value: UTxO = {
-                input: {
-                    outputIndex: 0,
-                    txHash
-                },
-                output: {
-                    address: scriptAddress,
-                    amount: [asset],
-                    dataHash,
-                }
-            }
-            const data: Data = { alternative: 0, fields: [] }
-            const recipient: Recipient = {
-                address: scriptAddress,
-                datum: { value: data }
-            }
-            const tx = new Transaction({ initiator: wallet, parameters })
-                .redeemValue({
-                    value,
-                    script,
-                    datum: data,
-                    redeemer: data
-                })
-                .sendLovelace(recipient, asset.quantity)
-                .setCollateral([value])
-                .setTxInputs([]) // hack to prevent the builder from trying to balance the tx
-                .setMetadata(metadataLabel, voteOption)
-
-            const unsignedTx = await tx.build()
+            const unsignedTx = await buildScriptTx(code, txHash, voteOption, wallet, parameters, network)
             const signedTx = await wallet.signTx(unsignedTx, true)
             const newTx = { "tag": "NewTx", "transaction": signedTx.toString() }
-            const messageToSend = JSON.stringify(newTx)
-            socket.send(messageToSend)
+            const message = JSON.stringify(newTx)
+            socket.send(message)
         } else {
             console.error("Cant build tx due to missing Lucid instance")
         }

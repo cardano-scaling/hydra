@@ -7,7 +7,7 @@ export default function useNotification() {
     const address = useAddress()
     const [isNotConnected, setIsNotConnected] = useState(true)
 
-    function formatAddressWithPrefix(address: string): string {
+    const formatAddressWithPrefix = (address: string): string => {
         const prefix = "addr_test"
         const prefixLength = prefix.length
         const suffixLength = 5
