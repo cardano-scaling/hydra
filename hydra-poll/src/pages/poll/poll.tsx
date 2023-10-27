@@ -53,13 +53,13 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
                     datum: { alternative: 0, fields: [] },
                     redeemer: { alternative: 0, fields: [] }
                 })
-                .sendLovelace({ address: scriptAddress, datum: { value: { alternative: 0, fields: [] }, inline: true } }, '98000000')
+                .sendLovelace({ address: scriptAddress, datum: { value: { alternative: 0, fields: [] } } }, '98000000')
                 .setCollateral([value])
 
             // hack to prevent the builder from trying to balance the tx
             tx["__visits"].push("setTxInputs")
             const unsignedTx = await tx.build()
-            
+
             console.log("-------------------------------------------")
             console.log("dataHash:", dataHash)
             console.log("scriptAddress:", scriptAddress)
@@ -68,7 +68,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             console.log("TxHash:", resolveTxHash(unsignedTx))
             console.log("Transaction:", readTransaction(unsignedTx))
             console.log("-------------------------------------------")
-            
+
             const signedTx = await wallet.signTx(unsignedTx, true)
             const messageToSend = JSON.stringify({ "tag": "NewTx", "transaction": signedTx.toString() })
             console.log(JSON.parse(messageToSend))
