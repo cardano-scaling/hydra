@@ -45,3 +45,15 @@ benchmarks: True
 
 -- Always show detailed output for tests
 test-show-details: direct
+
+
+
+-- NOTE: cardano-ledger-babbage forked to disable collateral check
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/cardano-ledger.git
+  tag: c34cd4bb566c4b02c6522bd8c0080beb746ac805
+  --sha256: 13vxj8mr4z8li2nlabjhmcjbnlhgiq1szip8n2414xvdvplxpd3a
+  subdir:
+    eras/babbage/impl
+
