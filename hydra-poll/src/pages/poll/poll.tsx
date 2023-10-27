@@ -61,7 +61,7 @@ const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash
                 address: scriptAddress,
                 datum: { value: data }
             }
-            const tx: any = new Transaction({ initiator: wallet, parameters })
+            const tx = new Transaction({ initiator: wallet, parameters })
                 .redeemValue({
                     value,
                     script,
@@ -70,8 +70,8 @@ const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash
                 })
                 .sendLovelace(recipient, asset.quantity)
                 .setCollateral([value])
-            // hack to prevent the builder from trying to balance the tx
-            tx["__visits"].push("setTxInputs")
+                .setTxInputs([]) // hack to prevent the builder from trying to balance the tx
+
             const unsignedTx = await tx.build()
             const signedTx = await wallet.signTx(unsignedTx, true)
             const newTx = { "tag": "NewTx", "transaction": signedTx.toString() }
