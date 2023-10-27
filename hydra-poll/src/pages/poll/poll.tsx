@@ -33,7 +33,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             const value: UTxO = {
                 input: {
                     outputIndex: 0,
-                    txHash: "8dcd2cf83a72b4f3891e5acb8984bef599f56a8a1ddfef2b7a4a364b9be87361"
+                    txHash: "62452f7f1f382729a0194da76dc3e864479da0e80e8777e260aa6a8be4d26eb5"
                 },
                 output: {
                     address: "addr_test1wrrjcfmvzn3tjuwa92yagf079lfh7xfpawak47jxjmjm62snxuzpf",
