@@ -11,7 +11,7 @@ import {
     resolveDataHash,
     Asset
 } from '@meshsdk/core'
-import { DEFAULT_PROTOCOL_PARAMETERS, Option } from "../../types/option"
+import { DEFAULT_PROTOCOL_PARAMETERS, Option, metadataLabel } from "../../types/option"
 import { HydraSocketContext } from '../../lib/hydra-ws/context'
 
 const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash }) => {
@@ -71,6 +71,7 @@ const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash
                 .sendLovelace(recipient, asset.quantity)
                 .setCollateral([value])
                 .setTxInputs([]) // hack to prevent the builder from trying to balance the tx
+                .setMetadata(metadataLabel, voteOption)
 
             const unsignedTx = await tx.build()
             const signedTx = await wallet.signTx(unsignedTx, true)

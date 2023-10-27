@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { decode } from 'cbor-x/decode'
-import { Option } from '../../types/option'
+import { Option, metadataLabel } from '../../types/option'
 import Poll from "./poll"
 import { useHydraEvent } from "../../lib/hydra-ws/hook"
 import {
@@ -42,11 +42,10 @@ export default function Main() {
                     case ServerOutputTag.TxValid:
                         const txValid = event.output
                         setTxHash(txValid.transaction.id)
-                        const metadataLabel = 14
                         if (txValid.transaction.auxiliaryData != null) {
                             const hex = Buffer.from(txValid.transaction.auxiliaryData, 'hex')
                             const aux = decode(hex)
-                            const voteOption = aux.get(0)[metadataLabel]
+                            const voteOption = aux[metadataLabel]
                             updateVoteCount(voteOption)
                         }
                         break

@@ -28,3 +28,5 @@ export const DEFAULT_PROTOCOL_PARAMETERS: Protocol = {
   maxBlockExMem: '80000000',
   maxBlockExSteps: '40000000000',
 }
+
+export const metadataLabel = 14
