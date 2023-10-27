@@ -1,8 +1,10 @@
 import React, { useContext } from 'react'
 import { useWallet } from '@meshsdk/react'
-import { Transaction, PlutusScript, Recipient, UTxO, Protocol, resolvePlutusScriptAddress } from '@meshsdk/core'
+import { Transaction, PlutusScript, UTxO, Protocol, resolvePlutusScriptAddress } from '@meshsdk/core'
 import { DEFAULT_PROTOCOL_PARAMETERS, Option } from "../../types/option"
 import { HydraSocketContext } from '../../lib/hydra-ws/context'
+import { readTransaction , resolvePlutusScriptHash, resolveTxHash, resolveDataHash} from '@meshsdk/core'
+
 
 const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
     const { socket } = useContext(HydraSocketContext)
@@ -16,29 +18,23 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             const script: PlutusScript = {
                 version: "V2",
                 code
-            };
-            const scriptAddress = resolvePlutusScriptAddress(script, 0);
-            const unit = {
-                value: datumValue,
-                inline: true
-            };
-            const recipient: Recipient = {
-                address: "addr_test1wrrjcfmvzn3tjuwa92yagf079lfh7xfpawak47jxjmjm62snxuzpf",
-                datum: unit,
             }
+            const scriptAddress = resolvePlutusScriptAddress(script, 0)
+            const scriptHash = resolvePlutusScriptHash(scriptAddress)
+            const dataHash = resolveDataHash(datumValue)
             const amount = [{
                 unit: "lovelace",
                 quantity: "98000000"
-            }];
+            }]
             const value: UTxO = {
                 input: {
                     outputIndex: 0,
                     txHash: "62452f7f1f382729a0194da76dc3e864479da0e80e8777e260aa6a8be4d26eb5"
                 },
                 output: {
-                    address: "addr_test1wrrjcfmvzn3tjuwa92yagf079lfh7xfpawak47jxjmjm62snxuzpf",
+                    address: scriptAddress,
                     amount,
-                    dataHash: "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec",
+                    dataHash,
                 }
             }
             const parameters: Protocol = {
@@ -52,7 +48,8 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             }
             const tx: any = new Transaction({ initiator: wallet, parameters })
                 .redeemValue({
-                    value, script,
+                    value,
+                    script,
                     datum: { alternative: 0, fields: [] },
                     redeemer: { alternative: 0, fields: [] }
                 })
@@ -60,8 +57,18 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
                 .setCollateral([value])
 
             // hack to prevent the builder from trying to balance the tx
-            tx["__visits"].push("setTxInputs");
+            tx["__visits"].push("setTxInputs")
             const unsignedTx = await tx.build()
+            
+            console.log("-------------------------------------------")
+            console.log("dataHash:", dataHash)
+            console.log("scriptAddress:", scriptAddress)
+            console.log("scriptHash:", scriptHash)
+            console.log("-== Resolve unsignedTx ==-")
+            console.log("TxHash:", resolveTxHash(unsignedTx))
+            console.log("Transaction:", readTransaction(unsignedTx))
+            console.log("-------------------------------------------")
+            
             const signedTx = await wallet.signTx(unsignedTx, true)
             const messageToSend = JSON.stringify({ "tag": "NewTx", "transaction": signedTx.toString() })
             console.log(JSON.parse(messageToSend))
