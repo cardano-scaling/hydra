@@ -6,7 +6,7 @@ import { useHydraEvent } from "../../lib/hydra-ws/hook"
 import {
     HydraEventType,
     HydraEvent,
-    ServerOutputTag
+    ServerOutputTag,
 } from "../../lib/hydra-ws/model/events"
 
 export default function Main() {
@@ -16,6 +16,7 @@ export default function Main() {
         { id: 2, text: 'Dynamic Hydra Parties', votes: 0 },
         { id: 3, text: 'Interconnected Hydra Heads', votes: 0 },
     ])
+    const [txHash, setTxHash] = useState<string>("")
 
     const updateVoteCount = (optionId: number) => {
         setOptions((prevOptions) =>
@@ -33,8 +34,14 @@ export default function Main() {
             case HydraEventType.Update:
                 // setState(transitions.handleAppEvent(state, event.output))
                 switch (event.output.tag) {
+                    case ServerOutputTag.HeadIsOpen:
+                        const headIsOpen = event.output
+                        const txId = Object.keys(headIsOpen.utxo)[0].split('#')[0]
+                        setTxHash(txId)
+                        break
                     case ServerOutputTag.TxValid:
                         const txValid = event.output
+                        setTxHash(txValid.transaction.id)
                         const metadataLabel = 14
                         if (txValid.transaction.auxiliaryData != null) {
                             const hex = Buffer.from(txValid.transaction.auxiliaryData, 'hex')
@@ -54,7 +61,7 @@ export default function Main() {
 
     return (
         <div>
-            <Poll options={options} />
+            <Poll options={options} txHash={txHash} />
         </div>
     )
 }

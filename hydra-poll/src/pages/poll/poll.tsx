@@ -14,7 +14,7 @@ import {
 import { DEFAULT_PROTOCOL_PARAMETERS, Option } from "../../types/option"
 import { HydraSocketContext } from '../../lib/hydra-ws/context'
 
-const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
+const Poll: React.FC<{ options: Option[], txHash: string }> = ({ options, txHash }) => {
     const { socket } = useContext(HydraSocketContext)
     const { wallet, connected } = useWallet()
     const network = useNetwork()
@@ -48,7 +48,7 @@ const Poll: React.FC<{ options: Option[] }> = ({ options }) => {
             const value: UTxO = {
                 input: {
                     outputIndex: 0,
-                    txHash: "53cb071750aa8be658898cfc34a604f68073bf6d533fe8ab7169a5c83c6e4857"
+                    txHash
                 },
                 output: {
                     address: scriptAddress,
