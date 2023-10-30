@@ -41,11 +41,11 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.InitialError (InitialError (STNotBurned))
 import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
 import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
-import Hydra.Contract.InitialError (InitialError(STNotBurned))
 
 --
 -- AbortTx
@@ -165,8 +165,8 @@ data AbortMutation
     ExtractValue
   | -- | State token is not burned
     DoNotBurnST
-    -- Here we want to check that the initial validator also fails on abort.
-  | DoNotBurnSTInitial
+  | -- Here we want to check that the initial validator also fails on abort.
+    DoNotBurnSTInitial
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -258,7 +258,6 @@ genAbortMutation (tx, utxo) =
         <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     , SomeMutation (Just $ toErrorCode STNotBurned) DoNotBurnSTInitial
         <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
-
     ]
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value

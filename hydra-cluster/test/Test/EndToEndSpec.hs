@@ -55,18 +55,7 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (
-  canCloseWithLongContestationPeriod,
-  canSubmitTransactionThroughAPI,
-  headIsInitializingWith,
-  refuelIfNeeded,
-  restartedNodeCanAbort,
-  restartedNodeCanObserveCommitTx,
-  singlePartyCannotCommitExternallyWalletUtxo,
-  singlePartyCommitsExternalScriptWithInlineDatum,
-  singlePartyCommitsFromExternalScript,
-  singlePartyHeadFullLifeCycle,
- )
+import Hydra.Cluster.Scenarios (canCloseWithLongContestationPeriod, canSubmitTransactionThroughAPI, headIsInitializingWith, initWithWrongKeys, refuelIfNeeded, restartedNodeCanAbort, restartedNodeCanObserveCommitTx, singlePartyCannotCommitExternallyWalletUtxo, singlePartyCommitsExternalScriptWithInlineDatum, singlePartyCommitsFromExternalScript, singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
@@ -97,7 +86,6 @@ import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
 import qualified Prelude
-import Hydra.Cluster.Scenarios (initWithWrongKeys)
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]

@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  AssetName,
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -27,7 +28,7 @@ import Hydra.Cardano.Api (
   fromLedgerTxIn,
   getChainPoint,
   getTxBody,
-  getTxId, AssetName,
+  getTxId,
  )
 import Hydra.Chain (
   Chain (..),
@@ -312,7 +313,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   reportObservedTx :: NoObservation -> m ()
   reportObservedTx = \case
     ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
-      traceWith tracer (SomeHeadObserved { headId = mkHeadId headId, pubKeyHashes = headPTsNames})
+      traceWith tracer (SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = headPTsNames})
     _ -> pure ()
 
 prepareTxToPost ::

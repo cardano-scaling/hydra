@@ -650,7 +650,7 @@ data NotAnInit
   = -- | The transaction is definitely not a valid InitTx
     NotAnInit NotAnInitReason
   | -- | The transaction /is/ a valid  InitTx but does not match the configuration of our Head.
-  NotAnInitForUs MismatchReason
+    NotAnInitForUs MismatchReason
   deriving (Show, Eq)
 
 data NotAnInitReason

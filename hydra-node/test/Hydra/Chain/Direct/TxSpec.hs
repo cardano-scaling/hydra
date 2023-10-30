@@ -52,8 +52,8 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case first NotAnInit (observeRawInitTx testNetworkId tx) >>=
-                            (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
+               in case first NotAnInit (observeRawInitTx testNetworkId tx)
+                    >>= (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
@@ -105,8 +105,8 @@ spec =
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
               tx = initTx testNetworkId cardanoKeys params txIn
-          pure $ case first NotAnInit (observeRawInitTx testNetworkId tx) >>=
-                   (first NotAnInitForUs . observeInitTx cardanoKeys wrongCPeriod party parties) of
+          pure $ case first NotAnInit (observeRawInitTx testNetworkId tx)
+            >>= (first NotAnInitForUs . observeInitTx cardanoKeys wrongCPeriod party parties) of
             Right InitObservation{} -> do
               property False
                 & counterexample "Failed to ignore init tx with the wrong contestation period."
@@ -125,8 +125,8 @@ spec =
               wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
               params = HeadParameters cperiod allParties
               tx = initTx testNetworkId cardanoKeys params txIn
-           in case first NotAnInit (observeRawInitTx testNetworkId tx) >>=
-                   (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
+           in case first NotAnInit (observeRawInitTx testNetworkId tx)
+                >>= (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
                 Right InitObservation{} -> do
                   property False
                     & counterexample "Failed to ignore init tx with the wrong cardano keys."

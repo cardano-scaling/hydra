@@ -81,7 +81,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Ledger.Cardano (
@@ -127,7 +127,6 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import qualified Prelude
-import Hydra.Chain.Direct.Tx (NotAnInit(NotAnInit))
 
 spec :: Spec
 spec = parallel $ do
