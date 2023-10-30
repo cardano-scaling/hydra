@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Hydra.Cluster.Scenarios where
 
@@ -56,15 +57,15 @@ import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (
 import Hydra.Chain (HeadId)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carolSk, carol)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig, networkId, startChainFrom)
+import Hydra.Options (ChainConfig (cardanoVerificationKeys), networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), HydraClient, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog (..), HydraClient, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode, withConfiguredHydraCluster, waitForNodesConnected)
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -82,6 +83,10 @@ import Network.HTTP.Req (
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
+import System.FilePath ((</>))
+import System.FilePath ((<.>))
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
+import qualified Data.Aeson as Aeson
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -461,6 +466,50 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         (ReqBodyJson tx)
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
+
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
+  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+  bobKeys <- generate genKeyPair
+  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+  (damianCardanoVk, _) <- generate genKeyPair
+  void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing damianCardanoVk
+
+  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+      hydraKeys = [aliceSk, bobSk, carolSk]
+
+  let contestationPeriod = UnsafeContestationPeriod 2
+
+      wrongCardanoKeyForBob targetNodeId chainConfig =
+        case targetNodeId of
+          1 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "3.vk", tmpDir </> "damien.vk"]}
+          3 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "1.vk", tmpDir </> "damien.vk"]}
+          _ -> chainConfig
+
+  withConfiguredHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId wrongCardanoKeyForBob contestationPeriod $ \nodes -> do
+    let [n1, n2, n3] = toList nodes
+    waitForNodesConnected tracer [n1, n2, n3]
+
+    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+    send n1 $ input "Init" []
+    headId :: HeadId <-
+      waitForAllMatch 10 [n1, n3] $
+        headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+    let expectedHashes =
+          assetNameFromVerificationKey
+            <$> [aliceCardanoVk, damianCardanoVk, carolCardanoVk]
+
+    -- We want the client to observe headId being opened without bob (node 2) being
+    -- part of it
+    pubKeyHashes <- waitMatch 10 n2 $ \v -> do
+      guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
+      guard (v ^? key "headId" == Just (toJSON headId))
+      v ^? key "pubKeyHashes" . _JSON
+
+    Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
+
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

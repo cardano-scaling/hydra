@@ -17,14 +17,12 @@ import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, values, _JSON)
-import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
-  File (File),
   GenesisParameters (..),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -37,12 +35,9 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
-  writeFileTextEnvelope,
   pattern TxValidityLowerBound,
  )
-import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
@@ -92,17 +87,17 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
-  withConfiguredHydraCluster,
   withHydraCluster,
   withHydraNode,
   withHydraNode',
  )
 import System.Directory (removeDirectoryRecursive)
-import System.FilePath ((<.>), (</>))
+import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
 import qualified Prelude
+import Hydra.Cluster.Scenarios (initWithWrongKeys)
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
@@ -227,7 +222,7 @@ spec = around showLogsOnFailure $
 
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do
+          withClusterTempDir "incorrect-cardano-keys" $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
                 >>= initWithWrongKeys tmpDir tracer node
@@ -658,49 +653,6 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
         failure $ "newUTxO isn't valid JSON?: " <> err
       Data.Aeson.Success u ->
         failAfter 5 $ waitForUTxO networkId nodeSocket u
-
-initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
-  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-  bobKeys <- generate genKeyPair
-  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
-  (damianCardanoVk, _) <- generate genKeyPair
-  void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing damianCardanoVk
-
-  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
-      hydraKeys = [aliceSk, bobSk, carolSk]
-
-  let contestationPeriod = UnsafeContestationPeriod 2
-
-      wrongCardanoKeyForBob targetNodeId chainConfig =
-        case targetNodeId of
-          1 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "3.vk", tmpDir </> "damien.vk"]}
-          3 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "1.vk", tmpDir </> "damien.vk"]}
-          _ -> chainConfig
-
-  withConfiguredHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId wrongCardanoKeyForBob contestationPeriod $ \nodes -> do
-    let [n1, n2, n3] = toList nodes
-    waitForNodesConnected tracer [n1, n2, n3]
-
-    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
-    send n1 $ input "Init" []
-    headId :: HeadId <-
-      waitForAllMatch 10 [n1, n3] $
-        headIsInitializingWith (Set.fromList [alice, bob, carol])
-
-    let expectedHashes =
-          assetNameFromVerificationKey
-            <$> [aliceCardanoVk, damianCardanoVk, carolCardanoVk]
-
-    -- We want the client to observe headId being opened without bob (node 2) being
-    -- part of it
-    pubKeyHashes <- waitMatch 10 n2 $ \v -> do
-      guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
-      guard (v ^? key "headId" == Just (toJSON headId))
-      v ^? key "pubKeyHashes" . _JSON
-
-    Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
 
 --
 -- Fixtures
