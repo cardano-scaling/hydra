@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -45,7 +44,7 @@ import Hydra.Chain (
   rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
-  ChainContext,
+  ChainContext (..),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
   NoObservation (..),
@@ -324,7 +323,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
+prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@ChainStateAt{chainState} tx =
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -363,7 +362,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 
   -- See ADR21 for context
   calculateTxUpperBoundFromContestationPeriod currentTime = do
-    let effectiveDelay = min (toNominalDiffTime $ ctx.contestationPeriod) maxGraceTime
+    let effectiveDelay = min (toNominalDiffTime contestationPeriod) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
