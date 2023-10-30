@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
+import Hydra.API.ServerOutput (ServerOutput (IgnoredHeadInitializing))
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Handlers (DirectChainLog (SomeHeadObserved))
@@ -27,4 +27,4 @@ spec =
           traceWith tracer (DirectChain $ SomeHeadObserved someHeadId ["12345"])
           readTVarIO sentSignals
 
-    signalled `shouldBe` [SomeHeadInitializing someHeadId ["3132333435"]]
+    signalled `shouldBe` [IgnoredHeadInitializing someHeadId ["3132333435"]]

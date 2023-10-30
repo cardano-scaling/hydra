@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import qualified Data.ByteString.Base16 as Hex
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput (SomeHeadInitializing))
+import Hydra.API.ServerOutput (ServerOutput (IgnoredHeadInitializing))
 import Hydra.Cardano.Api (AssetName (..))
 import Hydra.Chain.Direct.Handlers (DirectChainLog (SomeHeadObserved))
 import Hydra.Logging (Tracer (..))
@@ -43,7 +43,7 @@ decorate var tracer log = do
 
 signal :: HydraLog tx net -> Maybe (ServerOutput tx)
 signal = \case
-  DirectChain (SomeHeadObserved headId pkhs) -> Just (SomeHeadInitializing headId (asHexText <$> pkhs))
+  DirectChain (SomeHeadObserved headId pkhs) -> Just (IgnoredHeadInitializing headId (asHexText <$> pkhs))
   _ -> Nothing
  where
   asHexText :: AssetName -> Text
