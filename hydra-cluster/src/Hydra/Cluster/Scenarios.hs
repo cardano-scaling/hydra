@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Hydra.Cluster.Scenarios where
 
@@ -20,6 +19,7 @@ import CardanoClient (
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
@@ -55,17 +55,30 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carolSk, carol)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (cardanoVerificationKeys), networkId, startChainFrom)
+import Hydra.Options (ChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), HydraClient, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode, withConfiguredHydraCluster, waitForNodesConnected)
+import HydraNode (
+  EndToEndLog (..),
+  HydraClient,
+  input,
+  output,
+  requestCommitTx,
+  send,
+  waitFor,
+  waitForAllMatch,
+  waitForNodesConnected,
+  waitMatch,
+  withHydraNode,
+ )
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -83,10 +96,6 @@ import Network.HTTP.Req (
 import qualified PlutusLedgerApi.Test.Examples as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
-import System.FilePath ((</>))
-import System.FilePath ((<.>))
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
-import qualified Data.Aeson as Aeson
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
@@ -424,7 +433,7 @@ canSubmitTransactionThroughAPI ::
   TxId ->
   IO ()
 canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
-   (`finally` returnFundsToFaucet tracer node Alice) $ do
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
@@ -456,7 +465,6 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
-
   RunningNode{networkId, nodeSocket} = node
   sendRequest hydraNodeId tx =
     runReq defaultHttpConfig $
@@ -468,48 +476,39 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         (port $ 4000 + hydraNodeId)
 
 initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-initWithWrongKeys tmpDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
-  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-  bobKeys <- generate genKeyPair
-  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
-  (damianCardanoVk, _) <- generate genKeyPair
-  void $ writeFileTextEnvelope (File $ tmpDir </> "damien" <.> "vk") Nothing damianCardanoVk
+initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+  (carolCardanoVk, _) <- keysFor Carol
 
-  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
-      hydraKeys = [aliceSk, bobSk, carolSk]
+  -- NOTE: Alice is wrongly configured to use Carol's cardano keys instead of Bob's which
+  -- will prevent him to be notified the `HeadIsINitializing` but he should still receive
+  -- some notification.
+  aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [Carol] (UnsafeContestationPeriod 2)
+  bobChainConfig <- chainConfigFor Bob workDir nodeSocket [Alice] (UnsafeContestationPeriod 2)
 
-  let contestationPeriod = UnsafeContestationPeriod 2
+  withHydraNode tracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] hydraScriptsTxId $ \n1 -> do
+    withHydraNode tracer bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] hydraScriptsTxId $ \n2 -> do
+      waitForNodesConnected tracer [n1, n2]
 
-      wrongCardanoKeyForBob targetNodeId chainConfig =
-        case targetNodeId of
-          1 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "3.vk", tmpDir </> "damien.vk"]}
-          3 -> chainConfig{cardanoVerificationKeys = [tmpDir </> "1.vk", tmpDir </> "damien.vk"]}
-          _ -> chainConfig
+      seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-  withConfiguredHydraCluster tracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId wrongCardanoKeyForBob contestationPeriod $ \nodes -> do
-    let [n1, n2, n3] = toList nodes
-    waitForNodesConnected tracer [n1, n2, n3]
+      send n1 $ input "Init" []
+      headId :: HeadId <-
+        waitForAllMatch 10 [n1] $
+          headIsInitializingWith (Set.fromList [alice, bob])
 
-    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      let expectedHashes =
+            assetNameFromVerificationKey
+              <$> [aliceCardanoVk, carolCardanoVk]
 
-    send n1 $ input "Init" []
-    headId :: HeadId <-
-      waitForAllMatch 10 [n1, n3] $
-        headIsInitializingWith (Set.fromList [alice, bob, carol])
+      -- We want the client to observe headId being opened without bob (node 2) being
+      -- part of it
+      pubKeyHashes <- waitMatch 10 n2 $ \v -> do
+        guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
+        guard (v ^? key "headId" == Just (toJSON headId))
+        v ^? key "pubKeyHashes" . _JSON
 
-    let expectedHashes =
-          assetNameFromVerificationKey
-            <$> [aliceCardanoVk, damianCardanoVk, carolCardanoVk]
-
-    -- We want the client to observe headId being opened without bob (node 2) being
-    -- part of it
-    pubKeyHashes <- waitMatch 10 n2 $ \v -> do
-      guard (v ^? key "tag" == Just (Aeson.String "SomeHeadInitializing"))
-      guard (v ^? key "headId" == Just (toJSON headId))
-      v ^? key "pubKeyHashes" . _JSON
-
-    Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
-
+      Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

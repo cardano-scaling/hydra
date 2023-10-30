@@ -220,13 +220,6 @@ spec = around showLogsOnFailure $
                 waitFor tracer 3 [n1] $
                   output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
 
-      it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
-        failAfter 60 $
-          withClusterTempDir "incorrect-cardano-keys" $ \tmpDir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
-              publishHydraScriptsAs node Faucet
-                >>= initWithWrongKeys tmpDir tracer node
-
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir "abort-after-restart" $ \tmpDir -> do
@@ -358,6 +351,13 @@ spec = around showLogsOnFailure $
               concurrently_
                 (initAndClose tmpDir tracer 0 hydraScriptsTxId node)
                 (initAndClose tmpDir tracer 1 hydraScriptsTxId node)
+
+      it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir "incorrect-cardano-keys" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= initWithWrongKeys tmpDir tracer node
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
