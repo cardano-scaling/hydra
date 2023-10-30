@@ -102,10 +102,10 @@ let
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
     shellHook = ''
-      if [ ! which cardano-node ]; then
+      if ! which cardano-node > /dev/null 2>&1; then
         echo "WARNING: 'cardano-node' not found"
       fi
-      if [ ! which cardano-cli ]; then
+      if ! which cardano-cli > /dev/null 2>&1; then
         echo "WARNING: 'cardano-cli' not found"
       fi
     '';
