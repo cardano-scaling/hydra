@@ -33,6 +33,7 @@ import Hydra.Options (
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
+import Hydra.Options (OfflineConfig(OfflineConfig), initialUTxOFile, ledgerGenesisFile, utxoWriteBack)
 
 spec :: Spec
 spec = parallel $
@@ -365,4 +366,5 @@ defaultRunOptions =
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
     , offlineConfig = Nothing
+    -- Just (OfflineConfig {initialUTxOFile = "utxo.json", ledgerGenesisFile = Just "genesis.json", utxoWriteBack = Nothing})
     }

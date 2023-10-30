@@ -123,8 +123,11 @@ run opts = do
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
-        ctx <- loadChainContext chainConfig party hydraScriptsTxId
+        ctx <- case onlineOrOfflineConfig of
+          Left _ -> pure (error "error: shouldnt be forced") -- this is only used in draftCommitTx in mkFakeL1Chain, which should be unused, so we can probably get rid of this in offline mode
+          Right _ -> loadChainContext chainConfig party hydraScriptsTxId
         let headId = HeadId "HeadId"
+        initializeStateIfOffline chainStateHistory headId party (putEvent . OnChainEvent) offlineConfig
 
         withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
           -- API

@@ -199,7 +199,7 @@ withOfflineChain ::
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineConfig{initialUTxOFile, ledgerGenesisFile} globals@Ledger.Globals{systemStart} ctx@ChainContext{ownParty} ownHeadId chainStateHistory callback action = do
+withOfflineChain tracer OfflineConfig{initialUTxOFile, ledgerGenesisFile} globals@Ledger.Globals{systemStart} ctx ownHeadId chainStateHistory callback action = do
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle = mkFakeL1Chain localChainState tracer ctx ownHeadId callback
 
@@ -208,7 +208,6 @@ withOfflineChain tracer OfflineConfig{initialUTxOFile, ledgerGenesisFile} global
 
   tickForeverAction <- case ledgerGenesisFile of
     Just filePath -> do
-      -- TODO(Elaine): confirm the latter approach in the case of empty genesis file is better
       Ledger.ShelleyGenesis{sgSystemStart, sgSlotLength, sgEpochLength} <-
         readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
       let slotLengthNominalDiffTime = fromNominalDiffTimeMicro sgSlotLength

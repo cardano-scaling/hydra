@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Hydra.Options (
   module Hydra.Options,
@@ -146,15 +147,13 @@ initialUTxOFileParser =
         <> help "File containing initial UTxO for the L2 chain."
     )
 
---NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
--- that function could probably take less info but it's upstream of hydra itself i believe
 ledgerGenesisFileParser :: Parser (Maybe FilePath)
 ledgerGenesisFileParser =
-  optional $ option
-    str
-    ( long "ledger-genesis"
+  option
+    (optional str)
+    (long "ledger-genesis"
         <> metavar "FILE"
-        <> value "genesis.json"
+        <> value Nothing
         <> showDefault
         <> help "File containing ledger genesis parameters."
     )
@@ -166,7 +165,6 @@ data OfflineConfig = OfflineConfig
   {
     initialUTxOFile :: FilePath
   , ledgerGenesisFile :: Maybe FilePath
-  -- TODO(Elaine): need option to dump final utxo to file without going thru snapshot
   , utxoWriteBack :: Maybe OfflineUTxOWriteBackConfig
   } deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
@@ -175,25 +173,29 @@ offlineUTxOWriteBackOptionsParser :: Parser (Maybe OfflineUTxOWriteBackConfig)
 offlineUTxOWriteBackOptionsParser =
   optional $
     asum
-      [ flag' WriteBackToInitialUTxO
-          ( long "write-back-to-initial-utxo"
-              <> help "Write back to initial UTxO file."
-          )
-      , WriteBackToUTxOFile
+      [ WriteBackToUTxOFile
           <$> option
             str
             ( long "write-back-to-utxo-file"
                 <> metavar "FILE"
                 <> help "Write back to given UTxO file."
             )
+      , flag' WriteBackToInitialUTxO
+          ( long "write-back-to-initial-utxo"
+              <> help "Write back to initial UTxO file."
+          )
+      
       ]
 
 offlineOptionsParser :: Parser OfflineConfig
 offlineOptionsParser =
-  OfflineConfig
-    <$> initialUTxOFileParser
-    <*> ledgerGenesisFileParser
-    <*> offlineUTxOWriteBackOptionsParser
+   subparser . command "offline"  $
+    info (OfflineConfig
+              <$> initialUTxOFileParser
+              <*> ledgerGenesisFileParser
+              <*> offlineUTxOWriteBackOptionsParser)
+      (progDesc "Run Hydra in offline mode")
+    
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -766,6 +768,7 @@ toArgs
     , persistenceDir
     , chainConfig
     , ledgerConfig
+    , offlineConfig
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -781,6 +784,7 @@ toArgs
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig
       <> argsLedgerConfig
+      <> maybe [] (\oc -> ["--offline-config", show oc]) offlineConfig --TODO(Elaine): nicer formatting
    where
     (NodeId nId) = nodeId
     isVerbose = \case
@@ -809,6 +813,9 @@ toArgs
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
+    
+    -- argsOfflineConfig =
+    --   ["--ut", initialUTxOFile]
 
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
@@ -822,6 +829,11 @@ toArgs
       , startChainFrom
       , contestationPeriod
       } = chainConfig
+    -- OfflineConfig
+    --   { initialUTxOFile
+    --   , ledgerGenesisFile
+    --   , utxoWriteBack
+    --   } = offlineConfig
 
 defaultRunOptions :: RunOptions
 defaultRunOptions =
