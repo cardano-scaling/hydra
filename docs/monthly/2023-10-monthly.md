@@ -1,6 +1,6 @@
 ---
 title: October 2023
-slug: 2023-09
+slug: 2023-10
 authors: [abailly]
 tags: [monthly]
 ---
@@ -13,8 +13,6 @@ developments to gather their feedback on proposed plans.
 ## Roadmap
 
 TODO
-
-## Cardano Scaling workshop in Nantes, France
 
 ## Hydra development
 
@@ -29,6 +27,8 @@ This month, the team worked on the following:
 
 #### Upgrade to GHC 9.6 & Brick 1.1.0
 
+## Mithril development
+
 ## Community Update
 
 ### Hypix
@@ -40,6 +40,8 @@ This month, the team worked on the following:
 ### Voting on Hydra
 
 ### zkSNARKs on Hydra
+
+### Mithril Signers in Operators' Guild
 
 ## Conclusion
 
