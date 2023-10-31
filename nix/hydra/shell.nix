@@ -99,7 +99,6 @@ let
     # Force a UTF-8 locale because many Haskell programs and tests
     # assume this.
     LANG = "en_US.UTF-8";
-    LC_ALL = "en_US.UTF-8";
 
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
