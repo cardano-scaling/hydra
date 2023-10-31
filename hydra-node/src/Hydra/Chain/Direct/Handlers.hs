@@ -18,6 +18,7 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  AssetName (..),
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -35,11 +36,13 @@ import Hydra.Chain (
   ChainStateHistory,
   ChainStateType,
   IsChainState,
+  OnChainId (..),
+  OtherChainEvent (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
   pushNewState,
-  rollbackHistory, OtherChainEvent (..),
+  rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -59,7 +62,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (NotAnInit (..), RawInitObservation (..), mismatchReasonObservation, mkHeadId, NotAnInitReason)
+import Hydra.Chain.Direct.Tx (NotAnInit (..), NotAnInitReason, RawInitObservation (..), mismatchReasonObservation, mkHeadId)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -296,7 +299,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Left (ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-        pure $ Right $ OtherChainEvent $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = show <$> headPTsNames}
+        pure $ Right $ OtherChainEvent $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = asChainId <$> headPTsNames}
       Left err -> pure $ Left err
       Right (observedTx, cs') -> do
         let newChainState =
@@ -309,10 +312,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   logChainEvent :: NoObservation -> m ()
   logChainEvent = \case
-    NoObservation -> pure ()
-    ObservedInitTx (NotAnInit reason) -> traceWith tracer (InvalidInitTx reason)
+    NoObservation ->
+      pure ()
+    ObservedInitTx (NotAnInit reason) ->
+      traceWith tracer (InvalidInitTx reason)
     ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
-      traceWith tracer (IgnoredInitTx $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = show <$> headPTsNames})
+      traceWith tracer (IgnoredInitTx $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = asChainId <$> headPTsNames})
+
+  asChainId (AssetName bs) = OnChainId bs
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
@@ -384,8 +391,8 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | InvalidInitTx { reason :: NotAnInitReason }
-  | IgnoredInitTx { event :: OtherChainEvent }
+  | InvalidInitTx {reason :: NotAnInitReason}
+  | IgnoredInitTx {event :: OtherChainEvent}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

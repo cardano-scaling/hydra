@@ -10,7 +10,7 @@ import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, HeadId, IsChainState, OnChainId, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
@@ -89,11 +89,10 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | IgnoredHeadInitializing {headId :: HeadId, pubKeyHashes :: [Text]}
+  | IgnoredHeadInitializing {headId :: HeadId, pubKeyHashes :: [OnChainId]}
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)
-
 deriving instance (IsChainState tx) => Show (ServerOutput tx)
 
 instance (IsChainState tx) => ToJSON (ServerOutput tx) where

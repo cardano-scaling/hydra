@@ -102,6 +102,21 @@ instance HasTypeProxy HeadId where
 instance Arbitrary HeadId where
   arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
 
+newtype OnChainId = OnChainId ByteString
+  deriving (Show, Eq, Ord, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
+
+instance SerialiseAsRawBytes OnChainId where
+  serialiseToRawBytes (OnChainId bytes) = bytes
+  deserialiseFromRawBytes _ = Right . OnChainId
+
+instance HasTypeProxy OnChainId where
+  data AsType OnChainId = AsOnChainId
+  proxyToAsType _ = AsOnChainId
+
+instance Arbitrary OnChainId where
+  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary
+
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
@@ -251,7 +266,7 @@ data Chain tx m = Chain
   -- `FailedToPostTx` errors are expected here.
   }
 
-data OtherChainEvent = SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [Text]}
+data OtherChainEvent = SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [OnChainId]}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

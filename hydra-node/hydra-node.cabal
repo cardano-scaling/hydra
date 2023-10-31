@@ -99,6 +99,7 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event
+    Hydra.HeadLogic.Heads
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
