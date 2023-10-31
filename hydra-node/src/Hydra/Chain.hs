@@ -160,12 +160,12 @@ data PostTxError tx
     SpendingNodeUtxoForbidden
   deriving (Generic)
 
-deriving instance (IsChainState tx) => Eq (PostTxError tx)
-deriving instance (IsChainState tx) => Show (PostTxError tx)
-deriving instance (IsChainState tx) => ToJSON (PostTxError tx)
-deriving instance (IsChainState tx) => FromJSON (PostTxError tx)
+deriving instance IsChainState tx => Eq (PostTxError tx)
+deriving instance IsChainState tx => Show (PostTxError tx)
+deriving instance IsChainState tx => ToJSON (PostTxError tx)
+deriving instance IsChainState tx => FromJSON (PostTxError tx)
 
-instance (IsChainState tx) => Exception (PostTxError tx)
+instance IsChainState tx => Exception (PostTxError tx)
 
 instance Arbitrary Lovelace where
   arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
@@ -200,12 +200,12 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
-deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
-deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
-deriving anyclass instance (FromJSON (ChainStateType tx)) => FromJSON (ChainStateHistory tx)
+deriving instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
+deriving instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
+deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (ChainStateHistory tx)
+deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (ChainStateHistory tx)
 
-instance (Arbitrary (ChainStateType tx)) => Arbitrary (ChainStateHistory tx) where
+instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
 -- | Interface available from a chain state. Expected to be instantiated by all
@@ -237,7 +237,7 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
-      (MonadThrow m) =>
+      MonadThrow m =>
       UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
@@ -251,11 +251,19 @@ data Chain tx m = Chain
   -- `FailedToPostTx` errors are expected here.
   }
 
+data OtherChainEvent = SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [Text]}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary OtherChainEvent where
+  arbitrary = genericArbitrary
+
 data ChainEvent tx
   = Observation
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
+  | OtherChainEvent {otherChainEvent :: OtherChainEvent}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }

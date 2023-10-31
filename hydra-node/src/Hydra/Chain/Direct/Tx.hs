@@ -658,7 +658,11 @@ data NotAnInitReason
   | NotAHeadDatum
   | NoSTFound
   | NotAHeadPolicy
-  deriving (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary NotAnInitReason where
+  arbitrary = genericArbitrary
 
 data MismatchReason
   = PartiesMismatch RawInitObservation

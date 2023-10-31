@@ -18,7 +18,6 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  AssetName,
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -35,13 +34,12 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
-  HeadId,
   IsChainState,
   PostChainTx (..),
   PostTxError (..),
   currentState,
   pushNewState,
-  rollbackHistory,
+  rollbackHistory, OtherChainEvent (..),
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -61,7 +59,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (NotAnInit (..), RawInitObservation (..), mismatchReasonObservation, mkHeadId)
+import Hydra.Chain.Direct.Tx (NotAnInit (..), RawInitObservation (..), mismatchReasonObservation, mkHeadId, NotAnInitReason)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -291,15 +289,15 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
 
-    forM_ receivedTxs $ \tx -> do
-      maybeObserveSomeTx point tx >>= \case
-        Left noTx -> reportObservedTx noTx
-        Right event -> callback event
+    forM_ receivedTxs $ \tx ->
+      maybeObserveSomeTx point tx >>= either logChainEvent callback
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
-      Left noTx -> pure $ Left noTx
+      Left (ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
+        pure $ Right $ OtherChainEvent $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = show <$> headPTsNames}
+      Left err -> pure $ Left err
       Right (observedTx, cs') -> do
         let newChainState =
               ChainStateAt
@@ -307,13 +305,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
                 , recordedAt = Just point
                 }
         pushNew newChainState
-        pure $ Right Observation{observedTx, newChainState}
+        pure $ Right $ Observation{observedTx, newChainState}
 
-  reportObservedTx :: NoObservation -> m ()
-  reportObservedTx = \case
+  logChainEvent :: NoObservation -> m ()
+  logChainEvent = \case
+    NoObservation -> pure ()
+    ObservedInitTx (NotAnInit reason) -> traceWith tracer (InvalidInitTx reason)
     ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
-      traceWith tracer (SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = headPTsNames})
-    _ -> pure ()
+      traceWith tracer (IgnoredInitTx $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = show <$> headPTsNames})
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
@@ -385,7 +384,8 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [AssetName]}
+  | InvalidInitTx { reason :: NotAnInitReason }
+  | IgnoredInitTx { event :: OtherChainEvent }
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

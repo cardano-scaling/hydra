@@ -32,7 +32,6 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Logging.Signaling (installSignal, withSignaling)
 import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
@@ -78,46 +77,44 @@ main = do
   run opts = do
     let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
     env@Environment{party, otherParties, signingKey} <- initEnvironment opts
-    withTracer verbosity $ \tracer'' ->
-      withSignaling tracer'' $ \tracer' signalVar ->
-        withMonitoring monitoringPort tracer' $ \tracer -> do
-          traceWith tracer (NodeOptions opts)
-          eq@EventQueue{putEvent} <- createEventQueue
-          let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
-          protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-          pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
-            Left err -> throwIO (ConfigurationParseException err)
-            Right bpparams -> pure bpparams
-          withCardanoLedger chainConfig pparams $ \ledger -> do
-            persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-            (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
-            checkHeadState (contramap Node tracer) env hs
-            nodeState <- createNodeState hs
-            -- Chain
-            ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
-            wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-            withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
-              -- API
-              let RunOptions{host, port, peers, nodeId} = opts
-                  putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
-                  RunOptions{apiHost, apiPort} = opts
-              apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-              withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
-                installSignal signalVar server
-                -- Network
-                withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
-                  -- Main loop
-                  runHydraNode (contramap Node tracer) $
-                    HydraNode
-                      { eq
-                      , hn
-                      , nodeState
-                      , oc = chain
-                      , server
-                      , ledger
-                      , env
-                      , persistence
-                      }
+    withTracer verbosity $ \tracer' ->
+      withMonitoring monitoringPort tracer' $ \tracer -> do
+        traceWith tracer (NodeOptions opts)
+        eq@EventQueue{putEvent} <- createEventQueue
+        let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
+        protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+        pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
+          Left err -> throwIO (ConfigurationParseException err)
+          Right bpparams -> pure bpparams
+        withCardanoLedger chainConfig pparams $ \ledger -> do
+          persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+          (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
+          checkHeadState (contramap Node tracer) env hs
+          nodeState <- createNodeState hs
+          -- Chain
+          ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
+          wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
+          withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
+            -- API
+            let RunOptions{host, port, peers, nodeId} = opts
+                putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
+                RunOptions{apiHost, apiPort} = opts
+            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
+              -- Network
+              withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+                -- Main loop
+                runHydraNode (contramap Node tracer) $
+                  HydraNode
+                    { eq
+                    , hn
+                    , nodeState
+                    , oc = chain
+                    , server
+                    , ledger
+                    , env
+                    , persistence
+                    }
 
   connectionMessages Server{sendOutput} = \case
     Connected nodeid -> sendOutput $ PeerConnected nodeid

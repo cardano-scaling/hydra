@@ -112,7 +112,6 @@ library
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
-    Hydra.Logging.Signaling
     Hydra.Network
     Hydra.Network.Authenticate
     Hydra.Network.Heartbeat
@@ -306,7 +305,6 @@ test-suite tests
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
     Hydra.Logging.MonitoringSpec
-    Hydra.Logging.SignalingSpec
     Hydra.LoggingSpec
     Hydra.Model
     Hydra.Model.MockChain
