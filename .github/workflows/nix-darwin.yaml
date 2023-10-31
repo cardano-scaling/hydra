@@ -1,0 +1,43 @@
+# This workflow builds a static executable for the hydra-node and its tools
+name: MacOS ARM64
+
+on:
+  push:
+    branches:
+    - "**"
+    tags:
+    - "*.*.*"
+
+jobs:
+  build-executables:
+    name: "Build binaries for aarch64-darwin"
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v23
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Build static executables
+      run: |
+        mkdir -p bin/
+        nix build .#hydra-node && cp result/bin/* bin/
+        nix build .#hydra-tui && cp result/bin/* bin/
+
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v3
+      with:
+        name: hydra-aarch64-darwin
+        path: |
+          ./bin
