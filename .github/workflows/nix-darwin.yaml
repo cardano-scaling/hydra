@@ -29,7 +29,7 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: ❄ Build static executables
+    - name: ❄ Build executables
       run: |
         mkdir -p bin/
         nix build .#hydra-node && cp result/bin/* bin/
