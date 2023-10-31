@@ -1,7 +1,7 @@
 ---
 title: October 2023
 slug: 2023-10
-authors: [abailly]
+authors: [abailly, ch1bo]
 tags: [monthly]
 ---
 
@@ -12,7 +12,7 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-TODO
+TODO sebastian
 
 ## Hydra development
 
@@ -27,7 +27,11 @@ This month, the team worked on the following:
 
 #### Upgrade to GHC 9.6 & Brick 1.1.0
 
+TODO dan
+
 ## Mithril development
+
+TODO arnaud
 
 ## Community Update
 
@@ -37,6 +41,8 @@ This month, the team worked on the following:
 
 ### Kupo x Hydra
 
+TODO sebastian
+
 ### Voting on Hydra
 
 ### zkSNARKs on Hydra
@@ -45,6 +51,7 @@ This month, the team worked on the following:
 
 ## Conclusion
 
+TODO sebastian?
 
-[slides]: TODO
-[recording]: TODO
+[slides]: https://docs.google.com/presentation/d/1pJMRp0YsszJenUvDmknm3wq9yyUE1CDRSYijjILrkHo
+[recording]: https://drive.google.com/file/d/1U4yZhliGykxF3BddAAXb4RD417UvsQWB
