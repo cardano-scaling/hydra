@@ -24,6 +24,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
+import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -121,15 +122,21 @@ run opts = do
       withCardanoLedger onlineOrOfflineConfig pparams globals $ \ledger -> do
         persistence <- createStateChangePersistence (persistenceDir <> "/state") (leftToMaybe onlineOrOfflineConfig)
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
+
+        let headId = HeadId "HeadId"
+        case offlineConfig of
+          Nothing -> pure ()
+          Just (OfflineConfig{initialUTxOFile}) -> do
+            initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
+            initializeStateIfOffline chainStateHistory initialUTxO headId party (putEvent . OnChainEvent)
+
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
         ctx <- case onlineOrOfflineConfig of
           Left _ -> pure (error "error: shouldnt be forced") -- this is only used in draftCommitTx in mkFakeL1Chain, which should be unused, so we can probably get rid of this in offline mode
+          -- chaincontext is normally
           Right _ -> loadChainContext chainConfig party hydraScriptsTxId
-        let headId = HeadId "HeadId"
-        initializeStateIfOffline chainStateHistory headId party (putEvent . OnChainEvent) offlineConfig
-
         withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
@@ -175,7 +182,6 @@ run opts = do
     -- that function could probably take less info but it's upstream of hydra itself i believe
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
-
   withCardanoLedgerOnline protocolParams globals action = do
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)

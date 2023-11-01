@@ -38,7 +38,6 @@ main = do
     txId <- publishHydraScripts networkId publishNodeSocket sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
 
-
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt

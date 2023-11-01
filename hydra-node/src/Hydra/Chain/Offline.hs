@@ -18,7 +18,7 @@ import Hydra.Chain (
 import Hydra.HeadId (HeadId)
 
 import Hydra.Chain.Direct.State (
-  ChainContext (..), openThreadOutput,
+  ChainContext (..), initialChainState
  )
 
 import Hydra.Chain.Direct.Handlers (
@@ -44,7 +44,6 @@ import Cardano.Slotting.Time (mkSlotLength, toRelativeTime, SystemStart (SystemS
 import Cardano.Ledger.BaseTypes (epochInfoPure)
 
 import Cardano.Slotting.EpochInfo (epochInfoSlotToUTCTime, EpochInfo (EpochInfo), epochInfoFirst)
-
 
 import Ouroboros.Consensus.Util.Time (nominalDelay)
 
