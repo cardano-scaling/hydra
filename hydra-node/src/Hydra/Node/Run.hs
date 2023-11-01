@@ -21,8 +21,9 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), initHistory, maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain, withOfflineChain)
+import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -164,7 +165,7 @@ run opts = do
 
   withCardanoLedger onlineOrOfflineConfig protocolParams globals action = case onlineOrOfflineConfig of
     Left offlineConfig -> withCardanoLedgerOffline offlineConfig protocolParams globals action
-    Right onlineConfig -> withCardanoLedgerOnline onlineConfig protocolParams globals action
+    Right _onlineConfig -> withCardanoLedgerOnline protocolParams globals action
 
   withCardanoLedgerOffline OfflineConfig{} protocolParams globals action = do
     -- TODO(Elaine): double check previous messy branch for any other places where we query node
@@ -175,8 +176,7 @@ run opts = do
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 
-  withCardanoLedgerOnline chainConfig protocolParams globals action = do
-    let DirectChainConfig{networkId, nodeSocket} = chainConfig
+  withCardanoLedgerOnline protocolParams globals action = do
     let ledgerEnv = newLedgerEnv protocolParams
     action (Ledger.cardanoLedger globals ledgerEnv)
 

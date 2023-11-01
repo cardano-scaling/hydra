@@ -39,7 +39,7 @@ import Hydra.Chain (
   PostTxError (..),
   currentState,
   pushNewState,
-  rollbackHistory, OnChainTx (OnInitTx, headId, OnAbortTx, OnCollectComTx, OnCloseTx, parties, contestationDeadline, contestationPeriod, OnContestTx, OnFanoutTx), HeadParameters (HeadParameters), snapshotNumber,
+  rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -128,48 +128,7 @@ type SubmitTx m = Tx -> m ()
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
 
-mkFakeL1Chain ::
-  LocalChainState IO Tx
-  -- -> IO a
-  -> Tracer IO DirectChainLog
-  -> ChainContext
-  -- -> TinyWallet IO
-  -> HeadId
-  -> (ChainEvent Tx -> IO ())
-  -> Chain Tx IO
-mkFakeL1Chain localChainState tracer ctx ownHeadId callback =
-  Chain {
-    submitTx = const $ pure (),
-    draftCommitTx = \utxoToCommit -> do
-      ChainStateAt{chainState} <- atomically (getLatest localChainState)
-      case chainState of
-        Initial st ->
-          -- callback $ Observation { newChainState = cst, observedTx = OnCommitTx {party = ownParty ctx, committed = utxoToCommit}}
-          pure (commit' ctx st utxoToCommit)
-        _ ->  pure $ Left FailedToDraftTxNotInitializing,
-    postTx = \tx -> do
-      cst@ChainStateAt{chainState=_chainState} <- atomically (getLatest localChainState)
-      traceWith tracer $ ToPost{toPost = tx}
-      
-      let headId = ownHeadId
-      _ <- case tx of
-                InitTx{headParameters=HeadParameters contestationPeriod parties} ->
-                  callback $ Observation { newChainState = cst, observedTx = OnInitTx {headId = headId, parties=parties, contestationPeriod}}
-                AbortTx{} ->
-                  callback $ Observation { newChainState = cst, observedTx = OnAbortTx {}}
-                CollectComTx{} ->
-                  callback $ Observation { newChainState = cst, observedTx = OnCollectComTx {}}
-                CloseTx{confirmedSnapshot} -> do
-                  inOneMinute <- addUTCTime 60 <$> getCurrentTime
-                  callback $ Observation { newChainState = cst, observedTx =
-                    OnCloseTx {headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline=inOneMinute}} -- ELAINE TODO: probably we shouldnt allow the clietn to do contestation in offline mode ?
-                ContestTx{confirmedSnapshot} -> -- this shouldnt really happen, i dont think we should allow contesting in offline mode
-                  callback $ Observation { newChainState = cst, observedTx =
-                      OnContestTx{snapshotNumber = number $ getSnapshot confirmedSnapshot}}
-                FanoutTx{} ->
-                  callback $ Observation { newChainState = cst, observedTx =
-                      OnFanoutTx{}}
-      pure ()}
+
 
 -- | Create a `Chain` component for posting "real" cardano transactions.
 --
