@@ -1,0 +1,78 @@
+cabal-version: 2.2
+name:          hydra-chain-observer
+version:       0.14.0
+synopsis:      Hydra Chain Observer
+author:        IOG
+copyright:     2023 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra
+
+common project-config
+  default-language: GHC2021
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+
+  ghc-options:
+    -Weverything -Wno-safe -Wno-unsafe
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-strictness -fprint-potential-instances
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  ghc-options:     -haddock
+  build-depends:
+    , base
+    , hydra-prelude
+
+  exposed-modules: Hydra.ChainObserver
+
+executable hydra-chain-observer
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , hydra-chain-observer

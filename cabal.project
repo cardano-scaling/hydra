@@ -27,6 +27,7 @@ packages:
   hydra-cluster
   hydra-tui
   hydraw
+  hydra-chain-observer
 
 -- Compile more things in parallel
 package *
