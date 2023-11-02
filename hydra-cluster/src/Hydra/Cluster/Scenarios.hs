@@ -75,7 +75,6 @@ import HydraNode (
   send,
   waitFor,
   waitForAllMatch,
-  waitForNodesConnected,
   waitMatch,
   withHydraNode,
  )
@@ -475,25 +474,23 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
 
+-- | Two hydra node setup where Alice is wrongly configured to use Carol's
+-- cardano keys instead of Bob's which will prevent him to be notified the
+-- `HeadIsInitializing` but he should still receive some notification.
 initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   (carolCardanoVk, _) <- keysFor Carol
 
-  -- NOTE: Alice is wrongly configured to use Carol's cardano keys instead of Bob's which
-  -- will prevent him to be notified the `HeadIsINitializing` but he should still receive
-  -- some notification.
   aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [Carol] (UnsafeContestationPeriod 2)
   bobChainConfig <- chainConfigFor Bob workDir nodeSocket [Alice] (UnsafeContestationPeriod 2)
 
   withHydraNode tracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] hydraScriptsTxId $ \n1 -> do
     withHydraNode tracer bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] hydraScriptsTxId $ \n2 -> do
-      waitForNodesConnected tracer [n1, n2]
-
       seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
       send n1 $ input "Init" []
-      headId :: HeadId <-
+      headId <-
         waitForAllMatch 10 [n1] $
           headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -501,14 +498,14 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
             assetNameFromVerificationKey
               <$> [aliceCardanoVk, carolCardanoVk]
 
-      -- We want the client to observe headId being opened without bob (node 2) being
-      -- part of it
+      -- We want the client to observe headId being opened without bob (node 2)
+      -- being part of it
       pubKeyHashes <- waitMatch 10 n2 $ \v -> do
-        guard (v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing"))
-        guard (v ^? key "headId" == Just (toJSON headId))
+        guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
+        guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "pubKeyHashes" . _JSON
 
-      Set.fromList <$> (parseMaybe parseJSON pubKeyHashes) `shouldBe` Just (Set.fromList expectedHashes)
+      Set.fromList pubKeyHashes `shouldBe` Set.fromList expectedHashes
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
