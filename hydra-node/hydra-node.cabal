@@ -17,11 +17,6 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra
 
-flag hydra-development
-  description: Disable -Werror for development
-  default:     False
-  manual:      True
-
 common project-config
   default-language:   GHC2021
   default-extensions:
@@ -45,9 +40,6 @@ common project-config
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances
-
-  if !flag(hydra-development)
-    ghc-options: -Werror
 
 library
   import:          project-config
@@ -229,9 +221,7 @@ benchmark tx-cost
 
   ghc-options:    -threaded -rtsopts
 
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+  ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 benchmark micro
   import:         project-config

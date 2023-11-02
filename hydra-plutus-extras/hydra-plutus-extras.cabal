@@ -15,11 +15,6 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra
 
-flag hydra-development
-  description: Disable -Werror for development
-  default:     False
-  manual:      True
-
 common project-config
   default-language:   GHC2021
   default-extensions:
@@ -42,9 +37,6 @@ common project-config
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
     -fprint-potential-instances
-
-  if !flag(hydra-development)
-    ghc-options: -Werror
 
 library
   import:          project-config

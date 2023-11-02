@@ -13,11 +13,6 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra
 
-flag hydra-development
-  description: Disable -Werror for development
-  default:     False
-  manual:      True
-
 common project-config
   default-language:   GHC2021
   default-extensions:
@@ -40,9 +35,6 @@ common project-config
     -Wincomplete-uni-patterns -Wredundant-constraints
     -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
     -fno-strictness -fprint-potential-instances
-
-  if !flag(hydra-development)
-    ghc-options: -Werror
 
 library
   import:          project-config
@@ -113,8 +105,6 @@ executable encoding-cost
     , QuickCheck
     , scientific
 
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+  ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
   ghc-options:    -threaded -rtsopts

@@ -53,33 +53,49 @@ let
 
     inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
 
-    modules = [
-      # Strip debugging symbols from exes (smaller closures)
-      {
-        packages.hydra-node.dontStrip = false;
-        packages.hydra-tui.dontStrip = false;
-        packages.hydraw.dontStrip = false;
-      }
-      # Avoid plutus-tx errors in haddock (see also cabal.project)
-      {
-        packages.hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-        packages.plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-        packages.plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-      }
-      # Fix compliation of strict-containers (see also cabal.project)
-      {
-        packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
+    modules = [{
+      packages = {
+
+        # Strip debugging symbols from exes (smaller closures)
+        hydra-node.dontStrip = false;
+        hydra-tui.dontStrip = false;
+        hydraw.dontStrip = false;
+
+        # Avoid plutus-tx errors in haddock (see also cabal.project)
+        hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
+
+        plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
+        plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
+
+        # Fix compliation of strict-containers (see also cabal.project)
+        strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
+
         # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
-        packages.strict-containers.doHaddock = false;
-      }
+        strict-containers.doHaddock = false;
+
+        # -Werror for CI
+
+        hydra-cardano-api.ghcOptions = [ "-Werror" ];
+        hydra-cluster.ghcOptions = [ "-Werror" ];
+        hydra-node.ghcOptions = [ "-Werror" ];
+        hydra-plutus.ghcOptions = [ "-Werror" ];
+        hydra-plutus-extras.ghcOptions = [ "-Werror" ];
+        hydra-prelude.ghcOptions = [ "-Werror" ];
+        hydra-test-utils.ghcOptions = [ "-Werror" ];
+        hydra-tui.ghcOptions = [ "-Werror" ];
+        hydraw.ghcOptions = [ "-Werror" ];
+        plutus-cbor.ghcOptions = [ "-Werror" ];
+        plutus-merkle-tree.ghcOptions = [ "-Werror" ];
+
+      };
+    }
       ({ lib, config, ... }:
         lib.mkIf (lib.versionAtLeast config.compiler.version "9.4") {
           # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries
           # to call out to all kinds of silly tools that GHC doesn't really provide.
           # For this reason, we try to get away without re-installing lib:ghc for now.
           reinstallableLibGhc = false;
-        })
-    ];
+        })];
   };
 in
 {
