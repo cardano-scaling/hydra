@@ -67,7 +67,11 @@ This month, the team worked on the following:
 
 #### Network resilience to node crash
 
+TODO ??
+
 #### Hydra Poll dApp
+
+TODO ??
 
 #### Upgrade to GHC 9.6 & Brick 1.1.0
 
@@ -86,19 +90,43 @@ also view the [recording][].
 
 ### Hypix
 
-TODO sebastian
+Hypix is a continuation of the "hydraw" demonstration the team used throughout
+development. The project is spear-headed by Trym Bruset and will integrate CIP68
+NFTs with instant transaction processing in a Hydra head to realize
+collaboratively created art pieces. The project is progressing great with an
+open beta available soon.
 
-### Offline-mode Hydra node
+![Hypix user interface](./img/2023-10-hypix.png) <small><center>The Hypix user interface</center></small>
 
 ### Kupo x Hydra
 
-TODO sebastian
+Indexers of chain data, like [kupo](https://github.com/CardanoSolutions/kupo),
+are useful to enable lightweight decentralized applications like Hypix. As the
+application state of Hypix, for example, is not only on the Cardano layer 1, but
+in the Hydra head, kupo was enhanced to run "in front of" a `hydra-node` and
+provide the same API for UTxO indexed from a Hydra head. This was a [joint
+effort](https://github.com/CardanoSolutions/kupo/pull/117) between
+[@KtorZ](https://github.com/KtorZ), [@v0d1ch](https://github.com/v0d1ch) and
+[@ch1bo](https://github.com/ch1bo) and has been [released in version 2.7 of
+kupo](https://github.com/CardanoSolutions/kupo/releases/tag/v2.7).
+
+![Kupo indexing data](./img/2023-10-kupo.gif) <small><center>Kupo indexing a Hydra head</center></small>
+
+### Offline-mode Hydra node
+
+TODO ??
 
 ### Voting on Hydra
 
+TODO ??
+
 ### zkSNARKs on Hydra
 
+TODO ??
+
 ### Mithril Signers in Operators' Guild
+
+TODO ??
 
 ## Conclusion
 
