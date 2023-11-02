@@ -102,6 +102,7 @@ instance HasTypeProxy HeadId where
 instance Arbitrary HeadId where
   arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
 
+-- | Identifier for a Hydra head participant used on-chain.
 newtype OnChainId = OnChainId ByteString
   deriving (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
@@ -266,19 +267,20 @@ data Chain tx m = Chain
   -- `FailedToPostTx` errors are expected here.
   }
 
-data OtherChainEvent = SomeHeadObserved {headId :: HeadId, pubKeyHashes :: [OnChainId]}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary OtherChainEvent where
-  arbitrary = genericArbitrary
-
 data ChainEvent tx
-  = Observation
+  = -- | Indicates a head protocol transaction has been observed.
+    Observation
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | OtherChainEvent {otherChainEvent :: OtherChainEvent}
+  | -- | The chain layer ignored a head initialization transaction of given
+    -- HeadId and participants.
+    --
+    -- XXX: This is very specific and assumes that any chain layer would have
+    -- the means (credentials + parameters) and authority to ignore a head
+    -- initialization. Instead, an 'Observation' should not contain a new chain
+    -- state and hence a normal 'OnInitTx' can be used instead of this event.
+    IgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }

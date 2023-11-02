@@ -35,9 +35,9 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  HeadId,
   IsChainState,
   OnChainId (..),
-  OtherChainEvent (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
@@ -299,7 +299,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
       Left (ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-        pure $ Right $ OtherChainEvent $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = asChainId <$> headPTsNames}
+        pure $ Right $ IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
       Left err -> pure $ Left err
       Right (observedTx, cs') -> do
         let newChainState =
@@ -317,7 +317,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     ObservedInitTx (NotAnInit reason) ->
       traceWith tracer (InvalidInitTx reason)
     ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
-      traceWith tracer (IgnoredInitTx $ SomeHeadObserved{headId = mkHeadId headId, pubKeyHashes = asChainId <$> headPTsNames})
+      traceWith tracer (LogIgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames})
 
   asChainId (AssetName bs) = OnChainId bs
 
@@ -392,7 +392,7 @@ data DirectChainLog
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   | InvalidInitTx {reason :: NotAnInitReason}
-  | IgnoredInitTx {event :: OtherChainEvent}
+  | LogIgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

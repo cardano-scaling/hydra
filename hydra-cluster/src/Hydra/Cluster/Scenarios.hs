@@ -503,7 +503,7 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
       pubKeyHashes <- waitMatch 10 n2 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
         guard $ v ^? key "headId" == Just (toJSON headId)
-        v ^? key "pubKeyHashes" . _JSON
+        v ^? key "participants" . _JSON
 
       Set.fromList pubKeyHashes `shouldBe` Set.fromList expectedHashes
 

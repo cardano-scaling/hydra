@@ -89,7 +89,7 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | IgnoredHeadInitializing {headId :: HeadId, pubKeyHashes :: [OnChainId]}
+  | IgnoredHeadInitializing {headId :: HeadId, participants :: [OnChainId]}
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)

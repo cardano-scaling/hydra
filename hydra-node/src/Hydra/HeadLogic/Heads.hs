@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Heads where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Chain (ChainEvent (..), OtherChainEvent (..))
+import Hydra.Chain (ChainEvent (..))
 import Hydra.HeadLogic.Event (Event (..))
 import Hydra.HeadLogic.Outcome (Effect (..), Outcome (..))
 import Hydra.HeadLogic.State (HeadState)
@@ -16,7 +16,7 @@ update ::
   Event tx ->
   Outcome tx
 update fn headState = \case
-  OnChainEvent OtherChainEvent{otherChainEvent = SomeHeadObserved{headId, pubKeyHashes}} ->
-    Effects [ClientEffect $ IgnoredHeadInitializing{headId, pubKeyHashes}]
+  OnChainEvent IgnoredInitTx{headId, participants} ->
+    Effects [ClientEffect $ IgnoredHeadInitializing{headId, participants}]
   event ->
     fn headState event

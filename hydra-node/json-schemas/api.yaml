@@ -855,15 +855,16 @@ components:
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
       description: |
-        A `Init` transaction has been observed on-chain, with the given HeadId and the given
-        public key hashes, but we are not a party of it. It could denote a misconfiguration, or
-        simply some other group of parties opening a head.
+        A `Init` transaction has been observed on-chain, with the given HeadId
+        and the given participant identifiers (commonly public key hashes), but
+        we are not part of it. It could denote a misconfiguration, or simply
+        some other group of parties opening a head.
       payload:
         type: object
         required:
           - tag
           - headId
-          - pubKeyHashes
+          - participants
           - seq
           - timestamp
         properties:
@@ -872,13 +873,13 @@ components:
             enum: ["IgnoredHeadInitializing"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
-          pubKeyHashes:
+          participants:
             type: array
             items:
               type: string
               contentEncoding: base16
               description: |
-                A hex-encoded string representing a verification key hash
+                A hex-encoded string identifying a participant on-chain (usually a hash of a key)
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
