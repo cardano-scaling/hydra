@@ -86,7 +86,7 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
       failure $
         toString $
           unlines
-            [ "waitMatch did not match a message within " <> show delay <> "s"
+            [ "waitMatch did not match a message within " <> show delay
             , padRight ' ' 20 "  nodeId:" <> show hydraNodeId
             , padRight ' ' 20 "  seen messages:"
                 <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))

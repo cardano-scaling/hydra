@@ -150,6 +150,7 @@ test-suite tests
     Spec
     Test.CardanoClientSpec
     Test.CardanoNodeSpec
+    Test.ChainObserverSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
