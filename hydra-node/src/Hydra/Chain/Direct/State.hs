@@ -528,7 +528,7 @@ fanout ctx st utxo deadlineSlotNo = do
 
 data NoObservation
   = NoObservation
-  | ObservedInitTx NotAnInit
+  | NotAnInitTx NotAnInit
   deriving (Eq, Show)
 
 -- | Observe a transition without knowing the starting or ending state. This
@@ -537,7 +537,7 @@ data NoObservation
 observeSomeTx :: ChainContext -> ChainState -> Tx -> Either NoObservation (OnChainTx Tx, ChainState)
 observeSomeTx ctx cst tx = case cst of
   Idle ->
-    first ObservedInitTx $ second Initial <$> observeInit ctx tx
+    first NotAnInitTx $ second Initial <$> observeInit ctx tx
   Initial st ->
     noObservation $
       second Initial <$> observeCommit ctx st tx

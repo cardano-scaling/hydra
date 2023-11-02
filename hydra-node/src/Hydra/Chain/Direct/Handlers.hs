@@ -35,7 +35,6 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
-  HeadId,
   IsChainState,
   OnChainId (..),
   PostChainTx (..),
@@ -62,7 +61,12 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (NotAnInit (..), NotAnInitReason, RawInitObservation (..), mismatchReasonObservation, mkHeadId)
+import Hydra.Chain.Direct.Tx (
+  NotAnInit (..),
+  RawInitObservation (..),
+  mismatchReasonObservation,
+  mkHeadId,
+ )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -293,14 +297,16 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $ \tx ->
-      maybeObserveSomeTx point tx >>= either logChainEvent callback
+      maybeObserveSomeTx point tx >>= \case
+        Nothing -> pure ()
+        Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
-      Left (ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-        pure $ Right $ IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
-      Left err -> pure $ Left err
+      Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
+        pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
+      Left _err -> pure Nothing
       Right (observedTx, cs') -> do
         let newChainState =
               ChainStateAt
@@ -308,16 +314,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
                 , recordedAt = Just point
                 }
         pushNew newChainState
-        pure $ Right $ Observation{observedTx, newChainState}
-
-  logChainEvent :: NoObservation -> m ()
-  logChainEvent = \case
-    NoObservation ->
-      pure ()
-    ObservedInitTx (NotAnInit reason) ->
-      traceWith tracer (InvalidInitTx reason)
-    ObservedInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames})) ->
-      traceWith tracer (LogIgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames})
+        pure $ Just Observation{observedTx, newChainState}
 
   asChainId (AssetName bs) = OnChainId bs
 
@@ -391,8 +388,6 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  | InvalidInitTx {reason :: NotAnInitReason}
-  | LogIgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
