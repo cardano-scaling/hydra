@@ -20,6 +20,8 @@ let
     sha256map."https://github.com/pepeiborra/ekg-json"."7a0af7a8fd38045fd15fb13445bdcc7085325460" = "sha256-fVwKxGgM0S4Kv/4egVAAiAjV7QB5PBqMVMCfsv7otIQ=";
   };
 
+  cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" {};
+
   libs = [
     pkgs.glibcLocales
     pkgs.libsodium-vrf # from iohk-nix overlay
@@ -33,10 +35,10 @@ let
   buildInputs = [
     # Build essentials
     pkgs.git
-    pkgs.pkgconfig
+    pkgs.pkg-config
     cabal
+    cabal-plan
     pkgs.haskellPackages.hspec-discover
-    pkgs.haskellPackages.cabal-plan
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
     # For generating plantuml drawings
@@ -97,7 +99,6 @@ let
     # Force a UTF-8 locale because many Haskell programs and tests
     # assume this.
     LANG = "en_US.UTF-8";
-    LC_ALL = "en_US.UTF-8";
 
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
@@ -118,7 +119,7 @@ let
     buildInputs = libs ++ [
       pkgs.haskell-nix.compiler.${compiler}
       pkgs.cabal-install
-      pkgs.pkgconfig
+      pkgs.pkg-config
     ] ++ buildInputs ++ devInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
