@@ -36,7 +36,7 @@ instance Arbitrary APIServerLog where
 
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Arbitrary PathInfo where
   arbitrary =
@@ -55,7 +55,7 @@ instance FromJSON PathInfo where
 -- NOTE: We are not using http-types 'StdMethod' as we do not want to be
 -- constrained in terms of logging and accept any method in a 'Request'.
 newtype Method = Method ByteString
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Arbitrary Method where
   arbitrary = Method . renderStdMethod <$> chooseEnum (minBound, maxBound)

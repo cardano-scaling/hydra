@@ -37,10 +37,10 @@ data Event tx
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving instance (IsChainState tx) => Eq (Event tx)
-deriving instance (IsChainState tx) => Show (Event tx)
-deriving instance (IsChainState tx) => ToJSON (Event tx)
-deriving instance (IsChainState tx) => FromJSON (Event tx)
+deriving stock instance (IsChainState tx) => Eq (Event tx)
+deriving stock instance (IsChainState tx) => Show (Event tx)
+deriving anyclass instance (IsChainState tx) => ToJSON (Event tx)
+deriving anyclass instance (IsChainState tx) => FromJSON (Event tx)
 
 instance
   ( IsTx tx

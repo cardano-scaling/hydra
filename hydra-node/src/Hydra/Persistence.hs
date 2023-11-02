@@ -13,7 +13,7 @@ import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
 
 newtype PersistenceException
   = PersistenceException String
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Exception PersistenceException
 

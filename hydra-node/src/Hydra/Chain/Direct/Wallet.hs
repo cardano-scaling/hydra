@@ -216,10 +216,10 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {scriptFailure :: (RdmrPtr, TransactionScriptFailure LedgerEra)}
   | ErrTranslationError (TranslationError StandardCrypto)
-  deriving (Show)
+  deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
-  deriving (Show)
+  deriving stock (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
@@ -406,10 +406,10 @@ data TinyWalletLog
   | BeginUpdate {point :: ChainPoint}
   | EndUpdate {newUTxO :: Api.UTxO}
   | SkipUpdate {point :: ChainPoint}
-  deriving (Eq, Generic, Show)
+  deriving stock (Eq, Generic, Show)
 
-deriving instance ToJSON TinyWalletLog
-deriving instance FromJSON TinyWalletLog
+deriving anyclass instance ToJSON TinyWalletLog
+deriving anyclass instance FromJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary

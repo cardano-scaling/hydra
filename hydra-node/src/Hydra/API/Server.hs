@@ -133,7 +133,7 @@ data RunServerException = RunServerException
   , host :: IP
   , port :: PortNumber
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception RunServerException
 

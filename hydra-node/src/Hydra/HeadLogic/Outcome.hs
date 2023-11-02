@@ -27,10 +27,10 @@ data Effect tx
     OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-deriving instance (IsChainState tx) => Eq (Effect tx)
-deriving instance (IsChainState tx) => Show (Effect tx)
-deriving instance (IsChainState tx) => ToJSON (Effect tx)
-deriving instance (IsChainState tx) => FromJSON (Effect tx)
+deriving stock instance (IsChainState tx) => Eq (Effect tx)
+deriving stock instance (IsChainState tx) => Show (Effect tx)
+deriving anyclass instance (IsChainState tx) => ToJSON (Effect tx)
+deriving anyclass instance (IsChainState tx) => FromJSON (Effect tx)
 
 instance
   ( IsTx tx
@@ -82,10 +82,10 @@ data StateChanged tx
 instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary
 
-deriving instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
   = Effects {effects :: [Effect tx]}
@@ -98,10 +98,10 @@ data Outcome tx
 instance Semigroup (Outcome tx) where
   (<>) = Combined
 
-deriving instance (IsChainState tx) => Eq (Outcome tx)
-deriving instance (IsChainState tx) => Show (Outcome tx)
-deriving instance (IsChainState tx) => ToJSON (Outcome tx)
-deriving instance (IsChainState tx) => FromJSON (Outcome tx)
+deriving stock instance (IsChainState tx) => Eq (Outcome tx)
+deriving stock instance (IsChainState tx) => Show (Outcome tx)
+deriving anyclass instance (IsChainState tx) => ToJSON (Outcome tx)
+deriving anyclass instance (IsChainState tx) => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
@@ -130,10 +130,10 @@ data WaitReason tx
   | WaitOnContestationDeadline
   deriving stock (Generic)
 
-deriving instance (IsTx tx) => Eq (WaitReason tx)
-deriving instance (IsTx tx) => Show (WaitReason tx)
-deriving instance (IsTx tx) => ToJSON (WaitReason tx)
-deriving instance (IsTx tx) => FromJSON (WaitReason tx)
+deriving stock instance (IsTx tx) => Eq (WaitReason tx)
+deriving stock instance (IsTx tx) => Show (WaitReason tx)
+deriving anyclass instance (IsTx tx) => ToJSON (WaitReason tx)
+deriving anyclass instance (IsTx tx) => FromJSON (WaitReason tx)
 
 instance IsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary

@@ -31,10 +31,10 @@ data HydraEvent tx
   | ClientDisconnected
   | Update (TimedServerOutput tx)
   | Tick UTCTime
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (Eq (TimedServerOutput tx)) => Eq (HydraEvent tx)
-deriving instance (Show (TimedServerOutput tx)) => Show (HydraEvent tx)
+deriving stock instance (Eq (TimedServerOutput tx)) => Eq (HydraEvent tx)
+deriving stock instance (Show (TimedServerOutput tx)) => Show (HydraEvent tx)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
@@ -110,5 +110,5 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         (Req.port $ fromIntegral port)
 
 data ClientError = ClientJSONDecodeError String ByteString
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (Exception)

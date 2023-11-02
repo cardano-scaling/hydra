@@ -145,7 +145,7 @@ data EvaluationError
   = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
   | TransactionInvalid TransactionValidityError
   | PParamsConversion ProtocolParametersConversionError
-  deriving (Show)
+  deriving stock (Show)
 
 -- | Evaluation result for each of the included scripts. Either they failed
 -- evaluation or used a number of 'ExecutionUnits'.

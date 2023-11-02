@@ -64,7 +64,7 @@ data Sizes = Sizes
   , outputs :: Int
   , witnesses :: Int
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 defaultSizes :: Sizes
 defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}

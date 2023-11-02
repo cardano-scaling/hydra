@@ -32,7 +32,7 @@ data HashAlgorithm
   | SHA2
   | SHA3
   | Blake2b
-  deriving (Haskell.Show, Haskell.Generic, Haskell.Enum, Haskell.Bounded)
+  deriving stock (Haskell.Show, Haskell.Generic, Haskell.Enum, Haskell.Bounded)
 
 PlutusTx.unstableMakeIsData ''HashAlgorithm
 

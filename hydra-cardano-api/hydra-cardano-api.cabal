@@ -33,7 +33,7 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
-    -fprint-potential-instances
+    -Wmissing-deriving-strategies -fprint-potential-instances
 
 library
   import:          project-config

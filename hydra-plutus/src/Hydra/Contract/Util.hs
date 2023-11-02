@@ -62,7 +62,7 @@ infix 4 ===
 
 data UtilError
   = MintingOrBurningIsForbidden
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToErrorCode UtilError where
   toErrorCode = \case

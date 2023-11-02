@@ -43,9 +43,9 @@ data Trace tx
       }
   deriving stock (Generic)
 
-deriving instance (IsTx tx) => Eq (Trace tx)
-deriving instance (IsTx tx) => Show (Trace tx)
-deriving instance (IsTx tx) => ToJSON (Trace tx)
+deriving stock instance (IsTx tx) => Eq (Trace tx)
+deriving stock instance (IsTx tx) => Show (Trace tx)
+deriving anyclass instance (IsTx tx) => ToJSON (Trace tx)
 
 data TraceKey
   = EventKey Word64

@@ -77,7 +77,7 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
 -- | Exception used to indicate command line options not matching the persisted
 -- state.
 newtype ParameterMismatch = ParameterMismatch [ParamMismatch]
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
   deriving anyclass (Exception)
 
 data ParamMismatch
@@ -144,10 +144,10 @@ data HydraNodeLog tx
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
-deriving instance (IsChainState tx) => Eq (HydraNodeLog tx)
-deriving instance (IsChainState tx) => Show (HydraNodeLog tx)
-deriving instance (IsChainState tx) => ToJSON (HydraNodeLog tx)
-deriving instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
+deriving stock instance (IsChainState tx) => Eq (HydraNodeLog tx)
+deriving stock instance (IsChainState tx) => Show (HydraNodeLog tx)
+deriving anyclass instance (IsChainState tx) => ToJSON (HydraNodeLog tx)
+deriving anyclass instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary

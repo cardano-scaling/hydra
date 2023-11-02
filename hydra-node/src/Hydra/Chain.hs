@@ -73,12 +73,12 @@ data PostChainTx tx
   | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
-deriving instance IsTx tx => Eq (PostChainTx tx)
-deriving instance IsTx tx => Show (PostChainTx tx)
-deriving instance IsTx tx => ToJSON (PostChainTx tx)
-deriving instance IsTx tx => FromJSON (PostChainTx tx)
+deriving stock instance (IsTx tx) => Eq (PostChainTx tx)
+deriving stock instance (IsTx tx) => Show (PostChainTx tx)
+deriving anyclass instance (IsTx tx) => ToJSON (PostChainTx tx)
+deriving anyclass instance (IsTx tx) => FromJSON (PostChainTx tx)
 
-instance IsTx tx => Arbitrary (PostChainTx tx) where
+instance (IsTx tx) => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
 
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
@@ -86,7 +86,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
 
 -- | Uniquely identifies a Hydra Head.
 newtype HeadId = HeadId ByteString
-  deriving (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
 
 instance SerialiseAsRawBytes HeadId where
@@ -130,12 +130,12 @@ data OnChainTx tx
       }
   | OnContestTx {snapshotNumber :: SnapshotNumber}
   | OnFanoutTx
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsTx tx => Eq (OnChainTx tx)
-deriving instance IsTx tx => Show (OnChainTx tx)
-deriving instance IsTx tx => ToJSON (OnChainTx tx)
-deriving instance IsTx tx => FromJSON (OnChainTx tx)
+deriving stock instance (IsTx tx) => Eq (OnChainTx tx)
+deriving stock instance (IsTx tx) => Show (OnChainTx tx)
+deriving anyclass instance (IsTx tx) => ToJSON (OnChainTx tx)
+deriving anyclass instance (IsTx tx) => FromJSON (OnChainTx tx)
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
@@ -172,14 +172,14 @@ data PostTxError tx
     FailedToDraftTxNotInitializing
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsChainState tx => Eq (PostTxError tx)
-deriving instance IsChainState tx => Show (PostTxError tx)
-deriving instance IsChainState tx => ToJSON (PostTxError tx)
-deriving instance IsChainState tx => FromJSON (PostTxError tx)
+deriving stock instance (IsChainState tx) => Eq (PostTxError tx)
+deriving stock instance (IsChainState tx) => Show (PostTxError tx)
+deriving anyclass instance (IsChainState tx) => ToJSON (PostTxError tx)
+deriving anyclass instance (IsChainState tx) => FromJSON (PostTxError tx)
 
-instance IsChainState tx => Exception (PostTxError tx)
+instance (IsChainState tx) => Exception (PostTxError tx)
 
 instance Arbitrary Lovelace where
   arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
@@ -194,7 +194,7 @@ data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   , defaultChainState :: ChainStateType tx
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
@@ -205,7 +205,7 @@ pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
 initHistory :: ChainStateType tx -> ChainStateHistory tx
 initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
 
-rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
+rollbackHistory :: (IsChainState tx) => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
 rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
   h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
  where
@@ -214,12 +214,12 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-deriving instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
-deriving instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
-deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (ChainStateHistory tx)
-deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (ChainStateHistory tx)
+deriving stock instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
+deriving stock instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
+deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
+deriving anyclass instance (FromJSON (ChainStateType tx)) => FromJSON (ChainStateHistory tx)
 
-instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
+instance (Arbitrary (ChainStateType tx)) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
 -- | Interface available from a chain state. Expected to be instantiated by all
@@ -242,7 +242,7 @@ class
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
-  { postTx :: MonadThrow m => PostChainTx tx -> m ()
+  { postTx :: (MonadThrow m) => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.
   -- This function is not expected to block, so it is only responsible for
@@ -251,12 +251,12 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
-      MonadThrow m =>
+      (MonadThrow m) =>
       UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- information to spend from a script. Errors are handled at the call site.
-  , submitTx :: MonadThrow m => Tx -> m ()
+  , submitTx :: (MonadThrow m) => Tx -> m ()
   -- ^ Submit a cardano transaction.
   --
   -- Throws at least 'PostTxError'.
@@ -293,12 +293,12 @@ data ChainEvent tx
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
       }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (ChainEvent tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ChainEvent tx)
-deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ChainEvent tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ChainEvent tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ChainEvent tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ChainEvent tx)
 
 instance
   ( Arbitrary tx

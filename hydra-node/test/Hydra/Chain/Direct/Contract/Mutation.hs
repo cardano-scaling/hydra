@@ -254,7 +254,7 @@ data SomeMutation = forall lbl.
   , mutation :: Mutation
   }
 
-deriving instance Show SomeMutation
+deriving stock instance Show SomeMutation
 
 -- | Basic mutations
 data Mutation
@@ -304,7 +304,7 @@ data Mutation
     -- change of more than one thing in the transaction and/or UTxO set, for
     -- example to change consistently the Head script's redeemer and datum.
     Changes [Mutation]
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
 
 -- | Apply a single 'Mutation' to the given (transaction, UTxO) pair.
 -- '''NOTE''': This function is partial, it can raise 'error' when some preconditions
@@ -489,7 +489,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
 -- * Orphans
 
-deriving instance Eq Head.Input
+deriving stock instance Eq Head.Input
 
 instance Arbitrary Head.Input where
   arbitrary = genericArbitrary

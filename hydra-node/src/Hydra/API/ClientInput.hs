@@ -14,12 +14,12 @@ data ClientInput tx
   | Close
   | Contest
   | Fanout
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsTx tx => Eq (ClientInput tx)
-deriving instance IsTx tx => Show (ClientInput tx)
-deriving instance IsTx tx => ToJSON (ClientInput tx)
-deriving instance IsTx tx => FromJSON (ClientInput tx)
+deriving stock instance IsTx tx => Eq (ClientInput tx)
+deriving stock instance IsTx tx => Show (ClientInput tx)
+deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
+deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
 instance Arbitrary tx => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary

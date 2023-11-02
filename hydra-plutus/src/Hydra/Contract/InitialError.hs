@@ -23,7 +23,7 @@ data InitialError
   | WrongHeadIdInCommitDatum
   | MintingOrBurningIsForbidden
   | OutRefNotFound
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToErrorCode InitialError where
   toErrorCode = \case

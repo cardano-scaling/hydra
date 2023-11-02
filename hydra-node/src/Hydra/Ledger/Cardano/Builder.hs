@@ -30,7 +30,7 @@ data InvalidTransactionException = InvalidTransactionException
   { txBodyError :: TxBodyError
   , builder :: TxBodyContent BuildTx
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception InvalidTransactionException
 

@@ -58,7 +58,7 @@ import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (genHydraKeys)
 
 newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception ConfigurationParseException
 

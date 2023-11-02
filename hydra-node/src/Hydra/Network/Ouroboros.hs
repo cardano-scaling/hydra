@@ -282,12 +282,12 @@ data NetworkServerListenException = NetworkServerListenException
   { ioException :: IOException
   , localHost :: Host
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception NetworkServerListenException
 
 data WithHost trace = WithHost Host trace
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToJSON trace => ToJSON (WithHost trace) where
   toJSON (WithHost h tr) =

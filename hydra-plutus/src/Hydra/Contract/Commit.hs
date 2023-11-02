@@ -49,7 +49,7 @@ data Commit = Commit
   { input :: TxOutRef
   , preSerializedOutput :: BuiltinByteString
   }
-  deriving (Haskell.Eq, Haskell.Show, Haskell.Ord)
+  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Ord)
 
 instance Eq Commit where
   (Commit i o) == (Commit i' o') =

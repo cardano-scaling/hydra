@@ -78,11 +78,11 @@ data InitMutation
   | MutateHeadIdInDatum
   | MutateHeadIdInInitialDatum
   | MutateSeedInDatum
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 data ObserveInitMutation
   = MutateSomePT
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =

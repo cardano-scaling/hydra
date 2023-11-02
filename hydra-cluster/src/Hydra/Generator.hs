@@ -26,7 +26,8 @@ data Dataset = Dataset
   , title :: Maybe Text
   , description :: Maybe Text
   }
-  deriving (Show, Generic, ToJSON, FromJSON)
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
@@ -39,7 +40,7 @@ data ClientKeys = ClientKeys
   , externalSigningKey :: SigningKey PaymentKey
   -- ^ Key holding funds to commit.
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToJSON ClientKeys where
   toJSON ClientKeys{signingKey, externalSigningKey} =
@@ -66,7 +67,8 @@ data ClientDataset = ClientDataset
   , initialUTxO :: UTxO
   , txSequence :: [Tx]
   }
-  deriving (Show, Generic, ToJSON, FromJSON)
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 defaultProtocolParameters :: ProtocolParameters
 defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def

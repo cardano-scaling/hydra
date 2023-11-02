@@ -422,7 +422,8 @@ data DirectChainTestLog
   = FromNode NodeLog
   | FromDirectChain Text DirectChainLog
   | FromFaucet FaucetLog
-  deriving (Show, Generic, ToJSON)
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON)
 
 data DirectChainTest tx m = DirectChainTest
   { postTx :: PostChainTx tx -> m ()

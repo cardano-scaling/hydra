@@ -12,10 +12,10 @@ data Options = Options
   , stateDirectory :: Maybe FilePath
   , publishHydraScripts :: PublishOrReuse
   }
-  deriving (Show)
+  deriving stock (Show)
 
 data PublishOrReuse = Publish | Reuse TxId
-  deriving (Show)
+  deriving stock (Show)
 
 -- TODO: Provide an option to use mithril aggregated snapshots to bootstrap the testnet
 parseOptions :: Parser Options

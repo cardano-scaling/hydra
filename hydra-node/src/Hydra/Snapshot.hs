@@ -17,7 +17,7 @@ import Test.QuickCheck.Instances.Natural ()
 
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
-  deriving (Eq, Ord, Generic)
+  deriving stock (Eq, Ord, Generic)
   deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
 
 instance Arbitrary SnapshotNumber where
@@ -29,10 +29,10 @@ data Snapshot tx = Snapshot
   , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsTx tx => Eq (Snapshot tx)
-deriving instance IsTx tx => Show (Snapshot tx)
+deriving stock instance IsTx tx => Eq (Snapshot tx)
+deriving stock instance IsTx tx => Show (Snapshot tx)
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
@@ -81,7 +81,8 @@ data ConfirmedSnapshot tx
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- NOTE: While we could use 'snapshot' directly, this is a record-field accessor
 -- which may become partial (and lead to unnoticed runtime errors) if we ever

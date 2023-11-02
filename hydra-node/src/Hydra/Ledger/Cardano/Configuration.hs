@@ -28,7 +28,8 @@ readJsonFileThrow parser filepath = do
 
 -- * Globals
 
-data GlobalsTranslationException = GlobalsTranslationException deriving (Eq, Show)
+data GlobalsTranslationException = GlobalsTranslationException
+  deriving stock (Eq, Show)
 
 instance Exception GlobalsTranslationException
 

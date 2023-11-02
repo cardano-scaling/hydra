@@ -36,8 +36,8 @@ import Test.QuickCheck (elements, listOf, suchThat)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
-deriving instance ToJSON IP
-deriving instance FromJSON IP
+deriving anyclass instance ToJSON IP
+deriving anyclass instance FromJSON IP
 
 -- * Hydra network interface
 
@@ -99,7 +99,8 @@ data Host = Host
   { hostname :: Text
   , port :: PortNumber
   }
-  deriving (Ord, Generic, Eq, ToJSON, FromJSON)
+  deriving stock (Ord, Generic, Eq)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Show Host where
   show = showHost

@@ -58,7 +58,7 @@ import qualified PlutusLedgerApi.V2 as Plutus
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
 
 newtype UTxOHash = UTxOHash ByteString
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance ToJSON UTxOHash where
   toJSON (UTxOHash bytes) =
@@ -76,7 +76,8 @@ data InitialThreadOutput = InitialThreadOutput
   , initialContestationPeriod :: OnChain.ContestationPeriod
   , initialParties :: [OnChain.Party]
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
@@ -84,7 +85,8 @@ data OpenThreadOutput = OpenThreadOutput
   , openContestationPeriod :: OnChain.ContestationPeriod
   , openParties :: [OnChain.Party]
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: UTxOWithScript
@@ -92,7 +94,8 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedContestationDeadline :: Plutus.POSIXTime
   , closedContesters :: [Plutus.PubKeyHash]
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
@@ -520,7 +523,7 @@ fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headD
     toTxContext <$> toList utxo
 
 data AbortTxError = OverlappingInputs
-  deriving (Show)
+  deriving stock (Show)
 
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
@@ -642,7 +645,7 @@ data InitObservation = InitObservation
   , contestationPeriod :: ContestationPeriod
   , parties :: [Party]
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | An explanation for a failed tentative `InitTx` observation.
 data NotAnInit
@@ -650,7 +653,7 @@ data NotAnInit
     NotAnInit NotAnInitReason
   | -- | The transaction /is/ a valid  InitTx but does not match the configuration of our Head.
     NotAnInitForUs MismatchReason
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 data NotAnInitReason
   = NoHeadOutput
@@ -887,7 +890,7 @@ data CollectComObservation = CollectComObservation
   , headId :: HeadId
   , utxoHash :: UTxOHash
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
@@ -935,7 +938,7 @@ data CloseObservation = CloseObservation
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -983,7 +986,7 @@ data ContestObservation = ContestObservation
   , snapshotNumber :: SnapshotNumber
   , contesters :: [Plutus.PubKeyHash]
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.

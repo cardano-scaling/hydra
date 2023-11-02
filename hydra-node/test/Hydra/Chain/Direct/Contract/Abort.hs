@@ -164,9 +164,9 @@ data AbortMutation
     ExtractValue
   | -- | State token is not burned
     DoNotBurnST
-  | -- Here we want to check that the initial validator also fails on abort.
+  | -- | Here we want to check that the initial validator also fails on abort.
     DoNotBurnSTInitial
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (tx, utxo) =

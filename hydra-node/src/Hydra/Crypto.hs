@@ -92,7 +92,7 @@ instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
-    deriving (Eq, Show, Ord)
+    deriving stock (Eq, Show, Ord)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -105,7 +105,7 @@ instance Key HydraKey where
   -- material as well.
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
-    deriving (Eq, Show)
+    deriving stock (Eq, Show)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -191,7 +191,7 @@ generateSigningKey seed =
 
 -- | Signature of 'a', not containing the actual payload.
 newtype Signature a = HydraSignature (SigDSIGN Ed25519DSIGN)
-  deriving (Eq)
+  deriving stock (Eq)
   deriving newtype (ToCBOR, FromCBOR)
 
 instance Show (Signature a) where
@@ -247,7 +247,7 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 
 -- | Naiively aggregated multi-signatures.
 newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving newtype (Semigroup, Monoid)
 
 deriving anyclass instance ToJSON a => ToJSON (MultiSignature a)

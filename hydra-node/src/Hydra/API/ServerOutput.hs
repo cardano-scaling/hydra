@@ -90,10 +90,10 @@ data ServerOutput tx
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | IgnoredHeadInitializing {headId :: HeadId, participants :: [OnChainId]}
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (IsChainState tx) => Eq (ServerOutput tx)
-deriving instance (IsChainState tx) => Show (ServerOutput tx)
+deriving stock instance (IsChainState tx) => Eq (ServerOutput tx)
+deriving stock instance (IsChainState tx) => Show (ServerOutput tx)
 
 instance (IsChainState tx) => ToJSON (ServerOutput tx) where
   toJSON =
@@ -148,17 +148,17 @@ instance
 data OutputFormat
   = OutputCBOR
   | OutputJSON
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 data ServerOutputConfig = ServerOutputConfig
   { txOutputFormat :: OutputFormat
   , utxoInSnapshot :: WithUTxO
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
@@ -236,7 +236,8 @@ data HeadStatus
   | Closed
   | FanoutPossible
   | Final
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary

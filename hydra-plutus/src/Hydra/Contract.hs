@@ -31,7 +31,8 @@ data ScriptInfo = ScriptInfo
   , headScriptHash :: ScriptHash
   , headScriptSize :: Int64
   }
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 -- | Gather 'ScriptInfo' from the current Hydra scripts. This is useful to
 -- determine changes in between version of 'hydra-plutus'.

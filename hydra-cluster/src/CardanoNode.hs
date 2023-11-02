@@ -370,7 +370,7 @@ generateCardanoKey = do
   pure (getVerificationKey sk, sk)
 
 data ProcessHasExited = ProcessHasExited Text ExitCode
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception ProcessHasExited
 

@@ -9,7 +9,7 @@ import Text.Show (Show)
 data CommitError
   = STNotBurnedError
   | STIsMissingInTheOutput
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToErrorCode CommitError where
   toErrorCode = \case

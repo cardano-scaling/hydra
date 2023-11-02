@@ -13,7 +13,7 @@ import qualified Hydra.Data.Party as OnChain
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, FromJSONKey, ToJSONKey)
 
 -- REVIEW: Do we really want to define Ord or also use unordered-containers

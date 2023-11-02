@@ -19,7 +19,7 @@ data HeadTokensError
   | NoDatum
   | MultipleHeadOutput
   | WrongInitialDatum
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToErrorCode HeadTokensError where
   toErrorCode = \case

@@ -48,7 +48,7 @@ import Network.Wai (
 newtype DraftCommitTxResponse = DraftCommitTxResponse
   { commitTx :: Tx
   }
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
 
 instance ToJSON DraftCommitTxResponse where
   toJSON (DraftCommitTxResponse tx) =

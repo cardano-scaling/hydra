@@ -34,7 +34,7 @@ import Hydra.Ledger.Cardano ()
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
   | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance}
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception FaucetException
 

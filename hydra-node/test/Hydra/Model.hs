@@ -88,7 +88,7 @@ data WorldState = WorldState
   -- ^ Expected consensus state
   -- All nodes should be in the same state.
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Global state of the Head protocol.
 -- While each participant in the Hydra Head protocol has its own private
@@ -322,8 +322,8 @@ instance HasVariables WorldState where
 instance HasVariables (Action WorldState a) where
   getAllVariables _ = mempty
 
-deriving instance Show (Action WorldState a)
-deriving instance Eq (Action WorldState a)
+deriving stock instance Show (Action WorldState a)
+deriving stock instance Eq (Action WorldState a)
 
 -- ** Generator Helper
 
@@ -430,7 +430,7 @@ data RunException
   | UnexpectedParty Party
   | UnknownAddress AddressInEra [(AddressInEra, CardanoSigningKey)]
   | CannotFindSpendableUTxO Payment UTxO
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Exception RunException
 

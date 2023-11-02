@@ -25,10 +25,10 @@ instance (Typeable tx, Show (Event tx), Show (HeadState tx), Show (RequirementFa
 instance (Arbitrary (Event tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
-deriving instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
-deriving instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)
-deriving instance (ToJSON (HeadState tx), ToJSON (Event tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
-deriving instance (FromJSON (HeadState tx), FromJSON (Event tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
+deriving stock instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
+deriving stock instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)
+deriving anyclass instance (ToJSON (HeadState tx), ToJSON (Event tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
+deriving anyclass instance (FromJSON (HeadState tx), FromJSON (Event tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
@@ -39,10 +39,10 @@ data RequirementFailure tx
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   deriving stock (Generic)
 
-deriving instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
-deriving instance (Show (TxIdType tx)) => Show (RequirementFailure tx)
-deriving instance (ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
-deriving instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
+deriving stock instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
+deriving stock instance (Show (TxIdType tx)) => Show (RequirementFailure tx)
+deriving anyclass instance (ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
+deriving anyclass instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
 
 instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
   arbitrary = genericArbitrary

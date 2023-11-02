@@ -22,7 +22,7 @@ data Environment = Environment
   , otherParties :: [Party]
   , contestationPeriod :: ContestationPeriod
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Arbitrary Environment where
   arbitrary = do
@@ -51,10 +51,10 @@ data HeadState tx
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
-deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
@@ -76,10 +76,10 @@ getHeadParameters = \case
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
 newtype IdleState tx = IdleState {chainState :: ChainStateType tx}
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance Eq (ChainStateType tx) => Eq (IdleState tx)
-deriving instance Show (ChainStateType tx) => Show (IdleState tx)
+deriving stock instance Eq (ChainStateType tx) => Eq (IdleState tx)
+deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
@@ -96,12 +96,12 @@ data InitialState tx = InitialState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
-deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
   arbitrary = do
@@ -127,12 +127,12 @@ data OpenState tx = OpenState
   , headId :: HeadId
   , currentSlot :: ChainSlot
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
-deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
   arbitrary =
@@ -160,10 +160,10 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
-deriving instance IsTx tx => Show (CoordinatedHeadState tx)
-deriving instance IsTx tx => ToJSON (CoordinatedHeadState tx)
-deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
+deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
+deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
+deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
 instance IsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
@@ -191,10 +191,10 @@ data SeenSnapshot tx
 instance IsTx tx => Arbitrary (SeenSnapshot tx) where
   arbitrary = genericArbitrary
 
-deriving instance IsTx tx => Eq (SeenSnapshot tx)
-deriving instance IsTx tx => Show (SeenSnapshot tx)
-deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
-deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
+deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
+deriving stock instance IsTx tx => Show (SeenSnapshot tx)
+deriving anyclass instance IsTx tx => ToJSON (SeenSnapshot tx)
+deriving anyclass instance IsTx tx => FromJSON (SeenSnapshot tx)
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -218,12 +218,12 @@ data ClosedState tx = ClosedState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
-deriving instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
-deriving instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
-deriving instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =
