@@ -130,7 +130,31 @@ TODO ??
 
 ## Conclusion
 
-TODO sebastian?
+The monthly review meeting for October 2023 was held on 2023-10-30 via Google
+Meet with these [slides][slides] and the [recording][recording].
+
+As mentioned above, the meeting was about 45 minutes of demonstrations - which
+clearly shows that we are in the wake of Catalyst fund 10 where several project
+proposals involving Hydra and Mithril got funded and at the same time everyone
+is preparing for the Cardano Summit 2023.
+
+With this many community contributions and projects moving forward, there was
+not much time to discuss the Hydra roadmap or go into details about Mithril
+project status. This is great!
+
+Besides, the project roadmaps seem to be well aligned where our next features
+in-line are most anticipated (incremental de-/commits) and adoption of Mithril
+is showing a healthy level with clear next steps and features ahead.
+
+It is getting increasingly hard to keep track of all the new developments around
+Hydra. However, that is also often not needed and the Cardano builders just set
+off and [build
+things](https://twitter.com/AltiMario/status/1711738372320825827?s=20) using
+Hydra these days.
+
+November will start with the Cardano Summit, likely yielding even more feedback
+and feature ideas from users, before we're looking at a few good weeks of
+feature development before the usual Christmas and New-Year breaks across teams.
 
 [slides]: https://docs.google.com/presentation/d/1pJMRp0YsszJenUvDmknm3wq9yyUE1CDRSYijjILrkHo
 [recording]: https://drive.google.com/file/d/1U4yZhliGykxF3BddAAXb4RD417UvsQWB
