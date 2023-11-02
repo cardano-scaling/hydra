@@ -310,7 +310,6 @@ data TraceOuroborosNetwork msg
   | TraceAcceptPolicy AcceptConnectionsPolicyTrace
   | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
   | TraceSendRecv (TraceSendRecv (FireForget msg))
-  deriving stock (Show, Generic)
 
 -- NOTE: cardano-node would have orphan ToObject instances for most of these
 -- types, but we want to avoid that dependency.

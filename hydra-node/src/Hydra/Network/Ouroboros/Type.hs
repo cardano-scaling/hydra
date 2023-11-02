@@ -57,9 +57,9 @@ instance Protocol (FireForget msg) where
   exclusionLemma_NobodyAndClientHaveAgency TokDone tok = case tok of {}
   exclusionLemma_NobodyAndServerHaveAgency TokDone tok = case tok of {}
 
-deriving instance (Show msg) => Show (Message (FireForget msg) from to)
+deriving stock instance (Show msg) => Show (Message (FireForget msg) from to)
 
-deriving instance (Eq msg) => Eq (Message (FireForget msg) from to)
+deriving stock instance (Eq msg) => Eq (Message (FireForget msg) from to)
 
 instance Show (ClientHasAgency (st :: FireForget msg)) where
   show TokIdle = "TokIdle"

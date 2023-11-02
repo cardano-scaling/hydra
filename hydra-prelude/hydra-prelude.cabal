@@ -34,9 +34,6 @@ library
     , si-timers          >=1.0.0.0
     , transformers
 
-  default-extensions:
-    NoImplicitPrelude
-    FlexibleContexts
-
+  default-language:   GHC2021
+  default-extensions: NoImplicitPrelude
   ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
-  default-language:   Haskell2010

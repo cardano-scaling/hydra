@@ -19,43 +19,20 @@ flag hydra-development
   manual:      True
 
 common project-config
+  default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
-    BangPatterns
-    BinaryLiterals
-    ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
-    DeriveDataTypeable
-    DeriveFoldable
-    DeriveFunctor
-    DeriveGeneric
-    DeriveTraversable
     DerivingStrategies
-    EmptyDataDecls
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
     FunctionalDependencies
     GADTs
-    InstanceSigs
-    KindSignatures
     LambdaCase
-    MultiParamTypeClasses
     MultiWayIf
-    NamedFieldPuns
-    NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
-    PatternGuards
-    RankNTypes
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
     TypeFamilies
-    TypeOperators
-    TypeSynonymInstances
     ViewPatterns
 
   ghc-options:
@@ -119,8 +96,8 @@ benchmark on-chain-cost
     , filepath
     , hydra-plutus-extras
     , hydra-prelude
-    , hydra-test-utils    >=0.10.0
-    , plutus-ledger-api   >=1.1.0.0
+    , hydra-test-utils     >=0.10.0
+    , plutus-ledger-api    >=1.1.0.0
     , plutus-merkle-tree
     , plutus-tx
     , plutus-tx-plugin
