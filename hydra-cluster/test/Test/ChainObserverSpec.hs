@@ -10,20 +10,21 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Lens ((^?))
+import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
+import qualified Data.Text as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode)
+import System.IO.Error (isEOFError)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
-import Data.Aeson as Aeson
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import qualified Data.Text as T
 
 spec :: Spec
 spec = do
@@ -79,7 +80,7 @@ awaitMatch chainObserverHandle delay f = do
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
-newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO Value }
+newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO Value}
 
 data ChainObserverLog
   = FromCardanoNode NodeLog
@@ -99,13 +100,21 @@ withChainObserver cardanoNode action =
     withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
       action $
         ChainObserverHandle
-          { awaitNext = do
-              x <- hGetLine out
-              case Aeson.eitherDecode (fromStrict x) of
-                Left err -> failure $ "awaitNext failed to decode msg: " <> err
-                Right value -> pure value
+          { awaitNext = awaitNext out
           }
  where
+  awaitNext :: Handle -> IO Aeson.Value
+  awaitNext out = do
+    x <- try (hGetLine out)
+    case x of
+      Left e | isEOFError e -> do
+        threadDelay 1
+        awaitNext out
+      Left e -> failure $ "awaitNext failed with exception " <> show e
+      Right d -> case Aeson.eitherDecode (fromStrict d) of
+        Left err -> failure $ "awaitNext failed to decode msg: " <> err
+        Right value -> pure value
+
   process =
     proc
       "hydra-chain-observer"
