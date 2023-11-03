@@ -52,8 +52,8 @@ spec = do
 
                 -- Assert the hydra-chain-observer reports initialization of the same headId
                 result <- awaitMatch chainObserverHandle 5 $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
-                  v ^? key "headId" . _String
+                  guard $ v ^? key "message" . key "tag" == Just "HeadInitTx"
+                  v ^? key "message" . key "headId" . _String
 
                 result `shouldBe` headId
 

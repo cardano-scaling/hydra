@@ -56,9 +56,9 @@ common project-config
 
   ghc-options:
     -Weverything -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode
-    -Wno-missing-import-lists -fno-ignore-interface-pragmas
-    -fno-omit-interface-pragmas -fno-strictness
-    -fprint-potential-instances
+    -Wno-missing-import-lists -Wno-partial-fields
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-strictness -fprint-potential-instances
 
 library
   import:          project-config

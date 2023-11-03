@@ -7,6 +7,7 @@ module Hydra.ChainObserver (
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (CardanoMode, ConsensusModeParams (..), EpochSlots (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
+import Hydra.Chain (HeadId (..))
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
@@ -16,6 +17,9 @@ main = do
   Options{networkId, nodeSocket} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
+
+    traceWith tracer HeadInitTx{headId = HeadId "foo"}
+
     connectToLocalNode
       (connectInfo nodeSocket networkId)
       clientProtocols
@@ -41,6 +45,8 @@ clientProtocols =
     }
 
 type ChainObserverLog :: Type
-data ChainObserverLog = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+data ChainObserverLog
+  = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+  | HeadInitTx {headId :: HeadId}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
