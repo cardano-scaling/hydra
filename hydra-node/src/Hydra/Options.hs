@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo  #-}
 
 module Hydra.Options (
   module Hydra.Options,
@@ -195,7 +196,14 @@ offlineOptionsParser =
               <*> ledgerGenesisFileParser
               <*> offlineUTxOWriteBackOptionsParser)
       (progDesc "Run Hydra in offline mode")
-    
+
+offlineOptionsNormalizedUtxoWriteBackFilePath :: OfflineConfig -> Maybe FilePath
+offlineOptionsNormalizedUtxoWriteBackFilePath OfflineConfig{initialUTxOFile, utxoWriteBack} =
+  case utxoWriteBack of
+    Just (WriteBackToUTxOFile path) -> Just path
+    Just (WriteBackToInitialUTxO) -> Just initialUTxOFile
+    Nothing -> Nothing
+
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -213,7 +221,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
-  , offlineConfig :: Maybe OfflineConfig --TODO(Elaine): nicer type ? Nothing = online mode, but thats a bit weird
+  , offlineConfig :: Maybe OfflineConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -255,7 +263,7 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
-        , offlineConfig = Nothing --TODO(Elaine): should we change this? 
+        , offlineConfig = Nothing
         }
 
   shrink = genericShrink
@@ -784,7 +792,7 @@ toArgs
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig
       <> argsLedgerConfig
-      <> maybe [] (\oc -> ["--offline-config", show oc]) offlineConfig --TODO(Elaine): nicer formatting
+      <> argsOfflineConfig --TODO(Elaine): nicer formatting
    where
     (NodeId nId) = nodeId
     isVerbose = \case
@@ -814,9 +822,6 @@ toArgs
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
     
-    -- argsOfflineConfig =
-    --   ["--ut", initialUTxOFile]
-
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
@@ -829,11 +834,18 @@ toArgs
       , startChainFrom
       , contestationPeriod
       } = chainConfig
-    -- OfflineConfig
-    --   { initialUTxOFile
-    --   , ledgerGenesisFile
-    --   , utxoWriteBack
-    --   } = offlineConfig
+
+    argsOfflineConfig = case offlineConfig of
+      Nothing -> []
+      Just OfflineConfig{initialUTxOFile, ledgerGenesisFile, utxoWriteBack} -> 
+        ["offline"]
+          <> ["--initial-utxo-file", initialUTxOFile]
+          <> maybe [] (\s -> ["--ledger-genesis-file", s]) ledgerGenesisFile
+          <> maybe [] (\case
+                WriteBackToInitialUTxO -> ["--write-back-to-initial-utxo"]
+                WriteBackToUTxOFile s -> ["--write-back-to-utxo-file", s]
+              )
+              utxoWriteBack
 
 defaultRunOptions :: RunOptions
 defaultRunOptions =
@@ -852,7 +864,7 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
-    , offlineConfig = Nothing --TODO(Elaine)
+    , offlineConfig = Nothing
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]

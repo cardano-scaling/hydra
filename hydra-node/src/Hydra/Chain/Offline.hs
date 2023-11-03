@@ -18,11 +18,11 @@ import Hydra.Chain (
 import Hydra.HeadId (HeadId)
 
 import Hydra.Chain.Direct.State (
-  ChainContext (..), initialChainState
+  ChainContext (),
  )
 
 import Hydra.Chain.Direct.Handlers (
-  DirectChainLog (), --TODO(Elaine): make imports explicit, sort these etc
+  DirectChainLog (),
   newLocalChainState,
  )
 

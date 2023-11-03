@@ -1,7 +1,8 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 module Hydra.Chain.Offline.Persistence (
   initializeStateIfOffline
-, createPersistenceWithUTxOWriteBack) where
+, createPersistenceWithUTxOWriteBack
+, createStateChangePersistence) where
 
 import Hydra.Prelude
 
@@ -60,11 +61,12 @@ createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
   pure PersistenceIncremental { loadAll, append = \stateChange -> do
     append stateChange
     case stateChange of 
-      --TODO(Elaine): do we want to do this on snapshot confirmation or on transaction over local utxo
-      -- see onOpenNetworkReqTx
-      -- TransactionAppliedToLocalUTxO{tx, newLocalUTxO} ->
-      --   writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode newLocalUTxO
       SnapshotConfirmed { snapshot = Snapshot{utxo} } ->
         writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode utxo
       _ -> pure ()
   }
+
+createStateChangePersistence :: (MonadIO m, MonadThrow m) => FilePath -> Maybe FilePath -> m (PersistenceIncremental (StateChanged Tx) m)
+createStateChangePersistence persistenceFilePath = \case
+  Just utxoWriteBackFilePath -> createPersistenceWithUTxOWriteBack persistenceFilePath utxoWriteBackFilePath
+  _ -> createPersistenceIncremental persistenceFilePath

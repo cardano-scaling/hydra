@@ -366,5 +366,4 @@ defaultRunOptions =
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
     , offlineConfig = Nothing
-    -- Just (OfflineConfig {initialUTxOFile = "utxo.json", ledgerGenesisFile = Just "genesis.json", utxoWriteBack = Nothing})
     }

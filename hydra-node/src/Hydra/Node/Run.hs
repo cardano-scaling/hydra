@@ -24,7 +24,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
-import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
+import Hydra.Chain.Offline.Persistence (createStateChangePersistence, initializeStateIfOffline)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -60,6 +60,7 @@ import Hydra.Options (
   OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile, utxoWriteBack),
   OfflineUTxOWriteBackConfig (..),
   RunOptions (..),
+  offlineOptionsNormalizedUtxoWriteBackFilePath,
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
@@ -119,8 +120,8 @@ run opts = do
           systemStart <- SystemStart <$> getCurrentTime
           pure $ defaultGlobals{Ledger.systemStart = systemStart}
 
-      withCardanoLedger onlineOrOfflineConfig pparams globals $ \ledger -> do
-        persistence <- createStateChangePersistence (persistenceDir <> "/state") (leftToMaybe onlineOrOfflineConfig)
+      withCardanoLedger pparams globals $ \ledger -> do
+        persistence <- createStateChangePersistence (persistenceDir <> "/state") (offlineOptionsNormalizedUtxoWriteBackFilePath =<< leftToMaybe onlineOrOfflineConfig)
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
 
         let headId = HeadId "HeadId"
@@ -135,7 +136,6 @@ run opts = do
         -- Chain
         ctx <- case onlineOrOfflineConfig of
           Left _ -> pure (error "error: shouldnt be forced") -- this is only used in draftCommitTx in mkFakeL1Chain, which should be unused, so we can probably get rid of this in offline mode
-          -- chaincontext is normally
           Right _ -> loadChainContext chainConfig party hydraScriptsTxId
         withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
           -- API
@@ -170,9 +170,9 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
       withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
 
-  withCardanoLedger onlineOrOfflineConfig protocolParams globals action = case onlineOrOfflineConfig of
-    Left offlineConfig -> withCardanoLedgerOffline offlineConfig protocolParams globals action
-    Right _onlineConfig -> withCardanoLedgerOnline protocolParams globals action
+  withCardanoLedger protocolParams globals action =
+    let ledgerEnv = newLedgerEnv protocolParams
+     in action (Ledger.cardanoLedger globals ledgerEnv)
 
   withCardanoLedgerOffline OfflineConfig{} protocolParams globals action = do
     -- TODO(Elaine): double check previous messy branch for any other places where we query node
@@ -189,37 +189,6 @@ run opts = do
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
-
-createStateChangePersistence :: (MonadIO m, MonadThrow m) => FilePath -> Maybe OfflineConfig -> m (PersistenceIncremental (StateChanged Tx) m)
-createStateChangePersistence persistenceFilePath = \case
-  Just OfflineConfig{initialUTxOFile, utxoWriteBack = Just writeBackConfig} ->
-    createPersistenceWithUTxOWriteBack persistenceFilePath $ case writeBackConfig of
-      WriteBackToInitialUTxO -> initialUTxOFile
-      WriteBackToUTxOFile customFile -> customFile
-  _ -> createPersistenceIncremental persistenceFilePath
-
--- TODO(Elaine): move this elsewhere
-createPersistenceWithUTxOWriteBack ::
-  (MonadIO m, MonadThrow m) =>
-  FilePath ->
-  FilePath ->
-  m (PersistenceIncremental (StateChanged Tx) m)
-createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
-  PersistenceIncremental{append, loadAll} <- createPersistenceIncremental persistenceFilePath
-  pure
-    PersistenceIncremental
-      { loadAll
-      , append = \stateChange -> do
-          append stateChange
-          case stateChange of
-            -- TODO(Elaine): do we want to do this on snapshot confirmation or on transaction over local utxo
-            -- see onOpenNetworkReqTx
-            -- TransactionAppliedToLocalUTxO{tx, newLocalUTxO} ->
-            --   writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode newLocalUTxO
-            Hydra.HeadLogic.SnapshotConfirmed{snapshot = Snapshot{utxo}} ->
-              writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode utxo
-            _ -> pure ()
-      }
 
 -- TODO(ELAINE): figure out a less strange way to do this
 
