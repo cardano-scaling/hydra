@@ -13,6 +13,8 @@ data Options = Options
   }
   deriving stock (Show, Eq)
 
+-- TODO: --start-chain-from would be useful here as well
+
 optionsParser :: Parser Options
 optionsParser =
   Options
