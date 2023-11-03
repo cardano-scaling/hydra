@@ -19,6 +19,7 @@ import CardanoClient (
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
@@ -54,6 +55,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
 import Hydra.Chain (HeadId)
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import qualified Hydra.Cluster.Faucet as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
@@ -62,9 +64,20 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig, networkId, startChainFrom)
+import Hydra.Options (ChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
-import HydraNode (EndToEndLog (..), HydraClient, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitMatch, withHydraNode)
+import HydraNode (
+  EndToEndLog (..),
+  HydraClient,
+  input,
+  output,
+  requestCommitTx,
+  send,
+  waitFor,
+  waitForAllMatch,
+  waitMatch,
+  withHydraNode,
+ )
 import qualified Network.HTTP.Client as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -419,7 +432,7 @@ canSubmitTransactionThroughAPI ::
   TxId ->
   IO ()
 canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
-   (`finally` returnFundsToFaucet tracer node Alice) $ do
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
@@ -451,7 +464,6 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where
-
   RunningNode{networkId, nodeSocket} = node
   sendRequest hydraNodeId tx =
     runReq defaultHttpConfig $
@@ -461,6 +473,39 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         (ReqBodyJson tx)
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
+
+-- | Two hydra node setup where Alice is wrongly configured to use Carol's
+-- cardano keys instead of Bob's which will prevent him to be notified the
+-- `HeadIsInitializing` but he should still receive some notification.
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+  (carolCardanoVk, _) <- keysFor Carol
+
+  aliceChainConfig <- chainConfigFor Alice workDir nodeSocket [Carol] (UnsafeContestationPeriod 2)
+  bobChainConfig <- chainConfigFor Bob workDir nodeSocket [Alice] (UnsafeContestationPeriod 2)
+
+  withHydraNode tracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] hydraScriptsTxId $ \n1 -> do
+    withHydraNode tracer bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] hydraScriptsTxId $ \n2 -> do
+      seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+      send n1 $ input "Init" []
+      headId <-
+        waitForAllMatch 10 [n1] $
+          headIsInitializingWith (Set.fromList [alice, bob])
+
+      let expectedHashes =
+            assetNameFromVerificationKey
+              <$> [aliceCardanoVk, carolCardanoVk]
+
+      -- We want the client to observe headId being opened without bob (node 2)
+      -- being part of it
+      pubKeyHashes <- waitMatch 10 n2 $ \v -> do
+        guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        v ^? key "participants" . _JSON
+
+      Set.fromList pubKeyHashes `shouldBe` Set.fromList expectedHashes
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

@@ -142,10 +142,11 @@ spec = do
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
+            IgnoredInitTx{} -> pure ()
             Observation{observedTx} ->
-              when ((fst <$> observeSomeTx ctx st tx) /= Just observedTx) $
+              when ((fst <$> observeSomeTx ctx st tx) /= Right observedTx) $
                 failure $
-                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show (Just observedTx)
+                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show observedTx
 
       let handler =
             chainSyncHandler
@@ -327,7 +328,7 @@ genSequenceOfObservableBlocks = do
     void $ stepCommits ctx initTx allContexts
   pure (cctx, initialChainState, reverse blks)
  where
-  nextSlot :: Monad m => StateT [TestBlock] m SlotNo
+  nextSlot :: (Monad m) => StateT [TestBlock] m SlotNo
   nextSlot = do
     get <&> \case
       [] -> 1

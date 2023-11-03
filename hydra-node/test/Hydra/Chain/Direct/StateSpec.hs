@@ -81,7 +81,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInitReason (..))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import Hydra.Ledger.Cardano (
@@ -141,8 +141,11 @@ spec = parallel $ do
       checkCoverage $
         forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
           genericCoverTable [transition] $
-            isJust (observeSomeTx ctx st tx)
-              & counterexample "observeSomeTx returned Nothing"
+            case (observeSomeTx ctx st tx) of
+              Right{} -> property True
+              Left err ->
+                property False
+                  & counterexample ("observeSomeTx returned an error: " <> show err)
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -291,7 +294,7 @@ spec = parallel $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
 
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInit)
 genInitTxMutation seedInput tx =
   genChangeMintingPolicy
  where
@@ -301,7 +304,7 @@ genInitTxMutation seedInput tx =
           ChangeMintingPolicy alwaysSucceedsV2
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
       , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
-      , NotAHeadPolicy
+      , NotAnInit NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to
@@ -400,7 +403,7 @@ propIsValid forAllTx =
 -- 'Gen' or functions in 'PropertyM' are better combinable?
 
 forAllInit ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllInit action =
@@ -418,7 +421,7 @@ forAllInit action =
                 "2+ parties"
 
 forAllCommit ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllCommit action =
@@ -427,7 +430,7 @@ forAllCommit action =
      in action utxo tx
 
 forAllCommit' ::
-  (Testable property) =>
+  Testable property =>
   (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
   Property
 forAllCommit' action = do
@@ -446,7 +449,7 @@ forAllCommit' action = do
               & counterexample ("tx: " <> renderTx tx)
 
 forAllAbort ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllAbort action = do
@@ -468,7 +471,7 @@ forAllAbort action = do
                   "Abort after all commits"
 
 forAllCollectCom ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
@@ -478,7 +481,7 @@ forAllCollectCom action =
           & counterexample ("Committed UTxO: " <> show committedUTxO)
 
 forAllClose ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllClose action = do
@@ -489,7 +492,7 @@ forAllClose action = do
           & label (Prelude.head . Prelude.words . show $ sn)
 
 forAllContest ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
@@ -529,7 +532,7 @@ forAllContest action =
   getClosedContesters stClosed = closedContesters . closedThreadOutput $ stClosed
 
 forAllFanout ::
-  (Testable property) =>
+  Testable property =>
   (UTxO -> Tx -> property) ->
   Property
 forAllFanout action =

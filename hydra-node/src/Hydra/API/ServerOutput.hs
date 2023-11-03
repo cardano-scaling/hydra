@@ -10,7 +10,7 @@ import Data.Aeson.Lens (atKey, key)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, HeadId, IsChainState, OnChainId, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
@@ -26,7 +26,7 @@ data TimedServerOutput tx = TimedServerOutput
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
+instance (Arbitrary (ServerOutput tx)) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
 -- | Generate a random timed server output given a normal server output.
@@ -89,10 +89,10 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | IgnoredHeadInitializing {headId :: HeadId, participants :: [OnChainId]}
   deriving (Generic)
 
 deriving instance (IsChainState tx) => Eq (ServerOutput tx)
-
 deriving instance (IsChainState tx) => Show (ServerOutput tx)
 
 instance (IsChainState tx) => ToJSON (ServerOutput tx) where
@@ -142,6 +142,7 @@ instance
         <*> shrink snapshotUtxo
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
+    IgnoredHeadInitializing{} -> []
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -165,7 +166,7 @@ data ServerOutputConfig = ServerOutputConfig
 -- 'handleTxOutput' so that we don't forget to update this function if they
 -- change.
 prepareServerOutput ::
-  IsChainState tx =>
+  (IsChainState tx) =>
   -- | Decide on tx representation
   ServerOutputConfig ->
   -- | Server output
@@ -210,6 +211,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
     PostTxOnChainFailed{} -> encodedResponse
+    IgnoredHeadInitializing{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

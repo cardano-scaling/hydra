@@ -157,12 +157,13 @@ import Test.QuickCheck.DynamicLogic (
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
 import Test.QuickCheck.StateModel (
+  ActionWithPolarity (..),
   Actions,
   Annotated (..),
   Step ((:=)),
   runActions,
   stateAfter,
-  pattern Actions, ActionWithPolarity (..),
+  pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
 
@@ -248,7 +249,7 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
     _anyVar := (ActionWithPolarity (Model.Commit _anyParty utxos) _) -> any contains0Ada utxos
-    _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _)-> value == lovelaceToValue 0
+    _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _) -> value == lovelaceToValue 0
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 

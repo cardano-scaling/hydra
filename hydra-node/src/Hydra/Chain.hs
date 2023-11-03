@@ -102,6 +102,22 @@ instance HasTypeProxy HeadId where
 instance Arbitrary HeadId where
   arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
 
+-- | Identifier for a Hydra head participant used on-chain.
+newtype OnChainId = OnChainId ByteString
+  deriving (Show, Eq, Ord, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
+
+instance SerialiseAsRawBytes OnChainId where
+  serialiseToRawBytes (OnChainId bytes) = bytes
+  deserialiseFromRawBytes _ = Right . OnChainId
+
+instance HasTypeProxy OnChainId where
+  data AsType OnChainId = AsOnChainId
+  proxyToAsType _ = AsOnChainId
+
+instance Arbitrary OnChainId where
+  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary
+
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
@@ -160,12 +176,12 @@ data PostTxError tx
     SpendingNodeUtxoForbidden
   deriving (Generic)
 
-deriving instance (IsChainState tx) => Eq (PostTxError tx)
-deriving instance (IsChainState tx) => Show (PostTxError tx)
-deriving instance (IsChainState tx) => ToJSON (PostTxError tx)
-deriving instance (IsChainState tx) => FromJSON (PostTxError tx)
+deriving instance IsChainState tx => Eq (PostTxError tx)
+deriving instance IsChainState tx => Show (PostTxError tx)
+deriving instance IsChainState tx => ToJSON (PostTxError tx)
+deriving instance IsChainState tx => FromJSON (PostTxError tx)
 
-instance (IsChainState tx) => Exception (PostTxError tx)
+instance IsChainState tx => Exception (PostTxError tx)
 
 instance Arbitrary Lovelace where
   arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
@@ -200,12 +216,12 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-deriving instance (Eq (ChainStateType tx)) => Eq (ChainStateHistory tx)
-deriving instance (Show (ChainStateType tx)) => Show (ChainStateHistory tx)
-deriving anyclass instance (ToJSON (ChainStateType tx)) => ToJSON (ChainStateHistory tx)
-deriving anyclass instance (FromJSON (ChainStateType tx)) => FromJSON (ChainStateHistory tx)
+deriving instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
+deriving instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
+deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (ChainStateHistory tx)
+deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (ChainStateHistory tx)
 
-instance (Arbitrary (ChainStateType tx)) => Arbitrary (ChainStateHistory tx) where
+instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
 -- | Interface available from a chain state. Expected to be instantiated by all
@@ -237,7 +253,7 @@ data Chain tx m = Chain
   --
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
-      (MonadThrow m) =>
+      MonadThrow m =>
       UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
@@ -252,10 +268,19 @@ data Chain tx m = Chain
   }
 
 data ChainEvent tx
-  = Observation
+  = -- | Indicates a head protocol transaction has been observed.
+    Observation
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
+  | -- | The chain layer ignored a head initialization transaction of given
+    -- HeadId and participants.
+    --
+    -- XXX: This is very specific and assumes that any chain layer would have
+    -- the means (credentials + parameters) and authority to ignore a head
+    -- initialization. Instead, an 'Observation' should not contain a new chain
+    -- state and hence a normal 'OnInitTx' can be used instead of this event.
+    IgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }

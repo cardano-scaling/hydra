@@ -18,6 +18,7 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
+  AssetName (..),
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -35,6 +36,7 @@ import Hydra.Chain (
   ChainStateHistory,
   ChainStateType,
   IsChainState,
+  OnChainId (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
@@ -42,9 +44,10 @@ import Hydra.Chain (
   rollbackHistory,
  )
 import Hydra.Chain.Direct.State (
-  ChainContext,
+  ChainContext (..),
   ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
+  NoObservation (..),
   abort,
   chainSlotFromPoint,
   close,
@@ -58,6 +61,12 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Tx (
+  NotAnInit (..),
+  RawInitObservation (..),
+  mismatchReasonObservation,
+  mkHeadId,
+ )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -287,7 +296,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
 
-    forM_ receivedTxs $ \tx -> do
+    forM_ receivedTxs $ \tx ->
       maybeObserveSomeTx point tx >>= \case
         Nothing -> pure ()
         Just event -> callback event
@@ -295,8 +304,10 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     case observeSomeTx ctx chainState tx of
-      Nothing -> pure Nothing
-      Just (observedTx, cs') -> do
+      Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
+        pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
+      Left _err -> pure Nothing
+      Right (observedTx, cs') -> do
         let newChainState =
               ChainStateAt
                 { chainState = cs'
@@ -304,6 +315,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
+
+  asChainId (AssetName bs) = OnChainId bs
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
@@ -313,7 +326,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
+prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@ChainStateAt{chainState} tx =
   case (tx, chainState) of
     (InitTx params, Idle) ->
       getSeedInput wallet >>= \case
@@ -352,7 +365,7 @@ prepareTxToPost timeHandle wallet ctx cst@ChainStateAt{chainState} tx =
 
   -- See ADR21 for context
   calculateTxUpperBoundFromContestationPeriod currentTime = do
-    let effectiveDelay = min (toNominalDiffTime $ contestationPeriod ctx) maxGraceTime
+    let effectiveDelay = min (toNominalDiffTime contestationPeriod) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)

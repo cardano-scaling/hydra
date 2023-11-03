@@ -11,7 +11,7 @@ import Data.Aeson.Lens (key, nth)
 import qualified Data.ByteString.Base16 as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
-import Hydra.Cardano.Api (toLedgerTx, serialiseToTextEnvelope)
+import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema)

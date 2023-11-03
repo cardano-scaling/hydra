@@ -55,18 +55,7 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (
-  canCloseWithLongContestationPeriod,
-  canSubmitTransactionThroughAPI,
-  headIsInitializingWith,
-  refuelIfNeeded,
-  restartedNodeCanAbort,
-  restartedNodeCanObserveCommitTx,
-  singlePartyCannotCommitExternallyWalletUtxo,
-  singlePartyCommitsExternalScriptWithInlineDatum,
-  singlePartyCommitsFromExternalScript,
-  singlePartyHeadFullLifeCycle,
- )
+import Hydra.Cluster.Scenarios (canCloseWithLongContestationPeriod, canSubmitTransactionThroughAPI, headIsInitializingWith, initWithWrongKeys, refuelIfNeeded, restartedNodeCanAbort, restartedNodeCanObserveCommitTx, singlePartyCannotCommitExternallyWalletUtxo, singlePartyCommitsExternalScriptWithInlineDatum, singlePartyCommitsFromExternalScript, singlePartyHeadFullLifeCycle)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
@@ -351,6 +340,13 @@ spec = around showLogsOnFailure $
                 (initAndClose tmpDir tracer 0 hydraScriptsTxId node)
                 (initAndClose tmpDir tracer 1 hydraScriptsTxId node)
 
+      it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir "incorrect-cardano-keys" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= initWithWrongKeys tmpDir tracer node
+
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir "two-heads-cant-abort" $ \tmpDir -> do
@@ -532,14 +528,6 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
-
-  let aliceSk = generateSigningKey ("alice-" <> show clusterIx)
-  let bobSk = generateSigningKey ("bob-" <> show clusterIx)
-  let carolSk = generateSigningKey ("carol-" <> show clusterIx)
-
-  let alice = deriveParty aliceSk
-  let bob = deriveParty bobSk
-  let carol = deriveParty carolSk
 
   let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
       hydraKeys = [aliceSk, bobSk, carolSk]

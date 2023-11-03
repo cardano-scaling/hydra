@@ -99,6 +99,7 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event
+    Hydra.HeadLogic.Heads
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
@@ -147,7 +148,6 @@ library
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-prelude
     , cardano-slotting
     , cardano-strict-containers
     , cborg

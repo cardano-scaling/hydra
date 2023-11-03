@@ -13,17 +13,22 @@ changes.
 - Improved `gen-hydra-keys` command to not overwrite keys if they are present
   already.
 
+- Clients are notified when head initialization is ignored via a new
+  `IgnoredHeadInitializing` API server output. This helps detecting
+  misconfigurations of credentials and head parameters (which need to match).
+  [#529](https://github.com/input-output-hk/hydra/issues/529)
+
 - Hydra node API `submit-transaction` endpoint now accepts three types of
   encoding: Base16 encoded CBOR string, TextEnvelope type and JSON.
 
 - **BREAKING** Introduce messages resending logic in the `Network`
   layer to improve reliability in the face of transient connection
-  issues
+  issues.
 
 - Persist network messages on disk in order to gracefully handle crashes
 
-- **BREAKING** Changes to Hydra scripts due to upgrading our toolchain to
-  GHC 9.6.2.
+- **BREAKING** Changes to Hydra script hashes due to upgrading our toolchain to
+  GHC 9.6
 
 ## [0.13.0] - 2023-10-03
 
