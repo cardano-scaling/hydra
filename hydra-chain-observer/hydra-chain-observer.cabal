@@ -14,7 +14,7 @@ source-repository head
   location: https://github.com/input-output-hk/hydra
 
 common project-config
-  default-language: GHC2021
+  default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
     BangPatterns
@@ -56,25 +56,28 @@ common project-config
 
   ghc-options:
     -Weverything -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode
-    -Wno-missing-import-lists
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness -fprint-potential-instances
+    -Wno-missing-import-lists -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness
+    -fprint-potential-instances
 
 library
   import:          project-config
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
-    , base
+    , hydra-cardano-api
+    , hydra-node
     , hydra-prelude
+    , optparse-applicative
 
-  exposed-modules: Hydra.ChainObserver
+  exposed-modules:
+    Hydra.ChainObserver
+    Hydra.ChainObserver.Options
 
 executable hydra-chain-observer
   import:         project-config
   hs-source-dirs: exe
   main-is:        Main.hs
   build-depends:
-    , base
-    , hydra-prelude
     , hydra-chain-observer
+    , hydra-prelude

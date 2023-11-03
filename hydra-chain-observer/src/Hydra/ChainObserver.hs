@@ -4,5 +4,10 @@ module Hydra.ChainObserver (
 
 import Hydra.Prelude
 
+import Hydra.ChainObserver.Options (hydraChainObserverOptions)
+import Options.Applicative (execParser)
+
 main :: IO ()
-main = putStrLn "Init"
+main = do
+  xs <- execParser hydraChainObserverOptions
+  print xs
