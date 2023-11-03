@@ -21,6 +21,9 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
+import Data.Aeson as Aeson
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import qualified Data.Text as T
 
 spec :: Spec
 spec = do
@@ -35,7 +38,7 @@ spec = do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
             withHydraNode (contramap FromHydraNode tracer) aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \hydraNode -> do
-              withChainObserver cardanoNode $ \ChainObserverHandle{awaitNext} -> do
+              withChainObserver cardanoNode $ \chainObserverHandle -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 -- Init a head using the hydra-node
@@ -47,11 +50,36 @@ spec = do
                   v ^? key "headId" . _String
 
                 -- Assert the hydra-chain-observer reports initialization of the same headId
-                result <- awaitNext
-                result `shouldContain` "Init"
-                result `shouldContain` (toString headId)
+                result <- awaitMatch chainObserverHandle 5 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
+                  v ^? key "headId" . _String
 
-newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO String}
+                result `shouldBe` headId
+
+awaitMatch :: ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
+awaitMatch chainObserverHandle delay f = do
+  seenMsgs <- newTVarIO []
+  timeout delay (go seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "awaitMatch did not match a message within " <> show delay
+            , padRight ' ' 20 "  seen messages:"
+                <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
+            ]
+ where
+  go seenMsgs = do
+    msg <- awaitNext chainObserverHandle
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (f msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (T.replicate n " " <>) q
+
+newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO Value }
 
 data ChainObserverLog
   = FromCardanoNode NodeLog
@@ -73,7 +101,9 @@ withChainObserver cardanoNode action =
         ChainObserverHandle
           { awaitNext = do
               x <- hGetLine out
-              pure $ decodeUtf8 x
+              case Aeson.eitherDecode (fromStrict x) of
+                Left err -> failure $ "awaitNext failed to decode msg: " <> err
+                Right value -> pure value
           }
  where
   process =

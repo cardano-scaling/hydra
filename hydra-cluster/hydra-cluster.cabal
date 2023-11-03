@@ -173,6 +173,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , io-classes
     , lens
     , lens-aeson
     , process
