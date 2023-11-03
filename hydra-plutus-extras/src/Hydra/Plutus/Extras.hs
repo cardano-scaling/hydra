@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-specialize #-}
+
 module Hydra.Plutus.Extras (
   module Hydra.Plutus.Extras,
   module Hydra.Plutus.Extras.Time,

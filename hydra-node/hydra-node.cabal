@@ -221,8 +221,6 @@ benchmark tx-cost
 
   ghc-options:    -threaded -rtsopts
 
-  ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
-
 benchmark micro
   import:         project-config
   hs-source-dirs: bench/micro-bench

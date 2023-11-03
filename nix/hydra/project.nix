@@ -55,21 +55,13 @@ let
 
     modules = [{
       packages = {
-
         # Strip debugging symbols from exes (smaller closures)
         hydra-node.dontStrip = false;
         hydra-tui.dontStrip = false;
         hydraw.dontStrip = false;
 
-        # Avoid plutus-tx errors in haddock (see also cabal.project)
-        hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-
-        plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-        plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-
         # Fix compliation of strict-containers (see also cabal.project)
         strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
-
         # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
         strict-containers.doHaddock = false;
 
@@ -86,7 +78,6 @@ let
         hydraw.ghcOptions = [ "-Werror" ];
         plutus-cbor.ghcOptions = [ "-Werror" ];
         plutus-merkle-tree.ghcOptions = [ "-Werror" ];
-
       };
     }
       ({ lib, config, ... }:

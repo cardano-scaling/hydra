@@ -105,6 +105,4 @@ executable encoding-cost
     , QuickCheck
     , scientific
 
-  ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
-
   ghc-options:    -threaded -rtsopts
