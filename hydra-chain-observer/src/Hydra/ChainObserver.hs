@@ -6,23 +6,33 @@ module Hydra.ChainObserver (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (CardanoMode, ConsensusModeParams (..), EpochSlots (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
+import Hydra.Cardano.Api (CardanoMode, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
 import Hydra.Chain (HeadId (..))
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
-import Hydra.Logging (Verbosity (..), traceWith, withTracer)
+import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
+import Ouroboros.Network.Protocol.ChainSync.Client (
+  ChainSyncClient (..),
+  ClientStIdle (..),
+  ClientStIntersect (..),
+  ClientStNext (..),
+ )
 
 main :: IO ()
 main = do
   Options{networkId, nodeSocket} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
-
-    traceWith tracer HeadInitTx{headId = HeadId "foo"}
-
     connectToLocalNode
       (connectInfo nodeSocket networkId)
-      clientProtocols
+      (clientProtocols tracer)
+
+type ChainObserverLog :: Type
+data ChainObserverLog
+  = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+  | HeadInitTx {headId :: HeadId}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 connectInfo :: SocketPath -> NetworkId -> LocalNodeConnectInfo CardanoMode
 connectInfo nodeSocket networkId =
@@ -35,18 +45,19 @@ connectInfo nodeSocket networkId =
     , localNodeSocketPath = nodeSocket
     }
 
-clientProtocols :: LocalNodeClientProtocols block point tip slot tx txid txerr query m
-clientProtocols =
+clientProtocols ::
+  Tracer IO ChainObserverLog ->
+  LocalNodeClientProtocols block point tip slot tx txid txerr query IO
+clientProtocols tracer =
   LocalNodeClientProtocols
-    { localChainSyncClient = NoLocalChainSyncClient
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
     }
 
-type ChainObserverLog :: Type
-data ChainObserverLog
-  = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
-  | HeadInitTx {headId :: HeadId}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+chainSyncClient :: Tracer IO ChainObserverLog -> ChainSyncClient block point tip IO ()
+chainSyncClient tracer =
+  ChainSyncClient $ do
+    traceWith tracer HeadInitTx{headId = HeadId "foo"}
+    pure $ SendMsgDone ()

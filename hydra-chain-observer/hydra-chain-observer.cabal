@@ -69,6 +69,7 @@ library
     , hydra-node
     , hydra-prelude
     , optparse-applicative
+    , ouroboros-network-protocols
 
   exposed-modules:
     Hydra.ChainObserver

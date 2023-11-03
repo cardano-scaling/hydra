@@ -97,11 +97,13 @@ withChainObserver cardanoNode action =
   -- failure output. Print the exception here to have some debuggability at
   -- least.
   handle (\(e :: IOException) -> print e >> throwIO e) $
-    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
-      action $
-        ChainObserverHandle
-          { awaitNext = awaitNext out
-          }
+    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err processHandle ->
+      race_
+        (checkProcessHasNotDied "hydra-chain-observer" processHandle)
+        $ action
+          ChainObserverHandle
+            { awaitNext = awaitNext out
+            }
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do
