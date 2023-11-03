@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))

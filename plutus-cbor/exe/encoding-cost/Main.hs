@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 import Hydra.Prelude hiding (label)
 
 import Data.Binary.Builder (toLazyByteString)

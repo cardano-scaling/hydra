@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Error codes to be used in plutus scripts.

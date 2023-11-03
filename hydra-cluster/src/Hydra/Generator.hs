@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-
 module Hydra.Generator where
 
 import Hydra.Cardano.Api

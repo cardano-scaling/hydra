@@ -74,6 +74,7 @@ common project-config
     MultiWayIf
     OverloadedStrings
     PartialTypeSignatures
+    PatternSynonyms
     TypeFamilies
     ViewPatterns
 

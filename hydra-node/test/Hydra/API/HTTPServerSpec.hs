@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.API.HTTPServerSpec where
 
 import Hydra.Prelude hiding (get)

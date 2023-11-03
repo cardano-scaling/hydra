@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Cluster.Faucet where
 
 import Hydra.Cardano.Api

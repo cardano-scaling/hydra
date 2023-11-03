@@ -19,11 +19,14 @@ flag hydra-development
   manual:      True
 
 common package-config
-  default-language:  GHC2021
+  default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
+    DataKinds
     LambdaCase
     OverloadedStrings
+    PatternSynonyms
+    ViewPatterns
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates

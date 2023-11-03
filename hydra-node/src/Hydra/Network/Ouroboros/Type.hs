@@ -1,7 +1,3 @@
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE ExplicitForAll #-}
-{-# LANGUAGE PolyKinds #-}
-
 module Hydra.Network.Ouroboros.Type where
 
 import Hydra.Prelude

@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.API.ClientInputSpec where
 
 import Hydra.Prelude

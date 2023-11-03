@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | Simplified interface to phase-2 validation of transactions, eg. evaluation
 -- of Plutus scripts.
 --

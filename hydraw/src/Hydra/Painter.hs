@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Painter where
 
 import Hydra.Cardano.Api

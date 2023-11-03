@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.PartySpec where
 
 import Hydra.Prelude

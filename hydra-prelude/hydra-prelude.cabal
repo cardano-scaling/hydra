@@ -35,5 +35,9 @@ library
     , transformers
 
   default-language:   GHC2021
-  default-extensions: NoImplicitPrelude
+  default-extensions:
+    NoImplicitPrelude
+    DerivingStrategies
+    LambdaCase
+
   ghc-options:        -Wall -Werror -Wcompat -Wunused-packages

@@ -1,5 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-
 -- | A data-type to keep track of reference Hydra scripts published on-chain,
 -- and needed to construct transactions leveraging reference inputs.
 module Hydra.Chain.Direct.ScriptRegistry where

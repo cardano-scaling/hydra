@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Network.ReliabilitySpec where
 
 import Hydra.Prelude hiding (empty, fromList, head, replicate, unlines)
