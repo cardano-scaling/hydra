@@ -10,13 +10,16 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
+import Control.Exception (IOException)
 import Control.Lens ((^?))
 import Data.Aeson.Lens (key, _String)
+import Data.ByteString (hGetLine)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode)
+import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 
 spec :: Spec
 spec = do
@@ -59,11 +62,15 @@ data ChainObserverLog
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
 withChainObserver :: (ChainObserverHandle -> IO ()) -> IO ()
 withChainObserver action =
-  -- TODO: start the 'hydra-chain-observer' executable and access it's stdout/stderr
-  action $
-    ChainObserverHandle
-      { awaitNext = do
-          -- TODO: get the next piece of output from stdout/stderr
-          threadDelay 2
-          pure "foo"
-      }
+  -- XXX: If this throws an IOException, 'withFile' invocations around mislead
+  -- to the file path opened (e.g. the cardano-node log file) in the test
+  -- failure output. Print the exception here to have some debuggability at
+  -- least.
+  handle (\(e :: IOException) -> print e >> throwIO e) $
+    withCreateProcess (proc "hydra-chain-observer" []){std_out = CreatePipe} $ \_stdin (Just out) _stderr processHandle ->
+      action $
+        ChainObserverHandle
+          { awaitNext = do
+              x <- hGetLine out
+              pure $ decodeUtf8 x
+          }

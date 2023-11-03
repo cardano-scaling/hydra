@@ -5,4 +5,4 @@ module Hydra.ChainObserver (
 import Hydra.Prelude
 
 main :: IO ()
-main = putStrLn "foo"
+main = putStrLn "Init"

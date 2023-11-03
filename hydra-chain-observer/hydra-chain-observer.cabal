@@ -55,7 +55,8 @@ common project-config
     ViewPatterns
 
   ghc-options:
-    -Weverything -Wno-safe -Wno-unsafe
+    -Weverything -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists
     -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
     -fno-strictness -fprint-potential-instances
 
@@ -75,4 +76,5 @@ executable hydra-chain-observer
   main-is:        Main.hs
   build-depends:
     , base
+    , hydra-prelude
     , hydra-chain-observer
