@@ -17,9 +17,6 @@ import Hydra.Chain (
  )
 import Hydra.HeadId (HeadId)
 
-import Hydra.Chain.Direct.State (
-  ChainContext (),
- )
 
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (),
@@ -55,16 +52,15 @@ withOfflineChain ::
   Tracer IO DirectChainLog -> -- TODO(ELAINE): change type to indicate offline mode maybe?
   OfflineConfig ->
   Ledger.Globals ->
-  ChainContext ->
   HeadId ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineConfig{ledgerGenesisFile} globals@Ledger.Globals{systemStart} ctx ownHeadId chainStateHistory callback action = do
+withOfflineChain tracer OfflineConfig{ledgerGenesisFile} globals@Ledger.Globals{systemStart} ownHeadId chainStateHistory callback action = do
 
 
   localChainState <- newLocalChainState chainStateHistory
-  let chainHandle = mkFakeL1Chain localChainState tracer ctx ownHeadId callback
+  let chainHandle = mkFakeL1Chain localChainState tracer ownHeadId callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params

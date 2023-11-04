@@ -147,6 +147,8 @@ data PostTxError tx
     CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
+  | -- | We cannot draft a commit tx in offline mode
+  FailedToDraftTxOffline
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
   | FailedToConstructAbortTx

@@ -5,7 +5,7 @@ module Hydra.Chain.Offline.Handlers (
 ) where
 
 import Hydra.Prelude
-import Hydra.Chain.Direct.State (ChainStateAt(ChainStateAt), chainState, ChainState (Initial), ChainContext, commit')
+import Hydra.Chain.Direct.State (ChainStateAt(ChainStateAt), chainState)
 import Hydra.Chain.Direct.Handlers (DirectChainLog(ToPost, toPost), LocalChainState, getLatest)
 import Hydra.Chain (PostChainTx(headParameters, InitTx, AbortTx, CollectComTx, CloseTx, ContestTx, confirmedSnapshot, FanoutTx), ChainEvent (Observation, newChainState, observedTx), snapshotNumber, confirmedSnapshot, headId, HeadParameters (HeadParameters), Chain (postTx, draftCommitTx, submitTx, Chain), contestationDeadline, OnChainTx (OnInitTx, headId, OnAbortTx, OnCollectComTx, OnCloseTx, parties, contestationDeadline, contestationPeriod, OnContestTx, OnFanoutTx), HeadParameters (HeadParameters), snapshotNumber, PostTxError (FailedToDraftTxNotInitializing))
 import Hydra.Snapshot (getSnapshot, Snapshot (number))
@@ -17,22 +17,13 @@ import Hydra.HeadId(HeadId)
 mkFakeL1Chain ::
   LocalChainState IO Tx
   -> Tracer IO DirectChainLog
-  -> ChainContext
   -> HeadId
   -> (ChainEvent Tx -> IO ())
   -> Chain Tx IO
-mkFakeL1Chain localChainState tracer ctx ownHeadId callback =
+mkFakeL1Chain localChainState tracer ownHeadId callback =
   Chain {
     submitTx = const $ pure (),
-    -- TODO(Elaine): this won't succeed currently because ctx will be bottom
-    -- it doesn't make much sense in offline mode in general, so we should refactor it out
-    draftCommitTx = \utxoToCommit -> do
-      ChainStateAt{chainState} <- atomically (getLatest localChainState)
-      case chainState of
-        Initial st ->
-          -- callback $ Observation { newChainState = cst, observedTx = OnCommitTx {party = ownParty ctx, committed = utxoToCommit}}
-          pure (commit' ctx st utxoToCommit)
-        _ ->  pure $ Left FailedToDraftTxNotInitializing,
+    draftCommitTx = const . pure $ Left FailedToDraftTxNotInitializing,
     postTx = \tx -> do
       cst@ChainStateAt{chainState=_chainState} <- atomically (getLatest localChainState)
       traceWith tracer $ ToPost{toPost = tx}

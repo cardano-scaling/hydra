@@ -165,7 +165,7 @@ run opts = do
     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
   withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId putEvent cont = case onlineOrOfflineConfig of
-    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig globals ctx headId chainStateHistory (putEvent . OnChainEvent) cont
+    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId chainStateHistory (putEvent . OnChainEvent) cont
     Right onlineConfig -> do
       wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
       withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
@@ -173,18 +173,6 @@ run opts = do
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)
-
-  withCardanoLedgerOffline OfflineConfig{} protocolParams globals action = do
-    -- TODO(Elaine): double check previous messy branch for any other places where we query node
-    -- TODO(Elaine): instead of reading file, we can embed our own defaults with shelleyGenesisDefaults
-    -- that would be more convenient, but offer less control
-    -- NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
-    -- that function could probably take less info but it's upstream of hydra itself i believe
-    let ledgerEnv = newLedgerEnv protocolParams
-    action (Ledger.cardanoLedger globals ledgerEnv)
-  withCardanoLedgerOnline protocolParams globals action = do
-    let ledgerEnv = newLedgerEnv protocolParams
-    action (Ledger.cardanoLedger globals ledgerEnv)
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
