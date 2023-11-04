@@ -65,7 +65,6 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile} globals@Ledger.Globals{
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
 
-  --TODO(Elaine): make sure ledgerGenesisFile is dry/consolidated, factor out
   tickForeverAction <- case ledgerGenesisFile of
     Just filePath -> do 
       Ledger.ShelleyGenesis{ sgSystemStart, sgSlotLength, sgEpochLength } <-

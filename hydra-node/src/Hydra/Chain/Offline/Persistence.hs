@@ -12,8 +12,6 @@ import Hydra.Chain (
 import Hydra.Ledger (IsTx(UTxOType))
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.ContestationPeriod (fromChain)
 import Hydra.HeadId (HeadId)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental(PersistenceIncremental, append, loadAll), createPersistenceIncremental)
@@ -21,14 +19,16 @@ import Hydra.HeadLogic (StateChanged(SnapshotConfirmed, snapshot))
 import Hydra.Snapshot (Snapshot(Snapshot, utxo))
 import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 import qualified Data.Aeson as Aeson
+import Hydra.ContestationPeriod (ContestationPeriod)
 
 initializeStateIfOffline :: ChainStateHistory Tx
   -> UTxOType Tx
   -> HeadId
   -> Party
+  -> ContestationPeriod
   -> (ChainEvent Tx -> IO ())
   -> IO ()
-initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty callback = do
+initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contestationPeriod callback = do
     let emptyChainStateHistory = initHistory initialChainState
     
     -- if we don't have a chainStateHistory to restore from disk from, start a new one
@@ -37,7 +37,7 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty callba
         OnInitTx
         { headId = ownHeadId
         , parties = [ownParty]
-        , contestationPeriod = fromChain $ contestationPeriodFromDiffTime (10) --TODO(Elaine): we should be able to set this to 0
+        , contestationPeriod = contestationPeriod
         } }
 
       --NOTE(Elaine): should be no need to update the chain state, that's L1, there's nothing relevant there
@@ -48,12 +48,11 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty callba
         , committed = initialUTxO
         } }
 
-      -- TODO(Elaine): I think onInitialChainCommitTx in update will take care of posting a collectcom transaction since we shouldn't have any peers
-    -- callback $ Observation { newChainState = initialChainState, observedTx = OnCollectComTx }
-
 createPersistenceWithUTxOWriteBack ::
   (MonadIO m, MonadThrow m) =>
+  -- The filepath to write the main state change event persistence to
   FilePath ->
+  -- The filepath to write UTxO to. UTxO is written after every confirmed snapshot.
   FilePath ->
   m (PersistenceIncremental (StateChanged Tx) m)
 createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
@@ -66,7 +65,12 @@ createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
       _ -> pure ()
   }
 
-createStateChangePersistence :: (MonadIO m, MonadThrow m) => FilePath -> Maybe FilePath -> m (PersistenceIncremental (StateChanged Tx) m)
+createStateChangePersistence :: (MonadIO m, MonadThrow m) =>
+  -- The filepath to write the main state change event persistence to
+  FilePath ->
+  -- The optional filepath to write UTxO to. UTxO is written after every confirmed snapshot.
+  Maybe FilePath ->
+  m (PersistenceIncremental (StateChanged Tx) m)
 createStateChangePersistence persistenceFilePath = \case
   Just utxoWriteBackFilePath -> createPersistenceWithUTxOWriteBack persistenceFilePath utxoWriteBackFilePath
   _ -> createPersistenceIncremental persistenceFilePath

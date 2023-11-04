@@ -95,7 +95,7 @@ run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   let RunOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
-  env@Environment{party, otherParties, signingKey} <- initEnvironment opts
+  env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironment opts
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       traceWith tracer (NodeOptions opts)
@@ -129,15 +129,19 @@ run opts = do
           Nothing -> pure ()
           Just (OfflineConfig{initialUTxOFile}) -> do
             initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
-            initializeStateIfOffline chainStateHistory initialUTxO headId party (putEvent . OnChainEvent)
+            initializeStateIfOffline chainStateHistory initialUTxO headId party contestationPeriod (putEvent . OnChainEvent)
 
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
-        ctx <- case onlineOrOfflineConfig of
-          Left _ -> pure (error "error: shouldnt be forced") -- this is only used in draftCommitTx in mkFakeL1Chain, which should be unused, so we can probably get rid of this in offline mode
-          Right _ -> loadChainContext chainConfig party hydraScriptsTxId
-        withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
+        let withChain cont = case onlineOrOfflineConfig of
+              Left offlineConfig' ->
+                withOfflineChain (contramap DirectChain tracer) offlineConfig' globals headId chainStateHistory (putEvent . OnChainEvent) cont
+              Right onlineConfig -> do
+                ctx <- loadChainContext chainConfig party hydraScriptsTxId
+                wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
+                withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
+        withChain $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
@@ -163,12 +167,6 @@ run opts = do
   connectionMessages Server{sendOutput} = \case
     Connected nodeid -> sendOutput $ PeerConnected nodeid
     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-
-  withChain onlineOrOfflineConfig tracer globals ctx signingKey chainStateHistory headId putEvent cont = case onlineOrOfflineConfig of
-    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId chainStateHistory (putEvent . OnChainEvent) cont
-    Right onlineConfig -> do
-      wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
-      withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
 
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams

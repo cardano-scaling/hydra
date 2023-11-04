@@ -169,7 +169,6 @@ data OfflineConfig = OfflineConfig
   , utxoWriteBack :: Maybe OfflineUTxOWriteBackConfig
   } deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
--- TODO(Elaine): name this
 offlineUTxOWriteBackOptionsParser :: Parser (Maybe OfflineUTxOWriteBackConfig)
 offlineUTxOWriteBackOptionsParser =
   optional $
@@ -792,7 +791,7 @@ toArgs
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig
       <> argsLedgerConfig
-      <> argsOfflineConfig --TODO(Elaine): nicer formatting
+      <> argsOfflineConfig
    where
     (NodeId nId) = nodeId
     isVerbose = \case
