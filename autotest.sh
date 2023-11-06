@@ -45,7 +45,6 @@ FLAGS=$(echo "
     -XViewPatterns
     -fno-ignore-interface-pragmas
     -fno-omit-interface-pragmas
-    -fplugin-opt PlutusTx.Plugin:defer-errors
     -fobject-code
     -Wall
     -Wcompat

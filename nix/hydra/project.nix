@@ -60,18 +60,13 @@ let
         packages.hydra-tui.dontStrip = false;
         packages.hydraw.dontStrip = false;
       }
-      # Avoid plutus-tx errors in haddock (see also cabal.project)
-      {
-        packages.hydra-plutus.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-        packages.plutus-merkle-tree.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-        packages.plutus-cbor.setupHaddockFlags = [ "--ghc-options='-fplugin-opt PlutusTx.Plugin:defer-errors'" ];
-      }
       # Fix compliation of strict-containers (see also cabal.project)
       {
         packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
         # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
         packages.strict-containers.doHaddock = false;
       }
+      # Fix compilation with newer ghc versions
       ({ lib, config, ... }:
         lib.mkIf (lib.versionAtLeast config.compiler.version "9.4") {
           # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries

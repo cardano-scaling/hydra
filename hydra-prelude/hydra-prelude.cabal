@@ -40,4 +40,4 @@ library
     DerivingStrategies
     LambdaCase
 
-  ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
+  ghc-options:        -Wall -Wcompat -Wunused-packages
