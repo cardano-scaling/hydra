@@ -1,6 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TypeApplications #-}
-
 -- | Things related to the Hydra smart contracts / script validators.
 module Hydra.Contract where
 

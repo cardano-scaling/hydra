@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Test.LogFilterSpec where
 

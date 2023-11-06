@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.

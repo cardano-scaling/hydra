@@ -249,7 +249,9 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
   deriving (Eq, Show, Generic)
   deriving newtype (Semigroup, Monoid)
-  deriving anyclass (ToJSON, FromJSON)
+
+deriving anyclass instance ToJSON a => ToJSON (MultiSignature a)
+deriving anyclass instance FromJSON a => FromJSON (MultiSignature a)
 
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
   arbitrary = HydraMultiSignature <$> arbitrary

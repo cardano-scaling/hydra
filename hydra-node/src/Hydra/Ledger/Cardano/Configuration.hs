@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Ledger.Cardano.Configuration (
   module Hydra.Ledger.Cardano.Configuration,
   Ledger.Globals,

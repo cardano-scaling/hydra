@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Plutus.MerkleTreeSpec where
 
 import Hydra.Prelude

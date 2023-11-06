@@ -34,9 +34,10 @@ library
     , si-timers          >=1.0.0.0
     , transformers
 
+  default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
-    FlexibleContexts
+    DerivingStrategies
+    LambdaCase
 
   ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
-  default-language:   Haskell2010

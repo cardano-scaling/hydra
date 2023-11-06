@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Cardano.Api.TxOutDatum where
 
 import Hydra.Cardano.Api.Prelude

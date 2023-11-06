@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Hydra.Node.EventQueueSpec where
 
 import Hydra.Prelude

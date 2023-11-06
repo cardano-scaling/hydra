@@ -61,43 +61,21 @@ flag hydra-development
   manual:      True
 
 common project-config
-  default-language:   Haskell2010
+  default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
-    BangPatterns
-    BinaryLiterals
-    ConstraintKinds
     DataKinds
     DefaultSignatures
-    DeriveDataTypeable
-    DeriveFoldable
-    DeriveFunctor
-    DeriveGeneric
-    DeriveTraversable
+    DeriveAnyClass
     DerivingStrategies
-    EmptyDataDecls
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
     FunctionalDependencies
     GADTs
-    InstanceSigs
-    KindSignatures
     LambdaCase
-    MultiParamTypeClasses
     MultiWayIf
-    NamedFieldPuns
-    NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
-    PatternGuards
-    RankNTypes
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
+    PatternSynonyms
     TypeFamilies
-    TypeOperators
-    TypeSynonymInstances
     ViewPatterns
 
   ghc-options:

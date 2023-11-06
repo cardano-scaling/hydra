@@ -1,6 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 -- | Utility module providing functions to find and allocate random ports.
 module Test.Network.Ports where
 

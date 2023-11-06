@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 -- Plutus core version to compile to. Cardano protocol version 8 is only
 -- supporting plutus-core version 1.0.0.

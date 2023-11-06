@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.API.ServerOutputSpec where
 
 import Hydra.Prelude

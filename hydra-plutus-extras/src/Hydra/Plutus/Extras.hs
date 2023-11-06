@@ -1,6 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE PatternSynonyms #-}
-
 module Hydra.Plutus.Extras (
   module Hydra.Plutus.Extras,
   module Hydra.Plutus.Extras.Time,

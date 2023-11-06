@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Network.AuthenticateSpec where
 
 import Cardano.Crypto.Util (SignableRepresentation)

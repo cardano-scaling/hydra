@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.LoggingSpec where
 
 import Hydra.Prelude

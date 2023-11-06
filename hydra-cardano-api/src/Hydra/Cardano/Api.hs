@@ -1,5 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-
 -- | A Haskell API for Cardano, tailored to the Hydra project.
 --
 -- This package provides a wrapper around the @cardano-ledger@, @cardano-api@ and

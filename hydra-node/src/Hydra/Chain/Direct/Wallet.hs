@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
 -- some useful utilities to tracking the wallet's UTXO, and accessing it

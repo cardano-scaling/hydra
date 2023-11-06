@@ -1,10 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,

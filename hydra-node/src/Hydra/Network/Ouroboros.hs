@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | Ouroboros-based implementation of 'Hydra.Network' interface.
 -- This implements a dumb 'FireForget' protocol and maintains one connection to each peer.
 -- Contrary to other protocols implemented in Ouroboros, this is a push-based protocol.
@@ -310,7 +308,6 @@ data TraceOuroborosNetwork msg
   | TraceAcceptPolicy AcceptConnectionsPolicyTrace
   | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
   | TraceSendRecv (TraceSendRecv (FireForget msg))
-  deriving stock (Show, Generic)
 
 -- NOTE: cardano-node would have orphan ToObject instances for most of these
 -- types, but we want to avoid that dependency.
