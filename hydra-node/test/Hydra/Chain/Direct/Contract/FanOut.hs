@@ -101,7 +101,7 @@ data FanoutMutation
   = MutateAddUnexpectedOutput
   | MutateChangeOutputValue
   | MutateValidityBeforeDeadline
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =

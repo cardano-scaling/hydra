@@ -48,7 +48,7 @@ data Actor
   | Bob
   | Carol
   | Faucet
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 actorName :: Actor -> String
 actorName = \case
@@ -63,4 +63,4 @@ data KnownNetwork
   = Preview
   | Preproduction
   | Mainnet
-  deriving (Show)
+  deriving stock (Show)

@@ -133,7 +133,8 @@ data ChainStateAt = ChainStateAt
   { chainState :: ChainState
   , recordedAt :: Maybe ChainPoint
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
@@ -161,7 +162,7 @@ data ChainTransition
   | Close
   | Contest
   | Fanout
-  deriving (Eq, Show, Enum, Bounded)
+  deriving stock (Eq, Show, Enum, Bounded)
 
 -- | An enumeration of all possible on-chain states of a Hydra Head, where each
 -- case stores the relevant information to construct & observe transactions to
@@ -173,7 +174,8 @@ data ChainState
   | Initial InitialState
   | Open OpenState
   | Closed ClosedState
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ChainState where
   arbitrary = genChainState
@@ -205,7 +207,8 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   , contestationPeriod :: ContestationPeriod
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
@@ -242,7 +245,8 @@ data InitialState = InitialState
   , headId :: HeadId
   , seedTxIn :: TxIn
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
@@ -264,7 +268,8 @@ data OpenState = OpenState
   , seedTxIn :: TxIn
   , openUtxoHash :: UTxOHash
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
@@ -279,7 +284,8 @@ data ClosedState = ClosedState
   , headId :: HeadId
   , seedTxIn :: TxIn
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -828,7 +834,7 @@ data HydraContext = HydraContext
   , ctxContestationPeriod :: ContestationPeriod
   , ctxScriptRegistry :: ScriptRegistry
   }
-  deriving (Show)
+  deriving stock (Show)
 
 ctxParties :: HydraContext -> [Party]
 ctxParties = fmap deriveParty . ctxHydraSigningKeys

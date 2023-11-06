@@ -91,7 +91,7 @@ data Command
   = Run RunOptions
   | Publish PublishOptions
   | GenHydraKey GenerateKeyPair
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 commandParser :: Parser Command
 commandParser =
@@ -136,7 +136,7 @@ data PublishOptions = PublishOptions
   , publishNodeSocket :: SocketPath
   , publishSigningKey :: FilePath
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
@@ -162,7 +162,8 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary RunOptions where
   arbitrary = do
@@ -219,7 +220,7 @@ runOptionsParser =
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 genHydraKeyParser :: Parser GenerateKeyPair
 genHydraKeyParser =
@@ -288,7 +289,8 @@ data ChainConfig = DirectChainConfig
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 defaultChainConfig :: ChainConfig
 defaultChainConfig =
@@ -632,7 +634,7 @@ contestationPeriodParser =
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded
   | CardanoAndHydraKeysMissmatch
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 explain :: InvalidOptions -> String
 explain = \case

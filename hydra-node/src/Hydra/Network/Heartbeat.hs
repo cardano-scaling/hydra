@@ -35,7 +35,7 @@ data HeartbeatState = HeartbeatState
   -- ^ The set of known parties which might be 'Disconnected'
   -- This is updated after some time no message has been received from a node.
   }
-  deriving (Eq)
+  deriving stock (Eq)
 
 initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty}

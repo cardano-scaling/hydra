@@ -18,7 +18,7 @@ data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
   | QueryProtocolParamsConversionException ProtocolParametersConversionError
-  deriving (Show)
+  deriving stock (Show)
 
 instance Eq QueryException where
   a == b = case (a, b) of
@@ -145,7 +145,7 @@ submitTransaction networkId socket tx =
 data SubmitTransactionException
   = SubmitEraMismatch EraMismatch
   | SubmitTxValidationError (TxValidationErrorInMode CardanoMode)
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception SubmitTransactionException
 
@@ -176,9 +176,9 @@ awaitTransaction networkId socket tx =
 
 -- | Describes whether to query at the tip or at a specific point.
 data QueryPoint = QueryTip | QueryAt ChainPoint
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
-deriving instance ToJSON QueryPoint
+deriving anyclass instance ToJSON QueryPoint
 
 instance Arbitrary QueryPoint where
   -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have

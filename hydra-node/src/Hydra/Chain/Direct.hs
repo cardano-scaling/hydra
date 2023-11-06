@@ -247,7 +247,7 @@ data ConnectException = ConnectException
   , nodeSocket :: SocketPath
   , networkId :: NetworkId
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception ConnectException
 
@@ -259,7 +259,7 @@ instance Exception ConnectException
 newtype IntersectionNotFoundException = IntersectionNotFound
   { requestedPoint :: ChainPoint
   }
-  deriving (Show)
+  deriving stock (Show)
 
 instance Exception IntersectionNotFoundException
 

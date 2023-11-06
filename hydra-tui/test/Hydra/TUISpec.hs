@@ -295,4 +295,5 @@ data TUILog
   = FromCardano NodeLog
   | FromHydra EndToEndLog
   | FromFaucet FaucetLog
-  deriving (Show, Generic, ToJSON)
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON)

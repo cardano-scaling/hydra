@@ -48,7 +48,8 @@ data Payment = Payment
   , to :: CardanoSigningKey
   , value :: Value
   }
-  deriving (Eq, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Show Payment where
   -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting

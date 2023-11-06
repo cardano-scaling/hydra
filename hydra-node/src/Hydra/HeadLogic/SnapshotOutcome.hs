@@ -11,13 +11,13 @@ import Hydra.Snapshot (SnapshotNumber)
 data SnapshotOutcome tx
   = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
   | ShouldNotSnapshot NoSnapshotReason
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data NoSnapshotReason
   = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
   | NoTransactionsToSnapshot
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =

@@ -36,8 +36,9 @@ library
 
   default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     DerivingStrategies
     LambdaCase
+    NoImplicitPrelude
 
-  ghc-options:        -Wall -Wcompat -Wunused-packages
+  ghc-options:
+    -Wall -Wcompat -Wunused-packages -Wmissing-deriving-strategies

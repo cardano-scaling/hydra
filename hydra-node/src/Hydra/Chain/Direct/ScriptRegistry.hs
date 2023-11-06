@@ -59,7 +59,8 @@ data ScriptRegistry = ScriptRegistry
   , commitReference :: (TxIn, TxOut CtxUTxO)
   , headReference :: (TxIn, TxOut CtxUTxO)
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 genScriptRegistry :: Gen ScriptRegistry
 genScriptRegistry = do
@@ -87,7 +88,7 @@ data NewScriptRegistryException = MissingScript
   , scriptHash :: ScriptHash
   , discoveredScripts :: Set ScriptHash
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Exception NewScriptRegistryException
 

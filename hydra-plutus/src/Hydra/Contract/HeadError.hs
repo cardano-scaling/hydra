@@ -45,7 +45,7 @@ data HeadError
   | PartySignatureVerificationFailed
   | NotPayingToHead
   | NotAllValueCollected
-  deriving (Show)
+  deriving stock (Show)
 
 instance ToErrorCode HeadError where
   toErrorCode = \case

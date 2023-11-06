@@ -51,7 +51,8 @@ import Test.QuickCheck.Instances.Text ()
 import Test.QuickCheck.Instances.Time ()
 
 data Verbosity = Quiet | Verbose Text
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope
@@ -60,7 +61,8 @@ data Envelope a = Envelope
   , namespace :: Text
   , message :: a
   }
-  deriving (Eq, Show, Generic, FromJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON)
 
 instance ToJSON a => ToJSON (Envelope a) where
   toEncoding Envelope{timestamp, threadId, namespace, message} =

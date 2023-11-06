@@ -103,7 +103,7 @@ data CommitMutation
     UsePTFromDifferentHead
   | -- | Minting or burning of the tokens should not be possible in commit.
     MutateTokenMintingOrBurning
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =

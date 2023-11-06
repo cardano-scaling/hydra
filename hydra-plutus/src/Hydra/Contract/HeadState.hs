@@ -56,6 +56,6 @@ data Input
       }
   | Abort
   | Fanout {numberOfFanoutOutputs :: Integer}
-  deriving (Generic, Show)
+  deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

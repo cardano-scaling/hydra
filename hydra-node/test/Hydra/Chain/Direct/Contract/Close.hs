@@ -286,7 +286,7 @@ data CloseMutation
     MutateValueInOutput
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
@@ -388,7 +388,7 @@ genCloseMutation (tx, _utxo) =
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 -- | Mutations for the specific case of closing with the intial state.
 -- We should probably validate all the mutation to this initial state but at

@@ -207,7 +207,8 @@ data EndToEndLog
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
   | CreatedKey {keyPath :: FilePath}
-  deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, ToObject)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.

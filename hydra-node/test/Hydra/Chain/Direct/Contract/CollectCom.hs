@@ -148,7 +148,7 @@ data HealthyCommit = HealthyCommit
   , txOut :: TxOut CtxUTxO
   , scriptData :: HashableScriptData
   }
-  deriving (Show)
+  deriving stock (Show)
 
 healthyCommitOutput ::
   Party ->
@@ -201,7 +201,7 @@ data CollectComMutation
     MutateTokenMintingOrBurning
   | -- | νCommit validator checks the ST is in the output
     RemoveSTFromOutput
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =

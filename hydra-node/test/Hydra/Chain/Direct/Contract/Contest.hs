@@ -256,7 +256,7 @@ data ContestMutation
   | -- | Ensures headId do not change between head input datum and head output
     -- datum.
     MutateHeadIdInOutput
-  deriving (Generic, Show, Enum, Bounded)
+  deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 genContestMutation (tx, _utxo) =

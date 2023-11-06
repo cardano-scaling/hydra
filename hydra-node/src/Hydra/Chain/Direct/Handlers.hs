@@ -235,7 +235,8 @@ data TimeConversionException = TimeConversionException
   { slotNo :: SlotNo
   , reason :: Text
   }
-  deriving (Eq, Show, Exception)
+  deriving stock (Eq, Show)
+  deriving anyclass (Exception)
 
 -- | Creates a `ChainSyncHandler` that can notify the given `callback` of events happening
 -- on-chain.
@@ -386,7 +387,7 @@ data DirectChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary DirectChainLog where
