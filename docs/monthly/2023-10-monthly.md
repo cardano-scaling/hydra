@@ -13,7 +13,7 @@ developments to gather their feedback on proposed plans.
 ## Roadmap
 
 This month, the team released version 0.13.0, and the project
-[roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) has been
+[roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) to include
 updated with the next planned version 0.14.0:
 
 ![The roadmap with features and ideas](./img/2023-10-roadmap.jpg) <small><center>The latest roadmap with features and ideas</center></small>
