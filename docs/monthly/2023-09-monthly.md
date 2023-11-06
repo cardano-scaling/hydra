@@ -227,7 +227,7 @@ contribute back to one project:
 
 ## Conclusion
 
-The monthly review meeting for August 2023 was held on 2023-09-20 via Google
+The monthly review meeting for September 2023 was held on 2023-09-20 via Google
 Meet with these [slides][slides] and the [recording][recording].
 
 This concludes yet another fully-packed month, this time not only
