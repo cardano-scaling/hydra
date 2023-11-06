@@ -67,11 +67,32 @@ This month, the team worked on the following:
 
 #### Network resilience to node crash
 
-TODO ??
+The previous month we worked on making the Hydra network resilient to
+transient network connectivity failure (see
+[#188](https://github.com/input-output-hk/hydra/issues/188)), but this
+was only part of the story of improving the overall stability and
+reliability of the network. By completing
+[#1079](https://github.com/input-output-hk/hydra/issues/1079) we also
+made the network resilient to arbitrary node failures, which is a much
+more likely event to happen should the network runs for a significant
+amount of time.
+
+Hydra nodes now persist the network messages they _send_ to peers and
+together with the already present acknowledgment mechanism, this means
+a node recovering from a crash can resend messages which were not
+received by their peers.
 
 #### Hydra Poll dApp
 
-TODO ??
+As the Hydra team seeks to apply more the principles of
+[dogfooding](https://en.wikipedia.org/wiki/Eating_your_own_dog_food),
+we wanted to upgrade our basic Hydraw application to something more
+interactive. We therefore built a [poll
+dApp](https://github.com/input-output-hk/hydra/issues/1110) with the
+goal of demonstrating how one can build an application living entirely
+in the front-end that can interact directly with a hydra-node, using
+its websockets-based API. This application was also showcased the
+[Cardano Summit 2023](https://summit.cardano.org/).
 
 #### Upgrade to GHC 9.6 & Brick 1.10
 
