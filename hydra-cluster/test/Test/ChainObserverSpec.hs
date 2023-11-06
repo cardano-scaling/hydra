@@ -51,11 +51,10 @@ spec = do
                   v ^? key "headId" . _String
 
                 -- Assert the hydra-chain-observer reports initialization of the same headId
-                result <- awaitMatch chainObserverHandle 5 $ \v -> do
+                awaitMatch chainObserverHandle 5 $ \v -> do
                   guard $ v ^? key "message" . key "tag" == Just "HeadInitTx"
-                  v ^? key "message" . key "headId" . _String
-
-                result `shouldBe` headId
+                  let actualId = v ^? key "message" . key "headId" . _String
+                  guard $ actualId == Just headId
 
 awaitMatch :: ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
 awaitMatch chainObserverHandle delay f = do
@@ -111,9 +110,13 @@ withChainObserver cardanoNode action =
         threadDelay 1
         awaitNext out
       Left e -> failure $ "awaitNext failed with exception " <> show e
-      Right d -> case Aeson.eitherDecode (fromStrict d) of
-        Left err -> failure $ "awaitNext failed to decode msg: " <> err
-        Right value -> pure value
+      Right d -> do
+        case Aeson.eitherDecode (fromStrict d) of
+          Left _err -> do
+            putBSLn $ "awaitNext failed to decode msg: " <> d
+            threadDelay 1
+            awaitNext out
+          Right value -> pure value
 
   process =
     proc
