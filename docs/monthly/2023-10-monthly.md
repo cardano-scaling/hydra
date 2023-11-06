@@ -180,14 +180,13 @@ This development effort led to a couple of new features and fixes:
 
 ![Hydra voting UI](./img/hydra-voting.png) <small><center>Hydra Tallying UI</center></small>
 
-### zkSNARKs on Hydra
+### ZK Snarks on Hydra
 
-The team started discussing with another Catalyst Fund10 project that
-got funded, experimenting with a [zero-knowledge proof
-system](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/a-zero-knowledge-proof-framework-for-cardano-based-on-hydra-and-zk-snarks)
-for Cardano implemented within a Hydra Head. There's not much to show
-yet, as the project is just at its onset, but the team is eager to
-start development on this exciting tool.
+The team has initiated discussions with another funded Catalyst Fund10
+project, exploring the implementation of a zero-knowledge proof system
+for Cardano, utilizing Hydra and ZK Snarks. At this early stage, there
+is minimal progress to display, but the team is eager to start the
+development of this promising tool.
 
 ## Conclusion
 
@@ -214,7 +213,7 @@ things](https://twitter.com/AltiMario/status/1711738372320825827?s=20) using
 Hydra these days.
 
 November will start with the Cardano Summit, likely yielding even more feedback
-and feature ideas from users. Following this, there will be several productive weeks 
+and feature ideas from users. Following this, there will be several productive weeks
 focused on feature development before the usual Christmas and New Year breaks across the teams.
 
 [slides]: https://docs.google.com/presentation/d/1pJMRp0YsszJenUvDmknm3wq9yyUE1CDRSYijjILrkHo
