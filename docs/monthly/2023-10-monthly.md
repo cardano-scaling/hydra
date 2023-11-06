@@ -39,20 +39,20 @@ updated with the next planned version 0.14.0:
 
 - New user submitted feature idea about supporting extended keys [#1141](https://github.com/input-output-hk/hydra/issues/1141) - at first this was
   urgent, but now not anymore; needs clarification.
-  
+
 - Not really part of hydra version 0.14.0, but also completed is the [hydra
   support in kupo #1078](https://github.com/input-output-hk/hydra/issues/1078)
   which can already be used with kupo version
   [2.7.0](https://github.com/CardanoSolutions/kupo/releases/tag/v2.7)
-  
+
 - New [Hydra Poll dApp](https://github.com/input-output-hk/hydra/issues/1110)
   feature, which is an example to be demonstrated at the Cardano summit 2023.
-  
+
 - Realized [stateless chain observation
   #1096](https://github.com/input-output-hk/hydra/issues/1096) as a dedicated
   feature, which will add a `hydra-chain-observer` tool and simplify upcoming
   feature implementation related to L1 transactions.
-  
+
 - Created a feature idea item to [migrate all validators to aiken
   #1092](https://github.com/input-output-hk/hydra/issues/1092). This was moved
   to > 1.0.0 though, as it would require a complete re-audit of the scripts and
@@ -73,9 +73,15 @@ TODO ??
 
 TODO ??
 
-#### Upgrade to GHC 9.6 & Brick 1.1.0
+#### Upgrade to GHC 9.6 & Brick 1.10
 
-TODO dan
+This month we were able to update our compiler toolchain from GHC 9.2.8 to
+9.6.3. This also required us to upgrade the hydra-tui from brick 0.73 to 1.10
+to stay compatible with the new version of the mtl.
+
+With the update to brick came a complete rewrite of the hydra-tui which
+greatly simplifies the application logic, using brick's new elm architecture
+style combined with microlens-mtl.
 
 ## Mithril development
 
