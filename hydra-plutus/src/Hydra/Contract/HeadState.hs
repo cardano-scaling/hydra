@@ -10,7 +10,7 @@ import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
-import qualified PlutusTx
+import PlutusTx qualified
 import Text.Show (Show)
 
 type SnapshotNumber = Integer

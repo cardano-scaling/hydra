@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   Event (..),
   defaultTTL,
  )
-import qualified Hydra.Ledger.Cardano as Ledger
+import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   newGlobals,
   newLedgerEnv,

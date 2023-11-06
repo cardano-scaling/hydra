@@ -9,9 +9,9 @@ module Hydra.Chain.Direct.State where
 
 import Hydra.Prelude hiding (init)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((\\))
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   AssetName (AssetName),
@@ -395,7 +395,7 @@ rejectMoreThanMainnetLimit network u = do
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
 abort ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   InitialState ->
   -- | Committed UTxOs to reimburse.
@@ -544,16 +544,21 @@ observeSomeTx ctx cst tx = case cst of
     first NotAnInitTx $ second Initial <$> observeInit ctx tx
   Initial st ->
     noObservation $
-      second Initial <$> observeCommit ctx st tx
-        <|> (,Idle) <$> observeAbort st tx
-        <|> second Open <$> observeCollect st tx
+      second Initial
+        <$> observeCommit ctx st tx
+        <|> (,Idle)
+        <$> observeAbort st tx
+        <|> second Open
+        <$> observeCollect st tx
   Open st ->
     noObservation $
       second Closed <$> observeClose st tx
   Closed st ->
     noObservation $
-      second Closed <$> observeContest st tx
-        <|> (,Idle) <$> observeFanout st tx
+      second Closed
+        <$> observeContest st tx
+        <|> (,Idle)
+        <$> observeFanout st tx
  where
   noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
   noObservation = maybe (Left NoObservation) Right

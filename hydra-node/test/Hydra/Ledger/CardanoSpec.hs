@@ -9,9 +9,9 @@ import Test.Hydra.Prelude
 import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
-import qualified Data.ByteString.Base16 as Base16
+import Data.ByteString.Base16 qualified as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)

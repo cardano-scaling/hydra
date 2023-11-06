@@ -40,10 +40,10 @@ import Cardano.Api.Shelley hiding (
   toLedgerUTxO,
  )
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
-import qualified Cardano.Crypto.Hash.Class as CC
-import qualified Cardano.Ledger.Babbage as Ledger
-import qualified Cardano.Ledger.Binary as Ledger
-import qualified Cardano.Ledger.Core as Ledger
+import Cardano.Crypto.Hash.Class qualified as CC
+import Cardano.Ledger.Babbage qualified as Ledger
+import Cardano.Ledger.Binary qualified as Ledger
+import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (EraCrypto)
 import Data.Aeson (FromJSON (..), ToJSON (..))

@@ -11,7 +11,7 @@ module Hydra.Contract.Hash where
 
 import PlutusTx.Prelude
 
-import qualified Hydra.Prelude as Haskell
+import Hydra.Prelude qualified as Haskell
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -23,7 +23,7 @@ import PlutusLedgerApi.V2 (
   ScriptHash,
  )
 import PlutusTx (CompiledCode)
-import qualified PlutusTx
+import PlutusTx qualified
 import PlutusTx.Builtins (blake2b_256, equalsByteString)
 import PlutusTx.IsData.Class (ToData (..))
 

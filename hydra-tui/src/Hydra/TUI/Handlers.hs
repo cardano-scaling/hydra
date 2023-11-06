@@ -9,17 +9,17 @@ import Hydra.Prelude hiding (Down, padLeft)
 
 import Brick
 import Hydra.Cardano.Api
-import Hydra.Chain (PostTxError(NotEnoughFuel, InternalWalletError), reason)
+import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 
 import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm, radioField)
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
  )
-import qualified Graphics.Vty as Vty
+import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..))
@@ -32,10 +32,10 @@ import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Handlers.Global (handleVtyGlobalEvents)
 import Hydra.TUI.Logging.Handlers (info, report, warn)
-import Hydra.TUI.Logging.Types (LogMessage, LogVerbosity (..), Severity (..), logMessagesL, LogState, logVerbosityL)
+import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Lens.Micro.Mtl (use, (%=), (.=))
-import qualified Prelude
+import Prelude qualified
 
 handleEvent ::
   CardanoClient ->
@@ -73,7 +73,6 @@ handleVtyEventVia :: (Vty.Event -> EventM n s a) -> a -> BrickEvent w e -> Event
 handleVtyEventVia f x = \case
   VtyEvent e -> f e
   _ -> pure x
-
 
 handleGlobalEvents :: BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
 handleGlobalEvents = \case
@@ -168,8 +167,9 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
           let amountEntered = formState i
           let ownAddress = mkVkAddress (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
           let field =
-                radioField id
-                  [(u, show u, decodeUtf8 $ encodePretty u)
+                radioField
+                  id
+                  [ (u, show u, decodeUtf8 $ encodePretty u)
                   | u <- filter (/= ownAddress) (nub addresses)
                   ]
               addresses = getRecipientAddress <$> Map.elems (UTxO.toMap utxo)

@@ -2,9 +2,9 @@ module Test.Hspec.MarkdownFormatter (markdownFormatter) where
 
 import Hydra.Prelude hiding (intercalate)
 
-import qualified Data.ByteString as BS
-import qualified Data.List as List
-import qualified Data.Text as Text
+import Data.ByteString qualified as BS
+import Data.List qualified as List
+import Data.Text qualified as Text
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (splitFileName)
 import Test.Hspec.Core.Format (

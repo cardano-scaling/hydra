@@ -9,14 +9,14 @@
 module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
-import qualified Cardano.Api
+import Cardano.Api qualified
 import Data.Coerce (coerce)
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Prelude
 
 type Era = BabbageEra

@@ -14,11 +14,11 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
 import CardanoNode (NodeLog (..), RunningNode (..))
-import qualified Data.Map as Map
-import qualified Hydra.Chain.CardanoClient as CardanoClient
+import Data.Map qualified as Map
+import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Logging (Tracer, traceWith)
 
 -- TODO(SN): DRY with Hydra.Cardano.Api

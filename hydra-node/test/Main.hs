@@ -1,7 +1,7 @@
 module Main where
 
 import Hydra.Prelude
-import qualified Spec
+import Spec qualified
 import Test.Hspec.Runner
 import Test.Hydra.Prelude (combinedHspecFormatter)
 

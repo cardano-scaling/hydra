@@ -11,9 +11,9 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Map (notMember)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
@@ -24,10 +24,10 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
-import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
-import qualified Hydra.Crypto as Crypto
+import Hydra.Crypto qualified as Crypto
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -54,7 +54,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
-import qualified Hydra.Prelude as Prelude
+import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
@@ -623,7 +623,7 @@ data StepState tx = StepState
   }
 
 -- | Retrieves the latest 'HeadState' from within 'runEvents'.
-getState :: (MonadState (StepState tx) m) => m (HeadState tx)
+getState :: MonadState (StepState tx) m => m (HeadState tx)
 getState = headState <$> get
 
 -- | Calls 'update' and 'aggregate' to drive the 'runEvents' monad forward.

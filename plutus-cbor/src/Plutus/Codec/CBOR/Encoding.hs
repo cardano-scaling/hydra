@@ -77,7 +77,7 @@ module Plutus.Codec.CBOR.Encoding (
 import PlutusTx.Prelude
 
 import PlutusTx.AssocMap (Map)
-import qualified PlutusTx.AssocMap as Map
+import PlutusTx.AssocMap qualified as Map
 import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding

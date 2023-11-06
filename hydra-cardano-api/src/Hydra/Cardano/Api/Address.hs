@@ -6,8 +6,8 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
 import Cardano.Binary (unsafeDeserialize')
-import qualified Cardano.Chain.Common as Ledger
-import qualified Data.ByteString as BS
+import Cardano.Chain.Common qualified as Ledger
+import Data.ByteString qualified as BS
 import Test.QuickCheck (frequency, oneof, vector)
 
 -- * Orphans

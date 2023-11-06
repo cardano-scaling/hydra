@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import CardanoClient (QueryPoint (..), queryGenesisParameters)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Data.Aeson ((.:))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Logging (showLogsOnFailure)

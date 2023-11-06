@@ -2,18 +2,18 @@ module Hydra.Cardano.Api.KeyWitness where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Era as Ledger
-import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import qualified Data.Set as Set
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Era qualified as Ledger
+import Cardano.Ledger.Keys qualified as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
+import Data.Set qualified as Set
 
 -- * Extras
 
 -- | Construct a 'KeyWitness' from a transaction id and credentials.
 signWith ::
   forall era.
-  (IsShelleyBasedEra era) =>
+  IsShelleyBasedEra era =>
   TxId ->
   SigningKey PaymentKey ->
   KeyWitness era

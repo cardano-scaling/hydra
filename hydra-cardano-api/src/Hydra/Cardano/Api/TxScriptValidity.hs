@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.TxScriptValidity where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.Tx as Ledger
+import Cardano.Ledger.Alonzo.Tx qualified as Ledger
 
 -- | Convert a cardano-api 'TxScriptValidity' into a cardano-ledger 'IsValid'
 -- boolean wrapper.

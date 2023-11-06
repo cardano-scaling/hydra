@@ -20,7 +20,7 @@ import Data.Aeson (
   (.=),
  )
 import Data.List (maximum)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Hydra.Chain (ChainStateType, IsChainState (..))
 import Hydra.Ledger (
   ChainSlot (..),
@@ -101,7 +101,7 @@ instance IsChainState SimpleTx where
 -- MockTxIn
 --
 
--- |An identifier for a single output of a 'SimpleTx'.
+-- | An identifier for a single output of a 'SimpleTx'.
 newtype SimpleTxIn = SimpleTxIn {unSimpleTxIn :: Integer}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)

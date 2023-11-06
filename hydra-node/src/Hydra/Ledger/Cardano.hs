@@ -12,28 +12,28 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Crypto.DSIGN as CC
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.DSIGN qualified as CC
+import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
-import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
-import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
-import qualified Cardano.Ledger.Shelley.Genesis as Ledger
-import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
-import qualified Cardano.Ledger.Shelley.Rules as Ledger
-import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import qualified Codec.CBOR.Decoding as CBOR
-import qualified Codec.CBOR.Encoding as CBOR
+import Cardano.Ledger.Credential qualified as Ledger
+import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
+import Cardano.Ledger.Shelley.Genesis qualified as Ledger
+import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
+import Cardano.Ledger.Shelley.Rules qualified as Ledger
+import Cardano.Ledger.Shelley.UTxO qualified as Ledger
+import Codec.CBOR.Decoding qualified as CBOR
+import Codec.CBOR.Encoding qualified as CBOR
 import Control.Monad (foldM)
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Default (def)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
-import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
@@ -230,7 +230,8 @@ genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
   keyPair@(vk, _) <- genKeyPair
   utxo <- genOneUTxOFor vk
   txs <-
-    reverse . thrd
+    reverse
+      . thrd
       <$> foldM (generateOneTransfer testNetworkId) (utxo, keyPair, []) [1 .. numTxs]
   pure (utxo, txs)
  where

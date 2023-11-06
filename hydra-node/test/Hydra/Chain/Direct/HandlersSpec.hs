@@ -327,7 +327,7 @@ genSequenceOfObservableBlocks = do
     void $ stepCommits ctx initTx allContexts
   pure (cctx, initialChainState, reverse blks)
  where
-  nextSlot :: (Monad m) => StateT [TestBlock] m SlotNo
+  nextSlot :: Monad m => StateT [TestBlock] m SlotNo
   nextSlot = do
     get <&> \case
       [] -> 1

@@ -15,11 +15,11 @@ import Brick.Forms (
   newForm,
   radioField,
  )
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.Map.Strict as Map
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map.Strict qualified as Map
 import Hydra.Chain.Direct.State ()
 import Lens.Micro (Lens', lens)
-import qualified Prelude
+import Prelude qualified
 
 utxoCheckboxField ::
   forall s e n.

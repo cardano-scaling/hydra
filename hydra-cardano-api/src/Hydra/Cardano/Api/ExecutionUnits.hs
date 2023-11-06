@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.ExecutionUnits where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
+import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 
 -- * Type Conversions
 

@@ -7,18 +7,18 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
-import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Tx, Value)
-import qualified Cardano.Ledger.SafeHash as SafeHash
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.SafeHash qualified as SafeHash
+import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Tracer (nullTracer)
-import qualified Data.Map.Strict as Map
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as Map
+import Data.Sequence.Strict qualified as StrictSeq
+import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (ChainPoint),
   Hash (HeaderHash),
@@ -38,11 +38,11 @@ import Hydra.Cardano.Api (
   txOutValue,
   verificationKeyHash,
  )
-import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -72,7 +72,7 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
-import qualified Prelude
+import Prelude qualified
 
 spec :: Spec
 spec = parallel $ do

@@ -39,10 +39,10 @@ data RequirementFailure tx
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   deriving stock (Generic)
 
-deriving stock instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
-deriving stock instance (Show (TxIdType tx)) => Show (RequirementFailure tx)
-deriving anyclass instance (ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
-deriving anyclass instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
+deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
+deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
+deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
+deriving anyclass instance FromJSON (TxIdType tx) => FromJSON (RequirementFailure tx)
 
 instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
   arbitrary = genericArbitrary

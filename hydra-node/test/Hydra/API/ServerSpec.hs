@@ -17,11 +17,11 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Lens ((^?))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nonNull)
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
-import qualified Data.Text as T
+import Data.ByteString.Base16 qualified as Base16
+import Data.List qualified as List
+import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
@@ -42,7 +42,7 @@ import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
-import qualified Hydra.Options as Options
+import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)

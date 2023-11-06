@@ -14,9 +14,9 @@ import Network.Wai (
   responseFile,
   responseLBS,
  )
-import qualified Network.Wai.Handler.Warp as Warp
-import qualified Network.Wai.Handler.WebSockets as Wai
-import qualified Network.WebSockets as WS
+import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Handler.WebSockets qualified as Wai
+import Network.WebSockets qualified as WS
 import Safe (readMay)
 
 main :: IO ()
@@ -77,7 +77,7 @@ httpApp networkId key host req send =
       case traverse (readMay . toString) args of
         Just [x, y, red, green, blue] -> do
           putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-          -- | spawn a connection in a new thread
+          -- \| spawn a connection in a new thread
           void $ async $ withClientNoRetry host $ \cnx ->
             paintPixel networkId key cnx Pixel{x, y, red, green, blue}
           send $ responseLBS status200 corsHeaders "OK"

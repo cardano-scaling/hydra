@@ -1,7 +1,7 @@
 module Hydra.TUI.Drawing.Utils where
 
 import Brick (Widget, emptyWidget, txt)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Hydra.Cardano.Api (SerialiseAsRawBytes, serialiseToRawBytesHexText)
 import Hydra.Prelude
 

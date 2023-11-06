@@ -3,12 +3,12 @@ module Hydra.Data.Party where
 import Hydra.Prelude hiding (init)
 
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
-import qualified PlutusTx
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
+import PlutusTx qualified
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
-import qualified PlutusTx.Prelude as PlutusTx
+import PlutusTx.Prelude qualified as PlutusTx
 import Test.QuickCheck (vector)
 
 -- | On-chain representation of a Hydra party.

@@ -28,12 +28,12 @@ import Hydra.HeadLogic (
   StateChanged,
   defaultTTL,
  )
-import qualified Hydra.HeadLogic as HeadLogic
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogicSpec (inInitialState)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
-import qualified Hydra.Logging as Logging
+import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
@@ -226,7 +226,7 @@ eventsToOpenHead =
       }
 
 runToCompletion ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   Tracer IO (HydraNodeLog tx) ->
   HydraNode tx IO ->
   IO ()
@@ -311,7 +311,7 @@ messageRecorder = do
   appendMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
 
 throwExceptionOnPostTx ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   PostTxError tx ->
   HydraNode tx IO ->
   IO (HydraNode tx IO)

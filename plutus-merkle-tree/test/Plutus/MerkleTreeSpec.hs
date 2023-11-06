@@ -3,11 +3,11 @@ module Plutus.MerkleTreeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Maybe (fromJust)
 import Plutus.MerkleTree (MerkleTree)
-import qualified Plutus.MerkleTree as MT
-import qualified PlutusTx.Builtins as Plutus
+import Plutus.MerkleTree qualified as MT
+import PlutusTx.Builtins qualified as Plutus
 import Test.QuickCheck (
   Property,
   Testable,

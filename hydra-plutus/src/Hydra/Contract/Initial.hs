@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST)
@@ -47,9 +47,9 @@ import PlutusLedgerApi.V2 (
   Value (getValue),
  )
 import PlutusTx (CompiledCode)
-import qualified PlutusTx
-import qualified PlutusTx.AssocMap as AssocMap
-import qualified PlutusTx.Builtins as Builtins
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Builtins qualified as Builtins
 
 data InitialRedeemer
   = ViaAbort
@@ -121,8 +121,10 @@ checkCommit commitValidator headId committedRefs context =
       ((_ : _), []) ->
         traceError $(errorCode CommittedTxOutMissingInOutputDatum)
       (TxInInfo{txInInfoOutRef, txInInfoResolved} : restCommitted, Commit{input, preSerializedOutput} : restCommits) ->
-        Builtins.serialiseData (toBuiltinData txInInfoResolved) == preSerializedOutput
-          && txInInfoOutRef == input
+        Builtins.serialiseData (toBuiltinData txInInfoResolved)
+          == preSerializedOutput
+          && txInInfoOutRef
+          == input
           && go (restCommitted, restCommits)
 
   checkHeadId =

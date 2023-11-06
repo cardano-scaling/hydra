@@ -1,4 +1,3 @@
-
 module Main where
 
 import Hydra.Prelude
@@ -6,8 +5,8 @@ import Hydra.Prelude
 import Criterion (bench, bgroup, nf, whnf)
 import Criterion.Main (defaultMain)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Aeson as Aeson
-import qualified Data.List as List
+import Data.Aeson qualified as Aeson
+import Data.List qualified as List
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Cardano.Api (
   UTxO,

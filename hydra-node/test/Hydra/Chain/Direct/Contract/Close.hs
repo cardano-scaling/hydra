@@ -25,19 +25,19 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
-import qualified Hydra.Data.ContestationPeriod as OnChain
-import qualified Hydra.Data.Party as OnChain
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)

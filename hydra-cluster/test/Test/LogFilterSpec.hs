@@ -3,7 +3,7 @@
 module Test.LogFilterSpec where
 
 import Data.Aeson (decode, object, (.=))
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Maybe (fromJust)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
 import Hydra.Ledger.Cardano (Tx)

@@ -4,16 +4,16 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Codec.Serialise (serialise)
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as BL
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as BL
 import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
 import Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Hash as Hash
+import Hydra.Contract.Hash qualified as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
-import qualified Hydra.Contract.HeadTokens as HeadTokens
+import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial as Initial
 import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)

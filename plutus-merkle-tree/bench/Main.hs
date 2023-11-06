@@ -3,12 +3,12 @@ module Main where
 import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Fixed (E2, Fixed)
 import Data.Maybe (fromJust)
 import Plutus.MerkleTree (rootHash)
-import qualified Plutus.MerkleTree as MT
-import qualified PlutusTx.Prelude as Plutus
+import Plutus.MerkleTree qualified as MT
+import PlutusTx.Prelude qualified as Plutus
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
 import Test.Plutus.Validator (ExecutionUnits (..), defaultMaxExecutionUnits, evaluateScriptExecutionUnits)

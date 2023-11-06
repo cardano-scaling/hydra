@@ -3,9 +3,9 @@ module Hydra.Chain.Direct.Contract.Gen where
 
 import Cardano.Crypto.Hash (hashToBytes)
 import Codec.CBOR.Magic (uintegerFromBytes)
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Hydra.Cardano.Api
-import qualified Hydra.Chain.Direct.Fixture as Fixtures
+import Hydra.Chain.Direct.Fixture qualified as Fixtures
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Crypto (Hash (HydraKeyHash))

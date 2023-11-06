@@ -8,7 +8,7 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
-import qualified Hydra.Contract.HeadState as Onchain
+import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Ledger (IsTx (..))
 import PlutusLedgerApi.V2 (toBuiltin, toData)

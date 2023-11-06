@@ -23,13 +23,13 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadTokens as HeadTokens
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
-import qualified PlutusLedgerApi.V2 as Plutus
+import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec

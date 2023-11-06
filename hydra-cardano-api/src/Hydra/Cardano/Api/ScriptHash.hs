@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.ScriptHash where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Credential as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
 
 -- | Extract the payment part of an address, as a script hash.
 getPaymentScriptHash :: AddressInEra era -> Maybe ScriptHash

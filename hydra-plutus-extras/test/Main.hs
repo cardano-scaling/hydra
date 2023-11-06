@@ -2,7 +2,7 @@ module Main where
 
 import Prelude
 
-import qualified Spec
+import Spec qualified
 import Test.Hspec (hspec)
 
 main :: IO ()

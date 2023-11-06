@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.Lovelace where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Coin as Ledger
+import Cardano.Ledger.Coin qualified as Ledger
 
 -- * Extras
 

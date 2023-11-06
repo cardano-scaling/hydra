@@ -5,16 +5,16 @@ module Hydra.Cardano.Api.ScriptData where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (TxBody (..))
-import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Era as Ledger
+import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Era qualified as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Map as Map
-import qualified PlutusLedgerApi.V2 as Plutus
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
+import Data.Map qualified as Map
+import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
 -- * Extras

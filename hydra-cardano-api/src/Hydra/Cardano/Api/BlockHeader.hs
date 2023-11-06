@@ -4,7 +4,7 @@ module Hydra.Cardano.Api.BlockHeader where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Test.QuickCheck (vectorOf)
 
 unsafeBlockHeaderHashFromBytes :: HasCallStack => ByteString -> Hash BlockHeader

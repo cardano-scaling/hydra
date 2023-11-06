@@ -10,10 +10,10 @@ module Validators where
 import PlutusTx.Prelude
 
 import Hydra.Plutus.Extras (wrapValidator)
-import qualified Plutus.MerkleTree as MT
+import Plutus.MerkleTree qualified as MT
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V2 (ScriptContext)
-import qualified PlutusTx as Plutus
+import PlutusTx qualified as Plutus
 
 -- | A validator for measuring cost of MT membership validation.
 merkleTreeMemberValidator :: SerialisedScript

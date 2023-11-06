@@ -5,7 +5,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Data.Default (def)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 
 -- * Executing
 

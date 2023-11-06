@@ -9,11 +9,11 @@ module Hydra.Options (
 import Hydra.Prelude
 
 import Control.Arrow (left)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4, toIPv4w)
 import Data.Text (unpack)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Data.Version (Version (..), showVersion)
 import Hydra.Cardano.Api (
@@ -32,7 +32,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import qualified Hydra.Contract as Contract
+import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)

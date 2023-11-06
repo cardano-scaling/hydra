@@ -11,10 +11,10 @@ import Hydra.Chain.Direct.Tx
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
-import qualified Data.Map as Map
-import qualified Data.Text as T
+import Data.Map qualified as Map
+import Data.Text qualified as T
 import GHC.Natural (wordToNatural)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (HeadParameters (..))
@@ -30,9 +30,9 @@ import Hydra.Chain.Direct.Fixture (
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
@@ -139,8 +139,10 @@ spec =
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =
-  ( totalMem <= maxMem
-      && totalCpu <= maxCpu
+  ( totalMem
+      <= maxMem
+      && totalCpu
+      <= maxCpu
   )
     & counterexample
       ( "Ex. Cost Limits exceeded, mem: "

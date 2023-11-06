@@ -13,7 +13,7 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.List (nub)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
