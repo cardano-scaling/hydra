@@ -24,6 +24,6 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: λ Check Haskell formatting
+    - name: 📐 Check code formatting
       run: |
-        nix develop .#ci --command bash -c "fourmolu --color always --check-idempotence --mode check **/*.hs"
+        nix develop .#ci --command treefmt --fail-on-change

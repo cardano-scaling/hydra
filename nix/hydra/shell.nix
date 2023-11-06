@@ -20,10 +20,6 @@ let
     sha256map."https://github.com/pepeiborra/ekg-json"."7a0af7a8fd38045fd15fb13445bdcc7085325460" = "sha256-fVwKxGgM0S4Kv/4egVAAiAjV7QB5PBqMVMCfsv7otIQ=";
   };
 
-  cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
-
-  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "latest";
-
   libs = [
     pkgs.glibcLocales
     pkgs.libsodium-vrf # from iohk-nix overlay
@@ -39,8 +35,13 @@ let
     pkgs.git
     pkgs.pkg-config
     cabal
-    cabal-plan
+    (pkgs.haskell-nix.tool compiler "cabal-plan" "latest")
     pkgs.haskellPackages.hspec-discover
+    # Formatting
+    pkgs.treefmt
+    (pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0")
+    (pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9")
+    pkgs.nixpkgs-fmt
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
     # For generating plantuml drawings
@@ -53,9 +54,6 @@ let
   ];
 
   devInputs = if withoutDevTools then [ ] else [
-    # Automagically format .hs and .cabal files
-    fourmolu
-    pkgs.haskellPackages.cabal-fmt
     # Essenetial for a good IDE
     haskell-language-server
     # The interactive Glasgow Haskell Compiler as a Daemon
