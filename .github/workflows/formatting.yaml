@@ -1,0 +1,29 @@
+name: Check code formatting
+
+on:
+  pull_request:
+
+jobs:
+  formatting:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v23
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v12
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: λ Check Haskell formatting
+      run: |
+        nix develop .#ci --command bash -c "fourmolu --color always --check-idempotence --mode check **/*.hs"
