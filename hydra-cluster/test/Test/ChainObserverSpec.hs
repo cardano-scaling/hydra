@@ -16,14 +16,14 @@ import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
-import qualified Data.Text as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
+import Data.Text qualified as T
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode)
-import System.IO.Error (isEOFError)
+import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 
 spec :: Spec
@@ -97,19 +97,17 @@ withChainObserver cardanoNode action =
   -- failure output. Print the exception here to have some debuggability at
   -- least.
   handle (\(e :: IOException) -> print e >> throwIO e) $
-    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err processHandle ->
-      race_
-        (checkProcessHasNotDied "hydra-chain-observer" processHandle)
-        $ action
-          ChainObserverHandle
-            { awaitNext = awaitNext out
-            }
+    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
+      action
+        ChainObserverHandle
+          { awaitNext = awaitNext out
+          }
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do
     x <- try (hGetLine out)
     case x of
-      Left e | isEOFError e -> do
+      Left e | isEOFError e || isIllegalOperation e -> do
         threadDelay 1
         awaitNext out
       Left e -> failure $ "awaitNext failed with exception " <> show e
@@ -120,7 +118,7 @@ withChainObserver cardanoNode action =
   process =
     proc
       "hydra-chain-observer"
-      $ ["--node-socket", show nodeSocket]
+      $ ["--node-socket", unFile nodeSocket]
         <> case networkId of
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
