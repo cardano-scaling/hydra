@@ -91,8 +91,9 @@ interactive. We therefore built a [poll
 dApp](https://github.com/input-output-hk/hydra/issues/1110) with the
 goal of demonstrating how one can build an application living entirely
 in the front-end that can interact directly with a hydra-node, using
-its websockets-based API. This application was also showcased the
-[Cardano Summit 2023](https://summit.cardano.org/).
+its websockets-based API. This application was also showcased at the
+[Cardano Summit 2023](https://summit.cardano.org/) where the Hydra
+team delivered a masterclass.
 
 #### Upgrade to GHC 9.6 & Brick 1.10
 
@@ -103,10 +104,6 @@ to stay compatible with the new version of the mtl.
 With the update to brick came a complete rewrite of the hydra-tui which
 greatly simplifies the application logic, using brick's new elm architecture
 style combined with microlens-mtl.
-
-## Mithril development
-
-TODO arnaud
 
 ## Community Update
 
@@ -141,19 +138,56 @@ kupo](https://github.com/CardanoSolutions/kupo/releases/tag/v2.7).
 
 ### Offline-mode Hydra node
 
-TODO ??
+[Ledger-only
+Mode](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/sundae-labs-hydra-ledger-only-mode)
+for Hydra was one of the Catalyst Fund10 projects who got funded and
+work is underway to make it an integral part of Hydra software
+components. A [new
+ADR](https://hydra.family/head-protocol/unstable/adr/28.%20Offline%20mode)
+has been proposed which details the rationale behind this new feature
+and an overview of what it brings and what impacts it will have on the
+hydra-node.
+
+Moreover, implementation is
+[underway](https://github.com/input-output-hk/hydra/pull/1118) and
+should be part of the next release. This will enable running a single
+hydra-node as a kind of "ledger-as-a-service", priming it with some
+UTxO and allowing clients to submit and validate transactions without
+any relationship to Layer 1.
 
 ### Voting on Hydra
 
-TODO ??
+The
+[Hydra-for-voting](https://github.com/cardano-foundation/hydra-voting-poc)
+project has been started earlier this year as a proof-of-concept to
+explore how a Hydra Head could help improve the voting or rather
+tallying process for Catalyst and other large-scale on-chain
+decision-making process. It's been on pause for a few months due to
+other priorities but it's been revived recently and put to use to
+tally votes for the Cardano Summit's awards recipients.
+
+This development effort lead to a couple new features and fixes:
+* The ability to [submit
+  transaction](https://github.com/input-output-hk/hydra/issues/1111)
+  for L1 using "standard" CBOR-hex format
+* Upgrade to the checked-in [protocol
+  parameters](https://github.com/input-output-hk/hydra/issues/1117)
+  used by demo network which were out of sync with the internal ledger
+  version
+* Discussion on the usage of [Extended payment
+  keys](https://github.com/input-output-hk/hydra/issues/1141) in
+  relationship with Hydra Head protocol
+
+![Hydra voting UI](./img/hydra-voting.png) <small><center>Hydra Tallying UI</center></small>
 
 ### zkSNARKs on Hydra
 
-TODO ??
-
-### Mithril Signers in Operators' Guild
-
-TODO ??
+The team started discussing with another Catalyst Fund10 project that
+got funded, experimenting with a [zero-knowledge proof
+system](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/a-zero-knowledge-proof-framework-for-cardano-based-on-hydra-and-zk-snarks)
+for Cardano implemented within a Hydra Head. There's not much to show
+yet, as the project is just at its onset, but the team is eager to
+start development on this exciting tool.
 
 ## Conclusion
 
