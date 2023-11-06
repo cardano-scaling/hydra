@@ -20,7 +20,9 @@ let
     sha256map."https://github.com/pepeiborra/ekg-json"."7a0af7a8fd38045fd15fb13445bdcc7085325460" = "sha256-fVwKxGgM0S4Kv/4egVAAiAjV7QB5PBqMVMCfsv7otIQ=";
   };
 
-  cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" { };
+  cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
+
+  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "latest";
 
   libs = [
     pkgs.glibcLocales
@@ -52,7 +54,7 @@ let
 
   devInputs = if withoutDevTools then [ ] else [
     # Automagically format .hs and .cabal files
-    pkgs.haskellPackages.fourmolu
+    fourmolu
     pkgs.haskellPackages.cabal-fmt
     # Essenetial for a good IDE
     haskell-language-server
