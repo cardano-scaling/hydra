@@ -183,7 +183,7 @@ This development effort led to a couple of new features and fixes:
 ### ZK Snarks on Hydra
 
 The team has initiated discussions with another funded Catalyst Fund10
-project, exploring the implementation of a zero-knowledge proof system
+project, exploring the implementation of a [zero-knowledge proof system](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/a-zero-knowledge-proof-framework-for-cardano-based-on-hydra-and-zk-snarks)
 for Cardano, utilizing Hydra and ZK Snarks. At this early stage, there
 is minimal progress to display, but the team is eager to start the
 development of this promising tool.
