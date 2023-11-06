@@ -99,6 +99,7 @@ you can:
 - Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
 - Build & run all tests: `cabal test all`
 - Build & run all benchmarks: `cabal bench all`
+- Format code as enforced by CI: `treefmt`
 - Run `haskell-language-server` for an IDE experience
 - Run `hoogle` for symbol & documentation lookup
 
