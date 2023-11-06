@@ -32,13 +32,17 @@ packages:
 package *
   ghc-options: -j8
 
--- Always build tests and benchmarks
+-- Warnings as errors for local packages
+program-options
+  ghc-options: -Werror
+
+-- Always build tests and benchmarks of local packages
 tests: True
 benchmarks: True
+
+-- Always show detailed output for tests
+test-show-details: direct
 
 -- Fix compilation of strict-containers (see also nix/hydra/project.nix)
 package strict-containers
   ghc-options: "-Wno-noncanonical-monad-instances"
-
--- Always show detailed output for tests
-test-show-details: direct

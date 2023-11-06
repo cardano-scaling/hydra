@@ -53,40 +53,28 @@ let
 
     inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
 
-    modules = [{
-      packages = {
-        # Strip debugging symbols from exes (smaller closures)
-        hydra-node.dontStrip = false;
-        hydra-tui.dontStrip = false;
-        hydraw.dontStrip = false;
-
-        # Fix compliation of strict-containers (see also cabal.project)
-        strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
+    modules = [
+      # Strip debugging symbols from exes (smaller closures)
+      {
+        packages.hydra-node.dontStrip = false;
+        packages.hydra-tui.dontStrip = false;
+        packages.hydraw.dontStrip = false;
+      }
+      # Fix compliation of strict-containers (see also cabal.project)
+      {
+        packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
         # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
-        strict-containers.doHaddock = false;
-
-        # -Werror for CI
-
-        hydra-cardano-api.ghcOptions = [ "-Werror" ];
-        hydra-cluster.ghcOptions = [ "-Werror" ];
-        hydra-node.ghcOptions = [ "-Werror" ];
-        hydra-plutus.ghcOptions = [ "-Werror" ];
-        hydra-plutus-extras.ghcOptions = [ "-Werror" ];
-        hydra-prelude.ghcOptions = [ "-Werror" ];
-        hydra-test-utils.ghcOptions = [ "-Werror" ];
-        hydra-tui.ghcOptions = [ "-Werror" ];
-        hydraw.ghcOptions = [ "-Werror" ];
-        plutus-cbor.ghcOptions = [ "-Werror" ];
-        plutus-merkle-tree.ghcOptions = [ "-Werror" ];
-      };
-    }
+        packages.strict-containers.doHaddock = false;
+      }
+      # Fix compilation with newer ghc versions
       ({ lib, config, ... }:
         lib.mkIf (lib.versionAtLeast config.compiler.version "9.4") {
           # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries
           # to call out to all kinds of silly tools that GHC doesn't really provide.
           # For this reason, we try to get away without re-installing lib:ghc for now.
           reinstallableLibGhc = false;
-        })];
+        })
+    ];
   };
 in
 {
