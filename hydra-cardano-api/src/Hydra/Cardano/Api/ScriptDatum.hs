@@ -7,6 +7,6 @@ import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 -- * Extras
 
 -- | Construct a 'ScriptDatum' for use as transaction witness.
-mkScriptDatum :: (ToScriptData a) => a -> ScriptDatum WitCtxTxIn
+mkScriptDatum :: ToScriptData a => a -> ScriptDatum WitCtxTxIn
 mkScriptDatum =
   ScriptDatumForTxIn . toScriptData

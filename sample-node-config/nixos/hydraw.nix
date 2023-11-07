@@ -78,10 +78,10 @@ in
     ];
     entrypoint = "hydraw";
     environment = {
-      HYDRAW_CARDANO_SIGNING_KEY="/credentials/sebastian.cardano.sk";
-      HYDRA_API_HOST="localhost:4001";
+      HYDRAW_CARDANO_SIGNING_KEY = "/credentials/sebastian.cardano.sk";
+      HYDRA_API_HOST = "localhost:4001";
     };
-    extraOptions = ["--network=host"];
+    extraOptions = [ "--network=host" ];
   };
 
   # Configure the reverse proxy to point at it

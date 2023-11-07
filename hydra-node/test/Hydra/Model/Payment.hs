@@ -8,14 +8,14 @@ module Hydra.Model.Payment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
-import qualified Data.List as List
+import Data.List qualified as List
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.StateModel (HasVariables)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
-import qualified Prelude
+import Prelude qualified
 
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
 

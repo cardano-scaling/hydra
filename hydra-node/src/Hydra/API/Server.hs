@@ -58,7 +58,7 @@ type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
   forall tx.
-  (IsChainState tx) =>
+  IsChainState tx =>
   IP ->
   PortNumber ->
   Party ->

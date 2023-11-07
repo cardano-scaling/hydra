@@ -3,7 +3,7 @@ module Hydra.Cardano.Api.Network (
   networkIdToNetwork,
 ) where
 
-import qualified Cardano.Api as Api
+import Cardano.Api qualified as Api
 import Cardano.Ledger.BaseTypes (Network (..))
 
 networkIdToNetwork :: Api.NetworkId -> Network

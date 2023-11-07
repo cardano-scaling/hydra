@@ -5,11 +5,11 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Babbage.TxInfo as Ledger
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.Credential as Ledger
-import qualified Data.List as List
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
+import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
@@ -18,7 +18,7 @@ import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import PlutusLedgerApi.V2 (OutputDatum (..), fromBuiltin)
-import qualified PlutusLedgerApi.V2 as Plutus
+import PlutusLedgerApi.V2 qualified as Plutus
 
 -- * Extras
 
@@ -80,7 +80,7 @@ findTxOutByAddress address tx =
 
 findTxOutByScript ::
   forall lang.
-  (IsPlutusScriptLanguage lang) =>
+  IsPlutusScriptLanguage lang =>
   UTxO ->
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)

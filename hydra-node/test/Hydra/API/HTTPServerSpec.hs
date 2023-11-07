@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Cardano.Binary (serialize')
 import Data.Aeson (Result (Error, Success), Value (String), encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
-import qualified Data.ByteString.Base16 as Base16
+import Data.ByteString.Base16 qualified as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)

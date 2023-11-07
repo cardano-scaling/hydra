@@ -7,16 +7,16 @@ import Hydra.Prelude
 import Control.Arrow (left)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson ((.=))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
-import qualified Data.List as List
-import qualified Data.Map.Strict as Map
+import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Data.Text (pack)
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
-import qualified Data.Yaml as Yaml
+import Data.Yaml qualified as Yaml
 import GHC.IO.Exception (IOErrorType (OtherError))
-import qualified Paths_hydra_node as Pkg
+import Paths_hydra_node qualified as Pkg
 import System.Directory (listDirectory)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
@@ -25,7 +25,7 @@ import System.Process (readProcessWithExitCode)
 import Test.Hydra.Prelude (failure, withTempDir)
 import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
-import qualified Prelude
+import Prelude qualified
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --

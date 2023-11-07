@@ -8,14 +8,14 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
-import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
-import qualified Cardano.Ledger.Shelley.API.Types as Ledger
+import Cardano.Ledger.Shelley.API.Types qualified as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
-import qualified Data.Aeson as Json
-import qualified Data.Aeson.Types as Json
+import Data.Aeson qualified as Json
+import Data.Aeson.Types qualified as Json
 
 -- * Helpers
 

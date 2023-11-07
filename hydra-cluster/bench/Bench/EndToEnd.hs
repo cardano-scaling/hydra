@@ -22,11 +22,11 @@ import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _JSON, _Number, _String)
-import qualified Data.List as List
-import qualified Data.Map as Map
+import Data.List qualified as List
+import Data.Map qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
@@ -388,28 +388,30 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
 
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
-    v ^? key "transaction" . to fromJSON >>= \case
-      Error _ -> Nothing
-      Success tx -> pure $ TxValid tx
+    v
+      ^? key "transaction" . to fromJSON >>= \case
+        Error _ -> Nothing
+        Success tx -> pure $ TxValid tx
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
-    v ^? key "transaction" . to fromJSON >>= \case
-      Error _ -> Nothing
-      Success tx ->
-        TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
+    v
+      ^? key "transaction" . to fromJSON >>= \case
+        Error _ -> Nothing
+        Success tx ->
+          TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
     SnapshotConfirmed
       <$> snapshot
-        ^? key "confirmedTransactions"
-          . _Array
-          . to toList
-      <*> snapshot
-        ^? key "snapshotNumber"
-          . _Number
+      ^? key "confirmedTransactions"
+        . _Array
+        . to toList
+        <*> snapshot
+      ^? key "snapshotNumber"
+        . _Number
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

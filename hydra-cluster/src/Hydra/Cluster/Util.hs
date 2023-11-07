@@ -3,8 +3,8 @@ module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
+import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
@@ -20,7 +20,7 @@ import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), defaultChainConfig)
-import qualified Paths_hydra_cluster as Pkg
+import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
 import Test.QuickCheck (generate)

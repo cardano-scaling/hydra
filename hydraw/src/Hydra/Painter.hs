@@ -3,9 +3,9 @@ module Hydra.Painter where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Exception (IOException)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Chain.Direct.State ()

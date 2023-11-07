@@ -1,8 +1,7 @@
-
 module Main where
 
 import Data.Aeson (decode, encode)
-import qualified Data.ByteString.Char8 as LBS
+import Data.ByteString.Char8 qualified as LBS
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.LogFilter (tracePerformance)
 import Hydra.Prelude

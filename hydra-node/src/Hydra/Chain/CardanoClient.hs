@@ -8,9 +8,9 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Test.QuickCheck (oneof)
 
@@ -332,7 +332,7 @@ runQuery networkId socket point query =
 
 -- * Helpers
 
-throwOnEraMismatch :: (MonadThrow m) => Either EraMismatch a -> m a
+throwOnEraMismatch :: MonadThrow m => Either EraMismatch a -> m a
 throwOnEraMismatch res =
   case res of
     Left eraMismatch -> throwIO $ QueryEraMismatchException eraMismatch

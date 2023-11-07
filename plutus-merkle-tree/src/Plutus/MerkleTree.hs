@@ -16,15 +16,15 @@ module Plutus.MerkleTree where
 
 import PlutusPrelude hiding (toList)
 
-import qualified PlutusTx
+import PlutusTx qualified
 import PlutusTx.Builtins (divideInteger)
-import qualified PlutusTx.List as List
+import PlutusTx.List qualified as List
 import PlutusTx.Prelude hiding (toList)
 
-import qualified Data.ByteString.Base16 as Haskell.Base16
-import qualified Data.Text as Haskell.Text
-import qualified Data.Text.Encoding as Haskell.Text.Encoding
-import qualified Prelude as Haskell
+import Data.ByteString.Base16 qualified as Haskell.Base16
+import Data.Text qualified as Haskell.Text
+import Data.Text.Encoding qualified as Haskell.Text.Encoding
+import Prelude qualified as Haskell
 
 -- * MerkleTree
 

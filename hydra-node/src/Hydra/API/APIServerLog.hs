@@ -2,8 +2,8 @@ module Hydra.API.APIServerLog where
 
 import Hydra.Prelude
 
-import qualified Data.Aeson as Aeson
-import qualified Data.Text as Text
+import Data.Aeson qualified as Aeson
+import Data.Text qualified as Text
 import Hydra.Network (PortNumber)
 import Network.HTTP.Types (renderStdMethod)
 import Test.QuickCheck (chooseEnum, listOf, oneof)

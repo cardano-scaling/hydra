@@ -16,9 +16,9 @@ source-repository head
 common package-config
   default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     DataKinds
     LambdaCase
+    NoImplicitPrelude
     OverloadedStrings
     PatternSynonyms
     ViewPatterns

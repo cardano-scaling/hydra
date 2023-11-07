@@ -9,7 +9,7 @@ import Data.Fixed (Nano)
 import Data.Time (nominalDiffTimeToSeconds)
 import Data.Vector (Vector, (!))
 import Statistics.Quantile (def)
-import qualified Statistics.Quantile as Statistics
+import Statistics.Quantile qualified as Statistics
 
 type Percent = Double
 

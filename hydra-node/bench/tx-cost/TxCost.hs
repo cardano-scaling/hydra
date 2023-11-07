@@ -2,9 +2,9 @@ module TxCost where
 
 import Hydra.Prelude hiding (catch)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
@@ -189,7 +189,8 @@ computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
   limit <-
-    maybeToList . getFirst
+    maybeToList
+      . getFirst
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
         [(p, u) | p <- [5], u <- [100, 99 .. 0]]

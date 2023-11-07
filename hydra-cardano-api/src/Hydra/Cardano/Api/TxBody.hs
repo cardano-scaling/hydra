@@ -8,20 +8,19 @@ import Hydra.Cardano.Api.ScriptData (FromScriptData)
 import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import Hydra.Cardano.Api.Value (toLedgerPolicyID)
 
-import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
-import qualified Cardano.Ledger.Core as Ledger
+import Cardano.Ledger.Core qualified as Ledger
 import Data.List (find)
-import qualified Data.Map as Map
-import qualified PlutusLedgerApi.V2 as Plutus
+import Data.Map qualified as Map
+import PlutusLedgerApi.V2 qualified as Plutus
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.
 findRedeemerSpending ::
-  ( FromScriptData a
-  ) =>
+  FromScriptData a =>
   Tx Era ->
   TxIn ->
   Maybe a
@@ -31,8 +30,7 @@ findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn =
 
 findRedeemerMinting ::
   forall a.
-  ( FromScriptData a
-  ) =>
+  FromScriptData a =>
   Tx Era ->
   PolicyId ->
   Maybe a

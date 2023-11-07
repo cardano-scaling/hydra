@@ -1,7 +1,7 @@
 import Hydra.Prelude hiding (label)
 
 import Data.Binary.Builder (toLazyByteString)
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.ByteString.Builder.Scientific (FPFormat (Fixed), formatScientificBuilder)
 import Data.Ratio ((%))
 import Data.Scientific (unsafeFromRational)
@@ -10,8 +10,8 @@ import Plutus.Codec.CBOR.Encoding.Validator (
   encodeTxOutValidator,
   encodeTxOutsValidator,
  )
-import qualified PlutusLedgerApi.V1 as Plutus
-import qualified PlutusTx.AssocMap as Plutus.Map
+import PlutusLedgerApi.V1 qualified as Plutus
+import PlutusTx.AssocMap qualified as Plutus.Map
 import Test.Plutus.Validator (
   ExecutionUnits (..),
   defaultMaxExecutionUnits,
@@ -50,7 +50,7 @@ main = do
         ]
 
 relativeCostOf ::
-  (Plutus.ToData a) =>
+  Plutus.ToData a =>
   a ->
   ExecutionUnits ->
   (ValidatorKind -> Plutus.SerialisedScript) ->

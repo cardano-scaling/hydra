@@ -4,10 +4,10 @@ module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.Language as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Data.ByteString.Short as SBS
-import qualified PlutusLedgerApi.Common as Plutus
+import Cardano.Ledger.Alonzo.Language qualified as Ledger
+import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import Data.ByteString.Short qualified as SBS
+import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (listOf)
 
 -- * Type Conversions
@@ -26,7 +26,7 @@ fromLedgerScript = \case
 -- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
 toLedgerScript ::
   forall lang.
-  (IsPlutusScriptLanguage lang) =>
+  IsPlutusScriptLanguage lang =>
   PlutusScript lang ->
   Ledger.AlonzoScript (ShelleyLedgerEra Era)
 toLedgerScript (PlutusScriptSerialised bytes) =

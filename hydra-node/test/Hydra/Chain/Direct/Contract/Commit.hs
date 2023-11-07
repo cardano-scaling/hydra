@@ -8,8 +8,8 @@ import Hydra.Prelude
 -- Arbitrary VerificationKey instance
 import Hydra.Chain.Direct.TxSpec ()
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.List as List
+import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -18,13 +18,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedTokens,
   replacePolicyIdWith,
  )
-import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Ledger.Cardano (
   genAddressInEra,

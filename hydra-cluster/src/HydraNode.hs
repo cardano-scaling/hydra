@@ -12,12 +12,12 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (Pair)
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Text (pack)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
 import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
@@ -26,10 +26,10 @@ import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
-import qualified Hydra.Network as Network
+import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
-import qualified Network.HTTP.Req as Req
+import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -41,7 +41,7 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
-import qualified Prelude
+import Prelude qualified
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
@@ -58,7 +58,7 @@ send HydraClient{tracer, hydraNodeId, connection} v = do
   sendTextData connection (Aeson.encode v)
   traceWith tracer $ SentMessage hydraNodeId v
 
-waitNext :: (HasCallStack) => HydraClient -> IO Aeson.Value
+waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
 waitNext HydraClient{connection} = do
   bytes <- receiveData connection
   case Aeson.eitherDecode' bytes of
@@ -72,11 +72,11 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: (HasCallStack) => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
+waitFor :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time for an API server output to match the given predicate.
-waitMatch :: (HasCallStack) => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch :: HasCallStack => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
   timeout delay (go seenMsgs) >>= \case
@@ -120,7 +120,7 @@ waitForAllMatch delay nodes match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: (HasCallStack) => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
+waitForAll :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
@@ -178,7 +178,7 @@ requestCommitTx :: HydraClient -> UTxO -> IO Tx
 requestCommitTx client =
   requestCommitTx' client . fmap (`TxOutWithWitness` Nothing)
 
-getMetrics :: (HasCallStack) => HydraClient -> IO ByteString
+getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
   failAfter 3 $
     try (runReq defaultHttpConfig request) >>= \case
@@ -213,7 +213,7 @@ data EndToEndLog
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
 withHydraCluster ::
-  (HasCallStack) =>
+  HasCallStack =>
   Tracer IO EndToEndLog ->
   FilePath ->
   SocketPath ->
@@ -232,7 +232,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
   withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const $ id) contestationPeriod action
 
 withConfiguredHydraCluster ::
-  (HasCallStack) =>
+  HasCallStack =>
   Tracer IO EndToEndLog ->
   FilePath ->
   SocketPath ->
@@ -405,7 +405,7 @@ withConnectionToNode tracer hydraNodeId action = do
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: (HasCallStack) => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =
   mapM_ waitForNodeConnected clients
  where

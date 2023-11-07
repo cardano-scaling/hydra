@@ -6,7 +6,7 @@ module Hydra.Cluster.Fixture where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId)
-import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api qualified as Api
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Party (Party, deriveParty)

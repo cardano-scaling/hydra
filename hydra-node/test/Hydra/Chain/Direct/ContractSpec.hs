@@ -6,13 +6,13 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
-import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Data.ByteString.Base16 qualified as Base16
+import Data.List qualified as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
@@ -28,15 +28,15 @@ import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionEvaluates)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
  )
-import qualified Hydra.Contract.Head as OnChain
+import Hydra.Contract.Head qualified as OnChain
 import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
 import Hydra.Ledger (hashUTxO)
-import qualified Hydra.Ledger as OffChain
+import Hydra.Ledger qualified as OffChain
 import Hydra.Ledger.Cardano (
   Tx,
   genUTxOSized,

@@ -10,9 +10,9 @@ import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN))
 import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as Char8
-import qualified Data.Map as Map
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as Char8
+import Data.Map qualified as Map
 import Hydra.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (

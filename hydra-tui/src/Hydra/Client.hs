@@ -4,7 +4,7 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Async (link)
 import Control.Concurrent.Class.MonadSTM (newTBQueueIO, readTBQueue, writeTBQueue)
 import Control.Exception (Handler (Handler), IOException, catches)
@@ -23,7 +23,7 @@ import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.TUI.Options (Options (..))
 import Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
-import qualified Network.HTTP.Req as Req
+import Network.HTTP.Req qualified as Req
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 
 data HydraEvent tx
@@ -33,8 +33,8 @@ data HydraEvent tx
   | Tick UTCTime
   deriving stock (Generic)
 
-deriving stock instance (Eq (TimedServerOutput tx)) => Eq (HydraEvent tx)
-deriving stock instance (Show (TimedServerOutput tx)) => Show (HydraEvent tx)
+deriving stock instance Eq (TimedServerOutput tx) => Eq (HydraEvent tx)
+deriving stock instance Show (TimedServerOutput tx) => Show (HydraEvent tx)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client

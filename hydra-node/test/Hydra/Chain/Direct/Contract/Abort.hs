@@ -7,9 +7,9 @@ module Hydra.Chain.Direct.Contract.Abort where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.List as List
-import qualified Data.Map as Map
+import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
+import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
@@ -32,14 +32,14 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (STNotBurned))
 import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)

@@ -43,8 +43,8 @@ import Hydra.HeadLogic (
   recoverChainStateHistory,
   recoverState,
  )
-import qualified Hydra.HeadLogic as Logic
-import qualified Hydra.HeadLogic.Heads as Heads
+import Hydra.HeadLogic qualified as Logic
+import Hydra.HeadLogic.Heads qualified as Heads
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx, Ledger)
@@ -144,10 +144,10 @@ data HydraNodeLog tx
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
-deriving stock instance (IsChainState tx) => Eq (HydraNodeLog tx)
-deriving stock instance (IsChainState tx) => Show (HydraNodeLog tx)
-deriving anyclass instance (IsChainState tx) => ToJSON (HydraNodeLog tx)
-deriving anyclass instance (IsChainState tx) => FromJSON (HydraNodeLog tx)
+deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
+deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
+deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
+deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
@@ -208,7 +208,7 @@ waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   HydraNode tx m ->
   Event tx ->
   STM m (Outcome tx)
@@ -254,7 +254,7 @@ data NodeState tx m = NodeState
   }
 
 -- | Initialize a new 'NodeState'.
-createNodeState :: (MonadLabelledSTM m) => HeadState tx -> m (NodeState tx m)
+createNodeState :: MonadLabelledSTM m => HeadState tx -> m (NodeState tx m)
 createNodeState initialState = do
   tv <- newTVarIO initialState
   labelTVarIO tv "node-state"

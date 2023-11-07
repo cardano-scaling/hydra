@@ -2,8 +2,8 @@ module Hydra.Network.Ouroboros.Type where
 
 import Hydra.Prelude
 
-import qualified Cardano.Binary as CBOR
-import qualified Codec.CBOR.Read as CBOR
+import Cardano.Binary qualified as CBOR
+import Codec.CBOR.Read qualified as CBOR
 import GHC.Show (Show (show))
 import Network.TypedProtocol (PeerHasAgency (ClientAgency), Protocol (..))
 import Network.TypedProtocol.Codec (Codec)
@@ -53,9 +53,9 @@ instance Protocol (FireForget msg) where
   exclusionLemma_NobodyAndClientHaveAgency TokDone tok = case tok of {}
   exclusionLemma_NobodyAndServerHaveAgency TokDone tok = case tok of {}
 
-deriving stock instance (Show msg) => Show (Message (FireForget msg) from to)
+deriving stock instance Show msg => Show (Message (FireForget msg) from to)
 
-deriving stock instance (Eq msg) => Eq (Message (FireForget msg) from to)
+deriving stock instance Eq msg => Eq (Message (FireForget msg) from to)
 
 instance Show (ClientHasAgency (st :: FireForget msg)) where
   show TokIdle = "TokIdle"

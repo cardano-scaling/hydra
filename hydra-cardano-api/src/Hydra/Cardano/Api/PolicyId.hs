@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.PolicyId where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Hashes as Ledger
+import Cardano.Ledger.Hashes qualified as Ledger
 
 toLedgerScriptHash :: PolicyId -> Ledger.ScriptHash StandardCrypto
 toLedgerScriptHash (PolicyId scriptHash) = toShelleyScriptHash scriptHash

@@ -40,16 +40,16 @@ import Cardano.Crypto.DSIGN (
   signDSIGN,
   verifyDSIGN,
  )
-import qualified Cardano.Crypto.DSIGN as Crypto
+import Cardano.Crypto.DSIGN qualified as Crypto
 import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
-import qualified Cardano.Crypto.Hash as Crypto
+import Cardano.Crypto.Hash qualified as Crypto
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Map as Map
+import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
+import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   AsType (AsHash, AsSigningKey, AsVerificationKey),
   HasTextEnvelope (..),
@@ -60,8 +60,8 @@ import Hydra.Cardano.Api (
   SerialiseAsRawBytes (..),
   serialiseToRawBytesHexText,
  )
-import qualified Hydra.Contract.HeadState as OnChain
-import qualified PlutusLedgerApi.V2 as Plutus
+import Hydra.Contract.HeadState qualified as OnChain
+import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))

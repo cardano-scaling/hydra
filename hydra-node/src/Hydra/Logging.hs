@@ -44,9 +44,9 @@ import Control.Tracer (
   traceWith,
  )
 import Data.Aeson (pairs, (.=))
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text as Text
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as LBS
+import Data.Text qualified as Text
 import Test.QuickCheck.Instances.Text ()
 import Test.QuickCheck.Instances.Time ()
 

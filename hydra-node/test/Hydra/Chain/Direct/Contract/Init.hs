@@ -7,7 +7,7 @@ module Hydra.Chain.Direct.Contract.Init where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
@@ -26,9 +26,9 @@ import Hydra.Contract.HeadState (State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
-import qualified PlutusLedgerApi.Test.Examples as Plutus
+import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
-import qualified Prelude
+import Prelude qualified
 
 --
 -- InitTx

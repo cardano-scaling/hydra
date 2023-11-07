@@ -72,7 +72,7 @@ prepareRegistry = do
 data MetricDefinition where
   MetricDefinition :: forall a. Name -> (a -> Metric) -> (Name -> Registry -> IO (a, Registry)) -> MetricDefinition
 
--- |All custom 'MetricDefinition's for Hydra
+-- | All custom 'MetricDefinition's for Hydra
 allMetrics :: [MetricDefinition]
 allMetrics =
   [ MetricDefinition (Name "hydra_head_events") CounterMetric $ flip registerCounter mempty

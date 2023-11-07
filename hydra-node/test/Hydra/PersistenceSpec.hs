@@ -4,8 +4,8 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Data.Aeson (Value (..))
-import qualified Data.Aeson as Aeson
-import qualified Data.Text as Text
+import Data.Aeson qualified as Aeson
+import Data.Text qualified as Text
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, (===))
 import Test.QuickCheck.Gen (listOf)

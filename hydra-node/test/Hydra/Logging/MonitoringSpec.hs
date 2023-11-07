@@ -3,7 +3,7 @@ module Hydra.Logging.MonitoringSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.BehaviorSpec (testHeadId)
 import Hydra.HeadLogic (
@@ -34,7 +34,9 @@ spec =
         traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (Snapshot 1 (utxoRefs [1]) [43, 42]) mempty)))
 
         metrics <-
-          Text.lines . decodeUtf8 . responseBody
+          Text.lines
+            . decodeUtf8
+            . responseBody
             <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
 
         metrics `shouldContain` ["hydra_head_confirmed_tx  2"]

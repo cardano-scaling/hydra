@@ -6,7 +6,7 @@ import Hydra.Prelude hiding ((<>))
 
 import Codec.Serialise (serialise)
 import Criterion.Main (bench, bgroup, defaultMain, whnf)
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
 import PlutusLedgerApi.V1 (
   Address (..),
@@ -22,8 +22,8 @@ import PlutusLedgerApi.V1 (
   toBuiltin,
   toData,
  )
-import qualified PlutusLedgerApi.V1 as Plutus
-import qualified PlutusTx.AssocMap as Plutus.Map
+import PlutusLedgerApi.V1 qualified as Plutus
+import PlutusTx.AssocMap qualified as Plutus.Map
 import PlutusTx.Semigroup ((<>))
 import Test.QuickCheck (choose, oneof, vector, vectorOf)
 

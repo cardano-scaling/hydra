@@ -7,11 +7,11 @@ module Hydra.Plutus.Orphans where
 import Hydra.Prelude
 
 import Data.Aeson (object, withObject, (.:), (.=))
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
+import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
-import qualified PlutusTx.AssocMap as AssocMap
+import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 import Test.QuickCheck (choose, vectorOf)
 import Test.QuickCheck.Instances.ByteString ()

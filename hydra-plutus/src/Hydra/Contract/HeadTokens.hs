@@ -21,12 +21,12 @@ import Hydra.Cardano.Api (
   toPlutusTxOutRef,
   pattern PlutusScript,
  )
-import qualified Hydra.Cardano.Api as Api
-import qualified Hydra.Contract.Head as Head
+import Hydra.Cardano.Api qualified as Api
+import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState (headId, seed)
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Hydra.Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
@@ -44,8 +44,8 @@ import PlutusLedgerApi.V2 (
   serialiseCompiledCode,
  )
 import PlutusTx (CompiledCode)
-import qualified PlutusTx
-import qualified PlutusTx.AssocMap as AssocMap
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AssocMap
 
 validate ::
   ScriptHash ->

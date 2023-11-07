@@ -91,11 +91,11 @@ import Data.Aeson (
 import Data.Aeson.Encode.Pretty (
   encodePretty,
  )
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Text as T
+import Data.ByteString.Base16 qualified as Base16
+import Data.Text qualified as T
 import GHC.Generics (Rep)
-import qualified Generic.Random as Random
-import qualified Generic.Random.Internal.Generic as Random
+import Generic.Random qualified as Random
+import Generic.Random.Internal.Generic qualified as Random
 import Relude hiding (
   MVar,
   Nat,

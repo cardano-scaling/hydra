@@ -27,10 +27,10 @@ data Effect tx
     OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-deriving stock instance (IsChainState tx) => Eq (Effect tx)
-deriving stock instance (IsChainState tx) => Show (Effect tx)
-deriving anyclass instance (IsChainState tx) => ToJSON (Effect tx)
-deriving anyclass instance (IsChainState tx) => FromJSON (Effect tx)
+deriving stock instance IsChainState tx => Eq (Effect tx)
+deriving stock instance IsChainState tx => Show (Effect tx)
+deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
+deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
 instance
   ( IsTx tx
@@ -98,10 +98,10 @@ data Outcome tx
 instance Semigroup (Outcome tx) where
   (<>) = Combined
 
-deriving stock instance (IsChainState tx) => Eq (Outcome tx)
-deriving stock instance (IsChainState tx) => Show (Outcome tx)
-deriving anyclass instance (IsChainState tx) => ToJSON (Outcome tx)
-deriving anyclass instance (IsChainState tx) => FromJSON (Outcome tx)
+deriving stock instance IsChainState tx => Eq (Outcome tx)
+deriving stock instance IsChainState tx => Show (Outcome tx)
+deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
+deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
@@ -130,10 +130,10 @@ data WaitReason tx
   | WaitOnContestationDeadline
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx) => Eq (WaitReason tx)
-deriving stock instance (IsTx tx) => Show (WaitReason tx)
-deriving anyclass instance (IsTx tx) => ToJSON (WaitReason tx)
-deriving anyclass instance (IsTx tx) => FromJSON (WaitReason tx)
+deriving stock instance IsTx tx => Eq (WaitReason tx)
+deriving stock instance IsTx tx => Show (WaitReason tx)
+deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
+deriving anyclass instance IsTx tx => FromJSON (WaitReason tx)
 
 instance IsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary

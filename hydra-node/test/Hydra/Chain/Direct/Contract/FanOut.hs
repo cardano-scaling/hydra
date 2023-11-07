@@ -13,9 +13,9 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
-import qualified Hydra.Data.ContestationPeriod as OnChain
+import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,

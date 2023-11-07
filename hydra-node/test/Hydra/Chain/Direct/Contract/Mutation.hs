@@ -130,34 +130,34 @@ module Hydra.Chain.Direct.Contract.Mutation where
 
 import Hydra.Cardano.Api
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.Mary.Value as Ledger
-import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Data.Set as Set
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Mary.Value qualified as Ledger
+import Data.Map qualified as Map
+import Data.Sequence.Strict qualified as StrictSeq
+import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
-import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, findFirst)
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod
-import qualified Hydra.Data.Party as Data (Party)
+import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
-import qualified PlutusLedgerApi.V2 as Plutus
-import qualified System.Directory.Internal.Prelude as Prelude
+import PlutusLedgerApi.V2 qualified as Plutus
+import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,

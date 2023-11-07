@@ -6,7 +6,7 @@ module Hydra.LogFilter where
 
 import Hydra.Prelude hiding (id)
 
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (Effect (..), Event (..))
@@ -43,9 +43,9 @@ data Trace tx
       }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx) => Eq (Trace tx)
-deriving stock instance (IsTx tx) => Show (Trace tx)
-deriving anyclass instance (IsTx tx) => ToJSON (Trace tx)
+deriving stock instance IsTx tx => Eq (Trace tx)
+deriving stock instance IsTx tx => Show (Trace tx)
+deriving anyclass instance IsTx tx => ToJSON (Trace tx)
 
 data TraceKey
   = EventKey Word64

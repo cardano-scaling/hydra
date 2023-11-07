@@ -9,7 +9,7 @@ module Hydra.Network.Authenticate where
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (Network, broadcast), NetworkComponent)
