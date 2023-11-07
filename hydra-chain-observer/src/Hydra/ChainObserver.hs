@@ -8,6 +8,7 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
 import Hydra.Chain (HeadId (..))
+import Hydra.Chain.Direct.Tx (observeRawInitTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
@@ -24,7 +25,7 @@ main = do
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
     connectToLocalNode
       (connectInfo nodeSocket networkId)
-      (clientProtocols tracer)
+      (clientProtocols tracer networkId)
 
 type ChainObserverLog :: Type
 data ChainObserverLog
@@ -49,18 +50,22 @@ connectInfo nodeSocket networkId =
 
 clientProtocols ::
   Tracer IO ChainObserverLog ->
+  NetworkId ->
   LocalNodeClientProtocols BlockType ChainPoint tip slot tx txid txerr query IO
-clientProtocols tracer =
+clientProtocols tracer networkId =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
     }
 
 -- | Fetch all blocks via chain sync and trace their contents.
-chainSyncClient :: Tracer IO ChainObserverLog -> ChainSyncClient BlockType ChainPoint tip IO ()
-chainSyncClient tracer =
+chainSyncClient ::
+  Tracer IO ChainObserverLog ->
+  NetworkId ->
+  ChainSyncClient BlockType ChainPoint tip IO ()
+chainSyncClient tracer networkId =
   ChainSyncClient $ do
     pure $ SendMsgRequestNext clientStNext (pure clientStNext)
  where
@@ -72,9 +77,10 @@ chainSyncClient tracer =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode (Block (BlockHeader _slotNo _hash blockNo) _txs) BabbageEraInCardanoMode -> do
+            BlockInMode (Block (BlockHeader _slotNo _hash blockNo) txs) BabbageEraInCardanoMode -> do
               -- FIXME: process transactions
-              print blockNo
+              let results = observeRawInitTx networkId <$> txs
+              print results
               traceWith tracer HeadInitTx{headId = HeadId (show blockNo)}
               pure clientStIdle
             _ -> pure clientStIdle
