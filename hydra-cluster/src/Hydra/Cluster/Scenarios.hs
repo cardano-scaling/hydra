@@ -77,7 +77,7 @@ import HydraNode (
   waitMatch,
   withHydraNode,
  )
-import qualified Network.HTTP.Client as L
+import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
   JsonResponse,

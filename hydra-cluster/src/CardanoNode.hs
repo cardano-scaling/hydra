@@ -19,6 +19,7 @@ import Hydra.Cluster.Fixture (
   defaultNetworkId,
  )
 import Hydra.Cluster.Util (readConfigFile)
+import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory, (</>))
@@ -184,53 +185,61 @@ withCardanoNodeOnKnownNetwork ::
   (RunningNode -> IO ()) ->
   IO ()
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
-  networkId <- readNetworkId
   copyKnownNetworkFiles
+  networkId <- readNetworkId
   withCardanoNode tracer networkId workDir args $ \node -> do
     traceWith tracer MsgNodeIsReady
     action node
  where
   args =
     defaultCardanoNodeArgs
-      { nodeConfigFile = "cardano-node/config.json"
-      , nodeTopologyFile = "cardano-node/topology.json"
-      , nodeByronGenesisFile = "genesis/byron.json"
-      , nodeShelleyGenesisFile = "genesis/shelley.json"
-      , nodeAlonzoGenesisFile = "genesis/alonzo.json"
-      , nodeConwayGenesisFile = "genesis/conway.json"
+      { nodeConfigFile = "config.json"
+      , nodeTopologyFile = "topology.json"
+      , nodeByronGenesisFile = "byron-genesis.json"
+      , nodeShelleyGenesisFile = "shelley-genesis.json"
+      , nodeAlonzoGenesisFile = "alonzo-genesis.json"
+      , nodeConwayGenesisFile = "conway-genesis.json"
       }
 
   -- Read 'NetworkId' from shelley genesis
   readNetworkId = do
-    shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readConfigFile (knownNetworkPath </> "genesis" </> "shelley.json")
+    shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readFileBS (workDir </> "shelley-genesis.json")
     if shelleyGenesis ^?! key "networkId" == "Mainnet"
       then pure $ Api.Mainnet
       else do
         let magic = shelleyGenesis ^?! key "networkMagic" . _Number
         pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
+  -- Copy/download configuration files for a known network
   copyKnownNetworkFiles =
     forM_
-      [ "cardano-node" </> "config.json"
-      , "cardano-node" </> "topology.json"
-      , "genesis" </> "byron.json"
-      , "genesis" </> "shelley.json"
-      , "genesis" </> "alonzo.json"
-      , "genesis" </> "conway.json"
+      [ "config.json"
+      , "topology.json"
+      , "byron-genesis.json"
+      , "shelley-genesis.json"
+      , "alonzo-genesis.json"
+      , "conway-genesis.json"
       ]
-      $ \fn -> unlessM (doesFileExist $ workDir </> fn) $ do
-        createDirectoryIfMissing True $ workDir </> takeDirectory fn
-        readConfigFile (knownNetworkPath </> fn)
-          >>= writeFileBS (workDir </> fn)
+      $ \fn ->
+        unlessM (doesFileExist $ workDir </> fn) $ do
+          createDirectoryIfMissing True $ workDir </> takeDirectory fn
+          fetchConfigFile (knownNetworkPath </> fn)
+            >>= writeFileBS (workDir </> fn)
 
-  -- Folder name in config/cardano-configurations/network
+  knownNetworkPath =
+    knownNetworkConfigBaseURL </> knownNetworkName
+
+  -- Base path on remote
+  knownNetworkConfigBaseURL = "https://book.world.dev.cardano.org/environments"
+
+  -- Network name on remote
   knownNetworkName = case knownNetwork of
     Preview -> "preview"
     Preproduction -> "preprod"
     Mainnet -> "mainnet"
 
-  knownNetworkPath =
-    "cardano-configurations" </> "network" </> knownNetworkName
+  fetchConfigFile path =
+    parseRequestThrow path >>= httpBS <&> getResponseBody
 
 withCardanoNode ::
   Tracer IO NodeLog ->
