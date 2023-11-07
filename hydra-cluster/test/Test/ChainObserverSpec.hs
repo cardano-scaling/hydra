@@ -21,8 +21,9 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import CardanoClient (submitTx)
 import Hydra.Logging (showLogsOnFailure)
-import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode)
+import HydraNode (EndToEndLog, input, send, waitMatch, withHydraNode, requestCommitTx, waitFor, output)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 
@@ -53,6 +54,15 @@ spec = do
                 -- Assert the hydra-chain-observer reports initialization of the same headId
                 awaitMatch chainObserverHandle 5 $ \v -> do
                   guard $ v ^? key "message" . key "tag" == Just "HeadInitTx"
+                  let actualId = v ^? key "message" . key "headId" . _String
+                  guard $ actualId == Just headId
+
+                requestCommitTx hydraNode mempty >>= submitTx cardanoNode
+                waitFor (contramap FromHydraNode tracer) 600 [hydraNode] $
+                  output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+                awaitMatch chainObserverHandle 5 $ \v -> do
+                  guard $ v ^? key "message" . key "tag" == Just "HeadCommitTx"
                   let actualId = v ^? key "message" . key "headId" . _String
                   guard $ actualId == Just headId
 
