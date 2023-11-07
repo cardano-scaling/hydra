@@ -6,9 +6,31 @@ module Hydra.ChainObserver (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
+import Hydra.Cardano.Api (
+  Block (..),
+  BlockHeader (..),
+  BlockInMode (..),
+  CardanoMode,
+  ChainPoint,
+  ChainSyncClient,
+  ConsensusModeParams (..),
+  EpochSlots (..),
+  EraInMode (..),
+  LocalChainSyncClient (..),
+  LocalNodeClientProtocols (..),
+  LocalNodeConnectInfo (..),
+  NetworkId,
+  SocketPath,
+  connectToLocalNode,
+ )
 import Hydra.Chain (HeadId (..))
-import Hydra.Chain.Direct.Tx (observeRawInitTx, RawInitObservation(..), mkHeadId)
+import Hydra.Chain.Direct.Tx (
+  HeadObservation (..),
+  RawCommitObservation (..),
+  RawInitObservation (..),
+  mkHeadId,
+  observeHeadTx,
+ )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
@@ -17,9 +39,6 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStNext (..),
  )
-import Hydra.Chain.Direct.Tx (CommitObservation(..))
-import Hydra.Chain.Direct.Tx (HeadObservation(..))
-import Hydra.Chain.Direct.Tx (observeHeadTx)
 
 main :: IO ()
 main = do
@@ -86,7 +105,7 @@ chainSyncClient tracer networkId =
                 case observeHeadTx networkId tx of
                   NoHeadTx -> pure ()
                   Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
-                  Commit CommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
+                  Commit RawCommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
               pure clientStIdle
             _ -> pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

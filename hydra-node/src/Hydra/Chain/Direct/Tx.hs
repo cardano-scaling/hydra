@@ -621,12 +621,14 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 data HeadObservation
   = NoHeadTx
   | Init RawInitObservation
-  | Commit CommitObservation
+  | Commit RawCommitObservation
 
+-- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> Tx -> HeadObservation
-observeHeadTx networkId tx  =
-  either (const NoHeadTx) Init (observeRawInitTx networkId tx)
-
+observeHeadTx networkId tx =
+  fromMaybe NoHeadTx $
+    either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
+      <|> Commit <$> observeRawCommitTx networkId tx
 
 -- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
 -- interest to us.
@@ -835,6 +837,37 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
 
   containsSameElements a b = Set.fromList a == Set.fromList b
 
+-- | Everything we can observe from a commit tx without it's inputs resolved.
+data RawCommitObservation = RawCommitObservation
+  { commitOutput :: UTxOWithScript
+  , party :: Party
+  , headId :: HeadId
+  }
+
+-- | Observe a commit transaction "by structure". It is (currently) not
+-- verifying that this is a proper Hydra head FIXME: This does not verify this
+-- is a commit tx of a "rightful" head.
+observeRawCommitTx ::
+  NetworkId ->
+  Tx ->
+  Maybe RawCommitObservation
+observeRawCommitTx networkId tx = do
+  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
+  dat <- txOutScriptData commitOut
+  (onChainParty, _onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
+  party <- partyFromChain onChainParty
+  pure
+    RawCommitObservation
+      { commitOutput = (commitIn, toUTxOContext commitOut, dat)
+      , party
+      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
+      }
+ where
+  commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
+
+  commitScript = fromPlutusScript Commit.validatorScript
+
+-- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
   , party :: Party
