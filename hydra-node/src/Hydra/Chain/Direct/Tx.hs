@@ -946,6 +946,16 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
+  -- FIXME: Strategy to observe without looking at resolved inputs (utxo):
+  --
+  --  - We must check that head token in output satisfies policyId = hash(mu_head(seed))
+  --
+  --  - This allows us to assume (by induction) the output datum of the head
+  --    script is legit
+  --
+  --  - Further, we need to assert / assume that only one script is spent, as we
+  --    do not have information which of the inputs is spending from the head
+  --    otherwise.
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
@@ -1130,7 +1140,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
