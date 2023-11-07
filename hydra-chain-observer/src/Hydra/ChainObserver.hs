@@ -8,7 +8,7 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, connectToLocalNode)
 import Hydra.Chain (HeadId (..))
-import Hydra.Chain.Direct.Tx (observeRawInitTx)
+import Hydra.Chain.Direct.Tx (observeRawInitTx, RawInitObservation(..), mkHeadId)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
@@ -78,10 +78,10 @@ chainSyncClient tracer networkId =
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash blockNo) txs) BabbageEraInCardanoMode -> do
-              -- FIXME: process transactions
-              let results = observeRawInitTx networkId <$> txs
-              print results
-              traceWith tracer HeadInitTx{headId = HeadId (show blockNo)}
+              forM_ txs $ \tx -> do
+                case observeRawInitTx networkId tx of
+                  Left _ -> pure ()
+                  Right RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
               pure clientStIdle
             _ -> pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
