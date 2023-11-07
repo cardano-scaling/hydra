@@ -17,6 +17,9 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStNext (..),
  )
+import Hydra.Chain.Direct.Tx (CommitObservation(..))
+import Hydra.Chain.Direct.Tx (HeadObservation(..))
+import Hydra.Chain.Direct.Tx (observeHeadTx)
 
 main :: IO ()
 main = do
@@ -31,6 +34,7 @@ type ChainObserverLog :: Type
 data ChainObserverLog
   = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
   | HeadInitTx {headId :: HeadId}
+  | HeadCommitTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -79,9 +83,10 @@ chainSyncClient tracer networkId =
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash blockNo) txs) BabbageEraInCardanoMode -> do
               forM_ txs $ \tx -> do
-                case observeRawInitTx networkId tx of
-                  Left _ -> pure ()
-                  Right RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
+                case observeHeadTx networkId tx of
+                  NoHeadTx -> pure ()
+                  Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
+                  Commit CommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
               pure clientStIdle
             _ -> pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

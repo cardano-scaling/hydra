@@ -617,6 +617,17 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 
 -- * Observe Hydra Head transactions
 
+-- | Generalised type for arbitrary Head observations on-chain.
+data HeadObservation
+  = NoHeadTx
+  | Init RawInitObservation
+  | Commit CommitObservation
+
+observeHeadTx :: NetworkId -> Tx -> HeadObservation
+observeHeadTx networkId tx  =
+  either (const NoHeadTx) Init (observeRawInitTx networkId tx)
+
+
 -- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
 -- interest to us.
 data RawInitObservation = RawInitObservation
@@ -828,6 +839,7 @@ data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
   , party :: Party
   , committed :: UTxO
+  , headId :: HeadId
   }
 
 -- | Identify a commit tx by:
@@ -845,13 +857,13 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId initials tx = do
-  initialTxIn <- findInitialTxIn
-  committedTxIns <- decodeInitialRedeemer initialTxIn
-
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
-  (onChainParty, onChainCommits, _headId) :: Commit.DatumType <- fromScriptData dat
+  (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
+
+  initialTxIn <- findInitialTxIn
+  committedTxIns <- decodeInitialRedeemer initialTxIn
 
   committed <- do
     -- TODO: We could simplify this by just using the datum. However, we would
@@ -867,6 +879,7 @@ observeCommitTx networkId initials tx = do
       { commitOutput = (commitIn, toUTxOContext commitOut, dat)
       , party
       , committed
+      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
       }
  where
   findInitialTxIn =
