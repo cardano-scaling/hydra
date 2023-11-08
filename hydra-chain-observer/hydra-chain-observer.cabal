@@ -82,3 +82,17 @@ executable hydra-chain-observer
   build-depends:
     , hydra-chain-observer
     , hydra-prelude
+
+test-suite tests
+  import:             project-config
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , hspec
+    , hydra-chain-observer
+    , hydra-prelude
+    , hydra-test-utils
+
+  build-tool-depends: hspec-discover:hspec-discover

@@ -6,34 +6,12 @@ module Hydra.ChainObserver (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (
-  Block (..),
-  BlockHeader (..),
-  BlockInMode (..),
-  CardanoMode,
-  ChainPoint,
-  ChainSyncClient,
-  ConsensusModeParams (..),
-  EpochSlots (..),
-  EraInMode (..),
-  LocalChainSyncClient (..),
-  LocalNodeClientProtocols (..),
-  LocalNodeConnectInfo (..),
-  NetworkId,
-  SocketPath,
-  UTxO,
-  connectToLocalNode,
- )
+import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, UTxO, connectToLocalNode, getTxBody, getTxId)
+import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
-import Hydra.Chain.Direct.Tx (
-  CollectComObservation (..),
-  HeadObservation (..),
-  RawCommitObservation (..),
-  RawInitObservation (..),
-  mkHeadId,
-  observeHeadTx, AbortObservation (..), ContestObservation(..)
- )
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawCommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -41,12 +19,6 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStNext (..),
  )
-import Hydra.Chain.Direct.Tx (CloseObservation(..))
-import Hydra.Chain.Direct.Tx (FanoutObservation(..))
-import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Cardano.Api (getTxId)
-import Hydra.Cardano.Api (getTxBody)
-import Hydra.Ledger.Cardano (adjustUTxO)
 
 main :: IO ()
 main = do
