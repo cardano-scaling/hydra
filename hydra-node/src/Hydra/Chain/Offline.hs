@@ -23,10 +23,10 @@ import Hydra.Chain.Direct.Handlers (
   newLocalChainState,
  )
 
-import Hydra.Ledger (ChainSlot (ChainSlot))
+import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 
-import Hydra.Options (OfflineConfig(OfflineConfig, ledgerGenesisFile))
+import Hydra.Options (OfflineConfig(OfflineConfig, ledgerGenesisFile, initialUTxOFile))
 
 import qualified Cardano.Ledger.Shelley.API as Ledger
 
@@ -47,17 +47,24 @@ import Ouroboros.Consensus.Util.Time (nominalDelay)
 import Hydra.Cardano.Api (
   Tx, StandardCrypto,
  )
+import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
+import Hydra.Party (Party)
+import Hydra.ContestationPeriod (ContestationPeriod)
 
 withOfflineChain ::
   Tracer IO DirectChainLog -> -- TODO(ELAINE): change type to indicate offline mode maybe?
   OfflineConfig ->
   Ledger.Globals ->
   HeadId ->
+  Party ->
+  ContestationPeriod ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineConfig{ledgerGenesisFile} globals@Ledger.Globals{systemStart} ownHeadId chainStateHistory callback action = do
+withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} ownHeadId party contestationPeriod chainStateHistory callback action = do
 
+  initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
+  initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
 
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle = mkFakeL1Chain localChainState tracer ownHeadId callback

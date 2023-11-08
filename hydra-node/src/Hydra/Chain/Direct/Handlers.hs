@@ -81,7 +81,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
-import Hydra.Snapshot (getSnapshot, Snapshot (number))
 
 import Hydra.HeadId (HeadId)
 

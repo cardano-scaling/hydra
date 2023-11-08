@@ -54,7 +54,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
-  PostTxError (..),
+  PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
 import Hydra.Chain.CardanoClient (
@@ -79,7 +79,6 @@ import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
-  openThreadOutput,
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (

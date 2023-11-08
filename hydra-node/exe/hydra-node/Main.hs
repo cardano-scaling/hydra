@@ -7,6 +7,7 @@ import Hydra.Prelude hiding (fromList)
 
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
+  toLedgerPParams
  )
 
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)

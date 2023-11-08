@@ -19,12 +19,12 @@ import Hydra.Cardano.Api (
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
-import Hydra.Chain (ChainEvent (..), OnChainTx (..), initHistory, maximumNumberOfParties)
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
-import Hydra.Chain.Offline.Persistence (createStateChangePersistence, initializeStateIfOffline)
+import Hydra.Chain.Offline.Persistence (createStateChangePersistence)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -48,6 +48,7 @@ import Hydra.Node (
   checkHeadState,
   createNodeState,
   initEnvironment,
+  loadGlobalsFromGenesis,
   loadState,
   runHydraNode,
  )
@@ -112,31 +113,25 @@ run opts = do
       let DirectChainConfig{networkId, nodeSocket} = chainConfig
 
       globals <- case offlineConfig of
-        Nothing ->
+        Nothing -> do
           -- online
-          newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
-        Just _ -> do
+          globals' <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
+          pure globals'
+        Just OfflineConfig{ledgerGenesisFile} -> do
           -- offline
-          systemStart <- SystemStart <$> getCurrentTime
-          pure $ defaultGlobals{Ledger.systemStart = systemStart}
+          loadGlobalsFromGenesis ledgerGenesisFile
 
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createStateChangePersistence (persistenceDir <> "/state") (offlineOptionsNormalizedUtxoWriteBackFilePath =<< leftToMaybe onlineOrOfflineConfig)
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
-
-        let headId = HeadId "HeadId"
-        case offlineConfig of
-          Nothing -> pure ()
-          Just (OfflineConfig{initialUTxOFile}) -> do
-            initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
-            initializeStateIfOffline chainStateHistory initialUTxO headId party contestationPeriod (putEvent . OnChainEvent)
 
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
         let withChain cont = case onlineOrOfflineConfig of
               Left offlineConfig' ->
-                withOfflineChain (contramap DirectChain tracer) offlineConfig' globals headId chainStateHistory (putEvent . OnChainEvent) cont
+                let headId = HeadId "HeadId"
+                 in withOfflineChain (contramap DirectChain tracer) offlineConfig' globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
               Right onlineConfig -> do
                 ctx <- loadChainContext chainConfig party hydraScriptsTxId
                 wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
