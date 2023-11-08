@@ -40,38 +40,43 @@ spec = do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
             withHydraNode (contramap FromHydraNode tracer) aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \hydraNode -> do
-              withChainObserver cardanoNode $ \chainObserverHandle -> do
+              withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-                -- Init a head using the hydra-node
                 send hydraNode $ input "Init" []
 
-                -- Get headId as reported by the hydra-node
                 headId <- waitMatch 5 hydraNode $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsInitializing"
                   v ^? key "headId" . _String
 
-                -- Assert the hydra-chain-observer reports initialization of the same headId
-                awaitMatch chainObserverHandle 5 $ \v -> do
-                  guard $ v ^? key "message" . key "tag" == Just "HeadInitTx"
-                  let actualId = v ^? key "message" . key "headId" . _String
-                  guard $ actualId == Just headId
+                chainObserverSees observer "HeadInitTx" headId
 
                 requestCommitTx hydraNode mempty >>= submitTx cardanoNode
                 waitFor (contramap FromHydraNode tracer) 600 [hydraNode] $
                   output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
-                awaitMatch chainObserverHandle 5 $ \v -> do
-                  guard $ v ^? key "message" . key "tag" == Just "HeadCommitTx"
-                  let actualId = v ^? key "message" . key "headId" . _String
-                  guard $ actualId == Just headId
+                chainObserverSees observer "HeadCommitTx" headId
+                chainObserverSees observer "HeadCollectComTx" headId
 
-                awaitMatch chainObserverHandle 5 $ \v -> do
-                  guard $ v ^? key "message" . key "tag" == Just "HeadCollectComTx"
-                  let actualId = v ^? key "message" . key "headId" . _String
-                  guard $ actualId == Just headId
+                send hydraNode $ input "Close" []
 
-awaitMatch :: ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
+                chainObserverSees observer "HeadCloseTx" headId
+
+                waitFor (contramap FromHydraNode tracer) 600 [hydraNode] $
+                  output "ReadyToFanout" ["headId" .= headId]
+
+                send hydraNode $ input "Fanout" []
+
+                chainObserverSees observer "HeadFanoutTx" headId
+
+chainObserverSees :: HasCallStack => ChainObserverHandle -> Value -> Text -> IO ()
+chainObserverSees observer txType headId =
+  awaitMatch observer 5 $ \v -> do
+    guard $ v ^? key "message" . key "tag" == Just txType
+    let actualId = v ^? key "message" . key "headId" . _String
+    guard $ actualId == Just headId
+
+awaitMatch :: HasCallStack => ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
 awaitMatch chainObserverHandle delay f = do
   seenMsgs <- newTVarIO []
   timeout delay (go seenMsgs) >>= \case

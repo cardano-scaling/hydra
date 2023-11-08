@@ -1092,7 +1092,7 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-data FanoutObservation = FanoutObservation
+data FanoutObservation = FanoutObservation { headId :: HeadId }
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -1102,10 +1102,11 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  headInput <- fst <$> findTxOutByScript @PlutusScriptV2 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure FanoutObservation
+      Head.Fanout{} -> pure FanoutObservation{headId}
       _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript

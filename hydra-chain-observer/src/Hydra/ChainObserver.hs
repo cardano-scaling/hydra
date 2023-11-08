@@ -42,6 +42,8 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStNext (..),
  )
+import Hydra.Chain.Direct.Tx (CloseObservation(..))
+import Hydra.Chain.Direct.Tx (FanoutObservation(..))
 
 main :: IO ()
 main = do
@@ -58,6 +60,8 @@ data ChainObserverLog
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
   | HeadCollectComTx {headId :: HeadId}
+  | HeadCloseTx {headId :: HeadId}
+  | HeadFanoutTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -104,13 +108,15 @@ chainSyncClient tracer networkId =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode (Block (BlockHeader _slotNo _hash blockNo) txs) BabbageEraInCardanoMode -> do
+            BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
               forM_ txs $ \tx -> do
                 case observeHeadTx networkId utxo tx of
                   NoHeadTx -> pure ()
                   Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
                   Commit RawCommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
                   CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
+                  Close CloseObservation{headId} -> traceWith tracer $ HeadCloseTx{headId}
+                  Fanout FanoutObservation{headId} -> traceWith tracer $ HeadFanoutTx{headId}
               let utxo' = utxo <> foldMap utxoFromTx txs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo

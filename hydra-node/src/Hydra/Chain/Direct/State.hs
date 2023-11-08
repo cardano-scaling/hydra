@@ -733,7 +733,7 @@ observeFanout ::
   Maybe (OnChainTx Tx)
 observeFanout st tx = do
   let utxo = getKnownUTxO st
-  FanoutObservation <- observeFanoutTx utxo tx
+  FanoutObservation{} <- observeFanoutTx utxo tx
   pure OnFanoutTx
 
 -- * Generators
