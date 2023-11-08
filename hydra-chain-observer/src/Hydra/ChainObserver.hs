@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   SocketPath,
   UTxO,
   connectToLocalNode,
-  utxoFromTx,
  )
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Tx (
@@ -47,6 +46,7 @@ import Hydra.Chain.Direct.Tx (FanoutObservation(..))
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Cardano.Api (getTxId)
 import Hydra.Cardano.Api (getTxBody)
+import Hydra.Ledger.Cardano (adjustUTxO)
 
 main :: IO ()
 main = do
@@ -70,6 +70,7 @@ data ChainObserverLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+type BlockType :: Type
 type BlockType = BlockInMode CardanoMode
 
 connectInfo :: SocketPath -> NetworkId -> LocalNodeConnectInfo CardanoMode
@@ -122,8 +123,8 @@ chainSyncClient tracer networkId =
                   CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
                   Close CloseObservation{headId} -> traceWith tracer $ HeadCloseTx{headId}
                   Fanout FanoutObservation{headId} -> traceWith tracer $ HeadFanoutTx{headId}
-              let utxo' = utxo <> foldMap utxoFromTx txs
-              -- FIXME: properly remove / add UTxOs
+                  _ -> pure ()
+              let utxo' = foldr adjustUTxO utxo txs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

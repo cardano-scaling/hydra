@@ -52,7 +52,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
-import Hydra.Ledger.Cardano (fromChainSlot, genTxOutAdaOnly)
+import Hydra.Ledger.Cardano (fromChainSlot, genTxOutAdaOnly, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
@@ -253,16 +253,6 @@ scriptLedger seedInput =
         Right _ ->
           let utxo' = adjustUTxO tx utxo
            in applyTransactions slot utxo' txs
-
-  adjustUTxO :: Tx -> UTxO -> UTxO
-  adjustUTxO tx utxo =
-    let txid = txId tx
-        consumed = txIns' tx
-        produced =
-          toUTxOContext
-            <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
-        utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
-     in utxo' <> produced
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
