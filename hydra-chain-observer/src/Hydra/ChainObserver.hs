@@ -2,11 +2,13 @@
 
 module Hydra.ChainObserver (
   main,
+  ChainObserverLog(..),
+  observeTx
 ) where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, UTxO, connectToLocalNode, getTxBody, getTxId)
+import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, UTxO, connectToLocalNode, getTxBody, getTxId, Tx)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawCommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
@@ -89,17 +91,9 @@ chainSyncClient tracer networkId =
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
-              forM_ txs $ \tx -> do
-                case observeHeadTx networkId utxo tx of
-                  NoHeadTx -> pure ()
-                  Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
-                  Commit RawCommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
-                  CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
-                  Close CloseObservation{headId} -> traceWith tracer $ HeadCloseTx{headId}
-                  Fanout FanoutObservation{headId} -> traceWith tracer $ HeadFanoutTx{headId}
-                  Abort AbortObservation{headId} -> traceWith tracer $ HeadAbortTx{headId}
-                  Contest ContestObservation{headId} -> traceWith tracer $ HeadContestTx{headId}
-                  _ -> pure ()
+              forM_ txs $ \tx -> case observeTx networkId utxo tx of
+                Nothing -> pure ()
+                Just x -> traceWith tracer x
               let utxo' = foldr adjustUTxO utxo txs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
@@ -107,3 +101,15 @@ chainSyncClient tracer networkId =
           traceWith tracer Rollback{point}
           pure $ clientStIdle utxo
       }
+
+observeTx :: NetworkId -> UTxO -> Tx -> Maybe ChainObserverLog
+observeTx networkId utxo tx =
+  case observeHeadTx networkId utxo tx of
+    NoHeadTx -> Nothing
+    Init RawInitObservation{headId} -> pure $ HeadInitTx{headId = mkHeadId headId}
+    Commit RawCommitObservation{headId} -> pure $ HeadCommitTx{headId}
+    CollectCom CollectComObservation{headId} -> pure $ HeadCollectComTx{headId}
+    Close CloseObservation{headId} -> pure $ HeadCloseTx{headId}
+    Fanout FanoutObservation{headId} -> pure $ HeadFanoutTx{headId}
+    Abort AbortObservation{headId} -> pure $ HeadAbortTx{headId}
+    Contest ContestObservation{headId} -> pure $ HeadContestTx{headId}
