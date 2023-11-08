@@ -48,14 +48,18 @@ spec =
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $
-          forAllBlind genChainStateWithTx $ \(ctx, st, tx, transition :: _) ->
+          forAllBlind genChainStateWithTx $ \(_ctx, st, tx, transition) ->
             genericCoverTable [transition] $
               counterexample (show transition) $
                 let utxo = getKnownUTxO st
                  in case (observeHeadTx testNetworkId utxo tx) of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
-                      _ -> property True
+                      Commit{} -> transition === Transition.Commit
+                      CollectCom{} -> transition === Transition.Collect
+                      Close{} -> transition === Transition.Close
+                      Contest{} -> transition === Transition.Contest
+                      Fanout{} -> transition === Transition.Fanout
 
     describe "collectComTx" $ do
       prop "cover fee correctly handles redeemers" $

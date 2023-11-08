@@ -547,9 +547,9 @@ observeSomeTx ctx cst tx = case cst of
       second Initial
         <$> observeCommit ctx st tx
         <|> (,Idle)
-        <$> observeAbort st tx
+          <$> observeAbort st tx
         <|> second Open
-        <$> observeCollect st tx
+          <$> observeCollect st tx
   Open st ->
     noObservation $
       second Closed <$> observeClose st tx
@@ -558,7 +558,7 @@ observeSomeTx ctx cst tx = case cst of
       second Closed
         <$> observeContest st tx
         <|> (,Idle)
-        <$> observeFanout st tx
+          <$> observeFanout st tx
  where
   noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
   noObservation = maybe (Left NoObservation) Right

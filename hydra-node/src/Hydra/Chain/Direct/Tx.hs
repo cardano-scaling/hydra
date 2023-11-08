@@ -623,16 +623,20 @@ data HeadObservation
   | Init RawInitObservation
   | Commit RawCommitObservation
   | CollectCom CollectComObservation
+  | Close CloseObservation
+  | Contest ContestObservation
+  | Fanout FanoutObservation
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
-      <|> Commit
-      <$> observeRawCommitTx networkId tx
-      <|> CollectCom
-      <$> observeCollectComTx utxo tx
+      <|> Commit <$> observeRawCommitTx networkId tx
+      <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Close <$> observeCloseTx utxo tx
+      <|> Contest <$> observeContestTx utxo tx
+      <|> Fanout <$> observeFanoutTx utxo tx
 
 -- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
 -- interest to us.
