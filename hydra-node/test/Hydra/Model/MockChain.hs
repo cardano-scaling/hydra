@@ -52,7 +52,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
-import Hydra.Ledger.Cardano (fromChainSlot, genTxOutAdaOnly, adjustUTxO)
+import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))

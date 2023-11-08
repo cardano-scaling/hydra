@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.Tx (
   RawCommitObservation (..),
   RawInitObservation (..),
   mkHeadId,
-  observeHeadTx,
+  observeHeadTx, AbortObservation (..), ContestObservation(..)
  )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
@@ -65,6 +65,8 @@ data ChainObserverLog
   | HeadCollectComTx {headId :: HeadId}
   | HeadCloseTx {headId :: HeadId}
   | HeadFanoutTx {headId :: HeadId}
+  | HeadAbortTx {headId :: HeadId}
+  | HeadContestTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   | RollForward {receivedTxIds :: [TxId]}
   deriving stock (Eq, Show, Generic)
@@ -123,6 +125,8 @@ chainSyncClient tracer networkId =
                   CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
                   Close CloseObservation{headId} -> traceWith tracer $ HeadCloseTx{headId}
                   Fanout FanoutObservation{headId} -> traceWith tracer $ HeadFanoutTx{headId}
+                  Abort AbortObservation{headId} -> traceWith tracer $ HeadAbortTx{headId}
+                  Contest ContestObservation{headId} -> traceWith tracer $ HeadContestTx{headId}
                   _ -> pure ()
               let utxo' = foldr adjustUTxO utxo txs
               pure $ clientStIdle utxo'

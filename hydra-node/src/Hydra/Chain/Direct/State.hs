@@ -668,7 +668,7 @@ observeAbort ::
   Maybe (OnChainTx Tx)
 observeAbort st tx = do
   let utxo = getKnownUTxO st
-  AbortObservation <- observeAbortTx utxo tx
+  AbortObservation{} <- observeAbortTx utxo tx
   pure OnAbortTx
 
 -- ** OpenState transitions
