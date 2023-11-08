@@ -622,6 +622,7 @@ data HeadObservation
   = NoHeadTx
   | Init RawInitObservation
   | Commit RawCommitObservation
+  | CollectCom CollectComObservation
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> Tx -> HeadObservation

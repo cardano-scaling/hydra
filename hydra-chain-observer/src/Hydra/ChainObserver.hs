@@ -27,6 +27,7 @@ import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
   RawCommitObservation (..),
+  CollectComObservation (..),
   RawInitObservation (..),
   mkHeadId,
   observeHeadTx,
@@ -54,6 +55,7 @@ data ChainObserverLog
   = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
+  | HeadCollectComTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -106,6 +108,7 @@ chainSyncClient tracer networkId =
                   NoHeadTx -> pure ()
                   Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
                   Commit RawCommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
+                  CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
               pure clientStIdle
             _ -> pure clientStIdle
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

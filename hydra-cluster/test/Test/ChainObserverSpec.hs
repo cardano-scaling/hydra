@@ -66,6 +66,11 @@ spec = do
                   let actualId = v ^? key "message" . key "headId" . _String
                   guard $ actualId == Just headId
 
+                awaitMatch chainObserverHandle 5 $ \v -> do
+                  guard $ v ^? key "message" . key "tag" == Just "HeadCollectComTx"
+                  let actualId = v ^? key "message" . key "headId" . _String
+                  guard $ actualId == Just headId
+
 awaitMatch :: ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
 awaitMatch chainObserverHandle delay f = do
   seenMsgs <- newTVarIO []
