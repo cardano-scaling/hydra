@@ -19,6 +19,12 @@ spec =
             genericCoverTable [transition] $
               counterexample (show transition) $
                 let utxo = getKnownUTxO st
-                 in case (observeTx testNetworkId utxo tx) of
+                 in case observeTx testNetworkId utxo tx of
                       Just (HeadInitTx{}) -> transition === Transition.Init
+                      Just (HeadCommitTx{}) -> transition === Transition.Commit
+                      Just (HeadCollectComTx{}) -> transition === Transition.Collect
+                      Just (HeadAbortTx{}) -> transition === Transition.Abort
+                      Just (HeadCloseTx{}) -> transition === Transition.Close
+                      Just (HeadContestTx{}) -> transition === Transition.Contest
+                      Just (HeadFanoutTx{}) -> transition === Transition.Fanout
                       _ -> property False

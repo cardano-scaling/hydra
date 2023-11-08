@@ -93,7 +93,7 @@ chainSyncClient tracer networkId =
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
               forM_ txs $ \tx -> case observeTx networkId utxo tx of
                 Nothing -> pure ()
-                Just x -> traceWith tracer x
+                Just observed -> traceWith tracer observed
               let utxo' = foldr adjustUTxO utxo txs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
