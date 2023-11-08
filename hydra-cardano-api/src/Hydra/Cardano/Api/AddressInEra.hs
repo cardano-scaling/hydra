@@ -3,11 +3,11 @@ module Hydra.Cardano.Api.AddressInEra where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
-import qualified Cardano.Ledger.Address as Ledger
-import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Hashes as Ledger
-import qualified Cardano.Ledger.Keys as Ledger
+import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
+import Cardano.Ledger.Hashes qualified as Ledger
+import Cardano.Ledger.Keys qualified as Ledger
 import Hydra.Cardano.Api.Network (Network)
 import PlutusLedgerApi.V2 (
   Address (..),
@@ -15,7 +15,7 @@ import PlutusLedgerApi.V2 (
   StakingCredential (StakingHash, StakingPtr),
   fromBuiltin,
  )
-import qualified PlutusLedgerApi.V2 as Plutus
+import PlutusLedgerApi.V2 qualified as Plutus
 
 -- * Extras
 

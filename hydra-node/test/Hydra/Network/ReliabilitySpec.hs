@@ -15,7 +15,7 @@ import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
-import qualified Data.Vector as Vector
+import Data.Vector qualified as Vector
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
@@ -272,7 +272,7 @@ captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
-capturePayload :: (MonadSTM m) => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
+capturePayload :: MonadSTM m => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
 capturePayload receivedMessages message = case payload message of
   Data _ msg ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)

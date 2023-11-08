@@ -19,7 +19,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
-import qualified Data.List as List
+import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -499,7 +499,7 @@ waitUntilMatch nodes predicate =
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
 waitMatch ::
-  (MonadThrow m) =>
+  MonadThrow m =>
   TestHydraClient tx m ->
   (ServerOutput tx -> Maybe a) ->
   m a
@@ -731,7 +731,7 @@ withHydraNode signingKey otherParties chain action = do
     action (createTestHydraClient outputs outputHistory node)
 
 createTestHydraClient ::
-  (MonadSTM m) =>
+  MonadSTM m =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->

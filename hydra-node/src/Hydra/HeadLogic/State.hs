@@ -4,7 +4,7 @@
 
 module Hydra.HeadLogic.State where
 
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
@@ -83,7 +83,7 @@ deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
-instance (Arbitrary (ChainStateType tx)) => Arbitrary (IdleState tx) where
+instance Arbitrary (ChainStateType tx) => Arbitrary (IdleState tx) where
   arbitrary = genericArbitrary
 
 -- ** Initial

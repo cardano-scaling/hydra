@@ -4,18 +4,18 @@ module Hydra.Contract where
 import Hydra.Prelude
 
 import Codec.Serialise (serialise)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Hydra.Cardano.Api (
   ScriptHash,
   fromPlutusScript,
   hashScript,
   pattern PlutusScript,
  )
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadTokens as HeadTokens
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.Initial qualified as Initial
 import PlutusLedgerApi.V2 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.

@@ -16,7 +16,6 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -25,6 +24,7 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
+    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     TypeFamilies

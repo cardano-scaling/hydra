@@ -22,8 +22,8 @@ import Hydra.Prelude
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
 import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
@@ -46,12 +46,12 @@ data Heartbeat msg
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
+instance ToCBOR msg => ToCBOR (Heartbeat msg) where
   toCBOR = \case
     (Data host hmsg) -> toCBOR (0 :: Int) <> toCBOR host <> toCBOR hmsg
     (Ping host) -> toCBOR (1 :: Int) <> toCBOR host
 
-instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
+instance FromCBOR msg => FromCBOR (Heartbeat msg) where
   fromCBOR =
     fromCBOR >>= \case
       (0 :: Int) -> Data <$> fromCBOR <*> fromCBOR

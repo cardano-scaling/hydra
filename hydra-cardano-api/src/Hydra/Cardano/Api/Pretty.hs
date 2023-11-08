@@ -1,21 +1,21 @@
 -- | Pretty printing transactions and utxo's
 module Hydra.Cardano.Api.Pretty where
 
-import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.SafeHash as Ledger
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as BL
+import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.SafeHash qualified as Ledger
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as BL
 import Data.Function (on)
 import Data.List (intercalate, sort, sortBy)
-import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
+import Data.Map.Strict qualified as Map
+import Data.Text qualified as T
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 
 -- | Obtain a human-readable pretty text representation of a transaction.

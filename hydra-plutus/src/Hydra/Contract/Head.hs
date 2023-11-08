@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
@@ -50,9 +50,9 @@ import PlutusLedgerApi.V2 (
  )
 import PlutusLedgerApi.V2.Contexts (findDatum, findOwnInput)
 import PlutusTx (CompiledCode)
-import qualified PlutusTx
-import qualified PlutusTx.AssocMap as AssocMap
-import qualified PlutusTx.Builtins as Builtins
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Builtins qualified as Builtins
 
 type DatumType = State
 type RedeemerType = Input
@@ -166,9 +166,12 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties' == parties
-        && contestationPeriod' == contestationPeriod
-        && headId' == headId
+      parties'
+        == parties
+        && contestationPeriod'
+        == contestationPeriod
+        && headId'
+        == headId
 
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
@@ -320,9 +323,12 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      headId' == headPolicyId
-        && parties' == parties
-        && cperiod' == cperiod
+      headId'
+        == headPolicyId
+        && parties'
+        == parties
+        && cperiod'
+        == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -403,9 +409,12 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties' == parties
-        && headId' == headId
-        && contestationPeriod' == contestationPeriod
+      parties'
+        == parties
+        && headId'
+        == headId
+        && contestationPeriod'
+        == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'
@@ -583,7 +592,8 @@ hasPT headCurrencySymbol txOut =
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber utxoHash sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
-    length parties == length sigs
+    length parties
+      == length sigs
       && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 

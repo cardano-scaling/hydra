@@ -9,7 +9,7 @@ import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (nominalDiffTimeToSeconds)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import qualified PlutusLedgerApi.V1.Time as Plutus
+import PlutusLedgerApi.V1.Time qualified as Plutus
 
 -- | Convert given on-chain 'POSIXTime' to a 'UTCTime'.
 posixToUTCTime :: Plutus.POSIXTime -> UTCTime

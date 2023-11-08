@@ -7,18 +7,18 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _JSON)
-import qualified Data.ByteString as BS
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import Data.ByteString qualified as BS
+import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
@@ -84,7 +84,7 @@ import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
-import qualified Prelude
+import Prelude qualified
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]

@@ -15,7 +15,7 @@ import PlutusTx.Prelude
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, PlutusScriptVersion (PlutusScriptV2), fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
-import qualified Hydra.Cardano.Api as OffChain
+import Hydra.Cardano.Api qualified as OffChain
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
@@ -33,8 +33,8 @@ import PlutusLedgerApi.V2 (
   txOutValue,
  )
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
-import qualified PlutusTx
-import qualified Prelude as Haskell
+import PlutusTx qualified
+import Prelude qualified as Haskell
 
 data CommitRedeemer
   = ViaCollectCom

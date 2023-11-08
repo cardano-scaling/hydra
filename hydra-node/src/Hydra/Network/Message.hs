@@ -31,10 +31,10 @@ data Message tx
     AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx) => Eq (Message tx)
-deriving stock instance (IsTx tx) => Show (Message tx)
-deriving anyclass instance (IsTx tx) => ToJSON (Message tx)
-deriving anyclass instance (IsTx tx) => FromJSON (Message tx)
+deriving stock instance IsTx tx => Eq (Message tx)
+deriving stock instance IsTx tx => Show (Message tx)
+deriving anyclass instance IsTx tx => ToJSON (Message tx)
+deriving anyclass instance IsTx tx => FromJSON (Message tx)
 
 instance IsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary

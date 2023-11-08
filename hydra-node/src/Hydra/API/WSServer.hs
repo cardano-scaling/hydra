@@ -6,9 +6,9 @@ module Hydra.API.WSServer where
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import qualified Control.Concurrent.STM as STM
+import Control.Concurrent.STM qualified as STM
 import Control.Concurrent.STM.TVar (TVar, readTVar)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -31,7 +31,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
-import qualified Hydra.Options as Options
+import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -47,7 +47,7 @@ import Text.URI.QQ (queryKey, queryValue)
 
 wsApp ::
   forall tx.
-  (IsChainState tx) =>
+  IsChainState tx =>
   Party ->
   Tracer IO APIServerLog ->
   TVar [TimedServerOutput tx] ->

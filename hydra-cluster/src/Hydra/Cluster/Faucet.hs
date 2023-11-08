@@ -4,7 +4,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import CardanoClient (
   QueryPoint (QueryTip),

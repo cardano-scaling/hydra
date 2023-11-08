@@ -148,14 +148,14 @@ import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.VerificationKey ()
 import Hydra.Cardano.Api.Witness as Extras
 
-import qualified Cardano.Api
-import qualified Cardano.Api.Shelley
-import qualified Cardano.Ledger.Alonzo.TxAuxData as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Keys.Bootstrap as Ledger
-import qualified Cardano.Ledger.Keys.WitVKey as Ledger
+import Cardano.Api qualified
+import Cardano.Api.Shelley qualified
+import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Keys qualified as Ledger
+import Cardano.Ledger.Keys.Bootstrap qualified as Ledger
+import Cardano.Ledger.Keys.WitVKey qualified as Ledger
 import Data.ByteString.Short (ShortByteString)
 import Prelude
 

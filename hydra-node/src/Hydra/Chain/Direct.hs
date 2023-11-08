@@ -9,7 +9,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (
@@ -88,7 +88,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig (..))
 import Hydra.Party (Party)
-import qualified Ouroboros.Consensus.HardFork.History as Consensus
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -322,7 +322,7 @@ chainSyncClient handler wallet startingPoint =
 
 txSubmissionClient ::
   forall m.
-  (MonadSTM m) =>
+  MonadSTM m =>
   Tracer m DirectChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) m ()

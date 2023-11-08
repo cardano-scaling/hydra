@@ -12,11 +12,11 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Language (BinaryPlutus (..), Language (PlutusV2), Plutus (..))
-import qualified Cardano.Ledger.Alonzo.PlutusScriptApi as Ledger
+import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
-import qualified Cardano.Ledger.Alonzo.Scripts.Data as Ledger
+import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (PlutusWithContext), slotToPOSIXTime)
 import Cardano.Ledger.Api (ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
@@ -30,9 +30,9 @@ import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLe
 import Control.Arrow (left)
 import Control.Lens ((.~))
 import Control.Lens.Getter
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 import Data.Default (def)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
@@ -75,13 +75,13 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
-import qualified PlutusCore as PLC
+import PlutusCore qualified as PLC
 import PlutusLedgerApi.Common (mkTermToEvaluate)
-import qualified PlutusLedgerApi.Common as Plutus
+import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (choose)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
-import qualified UntypedPlutusCore as UPLC
+import UntypedPlutusCore qualified as UPLC
 
 -- * Evaluate transactions
 

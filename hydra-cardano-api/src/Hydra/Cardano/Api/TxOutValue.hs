@@ -7,7 +7,7 @@ import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::
   forall era.
-  (HasMultiAsset era) =>
+  HasMultiAsset era =>
   Value ->
   TxOutValue era
 mkTxOutValue =

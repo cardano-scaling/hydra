@@ -2,12 +2,12 @@ module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
-import qualified Cardano.Ledger.Keys as Ledger
+import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
+import Cardano.Ledger.Keys qualified as Ledger
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
-import qualified Cardano.Ledger.Shelley.Scripts as Ledger
-import qualified Data.ByteString as BS
-import qualified PlutusLedgerApi.V2 as Plutus
+import Cardano.Ledger.Shelley.Scripts qualified as Ledger
+import Data.ByteString qualified as BS
+import PlutusLedgerApi.V2 qualified as Plutus
 
 -- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash

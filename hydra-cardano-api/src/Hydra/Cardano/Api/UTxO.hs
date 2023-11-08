@@ -5,15 +5,15 @@ import Hydra.Cardano.Api.TxId (toLedgerTxId)
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn)
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
-import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import qualified Cardano.Ledger.TxIn as Ledger
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Babbage.TxBody qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Shelley.UTxO qualified as Ledger
+import Cardano.Ledger.TxIn qualified as Ledger
 import Data.Foldable (toList)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.String (IsString (..))
-import qualified Data.Text as Text
+import Data.Text qualified as Text
 
 -- | Get a human-readable pretty text representation of a UTxO.
 renderUTxO :: IsString str => UTxO -> str

@@ -6,7 +6,7 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 import Test.Hydra.Prelude (failure)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
   buildTransaction,
@@ -18,12 +18,12 @@ import CardanoClient (
 import CardanoNode (RunningNode (..))
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
-import qualified Data.ByteString as B
-import qualified Data.Set as Set
+import Data.ByteString qualified as B
+import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
@@ -56,7 +56,7 @@ import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (
 import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
-import qualified Hydra.Cluster.Faucet as Faucet
+import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -91,7 +91,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import qualified PlutusLedgerApi.Test.Examples as Plutus
+import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
 

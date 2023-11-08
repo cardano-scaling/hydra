@@ -7,3 +7,6 @@ respectful: true # don't be too opinionated about newlines etc.
 haddock-style: single-line # '--' vs. '{-'
 newlines-between-decls: 1 # number of newlines between top-level declarations
 single-constraint-parens: never # whether or not to put braces around single constraints: https://fourmolu.github.io/config/single-constraint-parens/
+fixities:
+  - infixr 0 $
+  - infixr 1 &

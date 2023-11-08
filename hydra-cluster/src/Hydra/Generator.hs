@@ -3,7 +3,7 @@ module Hydra.Generator where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (mkGenesisTx)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
@@ -124,7 +124,8 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
           utxoProducedByTx fundingTransaction
             & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
     txSequence <-
-      reverse . thrd
+      reverse
+        . thrd
         <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 

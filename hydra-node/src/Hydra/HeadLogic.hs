@@ -22,12 +22,12 @@ module Hydra.HeadLogic (
 
 import Hydra.Prelude
 
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
-import qualified Hydra.API.ServerOutput as ServerOutput
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
@@ -209,7 +209,7 @@ onInitialChainAbortTx newChainState committed headId =
 --
 -- __Transition__: 'InitialState' → 'OpenState'
 onInitialChainCollectTx ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -718,7 +718,7 @@ update env ledger st ev = case (st, ev) of
 -- * HeadState aggregate
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
-aggregate :: (IsChainState tx) => HeadState tx -> StateChanged tx -> HeadState tx
+aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
     Initial

@@ -11,14 +11,14 @@ module Hydra.Ledger.Cardano.Json where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import qualified Cardano.Crypto.Hash.Class as Crypto
-import qualified Cardano.Ledger.Address as Ledger
-import qualified Cardano.Ledger.Allegra.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxAuxData as Ledger
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
-import qualified Cardano.Ledger.Babbage.TxBody as Ledger
+import Cardano.Crypto.Hash.Class qualified as Crypto
+import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.Allegra.Scripts qualified as Ledger
+import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Babbage.Tx qualified as Ledger
+import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), isSJust)
 import Cardano.Ledger.Binary (
   DecCBOR,
@@ -33,14 +33,14 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Binary.Decoding (Annotator)
 import Cardano.Ledger.Block (txid)
 import Cardano.Ledger.Core (eraProtVerLow)
-import qualified Cardano.Ledger.Core as Ledger
-import qualified Cardano.Ledger.Crypto as Ledger
-import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Mary.Value as Ledger
-import qualified Cardano.Ledger.SafeHash as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import qualified Cardano.Ledger.Shelley.TxCert as Ledger
-import qualified Codec.Binary.Bech32 as Bech32
+import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Crypto qualified as Ledger
+import Cardano.Ledger.Keys qualified as Ledger
+import Cardano.Ledger.Mary.Value qualified as Ledger
+import Cardano.Ledger.SafeHash qualified as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Shelley.TxCert qualified as Ledger
+import Codec.Binary.Bech32 qualified as Bech32
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
   FromJSONKeyFunction (FromJSONKeyTextParser),
@@ -55,15 +55,15 @@ import Data.Aeson (
   (.:?),
   (.=),
  )
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (
   Pair,
   Parser,
   toJSONKeyText,
  )
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import Data.ByteString.Base16 qualified as Base16
+import Data.Map qualified as Map
+import Data.Set qualified as Set
 
 --
 -- Addr

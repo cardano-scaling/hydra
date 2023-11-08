@@ -5,7 +5,7 @@ import Hydra.Prelude
 import Test.Hspec.Runner (configFormat, defaultConfig, hspecWith)
 import Test.Hydra.Prelude (combinedHspecFormatter)
 
-import qualified Spec
+import Spec qualified
 
 main :: IO ()
 main =

@@ -9,14 +9,14 @@ import Hydra.Cardano.Api.KeyWitness (
  )
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.TxWits as Ledger
-import qualified Cardano.Ledger.Babbage.Tx as Ledger
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
-import qualified Cardano.Ledger.Core as Ledger (Tx, hashScript)
+import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras

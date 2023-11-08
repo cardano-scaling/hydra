@@ -4,13 +4,13 @@ module Hydra.Data.ContestationPeriod where
 
 import Hydra.Prelude
 
-import qualified PlutusTx.Prelude as Plutus
+import PlutusTx.Prelude qualified as Plutus
 
 import Data.Ratio ((%))
 import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime (..))
-import qualified PlutusTx
+import PlutusTx qualified
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}
   deriving stock (Generic, Eq, Ord, Show)

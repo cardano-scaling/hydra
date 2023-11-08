@@ -1,6 +1,6 @@
 module Hydra.Cluster.Options where
 
-import qualified Data.ByteString.Char8 as BSC
+import Data.ByteString.Char8 qualified as BSC
 import Hydra.Cardano.Api (AsType (AsTxId), TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Prelude

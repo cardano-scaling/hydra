@@ -3,11 +3,11 @@ module Plutus.Codec.CBOR.EncodingSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Codec.CBOR.Encoding as CBOR
-import qualified Codec.CBOR.Pretty as CBOR
-import qualified Codec.CBOR.Write as CBOR
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
+import Codec.CBOR.Encoding qualified as CBOR
+import Codec.CBOR.Pretty qualified as CBOR
+import Codec.CBOR.Write qualified as CBOR
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodeBool,
@@ -23,8 +23,8 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
  )
 
-import qualified PlutusTx.AssocMap as Plutus.Map
-import qualified PlutusTx.Builtins as Plutus
+import PlutusTx.AssocMap qualified as Plutus.Map
+import PlutusTx.Builtins qualified as Plutus
 import Test.QuickCheck (
   Property,
   choose,
@@ -40,7 +40,7 @@ import Test.QuickCheck (
   withMaxSuccess,
   (===),
  )
-import qualified Prelude
+import Prelude qualified
 
 spec :: Spec
 spec =

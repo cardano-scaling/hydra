@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import qualified Hydra.TUI as TUI
+import Hydra.TUI qualified as TUI
 import Hydra.TUI.Options (parseOptions)
 import Options.Applicative (execParser, info)
 

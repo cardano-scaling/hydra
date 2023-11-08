@@ -3,7 +3,7 @@ module Hydra.TUI.Handlers.Global where
 import Brick (EventM)
 import Brick.Main (halt)
 import Graphics.Vty (Event (..), Key (..), Modifier (..))
-import qualified Graphics.Vty as Vty
+import Graphics.Vty qualified as Vty
 import Hydra.Prelude
 
 handleVtyQuitEvents :: Vty.Event -> EventM n s ()

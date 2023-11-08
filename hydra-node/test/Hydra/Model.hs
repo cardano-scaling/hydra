@@ -21,7 +21,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (pairs)
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTQueueIO,
@@ -34,13 +34,13 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.List (nub)
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Map ((!))
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
-import qualified Hydra.API.ClientInput as Input
+import Hydra.API.ClientInput qualified as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
@@ -61,7 +61,7 @@ import Hydra.HeadLogic (
   Committed (),
   IdleState (..),
  )
-import qualified Hydra.HeadLogic as HeadState
+import Hydra.HeadLogic qualified as HeadState
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
@@ -70,12 +70,12 @@ import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
-import qualified Hydra.Snapshot as Snapshot
+import Hydra.Snapshot qualified as Snapshot
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
-import qualified Prelude
+import Prelude qualified
 
 -- * The Model
 
@@ -373,7 +373,7 @@ genPayment WorldState{hydraParties, hydraState} =
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
-unsafeConstructorName :: (Show a) => a -> String
+unsafeConstructorName :: Show a => a -> String
 unsafeConstructorName = Prelude.head . Prelude.words . show
 
 -- | Generate a list of pairs of Hydra/Cardano signing keys.
@@ -420,7 +420,7 @@ newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
 instance MonadTrans RunMonad where
   lift = RunMonad . lift
 
-instance (MonadSTM m) => MonadState (Nodes m) (RunMonad m) where
+instance MonadSTM m => MonadState (Nodes m) (RunMonad m) where
   get = ask >>= lift . readTVarIO . nodesState
 
   put n = ask >>= lift . atomically . flip modifyTVar (const n) . nodesState

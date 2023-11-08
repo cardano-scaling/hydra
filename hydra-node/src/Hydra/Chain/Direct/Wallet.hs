@@ -7,42 +7,42 @@ module Hydra.Chain.Direct.Wallet where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash.Class
-import qualified Cardano.Ledger.Address as Ledger
+import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
 import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits, ppMaxTxExUnitsL, ppPricesL)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, wits)
-import qualified Cardano.Ledger.Babbage.Tx as Babbage
+import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.Babbage.TxBody qualified as Babbage
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (isNativeScript)
-import qualified Cardano.Ledger.Core as Core
-import qualified Cardano.Ledger.Core as Ledger
+import Cardano.Ledger.Core qualified as Core
+import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens ((^.))
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Map.Strict ((!))
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Ratio ((%))
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Data.Set as Set
+import Data.Sequence.Strict qualified as StrictSeq
+import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint,
@@ -70,7 +70,7 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
   verificationKeyHash,
  )
-import qualified Hydra.Cardano.Api as Api
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)

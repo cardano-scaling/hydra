@@ -17,7 +17,7 @@ import Control.Monad.IOSim (
  )
 import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)

@@ -15,8 +15,8 @@ import Brick.Forms (
  )
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.Map as Map
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map qualified as Map
 import Data.Text (chunksOf)
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.Format (FormatTime)
@@ -29,14 +29,13 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Network (NodeId)
 import Hydra.Party (Party (..))
 import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
-import Hydra.TUI.Logging.Types (LogMessage (..), logMessagesL, LogVerbosity (..), logVerbosityL)
+import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Lens.Micro ((^.), (^?), _head)
 import Paths_hydra_tui (version)
 
 -- | Main draw function
-
 draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
 draw cardanoClient hydraClient s =
   case s ^. logStateL . logVerbosityL of
@@ -77,24 +76,27 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
           ]
 
 drawCommandPanel :: RootState -> Widget n
-drawCommandPanel s = vBox [ drawCommandList s
-                       , hBorder
-                       , drawLogCommandList (s ^. logStateL . logVerbosityL)
-                       ]
+drawCommandPanel s =
+  vBox
+    [ drawCommandList s
+    , hBorder
+    , drawLogCommandList (s ^. logStateL . logVerbosityL)
+    ]
 
 drawScreenFullLog :: RootState -> [Widget Name]
-drawScreenFullLog s = pure $
-  withBorderStyle ascii $
-    joinBorders $ hBox [
-      vBox
-        [ drawHeadState (s ^. connectedStateL)
-        , hBorder
-        , viewport fullFeedbackViewportName Vertical $ drawUserFeedbackFull (s ^. logStateL . logMessagesL)
-        ],
-      vBorder,
-      hLimit 20 $ joinBorders $ drawCommandPanel s
-     ]
-
+drawScreenFullLog s =
+  pure $
+    withBorderStyle ascii $
+      joinBorders $
+        hBox
+          [ vBox
+              [ drawHeadState (s ^. connectedStateL)
+              , hBorder
+              , viewport fullFeedbackViewportName Vertical $ drawUserFeedbackFull (s ^. logStateL . logMessagesL)
+              ]
+          , vBorder
+          , hLimit 20 $ joinBorders $ drawCommandPanel s
+          ]
 
 drawCommandList :: RootState -> Widget n
 drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
@@ -110,16 +112,16 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
 
 drawLogCommandList :: LogVerbosity -> Widget n
 drawLogCommandList s = vBox . fmap txt $ case s of
-    Short ->
-      [ "[<] Scroll Left"
-      , "[>] Scroll Right"
-      , "Full [H]istory Mode"
-      ]
-    Full ->
-      [ "[<] Scroll Up"
-      , "[>] Scroll Down"
-      , "[S]hort History Mode"
-      ]
+  Short ->
+    [ "[<] Scroll Left"
+    , "[>] Scroll Right"
+    , "Full [H]istory Mode"
+    ]
+  Full ->
+    [ "[<] Scroll Up"
+    , "[>] Scroll Down"
+    , "[S]hort History Mode"
+    ]
 
 drawFocusPanelInitializing :: IdentifiedState -> InitializingState -> Widget Name
 drawFocusPanelInitializing me InitializingState{remainingParties, initializingScreen} = case initializingScreen of
@@ -144,7 +146,7 @@ drawFocusPanelFinal networkId vk utxo =
     txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
       <=> padLeft
         (Pad 2)
-        ( drawUTxO (highlightOwnAddress ownAddress) utxo )
+        (drawUTxO (highlightOwnAddress ownAddress) utxo)
  where
   ownAddress = mkVkAddress networkId vk
 

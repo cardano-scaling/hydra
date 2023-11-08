@@ -10,7 +10,7 @@ module Hydra.Version where
 
 import Hydra.Prelude
 
-import qualified Development.GitRev as GitRev
+import Development.GitRev qualified as GitRev
 import Foreign.C (CString)
 import GHC.Foreign (peekCStringLen)
 import GHC.IO (unsafeDupablePerformIO)

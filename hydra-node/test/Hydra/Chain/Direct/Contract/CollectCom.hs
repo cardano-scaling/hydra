@@ -6,9 +6,9 @@ module Hydra.Chain.Direct.Contract.CollectCom where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.List as List
-import qualified Data.Map as Map
+import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
+import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -35,15 +35,15 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
-import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
-import qualified Hydra.Contract.HeadState as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import qualified Hydra.Data.ContestationPeriod as OnChain
-import qualified Hydra.Data.Party as OnChain
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (
   genAdaOnlyUTxO,
   genAddressInEra,
@@ -55,7 +55,7 @@ import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
-import qualified Prelude
+import Prelude qualified
 
 --
 -- CollectComTx

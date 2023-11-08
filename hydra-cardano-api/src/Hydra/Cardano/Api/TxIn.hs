@@ -4,13 +4,13 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
-import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
-import qualified Cardano.Ledger.BaseTypes as Ledger
-import qualified Cardano.Ledger.Binary as Ledger
-import qualified Cardano.Ledger.TxIn as Ledger
-import qualified Data.ByteString as BS
-import qualified Data.Set as Set
-import qualified PlutusLedgerApi.V2 as Plutus
+import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Binary qualified as Ledger
+import Cardano.Ledger.TxIn qualified as Ledger
+import Data.ByteString qualified as BS
+import Data.Set qualified as Set
+import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (choose, vectorOf)
 
 -- * Extras

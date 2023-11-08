@@ -12,27 +12,27 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Base16 qualified as Base16
+import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain (HeadId (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadState as Head
-import qualified Hydra.Contract.HeadTokens as HeadTokens
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import qualified Hydra.Data.ContestationPeriod as OnChain
-import qualified Hydra.Data.Party as OnChain
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
@@ -52,7 +52,7 @@ import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
-import qualified PlutusLedgerApi.V2 as Plutus
+import PlutusLedgerApi.V2 qualified as Plutus
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)

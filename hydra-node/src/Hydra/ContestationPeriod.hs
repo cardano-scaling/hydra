@@ -4,7 +4,7 @@ import Hydra.Prelude hiding (Show, show)
 
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
-import qualified Hydra.Data.ContestationPeriod as OnChain
+import Hydra.Data.ContestationPeriod qualified as OnChain
 import Test.QuickCheck (choose, oneof)
 import Text.Show (Show (..))
 
@@ -18,7 +18,8 @@ instance Show ContestationPeriod where
 
 instance Arbitrary ContestationPeriod where
   arbitrary = do
-    UnsafeContestationPeriod . fromInteger
+    UnsafeContestationPeriod
+      . fromInteger
       <$> oneof
         [ choose (1, confirmedHorizon)
         , pure confirmedHorizon

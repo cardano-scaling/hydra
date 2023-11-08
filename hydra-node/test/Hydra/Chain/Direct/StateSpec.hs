@@ -6,11 +6,11 @@ module Hydra.Chain.Direct.StateSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Lazy qualified as LBS
 import Data.List (intersect)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
   Tx,
@@ -81,7 +81,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..))
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import qualified Hydra.Contract.HeadTokens as HeadTokens
+import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxOut,
@@ -96,10 +96,10 @@ import Hydra.Ledger.Cardano.Evaluate (
   genValidityBoundsFromContestationPeriod,
   maxTxSize,
  )
-import qualified Hydra.Ledger.Cardano.Evaluate as Fixture
+import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
-import qualified PlutusLedgerApi.Test.Examples as Plutus
-import qualified PlutusLedgerApi.V2 as Plutus
+import PlutusLedgerApi.Test.Examples qualified as Plutus
+import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (
   Property,
@@ -124,7 +124,7 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
-import qualified Prelude
+import Prelude qualified
 
 spec :: Spec
 spec = parallel $ do

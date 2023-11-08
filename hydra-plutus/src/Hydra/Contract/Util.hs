@@ -12,7 +12,7 @@ import PlutusLedgerApi.V2 (
   Value (getValue),
   toBuiltinData,
  )
-import qualified PlutusTx.AssocMap as AssocMap
+import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Prelude
 

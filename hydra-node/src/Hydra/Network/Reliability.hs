@@ -92,7 +92,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (Tracer)
-import qualified Data.IntMap as IMap
+import Data.IntMap qualified as IMap
 import Data.Vector (
   Vector,
   elemIndex,
@@ -121,10 +121,10 @@ data ReliableMsg msg = ReliableMsg
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (ToCBOR msg) => ToCBOR (ReliableMsg msg) where
+instance ToCBOR msg => ToCBOR (ReliableMsg msg) where
   toCBOR ReliableMsg{knownMessageIds, message} = toCBOR knownMessageIds <> toCBOR message
 
-instance (FromCBOR msg) => FromCBOR (ReliableMsg msg) where
+instance FromCBOR msg => FromCBOR (ReliableMsg msg) where
   fromCBOR = ReliableMsg <$> fromCBOR <*> fromCBOR
 
 instance ToCBOR msg => SignableRepresentation (ReliableMsg msg) where
@@ -271,17 +271,17 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
           messageAckForParty <- hoistMaybe (acks !? partyIndex)
           knownAckForParty <- hoistMaybe $ loadedAcks !? partyIndex
           if
-              | isPing msg ->
-                  -- we do not update indices on Pings but we do propagate them
-                  return (True, partyIndex, loadedAcks)
-              | messageAckForParty == knownAckForParty + 1 -> do
-                  -- we update indices for next in line messages and propagate them
-                  let newAcks = constructAcks loadedAcks partyIndex
-                  lift $ writeTVar acksCache newAcks
-                  return (True, partyIndex, newAcks)
-              | otherwise ->
-                  -- other messages are dropped
-                  return (False, partyIndex, loadedAcks)
+            | isPing msg ->
+                -- we do not update indices on Pings but we do propagate them
+                return (True, partyIndex, loadedAcks)
+            | messageAckForParty == knownAckForParty + 1 -> do
+                -- we update indices for next in line messages and propagate them
+                let newAcks = constructAcks loadedAcks partyIndex
+                lift $ writeTVar acksCache newAcks
+                return (True, partyIndex, newAcks)
+            | otherwise ->
+                -- other messages are dropped
+                return (False, partyIndex, loadedAcks)
 
         case eShouldCallbackWithKnownAcks of
           Just (shouldCallback, partyIndex, knownAcks) -> do

@@ -4,10 +4,10 @@ module Hydra.Chain.Direct.Util where
 
 import Hydra.Prelude
 
-import qualified Cardano.Crypto.DSIGN as Crypto
+import Cardano.Crypto.DSIGN qualified as Crypto
 import Cardano.Ledger.Crypto (DSIGN)
 import Hydra.Cardano.Api hiding (Block, SigningKey, VerificationKey)
-import qualified Hydra.Cardano.Api as Shelley
+import Hydra.Cardano.Api qualified as Shelley
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 
 type Block = CardanoBlock StandardCrypto

@@ -23,7 +23,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
-import qualified Data.Sequence as Seq
+import Data.Sequence qualified as Seq
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )

@@ -34,7 +34,7 @@ import PlutusLedgerApi.V1 (
 
 import Hydra.Plutus.Extras (wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import qualified PlutusTx as Plutus
+import PlutusTx qualified as Plutus
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.

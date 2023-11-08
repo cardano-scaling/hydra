@@ -3,8 +3,8 @@ module Test.Ledger.Cardano.ConfigurationSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Data.Aeson as Json
-import qualified Data.Aeson.Types as Json
+import Data.Aeson qualified as Json
+import Data.Aeson.Types qualified as Json
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Ledger.Cardano.Configuration (protocolParametersFromJson)
 

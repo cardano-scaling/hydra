@@ -4,9 +4,8 @@ version:       0.0.1
 build-type:    Simple
 
 common project-config
-  default-language: GHC2021
+  default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -15,6 +14,7 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
+    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     TypeFamilies

@@ -9,7 +9,7 @@ import Data.Aeson (ToJSONKey)
 import Data.Aeson.Types (FromJSONKey)
 import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (deserialiseFromRawBytes, serialiseToRawBytes), SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
 import Hydra.Crypto (AsType (AsHydraKey), HydraKey)
-import qualified Hydra.Data.Party as OnChain
+import Hydra.Data.Party qualified as OnChain
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}

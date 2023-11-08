@@ -12,8 +12,8 @@ module Test.Plutus.Validator (
 
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.Core as Ledger
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Core qualified as Ledger
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel)
 import Cardano.Ledger.BaseTypes (ProtVer (..), natVersion)
@@ -22,7 +22,7 @@ import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.Lens ((.~))
 import Data.Default (def)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
   ExecutionUnits (..),
@@ -56,8 +56,8 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import PlutusLedgerApi.Common (SerialisedScript)
-import qualified PlutusTx as Plutus
-import qualified Prelude
+import PlutusTx qualified as Plutus
+import Prelude qualified
 
 -- TODO: DRY with Hydra.Ledger.Cardano.Evaluate
 

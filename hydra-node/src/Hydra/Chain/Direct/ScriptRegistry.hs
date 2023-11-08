@@ -5,8 +5,8 @@ module Hydra.Chain.Direct.ScriptRegistry where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import qualified Cardano.Api.UTxO as UTxO
-import qualified Data.Map as Map
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   Key (..),
@@ -48,9 +48,9 @@ import Hydra.Chain.CardanoClient (
   submitTransaction,
  )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
 
 -- | Hydra scripts published as reference scripts at these UTxO.

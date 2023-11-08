@@ -14,7 +14,7 @@ import Control.Monad.Class.MonadAsync (wait)
 import Hydra.Prelude
 
 import Codec.CBOR.Term (Term)
-import qualified Codec.CBOR.Term as CBOR
+import Codec.CBOR.Term qualified as CBOR
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
@@ -24,8 +24,8 @@ import Control.Concurrent.STM (
  )
 import Control.Exception (IOException)
 import Data.Aeson (object, withObject, (.:), (.=))
-import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types qualified as Aeson
 import Data.Map.Strict as Map
 import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
@@ -113,7 +113,7 @@ import Ouroboros.Network.Subscription (
   SubscriptionTrace,
   WithIPList,
  )
-import qualified Ouroboros.Network.Subscription as Subscription
+import Ouroboros.Network.Subscription qualified as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (WithIPList))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 

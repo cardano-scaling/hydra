@@ -9,12 +9,12 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   AssetName (..),
   BlockHeader,
@@ -186,7 +186,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
-  (MonadThrow m) =>
+  MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
   ChainStateType Tx ->

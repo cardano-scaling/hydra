@@ -14,10 +14,10 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
 import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
-import qualified Cardano.Ledger.BaseTypes as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
-import qualified Cardano.Slotting.Time as Slotting
+import Cardano.Slotting.Time qualified as Slotting
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)

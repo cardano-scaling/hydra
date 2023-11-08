@@ -5,10 +5,10 @@ module Hydra.API.ServerOutput where
 import Cardano.Binary (serialize')
 import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
-import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, HeadId, IsChainState, OnChainId, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
@@ -26,7 +26,7 @@ data TimedServerOutput tx = TimedServerOutput
   }
   deriving stock (Eq, Show, Generic)
 
-instance (Arbitrary (ServerOutput tx)) => Arbitrary (TimedServerOutput tx) where
+instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
 -- | Generate a random timed server output given a normal server output.
@@ -34,14 +34,14 @@ genTimedServerOutput :: ServerOutput tx -> Gen (TimedServerOutput tx)
 genTimedServerOutput o =
   TimedServerOutput o <$> arbitrary <*> arbitrary
 
-instance (IsChainState tx) => ToJSON (TimedServerOutput tx) where
+instance IsChainState tx => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
       Object o ->
         Object $ o <> KeyMap.fromList [("seq", toJSON seq), ("timestamp", toJSON time)]
       _NotAnObject -> error "expected ServerOutput to serialize to an Object"
 
-instance (IsChainState tx) => FromJSON (TimedServerOutput tx) where
+instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
@@ -92,17 +92,17 @@ data ServerOutput tx
   | IgnoredHeadInitializing {headId :: HeadId, participants :: [OnChainId]}
   deriving stock (Generic)
 
-deriving stock instance (IsChainState tx) => Eq (ServerOutput tx)
-deriving stock instance (IsChainState tx) => Show (ServerOutput tx)
+deriving stock instance IsChainState tx => Eq (ServerOutput tx)
+deriving stock instance IsChainState tx => Show (ServerOutput tx)
 
-instance (IsChainState tx) => ToJSON (ServerOutput tx) where
+instance IsChainState tx => ToJSON (ServerOutput tx) where
   toJSON =
     genericToJSON
       defaultOptions
         { omitNothingFields = True
         }
 
-instance (IsChainState tx) => FromJSON (ServerOutput tx) where
+instance IsChainState tx => FromJSON (ServerOutput tx) where
   parseJSON =
     genericParseJSON
       defaultOptions
@@ -166,7 +166,7 @@ data ServerOutputConfig = ServerOutputConfig
 -- 'handleTxOutput' so that we don't forget to update this function if they
 -- change.
 prepareServerOutput ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   -- | Decide on tx representation
   ServerOutputConfig ->
   -- | Server output
