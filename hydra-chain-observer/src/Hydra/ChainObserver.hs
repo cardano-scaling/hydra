@@ -44,6 +44,9 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
  )
 import Hydra.Chain.Direct.Tx (CloseObservation(..))
 import Hydra.Chain.Direct.Tx (FanoutObservation(..))
+import Hydra.Cardano.Api.Prelude (TxId)
+import Hydra.Cardano.Api (getTxId)
+import Hydra.Cardano.Api (getTxBody)
 
 main :: IO ()
 main = do
@@ -63,6 +66,7 @@ data ChainObserverLog
   | HeadCloseTx {headId :: HeadId}
   | HeadFanoutTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
+  | RollForward {receivedTxIds :: [TxId]}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -109,6 +113,7 @@ chainSyncClient tracer networkId =
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
+              traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
               forM_ txs $ \tx -> do
                 case observeHeadTx networkId utxo tx of
                   NoHeadTx -> pure ()
