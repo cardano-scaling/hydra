@@ -16,7 +16,6 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
@@ -42,6 +41,7 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
+    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures

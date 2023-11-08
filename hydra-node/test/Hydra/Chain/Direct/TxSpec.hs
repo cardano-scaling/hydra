@@ -28,6 +28,8 @@ import Hydra.Chain.Direct.Fixture (
   testSeedInput,
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
+import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Contract.Commit qualified as Commit
@@ -36,12 +38,25 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
-import Test.QuickCheck (Property, choose, counterexample, elements, forAll, getPositive, label, property, vectorOf, withMaxSuccess)
+import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllBlind, getPositive, label, property, vectorOf, withMaxSuccess, (===))
 import Test.QuickCheck.Instances.Semigroup ()
+import Test.QuickCheck.Property (checkCoverage)
 
 spec :: Spec
 spec =
   parallel $ do
+    describe "observeHeadTx" $ do
+      prop "All valid transitions for all possible states can be observed." $
+        checkCoverage $
+          forAllBlind genChainStateWithTx $ \(ctx, st, tx, transition :: _) ->
+            genericCoverTable [transition] $
+              counterexample (show transition) $
+                let utxo = getKnownUTxO st
+                 in case (observeHeadTx testNetworkId utxo tx) of
+                      NoHeadTx -> property False
+                      Init{} -> transition === Transition.Init
+                      _ -> property True
+
     describe "collectComTx" $ do
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) walletUTxO -> do

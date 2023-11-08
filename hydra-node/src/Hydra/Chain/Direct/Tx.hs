@@ -629,8 +629,10 @@ observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
-      <|> Commit <$> observeRawCommitTx networkId tx
-      <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Commit
+      <$> observeRawCommitTx networkId tx
+      <|> CollectCom
+      <$> observeCollectComTx utxo tx
 
 -- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
 -- interest to us.
@@ -1142,7 +1144,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)

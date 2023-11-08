@@ -20,16 +20,16 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
-  utxoFromTx,
   SocketPath,
   UTxO,
   connectToLocalNode,
+  utxoFromTx,
  )
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Tx (
+  CollectComObservation (..),
   HeadObservation (..),
   RawCommitObservation (..),
-  CollectComObservation (..),
   RawInitObservation (..),
   mkHeadId,
   observeHeadTx,
