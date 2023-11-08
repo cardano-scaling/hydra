@@ -86,7 +86,7 @@ toSpec = \case
 data TestTree
   = Describe String [TestTree]
   | It String
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 genDescribe :: Int -> Gen TestTree
 genDescribe maxDepth = do

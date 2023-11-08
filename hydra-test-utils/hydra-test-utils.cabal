@@ -17,6 +17,7 @@ common package-config
   default-language:   GHC2021
   default-extensions:
     DataKinds
+    DerivingStrategies
     LambdaCase
     NoImplicitPrelude
     OverloadedStrings
