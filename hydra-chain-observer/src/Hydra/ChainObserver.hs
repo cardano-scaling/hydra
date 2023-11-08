@@ -2,13 +2,13 @@
 
 module Hydra.ChainObserver (
   main,
-  ChainObserverLog(..),
-  observeTx
+  ChainObserverLog (..),
+  observeTx,
 ) where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, UTxO, connectToLocalNode, getTxBody, getTxId, Tx)
+import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawCommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
@@ -91,9 +91,8 @@ chainSyncClient tracer networkId =
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
-              forM_ txs $ \tx -> case observeTx networkId utxo tx of
-                Nothing -> pure ()
-                Just observed -> traceWith tracer observed
+              forM_ txs $ \tx ->
+                for_ (observeTx networkId utxo tx) (traceWith tracer)
               let utxo' = foldr adjustUTxO utxo txs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo

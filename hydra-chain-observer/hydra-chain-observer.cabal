@@ -96,7 +96,6 @@ test-suite tests
     , hydra-prelude
     , hydra-test-utils
     , QuickCheck
-  other-modules:
-    Hydra.ChainObserverSpec
 
+  other-modules:      Hydra.ChainObserverSpec
   build-tool-depends: hspec-discover:hspec-discover

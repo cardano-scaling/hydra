@@ -1,13 +1,13 @@
 module Hydra.ChainObserverSpec where
 
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
+import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.ChainObserver (ChainObserverLog (..), observeTx)
+import Hydra.Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (counterexample, forAllBlind, property, (===))
-import Hydra.Prelude
-import Hydra.ChainObserver (ChainObserverLog(..), observeTx)
 import Test.QuickCheck.Property (checkCoverage)
-import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.State qualified as Transition
 
 spec :: Spec
 spec =
