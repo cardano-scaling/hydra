@@ -157,6 +157,7 @@ chainSlotFromPoint p =
 -- bounded to be used as labels for checking coverage.
 data ChainTransition
   = Init
+  | Abort
   | Commit
   | Collect
   | Close
@@ -774,6 +775,7 @@ genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
+    , genAbortWithState
     , genCommitWithState
     , genCollectWithState
     , genCloseWithState
@@ -788,6 +790,14 @@ genChainStateWithTx =
     seedInput <- genTxIn
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
     pure (cctx, Idle, tx, Init)
+
+  genAbortWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genAbortWithState = do
+    ctx <- genHydraContext maxGenParties
+    (cctx, stInitial) <- genStInitial ctx
+    -- TODO: also generate sometimes aborts with utxo
+    let tx = abort cctx stInitial mempty
+    pure (cctx, Initial stInitial, tx, Abort)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCommitWithState = do

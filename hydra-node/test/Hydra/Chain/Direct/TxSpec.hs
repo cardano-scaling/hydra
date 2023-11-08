@@ -55,6 +55,7 @@ spec =
                  in case (observeHeadTx testNetworkId utxo tx) of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
+                      Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
                       CollectCom{} -> transition === Transition.Collect
                       Close{} -> transition === Transition.Close

@@ -621,6 +621,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 data HeadObservation
   = NoHeadTx
   | Init RawInitObservation
+  | Abort AbortObservation
   | Commit RawCommitObservation
   | CollectCom CollectComObservation
   | Close CloseObservation
@@ -632,6 +633,7 @@ observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
+      <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeRawCommitTx networkId tx
       <|> CollectCom <$> observeCollectComTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
