@@ -20,7 +20,9 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  utxoFromTx,
   SocketPath,
+  UTxO,
   connectToLocalNode,
  )
 import Hydra.Chain (HeadId (..))
@@ -92,26 +94,27 @@ chainSyncClient ::
   ChainSyncClient BlockType ChainPoint tip IO ()
 chainSyncClient tracer networkId =
   ChainSyncClient $ do
-    pure $ SendMsgRequestNext clientStNext (pure clientStNext)
+    pure $ SendMsgRequestNext (clientStNext mempty) (pure $ clientStNext mempty)
  where
-  clientStIdle :: ClientStIdle BlockType ChainPoint tip IO ()
-  clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
+  clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint tip IO ()
+  clientStIdle utxo = SendMsgRequestNext (clientStNext utxo) (pure $ clientStNext utxo)
 
-  clientStNext :: ClientStNext BlockType ChainPoint tip IO ()
-  clientStNext =
+  clientStNext :: UTxO -> ClientStNext BlockType ChainPoint tip IO ()
+  clientStNext utxo =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash blockNo) txs) BabbageEraInCardanoMode -> do
               forM_ txs $ \tx -> do
-                case observeHeadTx networkId tx of
+                case observeHeadTx networkId utxo tx of
                   NoHeadTx -> pure ()
                   Init RawInitObservation{headId} -> traceWith tracer $ HeadInitTx{headId = mkHeadId headId}
                   Commit RawCommitObservation{headId} -> traceWith tracer $ HeadCommitTx{headId}
                   CollectCom CollectComObservation{headId} -> traceWith tracer $ HeadCollectComTx{headId}
-              pure clientStIdle
-            _ -> pure clientStIdle
+              let utxo' = utxo <> foldMap utxoFromTx txs
+              pure $ clientStIdle utxo'
+            _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
-          pure clientStIdle
+          pure $ clientStIdle utxo
       }
