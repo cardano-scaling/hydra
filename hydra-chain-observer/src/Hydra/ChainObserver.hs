@@ -123,6 +123,7 @@ chainSyncClient tracer networkId =
                   Close CloseObservation{headId} -> traceWith tracer $ HeadCloseTx{headId}
                   Fanout FanoutObservation{headId} -> traceWith tracer $ HeadFanoutTx{headId}
               let utxo' = utxo <> foldMap utxoFromTx txs
+              -- FIXME: properly remove / add UTxOs
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
