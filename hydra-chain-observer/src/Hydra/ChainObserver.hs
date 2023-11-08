@@ -4,6 +4,7 @@ module Hydra.ChainObserver (
   main,
   ChainObserverLog (..),
   observeTx,
+  observeAll,
 ) where
 
 import Hydra.Prelude
@@ -91,9 +92,8 @@ chainSyncClient tracer networkId =
           case blockInMode of
             BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
-              forM_ txs $ \tx ->
-                for_ (observeTx networkId utxo tx) (traceWith tracer)
-              let utxo' = foldr adjustUTxO utxo txs
+              let (utxo', logs) = observeAll networkId utxo txs
+              forM_ logs (traceWith tracer)
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
@@ -101,14 +101,24 @@ chainSyncClient tracer networkId =
           pure $ clientStIdle utxo
       }
 
-observeTx :: NetworkId -> UTxO -> Tx -> Maybe ChainObserverLog
+observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe ChainObserverLog)
 observeTx networkId utxo tx =
   case observeHeadTx networkId utxo tx of
-    NoHeadTx -> Nothing
-    Init RawInitObservation{headId} -> pure $ HeadInitTx{headId = mkHeadId headId}
-    Commit RawCommitObservation{headId} -> pure $ HeadCommitTx{headId}
-    CollectCom CollectComObservation{headId} -> pure $ HeadCollectComTx{headId}
-    Close CloseObservation{headId} -> pure $ HeadCloseTx{headId}
-    Fanout FanoutObservation{headId} -> pure $ HeadFanoutTx{headId}
-    Abort AbortObservation{headId} -> pure $ HeadAbortTx{headId}
-    Contest ContestObservation{headId} -> pure $ HeadContestTx{headId}
+    NoHeadTx -> (utxo, Nothing)
+    Init RawInitObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadInitTx{headId = mkHeadId headId})
+    Commit RawCommitObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCommitTx{headId})
+    CollectCom CollectComObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCollectComTx{headId})
+    Close CloseObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCloseTx{headId})
+    Fanout FanoutObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadFanoutTx{headId})
+    Abort AbortObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadAbortTx{headId})
+    Contest ContestObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadContestTx{headId})
+
+observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [ChainObserverLog])
+observeAll networkId utxo txs =
+  second reverse $ foldr go (utxo, []) txs
+ where
+   go :: Tx -> (UTxO, [ChainObserverLog]) -> (UTxO, [ChainObserverLog])
+   go tx (utxo, logs) =
+     case observeTx networkId utxo tx of
+       (utxo', Nothing) -> (utxo', logs)
+       (utxo', Just logEntry) -> (utxo', logEntry : logs)
