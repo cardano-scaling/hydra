@@ -148,7 +148,7 @@ data PostTxError tx
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
   | -- | We cannot draft a commit tx in offline mode
-  FailedToDraftTxOffline
+    FailedToDraftTxOffline
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
   | FailedToConstructAbortTx

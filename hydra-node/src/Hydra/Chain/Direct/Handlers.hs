@@ -82,8 +82,6 @@ import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
-import Hydra.HeadId (HeadId)
-
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
   { getLatest :: STM m (ChainStateType tx)
@@ -126,8 +124,6 @@ type SubmitTx m = Tx -> m ()
 
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
-
-
 
 -- | Create a `Chain` component for posting "real" cardano transactions.
 --

@@ -1,8 +1,8 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Offline (
-  withOfflineChain
+  withOfflineChain,
 ) where
 
 import Hydra.Prelude
@@ -13,10 +13,12 @@ import Hydra.Logging (Tracer)
 
 import Hydra.Chain (
   ChainComponent,
-  ChainStateHistory, ChainEvent (Tick), chainTime, chainSlot,
+  ChainEvent (Tick),
+  ChainStateHistory,
+  chainSlot,
+  chainTime,
  )
 import Hydra.HeadId (HeadId)
-
 
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (),
@@ -26,30 +28,31 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 
-import Hydra.Options (OfflineConfig(OfflineConfig, ledgerGenesisFile, initialUTxOFile))
+import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
 
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
 
-import qualified Ouroboros.Consensus.HardFork.History as Consensus
-import Ouroboros.Consensus.HardFork.History (neverForksSummary, mkInterpreter, wallclockToSlot, interpretQuery, slotToWallclock)
+import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
-import Cardano.Ledger.Slot (SlotNo(SlotNo, unSlotNo))
+import Cardano.Ledger.Slot (SlotNo (SlotNo, unSlotNo))
 
-import qualified Cardano.Slotting.Time as Slotting
-import Cardano.Slotting.Time (mkSlotLength, toRelativeTime, SystemStart (SystemStart))
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
+import Cardano.Slotting.Time qualified as Slotting
 
 import Cardano.Ledger.BaseTypes (epochInfoPure)
 
-import Cardano.Slotting.EpochInfo (epochInfoSlotToUTCTime, EpochInfo (EpochInfo), epochInfoFirst)
+import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime)
 
 import Ouroboros.Consensus.Util.Time (nominalDelay)
 
 import Hydra.Cardano.Api (
-  Tx, StandardCrypto,
+  StandardCrypto,
+  Tx,
  )
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
-import Hydra.Party (Party)
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Party (Party)
 
 withOfflineChain ::
   Tracer IO DirectChainLog -> -- TODO(ELAINE): change type to indicate offline mode maybe?
@@ -62,7 +65,6 @@ withOfflineChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} ownHeadId party contestationPeriod chainStateHistory callback action = do
-
   initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
   initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
 
@@ -73,12 +75,12 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
 
   tickForeverAction <- case ledgerGenesisFile of
-    Just filePath -> do 
-      Ledger.ShelleyGenesis{ sgSystemStart, sgSlotLength, sgEpochLength } <-
+    Just filePath -> do
+      Ledger.ShelleyGenesis{sgSystemStart, sgSlotLength, sgEpochLength} <-
         readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
       let slotLengthNominalDiffTime = Ledger.fromNominalDiffTimeMicro sgSlotLength
           slotLength = mkSlotLength slotLengthNominalDiffTime
-      
+
       let interpreter = mkInterpreter $ neverForksSummary sgEpochLength slotLength
 
       let slotFromUTCTime :: HasCallStack => UTCTime -> Either Consensus.PastHorizonException ChainSlot
@@ -103,13 +105,13 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
             threadDelay $ nominalDelay sleepDelay
             callback $
               Tick
-              { chainTime = timeToSleepUntil
-              , chainSlot = ChainSlot . fromIntegral @Word64 @Natural $ upcomingSlotWord64
-              }
+                { chainTime = timeToSleepUntil
+                , chainSlot = ChainSlot . fromIntegral @Word64 @Natural $ upcomingSlotWord64
+                }
 
       ChainSlot initialSlotNat <- either throwIO pure =<< fmap slotFromUTCTime getCurrentTime
       let initialSlot = SlotNo . fromIntegral @Natural @Word64 $ initialSlotNat
-      let tickForever = traverse_ nextTick [initialSlot..]
+      let tickForever = traverse_ nextTick [initialSlot ..]
       pure tickForever
     Nothing -> do
       let epochInfo@EpochInfo{} = epochInfoPure globals
@@ -121,12 +123,12 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
             threadDelay $ nominalDelay sleepDelay
             callback $
               Tick
-              { chainTime = timeToSleepUntil
-              , chainSlot = ChainSlot . fromIntegral @Word64 @Natural $ unSlotNo upcomingSlot
-              }
+                { chainTime = timeToSleepUntil
+                , chainSlot = ChainSlot . fromIntegral @Word64 @Natural $ unSlotNo upcomingSlot
+                }
 
-          tickForever = traverse_ nextTick [initialSlot..]
-          
+          tickForever = traverse_ nextTick [initialSlot ..]
+
       pure tickForever
 
   res <-
