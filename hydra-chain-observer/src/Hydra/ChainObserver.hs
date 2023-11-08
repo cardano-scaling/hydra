@@ -103,22 +103,24 @@ chainSyncClient tracer networkId =
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe ChainObserverLog)
 observeTx networkId utxo tx =
+  let utxo' = adjustUTxO tx utxo
+  in
   case observeHeadTx networkId utxo tx of
     NoHeadTx -> (utxo, Nothing)
-    Init RawInitObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadInitTx{headId = mkHeadId headId})
-    Commit RawCommitObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCommitTx{headId})
-    CollectCom CollectComObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCollectComTx{headId})
-    Close CloseObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadCloseTx{headId})
-    Fanout FanoutObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadFanoutTx{headId})
-    Abort AbortObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadAbortTx{headId})
-    Contest ContestObservation{headId} -> (adjustUTxO tx utxo, pure $ HeadContestTx{headId})
+    Init RawInitObservation{headId} -> (utxo', pure $ HeadInitTx{headId = mkHeadId headId})
+    Commit RawCommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
+    CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
+    Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
+    Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})
+    Abort AbortObservation{headId} -> (utxo', pure $ HeadAbortTx{headId})
+    Contest ContestObservation{headId} -> (utxo', pure $ HeadContestTx{headId})
 
 observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [ChainObserverLog])
 observeAll networkId utxo txs =
   second reverse $ foldr go (utxo, []) txs
  where
    go :: Tx -> (UTxO, [ChainObserverLog]) -> (UTxO, [ChainObserverLog])
-   go tx (utxo, logs) =
-     case observeTx networkId utxo tx of
+   go tx (utxo'', logs) =
+     case observeTx networkId utxo'' tx of
        (utxo', Nothing) -> (utxo', logs)
        (utxo', Just logEntry) -> (utxo', logEntry : logs)
