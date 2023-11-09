@@ -634,7 +634,7 @@ observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
       <|> Abort <$> observeAbortTx utxo tx
-      <|> Commit <$> observeCommitTx networkId tx
+      <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
@@ -851,22 +851,27 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
   , party :: Party
+  -- ^ Hydra participant who committed the UTxO.
   , committed :: UTxO
   , headId :: HeadId
   }
 
 -- | Identify a commit tx by:
 --
+-- - Check that its spending from the init validator,
 -- - Find the outputs which pays to the commit validator,
 -- - Using the datum of that output, deserialize the committed output,
 -- - Reconstruct the committed UTxO from both values (tx input and output).
--- - TODO: Need to ensure this is a head protocol transaction.
 observeCommitTx ::
   NetworkId ->
+  -- | A UTxO set to lookup tx inputs. Should at least contain the input
+  -- spending from νInitial.
+  UTxO ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId tx = do
-  -- FIXME: Strategy to observe without looking at resolved inputs (utxo):
+observeCommitTx networkId utxo tx = do
+  -- FIXME: Instead checking to spend from initial we could be looking at the
+  -- seed:
   --
   --  - We must check that participation token in output satisfies
   --      policyId = hash(mu_head(seed))
@@ -880,6 +885,9 @@ observeCommitTx networkId tx = do
   --
   --  Right now we only have the headId in the datum, so we use that in place of
   --  the seed -> THIS CAN NOT BE TRUSTED.
+
+  guard isSpendingFromInitial
+
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
@@ -889,9 +897,6 @@ observeCommitTx networkId tx = do
   -- the commit into the datum (+ changing the hashing strategy of
   -- collect/fanout)
   committed <- do
-    -- TODO: We could simplify this by just using the datum. However, we would
-    -- need to ensure the commit is belonging to a head / is rightful. By just
-    -- looking for some known initials we achieve this (a bit complicated) now.
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
     pure . UTxO.fromPairs $ committedUTxO
 
@@ -903,6 +908,15 @@ observeCommitTx networkId tx = do
       , headId = mkHeadId $ fromPlutusCurrencySymbol headId
       }
  where
+  isSpendingFromInitial :: Bool
+  isSpendingFromInitial = do
+    let resolvedInputs = mapMaybe (`UTxO.resolve` utxo) $ txIns' tx
+    any (\o -> txOutAddress o == initialAddress) resolvedInputs
+
+  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
+
+  initialScript = fromPlutusScript Initial.validatorScript
+
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript

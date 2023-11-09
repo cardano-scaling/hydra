@@ -216,7 +216,7 @@ spec = parallel $ do
           mutation <- pick $ genCommitTxMutation utxo tx
           let (tx', utxo') = applyMutation mutation (tx, utxo)
 
-              originalIsObserved = property $ isJust $ observeCommitTx testNetworkId tx
+              originalIsObserved = property $ isJust $ observeCommitTx testNetworkId utxo tx
 
               -- We expected mutated transaction to still be valid, but not observed.
               mutatedIsValid =
@@ -227,7 +227,7 @@ spec = parallel $ do
                     | otherwise -> property False & counterexample (show ok)
 
               mutatedIsNotObserved =
-                isNothing $ observeCommitTx testNetworkId tx'
+                isNothing $ observeCommitTx testNetworkId utxo' tx'
 
           pure $
             conjoin
