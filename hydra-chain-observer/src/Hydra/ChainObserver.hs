@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawCommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), CommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
@@ -108,7 +108,7 @@ observeTx networkId utxo tx =
   case observeHeadTx networkId utxo tx of
     NoHeadTx -> (utxo, Nothing)
     Init RawInitObservation{headId} -> (utxo', pure $ HeadInitTx{headId = mkHeadId headId})
-    Commit RawCommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
+    Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
     CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
     Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
     Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})

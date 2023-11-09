@@ -611,8 +611,7 @@ observeCommit ::
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
 observeCommit ctx st tx = do
-  let initials = fst3 <$> initialInitials
-  observation <- observeCommitTx networkId initials tx
+  observation <- observeCommitTx networkId tx
   let CommitObservation{commitOutput, party, committed} = observation
   let event = OnCommitTx{party, committed}
   let st' =

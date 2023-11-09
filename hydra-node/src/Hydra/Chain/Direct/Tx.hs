@@ -622,7 +622,7 @@ data HeadObservation
   = NoHeadTx
   | Init RawInitObservation
   | Abort AbortObservation
-  | Commit RawCommitObservation
+  | Commit CommitObservation
   | CollectCom CollectComObservation
   | Close CloseObservation
   | Contest ContestObservation
@@ -634,7 +634,7 @@ observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
       <|> Abort <$> observeAbortTx utxo tx
-      <|> Commit <$> observeRawCommitTx networkId tx
+      <|> Commit <$> observeCommitTx networkId tx
       <|> CollectCom <$> observeCollectComTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
@@ -847,36 +847,6 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
 
   containsSameElements a b = Set.fromList a == Set.fromList b
 
--- | Everything we can observe from a commit tx without it's inputs resolved.
-data RawCommitObservation = RawCommitObservation
-  { commitOutput :: UTxOWithScript
-  , party :: Party
-  , headId :: HeadId
-  }
-
--- | Observe a commit transaction "by structure". It is (currently) not
--- verifying that this is a proper Hydra head FIXME: This does not verify this
--- is a commit tx of a "rightful" head.
-observeRawCommitTx ::
-  NetworkId ->
-  Tx ->
-  Maybe RawCommitObservation
-observeRawCommitTx networkId tx = do
-  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
-  dat <- txOutScriptData commitOut
-  (onChainParty, _onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
-  party <- partyFromChain onChainParty
-  pure
-    RawCommitObservation
-      { commitOutput = (commitIn, toUTxOContext commitOut, dat)
-      , party
-      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
-      }
- where
-  commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
-
-  commitScript = fromPlutusScript Commit.validatorScript
-
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
@@ -887,19 +857,15 @@ data CommitObservation = CommitObservation
 
 -- | Identify a commit tx by:
 --
--- - Find which 'initial' tx input is being consumed,
--- - Find the redeemer corresponding to that 'initial', which contains the tx
---   input of the committed utxo,
 -- - Find the outputs which pays to the commit validator,
 -- - Using the datum of that output, deserialize the committed output,
 -- - Reconstruct the committed UTxO from both values (tx input and output).
+-- - TODO: Need to ensure this is a head protocol transaction.
 observeCommitTx ::
   NetworkId ->
-  -- | Known (remaining) initial tx inputs.
-  [TxIn] ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId initials tx = do
+observeCommitTx networkId tx = do
   -- FIXME: Strategy to observe without looking at resolved inputs (utxo):
   --
   --  - We must check that participation token in output satisfies
@@ -919,9 +885,6 @@ observeCommitTx networkId initials tx = do
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
 
-  initialTxIn <- findInitialTxIn
-  committedTxIns <- decodeInitialRedeemer initialTxIn
-
   -- FIXME: If we have the resolved inputs (utxo) then we could avoid putting
   -- the commit into the datum (+ changing the hashing strategy of
   -- collect/fanout)
@@ -930,8 +893,6 @@ observeCommitTx networkId initials tx = do
     -- need to ensure the commit is belonging to a head / is rightful. By just
     -- looking for some known initials we achieve this (a bit complicated) now.
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
-    when (map fst committedUTxO /= committedTxIns) $
-      error "TODO: commit redeemer not matching the serialized commits in commit datum"
     pure . UTxO.fromPairs $ committedUTxO
 
   pure
@@ -942,18 +903,6 @@ observeCommitTx networkId initials tx = do
       , headId = mkHeadId $ fromPlutusCurrencySymbol headId
       }
  where
-  findInitialTxIn =
-    case filter (`elem` initials) (txIns' tx) of
-      [input] -> Just input
-      _ -> Nothing
-
-  decodeInitialRedeemer =
-    findRedeemerSpending tx >=> \case
-      Initial.ViaAbort ->
-        Nothing
-      Initial.ViaCommit{committedRefs} ->
-        Just (fromPlutusTxOutRef <$> committedRefs)
-
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
