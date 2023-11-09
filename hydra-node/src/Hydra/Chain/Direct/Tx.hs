@@ -900,6 +900,20 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId initials tx = do
+  -- FIXME: Strategy to observe without looking at resolved inputs (utxo):
+  --
+  --  - We must check that participation token in output satisfies
+  --      policyId = hash(mu_head(seed))
+  --
+  --  - This allows us to assume (by induction) the output datum at the commit
+  --    script is legit
+  --
+  --  - Further, we need to assert / assume that only one script is spent = onle
+  --    one redeemer matches the InitialRedeemer, as we do not have information
+  --    which of the inputs is spending from the initial script otherwise.
+  --
+  --  Right now we only have the headId in the datum, so we use that in place of
+  --  the seed -> THIS CAN NOT BE TRUSTED.
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
@@ -908,6 +922,9 @@ observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
   committedTxIns <- decodeInitialRedeemer initialTxIn
 
+  -- FIXME: If we have the resolved inputs (utxo) then we could avoid putting
+  -- the commit into the datum (+ changing the hashing strategy of
+  -- collect/fanout)
   committed <- do
     -- TODO: We could simplify this by just using the datum. However, we would
     -- need to ensure the commit is belonging to a head / is rightful. By just
