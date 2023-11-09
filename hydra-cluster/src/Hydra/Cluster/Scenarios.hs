@@ -260,6 +260,7 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
       headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Prepare a script output on the network
+      -- FIXME: spending validators have 3 arguments? does this succeed still? is it not run?
       let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
           scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
           reedemer = 1 :: Integer
