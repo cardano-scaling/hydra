@@ -1,11 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Hydra.ChainObserver (
-  main,
-  ChainObserverLog (..),
-  observeTx,
-  observeAll,
-) where
+module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
