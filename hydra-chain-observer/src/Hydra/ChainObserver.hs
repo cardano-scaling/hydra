@@ -9,9 +9,10 @@ module Hydra.ChainObserver (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
+import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ChainTip, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
+import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Ledger.Cardano (adjustUTxO)
@@ -20,9 +21,9 @@ import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
+  ClientStIntersect (..),
   ClientStNext (..),
  )
-import Hydra.Chain.CardanoClient (queryTip)
 
 main :: IO ()
 main = do
@@ -30,17 +31,17 @@ main = do
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
     chainPoint <- case startChainFrom of
-            Nothing -> queryTip networkId nodeSocket
-            Just x -> pure x
+      Nothing -> queryTip networkId nodeSocket
+      Just x -> pure x
     traceWith tracer StartObservingFrom{chainPoint}
     connectToLocalNode
       (connectInfo nodeSocket networkId)
-      (clientProtocols tracer networkId)
+      (clientProtocols tracer networkId chainPoint)
 
 type ChainObserverLog :: Type
 data ChainObserverLog
   = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
-  | StartObservingFrom { chainPoint :: ChainPoint }
+  | StartObservingFrom {chainPoint :: ChainPoint}
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
   | HeadCollectComTx {headId :: HeadId}
@@ -70,28 +71,55 @@ connectInfo nodeSocket networkId =
 clientProtocols ::
   Tracer IO ChainObserverLog ->
   NetworkId ->
-  LocalNodeClientProtocols BlockType ChainPoint tip slot tx txid txerr query IO
-clientProtocols tracer networkId =
+  ChainPoint ->
+  LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
+clientProtocols tracer networkId startingPoint =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
     }
 
+-- | Thrown when the user-provided custom point of intersection is unknown to
+-- the local node. This may happen if users shut down their node quickly after
+-- starting them and hold on a not-so-stable point of the chain. When they turn
+-- the node back on, that point may no longer exist on the network if a fork
+-- with deeper roots has been adopted in the meantime.
+type IntersectionNotFoundException :: Type
+newtype IntersectionNotFoundException = IntersectionNotFound
+  { requestedPoint :: ChainPoint
+  }
+  deriving stock (Show)
+
+instance Exception IntersectionNotFoundException
+
 -- | Fetch all blocks via chain sync and trace their contents.
 chainSyncClient ::
-  Tracer IO ChainObserverLog ->
+  forall m.
+  MonadThrow m =>
+  Tracer m ChainObserverLog ->
   NetworkId ->
-  ChainSyncClient BlockType ChainPoint tip IO ()
-chainSyncClient tracer networkId =
-  ChainSyncClient $ do
-    pure $ SendMsgRequestNext (clientStNext mempty) (pure $ clientStNext mempty)
+  ChainPoint ->
+  ChainSyncClient BlockType ChainPoint ChainTip m ()
+chainSyncClient tracer networkId startingPoint =
+  ChainSyncClient $
+    pure $
+      SendMsgFindIntersect [startingPoint] clientStIntersect
  where
-  clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint tip IO ()
+  clientStIntersect :: ClientStIntersect BlockType ChainPoint ChainTip m ()
+  clientStIntersect =
+    ClientStIntersect
+      { recvMsgIntersectFound = \_ _ ->
+          ChainSyncClient (pure $ clientStIdle mempty)
+      , recvMsgIntersectNotFound = \_ ->
+          ChainSyncClient $ throwIO (IntersectionNotFound startingPoint)
+      }
+
+  clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint tip m ()
   clientStIdle utxo = SendMsgRequestNext (clientStNext utxo) (pure $ clientStNext utxo)
 
-  clientStNext :: UTxO -> ClientStNext BlockType ChainPoint tip IO ()
+  clientStNext :: UTxO -> ClientStNext BlockType ChainPoint tip m ()
   clientStNext utxo =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
