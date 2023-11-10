@@ -22,12 +22,17 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIdle (..),
   ClientStNext (..),
  )
+import Hydra.Chain.CardanoClient (queryTip)
 
 main :: IO ()
 main = do
-  Options{networkId, nodeSocket} <- execParser hydraChainObserverOptions
+  Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
+    chainPoint <- case startChainFrom of
+            Nothing -> queryTip networkId nodeSocket
+            Just x -> pure x
+    traceWith tracer StartObservingFrom{chainPoint}
     connectToLocalNode
       (connectInfo nodeSocket networkId)
       (clientProtocols tracer networkId)
@@ -35,6 +40,7 @@ main = do
 type ChainObserverLog :: Type
 data ChainObserverLog
   = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+  | StartObservingFrom { chainPoint :: ChainPoint }
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
   | HeadCollectComTx {headId :: HeadId}
