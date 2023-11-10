@@ -870,7 +870,7 @@ observeCommitTx ::
   Tx ->
   Maybe CommitObservation
 observeCommitTx networkId utxo tx = do
-  -- FIXME: Instead checking to spend from initial we could be looking at the
+  -- NOTE: Instead checking to spend from initial we could be looking at the
   -- seed:
   --
   --  - We must check that participation token in output satisfies
@@ -885,7 +885,6 @@ observeCommitTx networkId utxo tx = do
   --
   --  Right now we only have the headId in the datum, so we use that in place of
   --  the seed -> THIS CAN NOT BE TRUSTED.
-
   guard isSpendingFromInitial
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
@@ -893,7 +892,7 @@ observeCommitTx networkId utxo tx = do
   (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
 
-  -- FIXME: If we have the resolved inputs (utxo) then we could avoid putting
+  -- NOTE: If we have the resolved inputs (utxo) then we could avoid putting
   -- the commit into the datum (+ changing the hashing strategy of
   -- collect/fanout)
   committed <- do
@@ -936,16 +935,6 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
-  -- FIXME: Strategy to observe without looking at resolved inputs (utxo):
-  --
-  --  - We must check that head token in output satisfies policyId = hash(mu_head(seed))
-  --
-  --  - This allows us to assume (by induction) the output datum of the head
-  --    script is legit
-  --
-  --  - Further, we need to assert / assume that only one script is spent, as we
-  --    do not have information which of the inputs is spending from the head
-  --    otherwise.
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
