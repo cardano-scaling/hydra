@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), CommitObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
@@ -104,23 +104,22 @@ chainSyncClient tracer networkId =
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe ChainObserverLog)
 observeTx networkId utxo tx =
   let utxo' = adjustUTxO tx utxo
-  in
-  case observeHeadTx networkId utxo tx of
-    NoHeadTx -> (utxo, Nothing)
-    Init RawInitObservation{headId} -> (utxo', pure $ HeadInitTx{headId = mkHeadId headId})
-    Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
-    CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
-    Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
-    Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})
-    Abort AbortObservation{headId} -> (utxo', pure $ HeadAbortTx{headId})
-    Contest ContestObservation{headId} -> (utxo', pure $ HeadContestTx{headId})
+   in case observeHeadTx networkId utxo tx of
+        NoHeadTx -> (utxo, Nothing)
+        Init RawInitObservation{headId} -> (utxo', pure $ HeadInitTx{headId = mkHeadId headId})
+        Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
+        CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
+        Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
+        Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})
+        Abort AbortObservation{headId} -> (utxo', pure $ HeadAbortTx{headId})
+        Contest ContestObservation{headId} -> (utxo', pure $ HeadContestTx{headId})
 
 observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [ChainObserverLog])
 observeAll networkId utxo txs =
   second reverse $ foldr go (utxo, []) txs
  where
-   go :: Tx -> (UTxO, [ChainObserverLog]) -> (UTxO, [ChainObserverLog])
-   go tx (utxo'', logs) =
-     case observeTx networkId utxo'' tx of
-       (utxo', Nothing) -> (utxo', logs)
-       (utxo', Just logEntry) -> (utxo', logEntry : logs)
+  go :: Tx -> (UTxO, [ChainObserverLog]) -> (UTxO, [ChainObserverLog])
+  go tx (utxo'', logs) =
+    case observeTx networkId utxo'' tx of
+      (utxo', Nothing) -> (utxo', logs)
+      (utxo', Just logEntry) -> (utxo', logEntry : logs)
