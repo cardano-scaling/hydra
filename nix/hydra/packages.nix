@@ -66,6 +66,16 @@ rec {
       "hydra-node"
       paddedRevision;
 
+  hydra-chain-observer =
+      nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+
+  hydra-chain-observer-static =
+    embedRevision
+      musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
+      "hydra-chain-observer"
+      paddedRevision;
+
+
   hydra-tui =
     embedRevision
       nativePkgs.hydra-tui.components.exes.hydra-tui
