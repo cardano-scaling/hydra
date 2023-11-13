@@ -322,7 +322,7 @@ chainSyncClient handler wallet startingPoint =
 
 txSubmissionClient ::
   forall m.
-  MonadSTM m =>
+  (MonadSTM m, MonadDelay m) =>
   Tracer m DirectChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (TxInMode CardanoMode) (TxValidationErrorInMode CardanoMode) m ()
@@ -347,6 +347,11 @@ txSubmissionClient tracer queue =
               -- possible because of missing data constructors from cardano-api
               let postTxError = FailedToPostTx{failureReason = show err}
               traceWith tracer PostingFailed{tx, postTxError}
+              -- NOTE: Delay callback in case our transaction got invalidated
+              -- because of a transaction seen in a block. This gives the
+              -- observing side of the chain layer time to process the
+              -- transaction and business logic might even ignore this error.
+              threadDelay 1
               atomically (putTMVar response (Just postTxError))
               clientStIdle
         )
