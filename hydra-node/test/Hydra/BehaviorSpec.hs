@@ -47,6 +47,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
+import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
@@ -66,7 +67,6 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
-import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
 
 spec :: Spec
 spec = parallel $ do

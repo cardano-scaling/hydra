@@ -169,9 +169,9 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       parties'
         == parties
         && contestationPeriod'
-          == contestationPeriod
+        == contestationPeriod
         && headId'
-          == headId
+        == headId
 
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
@@ -326,9 +326,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
       headId'
         == headPolicyId
         && parties'
-          == parties
+        == parties
         && cperiod'
-          == cperiod
+        == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -412,9 +412,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
       parties'
         == parties
         && headId'
-          == headId
+        == headId
         && contestationPeriod'
-          == contestationPeriod
+        == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'

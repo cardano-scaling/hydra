@@ -27,6 +27,7 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   Chain (Chain),
   PostChainTx (CloseTx),
@@ -52,7 +53,6 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import qualified Hydra.API.ServerOutput as ServerOutput
 
 spec :: Spec
 spec = describe "ServerSpec" $

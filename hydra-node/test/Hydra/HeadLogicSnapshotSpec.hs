@@ -10,6 +10,7 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Crypto (sign)
+import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -34,7 +35,6 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
-import Hydra.HeadId (HeadId(..))
 
 spec :: Spec
 spec = do
@@ -66,7 +66,7 @@ spec = do
                   NetworkEffect ReqSn{} -> True
                   _ -> False
               )
-    let snapshot1 = Snapshot testHeadId  1 mempty []
+    let snapshot1 = Snapshot testHeadId 1 mempty []
 
     let ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 

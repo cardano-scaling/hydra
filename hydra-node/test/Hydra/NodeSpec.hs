@@ -53,7 +53,6 @@ import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 
 spec :: Spec
 spec = parallel $ do
-
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of

@@ -5,12 +5,12 @@ import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
-import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
   defaultTTL,
  )
+import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))

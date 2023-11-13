@@ -54,6 +54,7 @@ import Hydra.Chain.Direct.State (
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
   InitialState (..),
+  OpenState (..),
   abort,
   close,
   closedThreadOutput,
@@ -84,7 +85,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   pickChainContext,
   unsafeCommit,
-  unsafeObserveInitAndCommits, OpenState (..),
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
@@ -106,7 +107,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
-import qualified Hydra.Snapshot as Snapshot
+import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)

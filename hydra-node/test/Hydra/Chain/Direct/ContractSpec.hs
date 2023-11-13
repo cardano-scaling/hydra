@@ -28,6 +28,7 @@ import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionEvaluates)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -62,7 +63,6 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Instances ()
-import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 
 spec :: Spec
 spec = parallel $ do
@@ -184,21 +184,21 @@ prop_consistentHashPreSerializedCommits =
 prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_hashingCaresAboutOrderingOfTxOuts =
   forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
-    (length utxo > 1)
-      ==> let plutusTxOuts =
-                rights $
-                  zipWith
-                    (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
-                    [0 ..]
-                    txOuts
-              txOuts = snd <$> UTxO.pairs utxo
-           in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
-                (shuffledTxOuts /= plutusTxOuts)
-                  ==> let hashed = OnChain.hashTxOuts plutusTxOuts
-                          hashShuffled = OnChain.hashTxOuts shuffledTxOuts
-                       in (hashed =/= hashShuffled)
-                            & counterexample ("Plutus: " <> show plutusTxOuts)
-                            & counterexample ("Shuffled: " <> show shuffledTxOuts)
+    (length utxo > 1) ==>
+      let plutusTxOuts =
+            rights $
+              zipWith
+                (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+                [0 ..]
+                txOuts
+          txOuts = snd <$> UTxO.pairs utxo
+       in forAll (shuffle plutusTxOuts) $ \shuffledTxOuts ->
+            (shuffledTxOuts /= plutusTxOuts) ==>
+              let hashed = OnChain.hashTxOuts plutusTxOuts
+                  hashShuffled = OnChain.hashTxOuts shuffledTxOuts
+               in (hashed =/= hashShuffled)
+                    & counterexample ("Plutus: " <> show plutusTxOuts)
+                    & counterexample ("Shuffled: " <> show shuffledTxOuts)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =

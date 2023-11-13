@@ -33,6 +33,7 @@ import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
@@ -53,7 +54,6 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
-import Hydra.HeadId (HeadId (..))
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
