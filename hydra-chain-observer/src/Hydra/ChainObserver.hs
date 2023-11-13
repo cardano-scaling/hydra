@@ -4,11 +4,42 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (Block (..), BlockHeader (..), BlockInMode (..), CardanoMode, ChainPoint, ChainSyncClient, ChainTip, ConsensusModeParams (..), EpochSlots (..), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, SocketPath, Tx, UTxO, connectToLocalNode, getTxBody, getTxId)
+import Hydra.Cardano.Api (
+  Block (..),
+  BlockInMode (..),
+  CardanoMode,
+  ChainPoint,
+  ChainSyncClient,
+  ChainTip,
+  ConsensusModeParams (..),
+  EpochSlots (..),
+  EraInMode (..),
+  LocalChainSyncClient (..),
+  LocalNodeClientProtocols (..),
+  LocalNodeConnectInfo (..),
+  NetworkId,
+  SocketPath,
+  Tx,
+  UTxO,
+  connectToLocalNode,
+  getTxBody,
+  getTxId,
+ )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (HeadId (..))
 import Hydra.Chain.CardanoClient (queryTip)
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), RawInitObservation (..), mkHeadId, observeHeadTx)
+import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  RawInitObservation (..),
+  mkHeadId,
+  observeHeadTx,
+ )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
@@ -82,9 +113,7 @@ clientProtocols tracer networkId startingPoint =
 -- the node back on, that point may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
 type IntersectionNotFoundException :: Type
-newtype IntersectionNotFoundException = IntersectionNotFound
-  { requestedPoint :: ChainPoint
-  }
+newtype IntersectionNotFoundException = IntersectionNotFound {requestedPoint :: ChainPoint}
   deriving stock (Show)
 
 instance Exception IntersectionNotFoundException
@@ -119,7 +148,7 @@ chainSyncClient tracer networkId startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode (Block (BlockHeader _slotNo _hash _blockNo) txs) BabbageEraInCardanoMode -> do
+            BlockInMode (Block _header txs) BabbageEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
               let (utxo', logs) = observeAll networkId utxo txs
               forM_ logs (traceWith tracer)
