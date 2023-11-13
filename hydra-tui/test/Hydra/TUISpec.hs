@@ -44,7 +44,7 @@ import Hydra.Network (Host (..))
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
-import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
+import HydraNode (HydraClient (HydraClient, hydraNodeId), HydraNodeLog, withHydraNode)
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
@@ -293,7 +293,7 @@ withTUITest region action = do
 
 data TUILog
   = FromCardano NodeLog
-  | FromHydra EndToEndLog
+  | FromHydra HydraNodeLog
   | FromFaucet FaucetLog
   deriving stock (Show, Generic)
   deriving anyclass (ToJSON)

@@ -23,7 +23,7 @@ import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
-import HydraNode (EndToEndLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 
@@ -36,10 +36,11 @@ spec = do
           -- Start a cardano devnet
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
             -- Prepare a hydra-node
+            let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode (contramap FromHydraNode tracer) aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \hydraNode -> do
+            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \hydraNode -> do
               withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
@@ -52,7 +53,7 @@ spec = do
                 chainObserverSees observer "HeadInitTx" headId
 
                 requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-                waitFor (contramap FromHydraNode tracer) 600 [hydraNode] $
+                waitFor hydraTracer 600 [hydraNode] $
                   output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
                 chainObserverSees observer "HeadCommitTx" headId
@@ -62,7 +63,7 @@ spec = do
 
                 chainObserverSees observer "HeadCloseTx" headId
 
-                waitFor (contramap FromHydraNode tracer) 600 [hydraNode] $
+                waitFor hydraTracer 600 [hydraNode] $
                   output "ReadyToFanout" ["headId" .= headId]
 
                 send hydraNode $ input "Fanout" []
@@ -103,7 +104,7 @@ newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO Value}
 
 data ChainObserverLog
   = FromCardanoNode NodeLog
-  | FromHydraNode EndToEndLog -- FIXME: this is weird
+  | FromHydraNode HydraNodeLog
   | FromFaucet FaucetLog
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)

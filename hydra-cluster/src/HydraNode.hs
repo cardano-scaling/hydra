@@ -6,7 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import CardanoNode (NodeLog)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
@@ -19,7 +18,6 @@ import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
-import Hydra.Cluster.Faucet (FaucetLog)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
@@ -46,7 +44,7 @@ import Prelude qualified
 data HydraClient = HydraClient
   { hydraNodeId :: Int
   , connection :: Connection
-  , tracer :: Tracer IO EndToEndLog
+  , tracer :: Tracer IO HydraNodeLog
   }
 
 -- | Create an input as expected by 'send'.
@@ -72,7 +70,7 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
+waitFor :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time for an API server output to match the given predicate.
@@ -120,7 +118,7 @@ waitForAllMatch delay nodes match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Tracer IO EndToEndLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
+waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
@@ -193,20 +191,12 @@ getMetrics HydraClient{hydraNodeId} = do
       Req.bsResponse
       (Req.port $ 6_000 + hydraNodeId)
 
-data EndToEndLog
+data HydraNodeLog
   = NodeStarted {nodeId :: Int}
   | SentMessage {nodeId :: Int, message :: Aeson.Value}
   | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
   | EndWaiting {nodeId :: Int}
-  | FromCardanoNode NodeLog
-  | FromFaucet FaucetLog
-  | StartingFunds {actor :: String, utxo :: UTxO}
-  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, utxo :: UTxO}
-  | RemainingFunds {actor :: String, utxo :: UTxO}
-  | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
-  | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
-  | CreatedKey {keyPath :: FilePath}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, ToObject)
 
@@ -214,7 +204,7 @@ data EndToEndLog
 -- be derived from the signing keys.
 withHydraCluster ::
   HasCallStack =>
-  Tracer IO EndToEndLog ->
+  Tracer IO HydraNodeLog ->
   FilePath ->
   SocketPath ->
   -- | First node id
@@ -233,7 +223,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
 
 withConfiguredHydraCluster ::
   HasCallStack =>
-  Tracer IO EndToEndLog ->
+  Tracer IO HydraNodeLog ->
   FilePath ->
   SocketPath ->
   -- | First node id
@@ -294,7 +284,7 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
 withHydraNode ::
-  Tracer IO EndToEndLog ->
+  Tracer IO HydraNodeLog ->
   ChainConfig ->
   FilePath ->
   Int ->
@@ -384,7 +374,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
     , i /= hydraNodeId
     ]
 
-withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
+withConnectionToNode :: Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce
@@ -405,7 +395,7 @@ withConnectionToNode tracer hydraNodeId action = do
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =
   mapM_ waitForNodeConnected clients
  where

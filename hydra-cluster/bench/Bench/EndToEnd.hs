@@ -31,7 +31,10 @@ import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Scenarios (headIsInitializingWith)
+import Hydra.Cluster.Scenarios (
+  EndToEndLog (..),
+  headIsInitializingWith,
+ )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
@@ -39,7 +42,6 @@ import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, withTracerOutputTo)
 import Hydra.Party (deriveParty)
 import HydraNode (
-  EndToEndLog (FromCardanoNode, FromFaucet),
   HydraClient,
   hydraNodeId,
   input,
@@ -87,11 +89,12 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
+            let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster tracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
-              waitForNodesConnected tracer clients
+              waitForNodesConnected hydraTracer clients
 
               putTextLn "Initializing Head"
               send leader $ input "Init" []
@@ -102,7 +105,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
               putTextLn "Comitting initialUTxO from dataset"
               expectedUTxO <- commitUTxO node clients dataset
 
-              waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
+              waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
                 output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
 
               putTextLn "HeadIsOpen"
@@ -118,7 +121,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
 
               -- Expect to see ReadyToFanout within 3 seconds after deadline
               remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
-              waitFor tracer (remainingTime + 3) [leader] $
+              waitFor hydraTracer (remainingTime + 3) [leader] $
                 output "ReadyToFanout" ["headId" .= headId]
 
               putTextLn "Finalizing the Head"
