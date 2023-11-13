@@ -70,11 +70,7 @@ rec {
     nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
 
   hydra-chain-observer-static =
-    embedRevision
-      musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
-      "hydra-chain-observer"
-      paddedRevision;
-
+    musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
 
   hydra-tui =
     embedRevision
