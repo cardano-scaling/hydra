@@ -41,6 +41,8 @@ import Hydra.Chain.Direct.Tx (
   observeHeadTx,
  )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
+import Hydra.Contract (ScriptInfo)
+import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
@@ -55,6 +57,7 @@ main :: IO ()
 main = do
   Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
+    traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
     chainPoint <- case startChainFrom of
       Nothing -> queryTip networkId nodeSocket
@@ -66,7 +69,8 @@ main = do
 
 type ChainObserverLog :: Type
 data ChainObserverLog
-  = ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+  = KnownScripts {scriptInfo :: ScriptInfo}
+  | ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
   | StartObservingFrom {chainPoint :: ChainPoint}
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}

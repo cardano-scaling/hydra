@@ -66,6 +66,7 @@ library
   build-depends:
     , hydra-cardano-api
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , optparse-applicative
     , ouroboros-network-protocols
