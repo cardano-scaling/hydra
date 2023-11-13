@@ -84,7 +84,7 @@ import Hydra.Chain.Direct.State (
   observeSomeTx,
   pickChainContext,
   unsafeCommit,
-  unsafeObserveInitAndCommits,
+  unsafeObserveInitAndCommits, OpenState (..),
  )
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
@@ -106,6 +106,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
+import qualified Hydra.Snapshot as Snapshot
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -146,7 +147,7 @@ spec = parallel $ do
       checkCoverage $
         forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
           genericCoverTable [transition] $
-            case (observeSomeTx ctx st tx) of
+            case observeSomeTx ctx st tx of
               Right{} -> property True
               Left err ->
                 property False
@@ -403,10 +404,10 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
-  stOpen <- mfail $ snd <$> observeCollect stInitial txCollect
+  stOpen@OpenState{headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let txClose = close cctx stOpen InitialSnapshot{initialUTxO} closeLower closeUpper
+  let txClose = close cctx stOpen InitialSnapshot{Snapshot.headId = headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
@@ -480,10 +481,10 @@ forAllInit action =
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
-                (length (peerVerificationKeys cctx) == 0)
+                (Prelude.null (peerVerificationKeys cctx))
                 "1 party"
               & classify
-                (length (peerVerificationKeys cctx) > 0)
+                (Prelude.not (Prelude.null (peerVerificationKeys cctx)))
                 "2+ parties"
 
 forAllCommit ::
@@ -594,7 +595,7 @@ forAllContest action =
   oneMonth = oneDay * 30
   oneYear = oneDay * 365
 
-  getClosedContesters stClosed = closedContesters . closedThreadOutput $ stClosed
+  getClosedContesters = closedContesters . closedThreadOutput
 
 forAllFanout ::
   Testable property =>

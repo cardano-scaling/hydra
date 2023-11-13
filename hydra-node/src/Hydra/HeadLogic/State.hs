@@ -5,13 +5,14 @@
 module Hydra.HeadLogic.State where
 
 import Data.Map qualified as Map
-import Hydra.Chain (ChainStateType, HeadId, HeadParameters)
+import Hydra.Chain (ChainStateType, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.Ledger (ChainSlot, IsTx (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
+import Hydra.HeadId (HeadId)
 
 data Environment = Environment
   { party :: Party

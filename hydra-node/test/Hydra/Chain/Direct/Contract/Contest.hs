@@ -104,7 +104,8 @@ healthyClosedHeadTxOut =
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =
   Snapshot
-    { number = healthyContestSnapshotNumber
+    { headId = mkHeadId testPolicyId
+    , number = healthyContestSnapshotNumber
     , utxo = healthyContestUTxO
     , confirmed = []
     }

@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Snapshot where
 
@@ -6,8 +7,8 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
+import Hydra.HeadId (HeadId (unHeadId))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Ledger (IsTx (..))
@@ -24,7 +25,8 @@ instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
 data Snapshot tx = Snapshot
-  { number :: SnapshotNumber
+  { headId :: HeadId
+  , number :: SnapshotNumber
   , utxo :: UTxOType tx
   , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
@@ -33,50 +35,41 @@ data Snapshot tx = Snapshot
 
 deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
+deriving anyclass instance IsTx tx => ToJSON (Snapshot tx)
+deriving anyclass instance IsTx tx => FromJSON (Snapshot tx)
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink s =
-    [ Snapshot (number s) utxo' confirmed'
-    | utxo' <- shrink (utxo s)
-    , confirmed' <- shrink (confirmed s)
+  shrink Snapshot {headId, number, utxo, confirmed} =
+    [ Snapshot headId number utxo' confirmed'
+    | utxo' <- shrink utxo
+    , confirmed' <- shrink confirmed
     ]
 
 -- | Binary representation of snapshot signatures
 -- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{number, utxo} =
+  getSignableRepresentation Snapshot{number, headId, utxo} =
     toStrict $
       serialise (toData $ toInteger number) -- CBOR(I(integer))
+        <> serialise (toBuiltin $ unHeadId headId)
         <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
 
-instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON s =
-    object
-      [ "snapshotNumber" .= number s
-      , "utxo" .= utxo s
-      , "confirmedTransactions" .= confirmed s
-      ]
-
-instance IsTx tx => FromJSON (Snapshot tx) where
-  parseJSON = withObject "Snapshot" $ \obj ->
-    Snapshot
-      <$> (obj .: "snapshotNumber")
-      <*> (obj .: "utxo")
-      <*> (obj .: "confirmedTransactions")
-
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{number, utxo, confirmed} =
-    toCBOR number <> toCBOR utxo <> toCBOR confirmed
+  toCBOR Snapshot{headId, number, utxo, confirmed} =
+    toCBOR headId <> toCBOR number <> toCBOR utxo <> toCBOR confirmed
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
-  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-  = InitialSnapshot {initialUTxO :: UTxOType tx}
+  = InitialSnapshot
+      { headId :: HeadId
+      , initialUTxO :: UTxOType tx
+      }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
@@ -93,9 +86,10 @@ data ConfirmedSnapshot tx
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
-  InitialSnapshot{initialUTxO} ->
+  InitialSnapshot{headId, initialUTxO} ->
     Snapshot
-      { number = 0
+      { headId
+      , number = 0
       , utxo = initialUTxO
       , confirmed = []
       }
@@ -133,13 +127,14 @@ genConfirmedSnapshot minSn utxo sks
         ]
  where
   initialSnapshot =
-    pure $ InitialSnapshot utxo
+    InitialSnapshot <$> arbitrary <*> pure utxo
 
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{number, utxo, confirmed = []}
+    headId <- arbitrary
+    let snapshot = Snapshot{headId, number, utxo, confirmed = []}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

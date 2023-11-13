@@ -52,7 +52,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainStateType,
-  HeadId (..),
   HeadParameters (..),
   IsChainState (..),
   OnChainTx (..),
@@ -102,6 +101,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
@@ -1034,10 +1034,11 @@ genStClosed ::
 genStClosed ctx utxo = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- arbitrary
+  headId <- arbitrary
   let (sn, snapshot, toFanout) = case confirmed of
         InitialSnapshot{} ->
           ( 0
-          , InitialSnapshot{initialUTxO = u0}
+          , InitialSnapshot{headId, initialUTxO = u0}
           , u0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->

@@ -18,7 +18,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
-import Hydra.Chain (HeadId (..), HeadParameters (..))
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
@@ -53,6 +53,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
+import Hydra.HeadId (HeadId (..))
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)

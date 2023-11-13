@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   HasTypeProxy (..),
   Lovelace (..),
-  SerialiseAsRawBytes (..),
+  SerialiseAsRawBytes,
   Tx,
   TxOut,
   UTxO',
@@ -30,7 +30,9 @@ import Hydra.Cardano.Api (
   WitCtxTxIn,
   Witness,
  )
+import Hydra.Cardano.Api.Prelude (SerialiseAsRawBytes (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
@@ -80,41 +82,6 @@ deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
 instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
-
--- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
--- want to rename this
-
--- | Uniquely identifies a Hydra Head.
-newtype HeadId = HeadId ByteString
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
-
-instance SerialiseAsRawBytes HeadId where
-  serialiseToRawBytes (HeadId bytes) = bytes
-  deserialiseFromRawBytes _ = Right . HeadId
-
-instance HasTypeProxy HeadId where
-  data AsType HeadId = AsHeadId
-  proxyToAsType _ = AsHeadId
-
-instance Arbitrary HeadId where
-  arbitrary = HeadId . BS.pack <$> vectorOf 16 arbitrary
-
--- | Identifier for a Hydra head participant used on-chain.
-newtype OnChainId = OnChainId ByteString
-  deriving (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
-
-instance SerialiseAsRawBytes OnChainId where
-  serialiseToRawBytes (OnChainId bytes) = bytes
-  deserialiseFromRawBytes _ = Right . OnChainId
-
-instance HasTypeProxy OnChainId where
-  data AsType OnChainId = AsOnChainId
-  proxyToAsType _ = AsOnChainId
-
-instance Arbitrary OnChainId where
-  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -316,3 +283,19 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
+
+-- | Identifier for a Hydra head participant used on-chain.
+newtype OnChainId = OnChainId ByteString
+  deriving (Show, Eq, Ord, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
+
+instance SerialiseAsRawBytes OnChainId where
+  serialiseToRawBytes (OnChainId bytes) = bytes
+  deserialiseFromRawBytes _ = Right . OnChainId
+
+instance HasTypeProxy OnChainId where
+  data AsType OnChainId = AsOnChainId
+  proxyToAsType _ = AsOnChainId
+
+instance Arbitrary OnChainId where
+  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary

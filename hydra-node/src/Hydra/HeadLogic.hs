@@ -32,7 +32,6 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
-  HeadId,
   HeadParameters (..),
   IsChainState (chainStateSlot),
   OnChainTx (..),
@@ -49,6 +48,7 @@ import Hydra.Crypto (
   sign,
   verifyMultiSignature,
  )
+import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -350,7 +350,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
         -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
         requireApplyTxs requestedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot (confSn + 1) u requestedTxIds
+          let nextSnapshot = Snapshot headId (confSn + 1) u requestedTxIds
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] <>) $
@@ -420,7 +420,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, currentSlot} = st
+  OpenState{parameters, coordinatedHeadState, currentSlot, headId} = st
 
   Environment{signingKey} = env
 
@@ -854,7 +854,7 @@ aggregate st = \case
                   { localUTxO = initialUTxO
                   , allTxs = mempty
                   , localTxs = mempty
-                  , confirmedSnapshot = InitialSnapshot{initialUTxO}
+                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   }
             , chainState

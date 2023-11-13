@@ -4,8 +4,8 @@ module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
-import Hydra.Chain (HeadId)
 import Hydra.Crypto (HydraKey, VerificationKey)
+import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.Event (Event)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx (TxIdType), ValidationError)

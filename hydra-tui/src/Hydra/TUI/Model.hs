@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (Down, State, padLeft)
 import Hydra.Cardano.Api
 
 import Brick.Forms (Form)
-import Hydra.Chain (HeadId)
+import Hydra.HeadId (HeadId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.Network (Host (..), NodeId)

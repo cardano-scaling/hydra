@@ -29,7 +29,6 @@ import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), w
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
-  HeadId (HeadId),
   PostChainTx (CloseTx),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
@@ -38,6 +37,7 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
+import Hydra.HeadId (HeadId (HeadId))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -52,6 +52,7 @@ import Test.Hydra.Fixture (alice)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import qualified Hydra.API.ServerOutput as ServerOutput
 
 spec :: Spec
 spec = describe "ServerSpec" $
@@ -331,7 +332,7 @@ spec = describe "ServerSpec" $
 
             snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
               generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout $ headId headIsOpenMsg
+            let readyToFanoutMsg = ReadyToFanout $ ServerOutput.headId headIsOpenMsg
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
