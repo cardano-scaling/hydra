@@ -473,20 +473,21 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "925e26c335f02911b6dad57837971d11218d32cebba488bae08ccffbd528c417221d079a3a7c52716b685467de8d61517c615c8820922c9333da2a9addbc3607",
-                            "2d6d511bf82f7c256a39b0de6130a87d6f27909ef4677fff93035d6b947170c383533e9e91d8cda1be4d0e8888abfa11d8ccb14d813a2504eb34d1c30c7bae0f",
-                            "1aa2fb512d57a507e922ec16fcfa833cab6c98dc966210514675c9a328a49571d7df29cf62378bba07bb3b08750961477c8b9b1f1be6cb04516367e80ea23307",
-                            "2e9ba5d35c7aa6eb44dc9367552c9a3018ee3bb68f9485981c42f3d27dbf3f0eb75c6fa4b4c8137e4e95fbb202a56780fd2c5127a2ddac43fbfe2ad0b974ba08",
-                            "9116371e4e8bd22e2cc95d6ad853a7a84316fee219f7b4e8bbb290aec21b4046af288f4c572bfa8593d2adf94dfd09a235c669a0d7d6ac49192c1da23d880c08",
-                            "b4a5cfea459211b9541582f23483e2ec277f32131eec9f1df6fbaa4d08b60d021f37ce5c8d6aeab462143dceb2a381f5fecf5d44608bb97b0569c553e6e13507",
-                            "c8ff03834e03e638906776ad91a3a6aee08fcd576bee11b80536afb43436e8522f4fdffd9671e31cc7ae4a06e354fcc02e0f42de4682366f9af1c5fc7568d00d",
-                            "788fcd5125fa3703a760f8e7ab2d7d8484973f41eb69ee419385b55116490a79d6b2943aae8f8c4eef889848e5c3ef71b87bbdbbe051b13bd7f2e26d43d5a70e",
-                            "68e4e618942d1346352ebeba3db7936db2eb3da001025dee9219546f618fab7ccd7b2365e66058e4c71ab05b6e9a3bd5a9d507bc4df093390c8f08152a489703"
+                            "c4877833e9ef771300d9bb776239537478cc5e3fb30df8e413fffa1b243b4a329af124d38e6d09b52cc2b26a096750a3c19f73b61b49ccbe7a1738fb59cc2207",
+                            "60d849ab43e64aaa67db273bcdcc15edfe4aa08fbd93d808b4723d9619b02e0870eb02240f2db09854148f4407467c8010c84a7acacf2f05633042e0aeb2540a",
+                            "fe898ac33130e330d80335177e4a19efd1b9e4fe1366ee7aa897ae7c85324aa1e19fcd959373130c1a4fad50c1e5427e241bd630abaec29f52cb691e0e48af04",
+                            "8e94880565e5f0044a6ef3e7e2ca5999326350ffc192cead18d23c1179dae624e7c741aaf7b2698b5d80dd1db5801cc733de7c3764f0d5a9a8c3b96dbce1970b",
+                            "46b7cd51d25874d01d63f11bdc5ff4c2ca84a2ac6bc97713dcc3efa5f81a5b9c57c088a11fe6f0c458bbe1104887194db3c97eec2e10ba2608c2f94a56c7010b",
+                            "8eafad35dfdf90e06d7db2816dca7de2943ee8cfd6d4865d6112ccfc742bc69da1c74f4365a82aa16b226da9c9c7847cbf449acf8c440e67548211d9c3d3180f",
+                            "34174ddfa0156a1fe73b2691a3bdc567b5140785cae7980a743338681333466bdd7342db24ada21e224af5afc505e2d67f0f19762a8d83ebc2bb67f67e83fb0e",
+                            "0cb5d68ea03a2ac282cdbcb8d98f31d34a0269a3263381ca0fb7d33333aecb39d1990969372d454ae5918fc5da6e15ac86da5dc7d65e6596343aa293970c1d08",
+                            "ab139557bc15f250ba1a28523ac1116935cd7269f4148e046cb72c2ec93a653a1fd4d4368b35704a779eeca7d5c527e3bc93b82e6085c5864d3345b7c4958f03"
                         ]
                     },
                     "snapshot": {
-                        "confirmedTransactions": [],
-                        "snapshotNumber": 22,
+                        "confirmed": [],
+                        "headId": "90dfc9bad76909dbcfd5b25cf348d93b",
+                        "number": 22,
                         "utxo": [
                             -29,
                             -26,
@@ -626,31 +627,32 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "223a3aca3fc94d6daeb83d633fcdc7d91991e1a5753f9e485023f3da269cac46bfceab2404c90cd685bb7f05f06736f757de2f1ccd612bd77935cf9dd97b7306",
-                            "3e176e468b7905c62e817579c2c48a75c2ea96bf0d399ca652d999c8172193a19c4638185764e063404b6cf8f6031d4226f22e731e68463a95f17018898cd406",
-                            "e63ae3c359a61384f191332414c97d5fd340ea3684a615c176bfee9b0cab6731695a7cde4ba60550263dc9b107ee32622b2fb47f25c17847c9c2eba79150f60b",
-                            "cd9d84a609f42e83efb83b5e64ae10d0614e04f84a15e2c149bcd684975220370067d893ea4e588e717eb362fba606e76ef4ef7caea2c4f236f25f5918e08b0f",
-                            "52bfe47af91d6dc94ffcacb876fb57737b7ecaad3c5d22b116076c4712422c8adfa95bc6b7ebc8e2bf74ef556931870dcea122d630a94867822678e66348240e",
-                            "6c3bd9b2c4f7e513d8f461801f970bca757d1098d41f9f8af6fedd8da1581e3cd75302fc72ea3480dd65879a04c922e28ac511d9c26280c2b2e14e8ad3da4504",
-                            "896854393f1b956672b3efd1d35af1c3c472d207af327c9e2a42c1ee46a2bbfc41839763b1d82d201a7f8020ca041c7028ef070c0b0795444d675b952f085b09",
-                            "372a9c0550761f40d17e08fac32db642738dd145bb78a9dff79bb5c15f78877154150ead24f8d09d1229bed772d8afa16438e7d0270339ff98447dc872c1ed09",
-                            "754ca51a58b03b5628c234174783c287b0bf643f1efc7744c7cbcd084cea4cbbf7f859e5ef9611e5107e7e5c0d1c05627294aad66473eaced1b8dae6a9947c01",
-                            "de2b9b9fa9bf8f6cf4fbb1454a4badc2482db6eb16f98290ad5ba7d04bffb8e72666f332916aa2fcdf287817e5fe77741ed4b08b22987b39e085dad75191f002",
-                            "2f8fbaf6c17624bbb348d47476640915ae3c23f555e6f5e7a4fe2b12873f94f64fa76f97ebd4017cf4ae839b3bce8144b7d30dd26f070236a2d228b33a0dec0c",
-                            "34a1969650549f3d3137c77c0ebd6a390b9fc74e1fb4afc904e0d2f31877d2de9862894f3491b3036a65c1a9c1df89d93c05633c89958a21f3de230c6618a50c",
-                            "d932bf32051a49fdb66f44790898309516bffcaefc6cbc92aceca5a39dcf162f5bc697e689d92b3eaffac70d58c7ad7b608226cc24a3049dfb7156c24143a908",
-                            "065bfa16953355f985be87fda3927c8fe0e461e8a99e7964b05f034825fc873ed1898634b7483a515f26e987f103751fd126b4b387d035adbbfc4275d7f7450f",
-                            "88d09f37f98af4672abd269a05233b6303f3b617080331e9110970305e121017d8c88e52d542cf60dd3309f4fce252602072227be788d22b3095dfe4297a4c04",
-                            "0550475b7f599a5ae0ec4b38a40258c480c9879888d0eb73a81d3d0b23f1873332a8fa5974f73a79cd31082cf81792cf58c3bdc9f7779b8b17e83ed145fd6108",
-                            "8613cf42321b67e66b54891546562f4df0dc0a2609740d57aa5e167510af0bb68d2e1e3f0a0627351db0e0220e5c71643c7106461a58b5ef94ebeb19fd5cbf0f",
-                            "6b3276c16c2180469a9c8203178c47db3cc28ea2db86a3cee3babdef21e82813af3c16e82edaa162319e0c664a9135364e578420cc330e207a4b2e18b63b9101",
-                            "437560a166db08e1880885439aaff8e711b4541a9526045f324bc8f4ada2f3e769b13f7b5750d419e237ce3dd317ca168c73cd830c8085db264a92b82d3b1e08",
-                            "f902bb8e5af1efef18865f57ec5c430f2eaf378ada13a7380ec85431a6a66991bcf133f6fb6242475106a6647ae330663520434de0c7aad7b321fe7c9a75cf07"
+                            "4e63006c6f9ee6f472cd6ea257818a64f8612080712fbe92134dfeaac0212c006ac5f03ada3a7a2f8549c981c6bbdcb36199d5fd6835ccab464edd7696f35e04",
+                            "ebe55b39fee9ac144c266ef02918a16c8c1c8c9ec8712f87356622e5c53e4fc0cc9c96f811991fc3395b96e832365edb070bf88aacfd8d215f4006c9c462680d",
+                            "9c5f9b5eee2a6108d1a9b6d62ab8bc7e49149f1e35a61707c3b1427c33e9cde05c4deab6601d84d7d8d7bb0b30acbc4ecd4206cc1d8509d68f7b824e277e710d",
+                            "7ef109ee1ed04a40082afc202e033d5fc78d255470111dc3d96fc5695b3f742935d30c6d6d77d8a21955bf2b17d105ba99ba909cbb7020f7c5cfc6670772e90d",
+                            "0e395dc7acd2ca575d16afa51f833e97f23ad2c7e1a53804cc00f7d60a00f8e0ef8dbb6b7008831747797edd24913f14311eb8f4fba3e3ac21e650054bceb30e",
+                            "48a7d483992a363c932d67b39101bf1b7cc718b80247205259cb01a3ada09f1bfbbf718dfd5fb3aa101e12f60480ec11226829903cbfcd66721860b4a1496a0e",
+                            "cd3477de27b4021c96546f89b3b8ff28e2753042237a654bb6a9c894093eb3fef8ab575aa11a9f7fbec89e2b235542fee482a7917bf69c350fa503c66899aa07",
+                            "74c4ae42575ccb03d007f4ca9f1b7819144136db806f763fb2fa73e7e28ea23c635bb94c16ab89a71dfabf0bd1e3b857b73efe9dc8ae9c8c67d9a916df3a1a01",
+                            "a4156f72fc4b1e4687800c296f5002b0fb12c37792dc191abeec1655fb1df16025bc5bde2fe63d4c8552bb6bacf1dcb95392d67d36391e5b5e689026b4a3dc05",
+                            "c4c82dca5d2012ad35e5feac0d5ca40b7b0b19ff36fe83960e4ba4d47e7896b775ff443aedc513e4c2d375cf0c3ab30ce48570ecdb2150d85e992ad7f3b3cb0e",
+                            "431819424a85342f7d4bc75dfe4dceff77e43b8ace63fc06b41a0682dadf554d5d257f7ffffa70935f2e26181215d2e3c890317b1284ac82486bcda90c157109",
+                            "89a6971f8064e8766ccb5b1982cf43c2df392e879942e6186ea398f07284984b7b233d10b546c92b146c9332d19fcd3e1bad9bad4808d76d5ffcf126f56abb06",
+                            "b8dd8c753596e4cb8b42e650305ab0d35a961fe60708fc52e12495d4129d77fe4a0d901f73f40212ff7543e09bd032d68e933342b721f1af982e51a5e5ebb706",
+                            "af01b34597de12f3a0fc8fcaeddfa06eca88caed3ca0b2978886352aa66a98e96fd6c1908695f362a27d1cae14d824075a8a6045cf1f334ca22e7dd8a792c007",
+                            "f72df0094cc2ed6302135cef699934228cfeaf1e6eb856b1bc2c9ca10b0e6acfb2d3211bbd96030f8cfd5442e8713809bf9970ead661a6abfeac7f49ca5b850a",
+                            "834a3b764aa81c1062dff7d9fecc3b8d532e8a3c5be91d1fd216705f9b227ac99491d4a1cb89fcdead18b0dfae1edc7391b31a544812d01bd8755a228960bf00",
+                            "4081e2216e092f4bf383500b92b228386f10ccb0d9406264ae731424d0179e20a9a5d35df9b72834bc4c8716694a935f42a6d7da02f0513b53b78ae1b776c00f",
+                            "2a6b7566798ea7bc6f1fced269d8dfcbe5cb53490c79f21b6718bbe4f05a641c66803f26874f4c6a8c2454eff8397a0a57de8d5c041085f082ac5fa99e0a0006",
+                            "3b0fcfbf4013c3dca8bb82ba0d8faaa0ad2c4c671f0e199dfbfc91293a17ea1fb4354280c6c9c040075d78c8c0abdc40d58c795d4760524e6b86a4e0b98d270d",
+                            "55faf50e1150b977763b28545b3c26dafecde47ba79da6484fc6c4f0a3b50ee909543ea09190dd9dc467c020a3831d12278d27da11321268d7960de90d93ec02"
                         ]
                     },
                     "snapshot": {
-                        "confirmedTransactions": [],
-                        "snapshotNumber": 24,
+                        "confirmed": [],
+                        "headId": "42bb8baffdbc671e4540394f8c2a6603",
+                        "number": 24,
                         "utxo": [
                             -27,
                             -25,

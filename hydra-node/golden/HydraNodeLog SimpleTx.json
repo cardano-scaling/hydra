@@ -1,12 +1,8 @@
 {
     "samples": [
         {
-            "by": {
-                "vkey": "39d6c5c677fba074cec7cb70dcb62b23363b71ea17d05b94647d96e7244a5a7e"
-            },
-            "effectId": 4466,
-            "eventId": 9692026,
-            "tag": "EndEffect"
+            "numberOfEvents": 9016107,
+            "tag": "LoadedState"
         },
         {
             "by": {
@@ -14,45 +10,7 @@
             },
             "event": {
                 "clientInput": {
-                    "tag": "NewTx",
-                    "transaction": {
-                        "id": -15,
-                        "inputs": [
-                            -30,
-                            -27,
-                            -26,
-                            -22,
-                            -21,
-                            -12,
-                            -11,
-                            -9,
-                            -3,
-                            2,
-                            5,
-                            6,
-                            12,
-                            14,
-                            19,
-                            24,
-                            26,
-                            29
-                        ],
-                        "outputs": [
-                            -24,
-                            -14,
-                            -10,
-                            1,
-                            6,
-                            11,
-                            16,
-                            17,
-                            21,
-                            24,
-                            28,
-                            29,
-                            30
-                        ]
-                    }
+                    "tag": "GetUTxO"
                 },
                 "tag": "ClientEvent"
             },
@@ -65,56 +23,26 @@
             },
             "effect": {
                 "postChainTx": {
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": [
-                                "1f94c8a5cc7356a0116a23b9f8da3da11b2bd2cda2a96ef93240b37d7346eae3bf6b5ce9924d03de12783cc5d2baa0090b2882bfd29c73c6903e12b43ec3d403",
-                                "ac30140af26b7199400fbf03ced912f862659bc28dd33b0eb683f6d1dc95353fbd119b78929a32cc814e8759559a54987856e9de023bde85345c37c30d10f308",
-                                "1d3d48c60b56c0fd3a7f71faf8c597020a549d272e8eccc4ce19e3cd67f4975e22308a520d516a14a5dd224b8e8a5bffbbd443243b69947dc805b8de72b7690e",
-                                "4648d285d3d5d6c7ca6e8b733d05e17461cbc84d0bb90ea6412704336eb05e43781ca107a210bdd78d5e14b3b611845c7b60e5ec1566663774af30412ed9370d",
-                                "b9b52a2c41c7016d04b590911a6d2dbeda8d1db3002de1a73a31a959ff93e5cbdf08b685d75c40084971c62288fcb9d726d9f763838da20d3f1081f1c4b08e0d",
-                                "160144388bb0a3e0a1aca76d0304d7c8b4616362f5f7f805bb88fd1e28c08e84b38333f65f36b58d828e1e276567e8661c8a081afa1157a1bcde0e9705889b01",
-                                "2d84e0d4cd81926917e38e8fdc69468e9fdb66c5a78823c77f74c8fd236486f31d036d8040555a9ee90880e342d7188380bcca9b72cc5f0e52474e8b92a08a0f",
-                                "bc120632453fdc12c2525fbcb2f488e6dd727cfdca111f4db6f991c9beee08962dd63ba6771e539c2b509da9198b08bbd28fabfdb59db88491b0ab0305df1404",
-                                "0d7dc983d83ab5e502c89a6e72148903a4c8dd8b6e46e38fc54c4984f57c20d50cf6ac97fde94dae7dbf41c6a139d8b19f72bb18fd2af8950cbfc8a1bde46301",
-                                "b46715747b6b4e957c9f1b3baf99fe3bbb7fb3249a546613fa5a2462abd304db63d0b68467d202644819894b079780433edc5119a4b5976cfb37caf1e2575a0f",
-                                "244d4520c79a33088e4a54f8094f7d04725db0bd6521ac0968e873f8a230e05e78701f3fe491251383986e6a6373cc7a400ff9f2ca7a3d188b6aa42036631203",
-                                "063a0a04bea3ac2d5d7715b519a6643b390833a1486291ef874ef2d18b62e02b98e5e2b041ea101a3b9ee585474e37f5c97a62d9004b868dca2441078853c201",
-                                "60f6bc184c461860725305337ee0858b389599259b4943a5c9d08d8628208622144635643b2bf6e0421d8b5bba8ec0aa37b64c9fc91b362578d8aeb74a7fa807",
-                                "3e0a1071556de558cc99942746c09f3a2bcdc51186421eed77812463ee08debec5354dfd3a5006b7a71a075daa2e0cd408f0c3be4e017a65fed55958c7d5d00b",
-                                "8636d9bf20602cc854c7f6728515529c2d06ed88e6d5acdbf9f93eb29f1f035ce4ee0855c390bb6c7c181e8ea15d6605470813fcd562e4dd124a308f3723510b",
-                                "2d57eb1b2238d507cf1089c690f41cb94c79992e9ecd7262e6d95c12e0c2e04b10f4da9c2878afe67b1792261ce62838df59d9bc0fa2c535efe730dad56dc807",
-                                "0c1e0cacda4aac07d6877b9da5e45e4a3c9a5b5de90503dbde27840648987923b464dbf338cf05e8ea0397953683261266bea9a974cae0c14b6bfa36e7085e06"
-                            ]
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "snapshotNumber": 4,
-                            "utxo": [
-                                -30,
-                                -27,
-                                -25,
-                                -24,
-                                -18,
-                                -17,
-                                -14,
-                                -8,
-                                -2,
-                                -1,
-                                1,
-                                3,
-                                7,
-                                11,
-                                13,
-                                19,
-                                21,
-                                24,
-                                30
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
-                    },
-                    "tag": "ContestTx"
+                    "contestationDeadline": "1864-04-16T02:45:02.928765048871Z",
+                    "tag": "FanoutTx",
+                    "utxo": [
+                        -25,
+                        -24,
+                        -21,
+                        -19,
+                        -11,
+                        -9,
+                        -5,
+                        -2,
+                        1,
+                        5,
+                        9,
+                        10,
+                        17,
+                        21,
+                        22,
+                        26
+                    ]
                 },
                 "tag": "OnChainEffect"
             },
@@ -123,12 +51,8 @@
             "tag": "BeginEffect"
         },
         {
-            "by": {
-                "vkey": "47b433d58a5a69f8bd8a9d11a85b27713d3a08886d50fe2e6786260ccb652e6a"
-            },
-            "effectId": 5083,
-            "eventId": 14686767,
-            "tag": "EndEffect"
+            "numberOfEvents": 7710146,
+            "tag": "LoadedState"
         },
         {
             "by": {
