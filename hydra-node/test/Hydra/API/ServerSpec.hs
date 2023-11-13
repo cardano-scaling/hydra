@@ -45,7 +45,7 @@ import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice)
@@ -208,12 +208,13 @@ spec = describe "ServerSpec" $
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
 
+            let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
-            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+            let txValidMessage = TxValid{headId = headId, transaction = tx}
             let sn = generatedSnapshot{confirmed = [txId tx]}
             let snapShotConfirmedMessage =
                   SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
+                    { headId = headId
                     , snapshot = sn
                     , signatures = mempty
                     }

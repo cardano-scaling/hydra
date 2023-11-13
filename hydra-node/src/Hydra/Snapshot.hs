@@ -1,5 +1,5 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Snapshot where
 
@@ -7,10 +7,11 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
+import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.HeadId (HeadId (unHeadId))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import Hydra.HeadId (HeadId (unHeadId))
 import Hydra.Ledger (IsTx (..))
 import PlutusLedgerApi.V2 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
@@ -35,14 +36,29 @@ data Snapshot tx = Snapshot
 
 deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
-deriving anyclass instance IsTx tx => ToJSON (Snapshot tx)
-deriving anyclass instance IsTx tx => FromJSON (Snapshot tx)
+
+instance IsTx tx => ToJSON (Snapshot tx) where
+  toJSON Snapshot{headId, number, utxo, confirmed} =
+    object
+      [ "headId" .= headId
+      , "snapshotNumber" .= number
+      , "utxo" .= utxo
+      , "confirmedTransactions" .= confirmed
+      ]
+
+instance IsTx tx => FromJSON (Snapshot tx) where
+  parseJSON = withObject "Snapshot" $ \obj ->
+    Snapshot
+      <$> (obj .: "headId")
+      <*> (obj .: "snapshotNumber")
+      <*> (obj .: "utxo")
+      <*> (obj .: "confirmedTransactions")
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot {headId, number, utxo, confirmed} =
+  shrink Snapshot{headId, number, utxo, confirmed} =
     [ Snapshot headId number utxo' confirmed'
     | utxo' <- shrink utxo
     , confirmed' <- shrink confirmed

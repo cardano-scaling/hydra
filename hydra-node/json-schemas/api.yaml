@@ -923,9 +923,12 @@ components:
         type: object
         additionalProperties: false
         required:
+          - headId
           - initialUTxO
           - tag
         properties:
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
           tag:
@@ -1382,10 +1385,13 @@ components:
     Snapshot:
       type: object
       required:
+      - headId
       - snapshotNumber
       - utxo
       - confirmedTransactions
       properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
         utxo:
