@@ -545,12 +545,9 @@ observeSomeTx ctx cst tx = case cst of
     first NotAnInitTx $ second Initial <$> observeInit ctx tx
   Initial st ->
     noObservation $
-      second Initial
-        <$> observeCommit ctx st tx
-        <|> (,Idle)
-          <$> observeAbort st tx
-        <|> second Open
-          <$> observeCollect st tx
+      second Initial <$> observeCommit ctx st tx
+        <|> (,Idle) <$> observeAbort st tx
+        <|> second Open <$> observeCollect st tx
   Open st ->
     noObservation $
       second Closed <$> observeClose st tx
@@ -558,8 +555,7 @@ observeSomeTx ctx cst tx = case cst of
     noObservation $
       second Closed
         <$> observeContest st tx
-        <|> (,Idle)
-          <$> observeFanout st tx
+        <|> (,Idle) <$> observeFanout st tx
  where
   noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
   noObservation = maybe (Left NoObservation) Right
@@ -613,7 +609,8 @@ observeCommit ::
 observeCommit ctx st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCommitTx networkId utxo tx
-  let CommitObservation{commitOutput, party, committed} = observation
+  let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
+  guard $ commitHeadId == headId
   let event = OnCommitTx{party, committed}
   let st' =
         st
@@ -631,6 +628,7 @@ observeCommit ctx st tx = do
   InitialState
     { initialCommits
     , initialInitials
+    , headId
     } = st
 
   fst3 (a, _b, _c) = a
