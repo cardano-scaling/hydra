@@ -464,7 +464,7 @@ waitForValue port f =
 waitMatch :: HasCallStack => Natural -> Connection -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay con match = do
   seenMsgs <- newTVarIO []
-  timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
+  timeout (fromIntegral delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
