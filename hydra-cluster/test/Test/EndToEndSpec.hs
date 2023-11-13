@@ -631,7 +631,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
     let expectedSnapshot =
           object
-            [ "snapshotNumber" .= int expectedSnapshotNumber
+            [ "headId" .= headId
+            , "snapshotNumber" .= int expectedSnapshotNumber
             , "utxo" .= newUTxO
             , "confirmedTransactions" .= [txId tx]
             ]

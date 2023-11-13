@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   getTxId,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Chain (HeadId (..))
+import Hydra.HeadId (HeadId (..))
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
