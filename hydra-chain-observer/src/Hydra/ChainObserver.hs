@@ -26,7 +26,6 @@ import Hydra.Cardano.Api (
   getTxId,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.HeadId (HeadId (..))
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
@@ -43,6 +42,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Contract (ScriptInfo)
 import Hydra.Contract qualified as Contract
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Options.Applicative (execParser)
