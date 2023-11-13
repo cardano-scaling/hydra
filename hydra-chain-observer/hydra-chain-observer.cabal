@@ -90,12 +90,12 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , hspec
-    , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
     , QuickCheck
 
-  other-modules:      Hydra.ChainObserverSpec
+  other-modules:      Spec
+                      Hydra.ChainObserverSpec
   build-tool-depends: hspec-discover:hspec-discover
