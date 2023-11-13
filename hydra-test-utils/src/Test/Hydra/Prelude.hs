@@ -1,6 +1,7 @@
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
   failure,
+  HUnitFailure (..),
   location,
   failAfter,
   combinedHspecFormatter,

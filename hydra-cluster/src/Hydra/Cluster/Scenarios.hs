@@ -16,6 +16,7 @@ import CardanoClient (
   submitTx,
  )
 import CardanoNode (NodeLog, RunningNode (..))
+import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
@@ -58,7 +59,7 @@ import Hydra.Chain (HeadId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (IsTx (balance))
@@ -67,7 +68,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
-  HydraClient,
+  HydraClient (..),
   HydraNodeLog,
   input,
   output,
@@ -75,7 +76,9 @@ import HydraNode (
   send,
   waitFor,
   waitForAllMatch,
+  waitForNodesConnected,
   waitMatch,
+  withHydraCluster,
   withHydraNode,
  )
 import Network.HTTP.Conduit qualified as L
@@ -498,6 +501,50 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         (Proxy :: Proxy (JsonResponse TransactionSubmitted))
         (port $ 4000 + hydraNodeId)
 
+-- | Three hydra nodes open a head and we assert that none of them sees errors.
+-- This was particularly misleading when everyone tries to post the collect
+-- transaction concurrently.
+threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScriptsTxId = do
+  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+  bobKeys@(bobCardanoVk, _) <- generate genKeyPair
+  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+
+  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+      hydraKeys = [aliceSk, bobSk, carolSk]
+
+  let contestationPeriod = UnsafeContestationPeriod 2
+  let hydraTracer = contramap FromHydraNode tracer
+  withHydraCluster hydraTracer tmpDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
+    let clients = leader : rest
+    waitForNodesConnected hydraTracer clients
+
+    -- Funds to be used as fuel by Hydra protocol transactions
+    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+    send leader $ input "Init" []
+    void . waitForAllMatch 10 clients $
+      headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+    mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx node) clients
+
+    mapConcurrently_ shouldNotReceivePostTxError clients
+ where
+  --  Fail if a 'PostTxOnChainFailed' message is received.
+  shouldNotReceivePostTxError client@HydraClient{hydraNodeId} = do
+    err <- waitMatch 10 client $ \v -> do
+      case v ^? key "tag" of
+        Just "PostTxOnChainFailed" -> pure $ Left $ v ^? key "postTxError"
+        Just "HeadIsOpen" -> pure $ Right ()
+        _ -> Nothing
+    case err of
+      Left receivedError ->
+        failure $ "node " <> show hydraNodeId <> " should not receive error: " <> show receivedError
+      Right _headIsOpen ->
+        pure ()
+
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
 -- cardano keys instead of Bob's which will prevent him to be notified the
 -- `HeadIsInitializing` but he should still receive some notification.
@@ -531,6 +578,8 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       Set.fromList pubKeyHashes `shouldBe` Set.fromList expectedHashes
+
+-- * Utilities
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
