@@ -67,7 +67,7 @@ rec {
       paddedRevision;
 
   hydra-chain-observer =
-      nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+    nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
 
   hydra-chain-observer-static =
     embedRevision
