@@ -66,6 +66,12 @@ rec {
       "hydra-node"
       paddedRevision;
 
+  hydra-chain-observer =
+    nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+
+  hydra-chain-observer-static =
+    musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+
   hydra-tui =
     embedRevision
       nativePkgs.hydra-tui.components.exes.hydra-tui
@@ -107,6 +113,7 @@ rec {
           nativePkgs.hydra-cluster.components.tests.tests
           hydra-node
           cardano-node.packages.${system}.cardano-node
+          hydra-chain-observer
         ];
     };
     hydra-tui = pkgs.mkShellNoCC {

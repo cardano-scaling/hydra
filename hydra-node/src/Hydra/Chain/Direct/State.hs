@@ -157,6 +157,7 @@ chainSlotFromPoint p =
 -- bounded to be used as labels for checking coverage.
 data ChainTransition
   = Init
+  | Abort
   | Commit
   | Collect
   | Close
@@ -544,12 +545,9 @@ observeSomeTx ctx cst tx = case cst of
     first NotAnInitTx $ second Initial <$> observeInit ctx tx
   Initial st ->
     noObservation $
-      second Initial
-        <$> observeCommit ctx st tx
-        <|> (,Idle)
-        <$> observeAbort st tx
-        <|> second Open
-        <$> observeCollect st tx
+      second Initial <$> observeCommit ctx st tx
+        <|> (,Idle) <$> observeAbort st tx
+        <|> second Open <$> observeCollect st tx
   Open st ->
     noObservation $
       second Closed <$> observeClose st tx
@@ -557,8 +555,7 @@ observeSomeTx ctx cst tx = case cst of
     noObservation $
       second Closed
         <$> observeContest st tx
-        <|> (,Idle)
-        <$> observeFanout st tx
+        <|> (,Idle) <$> observeFanout st tx
  where
   noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
   noObservation = maybe (Left NoObservation) Right
@@ -610,9 +607,10 @@ observeCommit ::
   Tx ->
   Maybe (OnChainTx Tx, InitialState)
 observeCommit ctx st tx = do
-  let initials = fst3 <$> initialInitials
-  observation <- observeCommitTx networkId initials tx
-  let CommitObservation{commitOutput, party, committed} = observation
+  let utxo = getKnownUTxO st
+  observation <- observeCommitTx networkId utxo tx
+  let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
+  guard $ commitHeadId == headId
   let event = OnCommitTx{party, committed}
   let st' =
         st
@@ -630,6 +628,7 @@ observeCommit ctx st tx = do
   InitialState
     { initialCommits
     , initialInitials
+    , headId
     } = st
 
   fst3 (a, _b, _c) = a
@@ -667,7 +666,7 @@ observeAbort ::
   Maybe (OnChainTx Tx)
 observeAbort st tx = do
   let utxo = getKnownUTxO st
-  AbortObservation <- observeAbortTx utxo tx
+  AbortObservation{} <- observeAbortTx utxo tx
   pure OnAbortTx
 
 -- ** OpenState transitions
@@ -732,7 +731,7 @@ observeFanout ::
   Maybe (OnChainTx Tx)
 observeFanout st tx = do
   let utxo = getKnownUTxO st
-  FanoutObservation <- observeFanoutTx utxo tx
+  FanoutObservation{} <- observeFanoutTx utxo tx
   pure OnFanoutTx
 
 -- * Generators
@@ -774,6 +773,7 @@ genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
+    , genAbortWithState
     , genCommitWithState
     , genCollectWithState
     , genCloseWithState
@@ -788,6 +788,14 @@ genChainStateWithTx =
     seedInput <- genTxIn
     let tx = initialize cctx (ctxHeadParameters ctx) seedInput
     pure (cctx, Idle, tx, Init)
+
+  genAbortWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genAbortWithState = do
+    ctx <- genHydraContext maxGenParties
+    (cctx, stInitial) <- genStInitial ctx
+    -- TODO: also generate sometimes aborts with utxo
+    let tx = abort cctx stInitial mempty
+    pure (cctx, Initial stInitial, tx, Abort)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCommitWithState = do

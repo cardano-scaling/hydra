@@ -150,6 +150,7 @@ test-suite tests
     Spec
     Test.CardanoClientSpec
     Test.CardanoNodeSpec
+    Test.ChainObserverSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
@@ -172,6 +173,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , io-classes
     , lens
     , lens-aeson
     , process
@@ -182,6 +184,7 @@ test-suite tests
 
   build-tool-depends:
     , hspec-discover:hspec-discover
+    , hydra-chain-observer:hydra-chain-observer
     , hydra-node:hydra-node
 
   ghc-options:        -threaded -rtsopts

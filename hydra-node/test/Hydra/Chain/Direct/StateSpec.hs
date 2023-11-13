@@ -13,16 +13,22 @@ import Data.List (intersect)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
+  PlutusScriptV2,
   Tx,
   TxIn,
   UTxO,
+  findRedeemerSpending,
+  findTxOutByScript,
+  fromPlutusScript,
   genTxIn,
   hashScript,
   lovelaceToValue,
+  mkScriptAddress,
+  modifyTxOutAddress,
   modifyTxOutValue,
-  renderUTxO,
   scriptPolicyId,
   toPlutusCurrencySymbol,
+  toScriptData,
   txInputSet,
   txOutValue,
   txOuts',
@@ -33,7 +39,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
 import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (ChangeMintingPolicy, ChangeOutput, Changes),
+  Mutation (..),
   applyMutation,
   changeHeadOutputDatum,
   propTransactionEvaluates,
@@ -41,6 +47,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceHeadId,
   replacePolicyIdWith,
  )
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState,
@@ -79,9 +86,10 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..))
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (
   genOutput,
   genTxOut,
@@ -112,7 +120,6 @@ import Test.QuickCheck (
   discard,
   forAll,
   forAllBlind,
-  forAllShow,
   getPositive,
   label,
   sized,
@@ -199,6 +206,41 @@ spec = parallel $ do
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
     propIsValid forAllCommit
+
+    -- XXX: This is testing observeCommitTx. Eventually we will get rid of the
+    -- state-ful layer anyways.
+    it "only proper head is observed" $
+      forAllCommit' $ \ctx st committedUtxo tx ->
+        monadicIO $ do
+          let utxo = getKnownUTxO ctx <> getKnownUTxO st <> committedUtxo
+          mutation <- pick $ genCommitTxMutation utxo tx
+          let (tx', utxo') = applyMutation mutation (tx, utxo)
+
+              originalIsObserved = property $ isJust $ observeCommitTx testNetworkId utxo tx
+
+              -- We expected mutated transaction to still be valid, but not observed.
+              mutatedIsValid =
+                case evaluateTx tx' utxo' of
+                  Left err -> property False & counterexample (show err)
+                  Right ok
+                    | all isRight ok -> property True
+                    | otherwise -> property False & counterexample (show ok)
+
+              mutatedIsNotObserved =
+                isNothing $ observeCommitTx testNetworkId utxo' tx'
+
+          pure $
+            conjoin
+              [ originalIsObserved
+                  & counterexample (renderTx tx)
+                  & counterexample "Original transaction is not observed."
+              , mutatedIsValid
+                  & counterexample (renderTx tx')
+                  & counterexample "Mutated transaction is not valid."
+              , mutatedIsNotObserved
+                  & counterexample (renderTx tx')
+                  & counterexample "Should not observe mutated transaction"
+              ]
 
     prop "consumes all inputs that are committed" $
       forAllCommit' $ \ctx st _ tx ->
@@ -314,6 +356,32 @@ genInitTxMutation seedInput tx =
     | idx == 0 = ChangeOutput idx $ changeHeadOutputDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
     | otherwise = ChangeOutput idx out
   changedOutputsValue = replacePolicyIdWith originalPolicyId fakePolicyId <$> txOuts' tx
+
+genCommitTxMutation :: UTxO -> Tx -> Gen Mutation
+genCommitTxMutation utxo tx =
+  mutateInitialAddress
+ where
+  mutateInitialAddress = do
+    let mutatedTxOut = modifyTxOutAddress (const fakeScriptAddress) initialTxOut
+    pure $
+      Changes
+        [ ChangeInput initialTxIn mutatedTxOut (Just $ toScriptData initialRedeemer)
+        , AddScript fakeScript
+        ]
+
+  (initialTxIn, initialTxOut) =
+    fromMaybe (error "not found initial script") $
+      findTxOutByScript @PlutusScriptV2 utxo initialScript
+
+  initialRedeemer =
+    fromMaybe (error "not found redeemer") $
+      findRedeemerSpending @Initial.RedeemerType tx initialTxIn
+
+  initialScript = fromPlutusScript Initial.validatorScript
+
+  fakeScriptAddress = mkScriptAddress @PlutusScriptV2 testNetworkId fakeScript
+
+  fakeScript = fromPlutusScript $ Plutus.alwaysSucceedingNAryFunction 3
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
@@ -432,9 +500,9 @@ forAllCommit' ::
   (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
   Property
 forAllCommit' action = do
-  forAll (genHydraContext maximumNumberOfParties) $ \hctx ->
-    forAll (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllShow genCommit renderUTxO $ \toCommit ->
+  forAllBlind (genHydraContext maximumNumberOfParties) $ \hctx ->
+    forAllBlind (genStInitial hctx) $ \(ctx, stInitial) ->
+      forAllBlind genCommit $ \toCommit ->
         -- TODO: generate script inputs here?
         let tx = unsafeCommit ctx stInitial toCommit
          in action ctx stInitial toCommit tx
@@ -444,7 +512,6 @@ forAllCommit' action = do
               & classify
                 (not (null toCommit))
                 "Non-empty commit"
-              & counterexample ("tx: " <> renderTx tx)
 
 forAllAbort ::
   Testable property =>

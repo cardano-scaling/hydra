@@ -617,6 +617,29 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
 
 -- * Observe Hydra Head transactions
 
+-- | Generalised type for arbitrary Head observations on-chain.
+data HeadObservation
+  = NoHeadTx
+  | Init RawInitObservation
+  | Abort AbortObservation
+  | Commit CommitObservation
+  | CollectCom CollectComObservation
+  | Close CloseObservation
+  | Contest ContestObservation
+  | Fanout FanoutObservation
+
+-- | Observe any Hydra head transaction.
+observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
+observeHeadTx networkId utxo tx =
+  fromMaybe NoHeadTx $
+    either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
+      <|> Abort <$> observeAbortTx utxo tx
+      <|> Commit <$> observeCommitTx networkId utxo tx
+      <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Close <$> observeCloseTx utxo tx
+      <|> Contest <$> observeContestTx utxo tx
+      <|> Fanout <$> observeFanoutTx utxo tx
+
 -- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
 -- interest to us.
 data RawInitObservation = RawInitObservation
@@ -824,42 +847,56 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
 
   containsSameElements a b = Set.fromList a == Set.fromList b
 
+-- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
   { commitOutput :: UTxOWithScript
   , party :: Party
+  -- ^ Hydra participant who committed the UTxO.
   , committed :: UTxO
+  , headId :: HeadId
   }
 
 -- | Identify a commit tx by:
 --
--- - Find which 'initial' tx input is being consumed,
--- - Find the redeemer corresponding to that 'initial', which contains the tx
---   input of the committed utxo,
+-- - Check that its spending from the init validator,
 -- - Find the outputs which pays to the commit validator,
 -- - Using the datum of that output, deserialize the committed output,
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
-  -- | Known (remaining) initial tx inputs.
-  [TxIn] ->
+  -- | A UTxO set to lookup tx inputs. Should at least contain the input
+  -- spending from νInitial.
+  UTxO ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId initials tx = do
-  initialTxIn <- findInitialTxIn
-  committedTxIns <- decodeInitialRedeemer initialTxIn
+observeCommitTx networkId utxo tx = do
+  -- NOTE: Instead checking to spend from initial we could be looking at the
+  -- seed:
+  --
+  --  - We must check that participation token in output satisfies
+  --      policyId = hash(mu_head(seed))
+  --
+  --  - This allows us to assume (by induction) the output datum at the commit
+  --    script is legit
+  --
+  --  - Further, we need to assert / assume that only one script is spent = onle
+  --    one redeemer matches the InitialRedeemer, as we do not have information
+  --    which of the inputs is spending from the initial script otherwise.
+  --
+  --  Right now we only have the headId in the datum, so we use that in place of
+  --  the seed -> THIS CAN NOT BE TRUSTED.
+  guard isSpendingFromInitial
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- txOutScriptData commitOut
-  (onChainParty, onChainCommits, _headId) :: Commit.DatumType <- fromScriptData dat
+  (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
   party <- partyFromChain onChainParty
 
+  -- NOTE: If we have the resolved inputs (utxo) then we could avoid putting
+  -- the commit into the datum (+ changing the hashing strategy of
+  -- collect/fanout)
   committed <- do
-    -- TODO: We could simplify this by just using the datum. However, we would
-    -- need to ensure the commit is belonging to a head / is rightful. By just
-    -- looking for some known initials we achieve this (a bit complicated) now.
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
-    when (map fst committedUTxO /= committedTxIns) $
-      error "TODO: commit redeemer not matching the serialized commits in commit datum"
     pure . UTxO.fromPairs $ committedUTxO
 
   pure
@@ -867,19 +904,17 @@ observeCommitTx networkId initials tx = do
       { commitOutput = (commitIn, toUTxOContext commitOut, dat)
       , party
       , committed
+      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
       }
  where
-  findInitialTxIn =
-    case filter (`elem` initials) (txIns' tx) of
-      [input] -> Just input
-      _ -> Nothing
+  isSpendingFromInitial :: Bool
+  isSpendingFromInitial = do
+    let resolvedInputs = mapMaybe (`UTxO.resolve` utxo) $ txIns' tx
+    any (\o -> txOutAddress o == initialAddress) resolvedInputs
 
-  decodeInitialRedeemer =
-    findRedeemerSpending tx >=> \case
-      Initial.ViaAbort ->
-        Nothing
-      Initial.ViaCommit{committedRefs} ->
-        Just (fromPlutusTxOutRef <$> committedRefs)
+  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
+
+  initialScript = fromPlutusScript Initial.validatorScript
 
   commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
 
@@ -1026,7 +1061,7 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-data FanoutObservation = FanoutObservation
+data FanoutObservation = FanoutObservation {headId :: HeadId}
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -1036,15 +1071,16 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  headInput <- fst <$> findTxOutByScript @PlutusScriptV2 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure FanoutObservation
+      Head.Fanout{} -> pure FanoutObservation{headId}
       _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
 
-data AbortObservation = AbortObservation
+data AbortObservation = AbortObservation {headId :: HeadId}
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
@@ -1056,9 +1092,10 @@ observeAbortTx ::
   Tx ->
   Maybe AbortObservation
 observeAbortTx utxo tx = do
-  headInput <- fst <$> findTxOutByScript @PlutusScriptV2 utxo headScript
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  headId <- findStateToken headOutput
   findRedeemerSpending tx headInput >>= \case
-    Head.Abort -> pure AbortObservation
+    Head.Abort -> pure $ AbortObservation headId
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript

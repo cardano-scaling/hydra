@@ -5,15 +5,14 @@ import Test.Hydra.Prelude
 
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
-import Hydra.Cardano.Api (AssetId (AdaAssetId), txOutValue)
-import Hydra.Cardano.Api.Prelude (selectAsset)
+import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Logging (showLogsOnFailure)
-import HydraNode (EndToEndLog (FromCardanoNode, FromFaucet))
 import Test.QuickCheck (elements, generate)
 
 spec :: Spec

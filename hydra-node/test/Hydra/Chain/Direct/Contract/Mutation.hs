@@ -274,6 +274,8 @@ data Mutation
     RemoveInput TxIn
   | -- | Adds given UTxO to the transaction's inputs and UTxO context.
     AddInput TxIn (TxOut CtxUTxO) (Maybe HashableScriptData)
+  | -- | Add witness for the given script to the transaction.
+    AddScript PlutusScript
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input matches the new redeemer, otherwise
@@ -378,6 +380,12 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     addRedeemer =
       map $ \(txIn', mRedeemer) ->
         if txIn' == i then (i, newRedeemer) else (txIn', mRedeemer)
+  AddScript script ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
+    scripts' = scripts <> [toLedgerScript script]
   ChangeInput txIn txOut newRedeemer ->
     ( alterTxIns replaceRedeemer tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)

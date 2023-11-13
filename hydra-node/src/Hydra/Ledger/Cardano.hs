@@ -12,6 +12,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
+import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
@@ -199,6 +200,22 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
           , fromMaybe TxValidityNoUpperBound validityUpperBound
           )
       }
+
+-- | Utility function to "adjust" a `UTxO` set given a `Tx`
+--
+--  The inputs from the `Tx` are removed from the internal map of the `UTxO` and
+--  the outputs added, correctly indexed by the `TxIn`. This function is useful
+--  to manually maintain a `UTxO` set without caring too much about the `Ledger`
+--  rules.
+adjustUTxO :: Tx -> UTxO -> UTxO
+adjustUTxO tx utxo =
+  let txid = txId tx
+      consumed = txIns' tx
+      produced =
+        toUTxOContext
+          <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
+      utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
+   in utxo' <> produced
 
 -- * Generators
 

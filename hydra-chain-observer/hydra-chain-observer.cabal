@@ -1,0 +1,104 @@
+cabal-version: 2.2
+name:          hydra-chain-observer
+version:       0.14.0
+synopsis:      Hydra Chain Observer
+author:        IOG
+copyright:     2023 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NoImplicitPrelude
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  ghc-options:     -haddock
+  build-depends:
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-plutus
+    , hydra-prelude
+    , optparse-applicative
+    , ouroboros-network-protocols
+
+  exposed-modules:
+    Hydra.ChainObserver
+    Hydra.ChainObserver.Options
+
+executable hydra-chain-observer
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        Main.hs
+  build-depends:
+    , hydra-chain-observer
+    , hydra-prelude
+
+test-suite tests
+  import:             project-config
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , hspec
+    , hydra-chain-observer
+    , hydra-node
+    , hydra-prelude
+    , hydra-test-utils
+    , QuickCheck
+
+  other-modules:
+    Hydra.ChainObserverSpec
+    Spec
+
+  build-tool-depends: hspec-discover:hspec-discover

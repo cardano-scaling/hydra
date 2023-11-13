@@ -10,3 +10,4 @@ single-constraint-parens: never # whether or not to put braces around single con
 fixities:
   - infixr 0 $
   - infixr 1 &
+  - infixl 3 <|>

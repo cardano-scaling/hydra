@@ -10,6 +10,9 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- Add a `hydra-chain-observer` executable to subscribe to a chain and just
+  observe Hydra Head transactions (with minimal information right now).
+
 - Improved `gen-hydra-keys` command to not overwrite keys if they are present
   already.
 
