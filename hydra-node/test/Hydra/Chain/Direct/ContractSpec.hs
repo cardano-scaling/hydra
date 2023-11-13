@@ -16,7 +16,6 @@ import Data.List qualified as List
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
-  toPlutusCurrencySymbol,
   toPlutusTxOut,
  )
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
@@ -28,7 +27,7 @@ import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionEvaluates)
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (
   verifyPartySignature,
@@ -63,6 +62,7 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Instances ()
+import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 
 spec :: Spec
 spec = parallel $ do
@@ -202,7 +202,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
       let sk = generateSigningKey seed
           offChainSig = sign sk snapshot
@@ -210,18 +210,19 @@ prop_verifyOffChainSignatures =
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
           utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifyPartySignature (toPlutusCurrencySymbol testPolicyId) snapshotNumber utxoHash onChainParty onChainSig
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
+            & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifySnapshotSignature onChainParties (toPlutusCurrencySymbol testPolicyId) snapshotNumber utxoHash signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash signatures
