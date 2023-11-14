@@ -137,7 +137,9 @@ import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
+import Control.Exception (assert)
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -286,7 +288,10 @@ data Mutation
     -- it expects 'Just' with some potentially new redeemer if locked by a
     -- script.
     --
-    -- XXX: This is likely incomplete as it can not add the datum for given txout.
+    -- XXX: This is super tricky to use. If passing 'Nothing' although it's a
+    -- script tx out, the validator will actually not be run!
+    --
+    -- XXX: Likely incomplete as it can not add the datum for given txout.
     ChangeInput TxIn (TxOut CtxUTxO) (Maybe HashableScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
@@ -388,10 +393,22 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
     scripts' = scripts <> [toLedgerScript script]
   ChangeInput txIn txOut newRedeemer ->
-    ( alterTxIns replaceRedeemer tx
-    , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
-    )
+    assert
+      redeemerGivenIfScriptTxOut
+      ( alterTxIns replaceRedeemer tx
+      , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
+      )
    where
+    redeemerGivenIfScriptTxOut =
+      not isScriptOutput || isJust newRedeemer
+
+    isScriptOutput = case txOutAddress txOut of
+      ByronAddressInEra ByronAddress{} -> False
+      ShelleyAddressInEra (ShelleyAddress _ cred _) ->
+        case cred of
+          KeyHashObj{} -> False
+          ScriptHashObj{} -> True
+
     replaceRedeemer =
       map $ \(txIn', mRedeemer) ->
         if txIn' == txIn then (txIn, newRedeemer) else (txIn', mRedeemer)

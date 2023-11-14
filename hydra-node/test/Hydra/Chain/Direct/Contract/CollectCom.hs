@@ -41,6 +41,8 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Initial qualified as Initial
+import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
@@ -251,12 +253,20 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode DatumNotFound) MutateCommitToInitial <$> do
-        -- we're satisfied with "datum not found" as the current version of the validator will consider
-        -- the initial input as if it were a commit input, hence fetching the datum which is expected
-        -- in a commit and complaining that it did not find it
+    , SomeMutation (Just $ toErrorCode ExpectedSingleCommitOutput) MutateCommitToInitial <$> do
+        -- By changing a commit output to an initial, we simulate a situation
+        -- where we do pretend to have collected every commit, but we just
+        -- changed one back to be an initial. This should be caught by the
+        -- initial validator.
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
-        pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
+        pure $
+          Changes
+            [ ChangeInput
+                txIn
+                (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey)
+                (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
+            , AddScript $ fromPlutusScript Initial.validatorScript
+            ]
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput <$> do
