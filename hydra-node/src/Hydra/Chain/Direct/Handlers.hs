@@ -63,7 +63,7 @@ import Hydra.Chain.Direct.Tx (
   NotAnInit (..),
   RawInitObservation (..),
   mismatchReasonObservation,
-  mkHeadId,
+  mkHeadId, observeHeadTx, HeadObservation (..),
  )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -267,6 +267,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     , onRollForward
     }
  where
+  ChainContext{networkId} = ctx
   LocalChainState{rollback, getLatest, pushNew} = localChainState
 
   onRollBackward :: ChainPoint -> m ()
@@ -302,20 +303,24 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
-    case observeSomeTx ctx chainState tx of
-      Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-        pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
-      Left _err -> pure Nothing
-      Right (observedTx, cs') -> do
+    let utxo = getKnownUTxO chainState
+    case observeHeadTx networkId utxo tx of
+      -- Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
+      --   pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
+      -- Left _err -> pure Nothing
+      NoHeadTx -> pure Nothing
+      observation -> do
+        let observedTx = undefined observation
         let newChainState =
               ChainStateAt
-                { chainState = cs'
+                { chainState = undefined
                 , recordedAt = Just point
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
   asChainId (AssetName bs) = OnChainId bs
+
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
