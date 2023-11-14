@@ -124,10 +124,12 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
-    genConfirmedSnapshot 0 utxo ks
+    headId <- arbitrary
+    genConfirmedSnapshot headId 0 utxo ks
 
 genConfirmedSnapshot ::
   IsTx tx =>
+  HeadId ->
   -- | The lower bound on snapshot number to generate.
   -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
   -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
@@ -136,7 +138,7 @@ genConfirmedSnapshot ::
   UTxOType tx ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot minSn utxo sks
+genConfirmedSnapshot headId minSn utxo sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -151,7 +153,6 @@ genConfirmedSnapshot minSn utxo sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    headId <- arbitrary
     let snapshot = Snapshot{headId, number, utxo, confirmed = []}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

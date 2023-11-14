@@ -1,100 +1,79 @@
 {
     "samples": [
         {
-            "numberOfEvents": 9016107,
-            "tag": "LoadedState"
-        },
-        {
             "by": {
-                "vkey": "301effc51173ca2fcf5456bad12129e614b75301779b576337a631550dec59d4"
-            },
-            "event": {
-                "clientInput": {
-                    "tag": "GetUTxO"
-                },
-                "tag": "ClientEvent"
-            },
-            "eventId": 484256,
-            "tag": "BeginEvent"
-        },
-        {
-            "by": {
-                "vkey": "28fc28361db4c32c8514cf246ec3236d441ad5e8a41cc340338a8dfe77184c91"
-            },
-            "effect": {
-                "postChainTx": {
-                    "contestationDeadline": "1864-04-16T02:45:02.928765048871Z",
-                    "tag": "FanoutTx",
-                    "utxo": [
-                        -25,
-                        -24,
-                        -21,
-                        -19,
-                        -11,
-                        -9,
-                        -5,
-                        -2,
-                        1,
-                        5,
-                        9,
-                        10,
-                        17,
-                        21,
-                        22,
-                        26
-                    ]
-                },
-                "tag": "OnChainEffect"
-            },
-            "effectId": 3756,
-            "eventId": 4349272,
-            "tag": "BeginEffect"
-        },
-        {
-            "numberOfEvents": 7710146,
-            "tag": "LoadedState"
-        },
-        {
-            "by": {
-                "vkey": "5f610b0f6348d321cd4d09cb9ccb59010412aa40c51f3cf396069cc3f4c0cf95"
+                "vkey": "9b2dcb7e7bc03087001b423f1c3748e8e1c0dcfdd73d70690d51557aa07fc880"
             },
             "effect": {
                 "serverOutput": {
-                    "headId": "88c5a4c729b24333a916f0d162aba6a3",
-                    "tag": "HeadIsFinalized",
-                    "utxo": [
-                        -30,
-                        -27,
-                        -26,
-                        -25,
-                        -22,
-                        -20,
-                        -19,
-                        -18,
-                        -17,
-                        -15,
-                        -11,
-                        -5,
-                        -3,
-                        -2,
-                        5,
-                        6,
-                        12,
-                        15,
-                        16,
-                        17,
-                        21,
-                        27,
-                        28,
-                        29
-                    ]
+                    "headId": "e96115f696ba454bf62ffb747450bff8",
+                    "participants": [
+                        "3466420d9fb3490d798bd117ce6ba6bd",
+                        "c3e2d4e8e2b4476defdfdc533fb3bb06",
+                        "314546bdca424aadeda9da44f6699efb",
+                        "e2c29224b9ba0d3ebaf542b836e96a25",
+                        "10d2dab502a30d4f50dc513f8789876c",
+                        "5d332d5e05d14d90f7eb079bd7b0b986",
+                        "85272df41ef8a9237ad6d4718195a763",
+                        "7fead44628b07af26ced561042c69289",
+                        "152fc1304b3a58214544515ca90953cf",
+                        "717e9fda74eb64fd13c0f928eba8a49a",
+                        "6ff78bc23daa06e2dbfdea468f1d273d",
+                        "0a334bbd92a426ae142d2905c3c2482e",
+                        "2e5c34e63112151d61460c802e681188",
+                        "6c47e2ccadc4b9761494a994bd4773df",
+                        "4c661b153bb3858ceebd07a017e03cc6",
+                        "c70195a41c35a641fe7c398fab1aeedf",
+                        "e923aa7c2a118422237e79dce3bf0c05",
+                        "7de4075ef06d9201cfb24c24aa9f41c7",
+                        "37407bd8bd394b5e29a390fc256880eb",
+                        "57a145abd3d396203e1cebd8123ca3b2",
+                        "9261e539f62770bc33ccad986838fc5a",
+                        "3285a3b3d58aa2837fc6a63f8e52adb3",
+                        "7c98e5820ebd05a9f2ff4c8d754063f5",
+                        "8bbf61c1084d0204613015df79fc5525",
+                        "2c7f2aaa458bafa58d5df6b0593d31fe",
+                        "84038eb4268fd5fee76da6b61fe63d82",
+                        "7b8fd1b36f5a5fc25c85924154fa597c",
+                        "63b8fb1945b71c5b208518865389af2c",
+                        "9a1be656bdd01ad244eca03766721aeb"
+                    ],
+                    "tag": "IgnoredHeadInitializing"
                 },
                 "tag": "ClientEffect"
             },
-            "effectId": 19511,
-            "eventId": 8068792,
+            "effectId": 26343,
+            "eventId": 10934526,
             "tag": "BeginEffect"
+        },
+        {
+            "by": {
+                "vkey": "7af2ce8b4efde8eb1ca3c37bb34541ba536fbffee6fea6ba721fdab0aaaab6a5"
+            },
+            "effectId": 20645,
+            "eventId": 15112884,
+            "tag": "EndEffect"
+        },
+        {
+            "by": {
+                "vkey": "cae49586e93a1587978ed7fc8f339e174d89014b1f5343c43f820e0b2f68e224"
+            },
+            "effectId": 28892,
+            "eventId": 15443219,
+            "tag": "EndEffect"
+        },
+        {
+            "by": {
+                "vkey": "adad2666b575ef562e64b1dfe28f49cf6e213b38c721e3f6968bbca67214aaab"
+            },
+            "effectId": 20926,
+            "eventId": 8487840,
+            "tag": "EndEffect"
+        },
+        {
+            "numberOfEvents": 10483054,
+            "tag": "LoadedState"
         }
     ],
-    "seed": 2119679436
+    "seed": 223081482
 }

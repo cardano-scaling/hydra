@@ -980,8 +980,8 @@ genCollectComTx = do
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen) <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot headId 0 u0 (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -990,15 +990,15 @@ genCloseTx numParties = do
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
-  (u0, stOpen) <- genStOpen ctx
-  confirmed <- genConfirmedSnapshot 0 u0 []
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  confirmed <- genConfirmedSnapshot headId 0 u0 []
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
-  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
 

@@ -5,100 +5,169 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "aa87942ad1c4abf270b88ea19b7d0eb4ee8dd15895f7dc56f17826aa338e10bf5a036b9596dab05e8a93f864ecc7a84019c745cc873c03194cd8f1f47ba09b0d",
-                            "746b963c52bf065b7683a09865094d76d72138d75392412cd1b91d2a4746baf89dceb883872244628bdd94c9f30b403588cd4a0d7db0ebabb5aaacee6e177c0d",
-                            "ab68e10edec4368ee8848cd3a09eae65e9b063b912c13e87cacd3af130e68f50a056d2972bc89e0f474fee7122f55f33fe08e902fa7807872507ee105c9ab805",
-                            "c84fe80bfe87106da749d5a47258c3402f55cc1157478dce4ab6a5d6e4a3aec0b09f03d9476d06ddfcfb01ca0b09b6b56ee01d7522709cfcf7ede395c7779505",
-                            "0289700ca47614817385522d947f6826e5c00c074e04ac45d8e4a2ee80f232bd0c42611c62255016370a5ad80260e1799d05b8fd7df597367bb4544148499005",
-                            "8f9476b4a55252324e14fdf47b9dffcb4863149d5b70fa3527cd3d35dab206572340eee0e5e9cc6ad263b53cf95623d9ca973d82dc5afc0056e8f70f3cee7605",
-                            "62a88f7e5cbf9a90b23c01c02740b7483e50d2736ecfbc9739444114c4be862038089c6575ed602bda54f0b0e875802065d722a63da39616d65bb4f5acc68a0d",
-                            "18f05abd4ccacc0bdd8aa75342db1e2449f2e0f7d013416bbf51971ebb90e1c1bd792766ef005ae728df58ba8aea4b1874837c3048408f9a26ed74207e5c1a0b",
-                            "57ab14ddbb907f5d31f57a493e9d1c2e8713246119f87da7e807f513bd8ba2b59818526c667563267247830f0fbe04bd8f3debc55171550bc2deab8decc2ac0d",
-                            "873aabf98f7b45b5c9dc115956789955da82c35ee3b2a733cdbec29aa7aa31df8a72572fc542db0f80c774cddef45ec05292758c096cb3db65ceaa5352939409",
-                            "58c48c094b947ea93197e6610ad5f1da69f67051be08aaa5d5f4b64845859bb1a73e0f05fd67a7bb0ff15434998137664dd583dc21e60034d456863779cc9d00",
-                            "facda6c6db008c8683678022af676b89650b55fdc4976c847ab47a97f810d14ab2fda46dab92ebe542f5491ccbfd87a7cd63c80fd6e1dff9c9edcf4912869d03",
-                            "71fc7ed2c28f877f16ee4cef5e2bd2c430dac6e08df12694bc73add2a8cfc7614d0576076ca2ffa8586ac8acd13878b6348179538e61ce09c996ebadc1b19e03",
-                            "562f8658f9394a49baee602a4b15c34946fea86db04b8a1235c6dff0db6449dfbe25565c720a6cc48d2f2c779bf918402ad7b206fa54597ced0993cbab40e500",
-                            "c7098860d14c16378a8561704953bd056949c3bf2fe890236b6c5f3119629399f13927d50d756c0f1f372eee5248af7790ee72a8a0c80a4540bdd6da3568da0d",
-                            "72c2cf8b225b9d92b4eea0fd9773e6564bad070a1038cbeb1f6927f1a85b7c16e54f3dadd226aeaf3d0142acb8b5148ce21308d45c3a370ade18544de921570a",
-                            "95a6cb2e5e581b3879ff528937294075d4de608bd8dd8184bca830b9b3de78be45a23dec9b28cde2a673d07d0b762217b7b103318d7121ec116e100f00602205",
-                            "9c5f211b7baee0e9db285023b45ec49274f26b92b920c9c9ebbf920c6b47b1d64fe25a534564a07685714f398790db73370249d0de2aa9d20501ef74cd221703",
-                            "e1f4caf5c44a31a13dbe48b047bfc926c79eafe2890b8e4bab7f72eff905fbc9f904b1d96b2ffc49a45827c3a2b04cf8da86e0e4a6836a4506e17cd90762220c",
-                            "5b7fae4a294f2e238e4d19bff0dc2d7ff2e78d111c2ea951b2cb1dbc9d4b356a58af46d6a05c616dc7d41b085aba889dcd2c5167673c279ef7089d607011b50b",
-                            "11d480adaa2e40e0abd956835de4a213f91a9fabfcefcd6d800043021abe8905739a27a972c197593a969025d5fa55517f277efee3bde248f72af110fc402306",
-                            "1856155f4590da1a53a08ca5de0d4747f13fae35b0cce380c44665f5f5b0b2da0d9fffd060a48a88b16de9b66da40ddbe96a62c69b18ac76b9d6d76f1483ca0b",
-                            "e04f761f5b4c28298e7c6575ec455a3b988f4815099def91d3debb9dfff87c657909193d600030230a6346ada524ca95d000e576ceb31a5e7aaa09ecc44f830c",
-                            "b5f1b6e0c89298d1d25fbe67f5f450e4ad982942cb6f2691e7861e283b7018561d3afa6b1ff64aa02805543be7470c43487bffbea0d930c01171b5559b527407",
-                            "59b9932efb3dde43ae66729e9cc6c62e822d48e8ca70dee85fefd9d6623a3e7dc0bff20267c580ca66b92332989ab346e3b951a4c557f16aae8b8e926fda6d02",
-                            "bbbb5afc7cdd5c98f3e9f9da1ae4e055e6c3cbb011f090e7a2ea8069085d6e4792b85717ec280cb17eeaf901f319c9b4ece5b413a4ed6b31f01822fa1418af0f",
-                            "679fe60bf1559ce029beda6be9e4546f5620d1669ff8111846dea3005f663cf9394ea378f357ea800bd6a00fcf80f2ace07aa9f55fb846e7bcb9ee60c394b307",
-                            "ed5276de463c45aab906a9190320a7332958834a913e5f6eb6188f7ce8454e5175445728bd618e63d05703c2e7512a762d8add96a4ba35806ea080f718ef4607",
-                            "812bcb6e369ee04c5841b8fb68fa38dc4c57b2bcba4257e81754081d7e9cf68c1a6749e73fb7f857d283127c59601a5c56551a50a85ebccd63c0570795337201",
-                            "db587154a93e010b128a2f4063583204e31e55bc71ceb99d96b7e5416cc532d19fa69de5b9b8f4ade25d4507c900f0dcb965260984c698f31149f5bac5a68106"
+                            "0fbfae9acbaa1b1ff2ff632011e03634bb77251ba4856fa2add72d46c86d762f3e5bbf3cf3b6baad8e82be944fc5e6667b64f7d8fc5146aca14a6e0a7d041904",
+                            "cdd6612f7203911a84038084d0cd64ece0de58749caa845a33258480e22ff1ddc6ba518ea39a7b69a36e89dd787f65e83bf162bf6592aa62e9120a39a300f90c",
+                            "7e0b6be1180661ef5fdc1304b621164c06a0ebdd3e388d76cb34744825190bcddb47e878d3a9cc003e2ed8a56c4a3fca509f0355216ffa022b073244e238be0e",
+                            "7114e8baf29d0119ff5ee45586cd3f9f3dafc6199f0c86a1e2600a53e178593a09bc17758211a23ae9738a41b3e3e22f3c2e8ad2ff1c3586560390c1509dfc01",
+                            "b27eb719a1c1db7f5508db0f9f5942edbb755473da13980ab5cc3263f57e1927e9e1191e04b3d5ee459be65221c9fcc33c7b03df462450b8b2de9d6210d62e07"
                         ]
                     },
                     "snapshot": {
-                        "confirmed": [],
-                        "headId": "9dced2e2da5ca46f0b1b49735cc7c7d1",
-                        "number": 20,
-                        "utxo": []
+                        "confirmedTransactions": [],
+                        "headId": "9d93288b56b4687abd52b59ebd470518",
+                        "snapshotNumber": 22,
+                        "utxo": [
+                            -27,
+                            -9,
+                            -6,
+                            1,
+                            7,
+                            8,
+                            9,
+                            16,
+                            27,
+                            30
+                        ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "plutusDebugInfo": "\u0001𢱯HE𨙥v\u001d=U栥\\@u𑦦􍂷U\u0011`󽽇3\\󺊌􎥟s\u0007\u0019*\u0002h\u0000",
-                "plutusFailure": "R㭭󽪉\u000cf9-K",
-                "tag": "PlutusValidationFailed"
+                "byronAddress": "2RhQhCGqYPDnFEKdSSphE8JHbUqUL62AcCnxXP88TrLwoq4gDm7WYvQJXF2LpAPk9HJpvt1bcKvnNwfTPEtGXHP7BDUjjeHx7bnQPoDLHr3TrB",
+                "tag": "UnsupportedLegacyOutput"
             },
             "tag": "PostTxError"
         },
         {
-            "clientInput": {
-                "tag": "Abort"
+            "message": {
+                "tag": "ReqTx",
+                "transaction": {
+                    "id": -2,
+                    "inputs": [
+                        -29,
+                        -27,
+                        -26,
+                        -25,
+                        -24,
+                        -18,
+                        -14,
+                        -11,
+                        -8,
+                        -7,
+                        -6,
+                        -4,
+                        -3,
+                        -1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        9,
+                        17,
+                        18,
+                        20,
+                        25,
+                        27
+                    ],
+                    "outputs": [
+                        -27,
+                        -25,
+                        -21,
+                        -18,
+                        -15,
+                        -3,
+                        -1,
+                        0,
+                        5,
+                        6,
+                        11,
+                        14,
+                        17,
+                        20,
+                        21,
+                        22,
+                        23,
+                        25,
+                        26,
+                        30
+                    ]
+                }
             },
-            "tag": "ClientEvent"
+            "party": {
+                "vkey": "61bac906d8f5fce531afcd9943c9fa393b6d08360179e8c448bdb84c08120562"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 30
         },
         {
-            "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -26,
-                    -7,
-                    -2,
-                    7,
-                    16,
-                    26
+            "message": {
+                "tag": "ReqTx",
+                "transaction": {
+                    "id": -2,
+                    "inputs": [
+                        -25,
+                        -24,
+                        -21,
+                        -18,
+                        -3,
+                        6,
+                        17
+                    ],
+                    "outputs": [
+                        -28,
+                        -26,
+                        -20,
+                        -16,
+                        -3,
+                        -1,
+                        2,
+                        3,
+                        4,
+                        11,
+                        14,
+                        15,
+                        18,
+                        21,
+                        24,
+                        27,
+                        28
+                    ]
+                }
+            },
+            "party": {
+                "vkey": "24c701586ebf817540eab9169b9f53cc5b444f0ae68f2a8e4614f4d92fc38161"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 6
+        },
+        {
+            "message": {
+                "snapshotNumber": 3,
+                "tag": "ReqSn",
+                "transactionIds": [
+                    22,
+                    -13
                 ]
             },
-            "postTxError": {
-                "tag": "CannotCommitReferenceScript"
+            "party": {
+                "vkey": "6c1d4461d17a7672230bfddcd44e243331ca8abb19a54ea35b28c6046d7a1ac1"
             },
-            "tag": "PostTxError"
+            "tag": "NetworkEvent",
+            "ttl": 5
         },
         {
-            "clientInput": {
-                "tag": "Close"
+            "message": {
+                "signed": "a27f8582e9c12e66b02b24b029716d5a4ab32da11c899b1aba99650c7a972318b031e8a57df63f22d38561da7dbb23e9c8504ecb11bee34877b01a02372aa20b",
+                "snapshotNumber": 0,
+                "tag": "AckSn"
             },
-            "tag": "ClientEvent"
-        },
-        {
-            "postChainTx": {
-                "contestationDeadline": "1864-06-05T02:34:49.951307365781Z",
-                "tag": "FanoutTx",
-                "utxo": [
-                    2,
-                    11,
-                    24
-                ]
+            "party": {
+                "vkey": "3a31af3b199ce0f7d1efda02534708c9cb969d018b5b09e16584c1b40f41ec47"
             },
-            "postTxError": {
-                "failureReason": "􁕹𗲡e𐑷𗦩󲗆\"717\u001c?􂠠\u0019􈠉x]",
-                "tag": "FailedToPostTx"
-            },
-            "tag": "PostTxError"
+            "tag": "NetworkEvent",
+            "ttl": 27
         }
     ],
-    "seed": -239346555
+    "seed": 598034234
 }
