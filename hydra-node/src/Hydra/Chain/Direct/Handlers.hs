@@ -82,6 +82,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (partyFromChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
@@ -177,7 +178,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
       -- Possible errors are handled at the api server level.
       draftCommitTx = \utxoToCommit -> do
         chainState <- atomically getLatest
-        case Hydra.Chain.Direct.State.chainState chainState of
+        case (error "TODO: draft commits using a UTxO only") of
           Initial st -> do
             walletUtxos <- atomically getUTxO
             let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
@@ -322,7 +323,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
       Just observedTx -> do
         let newChainState =
               ChainStateAt
-                { chainState = undefined
+                { chainState = adjustUTxO tx utxo
                 , recordedAt = Just point
                 }
         pushNew newChainState

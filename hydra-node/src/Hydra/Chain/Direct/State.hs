@@ -129,7 +129,7 @@ class HasKnownUTxO a where
 -- the actual 'ChainState' paired with a 'ChainSlot' (used to know up to which
 -- point to rewind on rollbacks).
 data ChainStateAt = ChainStateAt
-  { chainState :: ChainState
+  { chainState :: UTxO
   , recordedAt :: Maybe ChainPoint
   }
   deriving stock (Eq, Show, Generic)
@@ -194,7 +194,7 @@ instance HasKnownUTxO ChainState where
 initialChainState :: ChainStateType Tx
 initialChainState =
   ChainStateAt
-    { chainState = Idle
+    { chainState = mempty
     , recordedAt = Nothing
     }
 
