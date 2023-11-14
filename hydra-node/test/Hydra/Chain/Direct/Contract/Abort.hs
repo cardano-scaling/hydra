@@ -19,7 +19,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedTokens,
   changeMintedValueQuantityFrom,
   isHeadOutput,
-  replacePolicyIdWith, removePTFromMintedValue,
+  removePTFromMintedValue,
+  replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)

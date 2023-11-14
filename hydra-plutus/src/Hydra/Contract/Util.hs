@@ -1,8 +1,11 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Contract.Util where
 
 import Hydra.Contract.Error (ToErrorCode (..))
+import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V2 (
@@ -28,6 +31,20 @@ hasST headPolicyId v =
     quantity <- AssocMap.lookup (TokenName hydraHeadV1) tokenMap
     pure $ quantity == 1
 {-# INLINEABLE hasST #-}
+
+-- | Checks all tokens related to some specific `CurrencySymbol`.
+--
+-- This checks both PTs and ST are burnt.
+mustBurnAllHeadTokens :: Value -> CurrencySymbol -> [Party] -> Bool
+mustBurnAllHeadTokens minted headCurrencySymbol parties =
+  traceIfFalse $(errorCode BurntTokenNumberMismatch) $
+    burntTokens == length parties + 1
+ where
+  burntTokens =
+    case AssocMap.lookup headCurrencySymbol (getValue minted) of
+      Nothing -> 0
+      Just tokenMap -> negate $ sum tokenMap
+{-# INLINEABLE mustBurnAllHeadTokens #-}
 
 -- | Checks if the state token (ST) for list of parties containing specific
 -- 'CurrencySymbol' are burnt.

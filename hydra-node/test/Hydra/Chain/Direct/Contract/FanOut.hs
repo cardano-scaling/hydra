@@ -1,19 +1,20 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Chain.Direct.Contract.FanOut where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, changeMintedValueQuantityFrom)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput, hydraHeadV1AssetName)
+import Hydra.Chain.Direct.Tx (fanoutTx, hydraHeadV1AssetName, mkHeadOutput)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (mkHeadTokenScript, headPolicyId)
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
@@ -23,14 +24,12 @@ import Hydra.Ledger.Cardano (
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Party (partyToChain)
+import Hydra.Party (Party, partyToChain, vkey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
-import Hydra.Contract.CommitError (CommitError(STNotBurnedError))
-import Hydra.Contract.InitialError (InitialError(STNotBurned))
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
@@ -56,17 +55,15 @@ healthyFanoutTx =
 
   headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyFanoutDatum)
 
-  parties = generateWith (vectorOf 3 (arbitrary @(VerificationKey PaymentKey))) 42
-
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
 
   participationTokens =
     valueFromList $
       map
-        ( \vk ->
-            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)
+        ( \party ->
+            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
         )
-        parties
+        healthyParties
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
@@ -85,7 +82,8 @@ healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
-    , parties = partyToChain <$> arbitrary `generateWith` 42
+    , parties =
+        partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
@@ -96,16 +94,17 @@ healthyFanoutDatum =
 
   healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
+healthyParties :: [Party]
+healthyParties =
+  [ generateWith arbitrary i | i <- [1 .. 3]
+  ]
+
 data FanoutMutation
   = MutateAddUnexpectedOutput
   | MutateChangeOutputValue
   | MutateValidityBeforeDeadline
-  | -- | Meant to test that the minting policy is burning all PTs present in tx
+  | -- | Meant to test that the minting policy is burning all PTs and ST present in tx
     MutateThreadTokenQuantity
-  | -- | State token is not burned
-    DoNotBurnST
-  | -- | Here we want to check that the initial validator also fails on abort.
-    DoNotBurnSTInitial
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -124,10 +123,7 @@ genFanoutMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- genSlotBefore $ slotNoFromUTCTime healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
-    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
-    , SomeMutation (Just $ toErrorCode STNotBurnedError) DoNotBurnST
-        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
-    , SomeMutation (Just $ toErrorCode STNotBurned) DoNotBurnSTInitial
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity
         <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     ]
  where
