@@ -207,7 +207,7 @@ finalizeTx ::
   Tx ->
   m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO partialTx = do
-  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState <> userUTxO
+  let headUTxO = getKnownUTxO ctx <> chainState <> userUTxO
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
@@ -316,7 +316,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
-    let utxo = getKnownUTxO chainState
+    -- TODO: rename chainState to utxo
+    let utxo = chainState
     let observation = observeHeadTx networkId utxo tx
     case convertObservation observation of
       Nothing -> pure Nothing
@@ -366,15 +367,15 @@ prepareTxToPost ::
   PostChainTx Tx ->
   STM m Tx
 prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@ChainStateAt{chainState} tx =
-  case (tx, chainState) of
-    (InitTx params, Idle) ->
+  case tx of
+    InitTx params ->
       getSeedInput wallet >>= \case
         Just seedInput ->
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    (AbortTx{utxo}, Initial st) ->
-      pure $ abort ctx st utxo
+    AbortTx{utxo} ->
+      pure $ abort ctx (error "TODO: create abortTx using a UTxO only, along with some other parameters") utxo
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -382,20 +383,19 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@Chain
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    (CollectComTx{}, Initial st) ->
-      pure $ collect ctx st
-    (CloseTx{confirmedSnapshot}, Open st) -> do
+    CollectComTx{} ->
+      pure $ collect ctx (error "TODO: create collectComTx using a UTxO only, and headId from CollectComTx along with some other parameters")
+    CloseTx{confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (close ctx st confirmedSnapshot currentSlot upperBound)
-    (ContestTx{confirmedSnapshot}, Closed st) -> do
+      pure (close ctx (error "TODO: create closeTx using a UTxO only, and headId from CloseTx along with some other parameters") confirmedSnapshot currentSlot upperBound)
+    ContestTx{confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (contest ctx st confirmedSnapshot upperBound)
-    (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
+      pure (contest ctx (error "TODO: create contestTx using a UTxO only, and headId from ContestTx along with some other parameters. XXX: contesters needs to be tracked inside the HeadLogic") confirmedSnapshot upperBound)
+    FanoutTx{utxo, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      pure (fanout ctx st utxo deadlineSlot)
-    (_, _) -> throwIO $ InvalidStateToPost{txTried = tx, chainState = cst}
+      pure (fanout ctx (error "TODO: create fanoutTx using a UTxO only, along with some other parameters") utxo deadlineSlot)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
