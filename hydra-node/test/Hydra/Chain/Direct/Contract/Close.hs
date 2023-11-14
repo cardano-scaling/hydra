@@ -13,8 +13,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
-  modifyInlineDatum,
   changeMintedTokens,
+  modifyInlineDatum,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
@@ -143,7 +143,7 @@ healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadDatum)
+  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =

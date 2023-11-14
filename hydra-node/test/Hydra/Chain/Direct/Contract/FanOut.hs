@@ -53,7 +53,7 @@ healthyFanoutTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyFanoutDatum)
+  headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyFanoutDatum)
 
   parties = generateWith (vectorOf 3 (arbitrary @(VerificationKey PaymentKey))) 42
 

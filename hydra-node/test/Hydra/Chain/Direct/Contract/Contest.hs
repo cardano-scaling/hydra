@@ -99,7 +99,7 @@ healthyClosedHeadTxOut =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyClosedState)
+  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
 
 healthyContestSnapshot :: Snapshot Tx
 healthyContestSnapshot =

@@ -263,6 +263,7 @@ data Mutation
   | -- | Changes the spent 'Head' script datum to the given value. This modifies
     -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
     -- 'Datum' in the transaction's witnesses.
+    -- FIXME: should work on inline datums
     ChangeInputHeadDatum Head.State
   | -- | Adds given output as first transaction output.
     PrependOutput (TxOut CtxTx)

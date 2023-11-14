@@ -14,8 +14,8 @@ import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedV
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  modifyInlineDatum,
   changeMintedTokens,
+  modifyInlineDatum,
   replaceParties,
  )
 import Hydra.Chain.Direct.Fixture (
@@ -117,7 +117,7 @@ healthyHeadResolvedInput =
   mkHeadOutput
     testNetworkId
     testPolicyId
-    (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
+    (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -158,7 +158,7 @@ healthyCommitOutput party committed =
   ( txIn
   , HealthyCommit
       { cardanoKey
-      , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
+      , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatumInline commitDatum) ReferenceScriptNone)
       , scriptData = toScriptData commitDatum
       }
   )
@@ -246,7 +246,7 @@ genCollectComMutation (tx, _utxo) =
           mkHeadOutput
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-            <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
+            <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
