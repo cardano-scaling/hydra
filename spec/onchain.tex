@@ -341,8 +341,8 @@ In order to close a head, a head member may post the \mtxClose{} transaction
 			\end{array}\right.
 		\]
 		where $\mathsf{msg}$ is the concatenated bytes of $\cid$, $\eta_{0}$
-		% TODO: cid and η₀ are not yet incorporated
-		and $\eta'$: $\mathsf{msg} = (\textcolor{red}{\cid || \eta_{0} ||} \eta')$.
+		% TODO: η₀ is not yet incorporated
+		and $\eta'$: $\mathsf{msg} = (\cid || \textcolor{red}{\eta_{0} ||} \eta')$.
 		% TODO: detailed CDDL definition of msg
 		\item Initializes the set of contesters as $\contesters = \emptyset$. \\
 		This allows the closing party to also contest and is required for use
