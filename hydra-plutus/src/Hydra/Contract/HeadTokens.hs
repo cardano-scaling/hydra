@@ -30,7 +30,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
 import Hydra.Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
-import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), findDatum, ownCurrencySymbol, scriptOutputsAt)
+import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), ownCurrencySymbol, scriptOutputsAt)
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.V2 (
   Datum (getDatum),
@@ -114,15 +114,13 @@ validateTokensMinting initialValidator headValidator seedInput context =
           | qty == 1 -> True
         _ -> traceError $(errorCode WrongQuantity)
 
-  hasHeadIdDatum datum =
-    case datum of
-      NoOutputDatum -> traceError $(errorCode WrongInitialDatum)
-      OutputDatum dat ->
-        checkInitialDatum dat
-      OutputDatumHash dh ->
-        case findDatum dh txInfo of
-          Nothing -> traceError $(errorCode WrongDatum)
-          Just dat -> checkInitialDatum dat
+  hasHeadIdDatum = \case
+    NoOutputDatum ->
+      traceError $(errorCode WrongInitialDatum)
+    OutputDatum dat ->
+      checkInitialDatum dat
+    OutputDatumHash _dh ->
+      traceError $(errorCode WrongInitialDatum)
 
   checkInitialDatum dat =
     case fromBuiltinData @Initial.DatumType $ getDatum dat of
@@ -137,12 +135,12 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   (headId, seed, nParties) =
     case headDatum of
-      OutputDatumHash dh ->
-        case findDatum dh txInfo >>= fromBuiltinData @Head.DatumType . getDatum of
+      OutputDatum datum ->
+        case fromBuiltinData @Head.DatumType $ getDatum datum of
           Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
             (h, s, length parties)
-          _ -> traceError $(errorCode HeadDatum)
-      _ -> traceError $(errorCode NoDatum)
+          _ -> traceError $(errorCode ExpectedHeadDatumType)
+      _ -> traceError $(errorCode ExpectedInlineDatum)
 
   (headDatum, headValue) =
     case scriptOutputsAt headValidator txInfo of

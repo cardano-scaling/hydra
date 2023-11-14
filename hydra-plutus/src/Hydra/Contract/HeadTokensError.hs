@@ -15,8 +15,8 @@ data HeadTokensError
   | MintingNotAllowed
   | NoPT
   | WrongQuantity
-  | HeadDatum
-  | NoDatum
+  | ExpectedHeadDatumType
+  | ExpectedInlineDatum
   | MultipleHeadOutput
   | WrongInitialDatum
   deriving stock (Show)
@@ -31,7 +31,7 @@ instance ToErrorCode HeadTokensError where
     MintingNotAllowed -> "M06"
     NoPT -> "M07"
     WrongQuantity -> "M08"
-    HeadDatum -> "M09"
-    NoDatum -> "M10"
+    ExpectedHeadDatumType -> "M09"
+    ExpectedInlineDatum -> "M10"
     MultipleHeadOutput -> "M11"
     WrongInitialDatum -> "M12"

@@ -748,7 +748,7 @@ observeRawInitTx networkId tx = do
   maybeLeft e = maybe (Left e) Right
 
   headOutput = \case
-    (ix, out@(TxOut addr _ (TxOutDatumInTx d) _)) -> do
+    (ix, out@(TxOut addr _ (TxOutDatumInline d) _)) -> do
       guard $ addr == headAddress
       (ix,out,d,) <$> fromScriptData d
     _ -> Nothing
