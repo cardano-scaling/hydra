@@ -490,7 +490,8 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo (headInput, headOutput, _headDatumBefore) deadlineSlotNo headTokenScript =
+  -- XXX: unused datum
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -502,7 +503,7 @@ fanoutTx scriptRegistry utxo (headInput, headOutput, ScriptDatumForTxIn -> headD
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
   headScript =
@@ -539,7 +540,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   Either AbortTxError Tx
-abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, _headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
       Left OverlappingInputs
   | otherwise =
@@ -555,7 +556,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
   headScript =
@@ -575,17 +576,11 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
         , foldMap (txOutValue . fst) commitsToAbort
         ]
 
-  -- NOTE: Abort datums contain the datum of the spent state-machine input, but
-  -- also, the datum of the created output which is necessary for the
-  -- state-machine on-chain validator to control the correctness of the
-  -- transition.
-  mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
-    (initialInput, mkAbortInitialWitness initialDatum)
-
-  mkAbortInitialWitness initialDatum =
+  mkAbortInitial (initialInput, (_, _initialDatum)) = (initialInput, mkAbortInitialWitness) -- XXX: unused datum
+  mkAbortInitialWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
+        mkScriptReference initialScriptRef initialScript InlineScriptDatum initialRedeemer
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialScript =
@@ -593,13 +588,11 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, ScriptDat
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
-  mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
-    (commitInput, mkAbortCommitWitness commitDatum)
-
-  mkAbortCommitWitness commitDatum =
+  mkAbortCommit (commitInput, (_, _commitDatum)) = (commitInput, mkAbortCommitWitness) -- XXX: unused datum
+  mkAbortCommitWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+        mkScriptReference commitScriptRef commitScript InlineScriptDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitScript =
@@ -1078,8 +1071,6 @@ data AbortObservation = AbortObservation {headId :: HeadId}
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
--- FIXME: Add headId to AbortObservation to allow "upper layers" to
--- determine we are seeing an abort of "our head"
 observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
