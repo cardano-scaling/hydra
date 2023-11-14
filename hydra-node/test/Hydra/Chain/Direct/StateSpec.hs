@@ -408,7 +408,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   stOpen@OpenState{headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let txClose = close cctx stOpen InitialSnapshot{Snapshot.headId = headId, initialUTxO} closeLower closeUpper
+  let txClose = close cctx stOpen InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
@@ -482,10 +482,10 @@ forAllInit action =
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
-                (Prelude.null (peerVerificationKeys cctx))
+                (null (peerVerificationKeys cctx))
                 "1 party"
               & classify
-                (Prelude.not (Prelude.null (peerVerificationKeys cctx)))
+                (not (null (peerVerificationKeys cctx)))
                 "2+ parties"
 
 forAllCommit ::

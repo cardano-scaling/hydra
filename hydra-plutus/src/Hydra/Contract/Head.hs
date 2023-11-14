@@ -604,8 +604,8 @@ verifyPartySignature headId snapshotNumber utxoHash party signed =
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
-    Builtins.serialiseData (toBuiltinData snapshotNumber)
-      <> Builtins.serialiseData (toBuiltinData headId)
+    Builtins.serialiseData (toBuiltinData headId)
+      <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
 

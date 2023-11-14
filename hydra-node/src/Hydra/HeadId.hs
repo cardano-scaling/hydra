@@ -14,11 +14,9 @@ import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
--- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
--- want to rename this
-
 -- | Uniquely identifies a Hydra Head.
-newtype HeadId = HeadId {unHeadId :: ByteString}
+newtype HeadId where
+  HeadId :: {unHeadId :: ByteString} -> HeadId
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
   deriving newtype (FromCBOR, ToCBOR)

@@ -8,10 +8,12 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
+import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api.Prelude (serialiseToRawBytes)
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
-import Hydra.HeadId (HeadId (unHeadId))
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (..))
 import PlutusLedgerApi.V2 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
@@ -68,10 +70,10 @@ instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapsh
 -- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number, headId, utxo} =
-    toStrict $
-      serialise (toData $ toInteger number) -- CBOR(I(integer))
-        <> serialise (toBuiltin $ unHeadId headId)
-        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
+    LBS.toStrict $
+      serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
+        <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
+        <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed} =
