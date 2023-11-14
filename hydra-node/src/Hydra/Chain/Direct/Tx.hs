@@ -192,16 +192,13 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
   initialWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference initialScriptRef initialScript initialDatum initialRedeemer
+        mkScriptReference initialScriptRef initialScript InlineScriptDatum initialRedeemer
 
   initialScript =
     fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
   initialScriptRef =
     fst (initialReference scriptRegistry)
-
-  initialDatum =
-    mkScriptDatum $ Initial.datum (headIdToCurrencySymbol headId)
 
   initialRedeemer =
     toScriptData . Initial.redeemer $

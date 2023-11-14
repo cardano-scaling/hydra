@@ -22,7 +22,6 @@ import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (
   ScriptContext (..),
   TxInfo (txInfoMint, txInfoSignatories),
-  findDatum,
   findOwnInput,
   findTxInByTxOutRef,
   scriptOutputsAt,
@@ -167,15 +166,13 @@ checkCommit commitValidator headId committedRefs context =
       [(dat, _)] ->
         case dat of
           NoOutputDatum -> traceError $(errorCode MissingDatum)
-          OutputDatum _ -> traceError $(errorCode UnexpectedInlineDatum)
-          OutputDatumHash dh ->
-            case findDatum dh txInfo of
-              Nothing -> traceError $(errorCode CouldNotFindDatum)
-              Just da ->
-                case fromBuiltinData @Commit.DatumType $ getDatum da of
-                  Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
-                  Just (_party, commits, hid) ->
-                    (commits, hid)
+          OutputDatumHash _dh ->
+            traceError $(errorCode UnexpectedNonInlineDatum)
+          OutputDatum da ->
+            case fromBuiltinData @Commit.DatumType $ getDatum da of
+              Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
+              Just (_party, commits, hid) ->
+                (commits, hid)
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context

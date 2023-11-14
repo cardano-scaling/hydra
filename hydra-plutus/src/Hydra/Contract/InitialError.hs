@@ -16,8 +16,8 @@ data InitialError
   | MissingCommittedTxOutInOutputDatum
   | CommittedTxOutMissingInOutputDatum
   | MissingDatum
-  | UnexpectedInlineDatum
-  | CouldNotFindDatum
+  | UnexpectedNonInlineDatum
+  | CouldNotFindDatum -- FIXME: unused
   | ExpectedCommitDatumTypeGotSomethingElse
   | ExpectedSingleCommitOutput
   | WrongHeadIdInCommitDatum
@@ -36,7 +36,7 @@ instance ToErrorCode InitialError where
     MissingCommittedTxOutInOutputDatum -> "I07"
     CommittedTxOutMissingInOutputDatum -> "I08"
     MissingDatum -> "I09"
-    UnexpectedInlineDatum -> "I10"
+    UnexpectedNonInlineDatum -> "I10"
     CouldNotFindDatum -> "I11"
     ExpectedCommitDatumTypeGotSomethingElse -> "I12"
     ExpectedSingleCommitOutput -> "I13"
