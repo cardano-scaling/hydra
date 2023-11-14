@@ -36,8 +36,10 @@ changes.
 
 - Persist network messages on disk in order to gracefully handle crashes
 
-- **BREAKING** Changes to Hydra script hashes due to upgrading our toolchain to
-  GHC 9.6
+- **BREAKING** Changes to Hydra scripts:
+  - Switch to using inline datums instead of (optionally) published datums in
+    transactions.
+  - Upgrading our toolchain to GHC 9.6
 
 ## [0.13.0] - 2023-10-03
 
