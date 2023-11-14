@@ -35,6 +35,7 @@ import Hydra.Chain (
   ChainStateType,
   IsChainState,
   OnChainId (..),
+  OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
@@ -60,10 +61,19 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
+  ClosedThreadOutput (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
   NotAnInit (..),
   RawInitObservation (..),
   mismatchReasonObservation,
-  mkHeadId, observeHeadTx, HeadObservation (..),
+  mkHeadId,
+  observeHeadTx,
  )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -73,6 +83,8 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Party (partyFromChain)
+import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
@@ -304,13 +316,10 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
     let utxo = getKnownUTxO chainState
-    case observeHeadTx networkId utxo tx of
-      -- Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-      --   pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
-      -- Left _err -> pure Nothing
-      NoHeadTx -> pure Nothing
-      observation -> do
-        let observedTx = undefined observation
+    let observation = observeHeadTx networkId utxo tx
+    case convertObservation observation of
+      Nothing -> pure Nothing
+      Just observedTx -> do
         let newChainState =
               ChainStateAt
                 { chainState = undefined
@@ -319,8 +328,33 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-  asChainId (AssetName bs) = OnChainId bs
-
+convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
+convertObservation = \case
+  NoHeadTx -> Nothing
+  Init RawInitObservation{headId, contestationPeriod, onChainParties} ->
+    pure
+      OnInitTx
+        { headId = mkHeadId headId
+        , contestationPeriod
+        , parties = concatMap partyFromChain onChainParties
+        }
+  Abort AbortObservation{} ->
+    pure OnAbortTx
+  Commit CommitObservation{party, committed} ->
+    pure OnCommitTx{party, committed}
+  CollectCom CollectComObservation{} ->
+    pure OnCollectComTx
+  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
+    pure
+      OnCloseTx
+        { headId
+        , snapshotNumber
+        , contestationDeadline = posixToUTCTime closedContestationDeadline
+        }
+  Contest ContestObservation{snapshotNumber} ->
+    pure OnContestTx{snapshotNumber}
+  Fanout FanoutObservation{} ->
+    pure OnFanoutTx
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
