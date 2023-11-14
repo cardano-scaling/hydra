@@ -872,3 +872,22 @@ replaceContesters contesters = \case
       , Head.contesters = contesters
       }
   otherState -> otherState
+
+removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
+removePTFromMintedValue output tx =
+  case txMintValue $ txBodyContent $ txBody tx of
+    TxMintValueNone -> error "expected minted value"
+    TxMintValue v _ -> valueFromList $ filter (not . isPT) $ valueToList v
+ where
+  outValue = txOutValue output
+  assetNames =
+    [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList outValue, policyId == testPolicyId
+    ]
+  (headId, assetName) =
+    case assetNames of
+      [assetId] -> assetId
+      _ -> error "expected one assetId"
+  isPT = \case
+    (AssetId pid asset, _) ->
+      pid == headId && asset == assetName
+    _ -> False

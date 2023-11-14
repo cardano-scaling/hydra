@@ -19,7 +19,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   changeMintedTokens,
   changeMintedValueQuantityFrom,
   isHeadOutput,
-  replacePolicyIdWith,
+  replacePolicyIdWith, removePTFromMintedValue,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -248,22 +248,3 @@ genAbortMutation (tx, utxo) =
     , SomeMutation (Just $ toErrorCode STNotBurned) DoNotBurnSTInitial
         <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     ]
-
-removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
-removePTFromMintedValue output tx =
-  case txMintValue $ txBodyContent $ txBody tx of
-    TxMintValueNone -> error "expected minted value"
-    TxMintValue v _ -> valueFromList $ filter (not . isPT) $ valueToList v
- where
-  outValue = txOutValue output
-  assetNames =
-    [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList outValue, policyId == testPolicyId
-    ]
-  (headId, assetName) =
-    case assetNames of
-      [assetId] -> assetId
-      _ -> error "expected one assetId"
-  isPT = \case
-    (AssetId pid asset, _) ->
-      pid == headId && asset == assetName
-    _ -> False

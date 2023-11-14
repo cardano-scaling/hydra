@@ -1,20 +1,19 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-
 module Hydra.Chain.Direct.Contract.FanOut where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, changeMintedValueQuantityFrom)
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput, hydraHeadV1AssetName)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (mkHeadTokenScript, headPolicyId)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (
@@ -30,6 +29,8 @@ import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
+import Hydra.Contract.CommitError (CommitError(STNotBurnedError))
+import Hydra.Contract.InitialError (InitialError(STNotBurned))
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
@@ -99,6 +100,12 @@ data FanoutMutation
   = MutateAddUnexpectedOutput
   | MutateChangeOutputValue
   | MutateValidityBeforeDeadline
+  | -- | Meant to test that the minting policy is burning all PTs present in tx
+    MutateThreadTokenQuantity
+  | -- | State token is not burned
+    DoNotBurnST
+  | -- | Here we want to check that the initial validator also fails on abort.
+    DoNotBurnSTInitial
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -117,6 +124,11 @@ genFanoutMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- genSlotBefore $ slotNoFromUTCTime healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
+    , SomeMutation (Just $ toErrorCode STNotBurnedError) DoNotBurnST
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
+    , SomeMutation (Just $ toErrorCode STNotBurned) DoNotBurnSTInitial
+        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
