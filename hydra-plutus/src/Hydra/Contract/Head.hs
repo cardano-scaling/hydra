@@ -561,6 +561,7 @@ findTxOutDatum txInfo o =
   case txOutDatum o of
     NoOutputDatum -> traceError $(errorCode NoOutputDatumError)
     OutputDatumHash dh ->
+      -- XXX: This could be removed now
       fromMaybe (traceError $(errorCode DatumNotFound)) $
         findDatum dh txInfo
     OutputDatum d -> d

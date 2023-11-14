@@ -257,14 +257,14 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
  where
   InitialThreadOutput
     { initialThreadUTxO =
-      (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore)
+      (headInput, initialHeadOutput, _headDatumBefore) -- XXX: Datum not needed
     , initialParties
     , initialContestationPeriod
     } = initialThreadOutput
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headScriptRef = fst (headReference scriptRegistry)
   headRedeemer = toScriptData Head.CollectCom
@@ -291,14 +291,11 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   utxoHash =
     Head.hashPreSerializedCommits $ foldMap (extractCommits . snd . snd) $ Map.toList commits
 
-  mkCommit (commitInput, (_commitOutput, commitDatum)) =
-    ( commitInput
-    , mkCommitWitness commitDatum
-    )
-  mkCommitWitness (ScriptDatumForTxIn -> commitDatum) =
+  mkCommit (commitInput, (_out, _datum)) = (commitInput, mkCommitWitness) -- XXX: datum unused
+  mkCommitWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference commitScriptRef commitScript commitDatum commitRedeemer
+        mkScriptReference commitScriptRef commitScript InlineScriptDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitValue =
@@ -351,7 +348,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       & setValidityUpperBound endSlotNo
  where
   OpenThreadOutput
-    { openThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore)
+    { openThreadUTxO = (headInput, headOutputBefore, _headDatumBefore) -- XXX: unused datum
     , openContestationPeriod
     , openParties
     } = openThreadOutput
@@ -359,7 +356,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
 
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -424,60 +421,59 @@ contestTx ::
   HeadId ->
   ContestationPeriod ->
   Tx
-contestTx
-  scriptRegistry
-  vk
-  Snapshot{number, utxo}
-  sig
-  (slotNo, _)
-  ClosedThreadOutput{closedThreadUTxO = (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore), closedParties, closedContestationDeadline, closedContesters}
-  headId
-  contestationPeriod =
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs [(headInput, headWitness)]
-        & addReferenceInputs [headScriptRef]
-        & addOutputs [headOutputAfter]
-        & addExtraRequiredSigners [verificationKeyHash vk]
-        & setValidityUpperBound slotNo
-   where
-    headWitness =
-      BuildTxWith $
-        ScriptWitness scriptWitnessInCtx $
-          mkScriptReference headScriptRef headScript headDatumBefore headRedeemer
-    headScriptRef =
-      fst (headReference scriptRegistry)
-    headScript =
-      fromPlutusScript @PlutusScriptV2 Head.validatorScript
-    headRedeemer =
-      toScriptData
-        Head.Contest
-          { signature = toPlutusSignatures sig
-          }
-    headOutputAfter =
-      modifyTxOutDatum (const headDatumAfter) headOutputBefore
+contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
+      & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValidityUpperBound slotNo
+ where
+  ClosedThreadOutput
+    { closedThreadUTxO = (headInput, headOutputBefore, _headDatumBefore) -- XXX: unused datum
+    , closedParties
+    , closedContestationDeadline
+    , closedContesters
+    } = closedThreadOutput
 
-    contester = toPlutusKeyHash (verificationKeyHash vk)
+  headWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+  headScriptRef =
+    fst (headReference scriptRegistry)
+  headScript =
+    fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headRedeemer =
+    toScriptData
+      Head.Contest
+        { signature = toPlutusSignatures sig
+        }
+  headOutputAfter =
+    modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-    onChainConstestationPeriod = toChain contestationPeriod
+  contester = toPlutusKeyHash (verificationKeyHash vk)
 
-    newContestationDeadline =
-      if length (contester : closedContesters) == length closedParties
-        then closedContestationDeadline
-        else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+  onChainConstestationPeriod = toChain contestationPeriod
 
-    headDatumAfter =
-      mkTxOutDatumInline
-        Head.Closed
-          { snapshotNumber = toInteger number
-          , utxoHash
-          , parties = closedParties
-          , contestationDeadline = newContestationDeadline
-          , contestationPeriod = onChainConstestationPeriod
-          , headId = headIdToCurrencySymbol headId
-          , contesters = contester : closedContesters
-          }
-    utxoHash = toBuiltin $ hashUTxO @Tx utxo
+  newContestationDeadline =
+    if length (contester : closedContesters) == length closedParties
+      then closedContestationDeadline
+      else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
+
+  headDatumAfter =
+    mkTxOutDatumInline
+      Head.Closed
+        { snapshotNumber = toInteger number
+        , utxoHash
+        , parties = closedParties
+        , contestationDeadline = newContestationDeadline
+        , contestationPeriod = onChainConstestationPeriod
+        , headId = headIdToCurrencySymbol headId
+        , contesters = contester : closedContesters
+        }
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
@@ -935,13 +931,13 @@ observeCollectComTx ::
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- lookupScriptData tx headOutput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
-      newHeadDatum <- lookupScriptData tx newHeadOutput
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
       pure
         CollectComObservation
@@ -983,13 +979,13 @@ observeCloseTx ::
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- lookupScriptData tx headOutput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
-      newHeadDatum <- lookupScriptData tx newHeadOutput
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
         Just Head.Closed{contestationDeadline, snapshotNumber} -> pure (contestationDeadline, snapshotNumber)
         _ -> Nothing
@@ -1031,13 +1027,13 @@ observeContestTx ::
 observeContestTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- lookupScriptData tx headOutput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed{contesters}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
-      newHeadDatum <- lookupScriptData tx newHeadOutput
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
       pure
         ContestObservation
