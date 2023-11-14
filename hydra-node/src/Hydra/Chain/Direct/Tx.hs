@@ -145,7 +145,7 @@ mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, partie
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   headDatum =
-    mkTxOutDatum $
+    mkTxOutDatumInline $
       Head.Initial
         { contestationPeriod = toChain contestationPeriod
         , parties = map partyToChain parties
@@ -165,7 +165,7 @@ mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
+    mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
@@ -223,7 +223,7 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
     txOutValue out <> foldMap txOutValue utxoToCommit
 
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
+    mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
 
   utxoToCommit = fst <$> utxoToCommitWitnessed
 
@@ -278,7 +278,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
-    mkTxOutDatum
+    mkTxOutDatumInline
       Head.Open
         { Head.parties = initialParties
         , utxoHash
@@ -380,7 +380,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   headDatumAfter =
-    mkTxOutDatum
+    mkTxOutDatumInline
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
@@ -470,7 +470,7 @@ contestTx
         else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
     headDatumAfter =
-      mkTxOutDatum
+      mkTxOutDatumInline
         Head.Closed
           { snapshotNumber = toInteger number
           , utxoHash
