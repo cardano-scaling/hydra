@@ -159,11 +159,7 @@ spec =
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =
-  ( totalMem
-      <= maxMem
-      && totalCpu
-      <= maxCpu
-  )
+  (totalMem <= maxMem && totalCpu <= maxCpu)
     & counterexample
       ( "Ex. Cost Limits exceeded, mem: "
           <> show totalMem

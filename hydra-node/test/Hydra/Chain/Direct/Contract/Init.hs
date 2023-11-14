@@ -15,8 +15,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
-  modifyInlineDatum,
   changeMintedValueQuantityFrom,
+  modifyInlineDatum,
   replaceHeadId,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)

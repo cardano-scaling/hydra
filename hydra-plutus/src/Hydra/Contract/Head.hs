@@ -166,12 +166,9 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties'
-        == parties
-        && contestationPeriod'
-        == contestationPeriod
-        && headId'
-        == headId
+      parties' == parties
+        && contestationPeriod' == contestationPeriod
+        && headId' == headId
 
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
@@ -323,12 +320,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      headId'
-        == headPolicyId
-        && parties'
-        == parties
-        && cperiod'
-        == cperiod
+      headId' == headPolicyId
+        && parties' == parties
+        && cperiod' == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -409,12 +403,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties'
-        == parties
-        && headId'
-        == headId
-        && contestationPeriod'
-        == contestationPeriod
+      parties' == parties
+        && headId' == headId
+        && contestationPeriod' == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'
@@ -561,7 +552,7 @@ findTxOutDatum txInfo o =
   case txOutDatum o of
     NoOutputDatum -> traceError $(errorCode NoOutputDatumError)
     OutputDatumHash dh ->
-      -- XXX: This could be removed now
+      -- XXX: This could be renamed now
       fromMaybe (traceError $(errorCode DatumNotFound)) $
         findDatum dh txInfo
     OutputDatum d -> d
