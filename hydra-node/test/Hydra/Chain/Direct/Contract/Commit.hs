@@ -16,6 +16,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
+  modifyInlineDatum,
   replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -110,13 +111,10 @@ genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode WrongHeadIdInCommitDatum) NonContinuousHeadId <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
-        let mutateHeadId = modifyTxOutDatum $ \case
-              TxOutDatumInTx sd ->
-                case fromScriptData sd of
-                  Just ((party, mCommit, _headId) :: Commit.DatumType) ->
-                    TxOutDatumInTx $ toScriptData (party, mCommit, toPlutusCurrencySymbol otherHeadId)
-                  Nothing -> error "Not a commit datum"
-              _ -> error "expected datum in tx"
+        let mutateHeadId =
+              modifyInlineDatum $
+                \((party, mCommit, _headId) :: Commit.DatumType) ->
+                  (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)

@@ -531,19 +531,19 @@ addDatum datum scriptData =
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
            in TxBodyScriptData newDats redeemers
 
-changeHeadOutputDatum :: (Head.State -> Head.State) -> TxOut CtxTx -> TxOut CtxTx
-changeHeadOutputDatum fn txOut =
+modifyInlineDatum :: (FromScriptData a, ToScriptData a) => (a -> a) -> TxOut CtxTx -> TxOut CtxTx
+modifyInlineDatum fn txOut =
   case txOutDatum txOut of
     TxOutDatumNone ->
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInline _sd) ->
-      error "Unexpected inlined datum"
-    (TxOutDatumInTx sd) ->
+    (TxOutDatumInTx _sd) ->
+      error "Unexpected in-tx datum"
+    (TxOutDatumInline sd) ->
       case fromScriptData sd of
         Just st ->
-          txOut{txOutDatum = mkTxOutDatum $ fn st}
+          txOut{txOutDatum = mkTxOutDatumInline $ fn st}
         Nothing ->
           error "Invalid data"
 

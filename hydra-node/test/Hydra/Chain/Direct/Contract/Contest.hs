@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
-  changeHeadOutputDatum,
+  modifyInlineDatum,
   changeMintedTokens,
   replaceContestationDeadline,
   replaceContestationPeriod,
@@ -273,7 +273,7 @@ genContestMutation (tx, _utxo) =
             }
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
         pure $
@@ -299,7 +299,7 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
         pure $
-          changeHeadOutputDatum
+          modifyInlineDatum
             (replaceUtxoHash (toBuiltin mutatedUTxOHash))
             headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
@@ -347,7 +347,7 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
         hashes <- listOf genHash
         let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
-        pure $ changeHeadOutputDatum (replaceContesters mutatedContesters) headTxOut
+        pure $ modifyInlineDatum (replaceContesters mutatedContesters) headTxOut
     , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
@@ -355,18 +355,18 @@ genContestMutation (tx, _utxo) =
         let deadline = posixFromUTCTime healthyContestationDeadline
         -- Here we are replacing the contestationDeadline using the previous so we are not _pushing it_ further
         -- Remember the 'healthyContestTx' is already pushing out the deadline.
-        pure $ headTxOut & changeHeadOutputDatum (replaceContestationDeadline deadline)
+        pure $ headTxOut & modifyInlineDatum (replaceContestationDeadline deadline)
     , SomeMutation (Just $ toErrorCode MustNotPushDeadline) PushDeadlineAlthoughItShouldNot <$> do
         alreadyContested <- vectorOf (length healthyParties - 1) $ Plutus.PubKeyHash . toBuiltin <$> genHash
         let contester = toPlutusKeyHash $ verificationKeyHash healthyContesterVerificationKey
         pure $
           Changes
-            [ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContesters (contester : alreadyContested)))
+            [ ChangeOutput 0 (headTxOut & modifyInlineDatum (replaceContesters (contester : alreadyContested)))
             , ChangeInputHeadDatum (healthyClosedState & replaceContesters alreadyContested)
             ]
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutateOutputContestationPeriod <$> do
         randomCP <- arbitrary `suchThat` (/= healthyOnChainContestationPeriod)
-        pure $ ChangeOutput 0 (headTxOut & changeHeadOutputDatum (replaceContestationPeriod randomCP))
+        pure $ ChangeOutput 0 (headTxOut & modifyInlineDatum (replaceContestationPeriod randomCP))
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <-
           -- The length of mutatedParties must be the same as
@@ -377,10 +377,10 @@ genContestMutation (tx, _utxo) =
             ( partyFromVerificationKeyBytes <$> genHash
             )
             `suchThat` (/= healthyOnChainParties)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId otherHeadId) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

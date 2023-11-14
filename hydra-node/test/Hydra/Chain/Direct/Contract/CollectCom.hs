@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedV
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  changeHeadOutputDatum,
+  modifyInlineDatum,
   changeMintedTokens,
   replaceParties,
  )
@@ -269,14 +269,14 @@ genCollectComMutation (tx, _utxo) =
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   mutatedPartiesHeadTxOut parties =
-    changeHeadOutputDatum $ \case
+    modifyInlineDatum $ \case
       Head.Open{utxoHash, contestationPeriod, headId} ->
         Head.Open{Head.parties = parties, contestationPeriod, utxoHash, headId}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+    pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
     Head.Open{parties, contestationPeriod, headId} ->
