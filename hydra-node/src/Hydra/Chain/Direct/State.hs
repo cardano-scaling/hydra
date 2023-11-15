@@ -80,7 +80,6 @@ import Hydra.Chain.Direct.Tx (
   NotAnInit (..),
   OpenThreadOutput (..),
   UTxOHash (UTxOHash),
-  UTxOWithScript,
   abortTx,
   closeTx,
   collectComTx,
@@ -241,8 +240,8 @@ allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
-  , initialInitials :: [UTxOWithScript]
-  , initialCommits :: [UTxOWithScript]
+  , initialInitials :: [(TxIn, TxOut CtxUTxO)]
+  , initialCommits :: [(TxIn, TxOut CtxUTxO)]
   , headId :: HeadId
   , seedTxIn :: TxIn
   }
@@ -253,10 +252,8 @@ instance HasKnownUTxO InitialState where
   getKnownUTxO st =
     UTxO $
       Map.fromList $
-        initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+        initialThreadUTxO : initialCommits <> initialInitials
    where
-    take2Of3 (a, b, _c) = (a, b)
-
     InitialState
       { initialThreadOutput = InitialThreadOutput{initialThreadUTxO}
       , initialInitials
@@ -354,7 +351,7 @@ ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
   foldl' go Nothing initialInitials
  where
   go (Just x) _ = Just x
-  go Nothing (i, out, _) = do
+  go Nothing (i, out) = do
     let vkh = verificationKeyHash ownVerificationKey
     guard $ hasMatchingPT st vkh (txOutValue out)
     pure (i, out, vkh)
@@ -404,8 +401,8 @@ abort ::
   Tx
 abort ctx st committedUTxO = do
   let InitialThreadOutput{initialThreadUTxO = (i, o)} = initialThreadOutput
-      initials = Map.fromList $ map tripleToPair initialInitials
-      commits = Map.fromList $ map tripleToPair initialCommits
+      initials = Map.fromList initialInitials
+      commits = Map.fromList initialCommits
    in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
@@ -426,8 +423,6 @@ abort ctx st committedUTxO = do
     , seedTxIn
     } = st
 
-  tripleToPair (a, b, c) = (a, (b, c))
-
 -- | Construct a collect transaction based on the 'InitialState'. This will know
 -- collect all the committed outputs.
 collect ::
@@ -435,7 +430,7 @@ collect ::
   InitialState ->
   Tx
 collect ctx st = do
-  let commits = Map.fromList $ fmap tripleToPair initialCommits
+  let commits = Map.fromList initialCommits
    in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
@@ -445,8 +440,6 @@ collect ctx st = do
     , initialCommits
     , headId
     } = st
-
-  tripleToPair (a, b, c) = (a, (b, c))
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.
@@ -617,7 +610,7 @@ observeCommit ctx st tx = do
           { initialInitials =
               -- NOTE: A commit tx has been observed and thus we can
               -- remove all it's inputs from our tracked initials
-              filter ((`notElem` txIns' tx) . fst3) initialInitials
+              filter ((`notElem` txIns' tx) . fst) initialInitials
           , initialCommits =
               commitOutput : initialCommits
           }
@@ -630,8 +623,6 @@ observeCommit ctx st tx = do
     , initialInitials
     , headId
     } = st
-
-  fst3 (a, _b, _c) = a
 
 -- | Observe an collect transition using a 'InitialState' and 'observeCollectComTx'.
 -- This function checks the head id and ignores if not relevant.

@@ -243,14 +243,14 @@ collectComTx ::
   InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
-  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
+  Map TxIn (TxOut CtxUTxO) ->
   -- | Head id
   HeadId ->
   Tx
 collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
       & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
@@ -282,23 +282,23 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
         , headId = headIdToCurrencySymbol headId
         }
 
-  extractCommits d =
-    case fromScriptData d of
-      Nothing -> error "SNAFU"
+  extractCommits txOut =
+    case txOutScriptData (toTxContext txOut) >>= fromScriptData of
+      Nothing -> error "Expected inline commit datum" -- TODO: proper error handling
       Just ((_, cs, _) :: Commit.DatumType) -> cs
 
   utxoHash =
-    Head.hashPreSerializedCommits $ foldMap (extractCommits . snd . snd) $ Map.toList commits
+    Head.hashPreSerializedCommits $ foldMap extractCommits commits
 
-  mkCommit (commitInput, (_out, _datum)) = (commitInput, mkCommitWitness) -- XXX: datum unused
-  mkCommitWitness =
+  mkCommit commitTxIn = (commitTxIn, commitWitness)
+  commitWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference commitScriptRef commitScript InlineScriptDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitValue =
-    mconcat $ txOutValue . fst <$> Map.elems commits
+    mconcat $ txOutValue <$> Map.elems commits
   commitScript =
     fromPlutusScript @PlutusScriptV2 Commit.validatorScript
   commitRedeemer =
@@ -534,10 +534,10 @@ abortTx ::
   PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
-  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
+  Map TxIn (TxOut CtxUTxO) ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
-  Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
+  Map TxIn (TxOut CtxUTxO) ->
   Either AbortTxError Tx
 abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
@@ -563,20 +563,20 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   headRedeemer =
     toScriptData Head.Abort
 
-  initialInputs = mkAbortInitial <$> Map.toList initialsToAbort
+  initialInputs = mkAbortInitial <$> Map.keys initialsToAbort
 
-  commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
+  commitInputs = mkAbortCommit <$> Map.keys commitsToAbort
 
   headTokens =
     headTokensFromValue headTokenScript $
       mconcat
         [ txOutValue initialHeadOutput
-        , foldMap (txOutValue . fst) initialsToAbort
-        , foldMap (txOutValue . fst) commitsToAbort
+        , foldMap txOutValue initialsToAbort
+        , foldMap txOutValue commitsToAbort
         ]
 
-  mkAbortInitial (initialInput, (_, _initialDatum)) = (initialInput, mkAbortInitialWitness) -- XXX: unused datum
-  mkAbortInitialWitness =
+  mkAbortInitial initialInput = (initialInput, abortInitialWitness)
+  abortInitialWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference initialScriptRef initialScript InlineScriptDatum initialRedeemer
@@ -587,8 +587,8 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
-  mkAbortCommit (commitInput, (_, _commitDatum)) = (commitInput, mkAbortCommitWitness) -- XXX: unused datum
-  mkAbortCommitWitness =
+  mkAbortCommit commitInput = (commitInput, abortCommitWitness)
+  abortCommitWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference commitScriptRef commitScript InlineScriptDatum commitRedeemer
@@ -635,7 +635,7 @@ data RawInitObservation = RawInitObservation
   , seedTxIn :: TxIn
   , headPTsNames :: [AssetName]
   , initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initials :: [UTxOWithScript]
+  , initials :: [(TxIn, TxOut CtxUTxO)]
   }
   deriving (Show, Eq)
 
@@ -647,8 +647,8 @@ data InitObservation = InitObservation
   -- transactions.
   -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
   -- XXX(SN): Data and [OnChain.Party] are overlapping
-  , initials :: [UTxOWithScript]
-  , commits :: [UTxOWithScript]
+  , initials :: [(TxIn, TxOut CtxUTxO)]
+  , commits :: [(TxIn, TxOut CtxUTxO)]
   , headId :: HeadId
   , seedTxIn :: TxIn
   , contestationPeriod :: ContestationPeriod
@@ -744,11 +744,8 @@ observeRawInitTx networkId tx = do
   initialOutputs = filter (isInitial . snd) indexedOutputs
 
   initials =
-    mapMaybe
-      ( \(i, o) -> do
-          dat <- txOutScriptData o
-          pure (mkTxIn tx i, toCtxUTxOTxOut o, dat)
-      )
+    map
+      (\(i, o) -> (mkTxIn tx i, toCtxUTxOTxOut o))
       initialOutputs
 
   isInitial (TxOut addr _ _ _) = addr == initialAddress
@@ -832,7 +829,7 @@ observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
 
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
-  { commitOutput :: UTxOWithScript
+  { commitOutput :: (TxIn, TxOut CtxUTxO)
   , party :: Party
   -- ^ Hydra participant who committed the UTxO.
   , committed :: UTxO
@@ -884,7 +881,7 @@ observeCommitTx networkId utxo tx = do
 
   pure
     CommitObservation
-      { commitOutput = (commitIn, toUTxOContext commitOut, dat)
+      { commitOutput = (commitIn, toUTxOContext commitOut)
       , party
       , committed
       , headId = mkHeadId $ fromPlutusCurrencySymbol headId

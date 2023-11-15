@@ -75,15 +75,14 @@ spec =
                     >>= (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO} = threadOutput
-                          initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                           lookupUTxO =
                             mconcat
-                              [ Map.fromList (initialThreadUTxO : [(a, b) | (a, b, _) <- initials])
+                              [ Map.fromList (initialThreadUTxO : initials)
                               , UTxO.toMap (registryUTxO scriptRegistry)
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case abortTx mempty scriptRegistry signer initialThreadUTxO (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case abortTx mempty scriptRegistry signer initialThreadUTxO (mkHeadTokenScript testSeedInput) (Map.fromList initials) mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->
@@ -183,7 +182,7 @@ withinTxExecutionBudget report =
 -- NOTE: Uses 'testPolicyId' for the datum.
 -- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, HashableScriptData, UTxO))
+generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, UTxO))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
@@ -195,7 +194,7 @@ generateCommitUTxOs parties = do
           uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, HashableScriptData, UTxO)
+  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, UTxO)
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
@@ -203,7 +202,6 @@ generateCommitUTxOs parties = do
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
-    , toScriptData commitDatum
     , utxo
     )
    where
@@ -230,14 +228,14 @@ prettyEvaluationReport (Map.toList -> xs) =
     either (T.replace "\n" " " . show) show
 
 -- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [(TxIn, TxOut CtxUTxO, HashableScriptData, UTxO)])
+genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
 genAbortableOutputs parties =
   go
  where
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
     initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c, u)) -> (a, b, c, u)) . Map.toList <$> generateCommitUTxOs commitParties
+    commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
 
   genInitial p =
@@ -246,11 +244,10 @@ genAbortableOutputs parties =
   mkInitial ::
     VerificationKey PaymentKey ->
     TxIn ->
-    UTxOWithScript
+    (TxIn, TxOut CtxUTxO)
   mkInitial vk txin =
     ( txin
     , initialTxOut vk
-    , toScriptData initialDatum
     )
 
   initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO

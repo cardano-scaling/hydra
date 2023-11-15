@@ -78,7 +78,7 @@ healthyCollectComTx =
       scriptRegistry
       somePartyCardanoVerificationKey
       initialThreadOutput
-      ((txOut &&& scriptData) <$> healthyCommits)
+      (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -146,7 +146,6 @@ genCommittableTxOut =
 data HealthyCommit = HealthyCommit
   { cardanoKey :: VerificationKey PaymentKey
   , txOut :: TxOut CtxUTxO
-  , scriptData :: HashableScriptData
   }
   deriving stock (Show)
 
@@ -159,7 +158,6 @@ healthyCommitOutput party committed =
   , HealthyCommit
       { cardanoKey
       , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatumInline commitDatum) ReferenceScriptNone)
-      , scriptData = toScriptData commitDatum
       }
   )
  where

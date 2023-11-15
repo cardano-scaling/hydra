@@ -24,12 +24,11 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
-  UTxOWithScript,
   abortTx,
   hydraHeadV1AssetName,
   mkHeadOutputInitial,
  )
-import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
+import Hydra.Chain.Direct.TxSpec (genAbortableOutputs)
 import Hydra.ContestationPeriod (toChain)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (..))
@@ -55,8 +54,8 @@ healthyAbortTx =
  where
   lookupUTxO =
     UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
-      <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
-      <> UTxO (Map.fromList (map (\(i, o, _, _) -> (i, o)) healthyCommits))
+      <> UTxO (Map.fromList healthyInitials)
+      <> UTxO (Map.fromList (map (\(i, o, _) -> (i, o)) healthyCommits))
       <> registryUTxO scriptRegistry
 
   tx =
@@ -67,10 +66,10 @@ healthyAbortTx =
         somePartyCardanoVerificationKey
         (healthyHeadInput, toUTxOContext headOutput)
         headTokenScript
-        (Map.fromList (tripleToPair <$> healthyInitials))
-        (Map.fromList (map (\(i, o, sd, _) -> (i, (o, sd))) healthyCommits))
+        (Map.fromList healthyInitials)
+        (Map.fromList (map (\(i, o, _) -> (i, o)) healthyCommits))
 
-  committedUTxO = foldMap (\(_, _, _, u) -> u) healthyCommits
+  committedUTxO = foldMap (\(_, _, u) -> u) healthyCommits
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -80,8 +79,6 @@ healthyAbortTx =
   headTokenScript = mkHeadTokenScript testSeedInput
 
   headOutput = mkHeadOutputInitial testNetworkId testSeedInput healthyHeadParameters
-
-  tripleToPair (a, b, c) = (a, (b, c))
 
 healthyHeadInput :: TxIn
 healthyHeadInput = generateWith arbitrary 42
@@ -93,8 +90,8 @@ healthyHeadParameters =
     , parties = healthyParties
     }
 
-healthyInitials :: [UTxOWithScript]
-healthyCommits :: [(TxIn, TxOut CtxUTxO, HashableScriptData, UTxO)]
+healthyInitials :: [(TxIn, TxOut CtxUTxO)]
+healthyCommits :: [(TxIn, TxOut CtxUTxO, UTxO)]
 (healthyInitials, healthyCommits) =
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit
@@ -199,15 +196,15 @@ genAbortMutation (tx, utxo) =
               , Head.seed = toPlutusTxOutRef mutatedSeed
               }
     , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) UseInputFromOtherHead <$> do
-        (input, output, _) <- elements healthyInitials
+        (txIn, txOut) <- elements healthyInitials
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
         pure $
           Changes
             [ -- XXX: This is changing the PT of the initial, but not the
               -- datum; it's an impossible situation as the minting policy would
               -- not allow non-matching datum & PT
-              ChangeInput input (replacePolicyIdWith testPolicyId otherHeadId output) (Just $ toScriptData Initial.ViaAbort)
-            , ChangeMintedValue (removePTFromMintedValue output tx)
+              ChangeInput txIn (replacePolicyIdWith testPolicyId otherHeadId txOut) (Just $ toScriptData Initial.ViaAbort)
+            , ChangeMintedValue (removePTFromMintedValue txOut tx)
             ]
     , SomeMutation (Just $ toErrorCode ReimbursedOutputsDontMatch) ReorderCommitOutputs <$> do
         let outputs = txOuts' tx
