@@ -94,6 +94,7 @@ channels:
           - $ref: "api.yaml#/components/messages/InvalidInput"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
 
     publish:
       summary: Commands sent to the Hydra node.
