@@ -103,7 +103,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
                 void $ bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                postTx $ AbortTx mempty
+                postTx $ AbortTx {utxo = mempty}
 
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
@@ -140,7 +140,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
 
-                postTx $ AbortTx aliceUTxO
+                postTx $ AbortTx{utxo = aliceUTxO}
                 --
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
@@ -175,9 +175,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
-                bobPostTx (AbortTx mempty)
+                bobPostTx (AbortTx{utxo =  mempty})
                   `shouldThrow` \case
-                    InvalidStateToPost{txTried} -> txTried == AbortTx @Tx mempty
+                    InvalidStateToPost{txTried } -> (txTried :: PostChainTx Tx) == AbortTx {utxo = mempty}
                     _ -> False
 
   it "can commit" $ \tracer ->

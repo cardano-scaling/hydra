@@ -68,7 +68,7 @@ instance Arbitrary HeadParameters where
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
-  | AbortTx {utxo :: UTxOType tx}
+  | AbortTx {utxo :: UTxOType tx, seed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx}
   | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
@@ -89,6 +89,15 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     CloseTx{confirmedSnapshot} -> CloseTx <$> shrink confirmedSnapshot
     ContestTx{confirmedSnapshot} -> ContestTx <$> shrink confirmedSnapshot
     FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
+
+-- | Unique seed to create a 'HeadId'
+data HeadSeed
+  = HeadSeed
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary HeadSeed where
+  arbitrary = pure HeadSeed
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
