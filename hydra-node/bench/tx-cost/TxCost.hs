@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
@@ -17,6 +18,8 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
+  ClosedState (..),
+  OpenState (..),
   abort,
   close,
   collect,
@@ -38,7 +41,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
-  unsafeObserveInitAndCommits, OpenState (..), ClosedState (..),
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
   genOutput,
