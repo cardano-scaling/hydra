@@ -52,7 +52,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainStateType,
-  HeadId (..),
   HeadParameters (..),
   IsChainState (..),
   OnChainTx (..),
@@ -102,6 +101,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Crypto (HydraKey)
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
@@ -980,8 +980,8 @@ genCollectComTx = do
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen) <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot 0 u0 (ctxHydraSigningKeys ctx)
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  snapshot <- genConfirmedSnapshot headId 0 u0 (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -990,15 +990,15 @@ genCloseTx numParties = do
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
-  (u0, stOpen) <- genStOpen ctx
-  confirmed <- genConfirmedSnapshot 0 u0 []
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  confirmed <- genConfirmedSnapshot headId 0 u0 []
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let txClose = close cctx stOpen confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
-  contestSnapshot <- genConfirmedSnapshot (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
 
@@ -1034,10 +1034,11 @@ genStClosed ::
 genStClosed ctx utxo = do
   (u0, stOpen) <- genStOpen ctx
   confirmed <- arbitrary
+  headId <- arbitrary
   let (sn, snapshot, toFanout) = case confirmed of
         InitialSnapshot{} ->
           ( 0
-          , InitialSnapshot{initialUTxO = u0}
+          , InitialSnapshot{headId, initialUTxO = u0}
           , u0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->

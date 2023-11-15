@@ -10,8 +10,9 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, HeadId, IsChainState, OnChainId, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, IsChainState, OnChainId, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.Party (Party)

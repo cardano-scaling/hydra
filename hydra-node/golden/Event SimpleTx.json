@@ -2,106 +2,172 @@
     "samples": [
         {
             "postChainTx": {
-                "tag": "CollectComTx",
-                "utxo": [
-                    -30,
-                    -27,
-                    -25,
-                    -23,
-                    -20,
-                    -18,
-                    -17,
-                    -15,
-                    -14,
-                    -11,
-                    -7,
-                    -6,
-                    -5,
-                    -4,
-                    1,
-                    2,
-                    7,
-                    14,
-                    15,
-                    16,
-                    18,
-                    20,
-                    22,
-                    27
-                ]
-            },
-            "postTxError": {
-                "plutusDebugInfo": "\u0001𢱯HE𨙥v\u001d=U栥\\@u𑦦􍂷U\u0011`󽽇3\\󺊌􎥟s\u0007\u0019*\u0002h\u0000",
-                "plutusFailure": "R㭭󽪉\u000cf9-K",
-                "tag": "PlutusValidationFailed"
-            },
-            "tag": "PostTxError"
-        },
-        {
-            "clientInput": {
-                "tag": "Abort"
-            },
-            "tag": "ClientEvent"
-        },
-        {
-            "postChainTx": {
-                "tag": "AbortTx",
-                "utxo": [
-                    -26,
-                    -7,
-                    -2,
-                    7,
-                    16,
-                    26
-                ]
-            },
-            "postTxError": {
-                "tag": "CannotCommitReferenceScript"
-            },
-            "tag": "PostTxError"
-        },
-        {
-            "clientInput": {
-                "tag": "GetUTxO"
-            },
-            "tag": "ClientEvent"
-        },
-        {
-            "postChainTx": {
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "cca3562da7edf9dfbb3dc2a47940a81409deaab542489adf785eaf8c34a456e7f1c2ac315c7371f0447aa1266daebad212a4d481e3aa472fa2b4bfad1541bc0d",
-                            "384813aa093583885326f793f081694416b2f61f90567e8f307099ee9c0b999f760721aa1e416074b6a09033de3666967ae06719fe937be24b38dfba3342cb09",
-                            "a01cc8a9630075682c7e9e3eab3452cca8e9e82331ac7220c070951f8a8a293d31dfde34a93a2a2cd0b19634b4bef41185d72c1ab1a9bb5a0e8a721d0e631700"
+                            "0fbfae9acbaa1b1ff2ff632011e03634bb77251ba4856fa2add72d46c86d762f3e5bbf3cf3b6baad8e82be944fc5e6667b64f7d8fc5146aca14a6e0a7d041904",
+                            "cdd6612f7203911a84038084d0cd64ece0de58749caa845a33258480e22ff1ddc6ba518ea39a7b69a36e89dd787f65e83bf162bf6592aa62e9120a39a300f90c",
+                            "7e0b6be1180661ef5fdc1304b621164c06a0ebdd3e388d76cb34744825190bcddb47e878d3a9cc003e2ed8a56c4a3fca509f0355216ffa022b073244e238be0e",
+                            "7114e8baf29d0119ff5ee45586cd3f9f3dafc6199f0c86a1e2600a53e178593a09bc17758211a23ae9738a41b3e3e22f3c2e8ad2ff1c3586560390c1509dfc01",
+                            "b27eb719a1c1db7f5508db0f9f5942edbb755473da13980ab5cc3263f57e1927e9e1191e04b3d5ee459be65221c9fcc33c7b03df462450b8b2de9d6210d62e07"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "snapshotNumber": 26,
+                        "headId": "9d93288b56b4687abd52b59ebd470518",
+                        "snapshotNumber": 22,
                         "utxo": [
-                            -28,
                             -27,
-                            -21,
-                            -19,
-                            -11,
-                            -7,
-                            -5,
-                            2,
+                            -9,
+                            -6,
+                            1,
+                            7,
+                            8,
+                            9,
                             16,
-                            27
+                            27,
+                            30
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "tag": "ContestTx"
+                "tag": "CloseTx"
             },
             "postTxError": {
-                "failureReason": "􁕹𗲡e𐑷𗦩󲗆\"717\u001c?􂠠\u0019􈠉x]",
-                "tag": "FailedToPostTx"
+                "byronAddress": "2RhQhCGqYPDnFEKdSSphE8JHbUqUL62AcCnxXP88TrLwoq4gDm7WYvQJXF2LpAPk9HJpvt1bcKvnNwfTPEtGXHP7BDUjjeHx7bnQPoDLHr3TrB",
+                "tag": "UnsupportedLegacyOutput"
             },
             "tag": "PostTxError"
+        },
+        {
+            "message": {
+                "tag": "ReqTx",
+                "transaction": {
+                    "id": -2,
+                    "inputs": [
+                        -29,
+                        -27,
+                        -26,
+                        -25,
+                        -24,
+                        -18,
+                        -14,
+                        -11,
+                        -8,
+                        -7,
+                        -6,
+                        -4,
+                        -3,
+                        -1,
+                        2,
+                        4,
+                        5,
+                        6,
+                        9,
+                        17,
+                        18,
+                        20,
+                        25,
+                        27
+                    ],
+                    "outputs": [
+                        -27,
+                        -25,
+                        -21,
+                        -18,
+                        -15,
+                        -3,
+                        -1,
+                        0,
+                        5,
+                        6,
+                        11,
+                        14,
+                        17,
+                        20,
+                        21,
+                        22,
+                        23,
+                        25,
+                        26,
+                        30
+                    ]
+                }
+            },
+            "party": {
+                "vkey": "61bac906d8f5fce531afcd9943c9fa393b6d08360179e8c448bdb84c08120562"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 30
+        },
+        {
+            "message": {
+                "tag": "ReqTx",
+                "transaction": {
+                    "id": -2,
+                    "inputs": [
+                        -25,
+                        -24,
+                        -21,
+                        -18,
+                        -3,
+                        6,
+                        17
+                    ],
+                    "outputs": [
+                        -28,
+                        -26,
+                        -20,
+                        -16,
+                        -3,
+                        -1,
+                        2,
+                        3,
+                        4,
+                        11,
+                        14,
+                        15,
+                        18,
+                        21,
+                        24,
+                        27,
+                        28
+                    ]
+                }
+            },
+            "party": {
+                "vkey": "24c701586ebf817540eab9169b9f53cc5b444f0ae68f2a8e4614f4d92fc38161"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 6
+        },
+        {
+            "message": {
+                "snapshotNumber": 3,
+                "tag": "ReqSn",
+                "transactionIds": [
+                    22,
+                    -13
+                ]
+            },
+            "party": {
+                "vkey": "6c1d4461d17a7672230bfddcd44e243331ca8abb19a54ea35b28c6046d7a1ac1"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 5
+        },
+        {
+            "message": {
+                "signed": "a27f8582e9c12e66b02b24b029716d5a4ab32da11c899b1aba99650c7a972318b031e8a57df63f22d38561da7dbb23e9c8504ecb11bee34877b01a02372aa20b",
+                "snapshotNumber": 0,
+                "tag": "AckSn"
+            },
+            "party": {
+                "vkey": "3a31af3b199ce0f7d1efda02534708c9cb969d018b5b09e16584c1b40f41ec47"
+            },
+            "tag": "NetworkEvent",
+            "ttl": 27
         }
     ],
-    "seed": -239346555
+    "seed": 598034234
 }

@@ -183,8 +183,8 @@ $\hats$, resets the signature accumulator $\hatSigma$, and computes the UTxO set
 $\hatmU$ of the new (seen) snapshot as
 $\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$. Then, $\party_i$ creates a
 signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a message
-comprised by \textcolor{red}{the $\cid$, the $\eta_{0}$ corresponding to the
-	initial UTxO set $\Uinit$, and} the new $\eta'$ given by the new snapshot number
+comprised by the $\cid$, \textcolor{red}{the $\eta_{0}$ corresponding to the
+	initial UTxO set $\Uinit$}, and the new $\eta'$ given by the new snapshot number
 $\hats$ and canonically combining $\hatmU$ (see Section~\ref{sec:close-tx} for
 details). The signature is sent to all head members via message
 $(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction set $\hatmT$ gets

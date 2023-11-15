@@ -65,6 +65,7 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.ContestationPeriod
     Hydra.Crypto
+    Hydra.HeadId
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event

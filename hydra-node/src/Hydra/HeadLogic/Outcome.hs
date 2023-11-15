@@ -6,8 +6,9 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, HeadId, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
+import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)

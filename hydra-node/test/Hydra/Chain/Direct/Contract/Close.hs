@@ -148,7 +148,8 @@ healthyOpenHeadTxOut =
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
-    { number = healthyCloseSnapshotNumber
+    { headId = mkHeadId Fixture.testPolicyId
+    , number = healthyCloseSnapshotNumber
     , utxo = healthyCloseUTxO
     , confirmed = []
     }

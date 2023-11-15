@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+
 module Test.HSpec.MarkdownFormatterSpec where
 
 import Hydra.Prelude

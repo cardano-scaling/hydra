@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
@@ -16,6 +18,8 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
+  ClosedState (..),
+  OpenState (..),
   abort,
   close,
   collect,
@@ -156,9 +160,9 @@ computeContestCost = do
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    (closedSnapshotNumber, _, stClosed) <- genStClosed ctx utxo
+    (closedSnapshotNumber, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     pure (contest cctx stClosed snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
@@ -209,8 +213,8 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot 1 utxo [] -- We do not validate the signatures
+    (_committed, stOpen@OpenState{headId}) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = contestationPeriod cctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

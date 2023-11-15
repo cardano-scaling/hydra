@@ -27,9 +27,9 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   Chain (Chain),
-  HeadId (HeadId),
   PostChainTx (CloseTx),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
@@ -38,6 +38,7 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
+import Hydra.HeadId (HeadId (HeadId))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -45,7 +46,7 @@ import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, utxo), confirmed)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice)
@@ -207,12 +208,13 @@ spec = describe "ServerSpec" $
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
 
+            let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
-            let txValidMessage = TxValid{headId = HeadId "some-head-id", transaction = tx}
+            let txValidMessage = TxValid{headId = headId, transaction = tx}
             let sn = generatedSnapshot{confirmed = [txId tx]}
             let snapShotConfirmedMessage =
                   SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
+                    { headId = headId
                     , snapshot = sn
                     , signatures = mempty
                     }
@@ -331,7 +333,7 @@ spec = describe "ServerSpec" $
 
             snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
               generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout $ headId headIsOpenMsg
+            let readyToFanoutMsg = ReadyToFanout $ ServerOutput.headId headIsOpenMsg
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
@@ -463,7 +465,7 @@ waitForValue port f =
 waitMatch :: HasCallStack => Natural -> Connection -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay con match = do
   seenMsgs <- newTVarIO []
-  timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
+  timeout (fromIntegral delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs

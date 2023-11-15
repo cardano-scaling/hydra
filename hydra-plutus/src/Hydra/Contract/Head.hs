@@ -302,7 +302,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   checkSnapshot
     | closedSnapshotNumber > 0 =
         traceIfFalse $(errorCode InvalidSnapshotSignature) $
-          verifySnapshotSignature parties closedSnapshotNumber closedUtxoHash sig
+          verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
@@ -398,7 +398,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
       contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
-    verifySnapshotSignature parties contestSnapshotNumber contestUtxoHash sig
+    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -589,22 +589,23 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
-verifySnapshotSignature :: [Party] -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
-verifySnapshotSignature parties snapshotNumber utxoHash sigs =
+verifySnapshotSignature :: [Party] -> CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
+verifySnapshotSignature parties headId snapshotNumber utxoHash sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties
       == length sigs
-      && all (uncurry $ verifyPartySignature snapshotNumber utxoHash) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature headId snapshotNumber utxoHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber utxoHash party signed =
+verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature headId snapshotNumber utxoHash party signed =
   traceIfFalse $(errorCode PartySignatureVerificationFailed) $
     verifyEd25519Signature (vkey party) message signed
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
-    Builtins.serialiseData (toBuiltinData snapshotNumber)
+    Builtins.serialiseData (toBuiltinData headId)
+      <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
 {-# INLINEABLE verifyPartySignature #-}
 

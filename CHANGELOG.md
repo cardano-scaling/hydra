@@ -10,6 +10,9 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- **BREAKING** Sign the head identifier as part of snapshot signature
+  and verify it on-chain
+
 - Removed false positive `PostTxOnChainFailed` error from API outputs when the
   collect transaction of another `hydra-node` was "faster" than ours.
 

@@ -13,7 +13,6 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  HeadId (HeadId),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -22,6 +21,7 @@ import Hydra.Chain (
  )
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
+import Hydra.HeadId (HeadId (HeadId))
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -29,7 +29,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogicSpec (inInitialState)
+import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
@@ -49,7 +49,6 @@ import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Hydra.Snapshot (Snapshot (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 
 spec :: Spec
@@ -67,7 +66,7 @@ spec = parallel $ do
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
                  ]
-          signedSnapshot = sign aliceSk $ Snapshot 1 (utxoRefs [1, 3, 4]) [1]
+          signedSnapshot = sign aliceSk $ testSnapshot 1 (utxoRefs [1, 3, 4]) [1]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
@@ -76,8 +75,8 @@ spec = parallel $ do
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          sn1 = Snapshot 1 (utxoRefs [1, 2, 3]) mempty
-          sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [1]
+          sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
+          sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
           events =
             eventsToOpenHead
               <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
@@ -94,7 +93,7 @@ spec = parallel $ do
 
   it "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
-      let snapshot = Snapshot 1 (utxoRefs [1, 2, 3]) []
+      let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
           sigBob = sign bobSk snapshot
           sigAlice = sign aliceSk snapshot
           events =
@@ -120,7 +119,7 @@ spec = parallel $ do
   it "signs snapshot even if it has seen conflicting transactions" $
     failAfter 1 $
       showLogsOnFailure $ \tracer -> do
-        let snapshot = Snapshot 1 (utxoRefs [1, 3, 5]) [2]
+        let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
             sigBob = sign bobSk snapshot
             events =
               eventsToOpenHead

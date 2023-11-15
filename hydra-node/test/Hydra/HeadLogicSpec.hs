@@ -18,7 +18,6 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
-  HeadId (..),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -28,6 +27,7 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
 import Hydra.Crypto qualified as Crypto
+import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -48,14 +48,14 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.Ledger (ChainSlot (..), IsTx (txId), Ledger (..), ValidationError (..))
+import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -84,7 +84,7 @@ spec =
               { localUTxO = mempty
               , allTxs = mempty
               , localTxs = mempty
-              , confirmedSnapshot = InitialSnapshot mempty
+              , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               }
 
@@ -109,7 +109,7 @@ spec =
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot1 = Snapshot 1 mempty []
+            snapshot1 = Snapshot testHeadId 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
           step reqSn
@@ -117,7 +117,7 @@ spec =
           step (ackFrom aliceSk alice)
           getState
 
-        getConfirmedSnapshot snapshotInProgress `shouldBe` Just (Snapshot 0 mempty [])
+        getConfirmedSnapshot snapshotInProgress `shouldBe` Just (testSnapshot 0 mempty [])
 
         snapshotConfirmed <-
           runEvents bobEnv ledger snapshotInProgress $ do
@@ -156,7 +156,7 @@ spec =
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
               reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
-              snapshot1 = Snapshot 1 (utxoRefs [1]) [1]
+              snapshot1 = testSnapshot 1 (utxoRefs [1]) [1]
               ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
@@ -176,8 +176,8 @@ spec =
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot = Snapshot 1 mempty []
-            snapshot' = Snapshot 2 mempty []
+            snapshot = testSnapshot 1 mempty []
+            snapshot' = testSnapshot 2 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
             invalidAckFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot') 1
         waitingForLastAck <-
@@ -194,7 +194,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot = Snapshot 1 mempty []
+            snapshot = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
           runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
@@ -210,7 +210,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot1 = Snapshot 1 mempty []
+            snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
               NetworkEvent defaultTTL vk $
@@ -229,7 +229,7 @@ spec =
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot1 = Snapshot 1 mempty []
+            snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
           runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
@@ -263,7 +263,7 @@ spec =
           `shouldBe` Wait (WaitOnTxs [1])
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
-        let snapshot = Snapshot 1 mempty []
+        let snapshot = testSnapshot 1 mempty []
             event = NetworkEvent defaultTTL alice $ AckSn (sign aliceSk snapshot) 1
         update bobEnv ledger (inOpenState threeParties ledger) event `shouldBe` Wait WaitOnSeenSnapshot
 
@@ -288,7 +288,7 @@ spec =
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
-            snapshot = Snapshot 1 mempty []
+            snapshot = testSnapshot 1 mempty []
             event = NetworkEvent defaultTTL leader $ ReqSn (number snapshot) []
             sig = sign bobSk snapshot
             st = inOpenState threeParties ledger
@@ -306,7 +306,7 @@ spec =
       it "rejects too-old snapshots" $ do
         let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
             theLeader = alice
-            snapshot = Snapshot 2 mempty []
+            snapshot = testSnapshot 2 mempty []
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
@@ -315,12 +315,12 @@ spec =
       it "rejects too-old snapshots when collecting signatures" $ do
         let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
             theLeader = alice
-            snapshot = Snapshot 2 mempty []
+            snapshot = testSnapshot 2 mempty []
             st =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
-                  , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
+                  , seenSnapshot = SeenSnapshot (testSnapshot 3 mempty []) mempty
                   }
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
@@ -417,7 +417,7 @@ spec =
           lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
-        let snapshot = Snapshot 2 mempty []
+        let snapshot = testSnapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
             s0 =
               inOpenState' threeParties $
@@ -435,7 +435,7 @@ spec =
               _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
-        let snapshot2 = Snapshot 2 mempty []
+        let snapshot2 = testSnapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = observationEvent $ OnContestTx 1
@@ -482,7 +482,7 @@ spec =
                         { localUTxO = UTxO.singleton utxo
                         , allTxs = mempty
                         , localTxs = [expiringTransaction]
-                        , confirmedSnapshot = InitialSnapshot $ UTxO.singleton utxo
+                        , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         }
                   , chainState = Prelude.error "should not be used"
@@ -567,7 +567,7 @@ inOpenState parties Ledger{initUTxO} =
       }
  where
   u0 = initUTxO
-  confirmedSnapshot = InitialSnapshot u0
+  confirmedSnapshot = InitialSnapshot testHeadId u0
 
 inOpenState' ::
   [Party] ->
@@ -591,7 +591,7 @@ inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
   u0 = initUTxO simpleLedger
-  snapshot0 = InitialSnapshot u0
+  snapshot0 = InitialSnapshot testHeadId u0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> HeadState SimpleTx
 inClosedState' parties confirmedSnapshot =
@@ -667,3 +667,10 @@ hasNoEffectSatisfying outcome predicate = do
 
 testHeadId :: HeadId
 testHeadId = HeadId "1234"
+
+testSnapshot ::
+  SnapshotNumber ->
+  UTxOType tx ->
+  [TxIdType tx] ->
+  Snapshot tx
+testSnapshot = Snapshot testHeadId

@@ -94,6 +94,7 @@ channels:
           - $ref: "api.yaml#/components/messages/InvalidInput"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -923,9 +924,12 @@ components:
         type: object
         additionalProperties: false
         required:
+          - headId
           - initialUTxO
           - tag
         properties:
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
           initialUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
           tag:
@@ -1382,10 +1386,13 @@ components:
     Snapshot:
       type: object
       required:
+      - headId
       - snapshotNumber
       - utxo
       - confirmedTransactions
       properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
         utxo:
