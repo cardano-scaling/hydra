@@ -40,7 +40,7 @@ data HeadError
   | NoSigners
   | TooManySigners
   | NoOutputDatumError
-  | DatumNotFound
+  | UnexpectedNonInlineDatum
   | SignatureVerificationFailed
   | PartySignatureVerificationFailed
   | NotPayingToHead
@@ -84,7 +84,7 @@ instance ToErrorCode HeadError where
     NoSigners -> "H31"
     TooManySigners -> "H32"
     NoOutputDatumError -> "H33"
-    DatumNotFound -> "H34" -- XXX: can be renamed (e.g. expected inline datum)
+    UnexpectedNonInlineDatum -> "H34" -- XXX: can be renamed (e.g. expected inline datum)
     SignatureVerificationFailed -> "H35"
     PartySignatureVerificationFailed -> "H36"
     NotPayingToHead -> "H37"
