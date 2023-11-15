@@ -43,7 +43,7 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       healthyFanoutUTxO
-      (headInput, headOutput, headDatum)
+      (headInput, headOutput)
       healthySlotNo
       headTokenScript
 
@@ -66,8 +66,6 @@ healthyFanoutTx =
             (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)
         )
         parties
-
-  headDatum = toScriptData healthyFanoutDatum
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =

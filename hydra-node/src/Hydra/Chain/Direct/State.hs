@@ -271,10 +271,10 @@ data OpenState = OpenState
 
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
-    UTxO.singleton (i, o)
+    UTxO.singleton openThreadUTxO
    where
     OpenState
-      { openThreadOutput = OpenThreadOutput{openThreadUTxO = (i, o, _)}
+      { openThreadOutput = OpenThreadOutput{openThreadUTxO}
       } = st
 
 data ClosedState = ClosedState
@@ -287,10 +287,10 @@ data ClosedState = ClosedState
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
-    UTxO.singleton (i, o)
+    UTxO.singleton closedThreadUTxO
    where
     ClosedState
-      { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO = (i, o, _)}
+      { closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}
       } = st
 
 -- * Constructing transactions
@@ -512,7 +512,7 @@ fanout ::
   SlotNo ->
   Tx
 fanout ctx st utxo deadlineSlotNo = do
-  fanoutTx scriptRegistry utxo (i, o, dat) deadlineSlotNo headTokenScript
+  fanoutTx scriptRegistry utxo closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -520,7 +520,7 @@ fanout ctx st utxo deadlineSlotNo = do
 
   ClosedState{closedThreadOutput, seedTxIn} = st
 
-  ClosedThreadOutput{closedThreadUTxO = (i, o, dat)} = closedThreadOutput
+  ClosedThreadOutput{closedThreadUTxO} = closedThreadOutput
 
 -- * Observing Transitions
 

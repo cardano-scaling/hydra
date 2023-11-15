@@ -73,11 +73,9 @@ healthyCloseTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = toScriptData healthyOpenHeadDatum
-
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
@@ -113,11 +111,9 @@ healthyCloseInitialTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = toScriptData healthyOpenHeadDatum
-
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }

@@ -80,11 +80,9 @@ healthyContestTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = toScriptData healthyClosedState
-
   closedThreadOutput =
     ClosedThreadOutput
-      { closedThreadUTxO = (healthyClosedHeadTxIn, healthyClosedHeadTxOut, headDatum)
+      { closedThreadUTxO = (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
       , closedParties =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline

@@ -82,7 +82,7 @@ data InitialThreadOutput = InitialThreadOutput
 
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
-  { openThreadUTxO :: UTxOWithScript
+  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , openContestationPeriod :: OnChain.ContestationPeriod
   , openParties :: [OnChain.Party]
   }
@@ -90,7 +90,7 @@ data OpenThreadOutput = OpenThreadOutput
   deriving anyclass (ToJSON, FromJSON)
 
 data ClosedThreadOutput = ClosedThreadOutput
-  { closedThreadUTxO :: UTxOWithScript
+  { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
   , closedContesters :: [Plutus.PubKeyHash]
@@ -347,7 +347,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       & setValidityUpperBound endSlotNo
  where
   OpenThreadOutput
-    { openThreadUTxO = (headInput, headOutputBefore, _headDatumBefore) -- XXX: unused datum
+    { openThreadUTxO = (headInput, headOutputBefore)
     , openContestationPeriod
     , openParties
     } = openThreadOutput
@@ -430,7 +430,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
       & setValidityUpperBound slotNo
  where
   ClosedThreadOutput
-    { closedThreadUTxO = (headInput, headOutputBefore, _headDatumBefore) -- XXX: unused datum
+    { closedThreadUTxO = (headInput, headOutputBefore)
     , closedParties
     , closedContestationDeadline
     , closedContesters
@@ -483,14 +483,13 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  UTxOWithScript ->
+  (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo (headInput, headOutput, _headDatumBefore) deadlineSlotNo headTokenScript =
-  -- XXX: unused datum
+fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -929,11 +928,7 @@ observeCollectComTx utxo tx = do
         CollectComObservation
           { threadOutput =
               OpenThreadOutput
-                { openThreadUTxO =
-                    ( newHeadInput
-                    , newHeadOutput
-                    , newHeadDatum
-                    )
+                { openThreadUTxO = (newHeadInput, newHeadOutput)
                 , openParties = parties
                 , openContestationPeriod = contestationPeriod
                 }
@@ -979,11 +974,7 @@ observeCloseTx utxo tx = do
         CloseObservation
           { threadOutput =
               ClosedThreadOutput
-                { closedThreadUTxO =
-                    ( newHeadInput
-                    , newHeadOutput
-                    , newHeadDatum
-                    )
+                { closedThreadUTxO = (newHeadInput, newHeadOutput)
                 , closedParties = parties
                 , closedContestationDeadline = closeContestationDeadline
                 , closedContesters = []
@@ -996,7 +987,7 @@ observeCloseTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
 data ContestObservation = ContestObservation
-  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO, HashableScriptData)
+  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contesters :: [Plutus.PubKeyHash]
@@ -1023,11 +1014,7 @@ observeContestTx utxo tx = do
       let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
       pure
         ContestObservation
-          { contestedThreadOutput =
-              ( newHeadInput
-              , newHeadOutput
-              , newHeadDatum
-              )
+          { contestedThreadOutput = (newHeadInput, newHeadOutput)
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
           , contesters
