@@ -691,6 +691,10 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  -- NOTE: If posting the collectCom transaction failed in the open state, then
+  -- another party likely opened the head before us and it's okay to ignore.
+  (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
+    Effects []
   -- Closed
   (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
     onClosedChainContestTx closedState snapshotNumber

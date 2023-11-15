@@ -21,7 +21,7 @@ import Data.Aeson qualified as Aeson
 import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
+import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
 
 -- | Run given 'action' in 'IOSim' and rethrow any exceptions.

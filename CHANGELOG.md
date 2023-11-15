@@ -10,6 +10,9 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- Removed false positive `PostTxOnChainFailed` error from API outputs when the
+  collect transaction of another `hydra-node` was "faster" than ours.
+
 - Add a `hydra-chain-observer` executable to subscribe to a chain and just
   observe Hydra Head transactions (with minimal information right now).
 

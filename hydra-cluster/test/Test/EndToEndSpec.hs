@@ -67,6 +67,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsExternalScriptWithInlineDatum,
   singlePartyCommitsFromExternalScript,
   singlePartyHeadFullLifeCycle,
+  threeNodesNoErrorsOnOpen,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -150,6 +151,13 @@ spec = around showLogsOnFailure $
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
+      it "does not error when all nodes open the head concurrently" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir "three-no-errors" $ \tmpDir -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              publishHydraScriptsAs node Faucet
+                >>= threeNodesNoErrorsOnOpen tracer tmpDir node
+
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
           withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do

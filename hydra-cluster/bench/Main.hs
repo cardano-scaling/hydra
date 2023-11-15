@@ -22,7 +22,7 @@ import Options.Applicative (
 import System.Directory (createDirectory, createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
-import Test.HUnit.Lang (HUnitFailure (..), formatFailureReason)
+import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 main :: IO ()
