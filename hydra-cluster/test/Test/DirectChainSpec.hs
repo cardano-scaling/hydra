@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO' (UTxO, toMap))
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
   buildAddress,
@@ -36,6 +37,7 @@ import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
   HeadParameters (..),
+  HeadSeed (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -50,6 +52,7 @@ import Hydra.Chain.Direct (
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import Hydra.Chain.Direct.Tx (txInToHeadSeed)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -159,7 +162,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        [(seedTxIn, _)] <- UTxO.pairs <$> seedFromFaucet node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice [carol] hydraScriptsTxId
 
@@ -175,7 +178,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
-                bobPostTx (AbortTx{utxo = mempty})
+                let headSeed = txInToHeadSeed seedTxIn
+                bobPostTx (AbortTx{utxo = mempty, seed = headSeed})
                   `shouldThrow` \case
                     InvalidStateToPost{txTried} -> (txTried :: PostChainTx Tx) == AbortTx{utxo = mempty}
                     _ -> False

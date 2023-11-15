@@ -95,7 +95,8 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
 -- policy id of the cardano-specific implementation (being the result of minting
 -- policy + seed) stays internal.
 newtype HeadSeed
-  = HeadSeed ByteString
+  = -- TODO: Rename to UnsafeHeadSeed
+    HeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
 
