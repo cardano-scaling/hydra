@@ -1080,11 +1080,14 @@ observeAbortTx utxo tx = do
 
 -- * Helpers
 
-headSeedToTxIn :: HeadSeed -> TxIn
-headSeedToTxIn (HeadSeed seed) = undefined
+headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
+headSeedToTxIn (HeadSeed bytes) =
+  case Aeson.decodeStrict bytes of
+    Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
+    Just txIn -> pure txIn
 
 txInToHeadSeed :: TxIn -> HeadSeed
-txInToHeadSeed _ = undefined
+txInToHeadSeed txin = HeadSeed $ toStrict $ Aeson.encode txin
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =

@@ -376,7 +376,12 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@Chain
         Nothing ->
           throwIO (NoSeedInput @Tx)
     AbortTx{utxo, seed} ->
-      pure $ abort ctx (headSeedToTxIn seed) chainState utxo
+      case headSeedToTxIn seed of
+        Nothing ->
+          -- TODO: add dedicated error here
+          throwIO (NoSeedInput @Tx)
+        Just seedTxIn ->
+          pure $ abort ctx seedTxIn chainState utxo
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from

@@ -46,8 +46,10 @@ spec :: Spec
 spec =
   parallel $ do
     describe "HeadSeed (cardano)" $
-      prop "headSeedToTxIn . txInToHeadSeed === id" $ \txIn ->
-        headSeedToTxIn (txInToHeadSeed txIn) === txIn
+      prop "headSeedToTxIn . txInToHeadSeed === id" $ \txIn -> do
+        let headSeed = txInToHeadSeed txIn
+        headSeedToTxIn headSeed === Just txIn
+          & counterexample (show headSeed)
 
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
