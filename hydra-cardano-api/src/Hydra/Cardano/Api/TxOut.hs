@@ -86,6 +86,24 @@ findTxOutByAddress address tx =
  where
   indexedOutputs = zip [mkTxIn tx ix | ix <- [0 ..]] (txOuts' tx)
 
+-- | Find all script outputs in some 'UTxO'
+findTxOutsByScript ::
+  forall lang.
+  IsPlutusScriptLanguage lang =>
+  UTxO ->
+  PlutusScript lang ->
+  [(TxIn, TxOut CtxUTxO Era)]
+findTxOutsByScript utxo script =
+  List.filter matchScript (UTxO.pairs utxo)
+ where
+  version = plutusScriptVersion @lang
+  matchScript = \case
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _ _) ->
+      let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+       in scriptHash == scriptHash'
+    _ ->
+      False
+
 findTxOutByScript ::
   forall lang.
   IsPlutusScriptLanguage lang =>

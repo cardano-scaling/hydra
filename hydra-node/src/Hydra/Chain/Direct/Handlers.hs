@@ -367,7 +367,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@ChainStateAt{chainState} tx =
+prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStateAt{chainState} tx =
   case tx of
     InitTx params ->
       getSeedInput wallet >>= \case

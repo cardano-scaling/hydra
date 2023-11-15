@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
+  PlutusScriptV2,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
@@ -35,7 +36,11 @@ import Hydra.Cardano.Api (
   WitCtxTxIn,
   Witness,
   chainPointToSlotNo,
+  findTxOutByScript,
+  findTxOutsByScript,
+  fromPlutusScript,
   genTxIn,
+  mkScriptAddress,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -98,7 +103,10 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
+import Hydra.Contract.Initial qualified as Commit
+import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
@@ -427,10 +435,14 @@ abort ::
   UTxO ->
   Tx
 abort ctx seedTxIn spendableUTxO committedUTxO = do
-  let initials = undefined
-      commits = undefined
-      i = undefined
-      o = undefined
+  let initials =
+        Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO initialScript
+      commits =
+        Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO commitScript
+      (i, o) =
+        fromMaybe
+          (error "Could not find the Head output")
+          (findTxOutByScript @PlutusScriptV2 spendableUTxO headScript)
    in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
@@ -440,6 +452,10 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
         Right tx ->
           tx
  where
+  commitScript = fromPlutusScript Commit.validatorScript
+  headScript = fromPlutusScript Head.validatorScript
+  initialScript = fromPlutusScript Initial.validatorScript
+
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
