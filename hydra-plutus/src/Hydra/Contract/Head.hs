@@ -570,7 +570,7 @@ hashPreSerializedCommits commits =
 -- obtained by moving onr ore more bytes from the end of `x` to the beginning of
 -- `y`, but in the context of Hydra validators it seems impossible to exploit
 -- this property without breaking other logic or verification (eg. producing a
--- valid and meaning`TxOut`).
+-- valid and meaningful `TxOut`).
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
