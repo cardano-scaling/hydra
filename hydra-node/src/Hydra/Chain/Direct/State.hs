@@ -253,7 +253,7 @@ instance HasKnownUTxO InitialState where
   getKnownUTxO st =
     UTxO $
       Map.fromList $
-        take2Of3 initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
+        initialThreadUTxO : (take2Of3 <$> (initialInitials <> initialCommits))
    where
     take2Of3 (a, b, _c) = (a, b)
 
@@ -403,10 +403,10 @@ abort ::
   UTxO ->
   Tx
 abort ctx st committedUTxO = do
-  let InitialThreadOutput{initialThreadUTxO = (i, o, dat)} = initialThreadOutput
+  let InitialThreadOutput{initialThreadUTxO = (i, o)} = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o, dat) headTokenScript initials commits of
+   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
           -- the arguments of abortTx to make it impossible of having

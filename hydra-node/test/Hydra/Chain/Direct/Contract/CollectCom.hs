@@ -68,7 +68,7 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput)
+    UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
       <> UTxO (txOut <$> healthyCommits)
       <> registryUTxO scriptRegistry
 
@@ -86,11 +86,9 @@ healthyCollectComTx =
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
 
-  headDatum = toScriptData healthyCollectComInitialDatum
-
   initialThreadOutput =
     InitialThreadOutput
-      { initialThreadUTxO = (healthyHeadInput, healthyHeadResolvedInput, headDatum)
+      { initialThreadUTxO = (healthyHeadTxIn, healthyHeadTxOut)
       , initialParties = healthyOnChainParties
       , initialContestationPeriod = healthyContestationPeriod
       }
@@ -110,12 +108,12 @@ healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
-healthyHeadInput :: TxIn
-healthyHeadInput =
+healthyHeadTxIn :: TxIn
+healthyHeadTxIn =
   generateWith arbitrary 42
 
-healthyHeadResolvedInput :: TxOut CtxUTxO
-healthyHeadResolvedInput =
+healthyHeadTxOut :: TxOut CtxUTxO
+healthyHeadTxOut =
   mkHeadOutput
     testNetworkId
     testPolicyId
@@ -180,7 +178,7 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
-    mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
+    mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadTxIn)
 
 data CollectComMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -249,7 +247,7 @@ genCollectComMutation (tx, _utxo) =
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
-        return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
+        return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]

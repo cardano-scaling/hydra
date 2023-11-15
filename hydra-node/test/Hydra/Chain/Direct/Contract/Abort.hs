@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
-import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -66,7 +65,7 @@ healthyAbortTx =
         committedUTxO
         scriptRegistry
         somePartyCardanoVerificationKey
-        (healthyHeadInput, toUTxOContext headOutput, headDatum)
+        (healthyHeadInput, toUTxOContext headOutput)
         headTokenScript
         (Map.fromList (tripleToPair <$> healthyInitials))
         (Map.fromList (map (\(i, o, sd, _) -> (i, (o, sd))) healthyCommits))
@@ -81,12 +80,6 @@ healthyAbortTx =
   headTokenScript = mkHeadTokenScript testSeedInput
 
   headOutput = mkHeadOutputInitial testNetworkId testSeedInput healthyHeadParameters
-
-  headDatum = unsafeGetDatum headOutput
-
-  -- XXX: We loose type information by dealing with 'TxOut CtxTx' where datums
-  -- are optional
-  unsafeGetDatum = fromJust . txOutScriptData
 
   tripleToPair (a, b, c) = (a, (b, c))
 

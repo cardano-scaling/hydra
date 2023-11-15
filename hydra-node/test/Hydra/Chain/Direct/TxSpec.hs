@@ -74,16 +74,16 @@ spec =
                in case first NotAnInit (observeRawInitTx testNetworkId tx)
                     >>= (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
                     Right InitObservation{initials, threadOutput} -> do
-                      let InitialThreadOutput{initialThreadUTxO = (headInput, headOutput, headDatum)} = threadOutput
+                      let InitialThreadOutput{initialThreadUTxO} = threadOutput
                           initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                           lookupUTxO =
                             mconcat
-                              [ Map.fromList ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
+                              [ Map.fromList (initialThreadUTxO : [(a, b) | (a, b, _) <- initials])
                               , UTxO.toMap (registryUTxO scriptRegistry)
                               ]
                               & Map.mapKeys toLedgerTxIn
                               & Map.map toLedgerTxOut
-                       in case abortTx mempty scriptRegistry signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                       in case abortTx mempty scriptRegistry signer initialThreadUTxO (mkHeadTokenScript testSeedInput) initials' mempty of
                             Left err ->
                               property False & counterexample ("AbortTx construction failed: " <> show err)
                             Right (toLedgerTx -> txAbort) ->

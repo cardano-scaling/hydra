@@ -73,7 +73,7 @@ instance FromJSON UTxOHash where
 
 -- | Representation of the Head output after an Init transaction.
 data InitialThreadOutput = InitialThreadOutput
-  { initialThreadUTxO :: UTxOWithScript
+  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , initialContestationPeriod :: OnChain.ContestationPeriod
   , initialParties :: [OnChain.Party]
   }
@@ -256,8 +256,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   InitialThreadOutput
-    { initialThreadUTxO =
-      (headInput, initialHeadOutput, _headDatumBefore) -- XXX: Datum not needed
+    { initialThreadUTxO = (headInput, initialHeadOutput)
     , initialParties
     , initialContestationPeriod
     } = initialThreadOutput
@@ -530,7 +529,7 @@ abortTx ::
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO, HashableScriptData) ->
+  (TxIn, TxOut CtxUTxO) ->
   -- | Script for monetary policy to burn tokens
   PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
@@ -540,7 +539,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, HashableScriptData) ->
   Either AbortTxError Tx
-abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput, _headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
       Left OverlappingInputs
   | otherwise =
@@ -635,7 +634,7 @@ data RawInitObservation = RawInitObservation
   , onChainParties :: [OnChain.Party]
   , seedTxIn :: TxIn
   , headPTsNames :: [AssetName]
-  , initialThreadUTxO :: UTxOWithScript
+  , initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , initials :: [UTxOWithScript]
   }
   deriving (Show, Eq)
@@ -696,7 +695,7 @@ observeRawInitTx ::
   Either NotAnInitReason RawInitObservation
 observeRawInitTx networkId tx = do
   -- XXX: Lots of redundant information here
-  (ix, headOut, headData, headState) <-
+  (ix, headOut, headState) <-
     maybeLeft NoHeadOutput $
       findFirst headOutput indexedOutputs
 
@@ -724,10 +723,7 @@ observeRawInitTx networkId tx = do
       , seedTxIn
       , headPTsNames = mintedTokenNames headId
       , initialThreadUTxO =
-          ( mkTxIn tx ix
-          , toCtxUTxOTxOut headOut
-          , headData
-          )
+          (mkTxIn tx ix, toCtxUTxOTxOut headOut)
       , initials
       }
  where
@@ -736,7 +732,7 @@ observeRawInitTx networkId tx = do
   headOutput = \case
     (ix, out@(TxOut addr _ (TxOutDatumInline d) _)) -> do
       guard $ addr == headAddress
-      (ix,out,d,) <$> fromScriptData d
+      (ix,out,) <$> fromScriptData d
     _ -> Nothing
 
   headAddress =
