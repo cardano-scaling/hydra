@@ -262,10 +262,9 @@ deriving stock instance Show SomeMutation
 data Mutation
   = -- | Changes the 'Head' script's redeemer to the given value.
     ChangeHeadRedeemer Head.Input
-  | -- | Changes the spent 'Head' script datum to the given value. This modifies
-    -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
-    -- 'Datum' in the transaction's witnesses.
-    -- FIXME: should work on inline datums
+  | -- | Changes the spent 'Head' script datum to the given value. This assumes
+    -- inline datums are used and replaces the datum in all matching UTxOs
+    -- (there should only be one head txOut).
     ChangeInputHeadDatum Head.State
   | -- | Adds given output as first transaction output.
     PrependOutput (TxOut CtxTx)
@@ -341,19 +340,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
-    let datum = mkTxOutDatum d'
-        datumHash = mkTxOutDatumHash d'
-        -- change the lookup UTXO
-        fn o@(TxOut addr value _ refScript)
-          | isHeadOutput o =
-              TxOut addr value datumHash refScript
-          | otherwise =
-              o
-        -- change the datums in the tx
-        ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-        newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody ledgerBody scripts newDatums mAuxData scriptValidity
-     in (Tx body' wits, fmap fn utxo)
+    ( tx
+    , replaceHeadDatum <$> utxo
+    )
+   where
+    replaceHeadDatum o@(TxOut addr value _ refScript)
+      | isHeadOutput o =
+          TxOut addr value (mkTxOutDatumInline d') refScript
+      | otherwise = o
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
     , utxo
