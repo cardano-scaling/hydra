@@ -19,7 +19,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (HeadParameters (..), HeadSeed (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
@@ -1079,6 +1079,9 @@ observeAbortTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
 -- * Helpers
+
+headSeedToTxIn :: HeadSeed -> TxIn
+headSeedToTxIn (HeadSeed seed) = undefined
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =

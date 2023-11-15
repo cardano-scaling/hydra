@@ -91,13 +91,21 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
 
 -- | Unique seed to create a 'HeadId'
-data HeadSeed
-  = HeadSeed
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+newtype HeadSeed
+  = HeadSeed ByteString
+  deriving stock (Show, Eq, Ord, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
+
+instance SerialiseAsRawBytes HeadSeed where
+  serialiseToRawBytes (HeadSeed bytes) = bytes
+  deserialiseFromRawBytes _ = Right . HeadSeed
+
+instance HasTypeProxy HeadSeed where
+  data AsType HeadSeed = AsHeadSeed
+  proxyToAsType _ = AsHeadSeed
 
 instance Arbitrary HeadSeed where
-  arbitrary = pure HeadSeed
+  arbitrary = HeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
