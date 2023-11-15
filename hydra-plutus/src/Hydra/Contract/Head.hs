@@ -553,6 +553,8 @@ getTxOutDatum o =
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
+--
+-- NOTE: See note from `hashTxOuts`.
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
   sha2_256 . foldMap preSerializedOutput $
@@ -562,6 +564,13 @@ hashPreSerializedCommits commits =
 -- | Hash a pre-ordered list of transaction outputs by serializing each
 -- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
 -- digest over that.
+--
+-- NOTE: In general, from asserting that `hash(x || y) = hash (x' || y')` it is
+-- not safe to conclude that `(x,y) = (x', y')` as the same hash could be
+-- obtained by moving onr ore more bytes from the end of `x` to the beginning of
+-- `y`, but in the context of Hydra validators it seems impossible to exploit
+-- this property without breaking other logic or verification (eg. producing a
+-- valid and meaning`TxOut`).
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
