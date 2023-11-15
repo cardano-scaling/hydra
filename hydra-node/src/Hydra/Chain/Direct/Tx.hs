@@ -1083,6 +1083,9 @@ observeAbortTx utxo tx = do
 headSeedToTxIn :: HeadSeed -> TxIn
 headSeedToTxIn (HeadSeed seed) = undefined
 
+txInToHeadSeed :: TxIn -> HeadSeed
+txInToHeadSeed _ = undefined
+
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes

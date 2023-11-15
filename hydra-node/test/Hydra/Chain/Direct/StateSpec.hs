@@ -309,8 +309,11 @@ spec = parallel $ do
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        let observedIn1 = observeAbort stHead1 (abort ctx1 stHead1 mempty)
-            observedIn2 = observeAbort stHead2 (abort ctx2 stHead1 mempty)
+        let utxo1 = getKnownUTxO stHead1
+            seed1 = undefined
+            seed2 = undefined
+            observedIn1 = observeAbort stHead1 (abort ctx1 seed1 utxo1 mempty)
+            observedIn2 = observeAbort stHead2 (abort ctx2 seed2 utxo1 mempty)
          in conjoin
               [ observedIn1 =/= Nothing
               , observedIn2 === Nothing
@@ -525,8 +528,9 @@ forAllAbort action = do
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
           let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+              seed = undefined
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-           in action utxo (abort cctx stInitialized (fold committed))
+           in action utxo (abort cctx seed utxo (fold committed))
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"

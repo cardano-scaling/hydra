@@ -45,6 +45,10 @@ import Test.QuickCheck.Property (checkCoverage)
 spec :: Spec
 spec =
   parallel $ do
+    describe "HeadSeed (cardano)" $
+      prop "headSeedToTxIn . txInToHeadSeed === id" $ \txIn ->
+        headSeedToTxIn (txInToHeadSeed txIn) === txIn
+
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $

@@ -91,6 +91,9 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
 
 -- | Unique seed to create a 'HeadId'
+-- XXX: This might actually be the 'HeadId' to the protocol and users? Then the
+-- policy id of the cardano-specific implementation (being the result of minting
+-- policy + seed) stays internal.
 newtype HeadSeed
   = HeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
