@@ -419,14 +419,18 @@ rejectMoreThanMainnetLimit network u = do
 abort ::
   HasCallStack =>
   ChainContext ->
-  InitialState ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
   -- | Committed UTxOs to reimburse.
   UTxO ->
   Tx
-abort ctx st committedUTxO = do
-  let InitialThreadOutput{initialThreadUTxO = (i, o)} = initialThreadOutput
-      initials = Map.fromList initialInitials
-      commits = Map.fromList initialCommits
+abort ctx seedTxIn spendableUTxO committedUTxO = do
+  let initials = undefined
+      commits = undefined
+      i = undefined
+      o = undefined
    in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits of
         Left OverlappingInputs ->
           -- FIXME: This is a "should not happen" error. We should try to fix
@@ -439,13 +443,6 @@ abort ctx st committedUTxO = do
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
-
-  InitialState
-    { initialThreadOutput
-    , initialInitials
-    , initialCommits
-    , seedTxIn
-    } = st
 
 -- | Construct a collect transaction based on the 'InitialState'. This will know
 -- collect all the committed outputs.
@@ -796,7 +793,9 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     -- TODO: also generate sometimes aborts with utxo
-    let tx = abort cctx stInitial mempty
+    let utxo = getKnownUTxO stInitial
+        seedTxIn = undefined
+    let tx = abort cctx seedTxIn utxo mempty
     pure (cctx, Initial stInitial, tx, Abort)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
