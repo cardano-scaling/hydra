@@ -298,8 +298,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        traceIfFalse $(errorCode InvalidSnapshotSignature) $
-          verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
