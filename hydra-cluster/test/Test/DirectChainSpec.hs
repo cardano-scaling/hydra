@@ -168,14 +168,19 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
             -- Bob setup
+            (bobCardanoVk, _) <- keysFor Bob
+            seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket [Alice, Carol] cperiod
             bobChainContext <- loadChainContext bobChainConfig bob [alice, carol] hydraScriptsTxId
 
             withDirectChainTest nullTracer bobChainConfig bobChainContext $
-              \DirectChainTest{postTx = bobPostTx} -> do
+              \bobChain@DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
+
+                -- Expect bob's chain layer to see the init of alice and carols exlusive head
+                void $ bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
                 let headSeed = txInToHeadSeed seedTxIn
                 bobPostTx AbortTx{utxo = mempty, seed = headSeed}

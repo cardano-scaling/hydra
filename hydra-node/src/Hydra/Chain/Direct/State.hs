@@ -105,7 +105,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
-import Hydra.Contract.Initial qualified as Commit
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
