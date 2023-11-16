@@ -48,7 +48,7 @@ import PlutusLedgerApi.V2 (
   adaSymbol,
   adaToken,
  )
-import PlutusLedgerApi.V2.Contexts (findDatum, findOwnInput)
+import PlutusLedgerApi.V2.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -131,7 +131,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     [] -> commits
     TxInInfo{txInInfoResolved = txOut} : rest
       | hasPT headCurrencySymbol txOut ->
-          committedUTxO (commitDatum txInfo txOut <> commits) rest
+          committedUTxO (commitDatum txOut <> commits) rest
       | otherwise ->
           committedUTxO commits rest
 
@@ -166,12 +166,9 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties'
-        == parties
-        && contestationPeriod'
-        == contestationPeriod
-        && headId'
-        == headId
+      parties' == parties
+        && contestationPeriod' == contestationPeriod
+        && headId' == headId
 
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
@@ -220,7 +217,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     | isHeadOutput txInInfoResolved =
         (commits, nCommits, notCollected)
     | hasPT headId txInInfoResolved =
-        (commitDatum txInfo txInInfoResolved <> commits, succ nCommits, notCollected)
+        (commitDatum txInInfoResolved <> commits, succ nCommits, notCollected)
     | otherwise =
         (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
 
@@ -229,9 +226,9 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 
 -- | Try to find the commit datum in the input and
 -- if it is there return the committed utxo
-commitDatum :: TxInfo -> TxOut -> [Commit]
-commitDatum txInfo input = do
-  let datum = findTxOutDatum txInfo input
+commitDatum :: TxOut -> [Commit]
+commitDatum input = do
+  let datum = getTxOutDatum input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
     Just (_party, commits, _headId) ->
       commits
@@ -301,8 +298,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        traceIfFalse $(errorCode InvalidSnapshotSignature) $
-          verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
@@ -323,12 +319,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      headId'
-        == headPolicyId
-        && parties'
-        == parties
-        && cperiod'
-        == cperiod
+      headId' == headPolicyId
+        && parties' == parties
+        && cperiod' == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -409,12 +402,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      parties'
-        == parties
-        && headId'
-        == headId
-        && contestationPeriod'
-        == contestationPeriod
+      parties' == parties
+        && headId' == headId
+        && contestationPeriod' == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'
@@ -548,7 +538,7 @@ headOutputDatum :: ScriptContext -> Datum
 headOutputDatum ctx =
   case txInfoOutputs txInfo of
     (o : _)
-      | txOutAddress o == headAddress -> findTxOutDatum txInfo o
+      | txOutAddress o == headAddress -> getTxOutDatum o
     _ -> traceError $(errorCode NotPayingToHead)
  where
   headAddress = getHeadAddress ctx
@@ -556,15 +546,13 @@ headOutputDatum ctx =
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 
-findTxOutDatum :: TxInfo -> TxOut -> Datum
-findTxOutDatum txInfo o =
+getTxOutDatum :: TxOut -> Datum
+getTxOutDatum o =
   case txOutDatum o of
     NoOutputDatum -> traceError $(errorCode NoOutputDatumError)
-    OutputDatumHash dh ->
-      fromMaybe (traceError $(errorCode DatumNotFound)) $
-        findDatum dh txInfo
+    OutputDatumHash _dh -> traceError $(errorCode UnexpectedNonInlineDatum)
     OutputDatum d -> d
-{-# INLINEABLE findTxOutDatum #-}
+{-# INLINEABLE getTxOutDatum #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.

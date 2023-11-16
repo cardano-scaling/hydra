@@ -14,8 +14,8 @@ import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedV
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  changeHeadOutputDatum,
   changeMintedTokens,
+  modifyInlineDatum,
   replaceParties,
  )
 import Hydra.Chain.Direct.Fixture (
@@ -41,6 +41,8 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
+import Hydra.Contract.Initial qualified as Initial
+import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
@@ -66,7 +68,7 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput)
+    UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
       <> UTxO (txOut <$> healthyCommits)
       <> registryUTxO scriptRegistry
 
@@ -76,7 +78,7 @@ healthyCollectComTx =
       scriptRegistry
       somePartyCardanoVerificationKey
       initialThreadOutput
-      ((txOut &&& scriptData) <$> healthyCommits)
+      (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -84,11 +86,9 @@ healthyCollectComTx =
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
 
-  headDatum = toScriptData healthyCollectComInitialDatum
-
   initialThreadOutput =
     InitialThreadOutput
-      { initialThreadUTxO = (healthyHeadInput, healthyHeadResolvedInput, headDatum)
+      { initialThreadUTxO = (healthyHeadTxIn, healthyHeadTxOut)
       , initialParties = healthyOnChainParties
       , initialContestationPeriod = healthyContestationPeriod
       }
@@ -108,16 +108,16 @@ healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
-healthyHeadInput :: TxIn
-healthyHeadInput =
+healthyHeadTxIn :: TxIn
+healthyHeadTxIn =
   generateWith arbitrary 42
 
-healthyHeadResolvedInput :: TxOut CtxUTxO
-healthyHeadResolvedInput =
+healthyHeadTxOut :: TxOut CtxUTxO
+healthyHeadTxOut =
   mkHeadOutput
     testNetworkId
     testPolicyId
-    (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
+    (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -146,7 +146,6 @@ genCommittableTxOut =
 data HealthyCommit = HealthyCommit
   { cardanoKey :: VerificationKey PaymentKey
   , txOut :: TxOut CtxUTxO
-  , scriptData :: HashableScriptData
   }
   deriving stock (Show)
 
@@ -158,8 +157,7 @@ healthyCommitOutput party committed =
   ( txIn
   , HealthyCommit
       { cardanoKey
-      , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum) ReferenceScriptNone)
-      , scriptData = toScriptData commitDatum
+      , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatumInline commitDatum) ReferenceScriptNone)
       }
   )
  where
@@ -178,7 +176,7 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
   commitDatum =
-    mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadInput)
+    mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadTxIn)
 
 data CollectComMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -246,17 +244,25 @@ genCollectComMutation (tx, _utxo) =
           mkHeadOutput
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-            <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
-        return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
+            <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
+        return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode DatumNotFound) MutateCommitToInitial <$> do
-        -- we're satisfied with "datum not found" as the current version of the validator will consider
-        -- the initial input as if it were a commit input, hence fetching the datum which is expected
-        -- in a commit and complaining that it did not find it
+    , SomeMutation (Just $ toErrorCode ExpectedSingleCommitOutput) MutateCommitToInitial <$> do
+        -- By changing a commit output to an initial, we simulate a situation
+        -- where we do pretend to have collected every commit, but we just
+        -- changed one back to be an initial. This should be caught by the
+        -- initial validator.
         (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
-        pure $ ChangeInput txIn (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey) Nothing
+        pure $
+          Changes
+            [ ChangeInput
+                txIn
+                (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey)
+                (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
+            , AddScript $ fromPlutusScript Initial.validatorScript
+            ]
     , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput <$> do
@@ -269,14 +275,14 @@ genCollectComMutation (tx, _utxo) =
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   mutatedPartiesHeadTxOut parties =
-    changeHeadOutputDatum $ \case
+    modifyInlineDatum $ \case
       Head.Open{utxoHash, contestationPeriod, headId} ->
         Head.Open{Head.parties = parties, contestationPeriod, utxoHash, headId}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash
-    pure $ changeHeadOutputDatum (mutateState mutatedUTxOHash) headTxOut
+    pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
     Head.Open{parties, contestationPeriod, headId} ->

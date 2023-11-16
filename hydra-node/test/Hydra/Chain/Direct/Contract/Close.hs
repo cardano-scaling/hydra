@@ -13,8 +13,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
-  changeHeadOutputDatum,
   changeMintedTokens,
+  modifyInlineDatum,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
@@ -73,11 +73,9 @@ healthyCloseTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = toScriptData healthyOpenHeadDatum
-
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
@@ -113,11 +111,9 @@ healthyCloseInitialTx =
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  headDatum = toScriptData healthyOpenHeadDatum
-
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut, headDatum)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
@@ -143,7 +139,7 @@ healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParties
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyOpenHeadDatum)
+  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
@@ -295,15 +291,15 @@ genCloseMutation (tx, _utxo) =
     [ SomeMutation (Just $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (Just $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateSnapshotNumberButNotSignature <$> do
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open
@@ -314,10 +310,10 @@ genCloseMutation (tx, _utxo) =
             }
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceParties mutatedParties) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId otherHeadId) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId otherHeadId) headTxOut
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
@@ -327,15 +323,15 @@ genCloseMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey))
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (Just $ toErrorCode InvalidSnapshotSignature) MutateCloseUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
-        pure $ changeHeadOutputDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
+        pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
     , SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
     , SomeMutation (Just $ toErrorCode ChangedParameters) MutateContestationPeriod <$> do
         mutatedPeriod <- arbitrary
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationPeriod mutatedPeriod) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationPeriod mutatedPeriod) headTxOut
     , SomeMutation (Just $ toErrorCode InfiniteLowerBound) MutateInfiniteLowerBound . ChangeValidityLowerBound <$> do
         pure TxValidityNoLowerBound
     , SomeMutation (Just $ toErrorCode InfiniteUpperBound) MutateInfiniteUpperBound . ChangeValidityUpperBound <$> do
@@ -345,7 +341,7 @@ genCloseMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeValidityInterval (TxValidityLowerBound lowerSlotNo, TxValidityUpperBound upperSlotNo)
-            , ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline adjustedContestationDeadline) headTxOut
+            , ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline adjustedContestationDeadline) headTxOut
             ]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
@@ -371,7 +367,7 @@ genCloseMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (Just $ toErrorCode ContestersNonEmpty) MutateContesters . ChangeOutput 0 <$> do
         mutatedContesters <- listOf1 $ PubKeyHash . toBuiltin <$> genHash
-        pure $ headTxOut & changeHeadOutputDatum (replaceContesters mutatedContesters)
+        pure $ headTxOut & modifyInlineDatum (replaceContesters mutatedContesters)
     , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
@@ -402,7 +398,7 @@ genCloseInitialMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
         mutatedDeadline <- genMutatedDeadline
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceContestationDeadline mutatedDeadline) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

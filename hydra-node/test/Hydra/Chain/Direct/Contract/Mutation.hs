@@ -137,7 +137,9 @@ import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
+import Control.Exception (assert)
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -260,9 +262,9 @@ deriving stock instance Show SomeMutation
 data Mutation
   = -- | Changes the 'Head' script's redeemer to the given value.
     ChangeHeadRedeemer Head.Input
-  | -- | Changes the spent 'Head' script datum to the given value. This modifies
-    -- both the 'DatumHash' in the UTxO context and the map of 'DatumHash' to
-    -- 'Datum' in the transaction's witnesses.
+  | -- | Changes the spent 'Head' script datum to the given value. This assumes
+    -- inline datums are used and replaces the datum in all matching UTxOs
+    -- (there should only be one head txOut).
     ChangeInputHeadDatum Head.State
   | -- | Adds given output as first transaction output.
     PrependOutput (TxOut CtxTx)
@@ -285,7 +287,10 @@ data Mutation
     -- it expects 'Just' with some potentially new redeemer if locked by a
     -- script.
     --
-    -- XXX: This is likely incomplete as it can not add the datum for given txout.
+    -- XXX: This is super tricky to use. If passing 'Nothing' although it's a
+    -- script tx out, the validator will actually not be run!
+    --
+    -- XXX: Likely incomplete as it can not add the datum for given txout.
     ChangeInput TxIn (TxOut CtxUTxO) (Maybe HashableScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
@@ -335,19 +340,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
-    let datum = mkTxOutDatum d'
-        datumHash = mkTxOutDatumHash d'
-        -- change the lookup UTXO
-        fn o@(TxOut addr value _ refScript)
-          | isHeadOutput o =
-              TxOut addr value datumHash refScript
-          | otherwise =
-              o
-        -- change the datums in the tx
-        ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-        newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody ledgerBody scripts newDatums mAuxData scriptValidity
-     in (Tx body' wits, fmap fn utxo)
+    ( tx
+    , replaceHeadDatum <$> utxo
+    )
+   where
+    replaceHeadDatum o@(TxOut addr value _ refScript)
+      | isHeadOutput o =
+          TxOut addr value (mkTxOutDatumInline d') refScript
+      | otherwise = o
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
     , utxo
@@ -387,10 +387,22 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody scripts' scriptData mAuxData scriptValidity
     scripts' = scripts <> [toLedgerScript script]
   ChangeInput txIn txOut newRedeemer ->
-    ( alterTxIns replaceRedeemer tx
-    , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
-    )
+    assert
+      redeemerGivenIfScriptTxOut
+      ( alterTxIns replaceRedeemer tx
+      , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
+      )
    where
+    redeemerGivenIfScriptTxOut =
+      not isScriptOutput || isJust newRedeemer
+
+    isScriptOutput = case txOutAddress txOut of
+      ByronAddressInEra ByronAddress{} -> False
+      ShelleyAddressInEra (ShelleyAddress _ cred _) ->
+        case cred of
+          KeyHashObj{} -> False
+          ScriptHashObj{} -> True
+
     replaceRedeemer =
       map $ \(txIn', mRedeemer) ->
         if txIn' == txIn then (txIn, newRedeemer) else (txIn', mRedeemer)
@@ -531,19 +543,19 @@ addDatum datum scriptData =
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
            in TxBodyScriptData newDats redeemers
 
-changeHeadOutputDatum :: (Head.State -> Head.State) -> TxOut CtxTx -> TxOut CtxTx
-changeHeadOutputDatum fn txOut =
+modifyInlineDatum :: (FromScriptData a, ToScriptData a) => (a -> a) -> TxOut CtxTx -> TxOut CtxTx
+modifyInlineDatum fn txOut =
   case txOutDatum txOut of
     TxOutDatumNone ->
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInline _sd) ->
-      error "Unexpected inlined datum"
-    (TxOutDatumInTx sd) ->
+    (TxOutDatumInTx _sd) ->
+      error "Unexpected in-tx datum"
+    (TxOutDatumInline sd) ->
       case fromScriptData sd of
         Just st ->
-          txOut{txOutDatum = mkTxOutDatum $ fn st}
+          txOut{txOutDatum = mkTxOutDatumInline $ fn st}
         Nothing ->
           error "Invalid data"
 

@@ -15,8 +15,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
-  changeHeadOutputDatum,
   changeMintedValueQuantityFrom,
+  modifyInlineDatum,
   replaceHeadId,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
@@ -101,7 +101,7 @@ genInitMutation (tx, _utxo) =
         pure $ RemoveInput healthySeedInput
     , SomeMutation (Just $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
         mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
-        pure $ ChangeOutput 0 $ changeHeadOutputDatum (replaceHeadId mutatedHeadId) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId mutatedHeadId) headTxOut
     , SomeMutation (Just $ toErrorCode WrongInitialDatum) MutateHeadIdInInitialDatum <$> do
         let outs = txOuts' tx
         (ix, out) <- elements (drop 1 $ zip [0 ..] outs)
@@ -114,7 +114,7 @@ genInitMutation (tx, _utxo) =
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
         pure $
           ChangeOutput 0 $
-            flip changeHeadOutputDatum headTxOut $ \case
+            flip modifyInlineDatum headTxOut $ \case
               Initial{contestationPeriod, parties, headId} ->
                 Initial{contestationPeriod, parties, headId, seed = mutatedSeed}
               s -> s

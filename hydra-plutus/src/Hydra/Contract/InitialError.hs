@@ -16,8 +16,7 @@ data InitialError
   | MissingCommittedTxOutInOutputDatum
   | CommittedTxOutMissingInOutputDatum
   | MissingDatum
-  | UnexpectedInlineDatum
-  | CouldNotFindDatum
+  | UnexpectedNonInlineDatum
   | ExpectedCommitDatumTypeGotSomethingElse
   | ExpectedSingleCommitOutput
   | WrongHeadIdInCommitDatum
@@ -36,10 +35,9 @@ instance ToErrorCode InitialError where
     MissingCommittedTxOutInOutputDatum -> "I07"
     CommittedTxOutMissingInOutputDatum -> "I08"
     MissingDatum -> "I09"
-    UnexpectedInlineDatum -> "I10"
-    CouldNotFindDatum -> "I11"
-    ExpectedCommitDatumTypeGotSomethingElse -> "I12"
-    ExpectedSingleCommitOutput -> "I13"
-    WrongHeadIdInCommitDatum -> "I14"
-    MintingOrBurningIsForbidden -> "I15"
-    OutRefNotFound -> "I16"
+    UnexpectedNonInlineDatum -> "I10"
+    ExpectedCommitDatumTypeGotSomethingElse -> "I11"
+    ExpectedSingleCommitOutput -> "I12"
+    WrongHeadIdInCommitDatum -> "I13"
+    MintingOrBurningIsForbidden -> "I14"
+    OutRefNotFound -> "I15"

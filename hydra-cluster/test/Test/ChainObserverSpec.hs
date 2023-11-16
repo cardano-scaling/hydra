@@ -53,7 +53,7 @@ spec = do
                 chainObserverSees observer "HeadInitTx" headId
 
                 requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-                waitFor hydraTracer 600 [hydraNode] $
+                waitFor hydraTracer 5 [hydraNode] $
                   output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
                 chainObserverSees observer "HeadCommitTx" headId
@@ -63,7 +63,7 @@ spec = do
 
                 chainObserverSees observer "HeadCloseTx" headId
 
-                waitFor hydraTracer 600 [hydraNode] $
+                waitFor hydraTracer 50 [hydraNode] $
                   output "ReadyToFanout" ["headId" .= headId]
 
                 send hydraNode $ input "Fanout" []

@@ -41,7 +41,7 @@ import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximu
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   applyMutation,
-  changeHeadOutputDatum,
+  modifyInlineDatum,
   propTransactionEvaluates,
   propTransactionFailsEvaluation,
   replaceHeadId,
@@ -355,7 +355,7 @@ genInitTxMutation seedInput tx =
   originalPolicyId = HeadTokens.headPolicyId seedInput
   fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
   changeMintingPolicy (out, idx)
-    | idx == 0 = ChangeOutput idx $ changeHeadOutputDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
+    | idx == 0 = ChangeOutput idx $ modifyInlineDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
     | otherwise = ChangeOutput idx out
   changedOutputsValue = replacePolicyIdWith originalPolicyId fakePolicyId <$> txOuts' tx
 
