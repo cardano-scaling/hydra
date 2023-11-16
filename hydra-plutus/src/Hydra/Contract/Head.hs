@@ -567,7 +567,7 @@ hashPreSerializedCommits commits =
 --
 -- NOTE: In general, from asserting that `hash(x || y) = hash (x' || y')` it is
 -- not safe to conclude that `(x,y) = (x', y')` as the same hash could be
--- obtained by moving onr ore more bytes from the end of `x` to the beginning of
+-- obtained by moving one or more bytes from the end of `x` to the beginning of
 -- `y`, but in the context of Hydra validators it seems impossible to exploit
 -- this property without breaking other logic or verification (eg. producing a
 -- valid and meaningful `TxOut`).
