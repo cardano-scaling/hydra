@@ -55,7 +55,6 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   InitialState (..),
   OpenState (..),
-  abort,
   close,
   closedThreadOutput,
   collect,
@@ -84,6 +83,7 @@ import Hydra.Chain.Direct.State (
   observeInit,
   observeSomeTx,
   pickChainContext,
+  unsafeAbort,
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
@@ -126,6 +126,7 @@ import Test.QuickCheck (
   label,
   sized,
   sublistOf,
+  suchThat,
   tabulate,
   (.||.),
   (=/=),
@@ -301,6 +302,7 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllAbort
     propIsValid forAllAbort
 
+    -- FIXME: we should still be able to observe aborts of other heads
     prop "ignore aborts of other heads" $ do
       let twoDistinctHeads = do
             ctx <- genHydraContext maximumNumberOfParties
@@ -309,15 +311,16 @@ spec = parallel $ do
             when (h1 == h2) discard
             pure ((ctx1, st1), (ctx2, st2))
       forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        let utxo1 = getKnownUTxO stHead1
-            seed1 = undefined
-            seed2 = undefined
-            observedIn1 = observeAbort stHead1 (abort ctx1 seed1 utxo1 mempty)
-            observedIn2 = observeAbort stHead2 (abort ctx2 seed2 utxo1 mempty)
-         in conjoin
-              [ observedIn1 =/= Nothing
-              , observedIn2 === Nothing
-              ]
+        -- FIXME: This should not work with arbitrary seeds
+        forAll (arbitrary `suchThat` \(s1, s2) -> s1 /= s2) $ \(seed1, seed2) ->
+          let utxo = getKnownUTxO stHead1
+              -- use the same utxo in both abort transactions
+              observedIn1 = observeAbort stHead1 (unsafeAbort ctx1 seed1 utxo mempty)
+              observedIn2 = observeAbort stHead2 (unsafeAbort ctx2 seed2 utxo mempty)
+           in conjoin
+                [ observedIn1 =/= Nothing
+                , observedIn2 === Nothing
+                ]
 
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
@@ -527,19 +530,19 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-              seed = undefined
-              utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-           in action utxo (abort cctx seed utxo (fold committed))
-                & classify
-                  (null commits)
-                  "Abort immediately, after 0 commits"
-                & classify
-                  (not (null commits) && length commits < length (ctxParties ctx))
-                  "Abort after some (but not all) commits"
-                & classify
-                  (length commits == length (ctxParties ctx))
-                  "Abort after all commits"
+          forAll arbitrary $ \seed ->
+            let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+                utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
+             in action utxo (unsafeAbort cctx seed utxo (fold committed))
+                  & classify
+                    (null commits)
+                    "Abort immediately, after 0 commits"
+                  & classify
+                    (not (null commits) && length commits < length (ctxParties ctx))
+                    "Abort after some (but not all) commits"
+                  & classify
+                    (length commits == length (ctxParties ctx))
+                    "Abort after all commits"
 
 forAllCollectCom ::
   Testable property =>

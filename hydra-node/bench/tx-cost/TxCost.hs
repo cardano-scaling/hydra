@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   InitialState (..),
   OpenState (..),
-  abort,
   close,
   collect,
   commit,
@@ -42,6 +41,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
+  unsafeAbort,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
@@ -190,7 +190,7 @@ computeAbortCost =
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     let InitialState{seedTxIn} = stInitialized
     let spendableUTxO = getKnownUTxO stInitialized <> getKnownUTxO cctx
-    pure (abort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)
+    pure (unsafeAbort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do

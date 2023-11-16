@@ -103,9 +103,9 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
@@ -1073,6 +1073,19 @@ unsafeCommit ::
   Tx
 unsafeCommit ctx st u =
   either (error . show) id $ commit ctx st u
+
+unsafeAbort ::
+  HasCallStack =>
+  ChainContext ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  -- | Committed UTxOs to reimburse.
+  UTxO ->
+  Tx
+unsafeAbort ctx seedTxIn spendableUTxO committedUTxO = do
+  either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
 
 unsafeObserveInit ::
   HasCallStack =>
