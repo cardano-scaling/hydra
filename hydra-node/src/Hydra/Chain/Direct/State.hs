@@ -72,7 +72,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (AbortObservation),
-  AbortTxError (OverlappingInputs),
+  AbortTxError (..),
   CloseObservation (..),
   ClosedThreadOutput (..),
   ClosingSnapshot (..),
@@ -425,7 +425,6 @@ rejectMoreThanMainnetLimit network u = do
 -- | Construct a collect transaction based on the 'InitialState'. This will
 -- reimburse all the already committed outputs.
 abort ::
-  HasCallStack =>
   ChainContext ->
   -- | Seed TxIn
   TxIn ->
@@ -433,24 +432,16 @@ abort ::
   UTxO ->
   -- | Committed UTxOs to reimburse.
   UTxO ->
-  Tx
+  Either AbortTxError Tx
 abort ctx seedTxIn spendableUTxO committedUTxO = do
   let initials =
         Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO initialScript
       commits =
         Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO commitScript
-      (i, o) =
-        fromMaybe
-          (error "Could not find the Head output")
-          (findTxOutByScript @PlutusScriptV2 spendableUTxO headScript)
-   in case abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits of
-        Left OverlappingInputs ->
-          -- FIXME: This is a "should not happen" error. We should try to fix
-          -- the arguments of abortTx to make it impossible of having
-          -- "overlapping" inputs. But, how exactly?
-          error $ show OverlappingInputs
-        Right tx ->
-          tx
+  (i, o) <-
+    maybe (Left CannotFindHeadOutputToAbort) pure $
+      findTxOutByScript @PlutusScriptV2 spendableUTxO headScript
+  abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits
  where
   commitScript = fromPlutusScript Commit.validatorScript
   headScript = fromPlutusScript Head.validatorScript
@@ -811,7 +802,7 @@ genChainStateWithTx =
     -- TODO: also generate sometimes aborts with utxo
     let utxo = getKnownUTxO stInitial
         seedTxIn = undefined
-    let tx = abort cctx seedTxIn utxo mempty
+    let tx = fromRight (error "AbortTxError") $ abort cctx seedTxIn utxo mempty
     pure (cctx, Initial stInitial, tx, Abort)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)

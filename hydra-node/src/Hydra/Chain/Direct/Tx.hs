@@ -528,7 +528,9 @@ fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScr
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
 
-data AbortTxError = OverlappingInputs
+data AbortTxError
+  = OverlappingInputs
+  | CannotFindHeadOutputToAbort
   deriving stock (Show)
 
 -- | Create transaction which aborts a head by spending the Head output and all

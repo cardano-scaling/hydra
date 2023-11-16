@@ -167,6 +167,7 @@ data PostTxError tx
     FailedToDraftTxNotInitializing
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
+  | FailedToConstructAbortTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

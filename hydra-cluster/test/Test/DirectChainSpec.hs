@@ -37,7 +37,6 @@ import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
   HeadParameters (..),
-  HeadSeed (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -179,9 +178,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
                 let headSeed = txInToHeadSeed seedTxIn
-                bobPostTx (AbortTx{utxo = mempty, seed = headSeed})
+                bobPostTx AbortTx{utxo = mempty, seed = headSeed}
                   `shouldThrow` \case
-                    InvalidStateToPost{txTried} -> (txTried :: PostChainTx Tx) == AbortTx{utxo = mempty}
+                    -- Note: We expect bob to be able to construct the abort tx but failing to submit
+                    FailedToConstructAbortTx @Tx -> False
+                    ScriptFailedInWallet{} -> True
                     _ -> False
 
   it "can commit" $ \tracer ->

@@ -16,7 +16,6 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  AssetName (..),
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -34,7 +33,6 @@ import Hydra.Chain (
   ChainStateHistory,
   ChainStateType,
   IsChainState,
-  OnChainId (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -44,9 +42,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Closed, Idle, Initial, Open),
+  ChainState (Initial),
   ChainStateAt (..),
-  NoObservation (..),
   abort,
   chainSlotFromPoint,
   close,
@@ -57,7 +54,6 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
@@ -69,10 +65,8 @@ import Hydra.Chain.Direct.Tx (
   ContestObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
-  NotAnInit (..),
   RawInitObservation (..),
   headSeedToTxIn,
-  mismatchReasonObservation,
   mkHeadId,
   observeHeadTx,
  )
@@ -381,7 +375,9 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
           -- TODO: add dedicated error here
           throwIO (NoSeedInput @Tx)
         Just seedTxIn ->
-          pure $ abort ctx seedTxIn chainState utxo
+          case abort ctx seedTxIn chainState utxo of
+            Left _ -> throwIO (FailedToConstructAbortTx @Tx)
+            Right abortTx -> pure abortTx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
