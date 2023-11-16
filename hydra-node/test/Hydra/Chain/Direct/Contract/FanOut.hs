@@ -130,7 +130,7 @@ genFanoutMutation (tx, _utxo) =
  where
   burntTokens =
     case txMintValue $ txBodyContent $ txBody tx of
-     TxMintValueNone -> error "expected minted value"
-     TxMintValue v _ -> valueToList v
+      TxMintValueNone -> error "expected minted value"
+      TxMintValue v _ -> valueToList v
 
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
