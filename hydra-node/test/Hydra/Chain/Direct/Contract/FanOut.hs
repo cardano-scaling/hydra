@@ -7,7 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
@@ -24,11 +24,11 @@ import Hydra.Ledger.Cardano (
   genValue,
  )
 import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Party (partyToChain)
+import Hydra.Party (Party, partyToChain, vkey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyFanoutTx :: (Tx, UTxO)
@@ -55,17 +55,15 @@ healthyFanoutTx =
 
   headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyFanoutDatum)
 
-  parties = generateWith (vectorOf 3 (arbitrary @(VerificationKey PaymentKey))) 42
-
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
 
   participationTokens =
     valueFromList $
       map
-        ( \vk ->
-            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)
+        ( \party ->
+            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
         )
-        parties
+        healthyParties
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
@@ -84,7 +82,8 @@ healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
-    , parties = partyToChain <$> arbitrary `generateWith` 42
+    , parties =
+        partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
@@ -95,10 +94,17 @@ healthyFanoutDatum =
 
   healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
+healthyParties :: [Party]
+healthyParties =
+  [ generateWith arbitrary i | i <- [1 .. 3]
+  ]
+
 data FanoutMutation
   = MutateAddUnexpectedOutput
   | MutateChangeOutputValue
   | MutateValidityBeforeDeadline
+  | -- | Meant to test that the minting policy is burning all PTs and ST present in tx
+    MutateThreadTokenQuantity
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -117,6 +123,14 @@ genFanoutMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- genSlotBefore $ slotNoFromUTCTime healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
+    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
+        (token, _) <- elements burntTokens
+        changeMintedTokens tx (valueFromList [(token, 1)])
     ]
  where
+  burntTokens =
+    case txMintValue $ txBodyContent $ txBody tx of
+      TxMintValueNone -> error "expected minted value"
+      TxMintValue v _ -> valueToList v
+
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)

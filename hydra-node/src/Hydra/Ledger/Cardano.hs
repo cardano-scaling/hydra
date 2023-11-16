@@ -109,6 +109,8 @@ instance IsTx Tx where
 
   txId = getTxId . getTxBody
   balance = foldMap txOutValue
+
+  -- NOTE: See note from `Head.hashTxOuts`.
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
 instance ToCBOR Tx where

@@ -17,7 +17,7 @@ import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
-import Hydra.Contract.Util (hasST, mustNotMintOrBurn, (===))
+import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -44,7 +44,7 @@ import PlutusLedgerApi.V2 (
   TxOut (..),
   TxOutRef (..),
   UpperBound (..),
-  Value (Value, getValue),
+  Value (Value),
   adaSymbol,
   adaToken,
  )
@@ -77,8 +77,8 @@ headValidator oldState input ctx =
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
       checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId
-    (Closed{utxoHash, contestationDeadline}, Fanout{numberOfFanoutOutputs}) ->
-      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx
+    (Closed{parties, utxoHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs}) ->
+      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx headId parties
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -96,20 +96,11 @@ checkAbort ::
   [Party] ->
   Bool
 checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
-  mustBurnAllHeadTokens
+  mustBurnAllHeadTokens minted headCurrencySymbol parties
     && mustBeSignedByParticipant ctx headCurrencySymbol
     && mustReimburseCommittedUTxO
  where
-  mustBurnAllHeadTokens =
-    traceIfFalse $(errorCode BurntTokenNumberMismatch) $
-      burntTokens == length parties + 1
-
-  minted = getValue $ txInfoMint txInfo
-
-  burntTokens =
-    case AssocMap.lookup headCurrencySymbol minted of
-      Nothing -> 0
-      Just tokenMap -> negate $ sum tokenMap
+  minted = txInfoMint txInfo
 
   mustReimburseCommittedUTxO =
     traceIfFalse $(errorCode ReimbursedOutputsDontMatch) $
@@ -451,10 +442,16 @@ checkFanout ::
   POSIXTime ->
   Integer ->
   ScriptContext ->
+  CurrencySymbol ->
+  [Party] ->
   Bool
-checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
-  hasSameUTxOHash && afterContestationDeadline
+checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} currencySymbol parties =
+  mustBurnAllHeadTokens minted currencySymbol parties
+    && hasSameUTxOHash
+    && afterContestationDeadline
  where
+  minted = txInfoMint txInfo
+
   hasSameUTxOHash =
     traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
       fannedOutUtxoHash == utxoHash
@@ -556,6 +553,8 @@ getTxOutDatum o =
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
+--
+-- NOTE: See note from `hashTxOuts`.
 hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 hashPreSerializedCommits commits =
   sha2_256 . foldMap preSerializedOutput $
@@ -565,6 +564,13 @@ hashPreSerializedCommits commits =
 -- | Hash a pre-ordered list of transaction outputs by serializing each
 -- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
 -- digest over that.
+--
+-- NOTE: In general, from asserting that `hash(x || y) = hash (x' || y')` it is
+-- not safe to conclude that `(x,y) = (x', y')` as the same hash could be
+-- obtained by moving one or more bytes from the end of `x` to the beginning of
+-- `y`, but in the context of Hydra validators it seems impossible to exploit
+-- this property without breaking other logic or verification (eg. producing a
+-- valid and meaningful `TxOut`).
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
   sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
