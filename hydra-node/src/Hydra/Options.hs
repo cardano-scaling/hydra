@@ -169,6 +169,14 @@ data OfflineConfig = OfflineConfig
   }
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
+defaultOfflineConfig :: OfflineConfig
+defaultOfflineConfig =
+  OfflineConfig
+    { initialUTxOFile = "utxo.json"
+    , ledgerGenesisFile = Nothing
+    , utxoWriteBack = Nothing
+    }
+
 offlineUTxOWriteBackOptionsParser :: Parser (Maybe OfflineUTxOWriteBackConfig)
 offlineUTxOWriteBackOptionsParser =
   optional $

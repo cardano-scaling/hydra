@@ -12,16 +12,17 @@ import Hydra.Chain (PostChainTx(headParameters, InitTx, AbortTx, CollectComTx, C
 import Hydra.Snapshot (getSnapshot, Snapshot (number))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
-
 import Hydra.HeadId(HeadId)
+import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 
 mkFakeL1Chain ::
+  ContestationPeriod ->
   LocalChainState IO Tx ->
   Tracer IO DirectChainLog ->
   HeadId ->
   (ChainEvent Tx -> IO ()) ->
   Chain Tx IO
-mkFakeL1Chain localChainState tracer ownHeadId callback =
+mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
   Chain
     { submitTx = const $ pure ()
     , draftCommitTx = const . pure $ Left FailedToDraftTxNotInitializing
@@ -31,19 +32,19 @@ mkFakeL1Chain localChainState tracer ownHeadId callback =
 
         let headId = ownHeadId
         _ <- case tx of
-          InitTx{headParameters = HeadParameters contestationPeriod parties} ->
-            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId = headId, parties = parties, contestationPeriod}}
+          InitTx{headParameters = HeadParameters contestationPeriod' parties} ->
+            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, parties, contestationPeriod = contestationPeriod'}}
           AbortTx{} ->
             callback $ Observation{newChainState = cst, observedTx = OnAbortTx{}}
           CollectComTx{} ->
             callback $ Observation{newChainState = cst, observedTx = OnCollectComTx{}}
           CloseTx{confirmedSnapshot} -> do
-            inOneMinute <- addUTCTime 60 <$> getCurrentTime
+            contestationDeadline <- addUTCTime (toNominalDiffTime contestationPeriod) <$> getCurrentTime
             callback $
               Observation
                 { newChainState = cst
                 , observedTx =
-                    OnCloseTx{headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline = inOneMinute} -- ELAINE TODO: probably we shouldnt allow the clietn to do contestation in offline mode ?
+                    OnCloseTx{headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline} -- ELAINE TODO: probably we shouldnt allow the clietn to do contestation in offline mode ?
                 }
           ContestTx{confirmedSnapshot} ->
             -- this shouldnt really happen, i dont think we should allow contesting in offline mode

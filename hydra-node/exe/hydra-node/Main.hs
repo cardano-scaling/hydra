@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (fromList)
 
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
-  toLedgerPParams,
  )
 
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
@@ -20,10 +19,6 @@ import Hydra.Options (
   PublishOptions (..),
   RunOptions (..),
   parseHydraCommand,
-  LedgerConfig (..),
-  OfflineConfig (..),
-  offlineOptionsNormalizedUtxoWriteBackFilePath,
-  validateRunOptions,
  )
 import Hydra.Utils (genHydraKeys)
 

@@ -1,3 +1,8 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+
 -- | Utilities used across hydra-cluster
 module Hydra.Cluster.Util where
 
@@ -22,8 +27,14 @@ import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), defaultChainConfig)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
-import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude (failure, Expectation, shouldBe)
 import Test.QuickCheck (generate)
+import Hydra.Chain (PostChainTx)
+import Hydra.Chain (ChainEvent)
+import Hydra.Ledger (IsTx)
+import Hydra.Party (Party)
+import Hydra.Chain (OnChainTx(OnInitTx, contestationPeriod, parties))
+import Hydra.Ledger (IsTx(UTxOType))
 
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
@@ -73,10 +84,21 @@ chainConfigFor me targetDir nodeSocket them cp = do
       { nodeSocket
       , cardanoSigningKey = skTarget me
       , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
-      , contestationPeriod = cp
+      , contestationPeriod = cp :: ContestationPeriod
       }
  where
   skTarget x = targetDir </> skName x
   vkTarget x = targetDir </> vkName x
   skName x = actorName x <.> ".sk"
   vkName x = actorName x <.> ".vk"
+
+seedInitialUTxOFromOffline :: IsTx tx => UTxOType tx -> FilePath -> IO ()
+seedInitialUTxOFromOffline utxo targetDir = do
+  -- i assume a static file might be too rigid ? we can keep around constants and then write them to disk for each test
+  -- readConfigFile "initial-utxo.json" >>= writeFileBS (targetDir </> "initial-utxo.json")
+
+  writeFileBS (targetDir </> "utxo.json") . toStrict . Aeson.encode $ utxo 
+  
+  -- Aeson.throwDecodeStrict =<< readFileBS (targetDir </> "utxo.json")
+  pure ()
+  

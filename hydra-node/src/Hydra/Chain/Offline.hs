@@ -69,7 +69,7 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
   initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
 
   localChainState <- newLocalChainState chainStateHistory
-  let chainHandle = mkFakeL1Chain localChainState tracer ownHeadId callback
+  let chainHandle = mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
