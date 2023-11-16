@@ -38,7 +38,6 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.HeadId (HeadId (HeadId))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -49,7 +48,7 @@ import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremen
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
-import Test.Hydra.Fixture (alice)
+import Test.Hydra.Fixture (alice, testHeadId)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -270,7 +269,7 @@ spec = describe "ServerSpec" $
             snapshot <- generate arbitrary
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
+                    { headId = testHeadId
                     , Hydra.API.ServerOutput.snapshot
                     , Hydra.API.ServerOutput.signatures = mempty
                     }

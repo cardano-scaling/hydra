@@ -19,7 +19,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
-import Hydra.Chain (HeadParameters (..), HeadSeed (..))
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
@@ -34,7 +34,7 @@ import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.HeadId (HeadId (..))
+import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
@@ -1080,23 +1080,24 @@ observeAbortTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
--- * Helpers
+-- * Cardano specific HeadId and HeadSeed
+
+mkHeadId :: PolicyId -> HeadId
+mkHeadId = UnsafeHeadId . serialiseToRawBytes
+
+headIdToCurrencySymbol :: HeadId -> CurrencySymbol
+headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 
 headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
-headSeedToTxIn (HeadSeed bytes) =
+headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
     Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
     Just txIn -> pure txIn
 
 txInToHeadSeed :: TxIn -> HeadSeed
-txInToHeadSeed txin = HeadSeed $ toStrict $ Aeson.encode txin
+txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
 
-mkHeadId :: PolicyId -> HeadId
-mkHeadId =
-  HeadId . serialiseToRawBytes
-
-headIdToCurrencySymbol :: HeadId -> CurrencySymbol
-headIdToCurrencySymbol (HeadId headId) = CurrencySymbol (toBuiltin headId)
+-- * Helpers
 
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =

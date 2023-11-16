@@ -10,7 +10,6 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Crypto (sign)
-import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -32,7 +31,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId)
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 
@@ -49,7 +48,6 @@ spec = do
                 , otherParties = List.delete party threeParties
                 , contestationPeriod = defaultContestationPeriod
                 }
-        testHeadId = HeadId "1234"
 
     let coordinatedHeadState =
           CoordinatedHeadState

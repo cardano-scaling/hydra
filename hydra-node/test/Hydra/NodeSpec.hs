@@ -21,7 +21,6 @@ import Hydra.Chain (
  )
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
-import Hydra.HeadId (HeadId (HeadId))
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -49,7 +48,7 @@ import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId, testHeadSeed)
 
 spec :: Spec
 spec = parallel $ do
@@ -148,7 +147,7 @@ spec = parallel $ do
             >>= recordServerOutputs
         runToCompletion tracer node
 
-        getServerOutputs >>= (`shouldContain` [TxValid{headId = HeadId "1234", transaction = tx1}])
+        getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
 
   describe "Configuration mismatch" $ do
     let defaultEnv =
@@ -207,7 +206,7 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ observationEvent $ OnInitTx (HeadId "1234") cperiod [alice, bob, carol]
+  [ observationEvent $ OnInitTx testHeadId cperiod [alice, bob, carol]
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)
   , observationEvent $ OnCommitTx alice (utxoRef 1)

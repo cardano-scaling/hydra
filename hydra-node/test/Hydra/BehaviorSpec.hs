@@ -47,7 +47,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
+import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
@@ -65,7 +65,7 @@ import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, testHeadId)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec

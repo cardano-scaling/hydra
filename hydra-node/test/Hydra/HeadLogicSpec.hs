@@ -57,7 +57,7 @@ import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -445,7 +445,7 @@ spec =
         assertEffects s1
 
       it "ignores closeTx for another head" $ do
-        let otherHeadId = HeadId "other head"
+        let otherHeadId = UnsafeHeadId "other head"
         let openState = inOpenState threeParties ledger
         let closeOtherHead =
               observationEvent $
@@ -664,9 +664,6 @@ hasNoEffectSatisfying outcome predicate = do
   when (any predicate effects) $
     Hydra.Prelude.error $
       "Found unwanted effect in: " <> show effects
-
-testHeadId :: HeadId
-testHeadId = HeadId "1234"
 
 testSnapshot ::
   SnapshotNumber ->

@@ -32,7 +32,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (SerialiseAsRawBytes (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
@@ -89,27 +89,6 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     CloseTx{confirmedSnapshot} -> CloseTx <$> shrink confirmedSnapshot
     ContestTx{confirmedSnapshot} -> ContestTx <$> shrink confirmedSnapshot
     FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
-
--- | Unique seed to create a 'HeadId'
--- XXX: This might actually be the 'HeadId' to the protocol and users? Then the
--- policy id of the cardano-specific implementation (being the result of minting
--- policy + seed) stays internal.
-newtype HeadSeed
-  = -- TODO: Rename to UnsafeHeadSeed
-    HeadSeed ByteString
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
-
-instance SerialiseAsRawBytes HeadSeed where
-  serialiseToRawBytes (HeadSeed bytes) = bytes
-  deserialiseFromRawBytes _ = Right . HeadSeed
-
-instance HasTypeProxy HeadSeed where
-  data AsType HeadSeed = AsHeadSeed
-  proxyToAsType _ = AsHeadSeed
-
-instance Arbitrary HeadSeed where
-  arbitrary = HeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
