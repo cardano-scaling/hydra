@@ -19,6 +19,7 @@ import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ChainContext (contestationPeriod),
   ClosedState (..),
+  InitialState (..),
   OpenState (..),
   abort,
   close,
@@ -187,7 +188,9 @@ computeAbortCost =
     commits <- genCommits ctx initTx
     cctx <- pickChainContext ctx
     let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (abort cctx stInitialized (fold committed), getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    let InitialState{seedTxIn} = stInitialized
+    let spendableUTxO = getKnownUTxO stInitialized <> getKnownUTxO cctx
+    pure (abort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
