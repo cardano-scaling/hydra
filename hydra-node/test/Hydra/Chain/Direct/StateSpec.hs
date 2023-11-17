@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   txInputSet,
   txOutValue,
   txOuts',
+  utxoFromTx,
   valueSize,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
@@ -55,6 +56,7 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   InitialState (..),
   OpenState (..),
+  abort,
   close,
   closedThreadOutput,
   collect,
@@ -302,6 +304,31 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllAbort
     propIsValid forAllAbort
 
+    -- XXX: This is something we should test for all tx creation functions.
+    -- Maybe extend the forAllXXX generators to work on artificially duplicated,
+    -- compatible UTxOs.
+    prop "can create valid abort transactions for any observed head" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        ctx <- pickBlind $ pickChainContext hctx
+        -- Generate a head in initialized state
+        (initTx1, seed1) <- pickBlind $ genInitTxWithSeed hctx
+        -- Generate another head in initialized state
+        (initTx2, seed2) <- pickBlind $ genInitTxWithSeed hctx
+        -- Expect to create abort transactions for either head
+        let utxo = getKnownUTxO ctx <> utxoFromTx initTx1 <> utxoFromTx initTx2
+        let propIsValidAbortTx res =
+              case res of
+                Left err -> property False & counterexample ("Failed to create abort: " <> show err)
+                Right tx -> propTransactionEvaluates (tx, utxo)
+        pure $
+          conjoin
+            [ propIsValidAbortTx (abort ctx seed1 utxo mempty)
+                & counterexample "AbortTx of head 1"
+            , propIsValidAbortTx (abort ctx seed2 utxo mempty)
+                & counterexample "AbortTx of head 2"
+            ]
+
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
     propIsValid forAllCollectCom
@@ -449,9 +476,7 @@ propIsValid forAllTx =
     forAllTx $
       \utxo tx -> propTransactionEvaluates (tx, utxo)
 
---
--- QuickCheck Extras
---
+-- * Generators
 
 -- TODO: These forAllXX functions are hard to use and understand. Maybe simple
 -- 'Gen' or functions in 'PropertyM' are better combinable?
@@ -607,6 +632,13 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
+
+-- | Generate an init tx with the used seed TxIn.
+genInitTxWithSeed :: HydraContext -> Gen (Tx, TxIn)
+genInitTxWithSeed ctx = do
+  cctx <- pickChainContext ctx
+  seedTxIn <- genTxIn
+  pure (initialize cctx (ctxHeadParameters ctx) seedTxIn, seedTxIn)
 
 -- * Helpers
 
