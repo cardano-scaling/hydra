@@ -89,7 +89,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx, txInToHeadSeed)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx, observeRawInitTx, txInToHeadSeed)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -161,6 +161,7 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
 
+    -- XXX: This is testing observeRawInitTx (we will get rid of 'observeInit')
     it "only proper head is observed" $
       monadicIO $ do
         ctx <- pickBlind (genHydraContext maximumNumberOfParties)
@@ -170,10 +171,12 @@ spec = parallel $ do
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
         let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-            originalIsObserved = property $ isRight (observeInit cctx tx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
+
+            originalIsObserved = property $ isRight (observeRawInitTx tx)
+
             -- We expected mutated transaction to still be valid, but not observed.
             mutatedIsValid = property $
               case evaluateTx tx' utxo' of
@@ -181,8 +184,9 @@ spec = parallel $ do
                 Right ok
                   | all isRight ok -> True
                   | otherwise -> False
+
             mutatedIsNotObserved =
-              observeInit cctx tx' === Left expected
+              observeRawInitTx tx' === Left expected
 
         pure $
           conjoin
@@ -349,7 +353,7 @@ spec = parallel $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
 
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInit)
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
   genChangeMintingPolicy
  where
@@ -359,7 +363,7 @@ genInitTxMutation seedInput tx =
           ChangeMintingPolicy alwaysSucceedsV2
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
       , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
-      , NotAnInit NotAHeadPolicy
+      , NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to

@@ -77,7 +77,7 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case first NotAnInit (observeRawInitTx testNetworkId tx)
+               in case first NotAnInit (observeRawInitTx tx)
                     >>= (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
                     Right InitObservation{initials, threadOutput} -> do
                       let InitialThreadOutput{initialThreadUTxO} = threadOutput
@@ -129,7 +129,7 @@ spec =
               -- construct different/wrong CP
               wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
               tx = initTx testNetworkId cardanoKeys params txIn
-          pure $ case first NotAnInit (observeRawInitTx testNetworkId tx)
+          pure $ case first NotAnInit (observeRawInitTx tx)
             >>= (first NotAnInitForUs . observeInitTx cardanoKeys wrongCPeriod party parties) of
             Right InitObservation{} -> do
               property False
@@ -149,7 +149,7 @@ spec =
               wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
               params = HeadParameters cperiod allParties
               tx = initTx testNetworkId cardanoKeys params txIn
-           in case first NotAnInit (observeRawInitTx testNetworkId tx)
+           in case first NotAnInit (observeRawInitTx tx)
                 >>= (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
                 Right InitObservation{} -> do
                   property False

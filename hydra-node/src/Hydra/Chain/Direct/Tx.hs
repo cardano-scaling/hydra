@@ -632,7 +632,7 @@ data HeadObservation
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
-    either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
+    either (const Nothing) (Just . Init) (observeRawInitTx tx)
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
@@ -704,14 +704,13 @@ mismatchReasonObservation = \case
   PTsNotMintedCorrectly obs -> obs
 
 observeRawInitTx ::
-  NetworkId ->
   Tx ->
   Either NotAnInitReason RawInitObservation
-observeRawInitTx networkId tx = do
+observeRawInitTx tx = do
   -- XXX: Lots of redundant information here
   (ix, headOut, headState) <-
     maybeLeft NoHeadOutput $
-      findFirst headOutput indexedOutputs
+      findFirst matchHeadOutput indexedOutputs
 
   -- check that we have a proper head
   (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
@@ -743,15 +742,11 @@ observeRawInitTx networkId tx = do
  where
   maybeLeft e = maybe (Left e) Right
 
-  headOutput = \case
-    (ix, out@(TxOut addr _ (TxOutDatumInline d) _)) -> do
-      guard $ addr == headAddress
-      (ix,out,) <$> fromScriptData d
-    _ -> Nothing
+  matchHeadOutput (ix, out) = do
+    guard $ isScriptTxOut headScript out
+    (ix,out,) <$> (fromScriptData =<< txOutScriptData out)
 
-  headAddress =
-    mkScriptAddress @PlutusScriptV2 networkId $
-      fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
@@ -762,11 +757,9 @@ observeRawInitTx networkId tx = do
       (\(i, o) -> (mkTxIn tx i, toCtxUTxOTxOut o))
       initialOutputs
 
-  isInitial (TxOut addr _ _ _) = addr == initialAddress
+  isInitial = isScriptTxOut initialScript
 
-  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
-
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
   mintedTokenNames headId =
     [ assetName

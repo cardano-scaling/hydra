@@ -604,9 +604,7 @@ observeInit ::
 observeInit ctx tx = do
   observed <-
     first NotAnInit $
-      observeRawInitTx
-        networkId
-        tx
+      observeRawInitTx tx
 
   observation <-
     first NotAnInitForUs $
