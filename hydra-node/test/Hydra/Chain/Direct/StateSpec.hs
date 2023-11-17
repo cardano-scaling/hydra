@@ -302,26 +302,6 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllAbort
     propIsValid forAllAbort
 
-    -- FIXME: we should still be able to observe aborts of other heads
-    prop "ignore aborts of other heads" $ do
-      let twoDistinctHeads = do
-            ctx <- genHydraContext maximumNumberOfParties
-            (ctx1, st1@InitialState{headId = h1}) <- genStInitial ctx
-            (ctx2, st2@InitialState{headId = h2}) <- genStInitial ctx
-            when (h1 == h2) discard
-            pure ((ctx1, st1), (ctx2, st2))
-      forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        -- FIXME: This should not work with arbitrary seeds
-        forAll (arbitrary `suchThat` \(s1, s2) -> s1 /= s2) $ \(seed1, seed2) ->
-          let utxo = getKnownUTxO stHead1
-              -- use the same utxo in both abort transactions
-              observedIn1 = observeAbort stHead1 (unsafeAbort ctx1 seed1 utxo mempty)
-              observedIn2 = observeAbort stHead2 (unsafeAbort ctx2 seed2 utxo mempty)
-           in conjoin
-                [ observedIn1 =/= Nothing
-                , observedIn2 === Nothing
-                ]
-
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
     propIsValid forAllCollectCom
