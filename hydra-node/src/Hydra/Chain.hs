@@ -254,7 +254,8 @@ data ChainEvent tx
     -- the means (credentials + parameters) and authority to ignore a head
     -- initialization. Instead, an 'Observation' should not contain a new chain
     -- state and hence a normal 'OnInitTx' can be used instead of this event.
-    IgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
+    -- FIXME: Replace with normal 'OnInitTx'
+    IgnoredInitTx {headId :: HeadId, parties :: Set Party}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }
@@ -294,6 +295,7 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
 
 -- | Identifier for a Hydra head participant used on-chain.
+-- TODO: maybe remove this?
 newtype OnChainId = OnChainId ByteString
   deriving (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)

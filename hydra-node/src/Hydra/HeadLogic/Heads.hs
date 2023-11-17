@@ -16,7 +16,7 @@ update ::
   Event tx ->
   Outcome tx
 update fn headState = \case
-  OnChainEvent IgnoredInitTx{headId, participants} ->
-    Effects [ClientEffect $ IgnoredHeadInitializing{headId, participants}]
+  OnChainEvent IgnoredInitTx{headId, parties} ->
+    Effects [ClientEffect $ IgnoredHeadInitializing{headId, parties}]
   event ->
     fn headState event

@@ -65,7 +65,7 @@ import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, testHeadId)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -181,20 +181,31 @@ spec = parallel $ do
               send n1 Abort
               waitUntil [n1] (CommandFailed Abort)
 
+    it "ignores head initialization of other head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+              -- We expect bob to ignore alice's head which he is not part of
+              -- although bob's configuration would includes alice as a
+              -- peerconfigured)
+              waitUntil [n2] $ IgnoredHeadInitializing testHeadId (fromList [alice])
+
     it "outputs committed utxo when client requests it" $
       shouldRunInSim $
-        do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                send n1 Init
-                waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-                simulateCommit chain (alice, utxoRef 1)
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              simulateCommit chain (alice, utxoRef 1)
 
-                waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-                send n2 GetUTxO
+              waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
+              send n2 GetUTxO
 
-                waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
+              waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
@@ -677,12 +688,13 @@ createMockNetwork node nodes =
   getNodeId HydraNode{env = Environment{party}} = party
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
--- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
--- announces hard-coded contestationDeadlines.
+-- NOTE: This implementation does *NOT* honor the 'HeadParameters' and announces
+-- hard-coded contestationDeadlines. Also, all heads will have the same 'headId'
+-- and 'headSeed'.
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx HeadParameters{contestationPeriod, parties} ->
-    OnInitTx{contestationPeriod, parties, headId = testHeadId}
+    OnInitTx{contestationPeriod, parties, headId = testHeadId, headSeed = testHeadSeed}
   AbortTx{} ->
     OnAbortTx
   CollectComTx{} ->
