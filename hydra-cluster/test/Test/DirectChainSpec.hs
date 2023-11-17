@@ -69,7 +69,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
@@ -161,7 +161,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        [(seedTxIn, _)] <- UTxO.pairs <$> seedFromFaucet node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [Carol] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice [carol] hydraScriptsTxId
 
@@ -180,10 +180,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
                 -- Expect bob's chain layer to see the init of alice and carols exlusive head
-                void $ bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
+                headSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
 
-                let headSeed = txInToHeadSeed seedTxIn
-                bobPostTx AbortTx{utxo = mempty, seed = headSeed}
+                bobPostTx AbortTx{utxo = mempty, headSeed}
                   `shouldThrow` \case
                     -- Note: We expect bob to be able to construct the abort tx but failing to submit
                     FailedToConstructAbortTx @Tx -> False
@@ -253,7 +252,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            headId <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -377,7 +376,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            headId <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -472,12 +471,12 @@ withDirectChainTest tracer config ctx action = do
               Right tx -> pure tx
         }
 
-hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO HeadId
+hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO (HeadId, HeadSeed)
 hasInitTxWith expectedContestationPeriod expectedParties = \case
   OnInitTx{headId, contestationPeriod, parties} -> do
     expectedContestationPeriod `shouldBe` contestationPeriod
     expectedParties `shouldBe` parties
-    pure headId
+    pure (headId, UnsafeHeadSeed "FIXME: observe real seed instead")
   tx -> failure ("Unexpected observation: " <> show tx)
 
 observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()

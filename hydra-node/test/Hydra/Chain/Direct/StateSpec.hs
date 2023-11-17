@@ -530,6 +530,7 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
+          -- FIXME: an arbitrary seed will not work, we need to use the right one for this head (from the init observation)
           forAll arbitrary $ \seed ->
             let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
                 utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx

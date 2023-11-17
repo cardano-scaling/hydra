@@ -434,6 +434,8 @@ abort ::
   UTxO ->
   Either AbortTxError Tx
 abort ctx seedTxIn spendableUTxO committedUTxO = do
+  -- FIXME: This may not pick the right heads UTxO if there are initials/commits
+  -- from other heads in the 'spendableUTxO'
   let initials =
         Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO initialScript
       commits =

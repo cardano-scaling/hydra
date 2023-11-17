@@ -68,7 +68,7 @@ instance Arbitrary HeadParameters where
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
-  | AbortTx {utxo :: UTxOType tx, seed :: HeadSeed}
+  | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx}
   | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
@@ -117,6 +117,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = NoSeedInput
+  | InvalidSeed {headSeed :: HeadSeed}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}

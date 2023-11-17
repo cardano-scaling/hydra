@@ -369,11 +369,10 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
           pure $ initialize ctx params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    AbortTx{utxo, seed} ->
-      case headSeedToTxIn seed of
+    AbortTx{utxo, headSeed} ->
+      case headSeedToTxIn headSeed of
         Nothing ->
-          -- TODO: add dedicated error here
-          throwIO (NoSeedInput @Tx)
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
           case abort ctx seedTxIn chainState utxo of
             Left _ -> throwIO (FailedToConstructAbortTx @Tx)
