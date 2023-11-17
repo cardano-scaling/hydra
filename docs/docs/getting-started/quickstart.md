@@ -167,17 +167,48 @@ This will create two files, `my-key.sk` and `my-key.vk` containing Hydra keys su
 
 ### Contestation Period
 
-Contestation period is the argument to the hydra node expressed as the number of seconds. This value needs to be in sync with the network we are running on since
-slot lengths are different on different networks.
+Contestation period is an argument to the hydra-node, expressed as a number of seconds, for example:
+
+```
+$ hydra-node ... --contestation-period 120s
+```
 
 Contestation period is used in:
 
-- Constructing the upper transaction bound for close transaction
-- Contestation deadline.
+- Constructing the upper validity bound for `Close` and `Contest` transactions,
+- Computing the contestation deadline and therefore the lower validity
+  bound for `FanOut` transaction.
 
-:::info Note on contestation period
-All parties in the hydra head protocol need to configure the same value for `--contestation-period` otherwise the `Init` transaction will be ignored.
-This prevents certain party from stalling/DoS-ing the head by setting unreasonable big number for contestation period.
+This parameter has a default value of _60 seconds_, which should be
+enough under normal circumstances, but it needs to be tailored to the
+condition of network we are running on since slot lengths and block
+production rates are different on different networks.
+
+:::info Consistent contestation period
+
+All parties in the hydra head protocol need to configure the same
+value for `--contestation-period` otherwise the `Init` transaction
+will be ignored.  This prevents certain party from stalling/DoS-ing
+the head by setting contestation period to unreasonably large values.
+
+:::
+
+:::warning Invalid Close and Contest Transactions
+
+Depending on the contestation period value and the network conditions,
+`Close` and `Contest` transactions could become invalid and be
+silently rejected by the cardano-node to which they have been
+submitted. This can happen, for example, if:
+* The network is congested, with lot of transactions waiting to be
+  included in a block,
+* The node's connectivity to the network drops and the transaction is
+  not propagated to block producers fast enough.
+
+The hydra-node itself does not currently handle this situation and
+therefore each client application needs to put in place some retry
+mechanism depending on the time it should "normally" take to have the
+transaction.
+
 :::
 
 ### Reference Scripts
