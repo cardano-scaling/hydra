@@ -12,6 +12,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -35,6 +36,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   InitialState (..),
   LogicError (..),
   OpenState (..),
@@ -58,7 +60,8 @@ import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId)
-import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
+import Test.QuickCheck (Property, counterexample, oneof, suchThat)
+import Test.QuickCheck.Monadic (assert, monadicIO, monadicST, monitor, pick, run)
 
 spec :: Spec
 spec =
@@ -444,6 +447,8 @@ spec =
         s1 `hasEffect` contestTxEffect
         assertEffects s1
 
+      it "ignores unrelated initTx" propIgnoresUnrelatedOnInitTx
+
       it "ignores closeTx for another head" $ do
         let otherHeadId = UnsafeHeadId "other head"
         let openState = inOpenState threeParties ledger
@@ -504,6 +509,40 @@ spec =
               } -> null localTxs
           _ -> False
 
+-- * Properties
+
+propIgnoresUnrelatedOnInitTx :: Property
+propIgnoresUnrelatedOnInitTx = monadicST $ do
+  env <- pick arbitrary
+  unrelatedInit <-
+    pick $
+      oneof
+        [ genOnInitWithDifferentContestationPeriod env
+        , genOnInitWithDifferentParties env
+        ]
+  let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
+  monitor $ counterexample ("Outcome: " <> show outcome)
+  pure $
+    outcome
+      `hasEffectSatisfying` \case
+        ClientEffect IgnoredHeadInitializing{} -> True
+        _ -> False
+ where
+  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    cp <- arbitrary `suchThat` (/= contestationPeriod)
+    parties <- arbitrary <&> (party :)
+    pure OnInitTx{headId, headSeed, contestationPeriod = cp, parties}
+
+  genOnInitWithDifferentParties Environment{party, contestationPeriod} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    parties <- arbitrary <&> List.delete party
+    pure OnInitTx{headId, headSeed, contestationPeriod, parties}
+
+-- * Utilities
+
 runEvents :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
 runEvents env ledger headState = (`evalStateT` StepState{env, ledger, headState})
 
@@ -538,6 +577,10 @@ observationEvent observedTx =
           , newChainState = SimpleChainState{slot = ChainSlot 0}
           }
     }
+
+inIdleState :: HeadState SimpleTx
+inIdleState =
+  Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
@@ -648,21 +691,21 @@ hasWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO 
 hasWait outcome waitReason = do
   let waits = collectWaits outcome
   unless (waitReason `elem` waits) $
-    Hydra.Prelude.error $
+    failure $
       "No wait matching reason " <> show waitReason
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate = do
   let effects = collectEffects outcome
   unless (any predicate effects) $
-    Hydra.Prelude.error $
+    failure $
       "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying outcome predicate = do
   let effects = collectEffects outcome
   when (any predicate effects) $
-    Hydra.Prelude.error $
+    failure $
       "Found unwanted effect in: " <> show effects
 
 testSnapshot ::
