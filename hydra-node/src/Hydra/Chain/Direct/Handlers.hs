@@ -69,6 +69,7 @@ import Hydra.Chain.Direct.Tx (
   headSeedToTxIn,
   mkHeadId,
   observeHeadTx,
+  txInToHeadSeed,
  )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -328,10 +329,11 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation = \case
   NoHeadTx -> Nothing
-  Init RawInitObservation{headId, contestationPeriod, onChainParties} ->
+  Init RawInitObservation{headId, contestationPeriod, onChainParties, seedTxIn} ->
     pure
       OnInitTx
         { headId = mkHeadId headId
+        , headSeed = txInToHeadSeed seedTxIn
         , contestationPeriod
         , parties = concatMap partyFromChain onChainParties
         }
