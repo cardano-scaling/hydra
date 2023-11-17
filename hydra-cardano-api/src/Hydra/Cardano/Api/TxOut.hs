@@ -104,6 +104,7 @@ findTxOutsByScript utxo script =
     _ ->
       False
 
+-- | Find a single script output in some 'UTxO'
 findTxOutByScript ::
   forall lang.
   IsPlutusScriptLanguage lang =>
@@ -120,6 +121,28 @@ findTxOutByScript utxo script =
        in scriptHash == scriptHash'
     _ ->
       False
+
+-- | Predicate to find or filter 'TxOut' which are governed by some script. This
+-- is better than comparing the full address as it does not require a network
+-- discriminator.
+isScriptTxOut ::
+  forall lang ctx era.
+  IsPlutusScriptLanguage lang =>
+  PlutusScript lang ->
+  TxOut ctx era ->
+  Bool
+isScriptTxOut script txOut =
+  case address of
+    (AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ (Ledger.ScriptHashObj sh) _)) ->
+      scriptHash == sh
+    _ -> False
+ where
+  scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+
+  version = plutusScriptVersion @lang
+
+  (TxOut address _ _ _) = txOut
+
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'TxOut' into a cardano-api 'TxOut'

@@ -14,6 +14,7 @@ import Data.List ((\\))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
+  AssetId (..),
   AssetName (AssetName),
   ChainPoint (..),
   CtxUTxO,
@@ -36,10 +37,9 @@ import Hydra.Cardano.Api (
   WitCtxTxIn,
   Witness,
   chainPointToSlotNo,
-  findTxOutByScript,
-  findTxOutsByScript,
   fromPlutusScript,
   genTxIn,
+  isScriptTxOut,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -104,7 +104,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadTokens (mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
@@ -433,20 +433,32 @@ abort ::
   UTxO ->
   Either AbortTxError Tx
 abort ctx seedTxIn spendableUTxO committedUTxO = do
-  -- FIXME: This may not pick the right heads UTxO if there are initials/commits
-  -- from other heads in the 'spendableUTxO'
-  let initials =
-        Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO initialScript
-      commits =
-        Map.fromList $ findTxOutsByScript @PlutusScriptV2 spendableUTxO commitScript
-  (i, o) <-
+  headUTxO <-
     maybe (Left CannotFindHeadOutputToAbort) pure $
-      findTxOutByScript @PlutusScriptV2 spendableUTxO headScript
-  abortTx committedUTxO scriptRegistry ownVerificationKey (i, o) headTokenScript initials commits
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+  abortTx committedUTxO scriptRegistry ownVerificationKey headUTxO headTokenScript initials commits
  where
-  commitScript = fromPlutusScript Commit.validatorScript
-  headScript = fromPlutusScript Head.validatorScript
-  initialScript = fromPlutusScript Initial.validatorScript
+  initials =
+    UTxO.toMap $ UTxO.filter (isScriptTxOut initialScript) utxoOfThisHead
+
+  commits =
+    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
+
+  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
+
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
+
+  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
   headTokenScript = mkHeadTokenScript seedTxIn
 
