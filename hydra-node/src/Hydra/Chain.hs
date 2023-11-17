@@ -247,15 +247,6 @@ data ChainEvent tx
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | -- | The chain layer ignored a head initialization transaction of given
-    -- HeadId and participants.
-    --
-    -- XXX: This is very specific and assumes that any chain layer would have
-    -- the means (credentials + parameters) and authority to ignore a head
-    -- initialization. Instead, an 'Observation' should not contain a new chain
-    -- state and hence a normal 'OnInitTx' can be used instead of this event.
-    -- FIXME: Replace with normal 'OnInitTx'
-    IgnoredInitTx {headId :: HeadId, parties :: Set Party}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }

@@ -43,7 +43,6 @@ import Hydra.HeadLogic (
   recoverState,
  )
 import Hydra.HeadLogic qualified as Logic
-import Hydra.HeadLogic.Heads qualified as Heads
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx, Ledger)
@@ -205,7 +204,7 @@ processNextEvent HydraNode{nodeState, ledger, env} e =
  where
   NodeState{modifyHeadState} = nodeState
 
-  computeOutcome = Heads.update (Logic.update env ledger)
+  computeOutcome = Logic.update env ledger
 
 processEffects ::
   ( MonadAsync m

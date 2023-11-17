@@ -20,6 +20,7 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
+    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -29,7 +30,6 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
-    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     PatternSynonyms
@@ -69,7 +69,6 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event
-    Hydra.HeadLogic.Heads
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State

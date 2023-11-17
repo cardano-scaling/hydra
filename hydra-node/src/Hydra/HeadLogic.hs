@@ -48,7 +48,7 @@ import Hydra.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -122,21 +122,29 @@ onIdleClientInit env =
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
+  Environment ->
   -- | New chain state.
   ChainStateType tx ->
   [Party] ->
   ContestationPeriod ->
   HeadId ->
+  HeadSeed ->
   Outcome tx
-onIdleChainInitTx newChainState parties contestationPeriod headId =
-  StateChanged
-    ( HeadInitialized
-        { parameters = HeadParameters{contestationPeriod, parties}
-        , chainState = newChainState
-        , headId
-        }
-    )
-    <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
+onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
+  -- TODO: we also want to check the full list of parties and the cp
+  | party `elem` parties =
+      StateChanged
+        ( HeadInitialized
+            { parameters = HeadParameters{contestationPeriod, parties}
+            , chainState = newChainState
+            , headId
+            }
+        )
+        <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
+  | otherwise =
+      Effects [ClientEffect $ ServerOutput.IgnoredHeadInitializing{headId, parties = fromList parties}]
+ where
+  Environment{party, otherParties, contestationPeriod} = env
 
 -- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
@@ -655,8 +663,8 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle _, ClientEvent Init) ->
     onIdleClientInit env
-  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
-    onIdleChainInitTx newChainState parties contestationPeriod headId
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, contestationPeriod, parties}, newChainState}) ->
+    onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
   (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
     onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->

@@ -142,7 +142,6 @@ spec = do
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
-            IgnoredInitTx{} -> pure ()
             Observation{observedTx} ->
               when ((fst <$> observeSomeTx ctx st tx) /= Right observedTx) $
                 failure $
