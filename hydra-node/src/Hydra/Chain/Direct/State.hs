@@ -40,7 +40,6 @@ import Hydra.Cardano.Api (
   findTxOutsByScript,
   fromPlutusScript,
   genTxIn,
-  mkScriptAddress,
   modifyTxOutValue,
   selectLovelace,
   txIns',
@@ -803,8 +802,8 @@ genChainStateWithTx =
     (cctx, stInitial) <- genStInitial ctx
     -- TODO: also generate sometimes aborts with utxo
     let utxo = getKnownUTxO stInitial
-        seedTxIn = undefined
-    let tx = fromRight (error "AbortTxError") $ abort cctx seedTxIn utxo mempty
+        InitialState{seedTxIn} = stInitial
+        tx = unsafeAbort cctx seedTxIn utxo mempty
     pure (cctx, Initial stInitial, tx, Abort)
 
   genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
