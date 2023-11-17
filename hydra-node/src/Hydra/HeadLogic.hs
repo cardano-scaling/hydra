@@ -130,9 +130,10 @@ onIdleChainInitTx ::
   HeadId ->
   HeadSeed ->
   Outcome tx
-onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
-  -- TODO: we also want to check the full list of parties and the cp
-  | party `elem` parties =
+onIdleChainInitTx env newChainState parties initContestationPeriod headId headSeed
+  | configuredParties == initializedParties
+      && contestationPeriod == initContestationPeriod
+      && party `member` initializedParties =
       StateChanged
         ( HeadInitialized
             { parameters = HeadParameters{contestationPeriod, parties}
@@ -141,10 +142,14 @@ onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
             , headSeed
             }
         )
-        <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
+        <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties}]
   | otherwise =
-      Effects [ClientEffect $ ServerOutput.IgnoredHeadInitializing{headId, parties = fromList parties}]
+      Effects [ClientEffect $ ServerOutput.IgnoredHeadInitializing{headId, parties}]
  where
+  initializedParties = Set.fromList parties
+
+  configuredParties = Set.fromList (party : otherParties)
+
   Environment{party, otherParties, contestationPeriod} = env
 
 -- | Observe a commit transaction and record the committed UTxO in the state.

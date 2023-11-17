@@ -60,7 +60,7 @@ import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId)
-import Test.QuickCheck (Property, counterexample, oneof, suchThat)
+import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShow, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, monadicST, monitor, pick, run)
 
 spec :: Spec
@@ -512,34 +512,36 @@ spec =
 -- * Properties
 
 propIgnoresUnrelatedOnInitTx :: Property
-propIgnoresUnrelatedOnInitTx = monadicST $ do
-  env <- pick arbitrary
-  unrelatedInit <-
-    pick $
-      oneof
-        [ genOnInitWithDifferentContestationPeriod env
-        , genOnInitWithDifferentParties env
-        ]
-  let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
-  monitor $ counterexample ("Outcome: " <> show outcome)
-  pure $
-    outcome
-      `hasEffectSatisfying` \case
-        ClientEffect IgnoredHeadInitializing{} -> True
-        _ -> False
+propIgnoresUnrelatedOnInitTx =
+  forAll arbitrary $ \env ->
+    forAll (genUnrelatedInit env) $ \unrelatedInit -> do
+      let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
+      counterexample ("Outcome: " <> show outcome) $
+        outcome
+          `hasEffectSatisfying` \case
+            ClientEffect IgnoredHeadInitializing{} -> True
+            _ -> False
  where
+  genUnrelatedInit env =
+    oneof
+      [ genOnInitWithDifferentContestationPeriod env
+      , genOnInitWithoutParty env
+      ]
+
   genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod} = do
     headId <- arbitrary
     headSeed <- arbitrary
     cp <- arbitrary `suchThat` (/= contestationPeriod)
-    parties <- arbitrary <&> (party :)
+    parties <- shuffle =<< (arbitrary <&> (party :))
     pure OnInitTx{headId, headSeed, contestationPeriod = cp, parties}
 
-  genOnInitWithDifferentParties Environment{party, contestationPeriod} = do
+  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod} = do
     headId <- arbitrary
     headSeed <- arbitrary
-    parties <- arbitrary <&> List.delete party
-    pure OnInitTx{headId, headSeed, contestationPeriod, parties}
+    allParties <- shuffle (party : otherParties)
+    toRemove <- elements allParties
+    let differentParties = List.delete toRemove allParties
+    pure OnInitTx{headId, headSeed, contestationPeriod, parties = differentParties}
 
 -- * Utilities
 

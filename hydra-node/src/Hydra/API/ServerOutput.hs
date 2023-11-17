@@ -51,7 +51,7 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
 data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
-  | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
+  | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
@@ -90,7 +90,7 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | IgnoredHeadInitializing {headId :: HeadId, parties :: Set Party}
+  | IgnoredHeadInitializing {headId :: HeadId, parties :: [Party]}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
