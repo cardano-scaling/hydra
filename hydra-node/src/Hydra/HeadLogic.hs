@@ -138,6 +138,7 @@ onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
             { parameters = HeadParameters{contestationPeriod, parties}
             , chainState = newChainState
             , headId
+            , headSeed
             }
         )
         <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
@@ -192,9 +193,9 @@ onInitialClientAbort ::
   InitialState tx ->
   Outcome tx
 onInitialClientAbort st =
-  Effects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed}}]
+  Effects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed, headSeed}}]
  where
-  InitialState{committed} = st
+  InitialState{committed, headSeed} = st
 
 -- | Observe an abort transaction by switching the state and notifying clients
 -- about it.
@@ -732,7 +733,7 @@ update env ledger st ev = case (st, ev) of
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
+  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
     Initial
       InitialState
         { parameters = parameters
@@ -740,10 +741,11 @@ aggregate st = \case
         , committed = mempty
         , chainState
         , headId
+        , headSeed
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
     case st of
-      Initial InitialState{parameters, pendingCommits, committed, headId} ->
+      Initial InitialState{parameters, pendingCommits, committed, headId, headSeed} ->
         Initial
           InitialState
             { parameters
@@ -751,6 +753,7 @@ aggregate st = \case
             , committed = newCommitted
             , chainState
             , headId
+            , headSeed
             }
        where
         newCommitted = Map.insert party committedUTxO committed

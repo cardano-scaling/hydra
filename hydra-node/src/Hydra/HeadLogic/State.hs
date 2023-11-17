@@ -8,7 +8,7 @@ import Data.Map qualified as Map
 import Hydra.Chain (ChainStateType, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Prelude
@@ -96,6 +96,7 @@ data InitialState tx = InitialState
   , committed :: Committed tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , headSeed :: HeadSeed
   }
   deriving stock (Generic)
 
@@ -108,6 +109,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
   arbitrary = do
     InitialState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

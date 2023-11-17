@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
@@ -48,6 +48,7 @@ data StateChanged tx
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx
       , headId :: HeadId
+      , headSeed :: HeadSeed
       }
   | CommittedUTxO
       { party :: Party
