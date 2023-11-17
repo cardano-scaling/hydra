@@ -87,7 +87,7 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx, txInToHeadSeed)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -530,20 +530,19 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          -- FIXME: an arbitrary seed will not work, we need to use the right one for this head (from the init observation)
-          forAll arbitrary $ \seed ->
-            let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-                utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-             in action utxo (unsafeAbort cctx seed utxo (fold committed))
-                  & classify
-                    (null commits)
-                    "Abort immediately, after 0 commits"
-                  & classify
-                    (not (null commits) && length commits < length (ctxParties ctx))
-                    "Abort after some (but not all) commits"
-                  & classify
-                    (length commits == length (ctxParties ctx))
-                    "Abort after all commits"
+          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+              utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
+              InitialState{seedTxIn} = stInitialized
+           in action utxo (unsafeAbort cctx seedTxIn utxo (fold committed))
+                & classify
+                  (null commits)
+                  "Abort immediately, after 0 commits"
+                & classify
+                  (not (null commits) && length commits < length (ctxParties ctx))
+                  "Abort after some (but not all) commits"
+                & classify
+                  (length commits == length (ctxParties ctx))
+                  "Abort after all commits"
 
 forAllCollectCom ::
   Testable property =>
