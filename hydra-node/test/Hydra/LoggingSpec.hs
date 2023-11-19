@@ -10,7 +10,6 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
 import System.IO.Silently (capture_)
-import Test.QuickCheck.Property (conjoin, property, withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -21,10 +20,12 @@ spec = do
 
     captured `shouldContain` "{\"foo\":42}"
 
-  prop "HydraLog" $
-    property $
-      withMaxSuccess 1 $
-        conjoin
-          [ prop_validateJSONSchema @(Envelope (HydraLog Tx ())) "logs.json" id
-          , prop_specIsComplete @(HydraLog Tx ()) "logs.json" (key "properties" . key "message")
-          ]
+  -- NOTE: We limit the number of successes because those tests are rather
+  -- slow and the underlying `Property` already generate large samples.
+  modifyMaxSuccess (const 5) $
+    prop "Validates logs.yaml schema" $
+      prop_validateJSONSchema @(Envelope (HydraLog Tx ())) "logs.json" id
+
+  modifyMaxSuccess (const 10) $
+    prop "Schema covers all defined log entries" $
+      prop_specIsComplete @(HydraLog Tx ()) "logs.json" (key "properties" . key "message")
