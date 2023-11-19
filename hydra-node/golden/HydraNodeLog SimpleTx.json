@@ -7,36 +7,94 @@
             "effect": {
                 "serverOutput": {
                     "headId": "e96115f696ba454bf62ffb747450bff8",
-                    "participants": [
-                        "3466420d9fb3490d798bd117ce6ba6bd",
-                        "c3e2d4e8e2b4476defdfdc533fb3bb06",
-                        "314546bdca424aadeda9da44f6699efb",
-                        "e2c29224b9ba0d3ebaf542b836e96a25",
-                        "10d2dab502a30d4f50dc513f8789876c",
-                        "5d332d5e05d14d90f7eb079bd7b0b986",
-                        "85272df41ef8a9237ad6d4718195a763",
-                        "7fead44628b07af26ced561042c69289",
-                        "152fc1304b3a58214544515ca90953cf",
-                        "717e9fda74eb64fd13c0f928eba8a49a",
-                        "6ff78bc23daa06e2dbfdea468f1d273d",
-                        "0a334bbd92a426ae142d2905c3c2482e",
-                        "2e5c34e63112151d61460c802e681188",
-                        "6c47e2ccadc4b9761494a994bd4773df",
-                        "4c661b153bb3858ceebd07a017e03cc6",
-                        "c70195a41c35a641fe7c398fab1aeedf",
-                        "e923aa7c2a118422237e79dce3bf0c05",
-                        "7de4075ef06d9201cfb24c24aa9f41c7",
-                        "37407bd8bd394b5e29a390fc256880eb",
-                        "57a145abd3d396203e1cebd8123ca3b2",
-                        "9261e539f62770bc33ccad986838fc5a",
-                        "3285a3b3d58aa2837fc6a63f8e52adb3",
-                        "7c98e5820ebd05a9f2ff4c8d754063f5",
-                        "8bbf61c1084d0204613015df79fc5525",
-                        "2c7f2aaa458bafa58d5df6b0593d31fe",
-                        "84038eb4268fd5fee76da6b61fe63d82",
-                        "7b8fd1b36f5a5fc25c85924154fa597c",
-                        "63b8fb1945b71c5b208518865389af2c",
-                        "9a1be656bdd01ad244eca03766721aeb"
+                    "parties": [
+                        {
+                            "vkey": "70ec86ca77839cdba5d350d02af37aa3bf0b9fd7defa1beaf89c1f29a5c5a105"
+                        },
+                        {
+                            "vkey": "9c715aa335b1da9b008fa14502fa5e22651365234f218efdcb4e45beddf6135d"
+                        },
+                        {
+                            "vkey": "5304cee4603e5cba73ea7a5fa327ede59a90a5601f96e58780b48242b9ecc499"
+                        },
+                        {
+                            "vkey": "22ed822187ec0dffc425f634f8bb07be1cdc33301b4fa7962dd419b8c77c59a1"
+                        },
+                        {
+                            "vkey": "195ff2f279345e350352f5f098056b8a2642ab6ba105b288a210e05ef6adca55"
+                        },
+                        {
+                            "vkey": "d86c88c51db39f33b73479c4d20fc06241075978607f29fdb06f1cb6d23467cc"
+                        },
+                        {
+                            "vkey": "77055bb865f6d4ee944433d171f942ea4e37ea41f6dc32019243091522644111"
+                        },
+                        {
+                            "vkey": "28c985dd6d26e17f756f918bef725fe09d4e49613c8770ca02a9dc2c9917850f"
+                        },
+                        {
+                            "vkey": "edb1404fbfdcd6069e8e7b058d010a33d8a140a90eea34126b61c1f439c0f4f2"
+                        },
+                        {
+                            "vkey": "a31a07c845ef0ae411166fc73d8874ca5f3d729a1a3f2ffc21b785ac68a44b95"
+                        },
+                        {
+                            "vkey": "42e1c75cd3a6ba20faa620580b009013e7b209b55a200e895dd1765192ad5f3b"
+                        },
+                        {
+                            "vkey": "cf0d2d5bbf12a82e6e7c9a0ecc5d654e8063983c47711afc774a9601b70cc8c2"
+                        },
+                        {
+                            "vkey": "f17da8ebc2b48da35ca74f21f8cf4d9c93434c315b59447b23841712b6c88bd2"
+                        },
+                        {
+                            "vkey": "df5724db0db5ae62e8411dd154b74f6ab5814fe1243461c26d70f553907f431b"
+                        },
+                        {
+                            "vkey": "6e7cd1689e92079254d648939954eb95f529a2d152f035a20405e21203fc0b9e"
+                        },
+                        {
+                            "vkey": "d7bb6ebfb6af5c5b74a13855b7dea4dbc498895171bcb16f8966cf749b4b0df8"
+                        },
+                        {
+                            "vkey": "b47672a2804043d521072fed80d8eaa6efe0da4995e9e55f7ff51a5e661f2bae"
+                        },
+                        {
+                            "vkey": "b2291a30ece9e31782ff3f232ec2deb067ab44b1de6dc29dca13d444da8e6a44"
+                        },
+                        {
+                            "vkey": "3bf7b61f5e02c86e2612531bcb2f856c79636c397cdd9f47e3479da7fbaaef3c"
+                        },
+                        {
+                            "vkey": "cccd4b6ab0a6d9be2baffd1530ded93ad3f49226c60257a94a67fc346832fd84"
+                        },
+                        {
+                            "vkey": "c4c211b7bf3fb63f61d6c4df24a0505d114d20f010cfa5cff1afb686367818e2"
+                        },
+                        {
+                            "vkey": "100e9a423713f62022c553b78be4fc9a3ffadcb13ea1ac7afa5173c5e420927e"
+                        },
+                        {
+                            "vkey": "095493541daac86d1514ecf4e4ab91a2423c6bce8c5f638f0a536511c93a0655"
+                        },
+                        {
+                            "vkey": "0afc02eb033172b8c9bedfdfc29b2ab718512d1668a1b8c7ab1a79368015993f"
+                        },
+                        {
+                            "vkey": "167d81006bafe936a6afaac2d6d74a9a67880c88a79a9b58cb1dd8a8cb95d8c8"
+                        },
+                        {
+                            "vkey": "501a98cc000ee232dfe9a04d419e3efc16ac51593fa49f4b3666337d2814ab78"
+                        },
+                        {
+                            "vkey": "bb9ab288cecad3d32a89df31b423c15ab7ac718ca886e2fc89a549e9aec86c33"
+                        },
+                        {
+                            "vkey": "919ce0a1b8f082ed76cfce6a3a094660d775363bbf82e91ba968db02cf712cc9"
+                        },
+                        {
+                            "vkey": "e74de9a73dc7a870ecc45f354fd75542989646c3e18c9937f480c86f727aaf0e"
+                        }
                     ],
                     "tag": "IgnoredHeadInitializing"
                 },
