@@ -27,8 +27,9 @@ carolVk = getVerificationKey carolSk
 allVKeys :: [VerificationKey HydraKey]
 allVKeys = vkey <$> [alice, bob, carol]
 
+-- TODO: revisit and see if we can use 'defaultContestationPeriod' instead
 cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 42
+cperiod = UnsafeContestationPeriod 60
 
 testHeadId :: HeadId
 testHeadId = UnsafeHeadId "1234"

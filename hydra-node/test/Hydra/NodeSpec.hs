@@ -166,7 +166,7 @@ spec = parallel $ do
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
-              defaultEnv{HeadLogic.contestationPeriod = defaultContestationPeriod}
+              defaultEnv{HeadLogic.contestationPeriod = UnsafeContestationPeriod 42}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
