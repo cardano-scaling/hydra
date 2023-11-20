@@ -141,10 +141,4 @@ TBD:
   only in the `HeadState` aggregate. Note that this would shift the rollback
   handling back into the logic layer.
 
-- To be able to draft a commit transaction our users need to provide also the
-  `HeadId` next to the `UTxO` they would like to commit, so that `hydra-node`
-  _knows_ for which head are we trying to construct a commit tx. Previously we
-  gained this information from the `InitialState` but it might be the case that
-  we decide to not have to keep track of this state and providing this
-  additional field in the request is not a great burdain for our users since
-  they already have this knowledge.
+- Drafting commit transactions now needs the `HeadId` as additional parameter as the chain layer does not track initialized heads, but only `UTxO` it can spend. Changing the API to include this piece of information does break the API, but the information is available in the `HeadIsInitializing` server output and avoids coupling between the API server and the protocol logic.
