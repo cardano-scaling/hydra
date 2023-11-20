@@ -627,6 +627,7 @@ data HeadObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
+  deriving (Eq, Show)
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
@@ -842,6 +843,7 @@ data CommitObservation = CommitObservation
   , committed :: UTxO
   , headId :: HeadId
   }
+  deriving (Eq, Show)
 
 -- | Identify a commit tx by:
 --
@@ -1036,7 +1038,7 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-data FanoutObservation = FanoutObservation {headId :: HeadId}
+data FanoutObservation = FanoutObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -1055,7 +1057,7 @@ observeFanoutTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
-data AbortObservation = AbortObservation {headId :: HeadId}
+data AbortObservation = AbortObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.

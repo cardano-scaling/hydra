@@ -570,30 +570,6 @@ data NoObservation
   | NotAnInitTx NotAnInit
   deriving (Eq, Show)
 
--- | Observe a transition without knowing the starting or ending state. This
--- function should try to observe all relevant transitions given some
--- 'ChainState'.
-observeSomeTx :: ChainContext -> ChainState -> Tx -> Either NoObservation (OnChainTx Tx, ChainState)
-observeSomeTx ctx cst tx = case cst of
-  Idle ->
-    first NotAnInitTx $ second Initial <$> observeInit ctx tx
-  Initial st ->
-    noObservation $
-      second Initial <$> observeCommit ctx st tx
-        <|> (,Idle) <$> observeAbort st tx
-        <|> second Open <$> observeCollect st tx
-  Open st ->
-    noObservation $
-      second Closed <$> observeClose st tx
-  Closed st ->
-    noObservation $
-      second Closed
-        <$> observeContest st tx
-        <|> (,Idle) <$> observeFanout st tx
- where
-  noObservation :: Maybe (OnChainTx Tx, ChainState) -> Either NoObservation (OnChainTx Tx, ChainState)
-  noObservation = maybe (Left NoObservation) Right
-
 -- ** IdleState transitions
 
 -- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
