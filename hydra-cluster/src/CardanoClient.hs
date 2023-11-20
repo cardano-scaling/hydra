@@ -74,7 +74,7 @@ defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 sign :: SigningKey PaymentKey -> TxBody -> Tx
 sign signingKey body =
   makeSignedTransaction
-    [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey signingKey)]
+    [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
     body
 
 -- | Submit a transaction to a 'RunningNode'

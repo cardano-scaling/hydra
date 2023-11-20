@@ -154,7 +154,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
       Left e ->
         throwErrorAsException e
       Right body -> do
-        let tx = makeSignedTransaction [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey faucetSk)] body
+        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
         submitTransaction networkId nodeSocket tx
         newUtxo <- awaitTransaction networkId nodeSocket tx
         case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of

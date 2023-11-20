@@ -148,7 +148,7 @@ mkSimpleTx ::
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey sk)]
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
@@ -181,7 +181,7 @@ mkRangedTx ::
   Either TxBodyError Tx
 mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk (validityLowerBound, validityUpperBound) = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness ShelleyBasedEraBabbage body (WitnessPaymentKey sk)]
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =

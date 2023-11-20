@@ -66,6 +66,7 @@ import Cardano.Api as X hiding (
   UTxO (..),
   Witness (..),
   createAndValidateTransactionBody,
+  makeShelleyKeyWitness,
   policyId,
   queryEraHistory,
   queryProtocolParameters,
