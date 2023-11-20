@@ -10,8 +10,10 @@ import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
 import Hydra.Cardano.Api.MaryEraOnwards (maryEraOnwards)
+import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
+import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)
-import PlutusLedgerApi.V2 (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
+import PlutusLedgerApi.V2 (adaSymbol, adaToken, fromBuiltin, unTokenName)
 import PlutusLedgerApi.V2 qualified as Plutus
 
 -- * Extras
@@ -97,15 +99,3 @@ fromPlutusValue plutusValue =
 toPlutusValue :: Value -> Plutus.Value
 toPlutusValue =
   Ledger.transValue . toLedgerValue
-
--- | Convert Cardano api 'PolicyId' to Plutus `CurrencySymbol`.
-toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
-toPlutusCurrencySymbol = Ledger.transPolicyID . toLedgerPolicyID
-
--- | Convert a plutus 'CurrencySymbol' into a cardano-api 'PolicyId'.
-fromPlutusCurrencySymbol :: CurrencySymbol -> PolicyId
-fromPlutusCurrencySymbol = PolicyId . unsafeScriptHashFromBytes . fromBuiltin . unCurrencySymbol
-
--- | Convert Cardano api 'PolicyId' to Cardano ledger `PolicyID`.
-toLedgerPolicyID :: PolicyId -> Ledger.PolicyID StandardCrypto
-toLedgerPolicyID (PolicyId sh) = Ledger.PolicyID (toShelleyScriptHash sh)
