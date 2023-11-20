@@ -9,7 +9,6 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
-import Data.List (intersect)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
@@ -78,18 +77,15 @@ import Hydra.Chain.Direct.State (
   getContestationDeadline,
   getKnownUTxO,
   initialize,
-  observeAbort,
   observeClose,
   observeCollect,
   observeCommit,
-  observeInit,
-  observeSomeTx,
   pickChainContext,
   unsafeAbort,
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx, observeRawInitTx, txInToHeadSeed)
+import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), HeadObservation (NoHeadTx), NotAnInitReason (..), observeCommitTx, observeHeadTx, observeRawInitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -121,19 +117,15 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   cover,
-  discard,
   forAll,
   forAllBlind,
   getPositive,
   label,
   sized,
   sublistOf,
-  suchThat,
   tabulate,
   (.||.),
-  (=/=),
   (===),
-  (==>),
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import Prelude qualified
@@ -151,11 +143,11 @@ spec = parallel $ do
       checkCoverage $
         forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
           genericCoverTable [transition] $
-            case observeSomeTx ctx st tx of
-              Right{} -> property True
-              Left err ->
+            case observeHeadTx (networkId ctx) (getKnownUTxO st) tx of
+              NoHeadTx ->
                 property False
-                  & counterexample ("observeSomeTx returned an error: " <> show err)
+                  & counterexample ("observeHeadTx failed to observe transaction: " <> show tx)
+              _ -> property True
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
