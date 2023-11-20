@@ -39,7 +39,7 @@ buildScriptAddress script networkId =
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
 buildRaw ins outs fee =
-  createAndValidateTransactionBody BabbageEra $
+  createAndValidateTransactionBody $
     defaultTxBodyContent BabbageEra
       & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       & setTxOuts outs

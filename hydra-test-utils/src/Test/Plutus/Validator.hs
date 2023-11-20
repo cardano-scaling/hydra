@@ -120,7 +120,7 @@ transactionBodyFromScript validatorScript redeemer =
  where
   body =
     either (error . show) id $
-      createAndValidateTransactionBody BabbageEra $
+      createAndValidateTransactionBody $
         defaultTxBodyContent BabbageEra
           & addTxIn (defaultTxIn, scriptWitness)
           & setTxInsCollateral (TxInsCollateral mempty)

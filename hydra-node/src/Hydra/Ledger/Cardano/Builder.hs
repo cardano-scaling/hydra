@@ -21,7 +21,7 @@ unsafeBuildTransaction builder =
   either
     (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
     (`Tx` mempty)
-    . createAndValidateTransactionBody BabbageEra
+    . createAndValidateTransactionBody
     $ builder
 
 -- | A runtime exception to capture (programmer) failures when building

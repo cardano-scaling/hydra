@@ -65,6 +65,7 @@ import Cardano.Api as X hiding (
   TxValidityUpperBound (..),
   UTxO (..),
   Witness (..),
+  createAndValidateTransactionBody,
   policyId,
   queryEraHistory,
   queryProtocolParameters,
