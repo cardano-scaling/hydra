@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.ServerOutput where
@@ -10,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, IsChainState, OnChainId, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
@@ -232,7 +233,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing
+  | Initializing {headId :: HeadId} -- FIXME: This breaks the api of 'Greetings', document and fix api.yaml
   | Open
   | Closed
   | FanoutPossible
@@ -246,7 +247,7 @@ instance Arbitrary HeadStatus where
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
 projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
 projectHeadStatus headStatus = \case
-  HeadIsInitializing{} -> Initializing
+  HeadIsInitializing{headId} -> Initializing{headId}
   HeadIsOpen{} -> Open
   HeadIsClosed{} -> Closed
   ReadyToFanout{} -> FanoutPossible

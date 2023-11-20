@@ -27,7 +27,6 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
-import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   Chain (Chain),
   PostChainTx (CloseTx),
@@ -321,7 +320,10 @@ spec = describe "ServerSpec" $
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
-            headIsOpenMsg <- generate $ HeadIsOpen <$> arbitrary <*> arbitrary
+            (headId, headIsOpenMsg) <- generate $ do
+              headId <- arbitrary
+              output <- HeadIsOpen headId <$> arbitrary
+              pure (headId, output)
             snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
               generateSnapshot
 
@@ -332,7 +334,7 @@ spec = describe "ServerSpec" $
 
             snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
               generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout $ ServerOutput.headId headIsOpenMsg
+            let readyToFanoutMsg = ReadyToFanout{headId}
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do

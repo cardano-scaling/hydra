@@ -8,6 +8,7 @@ import Data.Aeson (Result (Error, Success), Value (String), encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
+import Hydra.API.ServerOutput (HeadStatus (Idle))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
@@ -85,7 +86,6 @@ spec = do
 -- TODO: we should add more tests for other routes here (eg. /commit)
 apiServerSpec :: Spec
 apiServerSpec = do
-  let webServer = httpApp nullTracer dummyChainHandle defaultPParams
   with (return webServer) $ do
     describe "API should respond correctly" $
       it "GET /protocol-parameters works" $
@@ -99,3 +99,7 @@ apiServerSpec = do
                         else Nothing
                   )
             }
+ where
+  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadStatus
+
+  getHeadStatus = pure Idle

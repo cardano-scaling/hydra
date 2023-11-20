@@ -173,8 +173,6 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
       -- Possible errors are handled at the api server level.
       draftCommitTx = \headId utxoToCommit -> do
         ChainStateAt{chainState} <- atomically getLatest
-        -- case (error "TODO: draft commits using a UTxO only") of
-        -- Initial st -> do
         walletUtxos <- atomically getUTxO
         let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
         let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
@@ -186,8 +184,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
               commit' ctx headId chainState utxoToCommit
                 <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
           else pure $ Left SpendingNodeUtxoForbidden
-    , -- _ -> pure $ Left FailedToDraftTxNotInitializing
-      -- Submit a cardano transaction to the cardano-node using the
+    , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
     }

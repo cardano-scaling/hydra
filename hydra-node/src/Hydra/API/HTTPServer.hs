@@ -13,6 +13,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
+import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -150,8 +151,10 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
+  -- | A means to get the latest 'HeadStatus'.
+  (STM IO) HeadStatus ->
   Application
-httpApp tracer directChain pparams request respond = do
+httpApp tracer directChain pparams getHeadStatus request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -160,7 +163,7 @@ httpApp tracer directChain pparams request respond = do
   case (requestMethod request, pathInfo request) of
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain
+        >>= handleDraftCommitUtxo directChain getHeadStatus
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
@@ -249,27 +252,32 @@ httpApp tracer directChain pparams request respond = do
 --   @
 handleDraftCommitUtxo ::
   Chain tx IO ->
+  -- | A means to get the latest 'HeadStatus'.
+  (STM IO) HeadStatus ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain body = do
+handleDraftCommitUtxo directChain getHeadStatus body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      let headId = undefined
-      draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
-        Left e ->
-          -- Distinguish between errors users can actually benefit from and
-          -- other errors that are turned into 500 responses.
-          case e of
-            CannotCommitReferenceScript -> return400 e
-            CommittedTooMuchADAForMainnet _ _ -> return400 e
-            UnsupportedLegacyOutput _ -> return400 e
-            walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
-            _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
-        Right commitTx ->
-          responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+      atomically getHeadStatus >>= \case
+        Initializing{headId} -> do
+          draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
+            Left e ->
+              -- Distinguish between errors users can actually benefit from and
+              -- other errors that are turned into 500 responses.
+              case e of
+                CannotCommitReferenceScript -> return400 e
+                CommittedTooMuchADAForMainnet _ _ -> return400 e
+                UnsupportedLegacyOutput _ -> return400 e
+                walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
+                _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+            Right commitTx ->
+              responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+        -- XXX: This is not really an internal server error
+        _ -> pure $ responseLBS status500 [] (Aeson.encode $ FailedToDraftTxNotInitializing @Tx)
  where
   Chain{draftCommitTx} = directChain
 
