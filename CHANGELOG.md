@@ -10,6 +10,8 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
+- Increase maximum number of parties to 5
+
 - **BREAKING** Sign the head identifier as part of snapshot signature
   and verify it on-chain
 
