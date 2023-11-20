@@ -90,6 +90,7 @@ import Hydra.Chain.Direct.Tx (
   commitTx,
   contestTx,
   fanoutTx,
+  headIdToPolicyId,
   headTokensFromValue,
   initTx,
   observeAbortTx,

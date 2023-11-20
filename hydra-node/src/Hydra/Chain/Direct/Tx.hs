@@ -1083,6 +1083,9 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 
+headIdToPolicyId :: HeadId -> PolicyId
+headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
+
 headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
