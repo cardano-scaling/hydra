@@ -256,31 +256,31 @@ spec = parallel $ do
     prop "reject committing outputs with byron addresses" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
         pure $
-          case commit ctx stInitial utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
     prop "reject committing outputs with reference scripts" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
         pure $
-          case commit ctx stInitial utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
     prop "reject Commits with more than maxMainnetLovelace Lovelace" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
         pure $
-          case commit mainnetChainContext stInitial utxo of
+          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
@@ -504,7 +504,8 @@ forAllCommit' action = do
     forAllBlind (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllBlind genCommit $ \toCommit ->
         -- TODO: generate script inputs here?
-        let tx = unsafeCommit ctx stInitial toCommit
+        let InitialState{headId} = stInitial
+            tx = unsafeCommit ctx headId (getKnownUTxO stInitial) toCommit
          in action ctx stInitial toCommit tx
               & classify
                 (null toCommit)

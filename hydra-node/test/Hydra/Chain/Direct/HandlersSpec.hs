@@ -367,9 +367,9 @@ genSequenceOfObservableBlocks = do
     Tx ->
     StateT [TestBlock] Gen InitialState
   stepCommit ctx initTx = do
-    let stInitial = unsafeObserveInit ctx initTx
+    let stInitial@InitialState{headId} = unsafeObserveInit ctx initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx stInitial utxo
+    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 

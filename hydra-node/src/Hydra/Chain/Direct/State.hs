@@ -341,22 +341,28 @@ initialize ctx =
  where
   ChainContext{networkId} = ctx
 
--- | Construct a commit transaction based on the 'InitialState'. This does look
--- for "our initial output" to spend and check the given 'UTxO' to be
--- compatible. Hence, this function does fail if already committed.
+-- | Construct a commit transaction based on known, spendable UTxO and some
+-- arbitrary UTxOs to commit. This does look for "our initial output" to spend
+-- and check the given 'UTxO' to be compatible. Hence, this function does fail
+-- if already committed or if the head is not initializing.
 --
 -- NOTE: This version of 'commit' does only commit outputs which are held by
 -- payment keys. For a variant which supports committing scripts, see `commit'`.
 commit ::
   ChainContext ->
-  InitialState ->
-  UTxO' (TxOut CtxUTxO) ->
+  HeadId ->
+  -- | Spendable 'UTxO'
+  UTxO ->
+  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
+  UTxO ->
   Either (PostTxError Tx) Tx
-commit ctx InitialState{headId} utxoToCommit =
-  commit' ctx headId undefined $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
+commit ctx headId spendableUTxO utxoToCommit =
+  commit' ctx headId spendableUTxO $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
 
--- | Construct a commit transaction base on the 'InitialState' and some
--- arbitrary UTxOs to commit.
+-- | Construct a commit transaction based on known, spendable UTxO and some
+-- arbitrary UTxOs to commit. This does look for "our initial output" to spend
+-- and check the given 'UTxO' to be compatible. Hence, this function does fail
+-- if already committed or if the head is not initializing.
 --
 -- NOTE: A simpler variant only supporting pubkey outputs is 'commit'.
 commit' ::
@@ -364,6 +370,7 @@ commit' ::
   HeadId ->
   -- | Spendable 'UTxO'
   UTxO ->
+  -- | 'UTxO' to commit, along with witnesses to spend them.
   UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
   Either (PostTxError Tx) Tx
 commit' ctx headId spendableUTxO utxoToCommit = do
@@ -791,7 +798,8 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
-    let tx = unsafeCommit cctx stInitial utxo
+    let InitialState{headId} = stInitial
+    let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo
     pure (cctx, Initial stInitial, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -940,8 +948,8 @@ genCommits' genUTxO ctx txInit = do
 
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
-    let stInitial = unsafeObserveInit cctx txInit
-    pure $ unsafeCommit cctx stInitial toCommit
+    let stInitial@InitialState{headId} = unsafeObserveInit cctx txInit
+    pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit
  where
   scaleCommitUTxOs commitUTxOs =
     let numberOfUTxOs = length $ fold commitUTxOs
@@ -1049,11 +1057,14 @@ genStClosed ctx utxo = do
 unsafeCommit ::
   HasCallStack =>
   ChainContext ->
-  InitialState ->
+  HeadId ->
+  -- | Spendable 'UTxO'
+  UTxO ->
+  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
   UTxO ->
   Tx
-unsafeCommit ctx st u =
-  either (error . show) id $ commit ctx st u
+unsafeCommit ctx headId spendableUTxO utxoToCommit =
+  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
 
 unsafeAbort ::
   HasCallStack =>

@@ -107,7 +107,9 @@ computeCommitCost = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
     (cctx, stInitial) <- genStInitial ctx
-    pure (commit cctx stInitial utxo, getKnownUTxO stInitial <> getKnownUTxO cctx)
+    let InitialState{headId} = stInitial
+        knownUTxO = getKnownUTxO stInitial <> getKnownUTxO cctx
+    pure (commit cctx headId knownUTxO utxo, knownUTxO)
 
 computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
