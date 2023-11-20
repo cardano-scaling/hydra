@@ -257,7 +257,8 @@ handleDraftCommitUtxo directChain body = do
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      draftCommitTx (fromTxOutWithWitness <$> utxoToCommit) <&> \case
+      let headId = undefined
+      draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
         Left e ->
           -- Distinguish between errors users can actually benefit from and
           -- other errors that are turned into 500 responses.

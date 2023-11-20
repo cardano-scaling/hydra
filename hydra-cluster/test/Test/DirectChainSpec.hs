@@ -6,7 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO' (UTxO, toMap))
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
   buildAddress,
@@ -51,7 +50,6 @@ import Hydra.Chain.Direct (
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
-import Hydra.Chain.Direct.Tx (txInToHeadSeed)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -102,10 +100,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
-                void $ bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                aliceHeadSeed <- snd <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                postTx $ AbortTx{utxo = mempty}
+                aliceHeadSeed `shouldBe` bobHeadSeed
+
+                postTx $ AbortTx{utxo = mempty, headSeed = aliceHeadSeed}
 
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
@@ -134,15 +134,17 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 aliceUTxO <- seedFromFaucet node aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
 
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
-                void $ bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                (headId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
 
-                externalCommit node aliceChain aliceExternalSk aliceUTxO
+                aliceHeadSeed `shouldBe` bobHeadSeed
+
+                externalCommit node aliceChain aliceExternalSk headId aliceUTxO
 
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
 
-                postTx $ AbortTx{utxo = aliceUTxO}
+                postTx $ AbortTx{utxo = aliceUTxO, headSeed = aliceHeadSeed}
                 --
                 aliceChain `observesInTime` OnAbortTx
                 bobChain `observesInTime` OnAbortTx
@@ -204,9 +206,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ InitTx $ HeadParameters cperiod [alice]
 
-            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
             -- deliberately use alice's key known to hydra-node to trigger the error
-            externalCommit node aliceChain aliceCardanoSk aliceUTxO
+            externalCommit node aliceChain aliceCardanoSk headId aliceUTxO
               `shouldThrow` \case
                 (SpendingNodeUtxoForbidden :: PostTxError Tx) -> True
                 _ -> False
@@ -214,7 +216,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
-            externalCommit node aliceChain aliceExternalSk newAliceUTxO
+            externalCommit node aliceChain aliceExternalSk headId newAliceUTxO
             aliceChain `observesInTime` OnCommitTx alice newAliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
@@ -230,10 +232,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             (_, aliceExternalSk) <- generate genKeyPair
-            externalCommit node aliceChain aliceExternalSk mempty
+            externalCommit node aliceChain aliceExternalSk headId mempty
             aliceChain `observesInTime` OnCommitTx alice mempty
 
   it "can open, close & fanout a Head" $ \tracer -> do
@@ -254,7 +256,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            externalCommit node aliceChain aliceExternalSk someUTxO
+            externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
@@ -378,7 +380,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ InitTx $ HeadParameters cperiod [alice]
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
-            externalCommit node aliceChain aliceExternalSk someUTxO
+            externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
@@ -441,7 +443,7 @@ data DirectChainTestLog
 data DirectChainTest tx m = DirectChainTest
   { postTx :: PostChainTx tx -> m ()
   , waitCallback :: m (ChainEvent tx)
-  , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> m tx
+  , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> HeadId -> m tx
   }
 
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
@@ -464,8 +466,8 @@ withDirectChainTest tracer config ctx action = do
       DirectChainTest
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
-        , draftCommitTx = \utxo -> do
-            eTx <- draftCommitTx utxo
+        , draftCommitTx = \utxo headId -> do
+            eTx <- draftCommitTx headId utxo
             case eTx of
               Left e -> throwIO e
               Right tx -> pure tx
@@ -512,13 +514,13 @@ externalCommit ::
   RunningNode ->
   DirectChainTest Tx IO ->
   SigningKey PaymentKey ->
+  HeadId ->
   UTxO' (TxOut CtxUTxO) ->
   IO ()
-externalCommit node hydraClient externalSk utxoToCommit' = do
+externalCommit node hydraClient externalSk headId utxoToCommit' = do
   let utxoToCommit =
         UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap utxoToCommit'
-
-  commitTx <- draftCommitTx utxoToCommit
+  commitTx <- draftCommitTx utxoToCommit headId
   let signedTx = signTx externalSk commitTx
   submitTx node signedTx
  where

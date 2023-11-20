@@ -41,6 +41,7 @@ import Hydra.Cardano.Api (
   genTxIn,
   isScriptTxOut,
   modifyTxOutValue,
+  selectAsset,
   selectLovelace,
   txIns',
   txOutReferenceScript,
@@ -351,8 +352,8 @@ commit ::
   InitialState ->
   UTxO' (TxOut CtxUTxO) ->
   Either (PostTxError Tx) Tx
-commit ctx st utxoToCommit =
-  commit' ctx st $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
+commit ctx InitialState{headId} utxoToCommit =
+  commit' ctx headId undefined $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
 
 -- | Construct a commit transaction base on the 'InitialState' and some
 -- arbitrary UTxOs to commit.
@@ -360,39 +361,31 @@ commit ctx st utxoToCommit =
 -- NOTE: A simpler variant only supporting pubkey outputs is 'commit'.
 commit' ::
   ChainContext ->
-  InitialState ->
+  HeadId ->
+  -- | Spendable 'UTxO'
+  UTxO ->
   UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
   Either (PostTxError Tx) Tx
-commit' ctx st utxoToCommit = do
-  case ownInitial ctx st of
+commit' ctx headId spendableUTxO utxoToCommit = do
+  case ownInitial of
     Nothing ->
-      Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
-    Just initial -> do
+      Left (CannotFindOwnInitial{knownUTxO = spendableUTxO})
+    Just (i, o) -> do
       let utxo = fst <$> utxoToCommit
       rejectByronAddress utxo
       rejectReferenceScripts utxo
       rejectMoreThanMainnetLimit networkId utxo
-      Right $ commitTx networkId scriptRegistry headId ownParty utxoToCommit initial
+      pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh)
  where
-  ChainContext{networkId, ownParty, scriptRegistry} = ctx
+  ChainContext{networkId, ownParty, scriptRegistry, ownVerificationKey} = ctx
 
-  InitialState{headId} = st
+  vkh = verificationKeyHash ownVerificationKey
 
-ownInitial :: ChainContext -> InitialState -> Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
-ownInitial ChainContext{ownVerificationKey} st@InitialState{initialInitials} =
-  foldl' go Nothing initialInitials
- where
-  go (Just x) _ = Just x
-  go Nothing (i, out) = do
-    let vkh = verificationKeyHash ownVerificationKey
-    guard $ hasMatchingPT st vkh (txOutValue out)
-    pure (i, out, vkh)
+  ownInitial =
+    UTxO.find (hasMatchingPT . txOutValue) spendableUTxO
 
-hasMatchingPT :: InitialState -> Hash PaymentKey -> Value -> Bool
-hasMatchingPT InitialState{seedTxIn} vkh val =
-  case headTokensFromValue (mkHeadTokenScript seedTxIn) val of
-    [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
-    _ -> False
+  hasMatchingPT val =
+    selectAsset val (AssetId (headIdToPolicyId headId) (AssetName (serialiseToRawBytes vkh))) == 1
 
 rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
 rejectByronAddress u = do

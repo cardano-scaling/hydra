@@ -46,11 +46,8 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (
-  Environment (Environment, otherParties, party),
-  Event (..),
-  defaultTTL,
- )
+import Hydra.HeadLogic (Environment (Environment, otherParties, party), Event (..), defaultTTL)
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -58,9 +55,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (
-  HydraNode (..),
- )
+import Hydra.Node (HydraNode (..), NodeState (..))
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
 
@@ -158,13 +153,22 @@ mockChainAndNetwork tr seedKeys cp commits = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
-      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} -> do
-        -- NOTE: We don't need to sign a tx here since the MockChain
-        -- doesn't actually validate transactions using a real ledger.
-        eTx <- draftCommitTx $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
-        case eTx of
-          Left e -> throwIO e
-          Right tx -> submitTx tx
+      Just
+        MockHydraNode
+          { node = HydraNode{oc = Chain{submitTx, draftCommitTx}, nodeState = NodeState{queryHeadState}}
+          } -> do
+          hs <- atomically queryHeadState
+          let hId = case hs of
+                Idle IdleState{} -> error "HeadState is Idle: no HeadId to commit"
+                Initial InitialState{headId} -> headId
+                Open OpenState{headId} -> headId
+                Closed ClosedState{headId} -> headId
+          -- NOTE: We don't need to sign a tx here since the MockChain
+          -- doesn't actually validate transactions using a real ledger.
+          eTx <- draftCommitTx hId $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
+          case eTx of
+            Left e -> throwIO e
+            Right tx -> submitTx tx
 
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
     party == us
