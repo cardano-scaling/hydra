@@ -15,6 +15,11 @@ pkgs.stdenv.mkDerivation rec {
   buildPhase = ''
     export FONTCONFIG_FILE=${fonts}
     mkdir -p $out
-    pandoc README.md --filter pandoc-crossref --citeproc --pdf-engine=xelatex -o $out/${name}.pdf
+    pandoc README.md \
+      intro.md \
+      --filter pandoc-crossref \
+      --citeproc \
+      --pdf-engine=xelatex \
+      -o $out/${name}.pdf
   '';
 }

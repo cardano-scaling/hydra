@@ -44,10 +44,6 @@ Alternatively, you would need to have a LaTeX distribution installed (e.g.
 wikibook](https://en.wikibooks.org/wiki/LaTeX/Basics#Building_a_document) might
 be helpful to set things up.
 
-# Intro {#sec:intro}
-
-To use this template, open a new folder and type: `nix flake init -t pandoc-xelatex`. Then type `nix build` to produce a PDF from `README.md` and edit the `flake.nix` to use other files. The template can already use citations [@nixosWebsite] and references to sections, e.g. to sec [@sec:intro], figures, etc ...
-
 # References
 
 ---
