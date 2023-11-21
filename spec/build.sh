@@ -14,9 +14,9 @@ mkdir -p $out
 
 pandoc \
       macros.md \
-      README.md \
       intro.md \
       prel.md \
+      --metadata-file meta.yaml \
       --filter pandoc-crossref \
       --citeproc \
       --pdf-engine=xelatex \
@@ -24,9 +24,9 @@ pandoc \
 
 pandoc \
       macros.md \
-      README.md \
       intro.md \
       prel.md \
+      --metadata-file meta.yaml \
       --filter pandoc-crossref \
       --citeproc \
       --to markdown+latex_macros \

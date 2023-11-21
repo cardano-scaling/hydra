@@ -1,45 +1,30 @@
----
-title: "Hydra HeadV1 Specification: Coordinated Head protocol"
-subtitle: DRAFT
-classoption:
-  - 11pt
-documentclass: article
-author: "Sebastian Nagel sebastian.nagel@iohk.io"
-geometry: "left=4cm, right=3cm, top=2.5cm, bottom=2.5cm"
-numbersections: true
-boxlinks: true
-
-bibliography: short.bib
-reference-section-title: References
-link-bibliography: true
-link-citations: true
-csl: elsevier-with-titles.csl
----
-
 # Hydra Specification
 
 The Hydra Head protocol is specified in the single document built from this
 directory.
 
-We use LaTeX to write the specification and used to compose this on
-[overleaf](www.overleaf.com). Going forward, any changes to the specification
-should follow the common pull request rules as set out in our [contribution
-guidelines](../CONTRIBUTING.md).
+We do use [pandoc][pandoc] to generate a PDF from the markdown sources via
+XeLaTeX, as well as embed it into our [website](../docs) using docusaurus.
 
-The [Overleaf documentation](https://www.overleaf.com/learn) does provide a good
-introduction to LaTeX syntax and functions to get started.
+Any changes to the specification should follow the common pull request rules as
+set out in our [contribution guidelines](../CONTRIBUTING.md).
 
 ## Building
 
-You can use `nix` to build a PDF from the LaTeX files using
+You can use `nix` to build the specification using
 
 ``` shell
 nix build .#spec
 ```
 
-which will write the PDF into `result/hydra-spec.pdf`.
+which will create the PDF specifcation in `result/hydra-spec.pdf` and the fully
+composed markdown version in `result/hydra-spec.md`.
 
-Alternatively, you would need to have a LaTeX distribution installed (e.g.
-`texlive`) and produce a PDF output using `pdflatex` etc. The [LaTeX
-wikibook](https://en.wikibooks.org/wiki/LaTeX/Basics#Building_a_document) might
-be helpful to set things up.
+Alternatively, you would need to have a [pandoc][pandoc] and a LaTeX
+distribution installed (e.g. `texlive`) to produce the same output with
+
+``` shell
+./build.sh result
+```
+
+[pandoc][https://pandoc.org]
