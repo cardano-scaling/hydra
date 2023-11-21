@@ -3,7 +3,6 @@
 module Hydra.Chain.Offline.Persistence (
   initializeStateIfOffline,
   createPersistenceWithUTxOWriteBack,
-  createStateChangePersistence,
 ) where
 
 import Hydra.Prelude
@@ -91,14 +90,3 @@ createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
               writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode utxo
             _ -> pure ()
       }
-
-createStateChangePersistence ::
-  (MonadIO m, MonadThrow m) =>
-  -- The filepath to write the main state change event persistence to
-  FilePath ->
-  -- The optional filepath to write UTxO to. UTxO is written after every confirmed snapshot.
-  Maybe FilePath ->
-  m (PersistenceIncremental (StateChanged Tx) m)
-createStateChangePersistence persistenceFilePath = \case
-  Just utxoWriteBackFilePath -> createPersistenceWithUTxOWriteBack persistenceFilePath utxoWriteBackFilePath
-  _ -> createPersistenceIncremental persistenceFilePath

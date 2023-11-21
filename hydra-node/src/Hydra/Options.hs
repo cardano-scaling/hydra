@@ -165,7 +165,6 @@ data OfflineUTxOWriteBackConfig = WriteBackToInitialUTxO | WriteBackToUTxOFile F
 data OfflineConfig = OfflineConfig
   { initialUTxOFile :: FilePath
   , ledgerGenesisFile :: Maybe FilePath
-  , utxoWriteBack :: Maybe OfflineUTxOWriteBackConfig
   }
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
@@ -174,7 +173,6 @@ defaultOfflineConfig =
   OfflineConfig
     { initialUTxOFile = "utxo.json"
     , ledgerGenesisFile = Nothing
-    , utxoWriteBack = Nothing
     }
 
 offlineUTxOWriteBackOptionsParser :: Parser (Maybe OfflineUTxOWriteBackConfig)
@@ -202,16 +200,8 @@ offlineOptionsParser =
       ( OfflineConfig
           <$> initialUTxOFileParser
           <*> ledgerGenesisFileParser
-          <*> offlineUTxOWriteBackOptionsParser
       )
       (progDesc "Run Hydra in offline mode")
-
-offlineOptionsNormalizedUtxoWriteBackFilePath :: OfflineConfig -> Maybe FilePath
-offlineOptionsNormalizedUtxoWriteBackFilePath OfflineConfig{initialUTxOFile, utxoWriteBack} =
-  case utxoWriteBack of
-    Just (WriteBackToUTxOFile path) -> Just path
-    Just (WriteBackToInitialUTxO) -> Just initialUTxOFile
-    Nothing -> Nothing
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -281,19 +271,13 @@ instance Arbitrary OfflineConfig where
   arbitrary = do
     ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "ledgerGenesis"]
     initialUTxOFile <- genFilePath "utxo.json"
-    utxoWriteBack <- arbitrary
     -- writeFileBS initialUTxOFile "{}" 
 
     pure $
       OfflineConfig {
         initialUTxOFile
       , ledgerGenesisFile
-      , utxoWriteBack
       }
-  shrink = genericShrink
-
-instance Arbitrary OfflineUTxOWriteBackConfig where
-  arbitrary = pure $ WriteBackToInitialUTxO --FIXME(Elaine): this wont be used so theres no need to fix during rebase
 
   shrink = genericShrink
 
@@ -375,7 +359,11 @@ cardanoLedgerProtocolParametersParser =
           \See manual how to configure this."
     )
 
-data ChainConfig = DirectChainConfig
+data ChainConfig' = OfflineChainConfig' OfflineConfig | DirectChainConfig' ChainConfig
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+data ChainConfig = DirectChainConfig -- rename type constructor to directchainconfig
   { networkId :: NetworkId
   -- ^ Network identifer to which we expect to connect.
   , nodeSocket :: SocketPath
@@ -845,17 +833,10 @@ toArgs
 
     argsOfflineConfig = case offlineConfig of
       Nothing -> []
-      Just OfflineConfig{initialUTxOFile, ledgerGenesisFile, utxoWriteBack} ->
+      Just OfflineConfig{initialUTxOFile, ledgerGenesisFile} ->
         ["offline"]
           <> ["--initial-utxo-file", initialUTxOFile]
           <> maybe [] (\s -> ["--ledger-genesis-file", s]) ledgerGenesisFile
-          <> maybe
-            []
-            ( \case
-                WriteBackToInitialUTxO -> ["--write-back-to-initial-utxo"]
-                WriteBackToUTxOFile s -> ["--write-back-to-utxo-file", s]
-            )
-            utxoWriteBack
 
 defaultRunOptions :: RunOptions
 defaultRunOptions =

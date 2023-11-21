@@ -90,6 +90,7 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
+  withOfflineHydraNode,
   withHydraNode,
   withHydraNode',
  )
@@ -112,7 +113,12 @@ withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)
 
 spec :: Spec
-spec = around (showLogsOnFailure "EndToEndSpec") $
+spec = around showLogsOnFailure $ do
+  it "End-to-end offline mode" $ \tracer -> do
+    withTempDir ("offline-mode-e2e") $ \tmpDir -> do
+      withOfflineHydraNode (tracer :: Tracer IO EndToEndLog) defaultOfflineConfig tmpDir 0 aliceSk $ \n1 -> do
+        pure ()
+
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
@@ -555,6 +561,16 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       v ^? key "snapshot" . key "confirmedTransactions"
     confirmedTransactions ^.. values `shouldBe` [toJSON $ txId tx]
+
+-- initAndCloseOffline :: FilePath -> Tracer IO EndToEndLog -> IO ()
+-- initAndCloseOffline tmpDir tracer = do
+--   aliceKeys@(aliceCardanoVk, _ )
+--   let cardanoKey = [aliceKeys]
+--       hydraKeys = [aliceSk]
+
+--   let contestationPeriod = UnsafeContestationPeriod 2
+  
+--   pure ()
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

@@ -24,7 +24,6 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
-import Hydra.Chain.Offline.Persistence (createStateChangePersistence)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -58,10 +57,9 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile, utxoWriteBack),
+  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile),
   OfflineUTxOWriteBackConfig (..),
   RunOptions (..),
-  offlineOptionsNormalizedUtxoWriteBackFilePath,
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
@@ -122,7 +120,7 @@ run opts = do
           loadGlobalsFromGenesis ledgerGenesisFile
 
       withCardanoLedger pparams globals $ \ledger -> do
-        persistence <- createStateChangePersistence (persistenceDir <> "/state") (offlineOptionsNormalizedUtxoWriteBackFilePath =<< leftToMaybe onlineOrOfflineConfig)
+        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
 
         checkHeadState (contramap Node tracer) env hs

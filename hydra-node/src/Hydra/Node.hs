@@ -308,20 +308,6 @@ loadGlobalsFromGenesis ledgerGenesisFile = do
 
   pure globals
 
--- loadStateOffline ::
---   (MonadThrow m, IsChainState tx) =>
---   Tracer m (HydraNodeLog tx) ->
---   PersistenceIncremental (StateChanged tx) m ->
---   ChainStateType tx ->
---   HeadId ->
---   UTxOType tx ->
-
---   m (HeadState tx, ChainStateHistory tx)
--- loadStateOffline tracer persistence defaultChainState defaultHeadId defaultUtxo = do
---   loadState tracer persistence defaultChainState
-
--- TODO(ELAINE): figure out a less strange way to do this
-
 -- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
 fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters ShelleyEra
 fromShelleyGenesis

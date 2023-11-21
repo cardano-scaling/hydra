@@ -464,9 +464,9 @@ data DirectChainTest tx m = DirectChainTest
   , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> HeadId -> m tx
   }
 
-instance ChainTest DirectChainTest Tx IO where
-  postTx = postTx
-  waitCallback = waitCallback
+-- instance ChainTest DirectChainTest Tx IO  where
+--   postTx = (postTx :: PostChainTx Tx -> IO ())
+--   waitCallback = (waitCallback :: IO (ChainEvent Tx))
 
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
@@ -516,3 +516,33 @@ externalCommit node hydraClient externalSk headId utxoToCommit' = do
   submitTx node signedTx
  where
   DirectChainTest{draftCommitTx} = hydraClient
+
+hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> Expectation
+hasInitTxWith expectedContestationPeriod expectedParties = \case
+  OnInitTx{contestationPeriod, parties} -> do
+    expectedContestationPeriod `shouldBe` contestationPeriod
+    expectedParties `shouldBe` parties
+  tx -> failure ("Unexpected observation: " <> show tx)
+
+observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
+observesInTime chain expected =
+  observesInTimeSatisfying chain (`shouldBe` expected)
+
+observesInTimeSatisfying :: IsTx tx => DirectChainTest tx IO -> (OnChainTx tx -> Expectation) -> IO ()
+observesInTimeSatisfying c check =
+  failAfter 10 go
+ where
+  go = do
+    e <- waitCallback c
+    case e of
+      Observation{observedTx} ->
+        check observedTx
+      _TickOrRollback ->
+        go
+
+waitMatch :: IsTx tx => DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
+waitMatch c match = go
+ where
+  go = do
+    a <- waitCallback c
+    maybe go pure (match a)
