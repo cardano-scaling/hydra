@@ -1,16 +1,20 @@
 { pkgs ? import <nixpkgs> { }
 }:
-
-pkgs.stdenvNoCC.mkDerivation rec {
+let
+  fonts = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+in
+pkgs.stdenv.mkDerivation rec {
   name = "hydra-spec";
   src = ./.;
-  buildInputs = [
-    pkgs.texlive.combined.scheme-full
+  buildInputs = with pkgs; [
+    pandoc
+    haskellPackages.pandoc-crossref
+    texlive.combined.scheme-small
   ];
   phases = [ "unpackPhase" "buildPhase" ];
   buildPhase = ''
-    latexmk -pdf ${./main.tex}
+    export FONTCONFIG_FILE=${fonts}
     mkdir -p $out
-    mv *-main.pdf $out/${name}.pdf
+    pandoc README.md --filter pandoc-crossref --citeproc --pdf-engine=xelatex -o $out/${name}.pdf
   '';
 }

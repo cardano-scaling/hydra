@@ -1,3 +1,21 @@
+---
+title: "Hydra HeadV1 Specification: Coordinated Head protocol"
+subtitle: DRAFT
+classoption:
+  - 11pt
+documentclass: article
+author: "Sebastian Nagel sebastian.nagel@iohk.io"
+geometry: "left=4cm, right=3cm, top=2.5cm, bottom=2.5cm"
+numbersections: true
+---
+
+---
+abstract: |
+
+    Your abstract here 
+
+---
+
 # Hydra Specification
 
 The Hydra Head protocol is specified in the single document built from this
@@ -25,3 +43,19 @@ Alternatively, you would need to have a LaTeX distribution installed (e.g.
 `texlive`) and produce a PDF output using `pdflatex` etc. The [LaTeX
 wikibook](https://en.wikibooks.org/wiki/LaTeX/Basics#Building_a_document) might
 be helpful to set things up.
+
+# Intro {#sec:intro}
+
+To use this template, open a new folder and type: `nix flake init -t pandoc-xelatex`. Then type `nix build` to produce a PDF from `README.md` and edit the `flake.nix` to use other files. The template can already use citations [@nixosWebsite] and references to sections, e.g. to sec [@sec:intro], figures, etc ...
+
+# References
+
+---
+references:
+- id: nixosWebsite
+  author: NixOS Community
+  title: Main Website
+  url: https://nixos.org
+  type: online
+
+---
