@@ -1,6 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+const remarkMath = require("remark-math");
+const rehypeKatex = require("rehype-katex");
+
 const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const docsMetadataJson = require("./static/docs-metadata.json");
@@ -99,6 +102,8 @@ const config = {
         routeBasePath: "core-concepts",
         editUrl,
         editLocalizedFiles: true,
+        remarkPlugins: [remarkMath],
+        rehypePlugins: [rehypeKatex],
       }),
     ],
     [
@@ -308,6 +313,16 @@ const config = {
   },
 
   themes: ["@docusaurus/theme-mermaid"],
+
+  stylesheets: [
+    {
+      href: "https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css",
+      type: "text/css",
+      integrity:
+        "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
+      crossorigin: "anonymous",
+    },
+  ],
 };
 
 module.exports = config;

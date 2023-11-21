@@ -31,9 +31,12 @@
     "@mdx-js/react": "^1.6.22",
     "asyncapi-validator": "4.0.0",
     "clsx": "^1.1.1",
+    "hast-util-is-element": "1.1.0",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
-    "react-dom": "^17.0.1"
+    "react-dom": "^17.0.1",
+    "rehype-katex": "5",
+    "remark-math": "3"
   },
   "resolutions": {
     "@asyncapi/specs": "4.2.1"
