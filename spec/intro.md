@@ -12,9 +12,9 @@ networking protocols or concrete message formats. It is structured
 similarly, but focuses on a single variant, and avoids indirections and
 unnecessary generalizations. The document is kept in sync with the
 reference implementation available on Github [@hydra-repo].
-[Red]{style="color: red"} sections indicate that they are currently not
+$\red{Red}$ sections indicate that they are currently not
 covered or missing in the implementation, where
-[blue]{style="color: blue"} parts mean a difference in how it is
+$\blue{blue}$ parts mean a difference in how it is
 realized.
 
 First, a high-level overview of the protocol and how it differs from

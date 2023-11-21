@@ -7,6 +7,7 @@ documentclass: article
 author: "Sebastian Nagel sebastian.nagel@iohk.io"
 geometry: "left=4cm, right=3cm, top=2.5cm, bottom=2.5cm"
 numbersections: true
+boxlinks: true
 
 bibliography: short.bib
 reference-section-title: References

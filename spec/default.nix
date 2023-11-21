@@ -15,7 +15,9 @@ pkgs.stdenv.mkDerivation rec {
   buildPhase = ''
     export FONTCONFIG_FILE=${fonts}
     mkdir -p $out
-    pandoc README.md \
+    pandoc \
+      macros.md \
+      README.md \
       intro.md \
       --filter pandoc-crossref \
       --citeproc \
