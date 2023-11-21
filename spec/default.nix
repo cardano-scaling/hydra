@@ -19,6 +19,7 @@ pkgs.stdenv.mkDerivation rec {
       macros.md \
       README.md \
       intro.md \
+      prel.md \
       --filter pandoc-crossref \
       --citeproc \
       --pdf-engine=xelatex \
