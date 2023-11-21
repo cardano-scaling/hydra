@@ -7,13 +7,12 @@ documentclass: article
 author: "Sebastian Nagel sebastian.nagel@iohk.io"
 geometry: "left=4cm, right=3cm, top=2.5cm, bottom=2.5cm"
 numbersections: true
----
 
----
-abstract: |
-
-    Your abstract here 
-
+bibliography: short.bib
+reference-section-title: References
+link-bibliography: true
+link-citations: true
+csl: elsevier-with-titles.csl
 ---
 
 # Hydra Specification
@@ -43,15 +42,3 @@ Alternatively, you would need to have a LaTeX distribution installed (e.g.
 `texlive`) and produce a PDF output using `pdflatex` etc. The [LaTeX
 wikibook](https://en.wikibooks.org/wiki/LaTeX/Basics#Building_a_document) might
 be helpful to set things up.
-
-# References
-
----
-references:
-- id: nixosWebsite
-  author: NixOS Community
-  title: Main Website
-  url: https://nixos.org
-  type: online
-
----
