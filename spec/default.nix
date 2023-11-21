@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> { }
 }:
 let
-  fonts = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+  buildScript = ./build.sh;
 in
 pkgs.stdenv.mkDerivation rec {
   name = "hydra-spec";
@@ -13,16 +13,6 @@ pkgs.stdenv.mkDerivation rec {
   ];
   phases = [ "unpackPhase" "buildPhase" ];
   buildPhase = ''
-    export FONTCONFIG_FILE=${fonts}
-    mkdir -p $out
-    pandoc \
-      macros.md \
-      README.md \
-      intro.md \
-      prel.md \
-      --filter pandoc-crossref \
-      --citeproc \
-      --pdf-engine=xelatex \
-      -o $out/${name}.pdf
+    ${buildScript} $out
   '';
 }
