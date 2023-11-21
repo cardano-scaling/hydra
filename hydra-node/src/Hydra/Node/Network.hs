@@ -61,7 +61,11 @@
 --           │                                   ▼
 --
 -- @
-module Hydra.Node.Network (withNetwork, withFlipHeartbeats) where
+module Hydra.Node.Network (
+  NetworkConfiguration (..),
+  withNetwork,
+  withFlipHeartbeats,
+) where
 
 import Hydra.Prelude hiding (fromList, replicate)
 
@@ -80,29 +84,36 @@ import Hydra.Persistence (createPersistence, createPersistenceIncremental)
 -- The type is made complicated because the various subsystems use part of the tracer only.
 type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
 
+-- | Configuration for a `Node` network layer.
+data NetworkConfiguration m = NetworkConfiguration
+  { persistenceDir :: FilePath
+  -- ^ Persistence directory
+  , signingKey :: SigningKey HydraKey
+  -- ^ This node's signing key. This is used to sign messages sent to peers.
+  , otherParties :: [Party]
+  -- ^ The list of peers `Party` known to this node.
+  , host :: IP
+  -- ^ IP address to listen on for incoming connections.
+  , port :: PortNumber
+  -- ^ Port to listen on.
+  , peers :: [Host]
+  -- ^ Addresses and ports of remote peers.
+  , nodeId :: NodeId
+  -- ^ This node's id.
+  }
+
+-- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
   (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
   -- | Tracer to use for logging messages.
   Tracer IO (LogEntry tx msg) ->
-  -- | Persistence directory
-  FilePath ->
   -- | Callback/observer for connectivity changes in peers.
   ConnectionMessages IO ->
-  -- | This node's signing key. This is used to sign messages sent to peers.
-  SigningKey HydraKey ->
-  -- | The list of peers `Party` known to this node.
-  [Party] ->
-  -- | IP address to listen on for incoming connections.
-  IP ->
-  -- | Port to listen on.
-  PortNumber ->
-  -- | Addresses and ports of remote peers.
-  [Host] ->
-  -- | This node's id.
-  NodeId ->
+  -- | The network configuration
+  NetworkConfiguration IO ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer persistenceDir connectionMessages signingKey otherParties host port peers nodeId callback action = do
+withNetwork tracer connectionMessages configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
@@ -117,6 +128,8 @@ withNetwork tracer persistenceDir connectionMessages signingKey otherParties hos
 
   withHeartbeat nodeId connectionMessages reliability callback $ \network ->
     action network
+ where
+  NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
 
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->

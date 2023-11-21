@@ -43,7 +43,7 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
-import Hydra.Node.Network (withNetwork)
+import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
@@ -102,7 +102,8 @@ main = do
             apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
               -- Network
-              withNetwork tracer persistenceDir (connectionMessages server) signingKey otherParties host port peers nodeId putNetworkEvent $ \hn -> do
+              let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
+              withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
                 -- Main loop
                 runHydraNode (contramap Node tracer) $
                   HydraNode
