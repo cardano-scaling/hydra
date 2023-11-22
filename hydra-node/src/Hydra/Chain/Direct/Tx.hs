@@ -101,10 +101,6 @@ data ClosedThreadOutput = ClosedThreadOutput
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
--- FIXME: sould not be hardcoded
-headValue :: Value
-headValue = lovelaceToValue (Lovelace 2_000_000)
-
 -- * Create Hydra Head transactions
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -133,7 +129,7 @@ mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
   TxOut
     (mkScriptAddress @PlutusScriptV2 networkId headScript)
-    (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
+    (valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
  where
@@ -159,7 +155,7 @@ mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
-    headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
+    valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV2 networkId initialScript
   initialScript =

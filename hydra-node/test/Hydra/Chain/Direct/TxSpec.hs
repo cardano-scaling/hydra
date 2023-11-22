@@ -255,11 +255,7 @@ genAbortableOutputs parties =
     toUTxOContext $
       TxOut
         (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
-        ( headValue
-            <> valueFromList
-              [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
-              ]
-        )
+        (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 

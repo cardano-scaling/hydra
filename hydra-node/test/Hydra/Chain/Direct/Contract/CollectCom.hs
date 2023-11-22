@@ -28,7 +28,6 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
-  headValue,
   hydraHeadV1AssetName,
   mkCommitDatum,
   mkHeadId,
@@ -170,8 +169,7 @@ healthyCommitOutput party committed =
   commitAddress =
     mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
   commitValue =
-    headValue
-      <> foldMap txOutValue committed
+    foldMap txOutValue committed
       <> valueFromList
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
         ]
