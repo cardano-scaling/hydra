@@ -9,6 +9,7 @@
 .cache-loader
 /static/docs-metadata.json
 /static/hydra-spec.pdf
+/core-concepts/hydra-spec.md
 
 # Misc
 .DS_Store

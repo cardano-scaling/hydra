@@ -9,13 +9,13 @@ The user-manual is built using [Docusaurus 2](https://docusaurus.io/), which com
 #### Installation
 
 ```console
-$ yarn
+yarn
 ```
 
 #### Local Development
 
 ```console
-$ yarn start
+yarn start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
@@ -23,17 +23,18 @@ This command starts a local development server and opens up a browser window. Mo
 #### Build
 
 ```console
-$ yarn build
+yarn build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
+<!-- TODO: Do this via makefile or package.json scripts? -->
 Note that this will have quite some broken links as we are referring to
 generated documentation, test data and benchmarks. To put these artifacts at the
 right place before, you can use these `nix` builds from the repository root:
 
 ```console
-nix build .#spec && ln -s $(readlink result)/hydra-spec.pdf docs/static/hydra-spec.pdf
+nix build .#spec && ln -sf $(readlink result)/hydra-spec.pdf docs/static/hydra-spec.pdf && cp -f $(readlink result)/hydra-spec.md docs/core-concepts/hydra-spec.md
 nix build .#haddocks -o docs/static/haddock
 
 (cd hydra-node; nix develop .#benchs.hydra-node --command tx-cost --output-directory $(pwd)/../docs/benchmarks)
@@ -45,7 +46,7 @@ nix build .#haddocks -o docs/static/haddock
 Translations of the documentation are provided in the `i18n/{lang}` folder (for example `i18n/fr` for French). Translations of both the content and the various website elements (such as buttons, headers etc...) are needed. To initialize a new language translation (e.g. `fr`), run the following command:
 
 ```console
-$ yarn write-translations --locale fr
+yarn write-translations --locale fr
 ```
 
 This command will pre-generate all the website elements which need to be translated into French (locale `fr`) in JSON files. Translations have to be provided for each items in generated JSON files, mapping ids to messages as such:

@@ -85,6 +85,7 @@ jobs:
         git reset origin/master --hard
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
 
+    # TODO: Integrate markdown spec
     - name: 📥 Download latest hydra-spec
       uses: dawidd6/action-download-artifact@v2
       with:

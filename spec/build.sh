@@ -24,6 +24,7 @@ pandoc \
 
 # TODO: avoid duplication on document title
 echo "# Hydra HeadV1 Specification: Coordinated Head protocol" > $out/hydra-spec.md
+
 pandoc \
       macros.md \
       intro.md \
@@ -31,7 +32,9 @@ pandoc \
       --metadata-file meta.yaml \
       --filter pandoc-crossref \
       --citeproc \
-  | awk '/^#/{f=1}f' temp.md >> $out/hydra-spec.md
+      -o temp.md
 
+# Remove macros.md again / everything until first headline
+awk '/^#/{f=1}f' temp.md >> $out/hydra-spec.md
 
 echo ${out}

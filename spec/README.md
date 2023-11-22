@@ -27,4 +27,4 @@ distribution installed (e.g. `texlive`) to produce the same output with
 ./build.sh result
 ```
 
-[pandoc][https://pandoc.org]
+[pandoc](https://pandoc.org)
