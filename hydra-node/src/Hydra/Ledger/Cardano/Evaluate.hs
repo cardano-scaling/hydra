@@ -18,7 +18,7 @@ import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
 import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (PlutusWithContext), slotToPOSIXTime)
-import Cardano.Ledger.Api (ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
+import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
@@ -252,6 +252,7 @@ pparams =
     & ppMaxValSizeL .~ 1000000000
     & ppMinFeeAL .~ Coin 44
     & ppMinFeeBL .~ Coin 155381
+    & ppCoinsPerUTxOByteL .~ CoinPerByte (Coin 4310)
     & ppMaxTxExUnitsL .~ toLedgerExUnits maxTxExecutionUnits
     & ppMaxBlockExUnitsL
       .~ toLedgerExUnits
