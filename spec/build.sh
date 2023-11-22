@@ -27,6 +27,7 @@ pandoc \
       intro.md \
       prel.md \
       --metadata-file meta.yaml \
+      --strip-comments \
       --filter pandoc-crossref \
       --citeproc \
       -o converted.md
