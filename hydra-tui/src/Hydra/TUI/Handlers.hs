@@ -51,6 +51,8 @@ handleEvent cardanoClient client e = do
     zoom connectionL $ handleBrickEventsConnection cardanoClient client e
   zoom (logStateL . logMessagesL) $
     handleAppEventVia handleHydraEventsInfo () e
+  -- XXX: Global events must be handled as the very last step.
+  -- Any `EventM` that decides to `Continue` would override the `Halt` decision.
   handleGlobalEvents e
 
 handleExtraHotkeys :: (BrickEvent w e -> EventM n s ()) -> Vty.Event -> EventM n s ()
