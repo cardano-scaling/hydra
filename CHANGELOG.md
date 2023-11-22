@@ -46,6 +46,8 @@ changes.
 - **BREAKING** Changes to persisted state:
   - The internal chain state serialization changed when switching to inline datums.
 
+- Fixed TUI key bindings for exiting in dialogs.
+
 ## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
