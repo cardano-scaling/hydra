@@ -48,21 +48,33 @@ There are couple of items in the roadmap around reducing the risk of losing fund
 
 #### Networking
 
-The messages exchanged through the _Hydra Network_ layer between
-participants are neither authenticated, authorized, nor encrypted
-which means communications between Hydra nodes are not protected. It's
-advised that operators requiring confidentiality and/or identification
-of participants run hydra-node connected through some kind of VPN or
-on top of encrypted channels until this is addressed in the software
-(see [#727](https://github.com/input-output-hk/hydra/issues/727))
+##### Authentication & Authorization
 
-Also, while the Hydra Head protocol guarantees safety of a
-participant's funds, it does not guarantee liveness, so all parties
-involved in a Hydra Head must be online and reactive for the protocol
-to make progress. This means that, should one or several participants'
-Hydra node crash, become unreachable from other Hydra nodes, or is
-disconnected from the Cardano network, no more transactions can happen
-in the Head and it must be closed.
+The messages exchanged through the _Hydra Network_ layer between
+participants are authenticated: Each message is
+[signed](https://github.com/input-output-hk/hydra/issues/727) using
+the [Hydra signing key](/docs/getting-started/glossary#signing-key) of the emitting party which is identified by
+the corresponding [verification key](/docs/getting-started/glossary#verification-key). When a message with an unknown
+or incorrect signature is received, it is dropped and a notification
+is logged.
+
+Messages are however not encrypted and therefore, if confidentiality is
+required, some external mechanism needs to be put in place to prevent
+other parties from observing the messages exchanged within a Head.
+
+##### Fault tolerance
+
+The Hydra Head protocol guarantees safety of all (honest)
+participants' funds, but does not in itself guarantee liveness, hence
+all parties involved in a Hydra Head must be online and reactive for
+the protocol to make progress.
+
+This implies that, should one or several participants' hydra-node
+become _permanently_ unreachable from the others, through a crash, or
+a network partition, no more transactions can happen in the Head and
+it must be closed. However, the [Hydra network
+layer](https://hydra.family/head-protocol/unstable/haddock/hydra-node/Hydra-Node-Network.html)
+is tolerant to _transient_ disconnections and (non-Byzantine) crashes.
 
 ### hydra-node
 
