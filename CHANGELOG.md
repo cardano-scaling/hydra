@@ -10,7 +10,7 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
-- Increase maximum number of parties to 5
+- Increase maximum number of parties to 5.
 
 - **BREAKING** Sign the head identifier as part of snapshot signature
   and verify it on-chain
@@ -40,7 +40,8 @@ changes.
 
 - **BREAKING** Changes to Hydra scripts:
   - Switch to using inline datums instead of (optionally) published datums in
-    transactions.
+    transactions. This also includes a bump in the hard-coded deposit of script
+    outputs to 2.2₳.
   - Upgrading our toolchain to GHC 9.6
 
 - **BREAKING** Changes to persisted state:

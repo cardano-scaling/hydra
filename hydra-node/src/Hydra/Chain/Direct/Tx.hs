@@ -103,7 +103,7 @@ hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
-headValue = lovelaceToValue (Lovelace 2_000_000)
+headValue = lovelaceToValue (Lovelace 2_200_000)
 
 -- * Create Hydra Head transactions
 
