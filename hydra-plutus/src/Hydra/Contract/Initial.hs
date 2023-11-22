@@ -29,7 +29,7 @@ import Hydra.ScriptContext (
  )
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V1.Value (isZero)
+import PlutusLedgerApi.V1.Value (geq, isZero)
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (..),
@@ -106,7 +106,9 @@ checkCommit commitValidator headId committedRefs context =
  where
   checkCommittedValue =
     traceIfFalse $(errorCode LockedValueDoesNotMatch) $
-      lockedValue == initialValue + committedValue
+      -- NOTE: Ada in initialValue is usually lower than in the locked ADA due
+      -- to higher deposit needed for commit output than for initial output
+      lockedValue `geq` (initialValue + committedValue)
 
   checkLockedCommit =
     traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $

@@ -16,10 +16,7 @@ import PlutusLedgerApi.V2 qualified as Plutus
 
 -- * Extras
 
--- | Calculate minimum value for a UTxO. Note that cardano-api defines a
--- 'calculateMinimumUTxO' function but it is flawed (see NOTE below) and has an
--- unsatisfactory API because it works across multiple era.
--- XXX: Check if this is still true ^^^ and use it if not.
+-- | Calculate minimum ada as 'Value' for a 'TxOut'.
 minUTxOValue ::
   PParams LedgerEra ->
   TxOut CtxTx Era ->

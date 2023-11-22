@@ -9,6 +9,9 @@ import Hydra.Prelude
 import Hydra.Chain.Direct.TxSpec ()
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (bodyTxL)
+import Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
+import Control.Lens (mapped, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
@@ -42,12 +45,18 @@ import Test.QuickCheck (elements, oneof, scale, suchThat)
 
 healthyCommitTx :: (Tx, UTxO)
 healthyCommitTx =
-  (tx, lookupUTxO)
+  (tx', lookupUTxO)
  where
   lookupUTxO =
     UTxO.singleton (healthyIntialTxIn, toUTxOContext healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
+
+  tx' = fromLedgerTx . setOutputsMinValue $ toLedgerTx tx
+
+  setOutputsMinValue =
+    bodyTxL . outputsTxBodyL . mapped %~ setMinCoinTxOut Fixture.pparams
+
   tx =
     commitTx
       Fixture.testNetworkId
@@ -71,7 +80,9 @@ healthyIntialTxIn :: TxIn
 healthyIntialTxIn = generateWith arbitrary 42
 
 healthyInitialTxOut :: TxOut CtxTx
-healthyInitialTxOut = mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
+healthyInitialTxOut =
+  setMinUTxOValue Fixture.pparams . toUTxOContext $
+    mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
 
 -- NOTE: A UTxO of length 2 is picked to mutate it into cases where committing a
 -- single and empty UTxO.

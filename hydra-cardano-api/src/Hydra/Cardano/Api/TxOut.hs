@@ -6,8 +6,8 @@ import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
-import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
@@ -26,6 +26,14 @@ txOuts' :: Tx era -> [TxOut CtxTx era]
 txOuts' (getTxBody -> txBody) =
   let TxBody TxBodyContent{txOuts} = txBody
    in txOuts
+
+-- | Modify a 'TxOut' to set the mininum ada on the value.
+setMinUTxOValue ::
+  Ledger.PParams LedgerEra ->
+  TxOut CtxUTxO Era ->
+  TxOut ctx Era
+setMinUTxOValue pparams =
+  fromLedgerTxOut . Ledger.setMinCoinTxOut pparams . toLedgerTxOut
 
 -- | Automatically balance a given output with the minimum required amount.
 -- Number of assets, presence of datum and/or reference scripts may affect this
