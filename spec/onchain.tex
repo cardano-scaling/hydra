@@ -145,7 +145,10 @@ Figure~\ref{fig:commitTx} and has the following structure:
 $\redeemerInitial{} = \underline{\txOutRef}_{\mathsf{committed}}$ ensures that:
 \begin{menumerate}
 	\item All committed value is in the output
-	$\valCommit{i} = \valInitial{i} \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$
+	$\valCommit{i} \supseteq \valInitial{i} \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$
+	\footnote{The $\supseteq$ is important for real world situations where the values
+		might not be exactly equal due to ledger constraints (i.e. to ensure a
+		minimum value on outputs).}
 	\item Currency id and committed outputs are recorded in the output datum
 	$\datumCommit{} = (\cid, C_{i})$, where
 	$C_{i} = \forall j \in \{1 \dots m\} : [(\txOutRef_{\mathsf{committed}_{j}},\bytes(o_{\mathsf{committed}_{j}}))]$
