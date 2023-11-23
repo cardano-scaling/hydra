@@ -2,9 +2,10 @@
 
 module Hydra.Chain.Direct.WalletSpec where
 
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Ledger.Api (bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -15,6 +16,7 @@ import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
+import Control.Lens ((.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
@@ -84,7 +86,9 @@ spec = parallel $ do
     prop "Seen inputs are consumed and not in the resulting UTXO" prop_seenInputsAreConsumed
 
   describe "coverFee" $ do
+    prop "sets min utxo values" prop_setsMinUTxOValue
     prop "balances transaction with fees" prop_balanceTransaction
+    prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -100,8 +104,6 @@ spec = parallel $ do
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip
-
-    prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
 
 setupQuery ::
   VerificationKey PaymentKey ->
@@ -195,6 +197,25 @@ prop_seenInputsAreConsumed =
 --
 -- coverFee
 --
+
+prop_setsMinUTxOValue :: Property
+prop_setsMinUTxOValue =
+  forAllBlind (resize 0 genLedgerTx) $ \tx ->
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
+      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+        forAll genTxOutWithoutADA $ \txOutWithoutADA -> do
+          let newTx = tx & bodyTxL . outputsTxBodyL <>~ StrictSeq.singleton txOutWithoutADA
+          case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO newTx of
+            Left err ->
+              property False
+                & counterexample ("Error: " <> show err)
+            Right balancedTx -> do
+              let outs = toList $ balancedTx ^. bodyTxL . outputsTxBodyL
+              not (any (\o -> o ^. coinTxOutL == mempty) outs)
+                & counterexample ("No 0 ADA outputs expected:\n" <> show outs)
+ where
+  -- Generate a deliberately "under-valued" TxOut
+  genTxOutWithoutADA = arbitrary <&> coinTxOutL .~ mempty
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =

@@ -14,7 +14,7 @@ import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
-import Cardano.Ledger.Api (TransactionScriptFailure, evalTxExUnits, ppMaxTxExUnitsL, ppPricesL)
+import Cardano.Ledger.Api (TransactionScriptFailure, ensureMinCoinTxOut, evalTxExUnits, outputsTxBodyL, ppMaxTxExUnitsL, ppPricesL)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, wits)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
@@ -252,15 +252,21 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
           (txrdmrs wits)
       needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
+  -- Ensure we have at least the minimum amount of ada. NOTE: setMinCointTxOut
+  -- would invalidate most Hydra protocol transactions.
+  let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
+
+  -- Add a change output
   change <-
     first ErrNotEnoughFunds $
       mkChange
         output
         resolvedInputs
-        (toList $ outputs' body)
+        (toList txOuts)
         needlesslyHighFee
+  let newOutputs = txOuts <> StrictSeq.singleton change
+
   let referenceScripts = refScripts @LedgerEra (Babbage.referenceInputs' body) (Ledger.UTxO utxo)
-      newOutputs = outputs' body <> StrictSeq.singleton change
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts

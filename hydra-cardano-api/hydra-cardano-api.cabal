@@ -92,6 +92,7 @@ library
     , cardano-crypto-class    >=2.1.1  && <2.2
     , cardano-ledger-allegra  >=1.2.1  && <1.3
     , cardano-ledger-alonzo   >=1.4    && <1.5
+    , cardano-ledger-api      >=1.5    && <1.6
     , cardano-ledger-babbage  >=1.4.2  && <1.5
     , cardano-ledger-binary   >=1.1.1  && <1.2
     , cardano-ledger-byron    >=1.0.0  && <1.1
