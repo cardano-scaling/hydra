@@ -11,7 +11,7 @@ changes.
 ## [0.14.0] - UNRELEASED
 
 - Remove hard-coded deposit of 2₳ from internal wallet. Now the wallet does only
-  use as much deposit for script outputs as minimally needed and reduced the Ada
+  use as much deposit for script outputs as minimally needed and reduces the Ada
   locked throughout a head life-cycle.
 
 - Increase maximum number of parties to 5

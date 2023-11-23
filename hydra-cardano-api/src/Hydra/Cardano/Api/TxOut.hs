@@ -27,7 +27,7 @@ txOuts' (getTxBody -> txBody) =
   let TxBody TxBodyContent{txOuts} = txBody
    in txOuts
 
--- | Modify a 'TxOut' to set the mininum ada on the value.
+-- | Modify a 'TxOut' to set the minimum ada on the value.
 setMinUTxOValue ::
   Ledger.PParams LedgerEra ->
   TxOut CtxUTxO Era ->
