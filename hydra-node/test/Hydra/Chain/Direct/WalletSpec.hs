@@ -203,9 +203,7 @@ prop_setsMinUTxOValue =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
-        -- Generate another txOut and make it deliberately "under-valued"
-        forAll arbitrary $ \txOut -> do
-          let txOutWithoutADA = txOut & coinTxOutL .~ mempty
+        forAll genTxOutWithoutADA $ \txOutWithoutADA -> do
           let newTx = tx & bodyTxL . outputsTxBodyL <>~ StrictSeq.singleton txOutWithoutADA
           case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO newTx of
             Left err ->
@@ -215,6 +213,9 @@ prop_setsMinUTxOValue =
               let outs = toList $ balancedTx ^. bodyTxL . outputsTxBodyL
               not (any (\o -> o ^. coinTxOutL == mempty) outs)
                 & counterexample ("No 0 ADA outputs expected:\n" <> show outs)
+ where
+  -- Generate a deliberately "under-valued" TxOut
+  genTxOutWithoutADA = arbitrary <&> coinTxOutL .~ mempty
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =
