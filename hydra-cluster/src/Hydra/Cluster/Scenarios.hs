@@ -147,11 +147,15 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
-testReceivedMalformedAcks :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
-testReceivedMalformedAcks tracer workDir cardanoNode hydraScriptsTxId = do
+testResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+testResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  aliceChainConfigWithoutBob <-
+    chainConfigFor Alice workDir nodeSocket [] contestationPeriod
       <&> \config -> (config :: ChainConfig){networkId}
 
   bobChainConfig <-
@@ -160,7 +164,7 @@ testReceivedMalformedAcks tracer workDir cardanoNode hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
-    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [] [1, 2] hydraScriptsTxId $ \n2 -> do
+    withHydraNode hydraTracer aliceChainConfigWithoutBob workDir 2 aliceSk [] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` anyException
     threadDelay 1
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
