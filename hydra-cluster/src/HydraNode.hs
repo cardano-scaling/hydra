@@ -6,7 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import Control.Concurrent.Async (forConcurrently_)
+import Control.Concurrent.Async (forConcurrently_, link)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (forConcurrently)
@@ -30,6 +30,7 @@ import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), 
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
+import System.IO (hGetLine, hPutStrLn)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
@@ -218,8 +219,8 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action =
-  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const $ id) contestationPeriod action
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId =
+  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const id)
 
 withConfiguredHydraCluster ::
   HasCallStack =>
@@ -298,14 +299,12 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
-      \_ _err processHandle -> do
-        result <-
-          race
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (withConnectionToNode tracer hydraNodeId action)
-        case result of
-          Left e -> absurd e
-          Right a -> pure a
+      \_ stdErr processHandle -> do
+        withAsync (forever $ hGetLine stdErr >>= hPutStrLn stderr) $ \a -> do
+          link a
+          withAsync (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle) $ \b -> do
+            link b
+            withConnectionToNode tracer hydraNodeId action
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 

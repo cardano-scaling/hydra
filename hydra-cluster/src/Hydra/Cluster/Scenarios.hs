@@ -4,7 +4,7 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude (anyException, failure)
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
@@ -144,6 +144,29 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitFor hydraTracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
+
+testReceivedMalformedAcks :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+testReceivedMalformedAcks tracer workDir cardanoNode hydraScriptsTxId = do
+  let contestationPeriod = UnsafeContestationPeriod 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket [Alice] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  let hydraTracer = contramap FromHydraNode tracer
+  withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [2] hydraScriptsTxId $ \n2 -> do
+      waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` anyException
+    threadDelay 1
+    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
+      waitForNodesConnected hydraTracer [n1, n2]
+
+  True `shouldBe` False
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
