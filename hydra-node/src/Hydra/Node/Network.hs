@@ -78,7 +78,7 @@ import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbea
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -118,8 +118,15 @@ withNetwork tracer connectionMessages configuration callback action = do
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
   msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
-  ackPersistence <- createPersistence $ persistenceDir <> "/acks"
-  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence
+  ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
+  mAcks <- load
+  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
+    Just p ->
+      if p
+        then pure ackPersistence
+        else die "Peers configuration missmatches with /acks persistence"
+    _ -> pure ackPersistence
+  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence'
       reliability =
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $

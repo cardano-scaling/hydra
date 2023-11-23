@@ -67,7 +67,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsExternalScriptWithInlineDatum,
   singlePartyCommitsFromExternalScript,
   singlePartyHeadFullLifeCycle,
-  testResumeReconfiguredPeer,
+  testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -242,11 +242,11 @@ spec = around showLogsOnFailure $
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
-      it "can resume a head after reconfiguring a peer" $ \tracer -> do
-        withClusterTempDir "resume-reconfiguring-peer" $ \tmpDir -> do
+      it "prevent resuming a head after reconfiguring a peer" $ \tracer -> do
+        withClusterTempDir "prevent-resume-reconfiguring-peer" $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= testResumeReconfiguredPeer tracer tmpDir node
+              >>= testPreventResumeReconfiguredPeer tracer tmpDir node
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir "replay-chain-events" $ \tmp ->

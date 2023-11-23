@@ -4,7 +4,7 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude (anyException, failure)
+import Test.Hydra.Prelude (HUnitFailure (HUnitFailure), anyException, anyIOException, failure)
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
@@ -96,7 +96,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
+import Test.Hspec.Expectations (Selector, shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
 
 data EndToEndLog
@@ -147,8 +147,8 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
-testResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
-testResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
+testPreventResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
@@ -168,11 +168,15 @@ testResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
       waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` anyException
     threadDelay 1
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
-      waitForNodesConnected hydraTracer [n1, n2]
-
-  True `shouldBe` False
+      -- XXX: because I do not want to restart a node and silently change the persistence state
+      -- because of a missconfiguration.
+      -- I want any change to the persistent state to be explicit.
+      waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` aFailure
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
+
+  aFailure :: Selector HUnitFailure
+  aFailure = const True
 
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do

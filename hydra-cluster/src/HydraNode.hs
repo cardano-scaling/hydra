@@ -30,7 +30,6 @@ import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), 
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
-import System.IO (hGetLine, hPutStrLn)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
@@ -303,7 +302,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
           (withConnectionToNode tracer hydraNodeId action)
-          >>= pure . either absurd id
+          <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
