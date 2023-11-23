@@ -11,6 +11,7 @@ handleVtyQuitEvents = \case
   EvKey (KChar 'c') [MCtrl] -> halt
   EvKey (KChar 'd') [MCtrl] -> halt
   EvKey (KChar 'q') [] -> halt
+  EvKey (KChar 'Q') [] -> halt
   _ -> pure ()
 
 handleVtyGlobalEvents :: Vty.Event -> EventM n s ()
