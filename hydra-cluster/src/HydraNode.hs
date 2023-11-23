@@ -6,7 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import Control.Concurrent.Async (forConcurrently_, link)
+import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (forConcurrently)
@@ -299,12 +299,11 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
-      \_ stdErr processHandle -> do
-        withAsync (forever $ hGetLine stdErr >>= hPutStrLn stderr) $ \a -> do
-          link a
-          withAsync (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle) $ \b -> do
-            link b
-            withConnectionToNode tracer hydraNodeId action
+      \_ processHandle -> do
+        race
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+          (withConnectionToNode tracer hydraNodeId action)
+          >>= pure . either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
@@ -321,7 +320,7 @@ withHydraNode' ::
   TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> Handle -> ProcessHandle -> IO a) ->
+  (Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -356,12 +355,12 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = CreatePipe
+            , std_err = Inherit
             }
     withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
       case (mCreatedHandle, mGivenStdOut, mErr) of
-        (Just out, _, Just err) -> action out err processHandle
-        (Nothing, Just out, Just err) -> action out err processHandle
+        (Just out, _, _) -> action out processHandle
+        (Nothing, Just out, _) -> action out processHandle
         (_, _, _) -> error "Should not happen™"
  where
   peers =
@@ -376,13 +375,15 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
 withConnectionToNode :: Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
   connectedOnce <- newIORef False
-  tryConnect connectedOnce
+  tryConnect connectedOnce (200 :: Int)
  where
-  tryConnect connectedOnce =
-    doConnect connectedOnce `catch` \(e :: IOException) -> do
-      readIORef connectedOnce >>= \case
-        False -> threadDelay 0.1 >> tryConnect connectedOnce
-        True -> throwIO e
+  tryConnect connectedOnce n
+    | n == 0 = failure $ "Timed out waiting for connection to hydra-node " <> show hydraNodeId
+    | otherwise =
+        doConnect connectedOnce `catch` \(e :: IOException) -> do
+          readIORef connectedOnce >>= \case
+            False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+            True -> throwIO e
 
   doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
     atomicWriteIORef connectedOnce True
@@ -400,7 +401,7 @@ waitForNodesConnected tracer clients =
  where
   allNodeIds = hydraNodeId <$> clients
   waitForNodeConnected n@HydraClient{hydraNodeId} =
-    waitForAll tracer (fromIntegral $ 20 * length allNodeIds) [n] $
+    waitForAll tracer (fromIntegral $ 2 * length allNodeIds) [n] $
       fmap
         ( \nodeId ->
             object

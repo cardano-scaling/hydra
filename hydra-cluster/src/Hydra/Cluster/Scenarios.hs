@@ -160,7 +160,7 @@ testReceivedMalformedAcks tracer workDir cardanoNode hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
-    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [2] hydraScriptsTxId $ \n2 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [] [1, 2] hydraScriptsTxId $ \n2 -> do
       waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` anyException
     threadDelay 1
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
