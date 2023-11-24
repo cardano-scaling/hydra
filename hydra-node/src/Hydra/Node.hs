@@ -28,7 +28,6 @@ import Hydra.Chain (
   PostTxError,
  )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
@@ -52,6 +51,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
+import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), loadAll)
@@ -73,21 +73,6 @@ initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig =
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
-
--- | Exception used to indicate command line options not matching the persisted
--- state.
-newtype ParameterMismatch = ParameterMismatch [ParamMismatch]
-  deriving stock (Eq, Show)
-  deriving anyclass (Exception)
-
-data ParamMismatch
-  = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
-  | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ParamMismatch where
-  arbitrary = genericArbitrary
 
 -- | Checks that command line options match a given 'HeadState'. This funciton
 -- takes 'Environment' because it is derived from 'RunOptions' via

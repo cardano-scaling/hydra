@@ -39,13 +39,13 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
-  ParameterMismatch (..),
   checkHeadState,
   createNodeState,
   loadState,
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
+import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))

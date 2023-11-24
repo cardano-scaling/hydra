@@ -14,6 +14,9 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Node.Network (configureMessagePersistence)
+import Hydra.Node.ParameterMismatch (ParameterMismatch)
+import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
@@ -52,8 +55,14 @@ spec = do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
+  describe "Message Persistence" $ do
+    it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
+      withTempDir "persistence" $ \dir -> do
+        writeFile (dir </> "acks") "[0,0,0]"
+        configureMessagePersistence @_ @Int dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
+
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b
-withNodeBroadcastingForever node value continuation = withNodesBroadcastingForever [(node, value)] continuation
+withNodeBroadcastingForever node value = withNodesBroadcastingForever [(node, value)]
 
 withNodesBroadcastingForever :: [(Network IO Integer, Integer)] -> IO b -> IO b
 withNodesBroadcastingForever [] continuation = continuation

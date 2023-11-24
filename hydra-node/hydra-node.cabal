@@ -95,6 +95,7 @@ library
     Hydra.Node
     Hydra.Node.EventQueue
     Hydra.Node.Network
+    Hydra.Node.ParameterMismatch
     Hydra.Options
     Hydra.Party
     Hydra.Persistence

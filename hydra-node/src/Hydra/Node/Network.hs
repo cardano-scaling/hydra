@@ -65,6 +65,7 @@ module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
   withFlipHeartbeats,
+  configureMessagePersistence,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
@@ -76,7 +77,8 @@ import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (ReliableMsg, mkMessagePersistence, withReliability)
+import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
+import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
 
@@ -117,19 +119,9 @@ withNetwork tracer connectionMessages configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
-  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
-  -- TODO: refactor
-  ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
-  mAcks <- load
-  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
-    Just p ->
-      if p
-        then pure ackPersistence
-        else die "Peers configuration missmatches with /acks persistence"
-    _ -> pure ackPersistence
+  messagePersistence <- configureMessagePersistence persistenceDir numberOfParties
 
-  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence'
-      reliability =
+  let reliability =
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
@@ -139,6 +131,26 @@ withNetwork tracer connectionMessages configuration callback action = do
     action network
  where
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
+
+-- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
+--
+-- This function will `throw` a `ConfigurationMismatch` exception if:
+--
+--   * Some state already exists and is loaded,
+--   * The number of parties is not the same as the number of acknowledgments saved.
+configureMessagePersistence ::
+  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
+  FilePath ->
+  Int ->
+  m (MessagePersistence m msg)
+configureMessagePersistence persistenceDir numberOfParties = do
+  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
+  ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
+  mAcks <- load
+  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
+    Just False -> throwIO $ ParameterMismatch [SavedNetworkPartiesInconsistent{numberOfParties}]
+    _ -> pure ackPersistence
+  pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
 
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->
