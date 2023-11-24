@@ -10,6 +10,8 @@ pkgs.stdenv.mkDerivation rec {
     pandoc
     haskellPackages.pandoc-crossref
     texlive.combined.scheme-small
+    nodePackages.mermaid-cli # mmdc
+    librsvg # rsvg-convert
   ];
   phases = [ "unpackPhase" "buildPhase" ];
   buildPhase = ''

@@ -36,6 +36,23 @@ $\stInitial$, $\stOpen$, $\stClosed$, and $\stFinal$. A *state thread
 token (ST)* minted in *initial* marks the head output and ensures
 contract continuity [@eutxo].
 
+
+<!-- TODO: tikz picture or mermaid for state diagram? -->
+
+```mermaid
+---
+title: Simple sample
+---
+stateDiagram-v2
+    [*] --> Still
+    Still --> [*]
+
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]
+```
+
 <figure id="fig:SM_states_basic">
 
 <figcaption>Mainchain state diagram for this version of the Hydra

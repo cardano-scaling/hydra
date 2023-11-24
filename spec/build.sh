@@ -1,6 +1,6 @@
 #/usr/bin/env bash
 
-set -eo pipefail
+set -exo pipefail
 
 out=$1
 if [ -z ${out} ]; then
@@ -12,12 +12,18 @@ out=$(realpath ${out})
 
 mkdir -p $out
 
+# TODO: use a Makefile?
+# TODO: no in-place processing to improve out-of-nix usage
 # TODO: avoid repetition of source files and/or have a single source md
+
+# Preprocess mermaid blocks into SVGs
+# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
+mmdc -i overview.md -o overview.resolved.md
 
 pandoc \
       macros.md \
       intro.md \
-      overview.md \
+      overview.resolved.md \
       prel.md \
       --metadata-file meta.yaml \
       --filter pandoc-crossref \
@@ -28,7 +34,7 @@ pandoc \
 pandoc \
       macros.md \
       intro.md \
-      overview.md \
+      overview.resolved.md \
       prel.md \
       --metadata-file meta.yaml \
       --strip-comments \
