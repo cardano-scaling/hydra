@@ -12,9 +12,12 @@ out=$(realpath ${out})
 
 mkdir -p $out
 
+# TODO: avoid repetition of source files and/or have a single source md
+
 pandoc \
       macros.md \
       intro.md \
+      overview.md \
       prel.md \
       --metadata-file meta.yaml \
       --filter pandoc-crossref \
@@ -25,6 +28,7 @@ pandoc \
 pandoc \
       macros.md \
       intro.md \
+      overview.md \
       prel.md \
       --metadata-file meta.yaml \
       --strip-comments \

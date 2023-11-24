@@ -19,3 +19,18 @@
 \newcommand{\concat}{\mathsf{concat}}
 \newcommand{\sortOn}{\mathsf{sortOn}}
 \newcommand{\combine}{\mathsf{combine}}
+
+<!-- On-chain -->
+
+\newcommand{\stInitial}{\mathsf{initial}}
+\newcommand{\stOpen}{\mathsf{open}}
+\newcommand{\stClosed}{\mathsf{closed}}
+\newcommand{\stSnap}{\mathsf{newestSN}}
+\newcommand{\stFinal}{\mathsf{final}}
+
+<!-- Off-chain -->
+
+\newcommand{\Tset}{T}
+\newcommand{\Uset}{U}
+\newcommand{\Uinit}{\Uset_{0}}
+\newcommand{\Ufinal}{\Uset_{\mathsf{final}}}
