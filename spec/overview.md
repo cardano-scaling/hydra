@@ -36,28 +36,22 @@ $\stInitial$, $\stOpen$, $\stClosed$, and $\stFinal$. A *state thread
 token (ST)* minted in *initial* marks the head output and ensures
 contract continuity [@eutxo].
 
+```{#fig:SM_states_basic .tikz caption="Mainchain state diagram for this version of the Hydra protocol."
+}
+\begin{tikzpicture}[>=stealth,auto,node distance=2.8cm, initial text=$\mathsf{init}$, every
+    state/.style={text width=10mm, text height=2mm, align=center}]
+    \node[state, initial] (initial) {$\mathsf{initial}$};
+    \node[state] (open) [above right of=initial] {$\mathsf{open}$};
+    \node[state] (closed) [right of=open] {$\mathsf{closed}$};
+    \node[state] (final) [below right of=closed] {$\mathsf{final}$};
 
-<!-- TODO: tikz picture or mermaid for state diagram? -->
-
-```mermaid
----
-title: Simple sample
----
-stateDiagram-v2
-    [*] --> Still
-    Still --> [*]
-
-    Still --> Moving
-    Moving --> Still
-    Moving --> Crash
-    Crash --> [*]
+    \path[->] (initial) edge [bend left=20] node {$\mathsf{collect}$} (open);
+    \path[->] (open) edge [bend left=20] node {$\mathsf{close}$} (closed);
+    \path[->] (closed) edge [bend left=20] node {$\mathsf{fanout}$} (final);
+    \path[->] (closed) edge [loop above] node {$\mathsf{contest}$} (closed);
+    \path[->] (initial) edge node {$\mathsf{abort}$} (final);
+\end{tikzpicture}
 ```
-
-<figure id="fig:SM_states_basic">
-
-<figcaption>Mainchain state diagram for this version of the Hydra
-protocol.</figcaption>
-</figure>
 
 Once the initial transaction appears on the mainchain, establishing the
 initial state $\stInitial$, each head member can attach a transaction,
@@ -146,3 +140,17 @@ original Head protocol in [@hydrahead20] are:
 
 -   No confirmation message for snapshots (two-round local
     confirmation).
+
+
+<!-- TODO: mermaid diagrams? -->
+
+```{#fig:mermaid-example .mermaid}
+stateDiagram-v2
+    [*] --> Still
+    Still --> [*]
+
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]
+```

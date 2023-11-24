@@ -1,0 +1,10 @@
+filters: ["diagram/diagram.lua"]
+
+metadata:
+  # Diagram filter config
+  diagram:
+    engine:
+      tikz:
+        additional-packages: |
+          \usepackage{adjustbox}
+          \usetikzlibrary{arrows, shapes, automata}

@@ -19,28 +19,16 @@ mkdir -p $out
 # Concat sources
 cat macros.md intro.md overview.md prel.md > all.md
 
-# Preprocess mermaid blocks into PDFs
-# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
-mmdc -i all.md -o hydra-spec.md \
-  --outputFormat pdf \
-  --pdfFit
-
-pandoc hydra-spec.md \
+# TODO: move more into defaults file?
+pandoc all.md \
       --metadata-file meta.yaml \
+      -d filters.yaml \
       --filter pandoc-crossref \
       --citeproc \
       --pdf-engine=xelatex \
       -o $out/hydra-spec.pdf
 
-# Preprocess mermaid blocks into SVGs
-# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
-mmdc -i all.md -o hydra-spec.md \
-  --outputFormat svg
-
-# Copy generated images
-cp hydra-spec-*.svg $out/
-
-pandoc hydra-spec.md \
+pandoc all.md \
       --metadata-file meta.yaml \
       --strip-comments \
       --filter pandoc-crossref \
