@@ -16,26 +16,31 @@ mkdir -p $out
 # TODO: no in-place processing to improve out-of-nix usage
 # TODO: avoid repetition of source files and/or have a single source md
 
-# Preprocess mermaid blocks into SVGs
-# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
-mmdc -i overview.md -o overview.resolved.md
+# Concat sources
+cat macros.md intro.md overview.md prel.md > all.md
 
-pandoc \
-      macros.md \
-      intro.md \
-      overview.resolved.md \
-      prel.md \
+# Preprocess mermaid blocks into PDFs
+# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
+mmdc -i all.md -o hydra-spec.md \
+  --outputFormat pdf \
+  --pdfFit
+
+pandoc hydra-spec.md \
       --metadata-file meta.yaml \
       --filter pandoc-crossref \
       --citeproc \
       --pdf-engine=xelatex \
       -o $out/hydra-spec.pdf
 
-pandoc \
-      macros.md \
-      intro.md \
-      overview.resolved.md \
-      prel.md \
+# Preprocess mermaid blocks into SVGs
+# FIXME: This requires nix build --no-sandbox as it connects seemingly to localhost
+mmdc -i all.md -o hydra-spec.md \
+  --outputFormat svg
+
+# Copy generated images
+cp hydra-spec-*.svg $out/
+
+pandoc hydra-spec.md \
       --metadata-file meta.yaml \
       --strip-comments \
       --filter pandoc-crossref \
