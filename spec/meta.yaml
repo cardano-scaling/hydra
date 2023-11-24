@@ -13,3 +13,6 @@ reference-section-title: References
 link-bibliography: true
 link-citations: true
 csl: elsevier-with-titles.csl
+
+# TODO: use a sane geometry, this is currently replicating the tex source
+geometry: "left=1in, right=1in"
