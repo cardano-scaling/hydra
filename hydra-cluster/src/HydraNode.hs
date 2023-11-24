@@ -392,18 +392,15 @@ withConnectionToNode tracer hydraNodeId action = do
     pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
-hydraNodeProcess ro =
-  trace ("RunOptions: " <> show (toArgs ro)) $
-    proc "hydra-node" . toArgs $
-      ro
+hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> [HydraClient] -> IO ()
-waitForNodesConnected tracer clients =
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> IO ()
+waitForNodesConnected tracer timeOut clients =
   mapM_ waitForNodeConnected clients
  where
   allNodeIds = hydraNodeId <$> clients
   waitForNodeConnected n@HydraClient{hydraNodeId} =
-    waitForAll tracer (fromIntegral $ 2 * length allNodeIds) [n] $
+    waitForAll tracer timeOut [n] $
       fmap
         ( \nodeId ->
             object

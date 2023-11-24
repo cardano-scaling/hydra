@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude (HUnitFailure, anyException, failure)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.BM.Data.Tracer (stdoutTracer)
 import CardanoClient (
   QueryPoint (QueryTip),
   buildTransaction,
@@ -65,7 +64,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (ChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
@@ -97,7 +96,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import System.Directory (listDirectory, removeDirectoryRecursive)
+import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hspec.Expectations (Selector, shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
@@ -166,32 +165,33 @@ testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = 
       <&> \config -> (config :: ChainConfig){networkId}
 
   let hydraTracer = contramap FromHydraNode tracer
+      aliceStartsWithoutKnowingBob =
+        withHydraNode hydraTracer aliceChainConfigWithoutBob workDir 2 aliceSk [] [1, 2] hydraScriptsTxId
+      aliceRestartsWithBobConfigured =
+        withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId
+
   withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
-    withHydraNode hydraTracer aliceChainConfigWithoutBob workDir 2 aliceSk [] [1, 2] hydraScriptsTxId $ \n2 -> do
-      -- XXX: because I do not want to restart a node and silently change the persistence state
-      -- because of a missconfiguration.
-      -- I want any change to the persistent state to be explicit.
-      waitForNodesConnected hydraTracer [n1, n2] `shouldThrow` anyException
+    aliceStartsWithoutKnowingBob $ \n2 -> do
+      failToConnect hydraTracer [n1, n2]
+
     threadDelay 1
-    ( withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $
-        ( \_ -> do
-            -- We do not care what happens in this action as we expect this process to die
-            threadDelay 1
-        )
-      )
+
+    aliceRestartsWithBobConfigured (const $ threadDelay 1)
       `shouldThrow` aFailure
 
     threadDelay 1
+
     removeDirectoryRecursive $ workDir </> "state-2"
 
-    withTracerOutputTo stdout "alice" $ \tracer' ->
-      withHydraNode tracer' aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId $ \n2 -> do
-        waitForNodesConnected hydraTracer [n1, n2]
+    aliceRestartsWithBobConfigured $ \n2 -> do
+      waitForNodesConnected hydraTracer 10 [n1, n2]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
   aFailure :: Selector HUnitFailure
   aFailure = const True
+
+  failToConnect tr nodes = waitForNodesConnected tr 10 nodes `shouldThrow` anyException
 
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
@@ -563,7 +563,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
   let hydraTracer = contramap FromHydraNode tracer
   withHydraCluster hydraTracer tmpDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
     let clients = leader : rest
-    waitForNodesConnected hydraTracer clients
+    waitForNodesConnected hydraTracer 20 clients
 
     -- Funds to be used as fuel by Hydra protocol transactions
     seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
