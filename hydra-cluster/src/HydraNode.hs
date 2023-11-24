@@ -392,7 +392,10 @@ withConnectionToNode tracer hydraNodeId action = do
     pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
-hydraNodeProcess = proc "hydra-node" . toArgs
+hydraNodeProcess ro =
+  trace ("RunOptions: " <> show (toArgs ro)) $
+    proc "hydra-node" . toArgs $
+      ro
 
 waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =

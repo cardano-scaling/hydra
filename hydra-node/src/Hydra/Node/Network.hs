@@ -118,6 +118,7 @@ withNetwork tracer connectionMessages configuration callback action = do
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
   msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
+  -- TODO: refactor
   ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
   mAcks <- load
   ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
@@ -126,6 +127,7 @@ withNetwork tracer connectionMessages configuration callback action = do
         then pure ackPersistence
         else die "Peers configuration missmatches with /acks persistence"
     _ -> pure ackPersistence
+
   let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence'
       reliability =
         withFlipHeartbeats $

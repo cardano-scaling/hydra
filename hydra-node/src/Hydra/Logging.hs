@@ -140,7 +140,7 @@ traceInTVar ::
   TVar m [Envelope msg] ->
   Tracer m msg
 traceInTVar tvar = Tracer $ \msg -> do
-  envelope <- mkEnvelope "" msg
+  envelope <- mkEnvelope "TEST" msg
   atomically $ modifyTVar tvar (envelope :)
 -- * Internal functions
 
