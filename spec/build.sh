@@ -20,7 +20,7 @@ mkdir -p $out
 cat macros.md intro.md overview.md prel.md > all.md
 
 # TODO: move more into defaults file?
-pandoc all.md \
+pandoc macros.md intro.md overview.md prel.md \
       --metadata-file meta.yaml \
       -d filters.yaml \
       --filter pandoc-crossref \
@@ -28,12 +28,20 @@ pandoc all.md \
       --pdf-engine=xelatex \
       -o $out/hydra-spec.pdf
 
-pandoc all.md \
+# FIXME: raw_html produces <img> tags which are not directly supported by docusaurus
+# FIXME: without raw_html there are other problems
+pandoc macros.md intro.md overview.md prel.md \
       --metadata-file meta.yaml \
+      -d filters.yaml \
+      --extract-media img \
       --strip-comments \
       --filter pandoc-crossref \
       --citeproc \
+      --to markdown-raw_html \
       -o converted.md
+
+# Copy extracted images
+cp -a img $out/
 
 # Remove macros.md again / everything until first headline
 awk '/^#/{f=1}f' converted.md > removed-macros.md
