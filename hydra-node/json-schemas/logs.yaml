@@ -720,6 +720,22 @@ definitions:
               "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               Parties configured as the node argument.
+      - title: SavedNetworkPartiesInconsistent
+        description: >-
+          The configured peer list does not match with the value from the loaded /acks state.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - numberOfParties
+        properties:
+          tag:
+            type: string
+            enum: ["SavedNetworkPartiesInconsistent"]
+          numberOfParties:
+            type: number
+            description: >-
+              Number of parties configured as the node argument.
 
   # TODO: Fill the gap!
   Network: {}
