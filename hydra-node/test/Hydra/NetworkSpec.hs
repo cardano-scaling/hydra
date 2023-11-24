@@ -10,7 +10,7 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
@@ -59,7 +59,7 @@ spec = do
     it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
       withTempDir "persistence" $ \dir -> do
         writeFile (dir </> "acks") "[0,0,0]"
-        configureMessagePersistence @_ @Int dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
+        configureMessagePersistence @_ @Int nullTracer dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
 
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b
 withNodeBroadcastingForever node value = withNodesBroadcastingForever [(node, value)]

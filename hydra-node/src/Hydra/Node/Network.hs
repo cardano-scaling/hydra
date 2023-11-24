@@ -72,12 +72,14 @@ import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
+import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
+import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
@@ -119,7 +121,7 @@ withNetwork tracer connectionMessages configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence persistenceDir numberOfParties
+  messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
 
   let reliability =
         withFlipHeartbeats $
@@ -140,15 +142,19 @@ withNetwork tracer connectionMessages configuration callback action = do
 --   * The number of parties is not the same as the number of acknowledgments saved.
 configureMessagePersistence ::
   (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
+  Tracer m (HydraNodeLog tx) ->
   FilePath ->
   Int ->
   m (MessagePersistence m msg)
-configureMessagePersistence persistenceDir numberOfParties = do
+configureMessagePersistence tracer persistenceDir numberOfParties = do
   msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
   ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
   mAcks <- load
   ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
-    Just False -> throwIO $ ParameterMismatch [SavedNetworkPartiesInconsistent{numberOfParties}]
+    Just False -> do
+      let paramsMismatch = [SavedNetworkPartiesInconsistent{numberOfParties}]
+      traceWith tracer (Misconfiguration paramsMismatch)
+      throwIO $ ParameterMismatch paramsMismatch
     _ -> pure ackPersistence
   pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
 
