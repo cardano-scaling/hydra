@@ -14,9 +14,8 @@ import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
-import Hydra.Node.Network (configureMessagePersistence)
+import Hydra.Node.Network (acksFile, configureMessagePersistence)
 import Hydra.Node.ParameterMismatch (ParameterMismatch)
-import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
@@ -58,7 +57,7 @@ spec = do
   describe "Message Persistence" $ do
     it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
       withTempDir "persistence" $ \dir -> do
-        writeFile (dir </> "acks") "[0,0,0]"
+        writeFile (acksFile dir) "[0,0,0]"
         configureMessagePersistence @_ @Int nullTracer dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
 
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b

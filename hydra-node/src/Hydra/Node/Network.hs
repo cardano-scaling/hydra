@@ -66,6 +66,7 @@ module Hydra.Node.Network (
   withNetwork,
   withFlipHeartbeats,
   configureMessagePersistence,
+  acksFile
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
@@ -83,6 +84,7 @@ import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
+import System.FilePath ((</>))
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -147,8 +149,8 @@ configureMessagePersistence ::
   Int ->
   m (MessagePersistence m msg)
 configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
-  ackPersistence@Persistence{load} <- createPersistence $ persistenceDir <> "/acks"
+  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
+  ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
   mAcks <- load
   ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
     Just False -> do
@@ -167,3 +169,11 @@ withFlipHeartbeats withBaseNetwork callback =
   unwrapHeartbeats = \case
     Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
     Authenticated (Ping nid) _ -> callback $ Ping nid
+
+-- | Where are the messages stored, relative to given directory.
+storedMessagesFile :: FilePath -> FilePath
+storedMessagesFile = (</> "network-messages")
+
+-- | Where is the acknowledgments vector stored, relative to given directory.
+acksFile :: FilePath -> FilePath
+acksFile = (</> "acks")
