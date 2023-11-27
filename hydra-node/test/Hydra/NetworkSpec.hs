@@ -54,7 +54,7 @@ spec = do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
-  describe "Message Persistence" $ do
+  describe "configureMessagePersistence" $ do
     it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
       withTempDir "persistence" $ \dir -> do
         writeFile (acksFile dir) "[0,0,0]"
