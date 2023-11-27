@@ -722,7 +722,7 @@ definitions:
               Parties configured as the node argument.
       - title: SavedNetworkPartiesInconsistent
         description: >-
-          The configured peer list does not match with the value from the loaded /acks state.
+          The configured peer list does not match with the value from the loaded state.
         type: object
         additionalProperties: false
         required:
