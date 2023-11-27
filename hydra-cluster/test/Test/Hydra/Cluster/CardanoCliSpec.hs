@@ -5,9 +5,7 @@ import Test.Hydra.Prelude
 
 import Control.Lens ((^?))
 import Data.Aeson (encodeFile)
-import Data.Aeson.Key (toString)
 import Data.Aeson.Lens (key, _String)
-import Data.Text (pack, unpack)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (Tx)
 import System.Exit (ExitCode (..))
@@ -26,7 +24,10 @@ spec =
 
         (exitCode, output, _errors) <- readCreateProcessWithExitCode (cardanoCliSign txFile) ""
         exitCode `shouldBe` ExitSuccess
-        findInOutput "type" "Witnessed Tx BabbageEra" output
+        output
+          ^? key "type" . _String `shouldSatisfy` \case
+            Nothing -> False
+            Just something -> something == "Witnessed Tx BabbageEra"
  where
   cardanoCliSign txFile =
     proc
@@ -42,16 +43,3 @@ spec =
       , "--out-file"
       , "/dev/stdout"
       ]
-
-  findInOutput lookFor expectedString output =
-    case output ^? key lookFor . _String of
-      Nothing ->
-        failure $
-          unpack $
-            unlines $
-              [ "Failed to find key " <> pack (toString lookFor) <> " in TextEnvelope."
-              , "cardano-cli output:"
-              , pack output
-              ]
-      Just foundString -> do
-        foundString `shouldBe` expectedString
