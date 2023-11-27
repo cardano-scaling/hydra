@@ -112,7 +112,7 @@ withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)
 
 spec :: Spec
-spec = around showLogsOnFailure $
+spec = around (showLogsOnFailure "EndToEndSpec") $
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do

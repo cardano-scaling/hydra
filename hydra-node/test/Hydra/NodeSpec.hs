@@ -54,7 +54,7 @@ import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
 spec :: Spec
 spec = parallel $ do
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
-    showLogsOnFailure $ \tracer -> do
+    showLogsOnFailure "NodeSpec" $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
       -- 'eventsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
@@ -73,7 +73,7 @@ spec = parallel $ do
       getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
 
   it "rotates snapshot leaders" $
-    showLogsOnFailure $ \tracer -> do
+    showLogsOnFailure "NodeSpec" $ \tracer -> do
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
           sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
@@ -92,7 +92,7 @@ spec = parallel $ do
       getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
 
   it "processes out-of-order AckSn" $
-    showLogsOnFailure $ \tracer -> do
+    showLogsOnFailure "NodeSpec" $ \tracer -> do
       let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
           sigBob = sign bobSk snapshot
           sigAlice = sign aliceSk snapshot
@@ -107,7 +107,7 @@ spec = parallel $ do
       getNetworkMessages `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
 
   it "notifies client when postTx throws PostTxError" $
-    showLogsOnFailure $ \tracer -> do
+    showLogsOnFailure "NodeSpec" $ \tracer -> do
       let events = [ClientEvent Init]
       (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
@@ -118,7 +118,7 @@ spec = parallel $ do
 
   it "signs snapshot even if it has seen conflicting transactions" $
     failAfter 1 $
-      showLogsOnFailure $ \tracer -> do
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
         let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
             sigBob = sign bobSk snapshot
             events =
@@ -134,7 +134,7 @@ spec = parallel $ do
 
   it "can continue after restart via persisted state" $
     failAfter 1 $
-      showLogsOnFailure $ \tracer -> do
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
         persistence <- createPersistenceInMemory
 
         createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod eventsToOpenHead
@@ -161,18 +161,18 @@ spec = parallel $ do
         headState = inInitialState [alice, bob]
 
     it "accepts configuration consistent with HeadState" $
-      showLogsOnFailure $ \tracer -> do
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
         checkHeadState tracer defaultEnv headState `shouldReturn` ()
 
     it "throws exception given contestation period differs" $
-      showLogsOnFailure $ \tracer -> do
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
               defaultEnv{HeadLogic.contestationPeriod = defaultContestationPeriod}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
     it "throws exception given parties differ" $
-      showLogsOnFailure $ \tracer -> do
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv = defaultEnv{otherParties = []}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
@@ -184,7 +184,7 @@ spec = parallel $ do
             Misconfiguration{} -> True
             _ -> False
 
-      checkHeadState (traceInTVar logs) invalidPeriodEnv headState
+      checkHeadState (traceInTVar logs "NodeSpec") invalidPeriodEnv headState
         `catch` \(_ :: ParameterMismatch) -> pure ()
 
       entries <- fmap Logging.message <$> readTVarIO logs

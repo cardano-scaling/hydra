@@ -58,7 +58,7 @@ spec :: Spec
 spec = describe "ServerSpec" $
   parallel $ do
     it "should fail on port in use" $ do
-      showLogsOnFailure $ \tracer -> failAfter 5 $ do
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
         let withServerOnPort p = withTestAPIServer p alice mockPersistence tracer
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
@@ -70,7 +70,7 @@ spec = describe "ServerSpec" $
 
     it "greets" $ do
       failAfter 5 $
-        showLogsOnFailure $ \tracer ->
+        showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
             withTestAPIServer port alice mockPersistence tracer $ \_ -> do
               withClient port "/" $ \conn -> do
@@ -78,7 +78,7 @@ spec = describe "ServerSpec" $
 
     it "Greetings should contain the hydra-node version" $ do
       failAfter 5 $
-        showLogsOnFailure $ \tracer ->
+        showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
             withTestAPIServer port alice mockPersistence tracer $ \_ -> do
               withClient port "/" $ \conn -> do
@@ -89,7 +89,7 @@ spec = describe "ServerSpec" $
 
     it "sends sendOutput to all connected clients" $ do
       queue <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 5 $
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
@@ -110,7 +110,7 @@ spec = describe "ServerSpec" $
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
     it "sends all sendOutput history to all connected clients after a restart" $ do
-      showLogsOnFailure $ \tracer -> failAfter 5 $
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withTempDir "ServerSpec" $ \tmpDir -> do
           let persistentFile = tmpDir <> "/history"
           arbitraryMsg <- generate arbitrary
@@ -158,7 +158,7 @@ spec = describe "ServerSpec" $
         monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
         monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
         run $
-          showLogsOnFailure $ \tracer ->
+          showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
@@ -178,7 +178,7 @@ spec = describe "ServerSpec" $
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
-          showLogsOnFailure $ \tracer ->
+          showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
@@ -202,7 +202,7 @@ spec = describe "ServerSpec" $
                       (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
 
     it "outputs tx as cbor or json depending on the client" $
-      showLogsOnFailure $ \tracer ->
+      showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port ->
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
@@ -264,7 +264,7 @@ spec = describe "ServerSpec" $
                 guardForValue v (toJSON tx)
 
     it "removes UTXO from snapshot when clients request it" $
-      showLogsOnFailure $ \tracer -> failAfter 5 $
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
@@ -285,7 +285,7 @@ spec = describe "ServerSpec" $
       monadicIO $ do
         outputs :: [ServerOutput SimpleTx] <- pick arbitrary
         run $
-          showLogsOnFailure $ \tracer -> failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
@@ -298,7 +298,7 @@ spec = describe "ServerSpec" $
                       seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
-      showLogsOnFailure $ \tracer ->
+      showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
           -- Prime some relevant server outputs already into persistence to
           -- check whether the latest headStatus is loaded correctly.
@@ -341,7 +341,7 @@ spec = describe "ServerSpec" $
               guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo')
 
     it "greets with correct head status and snapshot utxo after restart" $
-      showLogsOnFailure $ \tracer ->
+      showLogsOnFailure "ServerSpec" $ \tracer ->
         withTempDir "api-server-head-status" $ \persistenceDir ->
           withFreePort $ \port -> do
             let generateSnapshot =
@@ -379,7 +379,7 @@ strictlyMonotonic = \case
 
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  showLogsOnFailure $ \tracer ->
+  showLogsOnFailure "ServerSpec" $ \tracer ->
     withTestAPIServer port alice mockPersistence tracer $ \_server -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con

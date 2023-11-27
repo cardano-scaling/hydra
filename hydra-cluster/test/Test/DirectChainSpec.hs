@@ -81,7 +81,7 @@ import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
 
 spec :: Spec
-spec = around showLogsOnFailure $ do
+spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do

@@ -128,19 +128,21 @@ withTracerOutputTo hdl namespace action = do
 -- metadata.
 showLogsOnFailure ::
   (MonadSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) =>
+  Text ->
   (Tracer m msg -> m a) ->
   m a
-showLogsOnFailure action = do
+showLogsOnFailure namespace action = do
   tvar <- newTVarIO []
-  action (traceInTVar tvar)
+  action (traceInTVar tvar namespace)
     `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
 
 traceInTVar ::
   (MonadFork m, MonadTime m, MonadSTM m) =>
   TVar m [Envelope msg] ->
+  Text ->
   Tracer m msg
-traceInTVar tvar = Tracer $ \msg -> do
-  envelope <- mkEnvelope "TEST" msg
+traceInTVar tvar namespace = Tracer $ \msg -> do
+  envelope <- mkEnvelope namespace msg
   atomically $ modifyTVar tvar (envelope :)
 -- * Internal functions
 

@@ -26,7 +26,7 @@ spec = do
   -- genesis-shelley.json
   it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $
     failAfter 5 $
-      showLogsOnFailure $ \tr -> do
+      showLogsOnFailure "CardanoNodeSpec" $ \tr -> do
         withTempDir "hydra-cluster" $ \tmp -> do
           withCardanoNodeDevnet tr tmp $ \RunningNode{nodeSocket, networkId} -> do
             doesFileExist (unFile nodeSocket) `shouldReturn` True

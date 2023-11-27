@@ -107,7 +107,7 @@ spec = parallel $ do
     let traced = runSimOrThrow $ do
           traces <- newTVarIO []
 
-          let tracer = traceInTVar traces
+          let tracer = traceInTVar traces "AuthenticateSpec"
           withAuthentication tracer aliceSk [bob, carol] (\incoming _ -> incoming signedMsg) noop $ \_ ->
             threadDelay 1
 

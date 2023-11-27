@@ -15,7 +15,7 @@ import Test.EndToEndSpec (withClusterTempDir)
 
 spec :: Spec
 spec =
-  around showLogsOnFailure $
+  around (showLogsOnFailure "CardanoClientSpec") $
     it "queryGenesisParameters works as expected" $ \tracer ->
       failAfter 60 $
         withClusterTempDir "queryGenesisParameters" $ \tmpDir -> do
