@@ -99,6 +99,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
   observeRawInitTx,
+  txInToHeadSeed,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
@@ -609,8 +610,8 @@ observeInit ctx tx = do
         observed
   pure (toEvent observation, toState observation)
  where
-  toEvent InitObservation{contestationPeriod, parties, headId} =
-    OnInitTx{contestationPeriod, parties, headId}
+  toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn} =
+    OnInitTx{contestationPeriod, parties, headId, headSeed = txInToHeadSeed seedTxIn}
 
   toState InitObservation{threadOutput, initials, commits, headId, seedTxIn} =
     InitialState
