@@ -52,6 +52,11 @@ changes.
 
 - Fixed TUI key bindings for exiting in dialogs.
 
+- Prevent users from resuming a Hydra node after changing its configurations.
+Ensure that the node terminates when attempting to start a Hydra node with a
+number of configured peers that doesn't match the persisted state (i.e., the
+number of parties in the /acks vector).
+
 ## [0.13.0] - 2023-10-03
 
 - **BREAKING** Update to plutus 1.9. This changes the script hashes.
