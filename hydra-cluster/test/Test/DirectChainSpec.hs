@@ -79,7 +79,6 @@ import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
-import qualified Control.Applicative as UTxO
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -261,10 +260,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
-            openUTxO <- aliceChain `observesInTimeSatisfying` (\case
-                    OnCollectComTx{collected} -> pure collected
-                    _ -> pure UTxO.empty
-                )
+            openUTxO <-
+              aliceChain
+                `observesInTimeSatisfying` ( \case
+                                              OnCollectComTx{collected} -> pure collected
+                                              _ -> pure mempty
+                                           )
 
             let snapshot =
                   Snapshot
@@ -388,10 +389,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
-            openUTxO <- aliceChain `observesInTimeSatisfying` (\case
-                    OnCollectComTx{collected} -> pure collected
-                    _ -> pure UTxO.empty
-                )
+            openUTxO <-
+              aliceChain
+                `observesInTimeSatisfying` ( \case
+                                              OnCollectComTx{collected} -> pure collected
+                                              _ -> pure mempty
+                                           )
             -- Head is open with someUTxO
 
             -- Alice close with the initial snapshot U0
