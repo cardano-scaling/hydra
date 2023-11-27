@@ -138,7 +138,7 @@ withNetwork tracer connectionMessages configuration callback action = do
 
 -- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
 --
--- This function will `throw` a `ConfigurationMismatch` exception if:
+-- This function will `throw` a `ParameterMismatch` exception if:
 --
 --   * Some state already exists and is loaded,
 --   * The number of parties is not the same as the number of acknowledgments saved.
