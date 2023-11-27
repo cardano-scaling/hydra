@@ -113,6 +113,7 @@ rec {
           nativePkgs.hydra-cluster.components.tests.tests
           hydra-node
           cardano-node.packages.${system}.cardano-node
+          cardano-node.packages.${system}.cardano-cli
           hydra-chain-observer
         ];
     };
