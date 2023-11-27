@@ -13,7 +13,7 @@ guarantees (stop any time), it can essentially proceed at network speed
 under good conditions, thereby reducing latency and increasing
 throughput. At the same time, the head protocol provides the same
 capabilities as the mainchain by reusing the same ledger model and
-transaction formats --- making the protocol \"isomorphic\".
+transaction formats - making the protocol "isomorphic".
 
 ## Opening the head
 
@@ -29,8 +29,7 @@ The initiator then establishes the head by submitting an *initial*
 transaction to the mainchain that contains the Hydra protocol parameters
 and mints special *participation tokens (PT)* identifying the head
 members. The *initial* transaction also initializes a state machine (see
-Fig. [1](#fig:SM_states_basic){reference-type="ref"
-reference="fig:SM_states_basic"}) that manages the "transfer" of UTxOs
+Fig. [1](#fig:SM_states_basic)) that manages the "transfer" of UTxOs
 into the head and back. The state machine comprises the four states:
 $\stInitial$, $\stOpen$, $\stClosed$, and $\stFinal$. A *state thread
 token (ST)* minted in *initial* marks the head output and ensures

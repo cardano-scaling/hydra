@@ -1,6 +1,6 @@
 #/usr/bin/env bash
 
-set -exo pipefail
+set -eo pipefail
 
 out=$1
 if [ -z ${out} ]; then
@@ -28,25 +28,27 @@ pandoc macros.md intro.md overview.md prel.md \
       --pdf-engine=xelatex \
       -o $out/hydra-spec.pdf
 
-# FIXME: raw_html produces <img> tags which are not directly supported by docusaurus
-# FIXME: without raw_html there are other problems
+# TODO: use -raw_html?
 pandoc macros.md intro.md overview.md prel.md \
       --metadata-file meta.yaml \
       -d filters.yaml \
+      --filter ./fix-figures.hs \
       --extract-media img \
       --strip-comments \
       --filter pandoc-crossref \
       --citeproc \
-      --to markdown-raw_html \
+      --to markdown \
       -o converted.md
 
 # Copy extracted images
 cp -a img $out/
 
 # Remove macros.md again / everything until first headline
+# TODO: use a pandoc filter for this
 awk '/^#/{f=1}f' converted.md > removed-macros.md
 
 # Demote all headlines by one level
+# TODO: use a pandoc filter for this
 cat removed-macros.md | sed 's/^#/##/g' > demoted.md
 
 

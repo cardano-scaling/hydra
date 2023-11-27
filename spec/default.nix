@@ -20,6 +20,7 @@ pkgs.stdenv.mkDerivation rec {
   src = ./.;
   buildInputs = with pkgs; [
     pandoc
+    (haskellPackages.ghcWithPackages (p: [ p.pandoc ])) # for custom filters
     haskellPackages.pandoc-crossref
     # TODO: this is big, find a smaller working distribution
     texlive.combined.scheme-full
