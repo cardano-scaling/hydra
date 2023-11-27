@@ -4,10 +4,9 @@ import Hydra.Prelude hiding (toString)
 import Test.Hydra.Prelude
 
 import Control.Lens ((^?))
-import Data.Aeson (encode)
+import Data.Aeson (encodeFile)
 import Data.Aeson.Key (toString)
 import Data.Aeson.Lens (key, _String)
-import Data.ByteString.Lazy qualified as BS
 import Data.Text (pack, unpack)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (Tx)
@@ -23,8 +22,7 @@ spec =
       withTempDir "cardano-cli" $ \tmpDir -> do
         let txFile = tmpDir </> "tx.raw"
         draftCommitResponse <- DraftCommitTxResponse <$> generate (arbitrary :: Gen Tx)
-        let textEnvelope = encode $ toJSON draftCommitResponse
-        _ <- BS.writeFile txFile textEnvelope
+        encodeFile txFile draftCommitResponse
 
         (exitCode, output, _errors) <- readCreateProcessWithExitCode (cardanoCliSign txFile) ""
         exitCode `shouldBe` ExitSuccess
