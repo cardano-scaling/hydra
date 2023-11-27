@@ -413,12 +413,12 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
-  stOpen@OpenState{openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
+  stOpen@OpenState{openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId, seedTxIn} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let params = ctxHeadParameters ctx
-      spendableUtxo = UTxO.singleton openThreadUTxO
-      txClose = close cctx spendableUtxo headId params InitialSnapshot{headId, initialUTxO} closeLower closeUpper
+      spendableUTxO = UTxO.singleton openThreadUTxO
+      txClose = close cctx seedTxIn spendableUTxO headId params InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"

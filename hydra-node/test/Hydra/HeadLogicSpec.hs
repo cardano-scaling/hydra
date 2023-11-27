@@ -59,9 +59,9 @@ import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId)
-import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShow, oneof, shuffle, suchThat)
-import Test.QuickCheck.Monadic (assert, monadicIO, monadicST, monitor, pick, run)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId, testHeadSeed)
+import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
+import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
 spec =
@@ -492,6 +492,7 @@ spec =
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
+                  , headSeed = testHeadSeed
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
 
@@ -593,6 +594,7 @@ inInitialState parties =
       , committed = mempty
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
+      , headSeed = testHeadSeed
       }
  where
   parameters = HeadParameters cperiod parties
@@ -625,6 +627,7 @@ inOpenState' parties coordinatedHeadState =
       , coordinatedHeadState
       , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , headSeed = testHeadSeed
       , currentSlot = chainSlot
       }
  where

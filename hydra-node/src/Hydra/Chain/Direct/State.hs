@@ -104,6 +104,7 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
@@ -115,6 +116,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificatio
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
 import Hydra.Party (Party, deriveParty)
+import Hydra.Party qualified as Party
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -491,6 +493,9 @@ collect ctx st = do
 -- NB: lower and upper bound slot difference should not exceed contestation period
 close ::
   ChainContext ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   HeadId ->
   HeadParameters ->
@@ -500,7 +505,7 @@ close ::
   -- | 'Tx' validity upper bound
   PointInTime ->
   Tx
-close ctx spendableUtxo headId HeadParameters{contestationPeriod, parties} confirmedSnapshot startSlotNo pointInTime =
+close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parties} confirmedSnapshot startSlotNo pointInTime =
   closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
   closingSnapshot = case confirmedSnapshot of
@@ -516,11 +521,21 @@ close ctx spendableUtxo headId HeadParameters{contestationPeriod, parties} confi
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
+  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
+
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
+
   openThreadOutput =
     OpenThreadOutput
       { openThreadUTxO = undefined
-      , openContestationPeriod = undefined
-      , openParties = undefined
+      , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
+      , openParties = Party.partyToChain <$> parties
       }
   openUtxoHash = undefined
 
@@ -981,24 +996,24 @@ genCollectComTx = do
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
   snapshot <- genConfirmedSnapshot headId 0 u0 (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let params = ctxHeadParameters ctx
       cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (cctx, stOpen, close cctx u0 headId params snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, close cctx seedTxIn u0 headId params snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
-  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot headId 0 u0 []
   cctx <- pickChainContext ctx
   let params = ctxHeadParameters ctx
       cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx u0 headId params confirmed startSlot closePointInTime
+  let txClose = close cctx seedTxIn u0 headId params confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -1056,7 +1071,7 @@ genStClosed ctx utxo = do
   let params = ctxHeadParameters ctx
       cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx u0 headId params snapshot startSlot pointInTime
+  let txClose = close cctx undefined u0 headId params snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone

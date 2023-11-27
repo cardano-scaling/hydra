@@ -384,10 +384,16 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
     -- that both states are consistent.
     CollectComTx{} ->
       pure $ collect ctx (error "TODO: create collectComTx using a UTxO only, and headId from CollectComTx along with some other parameters")
-    CloseTx{utxo, headId, headParameters, confirmedSnapshot} -> do
+    CloseTx{utxo, headId, headSeed, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (close ctx utxo headId headParameters confirmedSnapshot currentSlot upperBound)
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case pure (close ctx seedTxIn utxo headId headParameters confirmedSnapshot currentSlot upperBound) of
+            Left _ -> throwIO (FailedToConstructCloseTx @Tx)
+            Right closeTx -> pure closeTx
     ContestTx{confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime

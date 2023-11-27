@@ -219,14 +219,14 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen@OpenState{headId, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
+    (_committed, stOpen@OpenState{headId, seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = contestationPeriod cctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let params = ctxHeadParameters ctx
-        spendableUtxo = UTxO.singleton openThreadUTxO
-        closeTx = close cctx spendableUtxo headId params snapshot startSlot closePoint
+        spendableUTxO = UTxO.singleton openThreadUTxO
+        closeTx = close cctx seedTxIn spendableUTxO headId params snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (utxo, fanout cctx stClosed utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)

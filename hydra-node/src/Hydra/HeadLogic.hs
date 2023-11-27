@@ -548,11 +548,11 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  Effects [OnChainEffect{postChainTx = CloseTx localUTxO headId parameters confirmedSnapshot}]
+  Effects [OnChainEffect{postChainTx = CloseTx localUTxO headSeed headId parameters confirmedSnapshot}]
  where
   CoordinatedHeadState{localUTxO, confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, headId} = st
+  OpenState{parameters, coordinatedHeadState, headId, headSeed} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -861,7 +861,7 @@ aggregate st = \case
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of
-      Initial InitialState{parameters, headId} ->
+      Initial InitialState{parameters, headId, headSeed} ->
         Open
           OpenState
             { parameters
@@ -875,6 +875,7 @@ aggregate st = \case
                   }
             , chainState
             , headId
+            , headSeed
             , currentSlot = chainStateSlot chainState
             }
       _otherState -> st

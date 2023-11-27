@@ -70,7 +70,7 @@ data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx}
-  | CloseTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
+  | CloseTx {utxo :: UTxOType tx, headSeed :: HeadSeed, headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
   deriving stock (Generic)
@@ -148,6 +148,7 @@ data PostTxError tx
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
   | FailedToConstructAbortTx
+  | FailedToConstructCloseTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
