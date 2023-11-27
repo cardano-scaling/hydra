@@ -83,7 +83,7 @@ import Hydra.Chain.Direct.State (
   pickChainContext,
   unsafeAbort,
   unsafeCommit,
-  unsafeObserveInitAndCommits,
+  unsafeObserveInitAndCommits, unsafeClose,
  )
 import Hydra.Chain.Direct.Tx (
   ClosedThreadOutput (closedContesters),
@@ -418,7 +418,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let params = ctxHeadParameters ctx
       spendableUTxO = UTxO.singleton openThreadUTxO
-      txClose = close cctx seedTxIn spendableUTxO headId params InitialSnapshot{headId, initialUTxO} closeLower closeUpper
+      txClose = unsafeClose cctx seedTxIn spendableUTxO headId params InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"

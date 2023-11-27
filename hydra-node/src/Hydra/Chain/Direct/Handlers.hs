@@ -393,7 +393,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case pure (close ctx seedTxIn utxo headId headParameters confirmedSnapshot currentSlot upperBound) of
+          case close ctx seedTxIn utxo headId headParameters confirmedSnapshot currentSlot upperBound of
             Left _ -> throwIO (FailedToConstructCloseTx @Tx)
             Right closeTx -> pure closeTx
     ContestTx{confirmedSnapshot} -> do

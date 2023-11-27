@@ -72,6 +72,7 @@ import Hydra.Chain.Direct.Tx (
   AbortObservation (AbortObservation),
   AbortTxError (..),
   CloseObservation (..),
+  CloseTxError (..),
   ClosedThreadOutput (..),
   ClosingSnapshot (..),
   CollectComObservation (..),
@@ -502,10 +503,22 @@ close ::
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  Tx
-close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parties} confirmedSnapshot startSlotNo pointInTime =
-  closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
+  Either CloseTxError Tx
+close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parties} confirmedSnapshot startSlotNo pointInTime = do
+  headUTxO <-
+    maybe (Left CannotFindHeadOutputToClose) pure $
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+
+  let openThreadOutput =
+        OpenThreadOutput
+          { openThreadUTxO = headUTxO
+          , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , openParties = Party.partyToChain <$> parties
+          }
+  pure $ closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
   closingSnapshot = case confirmedSnapshot of
     -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
     -- we should not keep track of an actual initial 'Snapshot'
@@ -529,12 +542,6 @@ close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parti
       AdaAssetId -> False
       AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
 
-  openThreadOutput =
-    OpenThreadOutput
-      { openThreadUTxO = undefined
-      , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
-      , openParties = Party.partyToChain <$> parties
-      }
   openUtxoHash = undefined
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -622,7 +629,7 @@ observeInit ctx tx = do
       , seedTxIn
       }
 
-  ChainContext{networkId, ownParty, otherParties} = ctx
+  ChainContext{ownParty, otherParties} = ctx
 
 -- ** InitialState transitions
 
@@ -1000,7 +1007,7 @@ genCloseTx numParties = do
   let params = ctxHeadParameters ctx
       cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (cctx, stOpen, close cctx seedTxIn u0 headId params snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, unsafeClose cctx seedTxIn u0 headId params snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -1011,7 +1018,7 @@ genContestTx = do
   let params = ctxHeadParameters ctx
       cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx seedTxIn u0 headId params confirmed startSlot closePointInTime
+  let txClose = unsafeClose cctx seedTxIn u0 headId params confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
@@ -1069,7 +1076,7 @@ genStClosed ctx utxo = do
   let params = ctxHeadParameters ctx
       cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx seedTxIn u0 headId params snapshot startSlot pointInTime
+  let txClose = unsafeClose cctx seedTxIn u0 headId params snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
@@ -1096,8 +1103,26 @@ unsafeAbort ::
   -- | Committed UTxOs to reimburse.
   UTxO ->
   Tx
-unsafeAbort ctx seedTxIn spendableUTxO committedUTxO = do
+unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
+
+unsafeClose ::
+  HasCallStack =>
+  ChainContext ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  HeadId ->
+  HeadParameters ->
+  ConfirmedSnapshot Tx ->
+  -- | 'Tx' validity lower bound
+  SlotNo ->
+  -- | 'Tx' validity upper bound
+  PointInTime ->
+  Tx
+unsafeClose ctx seedTxIn spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime =
+  either (error . show) id $ close ctx seedTxIn spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime
 
 unsafeObserveInit ::
   HasCallStack =>

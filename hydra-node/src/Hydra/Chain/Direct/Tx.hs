@@ -331,6 +331,9 @@ data ClosingSnapshot
         signatures :: MultiSignature (Snapshot Tx)
       }
 
+data CloseTxError = CannotFindHeadOutputToClose
+  deriving stock (Show)
+
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
 closeTx ::

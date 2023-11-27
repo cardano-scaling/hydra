@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   InitialState (..),
   OpenState (..),
-  close,
   collect,
   commit,
   contest,
@@ -42,6 +41,7 @@ import Hydra.Chain.Direct.State (
   observeClose,
   pickChainContext,
   unsafeAbort,
+  unsafeClose,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
@@ -226,7 +226,7 @@ computeFanOutCost = do
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let params = ctxHeadParameters ctx
         spendableUTxO = UTxO.singleton openThreadUTxO
-        closeTx = close cctx seedTxIn spendableUTxO headId params snapshot startSlot closePoint
+        closeTx = unsafeClose cctx seedTxIn spendableUTxO headId params snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (utxo, fanout cctx stClosed utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
