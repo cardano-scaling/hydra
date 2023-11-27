@@ -79,6 +79,7 @@ import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
+import qualified Control.Applicative as UTxO
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -252,25 +253,28 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
-
-            postTx $ InitTx $ HeadParameters cperiod [alice]
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            let params = HeadParameters cperiod [alice]
+            postTx $ InitTx params
+            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
-            aliceChain `observesInTime` OnCollectComTx
+            openUTxO <- aliceChain `observesInTimeSatisfying` (\case
+                    OnCollectComTx{collected} -> pure collected
+                    _ -> pure UTxO.empty
+                )
 
             let snapshot =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = openUTxO
                     , confirmed = []
                     }
 
-            postTx . CloseTx $
+            postTx . CloseTx openUTxO headSeed headId params $
               ConfirmedSnapshot
                 { snapshot
                 , signatures = aggregate [sign aliceSk snapshot]
@@ -376,19 +380,22 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@DirectChainTest{postTx} -> do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
-
-            postTx $ InitTx $ HeadParameters cperiod [alice]
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            let params = HeadParameters cperiod [alice]
+            postTx $ InitTx params
+            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
-            aliceChain `observesInTime` OnCollectComTx
+            openUTxO <- aliceChain `observesInTimeSatisfying` (\case
+                    OnCollectComTx{collected} -> pure collected
+                    _ -> pure UTxO.empty
+                )
             -- Head is open with someUTxO
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx openUTxO headSeed headId params InitialSnapshot{headId, initialUTxO = someUTxO}
             waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber}}
                 | snapshotNumber == 0 -> Just ()

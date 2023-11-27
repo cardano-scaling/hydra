@@ -373,9 +373,11 @@ spec =
             _ -> False
 
       it "cannot observe abort after collect com" $ do
+        let utxo = arbitrary `generateWith` 42
+
         afterCollectCom <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent OnCollectComTx)
+            step (observationEvent $ OnCollectComTx utxo)
             getState
 
         let invalidEvent = observationEvent OnAbortTx
@@ -383,12 +385,14 @@ spec =
           `shouldBe` Error (InvalidEvent invalidEvent afterCollectCom)
 
       it "cannot observe collect com after abort" $ do
+        let utxo = arbitrary `generateWith` 42
+
         afterAbort <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observationEvent OnAbortTx)
             getState
 
-        let invalidEvent = observationEvent OnCollectComTx
+        let invalidEvent = observationEvent (OnCollectComTx utxo)
         update bobEnv ledger afterAbort invalidEvent
           `shouldBe` Error (InvalidEvent invalidEvent afterAbort)
 

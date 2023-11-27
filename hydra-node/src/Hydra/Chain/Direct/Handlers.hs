@@ -64,6 +64,7 @@ import Hydra.Chain.Direct.Tx (
   ContestObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
+  OpenThreadOutput (..),
   RawInitObservation (..),
   headSeedToTxIn,
   mkHeadId,
@@ -180,9 +181,8 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
         -- prevent trying to spend internal wallet's utxo
         if null matchedWalletUtxo
           then
-            sequenceA $
+            traverse (finalizeTx wallet ctx chainState (fst <$> utxoToCommit)) $
               commit' ctx headId chainState utxoToCommit
-                <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
           else pure $ Left SpendingNodeUtxoForbidden
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
@@ -301,10 +301,12 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
 
-    forM_ receivedTxs $ \tx ->
-      maybeObserveSomeTx point tx >>= \case
-        Nothing -> pure ()
-        Just event -> callback event
+    forM_ receivedTxs $
+      maybeObserveSomeTx point
+        >=> ( \case
+                Nothing -> pure ()
+                Just event -> callback event
+            )
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{chainState} <- getLatest
@@ -337,8 +339,8 @@ convertObservation = \case
     pure OnAbortTx
   Commit CommitObservation{party, committed} ->
     pure OnCommitTx{party, committed}
-  CollectCom CollectComObservation{} ->
-    pure OnCollectComTx
+  CollectCom CollectComObservation{threadOutput = OpenThreadOutput{openThreadUTxO}} ->
+    pure (OnCollectComTx $ UTxO.singleton openThreadUTxO)
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx

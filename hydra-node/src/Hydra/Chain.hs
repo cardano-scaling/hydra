@@ -96,7 +96,7 @@ data OnChainTx tx
   = OnInitTx {headId :: HeadId, headSeed :: HeadSeed, contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
-  | OnCollectComTx
+  | OnCollectComTx {collected :: UTxOType tx}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber

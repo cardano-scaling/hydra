@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   AssetName (AssetName),
   ChainPoint (..),
   CtxUTxO,
-  Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
   KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
@@ -33,7 +32,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   UTxO' (UTxO),
-  Value,
   WitCtxTxIn,
   Witness,
   chainPointToSlotNo,
@@ -92,7 +90,6 @@ import Hydra.Chain.Direct.Tx (
   contestTx,
   fanoutTx,
   headIdToPolicyId,
-  headTokensFromValue,
   initTx,
   observeAbortTx,
   observeCloseTx,
@@ -668,9 +665,9 @@ observeCollect ::
 observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
-  let CollectComObservation{threadOutput, headId = collectComHeadId, utxoHash} = observation
+  let CollectComObservation{threadOutput = threadOutput@OpenThreadOutput{openThreadUTxO}, headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
-  let event = OnCollectComTx
+  let event = OnCollectComTx (UTxO.singleton openThreadUTxO)
   let st' =
         OpenState
           { openThreadOutput = threadOutput
@@ -1050,7 +1047,7 @@ genStClosed ::
   UTxO ->
   Gen (SnapshotNumber, UTxO, ClosedState)
 genStClosed ctx utxo = do
-  (u0, stOpen) <- genStOpen ctx
+  (u0, stOpen@OpenState{seedTxIn}) <- genStOpen ctx
   confirmed <- arbitrary
   headId <- arbitrary
   let (sn, snapshot, toFanout) = case confirmed of
@@ -1071,7 +1068,7 @@ genStClosed ctx utxo = do
   let params = ctxHeadParameters ctx
       cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = close cctx undefined u0 headId params snapshot startSlot pointInTime
+  let txClose = close cctx seedTxIn u0 headId params snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone

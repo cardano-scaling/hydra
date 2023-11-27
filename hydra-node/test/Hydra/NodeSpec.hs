@@ -210,7 +210,7 @@ eventsToOpenHead =
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)
   , observationEvent $ OnCommitTx alice (utxoRef 1)
-  , observationEvent OnCollectComTx
+  , observationEvent $ OnCollectComTx (utxoRef 0)
   ]
  where
   observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
