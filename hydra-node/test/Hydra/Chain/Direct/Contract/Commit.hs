@@ -11,7 +11,7 @@ import Hydra.Chain.Direct.TxSpec ()
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
-import Control.Lens (mapped, (%~), (.~), (^.))
+import Control.Lens (mapped, (%~))
 import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)

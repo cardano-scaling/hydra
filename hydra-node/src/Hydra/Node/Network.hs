@@ -66,7 +66,7 @@ module Hydra.Node.Network (
   withNetwork,
   withFlipHeartbeats,
   configureMessagePersistence,
-  acksFile
+  acksFile,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
