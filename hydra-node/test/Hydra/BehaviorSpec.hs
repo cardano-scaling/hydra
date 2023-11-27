@@ -699,7 +699,7 @@ toOnChainTx now = \case
     OnAbortTx
   CollectComTx{} ->
     OnCollectComTx
-  (CloseTx confirmedSnapshot) ->
+  CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot confirmedSnapshot)

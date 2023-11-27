@@ -85,7 +85,15 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), HeadObservation (NoHeadTx), NotAnInitReason (..), observeCommitTx, observeHeadTx, observeRawInitTx)
+import Hydra.Chain.Direct.Tx (
+  ClosedThreadOutput (closedContesters),
+  HeadObservation (NoHeadTx),
+  NotAnInitReason (..),
+  OpenThreadOutput (..),
+  observeCommitTx,
+  observeHeadTx,
+  observeRawInitTx,
+ )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -405,10 +413,12 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   -- Collect
   let initialUTxO = fold committed
   let txCollect = collect cctx stInitial
-  stOpen@OpenState{headId} <- mfail $ snd <$> observeCollect stInitial txCollect
+  stOpen@OpenState{openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let txClose = close cctx stOpen InitialSnapshot{headId, initialUTxO} closeLower closeUpper
+  let params = ctxHeadParameters ctx
+      spendableUtxo = UTxO.singleton openThreadUTxO
+      txClose = close cctx spendableUtxo headId params InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"

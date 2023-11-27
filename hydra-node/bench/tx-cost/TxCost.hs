@@ -44,6 +44,7 @@ import Hydra.Chain.Direct.State (
   unsafeAbort,
   unsafeObserveInitAndCommits,
  )
+import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
 import Hydra.Ledger.Cardano (
   genOutput,
   genUTxOAdaOnlyOfSize,
@@ -218,14 +219,16 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen@OpenState{headId}) <- genStOpen ctx
+    (_committed, stOpen@OpenState{headId, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = contestationPeriod cctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let closeTx = close cctx stOpen snapshot startSlot closePoint
-    let stClosed = snd . fromJust $ observeClose stOpen closeTx
-    let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+    let params = ctxHeadParameters ctx
+        spendableUtxo = UTxO.singleton openThreadUTxO
+        closeTx = close cctx spendableUtxo headId params snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpen closeTx
+        deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
     pure (utxo, fanout cctx stClosed utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
