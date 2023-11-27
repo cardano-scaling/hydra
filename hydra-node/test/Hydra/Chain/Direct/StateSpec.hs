@@ -56,7 +56,6 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   OpenState (..),
   abort,
-  close,
   closedThreadOutput,
   collect,
   commit,
@@ -82,8 +81,9 @@ import Hydra.Chain.Direct.State (
   observeCommit,
   pickChainContext,
   unsafeAbort,
+  unsafeClose,
   unsafeCommit,
-  unsafeObserveInitAndCommits, unsafeClose,
+  unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (
   ClosedThreadOutput (closedContesters),

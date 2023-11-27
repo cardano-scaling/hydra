@@ -520,9 +520,8 @@ close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parti
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   closingSnapshot = case confirmedSnapshot of
-    -- XXX: Not needing anything of the 'InitialSnapshot' is another hint that
-    -- we should not keep track of an actual initial 'Snapshot'
-    InitialSnapshot{} -> CloseWithInitialSnapshot{openUtxoHash}
+    -- REVIEW: Check if this is as good as using the deserialized output from the datum.
+    InitialSnapshot{initialUTxO} -> CloseWithInitialSnapshot{openUtxoHash = UTxOHash $ hashUTxO @Tx initialUTxO}
     ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
       CloseWithConfirmedSnapshot
         { snapshotNumber = number
@@ -541,8 +540,6 @@ close ctx seedTxIn spendableUTxO headId HeadParameters{contestationPeriod, parti
     case assetId of
       AdaAssetId -> False
       AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
-
-  openUtxoHash = undefined
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and

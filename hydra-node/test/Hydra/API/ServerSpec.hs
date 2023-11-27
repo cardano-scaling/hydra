@@ -29,7 +29,8 @@ import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), w
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
-  PostChainTx (CloseTx),
+  HeadParameters,
+  PostChainTx (..),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
   draftCommitTx,
@@ -37,8 +38,9 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
+import Hydra.HeadId (HeadSeed)
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
@@ -205,8 +207,10 @@ spec = describe "ServerSpec" $
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
+            headParameters :: HeadParameters <- generate arbitrary
+            headSeed :: HeadSeed <- generate arbitrary
 
-            let Snapshot{headId} = generatedSnapshot
+            let Snapshot{headId, utxo} = generatedSnapshot
             -- The three server output message types which contain transactions
             let txValidMessage = TxValid{headId = headId, transaction = tx}
             let sn = generatedSnapshot{confirmed = [txId tx]}
@@ -216,11 +220,16 @@ spec = describe "ServerSpec" $
                     , snapshot = sn
                     , signatures = mempty
                     }
+
             let postTxFailedMessage =
                   PostTxOnChainFailed
                     { postChainTx =
                         CloseTx
-                          { confirmedSnapshot =
+                          { utxo
+                          , headSeed
+                          , headId
+                          , headParameters
+                          , confirmedSnapshot =
                               ConfirmedSnapshot
                                 { Hydra.Snapshot.snapshot = sn
                                 , Hydra.Snapshot.signatures = mempty
