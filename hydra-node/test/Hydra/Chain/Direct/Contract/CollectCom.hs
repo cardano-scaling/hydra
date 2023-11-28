@@ -77,6 +77,7 @@ healthyCollectComTx =
       scriptRegistry
       somePartyCardanoVerificationKey
       initialThreadOutput
+      (healthyHeadTxIn, healthyHeadTxOut)
       (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
 

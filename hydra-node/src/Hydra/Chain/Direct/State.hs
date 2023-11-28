@@ -467,6 +467,10 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
+data CollectTxError
+  = CannotFindHeadOutputToCollect
+  deriving stock (Show)
+
 -- | Construct a collect transaction based on the 'InitialState'. This will know
 -- collect all the committed outputs.
 collect ::
@@ -475,11 +479,26 @@ collect ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   InitialState ->
-  Tx
+  Either CollectTxError Tx
 collect ctx headId spendableUTxO st = do
+  headUTxO <-
+    maybe (Left CannotFindHeadOutputToCollect) pure $
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
   let commits = Map.fromList initialCommits
-   in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
+  pure $ collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput headUTxO commits headId
  where
+  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
+
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == headIdToPolicyId headId && quantity == 1
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
@@ -1022,7 +1041,7 @@ genCollectComTx = do
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitialized
   let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
-  pure (cctx, committedUTxO, stInitialized, collect cctx headId utxo stInitialized)
+  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId utxo stInitialized)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1075,7 +1094,7 @@ genStOpen ctx = do
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitial
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
-  let txCollect = collect cctx headId utxo stInitial
+  let txCollect = unsafeCollect cctx headId utxo stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -1148,6 +1167,16 @@ unsafeClose ::
   Tx
 unsafeClose ctx spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime =
   either (error . show) id $ close ctx spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime
+
+unsafeCollect ::
+  ChainContext ->
+  HeadId ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  InitialState ->
+  Tx
+unsafeCollect ctx headId spendableUTxO st =
+  either (error . show) id $ collect ctx headId spendableUTxO st
 
 unsafeContest ::
   HasCallStack =>

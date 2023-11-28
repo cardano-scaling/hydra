@@ -150,6 +150,7 @@ data PostTxError tx
   | FailedToConstructAbortTx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
+  | FailedToConstructCollectTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

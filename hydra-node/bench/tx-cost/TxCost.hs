@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   InitialState (..),
   OpenState (..),
-  collect,
   commit,
   ctxHeadParameters,
   ctxHydraSigningKeys,
@@ -41,6 +40,7 @@ import Hydra.Chain.Direct.State (
   pickChainContext,
   unsafeAbort,
   unsafeClose,
+  unsafeCollect,
   unsafeContest,
   unsafeObserveInitAndCommits,
  )
@@ -132,7 +132,7 @@ computeCollectComCost =
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     let InitialState{headId} = stInitialized
     let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxOs
-    pure (fold committedUTxOs, collect cctx headId utxo stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    pure (fold committedUTxOs, unsafeCollect cctx headId utxo stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do

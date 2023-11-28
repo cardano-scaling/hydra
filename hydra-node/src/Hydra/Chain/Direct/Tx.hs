@@ -254,13 +254,15 @@ collectComTx ::
   VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
   InitialThreadOutput ->
+  -- | Everything needed to spend the Head state-machine output.
+  (TxIn, TxOut CtxUTxO) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO) ->
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
+collectComTx networkId scriptRegistry vk initialThreadOutput (headInput, initialHeadOutput) commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -269,8 +271,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   InitialThreadOutput
-    { initialThreadUTxO = (headInput, initialHeadOutput)
-    , initialParties
+    { initialParties
     , initialContestationPeriod
     } = initialThreadOutput
   headWitness =
