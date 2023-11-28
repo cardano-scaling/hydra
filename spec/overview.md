@@ -36,7 +36,7 @@ token (ST)* minted in *initial* marks the head output and ensures
 contract continuity [@eutxo].
 
 ```{#fig:SM_states_basic .tikz
-caption="Mainchain state diagram for this version of the Hydra protocol."
+caption="Mainchain state diagram of the Hydra protocol."
 }
 \begin{tikzpicture}[>=stealth,auto,node distance=2.8cm, initial text=$\mathsf{init}$, every
     state/.style={text width=10mm, text height=2mm, align=center}]
@@ -142,15 +142,10 @@ original Head protocol in [@hydrahead20] are:
     confirmation).
 
 
-<!-- TODO: mermaid diagrams? -->
+<!-- TODO: Remove mermaid example -->
 
-```{#fig:mermaid-example .mermaid}
-stateDiagram-v2
-    [*] --> Still
-    Still --> [*]
-
-    Still --> Moving
-    Moving --> Still
-    Moving --> Crash
-    Crash --> [*]
+```{#fig:mermaid-example .mermaid caption="A simple flowchart."}
+graph TD;
+    A-->B;
+    A-->C;
 ```

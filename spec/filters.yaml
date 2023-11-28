@@ -4,6 +4,9 @@ metadata:
   # Diagram filter config
   diagram:
     engine:
+      mermaid:
+        mime-type:
+          application/pdf: true
       tikz:
         additional-packages: |
           \usepackage{adjustbox}
