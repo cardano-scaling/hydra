@@ -477,8 +477,9 @@ data CollectTxError
   = CannotFindHeadOutputToCollect
   deriving stock (Show)
 
--- | Construct a collect transaction based on the 'InitialState'. This will know
--- collect all the committed outputs.
+-- | Construct a collect transaction based on known, spendable UTxO. This
+-- function looks for head output and commit outputs to spend and it will fail
+-- if we can't find the head output.
 collect ::
   ChainContext ->
   HeadId ->
@@ -489,10 +490,13 @@ collect ctx headId spendableUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+
   let headAddress = mkScriptAddress @PlutusScriptV2 networkId headScript
       commits =
         UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
-  pure $ collectComTx headAddress scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
+
+  pure $
+    collectComTx headAddress scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
  where
   utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
 
@@ -962,7 +966,7 @@ deriveChainContexts ctx = do
         , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
-        , otherParties = allParties'  \\ [p]
+        , otherParties = allParties' \\ [p]
         , scriptRegistry = ctxScriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
