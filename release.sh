@@ -45,6 +45,7 @@ EOF
 check_can_release() {
   local version="$1"
 
+  check_on_master
   confirm_uncommitted_changes
   check_version_is_valid $version
   check_changelog_is_up_to_date $version
@@ -102,6 +103,12 @@ ask_continue() {
   if [[ ! $REPLY =~ ^[Yy]$ ]]
   then
     exit_err "Aborted release"
+  fi
+}
+
+check_on_master() {
+  if [ $(git rev-parse --abbrev-ref HEAD) != "master" ]; then
+    exit_err "Not on branch 'master'"
   fi
 }
 
