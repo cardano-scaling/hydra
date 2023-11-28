@@ -48,12 +48,8 @@ cp -a img $out/
 # them to markdown-style images but retain html for the <figure>
 cat converted.md | sed 's|<img src="\(.*\)" />|\n![](\1)\n|' > replaced-images.md
 
-# Remove macros.md again / everything until first headline
-# TODO: use a pandoc filter for this
-awk '/^#/{f=1}f' replaced-images.md > removed-macros.md
-
 # TODO: avoid duplication on document title
 echo "# Hydra HeadV1 Specification: Coordinated Head protocol" > $out/hydra-spec.md
-cat removed-macros.md >> $out/hydra-spec.md
+cat replaced-images.md >> $out/hydra-spec.md
 
 echo ${out}

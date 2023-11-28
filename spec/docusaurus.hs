@@ -1,5 +1,6 @@
 #!/usr/bin/env runhaskell
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 import Debug.Trace
 import Text.Pandoc.JSON
@@ -8,7 +9,17 @@ import Text.Pandoc.Walk
 -- | Various tweaks to make a document better suited for Docusaurus markdown
 -- rendering.
 main :: IO ()
-main = toJSONFilter $ fixFigures . demoteHeaders
+main =
+  toJSONFilter $
+    removeRawTex .
+      walk (fixFigures . demoteHeaders)
+
+-- | Remove all raw tex blocks. Even after resolving latex macros those are
+-- still included in the AST.
+removeRawTex :: [Block] -> [Block]
+removeRawTex = filter $ \case
+  RawBlock format _ -> format /= Format "tex"
+  _ -> True
 
 -- | Demote headers by one.
 demoteHeaders :: Block -> Block
