@@ -1,12 +1,22 @@
 #!/usr/bin/env runhaskell
 {-# LANGUAGE LambdaCase #-}
+
+import Debug.Trace
 import Text.Pandoc.JSON
 import Text.Pandoc.Walk
-import Debug.Trace
 
+-- | Various tweaks to make a document better suited for Docusaurus markdown
+-- rendering.
 main :: IO ()
-main = toJSONFilter fixFigures
+main = toJSONFilter $ fixFigures . demoteHeaders
 
+-- | Demote headers by one.
+demoteHeaders :: Block -> Block
+demoteHeaders = \case
+  Header level attr content -> Header (level + 1) attr content
+  x -> x
+
+-- | Remove alt text on images in figures (captions are enough).
 fixFigures :: Block -> Block
 fixFigures = \case
   Figure attr caption content -> Figure attr caption $ walk dropImageAltText content

@@ -28,10 +28,12 @@ pandoc macros.md intro.md overview.md prel.md \
       --pdf-engine=xelatex \
       -o $out/hydra-spec.pdf
 
+# FIXME bibliography/references not working in markdown/docusaurus
+
 pandoc macros.md intro.md overview.md prel.md \
       --metadata-file meta.yaml \
       -d filters.yaml \
-      --filter ./fix-figures.hs \
+      --filter ./docusaurus.hs \
       --extract-media img \
       --strip-comments \
       --filter pandoc-crossref \
@@ -50,12 +52,8 @@ cat converted.md | sed 's|<img src="\(.*\)" />|\n![](\1)\n|' > replaced-images.m
 # TODO: use a pandoc filter for this
 awk '/^#/{f=1}f' replaced-images.md > removed-macros.md
 
-# Demote all headlines by one level
-# TODO: use a pandoc filter for this
-cat removed-macros.md | sed 's/^#/##/g' > demoted.md
-
 # TODO: avoid duplication on document title
 echo "# Hydra HeadV1 Specification: Coordinated Head protocol" > $out/hydra-spec.md
-cat demoted.md >> $out/hydra-spec.md
+cat removed-macros.md >> $out/hydra-spec.md
 
 echo ${out}
