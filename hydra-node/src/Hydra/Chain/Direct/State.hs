@@ -472,9 +472,11 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
 collect ::
   ChainContext ->
   HeadId ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
   InitialState ->
   Tx
-collect ctx headId st = do
+collect ctx headId spendableUTxO st = do
   let commits = Map.fromList initialCommits
    in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
@@ -695,7 +697,9 @@ observeCollect st tx = do
   observation <- observeCollectComTx utxo tx
   let CollectComObservation{threadOutput = threadOutput@OpenThreadOutput{openThreadUTxO}, headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
-  let event = OnCollectComTx {collected = UTxO.singleton openThreadUTxO, headId}
+  -- REVIEW: is it enough to pass here just the 'openThreadUTxO' or we need also
+  -- the known utxo (getKnownUTxO st)?
+  let event = OnCollectComTx{collected = UTxO.singleton openThreadUTxO, headId}
   let st' =
         OpenState
           { openThreadOutput = threadOutput
@@ -1017,7 +1021,8 @@ genCollectComTx = do
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitialized
-  pure (cctx, committedUTxO, stInitialized, collect cctx headId stInitialized)
+  let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
+  pure (cctx, committedUTxO, stInitialized, collect cctx headId utxo stInitialized)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1069,7 +1074,8 @@ genStOpen ctx = do
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitial
-  let txCollect = collect cctx headId stInitial
+  let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
+  let txCollect = collect cctx headId utxo stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -1166,6 +1172,8 @@ unsafeObserveInit cctx txInit =
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
 
+-- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
+-- returns just 'UTXO' instead of [UTxO]
 unsafeObserveInitAndCommits ::
   HasCallStack =>
   ChainContext ->

@@ -131,7 +131,8 @@ computeCollectComCost =
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     let InitialState{headId} = stInitialized
-    pure (fold committedUTxOs, collect cctx headId stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxOs
+    pure (fold committedUTxOs, collect cctx headId utxo stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do

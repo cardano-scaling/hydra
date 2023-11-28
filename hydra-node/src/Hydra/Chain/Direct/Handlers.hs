@@ -384,8 +384,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{headId} ->
-      pure $ collect ctx headId (error "TODO")
+    CollectComTx{utxo, headId} -> pure $ collect ctx headId utxo (error "TODO")
     CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
