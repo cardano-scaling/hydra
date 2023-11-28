@@ -339,8 +339,8 @@ convertObservation = \case
     pure OnAbortTx
   Commit CommitObservation{party, committed} ->
     pure OnCommitTx{party, committed}
-  CollectCom CollectComObservation{threadOutput = OpenThreadOutput{openThreadUTxO}} ->
-    pure (OnCollectComTx $ UTxO.singleton openThreadUTxO)
+  CollectCom CollectComObservation{threadOutput = OpenThreadOutput{openThreadUTxO}, headId} ->
+    pure OnCollectComTx{collected = UTxO.singleton openThreadUTxO, headId}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx
@@ -384,8 +384,8 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{} ->
-      pure $ collect ctx (error "TODO: create collectComTx using a UTxO only, and headId from CollectComTx along with some other parameters")
+    CollectComTx{headId} ->
+      pure $ collect ctx headId (error "TODO")
     CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime

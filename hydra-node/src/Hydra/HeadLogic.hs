@@ -180,7 +180,7 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   postCollectCom =
     OnChainEffect
-      { postChainTx = CollectComTx $ fold newCommitted
+      { postChainTx = CollectComTx {utxo = fold newCommitted, headId}
       }
 
   canCollectCom = null remainingParties

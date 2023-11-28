@@ -69,7 +69,7 @@ instance Arbitrary HeadParameters where
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
-  | CollectComTx {utxo :: UTxOType tx}
+  | CollectComTx {utxo :: UTxOType tx, headId :: HeadId}
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
@@ -96,7 +96,7 @@ data OnChainTx tx
   = OnInitTx {headId :: HeadId, headSeed :: HeadSeed, contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
-  | OnCollectComTx {collected :: UTxOType tx}
+  | OnCollectComTx {collected :: UTxOType tx, headId :: HeadId}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber

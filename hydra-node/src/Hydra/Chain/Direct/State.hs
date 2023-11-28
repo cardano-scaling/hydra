@@ -470,9 +470,10 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
 -- collect all the committed outputs.
 collect ::
   ChainContext ->
+  HeadId ->
   InitialState ->
   Tx
-collect ctx st = do
+collect ctx headId st = do
   let commits = Map.fromList initialCommits
    in collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
@@ -481,7 +482,6 @@ collect ctx st = do
   InitialState
     { initialThreadOutput
     , initialCommits
-    , headId
     } = st
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
@@ -678,7 +678,7 @@ observeCollect st tx = do
   observation <- observeCollectComTx utxo tx
   let CollectComObservation{threadOutput = threadOutput@OpenThreadOutput{openThreadUTxO}, headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
-  let event = OnCollectComTx (UTxO.singleton openThreadUTxO)
+  let event = OnCollectComTx {collected = UTxO.singleton openThreadUTxO, headId}
   let st' =
         OpenState
           { openThreadOutput = threadOutput
@@ -999,7 +999,8 @@ genCollectComTx = do
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
-  pure (cctx, committedUTxO, stInitialized, collect cctx stInitialized)
+  let InitialState{headId} = stInitialized
+  pure (cctx, committedUTxO, stInitialized, collect cctx headId stInitialized)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1050,7 +1051,8 @@ genStOpen ctx = do
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
-  let txCollect = collect cctx stInitial
+  let InitialState{headId} = stInitial
+  let txCollect = collect cctx headId stInitial
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::

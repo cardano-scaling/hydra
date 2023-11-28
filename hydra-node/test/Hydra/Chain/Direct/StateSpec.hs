@@ -410,9 +410,10 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   -- Commits
   commits <- pickBlind $ genCommits' (genUTxOSized 1) ctx txInit
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let InitialState{headId = initialHeadId} = stInitial
   -- Collect
   let initialUTxO = fold committed
-  let txCollect = collect cctx stInitial
+  let txCollect = collect cctx initialHeadId stInitial
   stOpen@OpenState{openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
