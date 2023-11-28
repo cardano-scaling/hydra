@@ -1,7 +1,7 @@
 # Build executables to be used on MacOS with Apple silicon (aarch64) CPUs.
 #
 # As the Darwin platform is not great for static linking, we stick with
-# dynamically linked binaries and also package the nix-provided .dyn libraries.
+# dynamically linked binaries and also package the nix-provided .dylib libraries.
 name: MacOS ARM64
 
 on:
