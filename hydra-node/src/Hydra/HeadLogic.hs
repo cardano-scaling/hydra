@@ -573,7 +573,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     <> Effects
       ( notifyClient
           : [ OnChainEffect
-              { postChainTx = ContestTx{confirmedSnapshot}
+              { postChainTx = ContestTx{headId, confirmedSnapshot}
               }
             | doContest
             ]
@@ -606,7 +606,7 @@ onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
       Effects
         [ ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}
-        , OnChainEffect{postChainTx = ContestTx{confirmedSnapshot}}
+        , OnChainEffect{postChainTx = ContestTx{headId, confirmedSnapshot}}
         ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
       -- TODO: A more recent snapshot number was succesfully contested, we will

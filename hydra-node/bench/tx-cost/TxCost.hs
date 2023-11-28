@@ -23,7 +23,6 @@ import Hydra.Chain.Direct.State (
   OpenState (..),
   collect,
   commit,
-  contest,
   ctxHeadParameters,
   ctxHydraSigningKeys,
   fanout,
@@ -42,6 +41,7 @@ import Hydra.Chain.Direct.State (
   pickChainContext,
   unsafeAbort,
   unsafeClose,
+  unsafeContest,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
@@ -169,7 +169,7 @@ computeContestCost = do
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (contest cctx utxo headId snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (unsafeContest cctx utxo headId snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =

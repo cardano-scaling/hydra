@@ -415,6 +415,9 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
+data ContestTxError = CannotFindHeadOutputToContest
+  deriving stock (Show)
+
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
 -- the close's one. We could potentially refactor this to avoid repetition or do

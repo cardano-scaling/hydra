@@ -149,6 +149,7 @@ data PostTxError tx
     SpendingNodeUtxoForbidden
   | FailedToConstructAbortTx
   | FailedToConstructCloseTx
+  | FailedToConstructContestTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

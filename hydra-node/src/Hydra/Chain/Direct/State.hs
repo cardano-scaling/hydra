@@ -78,6 +78,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
+  ContestTxError (..),
   FanoutObservation (FanoutObservation),
   InitObservation (..),
   InitialThreadOutput (..),
@@ -549,9 +550,13 @@ contest ::
   HeadId ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
-  Tx
+  Either ContestTxError Tx
 contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
-  let closedThreadUTxO = undefined
+  headUTxO <-
+    maybe (Left CannotFindHeadOutputToContest) pure $
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+
+  let closedThreadUTxO = headUTxO
       closedParties = Party.partyToChain <$> [undefined]
       closedContestationDeadline = undefined
       closedContesters = undefined
@@ -562,7 +567,7 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
           , closedContestationDeadline
           , closedContesters
           }
-  contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
+  pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
   (sn, sigs) =
     case confirmedSnapshot of
@@ -570,6 +575,18 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
   ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
+
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == headIdToPolicyId headId && quantity == 1
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
@@ -1027,7 +1044,7 @@ genContestTx = do
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, contest cctx utxo headId contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -1126,6 +1143,18 @@ unsafeClose ::
   Tx
 unsafeClose ctx spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime =
   either (error . show) id $ close ctx spendableUTxO headId parameters confirmedSnapshot startSlotNo pointInTime
+
+unsafeContest ::
+  HasCallStack =>
+  ChainContext ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  HeadId ->
+  ConfirmedSnapshot Tx ->
+  PointInTime ->
+  Tx
+unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
+  either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
 
 unsafeObserveInit ::
   HasCallStack =>
