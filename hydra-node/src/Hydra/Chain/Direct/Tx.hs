@@ -252,6 +252,7 @@ collectComTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
+  ContestationPeriod ->
   -- | Everything needed to spend the Head state-machine output.
   InitialThreadOutput ->
   -- | Everything needed to spend the Head state-machine output.
@@ -262,7 +263,7 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId scriptRegistry vk initialThreadOutput (headInput, initialHeadOutput) commits headId =
+collectComTx networkId scriptRegistry vk contestationPeriod initialThreadOutput (headInput, initialHeadOutput) commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -272,7 +273,6 @@ collectComTx networkId scriptRegistry vk initialThreadOutput (headInput, initial
  where
   InitialThreadOutput
     { initialParties
-    , initialContestationPeriod
     } = initialThreadOutput
   headWitness =
     BuildTxWith $
@@ -292,7 +292,7 @@ collectComTx networkId scriptRegistry vk initialThreadOutput (headInput, initial
       Head.Open
         { Head.parties = initialParties
         , utxoHash
-        , contestationPeriod = initialContestationPeriod
+        , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
 

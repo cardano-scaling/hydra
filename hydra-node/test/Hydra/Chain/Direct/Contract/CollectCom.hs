@@ -34,6 +34,7 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
+import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
@@ -76,6 +77,7 @@ healthyCollectComTx =
       testNetworkId
       scriptRegistry
       somePartyCardanoVerificationKey
+      (fromChain healthyContestationPeriod)
       initialThreadOutput
       (healthyHeadTxIn, healthyHeadTxOut)
       (txOut <$> healthyCommits)

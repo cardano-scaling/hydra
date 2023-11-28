@@ -103,7 +103,7 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
   txInToHeadSeed,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -486,7 +486,7 @@ collect ctx headId spendableUTxO st = do
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
   let commits =
         UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
-  pure $ collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput headUTxO commits headId
+  pure $ collectComTx networkId scriptRegistry ownVerificationKey contestationPeriod initialThreadOutput headUTxO commits headId
  where
   utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
 
@@ -502,7 +502,7 @@ collect ctx headId spendableUTxO st = do
 
   commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
 
-  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{networkId, ownVerificationKey, scriptRegistry, contestationPeriod} = ctx
 
   InitialState
     { initialThreadOutput
