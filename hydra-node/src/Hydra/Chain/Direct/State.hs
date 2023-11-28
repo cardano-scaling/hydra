@@ -53,6 +53,7 @@ import Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
+import Hydra.Cardano.Api.AddressInEra (mkScriptAddress)
 import Hydra.Chain (
   ChainStateType,
   HeadParameters (..),
@@ -488,9 +489,10 @@ collect ctx headId spendableUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
-  let commits =
+  let headAddress = mkScriptAddress @PlutusScriptV2 networkId headScript
+      commits =
         UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
-  pure $ collectComTx networkId scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
+  pure $ collectComTx headAddress scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
  where
   utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
 
@@ -954,18 +956,18 @@ genHydraContextFor n = do
 deriveChainContexts :: HydraContext -> Gen [ChainContext]
 deriveChainContexts ctx = do
   pure $
-    flip map (zip ctxVerificationKeys allParties) $ \(vk, p) ->
+    flip map (zip ctxVerificationKeys allParties') $ \(vk, p) ->
       ChainContext
         { networkId = ctxNetworkId
         , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
-        , otherParties = allParties \\ [p]
+        , otherParties = allParties'  \\ [p]
         , scriptRegistry = ctxScriptRegistry
         , contestationPeriod = ctxContestationPeriod ctx
         }
  where
-  allParties = ctxParties ctx
+  allParties' = ctxParties ctx
 
   HydraContext
     { ctxVerificationKeys

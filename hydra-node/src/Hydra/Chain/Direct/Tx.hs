@@ -247,7 +247,7 @@ mkCommitDatum party utxo headId =
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
 collectComTx ::
-  NetworkId ->
+  AddressInEra ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
@@ -262,7 +262,7 @@ collectComTx ::
   -- | Head id
   HeadId ->
   Tx
-collectComTx networkId scriptRegistry vk parties contestationPeriod (headInput, initialHeadOutput) commits headId =
+collectComTx headAddress scriptRegistry vk parties contestationPeriod (headInput, initialHeadOutput) commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -279,7 +279,7 @@ collectComTx networkId scriptRegistry vk parties contestationPeriod (headInput, 
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
-      (mkScriptAddress @PlutusScriptV2 networkId headScript)
+      headAddress
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
       ReferenceScriptNone

@@ -35,6 +35,7 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -73,7 +74,7 @@ healthyCollectComTx =
 
   tx =
     collectComTx
-      testNetworkId
+      headAddress
       scriptRegistry
       somePartyCardanoVerificationKey
       healthyParties
@@ -86,6 +87,12 @@ healthyCollectComTx =
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
+
+  headScript =
+    fromPlutusScript Head.validatorScript
+
+  headAddress =
+    mkScriptAddress @PlutusScriptV2 testNetworkId headScript
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
