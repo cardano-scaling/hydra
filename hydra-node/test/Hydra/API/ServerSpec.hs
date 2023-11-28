@@ -210,7 +210,7 @@ spec = describe "ServerSpec" $
             headParameters :: HeadParameters <- generate arbitrary
             headSeed :: HeadSeed <- generate arbitrary
 
-            let Snapshot{headId, utxo} = generatedSnapshot
+            let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
             let txValidMessage = TxValid{headId = headId, transaction = tx}
             let sn = generatedSnapshot{confirmed = [txId tx]}
@@ -225,8 +225,7 @@ spec = describe "ServerSpec" $
                   PostTxOnChainFailed
                     { postChainTx =
                         CloseTx
-                          { utxo
-                          , headSeed
+                          { headSeed
                           , headId
                           , headParameters
                           , confirmedSnapshot =

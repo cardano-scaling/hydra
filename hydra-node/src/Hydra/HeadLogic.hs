@@ -548,9 +548,9 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  Effects [OnChainEffect{postChainTx = CloseTx localUTxO headSeed headId parameters confirmedSnapshot}]
+  Effects [OnChainEffect{postChainTx = CloseTx headSeed headId parameters confirmedSnapshot}]
  where
-  CoordinatedHeadState{localUTxO, confirmedSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
   OpenState{parameters, coordinatedHeadState, headId, headSeed} = st
 

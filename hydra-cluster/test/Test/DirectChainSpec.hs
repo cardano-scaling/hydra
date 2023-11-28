@@ -275,7 +275,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     }
 
-            postTx . CloseTx openUTxO headSeed headId params $
+            postTx . CloseTx headSeed headId params $
               ConfirmedSnapshot
                 { snapshot
                 , signatures = aggregate [sign aliceSk snapshot]
@@ -389,16 +389,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
             postTx $ CollectComTx someUTxO
-            openUTxO <-
-              aliceChain
-                `observesInTimeSatisfying` ( \case
-                                              OnCollectComTx{collected} -> pure collected
-                                              _ -> pure mempty
-                                           )
             -- Head is open with someUTxO
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx openUTxO headSeed headId params InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headSeed headId params InitialSnapshot{headId, initialUTxO = someUTxO}
             waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber}}
                 | snapshotNumber == 0 -> Just ()
