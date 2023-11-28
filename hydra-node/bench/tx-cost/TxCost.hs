@@ -168,7 +168,7 @@ computeContestCost = do
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (contest cctx stClosed snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (contest cctx utxo headId snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =

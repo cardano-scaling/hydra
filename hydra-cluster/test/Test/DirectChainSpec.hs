@@ -406,7 +406,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxo = someUTxO
                     , confirmed = []
                     }
-            postTx . ContestTx $
+            postTx . ContestTx headId $
               ConfirmedSnapshot
                 { snapshot = snapshot1
                 , signatures = aggregate [sign aliceSk snapshot1]
@@ -422,7 +422,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     }
             let contestAgain =
-                  postTx . ContestTx $
+                  postTx . ContestTx headId $
                     ConfirmedSnapshot
                       { snapshot = snapshot2
                       , signatures = aggregate [sign aliceSk snapshot2]

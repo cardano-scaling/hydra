@@ -544,11 +544,24 @@ close ctx spendableUTxO headId HeadParameters{contestationPeriod, parties} confi
 -- needs to be before the deadline.
 contest ::
   ChainContext ->
-  ClosedState ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  HeadId ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-contest ctx st confirmedSnapshot pointInTime = do
+contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
+  let closedThreadUTxO = undefined
+      closedParties = Party.partyToChain <$> [undefined]
+      closedContestationDeadline = undefined
+      closedContesters = undefined
+      closedThreadOutput =
+        ClosedThreadOutput
+          { closedThreadUTxO
+          , closedParties
+          , closedContestationDeadline
+          , closedContesters
+          }
   contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
   (sn, sigs) =
@@ -557,11 +570,6 @@ contest ctx st confirmedSnapshot pointInTime = do
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
   ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
-
-  ClosedState
-    { closedThreadOutput
-    , headId
-    } = st
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
@@ -1018,7 +1026,7 @@ genContestTx = do
   utxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, contest cctx stClosed contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, contest cctx utxo headId contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do

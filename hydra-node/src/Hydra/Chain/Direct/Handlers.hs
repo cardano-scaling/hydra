@@ -392,10 +392,10 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
       case close ctx chainState headId headParameters confirmedSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
-    ContestTx{confirmedSnapshot} -> do
+    ContestTx{headId, confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (contest ctx (error "TODO: create contestTx using a UTxO only, and headId from ContestTx along with some other parameters. XXX: contesters needs to be tracked inside the HeadLogic") confirmedSnapshot upperBound)
+      pure (contest ctx chainState headId confirmedSnapshot upperBound)
     FanoutTx{utxo, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       pure (fanout ctx (error "TODO: create fanoutTx using a UTxO only, along with some other parameters") utxo deadlineSlot)

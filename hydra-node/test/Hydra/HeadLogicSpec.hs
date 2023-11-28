@@ -431,7 +431,7 @@ spec =
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
-            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
+            contestTxEffect = chainEffect $ ContestTx testHeadId latestConfirmedSnapshot
         runEvents bobEnv ledger s0 $ do
           o1 <- step closeTxEvent
           lift $ o1 `hasEffect` contestTxEffect
@@ -446,7 +446,7 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = observationEvent $ OnContestTx 1
-            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
+            contestTxEffect = chainEffect $ ContestTx testHeadId latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertEffects s1
