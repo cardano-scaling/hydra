@@ -16,6 +16,7 @@ main() {
   publish_release "$version" # fake for now
 }
 
+# Like 'echo' but on stderr
 err() {
   echo >&2 "$1"
 }
@@ -138,7 +139,7 @@ update_cabal_version() {
   
   for file in $cabal_files
   do
-    sed -i.bak -e "s,\(^version: *\)[^ ]*,\1$version," $file
+    sed -i"" -e "s,\(^version: *\)[^ ]*,\1$version," $file
   done
 }
 
@@ -146,20 +147,20 @@ update_api_version() {
   local version="$1" ; shift
   local api_file=hydra-node/json-schemas/api.yaml
 
-  sed -i.bak -e "s,\(version: *\)'.*',\1'$version'," $api_file
+  sed -i"" -e "s,\(version: *\)'.*',\1'$version'," $api_file
 }
 
 update_tutorial_version() {
   local version="$1"
   local tutorial_file=docs/docs/tutorial/index.md
-  sed -i.bak -e "s,\(hydra/releases/download/\)[^/]*,\1$version," $tutorial_file
+  sed -i"" -e "s,\(hydra/releases/download/\)[^/]*,\1$version," $tutorial_file
 }
 
 update_demo_version() {
   local version="$1"
   (
     cd demo
-    sed -i.bak -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
+    sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
   )
 }
 
