@@ -38,6 +38,12 @@ jobs:
         nix build .#hydra-node && cp result/bin/* bin/
         nix build .#hydra-tui && cp result/bin/* bin/
 
+    - name: ❄ Collect runtime libraries from /nix/store
+      run: |
+        nix shell nixpkgs#python311Packages.pylddwrap --command sh <<EOF
+          pylddwrap -f json bin/hydra-node | jq -r '.[].path | select(. != "None")' | xargs -I{} cp {} bin/
+        EOF
+
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
