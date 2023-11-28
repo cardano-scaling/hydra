@@ -1083,9 +1083,8 @@ genStClosed ::
   UTxO ->
   Gen (SnapshotNumber, UTxO, ClosedState)
 genStClosed ctx utxo = do
-  (u0, stOpen) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   confirmed <- arbitrary
-  headId <- arbitrary
   let (sn, snapshot, toFanout) = case confirmed of
         InitialSnapshot{} ->
           ( 0
