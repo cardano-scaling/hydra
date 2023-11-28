@@ -1,6 +1,6 @@
 # Contributing to Hydra
 
-Thanks for considering contributing and help us on creating the Hydra protocols! 
+Thanks for considering contributing and help us on creating the Hydra protocols!
 
 The best way to contribute right now is to try things out and provide feedback,
 but we also accept contributions to the documentation and the obviously to the
@@ -13,7 +13,7 @@ your contribution gets accepted, making you our newest Hydra contributor!
 
 See [`SUPPORT.md`](SUPPORT.md) should you have any questions or need some help in getting set up.
 
-## Your first contribution 
+## Your first contribution
 
 Contributing to the documentation, its translation, reporting bugs or proposing features are awesome ways to get started.
 
@@ -126,12 +126,26 @@ propose new standards or changes to the existing standards, file an issue.
 
 ### Creating a pull request
 
-Thank you for contributing your changes by opening a pull requests! To get
-something merged we usually require:
+Thank you for contributing your changes by opening a pull requests!
+
+On top of the aforementioned _Coding standards_, to get something merged would usually require:
 + Description of the changes - if your commit messages are great, this is less important
 + Quality of changes is ensured - through new or updated automated tests
 + Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
 + Well-scoped - we prefer multiple PRs, rather than a big one
++ Correctness - a PR should pass all the build and test steps in the CI
+
+Merging a PR requires approval from a majority of reviewers from the
+core _Hydra engineering_ team. This implies that:
++ Contributions from outside this core team would need 3 approvals,
++ Contributions from a single core team member would need 2 approvals,
++ PRs developed in pair would need a single approval,
++ and of course PRs developed in ensembles would not need any approval.
+
+The reason behind this policy is to increase the [bus
+factor](https://en.wikipedia.org/wiki/Bus_factor) on the project,
+disseminating information about contributions and changes in order to
+prevent creation of a bottleneck.
 
 ### Updating dependencies
 
@@ -227,7 +241,7 @@ To write such an update:
 3. Create a entry blog and pull request it on
    [cardano-updates](https://github.com/input-output-hk/cardano-updates),
    putting other Hydra contributors as reviewers.
-   
+
    - Don't forget to add yourself as author in the `authors.yml`.
 
 ### Monthly review & report
