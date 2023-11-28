@@ -38,7 +38,6 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.HeadId (HeadSeed)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -208,7 +207,6 @@ spec = describe "ServerSpec" $
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
             headParameters :: HeadParameters <- generate arbitrary
-            headSeed :: HeadSeed <- generate arbitrary
 
             let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
@@ -225,8 +223,7 @@ spec = describe "ServerSpec" $
                   PostTxOnChainFailed
                     { postChainTx =
                         CloseTx
-                          { headSeed
-                          , headId
+                          { headId
                           , headParameters
                           , confirmedSnapshot =
                               ConfirmedSnapshot

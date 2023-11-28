@@ -548,11 +548,11 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  Effects [OnChainEffect{postChainTx = CloseTx headSeed headId parameters confirmedSnapshot}]
+  Effects [OnChainEffect{postChainTx = CloseTx headId parameters confirmedSnapshot}]
  where
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, headId, headSeed} = st
+  OpenState{parameters, coordinatedHeadState, headId} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a

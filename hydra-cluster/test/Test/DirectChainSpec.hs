@@ -254,7 +254,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             let params = HeadParameters cperiod [alice]
             postTx $ InitTx params
-            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -275,7 +275,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     }
 
-            postTx . CloseTx headSeed headId params $
+            postTx . CloseTx headId params $
               ConfirmedSnapshot
                 { snapshot
                 , signatures = aggregate [sign aliceSk snapshot]
@@ -383,7 +383,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             let params = HeadParameters cperiod [alice]
             postTx $ InitTx params
-            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -392,7 +392,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             -- Head is open with someUTxO
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx headSeed headId params InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headId params InitialSnapshot{headId, initialUTxO = someUTxO}
             waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber}}
                 | snapshotNumber == 0 -> Just ()
