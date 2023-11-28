@@ -218,8 +218,8 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action =
-  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const $ id) contestationPeriod action
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId =
+  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const id)
 
 withConfiguredHydraCluster ::
   HasCallStack =>
@@ -298,14 +298,11 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
-      \_ _err processHandle -> do
-        result <-
-          race
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (withConnectionToNode tracer hydraNodeId action)
-        case result of
-          Left e -> absurd e
-          Right a -> pure a
+      \_ processHandle -> do
+        race
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+          (withConnectionToNode tracer hydraNodeId action)
+          <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
@@ -322,7 +319,7 @@ withHydraNode' ::
   TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> Handle -> ProcessHandle -> IO a) ->
+  (Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -357,12 +354,12 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = CreatePipe
+            , std_err = Inherit
             }
     withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
       case (mCreatedHandle, mGivenStdOut, mErr) of
-        (Just out, _, Just err) -> action out err processHandle
-        (Nothing, Just out, Just err) -> action out err processHandle
+        (Just out, _, _) -> action out processHandle
+        (Nothing, Just out, _) -> action out processHandle
         (_, _, _) -> error "Should not happen™"
  where
   peers =
@@ -377,13 +374,15 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
 withConnectionToNode :: Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
   connectedOnce <- newIORef False
-  tryConnect connectedOnce
+  tryConnect connectedOnce (200 :: Int)
  where
-  tryConnect connectedOnce =
-    doConnect connectedOnce `catch` \(e :: IOException) -> do
-      readIORef connectedOnce >>= \case
-        False -> threadDelay 0.1 >> tryConnect connectedOnce
-        True -> throwIO e
+  tryConnect connectedOnce n
+    | n == 0 = failure $ "Timed out waiting for connection to hydra-node " <> show hydraNodeId
+    | otherwise =
+        doConnect connectedOnce `catch` \(e :: IOException) -> do
+          readIORef connectedOnce >>= \case
+            False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+            True -> throwIO e
 
   doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
     atomicWriteIORef connectedOnce True
@@ -395,13 +394,13 @@ withConnectionToNode tracer hydraNodeId action = do
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> [HydraClient] -> IO ()
-waitForNodesConnected tracer clients =
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> IO ()
+waitForNodesConnected tracer timeOut clients =
   mapM_ waitForNodeConnected clients
  where
   allNodeIds = hydraNodeId <$> clients
   waitForNodeConnected n@HydraClient{hydraNodeId} =
-    waitForAll tracer (fromIntegral $ 20 * length allNodeIds) [n] $
+    waitForAll tracer timeOut [n] $
       fmap
         ( \nodeId ->
             object

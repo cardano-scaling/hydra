@@ -10,10 +10,13 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.Reliability (MessagePersistence (..))
+import Hydra.Node.Network (configureMessagePersistence)
+import Hydra.Node.ParameterMismatch (ParameterMismatch)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
@@ -29,7 +32,7 @@ spec = do
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
+      showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
           withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
@@ -40,7 +43,7 @@ spec = do
       node1received <- atomically newTQueue
       node2received <- atomically newTQueue
       node3received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
+      showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
         withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
           withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
@@ -52,8 +55,15 @@ spec = do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
+  describe "configureMessagePersistence" $ do
+    it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
+      withTempDir "persistence" $ \dir -> do
+        MessagePersistence{saveAcks} <- configureMessagePersistence @_ @Int nullTracer dir 3
+        saveAcks (fromList [0, 0, 0])
+        configureMessagePersistence @_ @Int nullTracer dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
+
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b
-withNodeBroadcastingForever node value continuation = withNodesBroadcastingForever [(node, value)] continuation
+withNodeBroadcastingForever node value = withNodesBroadcastingForever [(node, value)]
 
 withNodesBroadcastingForever :: [(Network IO Integer, Integer)] -> IO b -> IO b
 withNodesBroadcastingForever [] continuation = continuation

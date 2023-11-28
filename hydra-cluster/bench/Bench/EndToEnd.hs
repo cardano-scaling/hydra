@@ -94,7 +94,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
             let contestationPeriod = UnsafeContestationPeriod 10
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
-              waitForNodesConnected hydraTracer clients
+              waitForNodesConnected hydraTracer 20 clients
 
               putTextLn "Initializing Head"
               send leader $ input "Init" []

@@ -19,7 +19,7 @@ spec :: Spec
 spec = do
   describe "seedFromFaucet" $
     it "should work concurrently" $
-      showLogsOnFailure $ \tracer ->
+      showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir ->
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
@@ -29,7 +29,7 @@ spec = do
 
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet work together" $ do
-      showLogsOnFailure $ \tracer ->
+      showLogsOnFailure "FaucetSpec" $ \tracer ->
         withTempDir "end-to-end-cardano-node" $ \tmpDir ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
             let faucetTracer = contramap FromFaucet tracer

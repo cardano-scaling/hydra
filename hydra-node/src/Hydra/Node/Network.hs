@@ -65,20 +65,26 @@ module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
   withFlipHeartbeats,
+  configureMessagePersistence,
+  acksFile,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
+import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (ReliableMsg, mkMessagePersistence, withReliability)
+import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
+import Hydra.Node (HydraNodeLog (..))
+import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
+import System.FilePath ((</>))
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -117,10 +123,9 @@ withNetwork tracer connectionMessages configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
-  msgPersistence <- createPersistenceIncremental $ persistenceDir <> "/network-messages"
-  ackPersistence <- createPersistence $ persistenceDir <> "/acks"
-  let messagePersistence = mkMessagePersistence numberOfParties msgPersistence ackPersistence
-      reliability =
+  messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
+
+  let reliability =
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
@@ -131,6 +136,30 @@ withNetwork tracer connectionMessages configuration callback action = do
  where
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
 
+-- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
+--
+-- This function will `throw` a `ParameterMismatch` exception if:
+--
+--   * Some state already exists and is loaded,
+--   * The number of parties is not the same as the number of acknowledgments saved.
+configureMessagePersistence ::
+  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
+  Tracer m (HydraNodeLog tx) ->
+  FilePath ->
+  Int ->
+  m (MessagePersistence m msg)
+configureMessagePersistence tracer persistenceDir numberOfParties = do
+  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
+  ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
+  mAcks <- load
+  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
+    Just False -> do
+      let paramsMismatch = [SavedNetworkPartiesInconsistent{numberOfParties}]
+      traceWith tracer (Misconfiguration paramsMismatch)
+      throwIO $ ParameterMismatch paramsMismatch
+    _ -> pure ackPersistence
+  pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
+
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->
   NetworkComponent m (Heartbeat (Authenticated msg)) msg1 a
@@ -140,3 +169,11 @@ withFlipHeartbeats withBaseNetwork callback =
   unwrapHeartbeats = \case
     Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
     Authenticated (Ping nid) _ -> callback $ Ping nid
+
+-- | Where are the messages stored, relative to given directory.
+storedMessagesFile :: FilePath -> FilePath
+storedMessagesFile = (</> "network-messages")
+
+-- | Where is the acknowledgments vector stored, relative to given directory.
+acksFile :: FilePath -> FilePath
+acksFile = (</> "acks")

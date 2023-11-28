@@ -144,7 +144,7 @@ spec = do
 
 setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' lovelace action =
-  showLogsOnFailure $ \tracer ->
+  showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do

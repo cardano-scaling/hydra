@@ -4,7 +4,7 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude (HUnitFailure, anyException, failure)
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
@@ -96,7 +96,9 @@ import Network.HTTP.Req (
   (/:),
  )
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import Test.Hspec.Expectations (shouldBe, shouldReturn, shouldThrow)
+import System.Directory (removeDirectoryRecursive)
+import System.FilePath ((</>))
+import Test.Hspec.Expectations (Selector, shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
 
 data EndToEndLog
@@ -146,6 +148,50 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
+
+testPreventResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
+  let contestationPeriod = UnsafeContestationPeriod 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket [Bob] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  aliceChainConfigWithoutBob <-
+    chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket [Alice] contestationPeriod
+      <&> \config -> (config :: ChainConfig){networkId}
+
+  let hydraTracer = contramap FromHydraNode tracer
+      aliceStartsWithoutKnowingBob =
+        withHydraNode hydraTracer aliceChainConfigWithoutBob workDir 2 aliceSk [] [1, 2] hydraScriptsTxId
+      aliceRestartsWithBobConfigured =
+        withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] hydraScriptsTxId
+
+  withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] hydraScriptsTxId $ \n1 -> do
+    aliceStartsWithoutKnowingBob $ \n2 -> do
+      failToConnect hydraTracer [n1, n2]
+
+    threadDelay 1
+
+    aliceRestartsWithBobConfigured (const $ threadDelay 1)
+      `shouldThrow` aFailure
+
+    threadDelay 1
+
+    removeDirectoryRecursive $ workDir </> "state-2"
+
+    aliceRestartsWithBobConfigured $ \n2 -> do
+      waitForNodesConnected hydraTracer 10 [n1, n2]
+ where
+  RunningNode{nodeSocket, networkId} = cardanoNode
+
+  aFailure :: Selector HUnitFailure
+  aFailure = const True
+
+  failToConnect tr nodes = waitForNodesConnected tr 10 nodes `shouldThrow` anyException
 
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
@@ -517,7 +563,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
   let hydraTracer = contramap FromHydraNode tracer
   withHydraCluster hydraTracer tmpDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
     let clients = leader : rest
-    waitForNodesConnected hydraTracer clients
+    waitForNodesConnected hydraTracer 20 clients
 
     -- Funds to be used as fuel by Hydra protocol transactions
     seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
