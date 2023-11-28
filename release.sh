@@ -131,7 +131,7 @@ update_api_version() {
 update_tutorial_version() {
   local version="$1"
   local tutorial_file=docs/docs/tutorial/index.md
-  sed -i.bak -e "s,\(hydra/releases/download/)[^/]*,\1$version," $tutorial_file
+  sed -i.bak -e "s,\(hydra/releases/download/\)[^/]*,\1$version," $tutorial_file
 }
 
 update_demo_version() {
