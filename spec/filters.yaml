@@ -1,4 +1,4 @@
-filters: ["diagram/diagram.lua"]
+filters: ["diagram.lua"]
 
 metadata:
   # Diagram filter config
