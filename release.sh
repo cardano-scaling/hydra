@@ -13,7 +13,7 @@ main() {
 
   prepare_release "$version"
 
-  publish_release "$version" # fake for now
+  publish_release_instructions "$version"
 }
 
 # Like 'echo' but on stderr
@@ -35,7 +35,7 @@ $message
 
   $0 <version>
 
-Publishes a new release of hydra.
+Prepares a new release of hydra.
 <version> must respect [Semantic Versioning](http://semver.org/)
 EOF
 
@@ -70,19 +70,20 @@ prepare_release() {
   git tag -as "$version" -F <(changelog "$version")
 
   # Make branch release point to tag so that the website is published
-  git checkout release
+  git checkout --track origin/release
   git merge "${version}" --ff-only
+
+  git checkout master
 }
 
-publish_release() {
+publish_release_instructions() {
   local version="$1"
 
   err "Prepared the release commit and tag, review it now and if everything is okay, push using:"
+  err ""
   err "git push origin master"
   err "git push origin release"
   err "git push origin ${version}"
-  err ""
-  err "And then you shall manually create the release page, see CONTRIBUTING.md"
 }
 
 # Checking helper functions
