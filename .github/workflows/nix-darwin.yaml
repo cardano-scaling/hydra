@@ -40,9 +40,7 @@ jobs:
 
     - name: ❄ Collect runtime libraries from /nix/store
       run: |
-        nix shell nixpkgs#python311Packages.pylddwrap --command sh <<EOF
-          pylddwrap -f json bin/hydra-node | jq -r '.[].path | select(. != "None")' | xargs -I{} cp {} bin/
-        EOF
+        otool -L bin/hydra-node | grep "/nix/store/" | cut -d ' ' -f 1 | xargs -I{} cp {} bin/
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
