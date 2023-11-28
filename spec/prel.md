@@ -16,7 +16,8 @@ $\gets$ is explicit assignment of a variable or value to one or more
 variables. Projection is used to access the elements of a tuple, e.g.
 ${(a,b)}^{\downarrow1} = a$. Functions are morphisms mapping from one
 set to another $x : \mathcal{A} \to f(x) : \mathcal{B}$, where function
-application of a function $f$ to an argument $x$ is written as $f(x)$.\
+application of a function $f$ to an argument $x$ is written as $f(x)$.
+
 Furthermore, given a set $\mathcal{A}$, let
 
 -   $\mathcal{A}^? = \mathcal{A} \cup \Diamond$ denotes an option: a
