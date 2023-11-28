@@ -10,52 +10,57 @@ changes.
 
 ## [0.14.0] - UNRELEASED
 
-- Remove hard-coded deposit of 2₳ from internal wallet. Now the wallet does only
-  use as much deposit for script outputs as minimally needed and reduces the Ada
-  locked throughout a head life-cycle.
+- **BREAKING** Multiple changes to the Hydra Head protocol on-chain:
 
-- Increase maximum number of parties to 5
+  - Sign the head identifier as part of snapshot signature and verify it
+    on-chain. This fully addresses security advisory
+    [CVE-2023-42806](https://github.com/input-output-hk/hydra/security/advisories/GHSA-gr36-mc6v-72qq).
 
-- **BREAKING** Sign the head identifier as part of snapshot signature
-  and verify it on-chain
+  - Switched to using inline datums instead of (optionally) published datums in
+    transactions. [#1162](https://github.com/input-output-hk/hydra/pull/1162)
 
-- Removed false positive `PostTxOnChainFailed` error from API outputs when the
-  collect transaction of another `hydra-node` was "faster" than ours.
+  - Upgraded toolchain to GHC 9.6 and a newer `plutus-tx` compiler.
 
-- Add a `hydra-chain-observer` executable to subscribe to a chain and just
-  observe Hydra Head transactions (with minimal information right now).
+- **BREAKING** Internal persisted chain state serialization changed when
+  switching to inline datums. Make sure to close heads before and wipe the
+  `--persistence-dir` before using this `hydra-node` version.
 
-- Improved `gen-hydra-keys` command to not overwrite keys if they are present
-  already.
+- **BREAKING** Introduced messages resending logic in the `Network` layer to
+  improve reliability in the face of connection issues.
+  [#188](https://github.com/input-output-hk/hydra/issues/188) This persists
+  network messages on disk in order to gracefully handle crashes and detects
+  inconsistencies between persisted state and configuration.
+
+- Increased maximum number of parties to 5. This is possible to small
+  optimizations on the Head protocol transactions.
+
+- Removed hard-coded deposit of 2₳ from internal wallet. Now the wallet does
+  only use as much deposit for script outputs as minimally needed and reduces
+  the Ada locked throughout a head life-cycle.
+  [#1176](https://github.com/input-output-hk/hydra/pull/1176)
 
 - Clients are notified when head initialization is ignored via a new
   `IgnoredHeadInitializing` API server output. This helps detecting
   misconfigurations of credentials and head parameters (which need to match).
   [#529](https://github.com/input-output-hk/hydra/issues/529)
 
+- Removed false positive `PostTxOnChainFailed` error from API outputs when the
+  collect transaction of another `hydra-node` was "faster" than ours.
+  [#839](https://github.com/input-output-hk/hydra/issues/839)
+
 - Hydra node API `submit-transaction` endpoint now accepts three types of
-  encoding: Base16 encoded CBOR string, TextEnvelope type and JSON.
+  encoding: Base16 encoded CBOR string, a TextEnvelope with CBOR and full JSON.
+  [#1111](https://github.com/input-output-hk/hydra/issues/1111)
 
-- **BREAKING** Introduce messages resending logic in the `Network`
-  layer to improve reliability in the face of transient connection
-  issues.
+- Improved `gen-hydra-keys` command to not overwrite keys if they are present
+  already. [#1136](https://github.com/input-output-hk/hydra/issues/1136)
 
-- Persist network messages on disk in order to gracefully handle crashes
+- Add a `hydra-chain-observer` executable to subscribe to a chain and just
+  observe Hydra Head transactions (with minimal information right now).
+  [#1158](https://github.com/input-output-hk/hydra/pull/1158)
 
-- **BREAKING** Changes to Hydra scripts:
-  - Switch to using inline datums instead of (optionally) published datums in
-    transactions.
-  - Upgrading our toolchain to GHC 9.6
-
-- **BREAKING** Changes to persisted state:
-  - The internal chain state serialization changed when switching to inline datums.
-
-- Fixed TUI key bindings for exiting in dialogs.
-
-- Prevent users from resuming a Hydra node after changing its configurations.
-Ensure that the node terminates when attempting to start a Hydra node with a
-number of configured peers that doesn't match the persisted state (i.e., the
-number of parties in the /acks vector).
+- Fixed `hydra-tui` key bindings for exiting in dialogs.
+  [#1159](https://github.com/input-output-hk/hydra/issues/1159)
 
 ## [0.13.0] - 2023-10-03
 
@@ -72,9 +77,9 @@ number of parties in the /acks vector).
 - Remove hydra-tools package. Move functionality to generate hydra keys to the
   hydra-node executable.
 
-Changes to `hydra-node` state persistency:
-  Remove the recursive definition of the chain state.
-  This makes the event store more lightweight and easier to read and work with.
+- Changes to `hydra-node` state persistency:
+  - Remove the recursive definition of the chain state.
+  - This makes the event store more lightweight and easier to read and work with.
 
 ## [0.12.0] - 2023-08-18
 
