@@ -484,7 +484,8 @@ collect ctx headId spendableUTxO st = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
-  let commits = Map.fromList initialCommits
+  let commits =
+        UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
   pure $ collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput headUTxO commits headId
  where
   utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
@@ -499,11 +500,12 @@ collect ctx headId spendableUTxO st = do
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
+  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
   InitialState
     { initialThreadOutput
-    , initialCommits
     } = st
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
