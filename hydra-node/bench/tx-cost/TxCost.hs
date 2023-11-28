@@ -132,7 +132,7 @@ computeCollectComCost =
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
     let InitialState{headId} = stInitialized
     let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxOs
-    pure (fold committedUTxOs, unsafeCollect cctx headId utxo stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    pure (fold committedUTxOs, unsafeCollect cctx headId utxo, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do

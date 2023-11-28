@@ -103,7 +103,7 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
   txInToHeadSeed,
  )
-import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -250,6 +250,11 @@ instance Arbitrary ChainContext where
 allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
 allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
   ownVerificationKey : peerVerificationKeys
+
+-- | Get all hydra verification keys available in the chain context.
+allParties :: ChainContext -> [Party]
+allParties ChainContext{ownParty, otherParties} =
+  ownParty : otherParties
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
@@ -478,21 +483,21 @@ collect ::
   HeadId ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  InitialState ->
   Either CollectTxError Tx
-collect ctx headId spendableUTxO st = do
+collect ctx headId spendableUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
   let commits =
         UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
-  pure $ collectComTx networkId scriptRegistry ownVerificationKey contestationPeriod initialThreadOutput headUTxO commits headId
+  pure $ collectComTx networkId scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
  where
   utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
 
   hasHeadToken =
     isJust . find isHeadToken . valueToList . txOutValue
 
+  -- This can be either ST or a PT, only the head policy needs to match
   isHeadToken (assetId, quantity) =
     case assetId of
       AdaAssetId -> False
@@ -503,10 +508,6 @@ collect ctx headId spendableUTxO st = do
   commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry, contestationPeriod} = ctx
-
-  InitialState
-    { initialThreadOutput
-    } = st
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.
@@ -1043,7 +1044,7 @@ genCollectComTx = do
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitialized
   let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
-  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId utxo stInitialized)
+  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId utxo)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1096,7 +1097,7 @@ genStOpen ctx = do
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitial
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
-  let txCollect = unsafeCollect cctx headId utxo stInitial
+  let txCollect = unsafeCollect cctx headId utxo
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -1175,10 +1176,9 @@ unsafeCollect ::
   HeadId ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  InitialState ->
   Tx
-unsafeCollect ctx headId spendableUTxO st =
-  either (error . show) id $ collect ctx headId spendableUTxO st
+unsafeCollect ctx headId spendableUTxO =
+  either (error . show) id $ collect ctx headId spendableUTxO
 
 unsafeContest ::
   HasCallStack =>

@@ -25,7 +25,6 @@ import Hydra.Chain.Direct.Fixture (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
-  InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
   hydraHeadV1AssetName,
@@ -77,8 +76,8 @@ healthyCollectComTx =
       testNetworkId
       scriptRegistry
       somePartyCardanoVerificationKey
+      healthyParties
       (fromChain healthyContestationPeriod)
-      initialThreadOutput
       (healthyHeadTxIn, healthyHeadTxOut)
       (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
@@ -87,13 +86,6 @@ healthyCollectComTx =
 
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
-
-  initialThreadOutput =
-    InitialThreadOutput
-      { initialThreadUTxO = (healthyHeadTxIn, healthyHeadTxOut)
-      , initialParties = healthyOnChainParties
-      , initialContestationPeriod = healthyContestationPeriod
-      }
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
