@@ -88,7 +88,7 @@ genTimeHandleWithSlotPastHorizon = do
 
 spec :: Spec
 spec = do
-  describe "chainSyncHanlder" $ do
+  describe "chainSyncHandler" $ do
     prop "roll forward results in Tick events" $
       monadicIO $ do
         (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
