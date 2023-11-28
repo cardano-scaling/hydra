@@ -23,6 +23,7 @@ pkgs.stdenv.mkDerivation rec {
     nodePackages.mermaid-cli # mmdc
     librsvg # rsvg-convert
     inkscape
+    graphviz # dot
   ];
   phases = [ "unpackPhase" "buildPhase" ];
   buildPhase = ''

@@ -4,6 +4,7 @@ metadata:
   # Diagram filter config
   diagram:
     engine:
+      dot: true
       mermaid:
         mime-type:
           application/pdf: true

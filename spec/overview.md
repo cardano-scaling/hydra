@@ -35,7 +35,7 @@ $\stInitial$, $\stOpen$, $\stClosed$, and $\stFinal$. A *state thread
 token (ST)* minted in *initial* marks the head output and ensures
 contract continuity [@eutxo].
 
-```{#fig:SM_states_basic .tikz
+```{.tikz #fig:SM_states_basic
 caption="Mainchain state diagram of the Hydra protocol."
 }
 \begin{tikzpicture}[>=stealth,auto,node distance=2.8cm, initial text=$\mathsf{init}$, every
@@ -142,10 +142,32 @@ original Head protocol in [@hydrahead20] are:
     confirmation).
 
 
-<!-- TODO: Remove mermaid example -->
+<!-- TODO: Remove mermaid and dot examples -->
 
-```{#fig:mermaid-example .mermaid caption="A simple flowchart."}
+```{.mermaid #fig:mermaid-example caption="A simple flowchart."}
 graph TD;
     A-->B;
     A-->C;
+```
+
+```{.dot #fig:dot-example caption="Finite State Machine" filename="fsm"}
+digraph finite_state_machine {
+	rankdir=LR;
+	node [shape = doublecircle]; LR_0 LR_3 LR_4 LR_8;
+	node [shape = circle];
+	LR_0 -> LR_2 [ label = "SS(B)" ];
+	LR_0 -> LR_1 [ label = "SS(S)" ];
+	LR_1 -> LR_3 [ label = "S($end)" ];
+	LR_2 -> LR_6 [ label = "SS(b)" ];
+	LR_2 -> LR_5 [ label = "SS(a)" ];
+	LR_2 -> LR_4 [ label = "S(A)" ];
+	LR_5 -> LR_7 [ label = "S(b)" ];
+	LR_5 -> LR_5 [ label = "S(a)" ];
+	LR_6 -> LR_6 [ label = "S(b)" ];
+	LR_6 -> LR_5 [ label = "S(a)" ];
+	LR_7 -> LR_8 [ label = "S(b)" ];
+	LR_7 -> LR_5 [ label = "S(a)" ];
+	LR_8 -> LR_6 [ label = "S(b)" ];
+	LR_8 -> LR_5 [ label = "S(a)" ];
+}
 ```
