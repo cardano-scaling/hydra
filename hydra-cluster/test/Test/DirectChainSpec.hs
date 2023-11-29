@@ -262,7 +262,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ CollectComTx headId
             aliceChain `observesInTime` OnCollectComTx{headId}
 
-
             let snapshot =
                   Snapshot
                     { headId
@@ -387,6 +386,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx headId
             -- Head is open with someUTxO
+            aliceChain `observesInTime` OnCollectComTx headId
 
             -- Alice close with the initial snapshot U0
             postTx $ CloseTx headId InitialSnapshot{headId, initialUTxO = someUTxO}

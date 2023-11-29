@@ -542,9 +542,8 @@ close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime = do
     datum <-
       maybe (Left FailedToConvertFromScriptDataInClose) pure $
         fromScriptData headDatum
-
     case datum of
-      Head.Closed{parties, contestationPeriod} -> pure (parties, contestationPeriod)
+      Head.Open{parties, contestationPeriod} -> pure (parties, contestationPeriod)
       _ -> Left WrongDatumInClose
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
