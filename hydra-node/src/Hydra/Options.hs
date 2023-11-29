@@ -609,7 +609,7 @@ contestationPeriodParser =
   option
     (parseNatural <|> parseNominalDiffTime)
     ( long "contestation-period"
-        <> metavar "CONTESTATION-PERIOD"
+        <> metavar "SECONDS"
         <> value defaultContestationPeriod
         <> showDefault
         <> completer (listCompleter ["60", "180", "300"])
