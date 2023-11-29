@@ -387,10 +387,10 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
       case collect ctx headId chainState of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
-    CloseTx{headId, headParameters, confirmedSnapshot} -> do
+    CloseTx{headId, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      case close ctx chainState headId headParameters confirmedSnapshot currentSlot upperBound of
+      case close ctx chainState headId confirmedSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, confirmedSnapshot} -> do

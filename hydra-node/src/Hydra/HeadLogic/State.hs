@@ -124,7 +124,7 @@ type Committed tx = Map Party (UTxOType tx)
 -- | An 'Open' head with a 'CoordinatedHeadState' tracking off-chain
 -- transactions.
 data OpenState tx = OpenState
-  { parameters :: HeadParameters
+  { parameters :: HeadParameters -- TODO: can we remove this field?
   , coordinatedHeadState :: CoordinatedHeadState tx
   , chainState :: ChainStateType tx
   , headId :: HeadId

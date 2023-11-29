@@ -328,7 +328,11 @@ data ClosingSnapshot
         signatures :: MultiSignature (Snapshot Tx)
       }
 
-data CloseTxError = CannotFindHeadOutputToClose
+data CloseTxError
+  = CannotFindHeadOutputToClose
+  | MissingHeadDatumInClose
+  | FailedToConvertFromScriptDataInClose
+  | WrongDatumInClose
   deriving stock (Show)
 
 -- | Create a transaction closing a head with either the initial snapshot or
@@ -1094,7 +1098,7 @@ headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 headIdToPolicyId :: HeadId -> PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 
-headSeedToTxIn :: (MonadFail m) => HeadSeed -> m TxIn
+headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
     Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
@@ -1117,7 +1121,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)

@@ -29,7 +29,6 @@ import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), w
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
-  HeadParameters,
   PostChainTx (..),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
@@ -206,7 +205,6 @@ spec = describe "ServerSpec" $
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
-            headParameters :: HeadParameters <- generate arbitrary
 
             let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
@@ -224,7 +222,6 @@ spec = describe "ServerSpec" $
                     { postChainTx =
                         CloseTx
                           { headId
-                          , headParameters
                           , confirmedSnapshot =
                               ConfirmedSnapshot
                                 { Hydra.Snapshot.snapshot = sn
