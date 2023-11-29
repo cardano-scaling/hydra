@@ -33,18 +33,17 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
-import Hydra.ContestationPeriod (fromChain)
+import Hydra.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
+import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (
   genAdaOnlyUTxO,
@@ -78,7 +77,7 @@ healthyCollectComTx =
       scriptRegistry
       somePartyCardanoVerificationKey
       healthyParties
-      (fromChain healthyContestationPeriod)
+      healthyContestationPeriod
       (healthyHeadTxIn, healthyHeadTxOut)
       (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
@@ -105,7 +104,7 @@ healthyCommittedUTxO =
     replicateM (length healthyParties) $
       genUTxOAdaOnlyOfSize =<< choose (0, 5)
 
-healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
@@ -123,7 +122,7 @@ healthyHeadTxOut =
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
-    { contestationPeriod = healthyContestationPeriod
+    { contestationPeriod = toChain healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
     , seed = toPlutusTxOutRef testSeedInput
