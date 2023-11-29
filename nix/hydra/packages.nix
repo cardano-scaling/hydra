@@ -33,21 +33,27 @@ let
       (lib.stringLength placeholder == lib.stringLength rev)
       "Mismatching length of placeholder (${placeholder}) and rev (${rev})";
 
-    pkgs.runCommandCC "${exe}-with-revision" { } ''
-      set -e
+    # Using mkDerivation instead of runCommand to make sure to use the same
+    # stdenv as the original drv (important to determine targetPlatform).
+    drv.stdenv.mkDerivation {
+      name = "${exe}-with-revision";
+      phases = [ "buildPhase" ];
+      buildPhase = ''
+        set -e
 
-      echo "Patching embedded git revision in ${exe} to ${rev} ..."
+        echo "Patching embedded git revision in ${exe} to ${rev} ..."
 
-      # Ensure only one occurrence of placeholder
-      if [[ $(strings ${drv}/bin/${exe} | grep -c ${placeholder}) -ne 1 ]]; then
-        echo "Not exactly one occurrence of ${placeholder} in ${drv}/bin/${exe}!"
-        exit 1
-      fi
+        # Ensure only one occurrence of placeholder
+        if [[ $(grep -c -a ${placeholder} ${drv}/bin/${exe}) -ne 1 ]]; then
+          echo "Not exactly one occurrence of ${placeholder} in ${drv}/bin/${exe}!"
+          exit 1
+        fi
 
-      mkdir -p $out/bin
-      sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
-      chmod +x $out/bin/${exe}
-    '';
+        mkdir -p $out/bin
+        sed 's/${placeholder}/${rev}/' ${drv}/bin/${exe} > $out/bin/${exe}
+        chmod +x $out/bin/${exe}
+      '';
+    };
 
   nativePkgs = hydraProject.hsPkgs;
   # Allow reinstallation of terminfo as it's not installed with cross compilers.
