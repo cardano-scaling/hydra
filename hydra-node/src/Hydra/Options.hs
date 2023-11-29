@@ -633,11 +633,6 @@ data InvalidOptions
   | CardanoAndHydraKeysMissmatch
   deriving stock (Eq, Show)
 
-explain :: InvalidOptions -> String
-explain = \case
-  MaximumNumberOfPartiesExceeded -> "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
-  CardanoAndHydraKeysMissmatch -> "Number of loaded cardano and hydra keys needs to match"
-
 -- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
 -- Rules we apply:
 --  - Check if number of parties is bigger than our hardcoded limit

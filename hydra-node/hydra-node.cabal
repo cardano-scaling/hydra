@@ -285,6 +285,7 @@ test-suite tests
     Hydra.Network.ReliabilitySpec
     Hydra.NetworkSpec
     Hydra.Node.EventQueueSpec
+    Hydra.Node.RunSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec

@@ -10,14 +10,12 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Node.Run (run)
+import Hydra.Node.Run (run, explain)
 import Hydra.Options (
   Command (GenHydraKey, Publish, Run),
   PublishOptions (..),
   RunOptions (..),
-  explain,
   parseHydraCommand,
-  validateRunOptions,
  )
 import Hydra.Utils (genHydraKeys)
 
@@ -25,9 +23,8 @@ main :: IO ()
 main = do
   command <- parseHydraCommand
   case command of
-    Run options -> do
-      either (die . explain) pure $ validateRunOptions options
-      run (identifyNode options)
+    Run options ->
+      run (identifyNode options) `catch` (die . explain)
     Publish options ->
       publish options
     GenHydraKey outputFile ->

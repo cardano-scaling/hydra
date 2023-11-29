@@ -11,6 +11,7 @@ import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   toLedgerPParams,
  )
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -43,18 +44,31 @@ import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
+  InvalidOptions (..),
   LedgerConfig (..),
   RunOptions (..),
+  validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
 
-newtype ConfigurationException = ConfigurationException ProtocolParametersConversionError
+data ConfigurationException
+  = ConfigurationException ProtocolParametersConversionError
+  | InvalidOptionException InvalidOptions
   deriving stock (Show)
+  deriving anyclass (Exception)
 
-instance Exception ConfigurationException
+explain :: ConfigurationException -> String
+explain = \case
+  InvalidOptionException MaximumNumberOfPartiesExceeded ->
+    "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
+  InvalidOptionException CardanoAndHydraKeysMissmatch ->
+    "Number of loaded cardano and hydra keys needs to match"
+  ConfigurationException err ->
+    "Incorrect protocol parameters configuration provided: " <> show err
 
 run :: RunOptions -> IO ()
 run opts = do
+  either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
   env@Environment{party, otherParties, signingKey} <- initEnvironment opts
   withTracer verbosity $ \tracer' ->
