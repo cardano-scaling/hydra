@@ -48,10 +48,10 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 
-newtype ConfigurationParseException = ConfigurationParseException ProtocolParametersConversionError
+newtype ConfigurationException = ConfigurationException ProtocolParametersConversionError
   deriving stock (Show)
 
-instance Exception ConfigurationParseException
+instance Exception ConfigurationException
 
 run :: RunOptions -> IO ()
 run opts = do
@@ -64,7 +64,7 @@ run opts = do
       let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
       protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
-        Left err -> throwIO (ConfigurationParseException err)
+        Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
       withCardanoLedger chainConfig pparams $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
