@@ -774,7 +774,7 @@ observeRawInitTx tx = do
 
   initials =
     map
-      (\(i, o) -> (mkTxIn tx i, toCtxUTxOTxOut o))
+      (bimap (mkTxIn tx) toCtxUTxOTxOut)
       initialOutputs
 
   isInitial = isScriptTxOut initialScript
@@ -1057,7 +1057,7 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-data FanoutObservation = FanoutObservation {headId :: HeadId} deriving (Eq, Show)
+newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -1076,7 +1076,7 @@ observeFanoutTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
-data AbortObservation = AbortObservation {headId :: HeadId} deriving (Eq, Show)
+newtype AbortObservation = AbortObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
