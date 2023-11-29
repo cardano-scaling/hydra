@@ -18,6 +18,9 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
+      with:
+        # Also ensure we have all history with all tags
+        fetch-depth: 0
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -36,8 +39,12 @@ jobs:
       run: |
         nix build .#release
 
+    - name: 👀 Determine version
+      run: |
+        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: hydra-aarch64-darwin-${{ github.ref_name }}.zip
+        name: hydra-x86_64-linux-${{ env.VERSION }}.zip
         path: result/*.zip
