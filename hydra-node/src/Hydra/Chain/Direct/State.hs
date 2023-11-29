@@ -664,7 +664,7 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
     maybe (Left CannotFindHeadOutputToFanout) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
 
-  ClosedThreadOutput{closedThreadUTxO} <- checkHeadDatum headUTxO
+  closedThreadUTxO <- checkHeadDatum headUTxO
 
   pure $ fanoutTx scriptRegistry utxo closedThreadUTxO deadlineSlotNo headTokenScript
  where
@@ -694,18 +694,7 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
         fromScriptData headDatum
 
     case datum of
-      Head.Closed{contesters, parties, contestationDeadline} -> do
-        let closedThreadUTxO = headUTxO
-            closedParties = parties
-            closedContestationDeadline = contestationDeadline
-            closedContesters = contesters
-        pure $
-          ClosedThreadOutput
-            { closedThreadUTxO
-            , closedParties
-            , closedContestationDeadline
-            , closedContesters
-            }
+      Head.Closed{} -> pure headUTxO
       _ -> Left WrongDatumInFanout
 
 -- * Observing Transitions
