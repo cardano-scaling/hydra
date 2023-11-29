@@ -122,7 +122,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -590,8 +590,10 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
     case datum of
       Head.Closed{contesters, parties, contestationDeadline} -> do
         let closedThreadUTxO = headUTxO
-            closedParties = parties
+            closedParties = partyToChain ownParty : parties
             closedContestationDeadline = contestationDeadline
+            -- NOTE: we add only ownParty to 'closedParties', contester is added
+            -- to 'closedContesters' in closeTx
             closedContesters = contesters
         pure $
           ClosedThreadOutput
@@ -607,7 +609,7 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
-  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry, ownParty} = ctx
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -1103,7 +1105,8 @@ genContestTx = do
   let txClose = unsafeClose cctx openUTxO headId confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
-  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
+  someUtxo <- arbitrary
+  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) someUtxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId contestSnapshot contestPointInTime)
 
