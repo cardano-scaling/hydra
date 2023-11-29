@@ -2,7 +2,7 @@
 #
 # Produces static ELF binary using MuslC which includes all needed libraries
 # statically linked into it.
-name: Static executable
+name: Linux x86_64
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-executables:
-    name: "Build x86_64 static executables"
+    name: "Build x86_64-linux static executables"
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
