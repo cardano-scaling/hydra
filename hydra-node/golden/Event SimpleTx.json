@@ -5,37 +5,65 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "0fbfae9acbaa1b1ff2ff632011e03634bb77251ba4856fa2add72d46c86d762f3e5bbf3cf3b6baad8e82be944fc5e6667b64f7d8fc5146aca14a6e0a7d041904",
-                            "cdd6612f7203911a84038084d0cd64ece0de58749caa845a33258480e22ff1ddc6ba518ea39a7b69a36e89dd787f65e83bf162bf6592aa62e9120a39a300f90c",
-                            "7e0b6be1180661ef5fdc1304b621164c06a0ebdd3e388d76cb34744825190bcddb47e878d3a9cc003e2ed8a56c4a3fca509f0355216ffa022b073244e238be0e",
-                            "7114e8baf29d0119ff5ee45586cd3f9f3dafc6199f0c86a1e2600a53e178593a09bc17758211a23ae9738a41b3e3e22f3c2e8ad2ff1c3586560390c1509dfc01",
-                            "b27eb719a1c1db7f5508db0f9f5942edbb755473da13980ab5cc3263f57e1927e9e1191e04b3d5ee459be65221c9fcc33c7b03df462450b8b2de9d6210d62e07"
+                            "c55762ed7a18656335769014623b9414904f80cb7c4c14a0648b2262f2bbaf0f75db1de062b1cc244035bcf5387f7b15b9ffd9d9cab61a97c2947c33d3a12a07",
+                            "1f25af95901968a619e269a7e10ba569917c612f7666a02901a0b514547445f948f59d4207e874beb860c0021a51ed4235d5e53ddbe4b090826232da0dbe8e04",
+                            "09e685697235cf93ac9da056ca6ede4bd866b6e35088eade97a9fa455383ff34f142a207f499e1d22204330ff6df6a958247cede55ad9b36218301231e3e540b",
+                            "f2d33646a5511c31dbb211459bd57e010f3a8f4df196f89d8246deb924556beb7599616ac624ff06169eef705af8d0cf894b06b098eed2df5422a867ba308501",
+                            "7d31a1c796bb5d28a0eaff7729980502235ea6fe46a16c25e2afb1305680eff971410f531a5fd84eb9b29cfc91f4579f01550867d448ec5108193796bd9fba04",
+                            "b0cd14ce59db5321b4ce9357f85132caecee9142c859ea7dcbc300cbc7ba5bca479d5faa1cdf673e0378e92ceeaeb63580f236d727ecaf5c6ab5172cdeddab08"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "9d93288b56b4687abd52b59ebd470518",
-                        "snapshotNumber": 22,
+                        "headId": "456eb2e85f8812c64b7c7b2c826383b5",
+                        "snapshotNumber": 14,
                         "utxo": [
+                            -29,
+                            -28,
                             -27,
-                            -9,
-                            -6,
+                            -26,
+                            -24,
+                            -22,
+                            -19,
+                            -15,
+                            -5,
+                            0,
                             1,
-                            7,
-                            8,
-                            9,
+                            10,
+                            11,
+                            12,
+                            13,
                             16,
-                            27,
-                            30
+                            18,
+                            20,
+                            24,
+                            26
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
+                "headId": "c59608c612d55a0c882abaa18a1c250e",
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "byronAddress": "2RhQhCGqYPDnFEKdSSphE8JHbUqUL62AcCnxXP88TrLwoq4gDm7WYvQJXF2LpAPk9HJpvt1bcKvnNwfTPEtGXHP7BDUjjeHx7bnQPoDLHr3TrB",
-                "tag": "UnsupportedLegacyOutput"
+                "knownUTxO": [
+                    -27,
+                    -23,
+                    -17,
+                    -16,
+                    -13,
+                    -9,
+                    -3,
+                    2,
+                    5,
+                    10,
+                    11,
+                    16,
+                    17,
+                    21,
+                    27
+                ],
+                "tag": "CannotFindOwnInitial"
             },
             "tag": "PostTxError"
         },
