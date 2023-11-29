@@ -10,7 +10,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Node.Run (run, explain)
+import Hydra.Node.Run (explain, run)
 import Hydra.Options (
   Command (GenHydraKey, Publish, Run),
   PublishOptions (..),
