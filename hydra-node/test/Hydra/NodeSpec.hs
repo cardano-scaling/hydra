@@ -48,7 +48,7 @@ import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId, testHeadSeed)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId, testHeadSeed)
 
 spec :: Spec
 spec = parallel $ do
@@ -108,12 +108,12 @@ spec = parallel $ do
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
       let events = [ClientEvent Init]
-      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
+      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
 
       runToCompletion tracer node
 
       outputs <- getServerOutputs
-      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters cperiod [alice, bob, carol]) NoSeedInput]
+      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters defaultContestationPeriod [alice, bob, carol]) NoSeedInput]
 
   it "signs snapshot even if it has seen conflicting transactions" $
     failAfter 1 $
@@ -155,7 +155,7 @@ spec = parallel $ do
             { party = alice
             , signingKey = aliceSk
             , otherParties = [bob]
-            , contestationPeriod = cperiod
+            , contestationPeriod = defaultContestationPeriod
             }
         headState = inInitialState [alice, bob]
 
@@ -206,7 +206,7 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ observationEvent $ OnInitTx testHeadId testHeadSeed cperiod [alice, bob, carol]
+  [ observationEvent $ OnInitTx testHeadId testHeadSeed defaultContestationPeriod [alice, bob, carol]
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)
   , observationEvent $ OnCommitTx alice (utxoRef 1)

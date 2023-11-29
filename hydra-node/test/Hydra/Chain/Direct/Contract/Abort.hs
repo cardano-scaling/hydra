@@ -41,8 +41,8 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (STNotBurned))
 import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
+import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, partyToChain)
-import Test.Hydra.Fixture (cperiod)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
 
 --
@@ -87,7 +87,7 @@ healthyHeadInput = generateWith arbitrary 42
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
   HeadParameters
-    { contestationPeriod = cperiod
+    { contestationPeriod = defaultContestationPeriod
     , parties = healthyParties
     }
 

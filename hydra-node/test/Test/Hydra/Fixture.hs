@@ -4,7 +4,6 @@ module Test.Hydra.Fixture where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (SigningKey, VerificationKey, getVerificationKey)
-import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Party (Party (vkey), deriveParty)
@@ -26,10 +25,6 @@ carolVk = getVerificationKey carolSk
 
 allVKeys :: [VerificationKey HydraKey]
 allVKeys = vkey <$> [alice, bob, carol]
-
--- TODO: revisit and see if we can use 'defaultContestationPeriod' instead
-cperiod :: ContestationPeriod
-cperiod = UnsafeContestationPeriod 60
 
 testHeadId :: HeadId
 testHeadId = UnsafeHeadId "1234"

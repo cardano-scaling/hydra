@@ -59,7 +59,7 @@ import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, testHeadId, testHeadSeed)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
@@ -481,7 +481,7 @@ spec =
             st0 =
               Open
                 OpenState
-                  { parameters = HeadParameters cperiod threeParties
+                  { parameters = HeadParameters defaultContestationPeriod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
                         { localUTxO = UTxO.singleton utxo
@@ -597,7 +597,7 @@ inInitialState parties =
       , headSeed = testHeadSeed
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
 inOpenState ::
   [Party] ->
@@ -631,7 +631,7 @@ inOpenState' parties coordinatedHeadState =
       , currentSlot = chainSlot
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
   chainSlot = ChainSlot 0
 
@@ -654,7 +654,7 @@ inClosedState' parties confirmedSnapshot =
       , headSeed = testHeadSeed
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
 
