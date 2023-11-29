@@ -39,4 +39,5 @@ jobs:
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
+        name: hydra-x86_64-linux-${{ github.ref_name }}.zip
         path: result/*.zip
