@@ -1,7 +1,7 @@
 # Build executables to be used on MacOS with Apple silicon (aarch64) CPUs.
 #
-# As the Darwin platform is not great for static linking, we stick with
-# dynamically linked binaries and also package the nix-provided .dylib libraries.
+# Produces a dynamic Mach-O binary which is still dynamically linked against
+# system dependencies, but all third-party libraries are statically linked.
 name: MacOS ARM64
 
 on:
@@ -34,17 +34,9 @@ jobs:
 
     - name: ❄ Build executables
       run: |
-        mkdir -p bin/
-        nix build .#hydra-node && cp result/bin/* bin/
-        nix build .#hydra-tui && cp result/bin/* bin/
-
-    - name: ❄ Collect runtime libraries from /nix/store
-      run: |
-        otool -L bin/hydra-node | grep "/nix/store/" | cut -d ' ' -f 1 | xargs -I{} cp {} bin/
+        nix build .#release
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: hydra-aarch64-darwin
-        path: |
-          ./bin
+        path: result/*.zip

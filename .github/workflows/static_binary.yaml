@@ -1,6 +1,6 @@
 # Build executables that can be used on any Linux with 64bit CPUs.
 #
-# We compile a single executable using MuslC which includes all needed libraries
+# Produces static ELF binary using MuslC which includes all needed libraries
 # statically linked into it.
 name: Static executable
 
@@ -34,13 +34,9 @@ jobs:
 
     - name: ❄ Build static executables
       run: |
-        mkdir -p bin/
-        nix build .#hydra-node-static && cp result/bin/* bin/
-        nix build .#hydra-tui-static && cp result/bin/* bin/
+        nix build .#release-static
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: hydra-x86_64-unknown-linux-musl
-        path: |
-          ./bin
+        path: result/*.zip

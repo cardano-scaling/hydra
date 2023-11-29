@@ -61,6 +61,11 @@ rec {
       { name = "hydra-${pkgs.hostPlatform.system}"; }
       [ hydra-node hydra-tui ];
 
+  release-static =
+    packaging.asZip
+      { name = "hydra-${pkgs.hostPlatform.system}"; }
+      [ hydra-node-static hydra-tui-static ];
+
   hydra-node =
     embedRevision
       nativePkgs.hydra-node.components.exes.hydra-node
