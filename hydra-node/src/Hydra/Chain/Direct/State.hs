@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScriptV2,
+  PolicyId,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
@@ -448,24 +449,17 @@ abort ::
 abort ctx seedTxIn spendableUTxO committedUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToAbort) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
+
   abortTx committedUTxO scriptRegistry ownVerificationKey headUTxO headTokenScript initials commits
  where
+  utxoOfThisHead' = utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO
+
   initials =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut initialScript) utxoOfThisHead
+    UTxO.toMap $ UTxO.filter (isScriptTxOut initialScript) utxoOfThisHead'
 
   commits =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
-
-  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
-
-  hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
-
-  isHeadToken (assetId, quantity) =
-    case assetId of
-      AdaAssetId -> False
-      AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
+    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
   commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
 
@@ -493,25 +487,16 @@ collect ::
 collect ctx headId spendableUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
 
   let headAddress = mkScriptAddress @PlutusScriptV2 networkId headScript
       commits =
-        UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead
+        UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
   pure $
     collectComTx headAddress scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
  where
-  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
-
-  hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
-
-  -- This can be either ST or a PT, only the head policy needs to match
-  isHeadToken (assetId, quantity) =
-    case assetId of
-      AdaAssetId -> False
-      AssetId pid _ -> pid == headIdToPolicyId headId && quantity == 1
+  utxoOfThisHead' = utxoOfThisHead (headIdToPolicyId headId) spendableUTxO
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -539,7 +524,7 @@ close ::
 close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToClose) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
   (parties, contestationPeriod) <- extractHeadParameters headUTxO
   let openThreadOutput =
         OpenThreadOutput
@@ -561,6 +546,7 @@ close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime = do
     case datum of
       Head.Closed{parties, contestationPeriod} -> pure (parties, contestationPeriod)
       _ -> Left WrongDatumInClose
+
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   closingSnapshot = case confirmedSnapshot of
@@ -574,16 +560,6 @@ close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime = do
         }
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
-
-  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
-
-  hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
-
-  isHeadToken (assetId, quantity) =
-    case assetId of
-      AdaAssetId -> False
-      AssetId pid _ -> pid == headIdToPolicyId headId && quantity == 1
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and
@@ -599,7 +575,7 @@ contest ::
 contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToContest) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
   closedThreadOutput <- checkHeadDatum headUTxO
   pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
@@ -636,16 +612,6 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
-
-  hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
-
-  isHeadToken (assetId, quantity) =
-    case assetId of
-      AdaAssetId -> False
-      AssetId pid _ -> pid == headIdToPolicyId headId && quantity == 1
-
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
 fanout ::
@@ -662,7 +628,7 @@ fanout ::
 fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToFanout) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
 
   closedThreadUTxO <- checkHeadDatum headUTxO
 
@@ -673,16 +639,6 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
   ChainContext{scriptRegistry} = ctx
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
-
-  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
-
-  hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
-
-  isHeadToken (assetId, quantity) =
-    case assetId of
-      AdaAssetId -> False
-      AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-
@@ -696,6 +652,20 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
     case datum of
       Head.Closed{} -> pure headUTxO
       _ -> Left WrongDatumInFanout
+
+-- * Helpers
+
+utxoOfThisHead :: PolicyId -> UTxO -> UTxO
+utxoOfThisHead policy spendableUTxO =
+  UTxO.filter hasHeadToken spendableUTxO
+ where
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == policy && quantity == 1
 
 -- * Observing Transitions
 
