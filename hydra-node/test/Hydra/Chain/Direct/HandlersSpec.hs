@@ -136,7 +136,7 @@ spec = do
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (initHistory ChainStateAt{chainState = getKnownUTxO st, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = getKnownUTxO st, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->

@@ -152,7 +152,7 @@ mkChain ::
 mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
-        chainS@ChainStateAt{chainState} <- atomically getLatest
+        chainS@ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
@@ -167,12 +167,12 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
           -- to bootstrap the init transaction. For now, we bear with it and
           -- keep the static keys in context.
           atomically (prepareTxToPost timeHandle wallet ctx chainS tx)
-            >>= finalizeTx wallet ctx chainState mempty
+            >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
       draftCommitTx = \headId utxoToCommit -> do
-        ChainStateAt{chainState} <- atomically getLatest
+        ChainStateAt{spendableUTxO} <- atomically getLatest
         walletUtxos <- atomically getUTxO
         let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
         let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
@@ -180,8 +180,8 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
         -- prevent trying to spend internal wallet's utxo
         if null matchedWalletUtxo
           then
-            traverse (finalizeTx wallet ctx chainState (fst <$> utxoToCommit)) $
-              commit' ctx headId chainState utxoToCommit
+            traverse (finalizeTx wallet ctx spendableUTxO (fst <$> utxoToCommit)) $
+              commit' ctx headId spendableUTxO utxoToCommit
           else pure $ Left SpendingNodeUtxoForbidden
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
@@ -308,16 +308,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             )
 
   maybeObserveSomeTx point tx = atomically $ do
-    ChainStateAt{chainState} <- getLatest
-    -- TODO: rename chainState to utxo
-    let utxo = chainState
-    let observation = observeHeadTx networkId utxo tx
+    ChainStateAt{spendableUTxO} <- getLatest
+    let observation = observeHeadTx networkId spendableUTxO tx
     case convertObservation observation of
       Nothing -> pure Nothing
       Just observedTx -> do
         let newChainState =
               ChainStateAt
-                { chainState = adjustUTxO tx utxo
+                { spendableUTxO = adjustUTxO tx spendableUTxO
                 , recordedAt = Just point
                 }
         pushNew newChainState
@@ -360,7 +358,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStateAt{chainState} tx =
+prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStateAt{spendableUTxO} tx =
   case tx of
     InitTx params ->
       getSeedInput wallet >>= \case
@@ -373,7 +371,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case abort ctx seedTxIn chainState utxo of
+          case abort ctx seedTxIn spendableUTxO utxo of
             Left _ -> throwIO (FailedToConstructAbortTx @Tx)
             Right abortTx -> pure abortTx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
@@ -384,19 +382,19 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
     CollectComTx{headId} ->
-      case collect ctx headId chainState of
+      case collect ctx headId spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
     CloseTx{headId, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      case close ctx chainState headId confirmedSnapshot currentSlot upperBound of
+      case close ctx spendableUTxO headId confirmedSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      case contest ctx chainState headId confirmedSnapshot upperBound of
+      case contest ctx spendableUTxO headId confirmedSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
     FanoutTx{utxo, headSeed, contestationDeadline} -> do
@@ -405,7 +403,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case fanout ctx chainState seedTxIn utxo deadlineSlot of
+          case fanout ctx spendableUTxO seedTxIn utxo deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
             Right fanoutTx -> pure fanoutTx
  where
