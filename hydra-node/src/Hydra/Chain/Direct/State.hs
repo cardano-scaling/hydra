@@ -13,46 +13,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((\\))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Hydra.Cardano.Api (
-  AssetId (..),
-  AssetName (AssetName),
-  ChainPoint (..),
-  CtxUTxO,
-  Key (SigningKey, VerificationKey, verificationKeyHash),
-  KeyWitnessInCtx (..),
-  NetworkId (Mainnet, Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  PlutusScriptV2,
-  Quantity (..),
-  SerialiseAsRawBytes (serialiseToRawBytes),
-  SlotNo (SlotNo),
-  Tx,
-  TxIn,
-  TxOut,
-  UTxO,
-  UTxO' (UTxO),
-  WitCtxTxIn,
-  Witness,
-  chainPointToSlotNo,
-  fromPlutusScript,
-  genTxIn,
-  isScriptTxOut,
-  modifyTxOutValue,
-  selectAsset,
-  selectLovelace,
-  txIns',
-  txOutReferenceScript,
-  txOutValue,
-  valueFromList,
-  valueToList,
-  pattern ByronAddressInEra,
-  pattern KeyWitness,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
-  pattern ShelleyAddressInEra,
-  pattern TxOut,
- )
+import Hydra.Cardano.Api (AssetId (..), AssetName (AssetName), ChainPoint (..), CtxUTxO, Key (SigningKey, VerificationKey, verificationKeyHash), KeyWitnessInCtx (..), NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic), PaymentKey, PlutusScriptV2, Quantity (..), SerialiseAsRawBytes (serialiseToRawBytes), SlotNo (SlotNo), Tx, TxIn, TxOut, UTxO, UTxO' (UTxO), WitCtxTxIn, Witness, chainPointToSlotNo, findRedeemerSpending, fromPlutusScript, fromScriptData, genTxIn, isScriptTxOut, modifyTxOutValue, selectAsset, selectLovelace, toTxContext, txIns', txOutReferenceScript, txOutScriptData, txOutValue, valueFromList, valueToList, pattern ByronAddressInEra, pattern KeyWitness, pattern ReferenceScript, pattern ReferenceScriptNone, pattern ShelleyAddressInEra, pattern TxOut)
 import Hydra.Cardano.Api.AddressInEra (mkScriptAddress)
 import Hydra.Chain (
   ChainStateType,
@@ -108,6 +69,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey)
@@ -585,20 +547,33 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToContest) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead
-
-  let closedThreadUTxO = headUTxO
-      closedParties = Party.partyToChain <$> [undefined]
-      closedContestationDeadline = undefined
-      closedContesters = undefined
-      closedThreadOutput =
-        ClosedThreadOutput
-          { closedThreadUTxO
-          , closedParties
-          , closedContestationDeadline
-          , closedContesters
-          }
+  closedThreadOutput <- checkHeadDatum headUTxO
   pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
+  checkHeadDatum headUTxO@(_, headOutput) = do
+    headDatum <-
+      maybe (Left MissingHeadDatumInContest) pure $
+        txOutScriptData $
+          toTxContext headOutput
+    datum <-
+      maybe (Left FailedToConvertFromScriptDataInContest) pure $
+        fromScriptData headDatum
+
+    case datum of
+      Head.Closed{contesters, parties, contestationDeadline} -> do
+        let closedThreadUTxO = headUTxO
+            closedParties = parties
+            closedContestationDeadline = contestationDeadline
+            closedContesters = contesters
+        pure $
+          ClosedThreadOutput
+            { closedThreadUTxO
+            , closedParties
+            , closedContestationDeadline
+            , closedContesters
+            }
+      _ -> Left WrongDatumInContest
+
   (sn, sigs) =
     case confirmedSnapshot of
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
@@ -1137,7 +1112,7 @@ genStClosed ctx utxo = do
 -- ** Danger zone
 
 unsafeCommit ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   HeadId ->
   -- | Spendable 'UTxO'
@@ -1149,7 +1124,7 @@ unsafeCommit ctx headId spendableUTxO utxoToCommit =
   either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
 
 unsafeAbort ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Seed TxIn
   TxIn ->
@@ -1162,7 +1137,7 @@ unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
 
 unsafeClose ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1187,7 +1162,7 @@ unsafeCollect ctx headId spendableUTxO =
   either (error . show) id $ collect ctx headId spendableUTxO
 
 unsafeContest ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1199,7 +1174,7 @@ unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
   either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
 
 unsafeObserveInit ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   Tx ->
   InitialState
@@ -1211,7 +1186,7 @@ unsafeObserveInit cctx txInit =
 -- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
 -- returns just 'UTXO' instead of [UTxO]
 unsafeObserveInitAndCommits ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   Tx ->
   [Tx] ->

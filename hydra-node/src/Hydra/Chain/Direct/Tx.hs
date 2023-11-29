@@ -412,7 +412,12 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
-data ContestTxError = CannotFindHeadOutputToContest
+data ContestTxError
+  = CannotFindHeadOutputToContest
+  | MissingHeadDatumInContest
+  | MissingHeadRedeemerInContest
+  | WrongDatumInContest
+  | FailedToConvertFromScriptDataInContest
   deriving stock (Show)
 
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
@@ -1089,7 +1094,7 @@ headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 headIdToPolicyId :: HeadId -> PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 
-headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
+headSeedToTxIn :: (MonadFail m) => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
     Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
@@ -1112,7 +1117,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
