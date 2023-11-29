@@ -24,7 +24,6 @@ import Hydra.Chain.Direct.State (
   commit,
   ctxHeadParameters,
   ctxHydraSigningKeys,
-  fanout,
   genCloseTx,
   genCommits,
   genCommits',
@@ -42,6 +41,7 @@ import Hydra.Chain.Direct.State (
   unsafeClose,
   unsafeCollect,
   unsafeContest,
+  unsafeFanout,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
@@ -221,7 +221,7 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen@OpenState{headId, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
+    (_committed, stOpen@OpenState{headId, seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = contestationPeriod cctx
@@ -230,7 +230,7 @@ computeFanOutCost = do
         closeTx = unsafeClose cctx spendableUTxO headId snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-    pure (utxo, fanout cctx stClosed utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (utxo, unsafeFanout cctx spendableUTxO seedTxIn utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)

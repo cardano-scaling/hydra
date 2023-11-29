@@ -84,6 +84,7 @@ import Hydra.Chain.Direct.Tx (
   ContestObservation (..),
   ContestTxError (..),
   FanoutObservation (FanoutObservation),
+  FanoutTxError (..),
   InitObservation (..),
   InitialThreadOutput (..),
   NotAnInit (..),
@@ -649,21 +650,63 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
 -- agreed 'UTxO' set to fan out.
 fanout ::
   ChainContext ->
-  ClosedState ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Snapshot UTxO to fanout
   UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
-  Tx
-fanout ctx st utxo deadlineSlotNo = do
-  fanoutTx scriptRegistry utxo closedThreadUTxO deadlineSlotNo headTokenScript
+  Either FanoutTxError Tx
+fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
+  headUTxO <-
+    maybe (Left CannotFindHeadOutputToFanout) pure $
+      UTxO.find (isScriptTxOut headScript) utxoOfThisHead
+
+  ClosedThreadOutput{closedThreadUTxO} <- checkHeadDatum headUTxO
+
+  pure $ fanoutTx scriptRegistry utxo closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{scriptRegistry} = ctx
 
-  ClosedState{closedThreadOutput, seedTxIn} = st
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  ClosedThreadOutput{closedThreadUTxO} = closedThreadOutput
+  utxoOfThisHead = UTxO.filter hasHeadToken spendableUTxO
+
+  hasHeadToken =
+    isJust . find isHeadToken . valueToList . txOutValue
+
+  isHeadToken (assetId, quantity) =
+    case assetId of
+      AdaAssetId -> False
+      AssetId pid _ -> pid == headPolicyId seedTxIn && quantity == 1
+
+  checkHeadDatum headUTxO@(_, headOutput) = do
+    headDatum <-
+      maybe (Left MissingHeadDatumInFanout) pure $
+        txOutScriptData $
+          toTxContext headOutput
+    datum <-
+      maybe (Left FailedToConvertFromScriptDataInFanout) pure $
+        fromScriptData headDatum
+
+    case datum of
+      Head.Closed{contesters, parties, contestationDeadline} -> do
+        let closedThreadUTxO = headUTxO
+            closedParties = parties
+            closedContestationDeadline = contestationDeadline
+            closedContesters = contesters
+        pure $
+          ClosedThreadOutput
+            { closedThreadUTxO
+            , closedParties
+            , closedContestationDeadline
+            , closedContesters
+            }
+      _ -> Left WrongDatumInFanout
 
 -- * Observing Transitions
 
@@ -1108,10 +1151,11 @@ genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
-  (_, toFanout, stClosed) <- genStClosed ctx utxo
+  (_, toFanout, stClosed@ClosedState{seedTxIn, closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}}) <- genStClosed ctx utxo
   cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-  pure (ctx, stClosed, fanout cctx stClosed toFanout deadlineSlotNo)
+      spendableUTxO = UTxO.singleton closedThreadUTxO
+  pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
@@ -1220,6 +1264,21 @@ unsafeContest ::
   Tx
 unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
   either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
+
+unsafeFanout ::
+  HasCallStack =>
+  ChainContext ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Snapshot UTxO to fanout
+  UTxO ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
+  Tx
+unsafeFanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

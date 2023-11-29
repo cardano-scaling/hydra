@@ -399,9 +399,15 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
       case contest ctx chainState headId confirmedSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{utxo, contestationDeadline} -> do
+    FanoutTx{utxo, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      pure (fanout ctx (error "TODO: create fanoutTx using a UTxO only, along with some other parameters") utxo deadlineSlot)
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case fanout ctx chainState seedTxIn utxo deadlineSlot of
+            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
+            Right fanoutTx -> pure fanoutTx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure

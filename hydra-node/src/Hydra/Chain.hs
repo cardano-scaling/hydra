@@ -72,7 +72,7 @@ data PostChainTx tx
   | CollectComTx {headId :: HeadId}
   | CloseTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
-  | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
+  | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -151,6 +151,7 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructFanoutTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

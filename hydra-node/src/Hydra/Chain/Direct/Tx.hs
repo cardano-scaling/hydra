@@ -499,6 +499,13 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+data FanoutTxError
+  = CannotFindHeadOutputToFanout
+  | MissingHeadDatumInFanout
+  | WrongDatumInFanout
+  | FailedToConvertFromScriptDataInFanout
+  deriving stock (Show)
+
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.

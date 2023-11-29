@@ -60,7 +60,6 @@ import Hydra.Chain.Direct.State (
   commit,
   ctxHeadParameters,
   ctxParties,
-  fanout,
   genChainStateWithTx,
   genCloseTx,
   genCollectComTx,
@@ -83,6 +82,7 @@ import Hydra.Chain.Direct.State (
   unsafeClose,
   unsafeCollect,
   unsafeCommit,
+  unsafeFanout,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.Tx (
@@ -415,7 +415,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let initialUTxO = fold committed
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
   let txCollect = unsafeCollect cctx initialHeadId utxo
-  stOpen@OpenState{openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
+  stOpen@OpenState{seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let spendableUTxO = UTxO.singleton openThreadUTxO
@@ -424,7 +424,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let txFanout = unsafeFanout cctx spendableUTxO seedTxIn initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =

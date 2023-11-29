@@ -625,13 +625,13 @@ onClosedClientFanout closedState =
   Effects
     [ OnChainEffect
         { postChainTx =
-            FanoutTx{utxo, contestationDeadline}
+            FanoutTx{utxo, headSeed, contestationDeadline}
         }
     ]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
 
-  ClosedState{confirmedSnapshot, contestationDeadline} = closedState
+  ClosedState{headSeed, confirmedSnapshot, contestationDeadline} = closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -837,6 +837,7 @@ aggregate st = \case
               { confirmedSnapshot
               }
           , headId
+          , headSeed
           } ->
           Closed
             ClosedState
@@ -846,6 +847,7 @@ aggregate st = \case
               , readyToFanoutSent = False
               , chainState
               , headId
+              , headSeed
               }
       _otherState -> st
   HeadFannedOut{chainState} ->
