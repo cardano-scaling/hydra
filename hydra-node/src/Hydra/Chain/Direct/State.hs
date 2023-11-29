@@ -1088,7 +1088,8 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  pure (cctx, stOpen, unsafeClose cctx u0 headId snapshot startSlot pointInTime, snapshot)
+  let utxo = getKnownUTxO stOpen
+  pure (cctx, stOpen, unsafeClose cctx utxo headId snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -1098,9 +1099,10 @@ genContestTx = do
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = unsafeClose cctx u0 headId confirmed startSlot closePointInTime
+  let openUTxO = getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
-  utxo <- arbitrary
+  let utxo = getKnownUTxO stClosed
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) utxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId contestSnapshot contestPointInTime)
@@ -1109,10 +1111,10 @@ genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
-  (_, toFanout, stClosed@ClosedState{seedTxIn, closedThreadOutput = ClosedThreadOutput{closedThreadUTxO}}) <- genStClosed ctx utxo
+  (_, toFanout, stClosed@ClosedState{seedTxIn}) <- genStClosed ctx utxo
   cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-      spendableUTxO = UTxO.singleton closedThreadUTxO
+      spendableUTxO = getKnownUTxO stClosed
   pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
@@ -1157,13 +1159,14 @@ genStClosed ctx utxo = do
   cctx <- pickChainContext ctx
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let txClose = unsafeClose cctx u0 headId snapshot startSlot pointInTime
+  let utxo' = getKnownUTxO stOpen
+  let txClose = unsafeClose cctx utxo' headId snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
 
 unsafeCommit ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   HeadId ->
   -- | Spendable 'UTxO'
@@ -1175,7 +1178,7 @@ unsafeCommit ctx headId spendableUTxO utxoToCommit =
   either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
 
 unsafeAbort ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Seed TxIn
   TxIn ->
@@ -1188,7 +1191,7 @@ unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
 
 unsafeClose ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1212,7 +1215,7 @@ unsafeCollect ctx headId spendableUTxO =
   either (error . show) id $ collect ctx headId spendableUTxO
 
 unsafeContest ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1224,7 +1227,7 @@ unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
   either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
 
 unsafeFanout ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1239,7 +1242,7 @@ unsafeFanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo =
   either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo
 
 unsafeObserveInit ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   Tx ->
   InitialState
@@ -1251,7 +1254,7 @@ unsafeObserveInit cctx txInit =
 -- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
 -- returns just 'UTXO' instead of [UTxO]
 unsafeObserveInitAndCommits ::
-  HasCallStack =>
+  (HasCallStack) =>
   ChainContext ->
   Tx ->
   [Tx] ->
