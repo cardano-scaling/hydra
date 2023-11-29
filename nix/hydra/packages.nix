@@ -9,6 +9,8 @@
 let
   lib = pkgs.lib;
 
+  packaging = import ../packaging.nix { inherit pkgs; };
+
   # Creates a fixed length string by padding with given filler as suffix.
   padSuffix = width: filler: str:
     let
@@ -54,6 +56,11 @@ let
   musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 in
 rec {
+  release =
+    packaging.asZip
+      { name = "hydra-${pkgs.hostPlatform.system}"; }
+      [ hydra-node hydra-tui ];
+
   hydra-node =
     embedRevision
       nativePkgs.hydra-node.components.exes.hydra-node
@@ -77,6 +84,7 @@ rec {
       nativePkgs.hydra-tui.components.exes.hydra-tui
       "hydra-tui"
       paddedRevision;
+
   hydra-tui-static =
     embedRevision
       musl64Pkgs.hydra-tui.components.exes.hydra-tui
@@ -84,6 +92,7 @@ rec {
       paddedRevision;
 
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
+
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
   tests = {
