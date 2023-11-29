@@ -89,7 +89,6 @@ import Hydra.Chain.Direct.Tx (
   ClosedThreadOutput (closedContesters),
   HeadObservation (NoHeadTx),
   NotAnInitReason (..),
-  OpenThreadOutput (..),
   observeCommitTx,
   observeHeadTx,
   observeRawInitTx,
@@ -415,16 +414,17 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let initialUTxO = fold committed
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
   let txCollect = unsafeCollect cctx initialHeadId utxo
-  stOpen@OpenState{seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
+  stOpen@OpenState{seedTxIn, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let spendableUTxO = UTxO.singleton openThreadUTxO
-      txClose = unsafeClose cctx spendableUTxO headId InitialSnapshot{headId, initialUTxO} closeLower closeUpper
+  let closeUTxO = getKnownUTxO stOpen
+      txClose = unsafeClose cctx closeUTxO headId InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = unsafeFanout cctx spendableUTxO seedTxIn initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let fanoutUTxO = getKnownUTxO stClosed
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =
@@ -480,7 +480,7 @@ propIsValid forAllTx =
 -- 'Gen' or functions in 'PropertyM' are better combinable?
 
 forAllInit ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllInit action =
@@ -498,7 +498,7 @@ forAllInit action =
                 "2+ parties"
 
 forAllCommit ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllCommit action =
@@ -507,7 +507,7 @@ forAllCommit action =
      in action utxo tx
 
 forAllCommit' ::
-  Testable property =>
+  (Testable property) =>
   (ChainContext -> InitialState -> UTxO -> Tx -> property) ->
   Property
 forAllCommit' action = do
@@ -526,7 +526,7 @@ forAllCommit' action = do
                 "Non-empty commit"
 
 forAllAbort ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllAbort action = do
@@ -549,7 +549,7 @@ forAllAbort action = do
                   "Abort after all commits"
 
 forAllCollectCom ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
@@ -559,7 +559,7 @@ forAllCollectCom action =
           & counterexample ("Committed UTxO: " <> show committedUTxO)
 
 forAllClose ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllClose action = do
@@ -570,7 +570,7 @@ forAllClose action = do
           & label (Prelude.head . Prelude.words . show $ sn)
 
 forAllContest ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
@@ -610,7 +610,7 @@ forAllContest action =
   getClosedContesters = closedContesters . closedThreadOutput
 
 forAllFanout ::
-  Testable property =>
+  (Testable property) =>
   (UTxO -> Tx -> property) ->
   Property
 forAllFanout action =
@@ -641,7 +641,7 @@ genInitTxWithSeed ctx = do
 
 -- * Helpers
 
-mfail :: MonadFail m => Maybe a -> m a
+mfail :: (MonadFail m) => Maybe a -> m a
 mfail = \case
   Nothing -> fail "encountered Nothing"
   Just a -> pure a
