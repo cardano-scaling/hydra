@@ -254,28 +254,24 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             let params = HeadParameters cperiod [alice]
             postTx $ InitTx params
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
-            postTx $ CollectComTx someUTxO
-            openUTxO <-
-              aliceChain
-                `observesInTimeSatisfying` ( \case
-                                              OnCollectComTx{collected} -> pure collected
-                                              _ -> pure mempty
-                                           )
+            postTx $ CollectComTx headId
+            aliceChain `observesInTime` OnCollectComTx{headId}
+
 
             let snapshot =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = openUTxO
+                    , utxo = someUTxO
                     , confirmed = []
                     }
 
-            postTx . CloseTx headId params $
+            postTx . CloseTx headId $
               ConfirmedSnapshot
                 { snapshot
                 , signatures = aggregate [sign aliceSk snapshot]
@@ -298,6 +294,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $
               FanoutTx
                 { utxo = someUTxO
+                , headSeed
                 , contestationDeadline = deadline
                 }
             aliceChain `observesInTime` OnFanoutTx
@@ -388,11 +385,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
-            postTx $ CollectComTx someUTxO
+            postTx $ CollectComTx headId
             -- Head is open with someUTxO
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx headId params InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headId InitialSnapshot{headId, initialUTxO = someUTxO}
             waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber}}
                 | snapshotNumber == 0 -> Just ()
