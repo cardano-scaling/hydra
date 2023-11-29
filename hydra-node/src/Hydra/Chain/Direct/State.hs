@@ -13,7 +13,49 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((\\))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Hydra.Cardano.Api (AssetId (..), AssetName (AssetName), ChainPoint (..), CtxUTxO, Key (SigningKey, VerificationKey, verificationKeyHash), KeyWitnessInCtx (..), NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic), PaymentKey, PlutusScriptV2, Quantity (..), SerialiseAsRawBytes (serialiseToRawBytes), SlotNo (SlotNo), Tx, TxIn, TxOut, UTxO, UTxO' (UTxO), WitCtxTxIn, Witness, chainPointToSlotNo, findRedeemerSpending, fromPlutusScript, fromScriptData, genTxIn, isScriptTxOut, modifyTxOutValue, selectAsset, selectLovelace, toTxContext, txIns', txOutReferenceScript, txOutScriptData, txOutValue, valueFromList, valueToList, pattern ByronAddressInEra, pattern KeyWitness, pattern ReferenceScript, pattern ReferenceScriptNone, pattern ShelleyAddressInEra, pattern TxOut)
+import Hydra.Cardano.Api (
+  AssetId (..),
+  AssetName (AssetName),
+  ChainPoint (..),
+  CtxUTxO,
+  Key (SigningKey, VerificationKey, verificationKeyHash),
+  KeyWitnessInCtx (..),
+  NetworkId (Mainnet, Testnet),
+  NetworkMagic (NetworkMagic),
+  PaymentKey,
+  PlutusScriptV2,
+  Quantity (..),
+  SerialiseAsRawBytes (serialiseToRawBytes),
+  SlotNo (SlotNo),
+  Tx,
+  TxIn,
+  TxOut,
+  UTxO,
+  UTxO' (UTxO),
+  WitCtxTxIn,
+  Witness,
+  chainPointToSlotNo,
+  fromPlutusScript,
+  fromScriptData,
+  genTxIn,
+  isScriptTxOut,
+  modifyTxOutValue,
+  selectAsset,
+  selectLovelace,
+  toTxContext,
+  txIns',
+  txOutReferenceScript,
+  txOutScriptData,
+  txOutValue,
+  valueFromList,
+  valueToList,
+  pattern ByronAddressInEra,
+  pattern KeyWitness,
+  pattern ReferenceScript,
+  pattern ReferenceScriptNone,
+  pattern ShelleyAddressInEra,
+  pattern TxOut,
+ )
 import Hydra.Cardano.Api.AddressInEra (mkScriptAddress)
 import Hydra.Chain (
   ChainStateType,
@@ -698,11 +740,11 @@ observeCollect ::
 observeCollect st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCollectComTx utxo tx
-  let CollectComObservation{threadOutput = threadOutput@OpenThreadOutput{openThreadUTxO}, headId = collectComHeadId, utxoHash} = observation
+  let CollectComObservation{threadOutput = threadOutput, headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
   -- REVIEW: is it enough to pass here just the 'openThreadUTxO' or we need also
   -- the known utxo (getKnownUTxO st)?
-  let event = OnCollectComTx{collected = UTxO.singleton openThreadUTxO, headId}
+  let event = OnCollectComTx{headId}
   let st' =
         OpenState
           { openThreadOutput = threadOutput
@@ -1112,7 +1154,7 @@ genStClosed ctx utxo = do
 -- ** Danger zone
 
 unsafeCommit ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   HeadId ->
   -- | Spendable 'UTxO'
@@ -1124,7 +1166,7 @@ unsafeCommit ctx headId spendableUTxO utxoToCommit =
   either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
 
 unsafeAbort ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Seed TxIn
   TxIn ->
@@ -1137,7 +1179,7 @@ unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
 
 unsafeClose ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1162,7 +1204,7 @@ unsafeCollect ctx headId spendableUTxO =
   either (error . show) id $ collect ctx headId spendableUTxO
 
 unsafeContest ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1174,7 +1216,7 @@ unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
   either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
 
 unsafeObserveInit ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   Tx ->
   InitialState
@@ -1186,7 +1228,7 @@ unsafeObserveInit cctx txInit =
 -- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
 -- returns just 'UTXO' instead of [UTxO]
 unsafeObserveInitAndCommits ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   Tx ->
   [Tx] ->

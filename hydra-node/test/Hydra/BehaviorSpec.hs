@@ -697,8 +697,8 @@ toOnChainTx now = \case
     OnInitTx{contestationPeriod, parties, headId = testHeadId, headSeed = testHeadSeed}
   AbortTx{} ->
     OnAbortTx
-  CollectComTx{utxo, headId} ->
-    OnCollectComTx{collected = utxo, headId}
+  CollectComTx{headId} ->
+    OnCollectComTx{headId}
   CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId

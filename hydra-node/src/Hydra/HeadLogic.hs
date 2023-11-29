@@ -158,7 +158,6 @@ onIdleChainInitTx env newChainState parties initContestationPeriod headId headSe
 --
 -- __Transition__: 'InitialState' → 'InitialState'
 onInitialChainCommitTx ::
-  Monoid (UTxOType tx) =>
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -174,20 +173,18 @@ onInitialChainCommitTx st newChainState pt utxo =
           : [postCollectCom | canCollectCom]
       )
  where
-  newCommitted = Map.insert pt utxo committed
-
   notifyClient = ClientEffect $ ServerOutput.Committed headId pt utxo
 
   postCollectCom =
     OnChainEffect
-      { postChainTx = CollectComTx {utxo = fold newCommitted, headId}
+      { postChainTx = CollectComTx{headId}
       }
 
   canCollectCom = null remainingParties
 
   remainingParties = Set.delete pt pendingCommits
 
-  InitialState{pendingCommits, committed, headId} = st
+  InitialState{pendingCommits, headId} = st
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
