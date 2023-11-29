@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
@@ -34,6 +35,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
+  pattern TxOut,
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain.Direct.State ()
@@ -70,7 +72,7 @@ import Hydra.Cluster.Scenarios (
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, offlineConfigFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
@@ -90,9 +92,9 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
-  withOfflineHydraNode,
   withHydraNode,
   withHydraNode',
+  withOfflineHydraNode,
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -113,10 +115,33 @@ withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)
 
 spec :: Spec
-spec = around showLogsOnFailure $ do
+spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
     withTempDir ("offline-mode-e2e") $ \tmpDir -> do
-      withOfflineHydraNode (tracer :: Tracer IO EndToEndLog) defaultOfflineConfig tmpDir 0 aliceSk $ \n1 -> do
+      let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
+      let startingState =
+            [ (Alice, lovelaceToValue 100_000_000)
+            , (Bob, lovelaceToValue 100_000_000)
+            ]
+      (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+      (bobCardanoVk, _) <- keysFor Bob
+      offlineConfig <- offlineConfigFor startingState tmpDir networkId
+
+      initialUtxo <- Aeson.throwDecodeStrict @UTxO.UTxO =<< readFileBS (initialUTxOFile offlineConfig)
+      let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
+
+      withOfflineHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk $ \node -> do
+        let Right tx =
+              mkSimpleTx
+                (aliceSeedTxIn, aliceSeedTxOut)
+                (mkVkAddress networkId bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                aliceCardanoSk
+
+        send node $ input "NewTx" ["transaction" .= tx]
+
+        waitMatch 10 node $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
         pure ()
 
   describe "End-to-end on Cardano devnet" $ do
@@ -561,16 +586,6 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       v ^? key "snapshot" . key "confirmedTransactions"
     confirmedTransactions ^.. values `shouldBe` [toJSON $ txId tx]
-
--- initAndCloseOffline :: FilePath -> Tracer IO EndToEndLog -> IO ()
--- initAndCloseOffline tmpDir tracer = do
---   aliceKeys@(aliceCardanoVk, _ )
---   let cardanoKey = [aliceKeys]
---       hydraKeys = [aliceSk]
-
---   let contestationPeriod = UnsafeContestationPeriod 2
-  
---   pure ()
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId} = do

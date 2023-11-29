@@ -147,12 +147,10 @@ test-suite tests
   other-modules:
     Paths_hydra_cluster
     Spec
-    Test.ChainSpec
     Test.CardanoClientSpec
     Test.CardanoNodeSpec
     Test.ChainObserverSpec
     Test.DirectChainSpec
-    Test.OfflineChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
     Test.Hydra.Cluster.CardanoCliSpec

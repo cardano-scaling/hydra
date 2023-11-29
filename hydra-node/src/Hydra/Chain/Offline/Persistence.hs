@@ -7,7 +7,6 @@ module Hydra.Chain.Offline.Persistence (
 
 import Hydra.Prelude
 
-import Hydra.Ledger (IsTx(UTxOType))
 import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (
@@ -20,14 +19,8 @@ import Hydra.Chain (
   party,
  )
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadId (HeadId)
-import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental(PersistenceIncremental, append, loadAll), createPersistenceIncremental)
-import Hydra.HeadLogic (StateChanged(SnapshotConfirmed, snapshot))
-import Hydra.Snapshot (Snapshot(Snapshot, utxo))
-import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
-import qualified Data.Aeson as Aeson
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot))
 import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Party (Party)
@@ -47,7 +40,7 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
   let emptyChainStateHistory = initHistory initialChainState
 
   -- if we don't have a chainStateHistory to restore from disk from, start a new one
-  when (chainStateHistory /= emptyChainStateHistory) $ do
+  when (chainStateHistory == emptyChainStateHistory) $ do
     callback $
       Observation
         { newChainState = initialChainState

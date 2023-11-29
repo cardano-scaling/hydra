@@ -5,15 +5,15 @@ module Hydra.Chain.Offline.Handlers (
   mkFakeL1Chain,
 ) where
 
-import Hydra.Prelude
-import Hydra.Chain.Direct.State (ChainStateAt(ChainStateAt), chainState)
-import Hydra.Chain.Direct.Handlers (DirectChainLog(ToPost, toPost), LocalChainState, getLatest)
-import Hydra.Chain (PostChainTx(headParameters, InitTx, AbortTx, CollectComTx, CloseTx, ContestTx, confirmedSnapshot, FanoutTx), ChainEvent (Observation, newChainState, observedTx), snapshotNumber, confirmedSnapshot, HeadParameters (HeadParameters), Chain (postTx, draftCommitTx, submitTx, Chain), contestationDeadline, OnChainTx (OnInitTx, headId, OnAbortTx, OnCollectComTx, OnCloseTx, parties, contestationPeriod, OnContestTx, OnFanoutTx), HeadParameters (HeadParameters), snapshotNumber, PostTxError (FailedToDraftTxNotInitializing))
-import Hydra.Snapshot (getSnapshot, Snapshot (number))
+import Hydra.Chain (Chain (Chain, draftCommitTx, postTx, submitTx), ChainEvent (Observation, newChainState, observedTx), HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx, OnFanoutTx, OnInitTx, contestationPeriod, headId, parties), PostChainTx (AbortTx, CloseTx, CollectComTx, ContestTx, FanoutTx, InitTx, confirmedSnapshot, headParameters), PostTxError (FailedToDraftTxNotInitializing), confirmedSnapshot, contestationDeadline, snapshotNumber)
+import Hydra.Chain.Direct.Handlers (DirectChainLog (ToPost, toPost), LocalChainState, getLatest)
+import Hydra.Chain.Direct.State (ChainStateAt (ChainStateAt), chainState)
+import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.HeadId(HeadId)
-import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Prelude
+import Hydra.Snapshot (Snapshot (number), getSnapshot)
 
 mkFakeL1Chain ::
   ContestationPeriod ->

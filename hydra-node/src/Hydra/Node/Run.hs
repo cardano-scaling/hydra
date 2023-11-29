@@ -1,3 +1,4 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Node.Run where
@@ -13,9 +14,6 @@ import Hydra.Cardano.Api (
   GenesisParameters (..),
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
-  StandardCrypto,
-  SystemStart (SystemStart),
-  Tx,
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
@@ -57,23 +55,13 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile),
-  OfflineUTxOWriteBackConfig (..),
+  OfflineConfig (OfflineConfig, ledgerGenesisFile),
   RunOptions (..),
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
 
 import Hydra.HeadId (HeadId (..))
-
-import Data.Aeson qualified as Aeson
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
-import Hydra.ContestationPeriod (fromChain)
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.Ledger (IsTx (UTxOType))
-import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll))
-import Hydra.Snapshot (Snapshot (Snapshot), utxo)
-import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError

@@ -266,18 +266,17 @@ instance Arbitrary RunOptions where
 
   shrink = genericShrink
 
---FIXME(Elaine): this instance doesn't do stuff correctly but was necessary during rebasing
+-- FIXME(Elaine): this instance doesn't do stuff correctly but was necessary during rebasing
 instance Arbitrary OfflineConfig where
   arbitrary = do
     ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "ledgerGenesis"]
     initialUTxOFile <- genFilePath "utxo.json"
-    -- writeFileBS initialUTxOFile "{}" 
 
     pure $
-      OfflineConfig {
-        initialUTxOFile
-      , ledgerGenesisFile
-      }
+      OfflineConfig
+        { initialUTxOFile
+        , ledgerGenesisFile
+        }
 
   shrink = genericShrink
 

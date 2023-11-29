@@ -1,40 +1,68 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Utilities used across hydra-cluster
-module Hydra.Cluster.Util where
+module Hydra.Cluster.Util (
+  readConfigFile,
+  keysFor,
+  createAndSaveSigningKey,
+  offlineConfigFor,
+  offlineConfigForUTxO,
+  chainConfigFor,
+  initialUtxoWithFunds,
+  buildAddress,
+) where
 
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.Map qualified as Map
 import Hydra.Cardano.Api (
+  Address,
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
-  Key (VerificationKey, getVerificationKey),
+  IsCardanoEra,
+  IsShelleyBasedEra,
+  Key (VerificationKey, getVerificationKey, verificationKeyHash),
+  Lovelace,
+  NetworkId,
   PaymentKey,
-  SigningKey,
+  ShelleyAddr,
+  SigningKey (GenesisUTxOSigningKey, PaymentSigningKey),
   SocketPath,
+  StakeAddressReference (NoStakeAddress),
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
+  Tx,
+  TxOutValue (TxOutValue),
+  UTxO' (UTxO),
+  VerificationKey (GenesisUTxOVerificationKey, PaymentVerificationKey),
+  castSigningKey,
+  castVerificationKey,
   deserialiseFromTextEnvelope,
+  genesisUTxOPseudoTxIn,
+  lovelaceToTxOutValue,
+  mkTxOutValue,
+  shelleyAddressInEra,
   textEnvelopeToJSON,
  )
+import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset)
+import Hydra.Cardano.Api.Prelude (PaymentCredential (PaymentCredentialByKey), ReferenceScript (ReferenceScriptNone), TxOut (TxOut), TxOutDatum (TxOutDatumNone), Value, lovelaceToTxOutValue, makeShelleyAddress, shelleyAddressInEra)
+import Hydra.Chain (ChainEvent, OnChainTx (OnInitTx, contestationPeriod, parties), PostChainTx)
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Ledger.Cardano (genSigningKey)
-import Hydra.Options (ChainConfig (..), defaultChainConfig)
+import Hydra.Options (ChainConfig (..), OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile), defaultChainConfig)
+import Hydra.Party (Party)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
-import Test.Hydra.Prelude (failure, Expectation, shouldBe)
+import Test.Hydra.Prelude (Expectation, failure, shouldBe)
 import Test.QuickCheck (generate)
-import Hydra.Chain (PostChainTx)
-import Hydra.Chain (ChainEvent)
-import Hydra.Ledger (IsTx)
-import Hydra.Party (Party)
-import Hydra.Chain (OnChainTx(OnInitTx, contestationPeriod, parties))
-import Hydra.Ledger (IsTx(UTxOType))
+
+-- import CardanoClient (buildAddress)
 
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
@@ -70,6 +98,62 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
+offlineConfigFor :: [(Actor, Value)] -> FilePath -> NetworkId -> IO OfflineConfig
+offlineConfigFor actorToVal targetDir networkId = do
+  initialUtxoForActors actorToVal networkId >>= offlineConfigForUTxO @Tx targetDir
+
+offlineConfigForUTxO :: forall tx. IsTx tx => FilePath -> UTxOType tx -> IO OfflineConfig
+offlineConfigForUTxO targetDir utxo = do
+  utxoPath <- seedInitialUTxOFromOffline @tx targetDir utxo
+  pure $
+    OfflineConfig
+      { initialUTxOFile = utxoPath
+      , ledgerGenesisFile = Nothing
+      }
+
+seedInitialUTxOFromOffline :: IsTx tx => FilePath -> UTxOType tx -> IO FilePath
+seedInitialUTxOFromOffline targetDir utxo = do
+  let destinationPath = targetDir </> "utxo.json"
+  writeFileBS destinationPath . toStrict . Aeson.encode $ utxo
+
+  -- Aeson.throwDecodeStrict =<< readFileBS (targetDir </> "utxo.json")
+  pure destinationPath
+
+buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
+buildAddress vKey networkId =
+  makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
+
+initialUtxoWithFunds ::
+  forall era ctx.
+  (IsShelleyBasedEra era, HasMultiAsset era) =>
+  NetworkId ->
+  [(VerificationKey PaymentKey, Value)] ->
+  IO (UTxO' (TxOut ctx era))
+initialUtxoWithFunds networkId valueMap =
+  pure
+    . UTxO
+    . Map.fromList
+    . map (\(vKey, val) -> (txin vKey, txout vKey val))
+    $ valueMap
+ where
+  txout vKey val =
+    TxOut
+      (shelleyAddressInEra @era $ buildAddress vKey networkId)
+      (mkTxOutValue val)
+      TxOutDatumNone
+      ReferenceScriptNone
+  txin vKey = genesisUTxOPseudoTxIn networkId (verificationKeyHash . castKey $ vKey)
+  castKey (PaymentVerificationKey vkey) = GenesisUTxOVerificationKey vkey
+
+initialUtxoForActors :: [(Actor, Value)] -> NetworkId -> IO (UTxOType Tx)
+initialUtxoForActors actorToVal networkId = do
+  initialUtxoWithFunds networkId =<< vkToVal
+ where
+  vkForActor actor = fmap fst (keysFor actor)
+  vkToVal =
+    forM actorToVal $ \(actor, val) ->
+      vkForActor actor <&> (,val)
+
 chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
 chainConfigFor me targetDir nodeSocket them cp = do
   when (me `elem` them) $
@@ -91,14 +175,3 @@ chainConfigFor me targetDir nodeSocket them cp = do
   vkTarget x = targetDir </> vkName x
   skName x = actorName x <.> ".sk"
   vkName x = actorName x <.> ".vk"
-
-seedInitialUTxOFromOffline :: IsTx tx => UTxOType tx -> FilePath -> IO ()
-seedInitialUTxOFromOffline utxo targetDir = do
-  -- i assume a static file might be too rigid ? we can keep around constants and then write them to disk for each test
-  -- readConfigFile "initial-utxo.json" >>= writeFileBS (targetDir </> "initial-utxo.json")
-
-  writeFileBS (targetDir </> "utxo.json") . toStrict . Aeson.encode $ utxo 
-  
-  -- Aeson.throwDecodeStrict =<< readFileBS (targetDir </> "utxo.json")
-  pure ()
-  

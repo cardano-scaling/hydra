@@ -98,8 +98,9 @@ seedFromFaucet_ ::
 seedFromFaucet_ node vk ll tracer =
   void $ seedFromFaucet node vk ll tracer
 
---TODO(Elaine): we probably want a simplified but parallel version  of this/createOutputAddress for offline mode , that just constructs a UTxO
+-- TODO(Elaine): we probably want a simplified but parallel version  of this/createOutputAddress for offline mode , that just constructs a UTxO
 -- actually no take a look at seedFromFaucet
+
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
   Tracer IO FaucetLog ->

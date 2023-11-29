@@ -80,8 +80,6 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
 
-import Test.ChainSpec
-
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
@@ -517,18 +515,19 @@ externalCommit node hydraClient externalSk headId utxoToCommit' = do
  where
   DirectChainTest{draftCommitTx} = hydraClient
 
-hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> Expectation
+hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO HeadId
 hasInitTxWith expectedContestationPeriod expectedParties = \case
-  OnInitTx{contestationPeriod, parties} -> do
+  OnInitTx{headId, contestationPeriod, parties} -> do
     expectedContestationPeriod `shouldBe` contestationPeriod
     expectedParties `shouldBe` parties
+    pure headId
   tx -> failure ("Unexpected observation: " <> show tx)
 
 observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
 observesInTime chain expected =
   observesInTimeSatisfying chain (`shouldBe` expected)
 
-observesInTimeSatisfying :: IsTx tx => DirectChainTest tx IO -> (OnChainTx tx -> Expectation) -> IO ()
+observesInTimeSatisfying :: IsTx tx => DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
 observesInTimeSatisfying c check =
   failAfter 10 go
  where
