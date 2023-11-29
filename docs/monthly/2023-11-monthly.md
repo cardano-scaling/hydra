@@ -38,7 +38,7 @@ This month, several items were restructured on the project
   roadmap, which included not only protocol parameter updates, but also
   hard-fork events. With the upcoming hard-fork into `Conway`, we split off the
   changes needed to navigate such hard-fork and concretized it:
-  
+
   + [Conway support #1177](https://github.com/input-output-hk/hydra/issues/1177) will make the `hydra-node` support Conway and allow users to keep heads open across the hard-fork.
   + [Drop Babbage support #1178](https://github.com/input-output-hk/hydra/issues/1178) will eventually make us drop support for the Babbage era and retain maintainability.
   + The original item is only about [reacting to protocol parameter changes #195](https://github.com/input-output-hk/hydra/issues/195) now.
@@ -53,6 +53,27 @@ This month, several items were restructured on the project
 report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-10-31..2023-11-30)
 
 This month, the team worked on the following:
+
+### MeshJS + Hydra
+
+At the beginning of month we attended the Cardano Summit in Dubai where we held
+the _Hydra MasterClass_ workshop. There we also presented the Hydra-Poll dApp
+which is using MeshJS to build Hydra transactions on the frontend.
+
+We collaborated with the MeshJS team closely and as the outcome of this work
+they added some Hydra specific features to the MeshJS SDK. There is a nice low
+level [API](https://meshjs.dev/apis/transaction/builderExample) for building
+custom transactions which is pretty similar to what `cardano-cli` does.
+
+Now you can use `isHydra` field which you can pass to this API which then uses
+another set of protocol paramters suitable for Hydra (eg. usually in Hydra we
+want to have zeroed transaction fees, reduce script execution units etc.).
+
+Big thanks to the MeshJS team on giving us much needed support! They were
+presenting these changes in our monthy review meeting so make sure to watch the
+[recording](https://drive.google.com/file/d/1-iv8IveUzA2KrJV_Kqrgx4ts05Ow0zjM).
+
+
 
 ### Stateless chain observation
 
