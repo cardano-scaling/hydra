@@ -13,30 +13,25 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
-import Data.ByteString qualified as BS
 import Data.List (nub)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   CtxUTxO,
-  HasTypeProxy (..),
   Lovelace (..),
-  SerialiseAsRawBytes,
   Tx,
   TxOut,
   UTxO',
-  UsingRawBytesHex (..),
   WitCtxTxIn,
   Witness,
  )
-import Hydra.Cardano.Api.Prelude (SerialiseAsRawBytes (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
-import Test.QuickCheck (scale, suchThat, vectorOf)
+import Test.QuickCheck (scale, suchThat)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -289,20 +284,3 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
-
--- | Identifier for a Hydra head participant used on-chain.
--- TODO: maybe remove this?
-newtype OnChainId = OnChainId ByteString
-  deriving (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
-
-instance SerialiseAsRawBytes OnChainId where
-  serialiseToRawBytes (OnChainId bytes) = bytes
-  deserialiseFromRawBytes _ = Right . OnChainId
-
-instance HasTypeProxy OnChainId where
-  data AsType OnChainId = AsOnChainId
-  proxyToAsType _ = AsOnChainId
-
-instance Arbitrary OnChainId where
-  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary
