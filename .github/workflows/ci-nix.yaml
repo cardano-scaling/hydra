@@ -40,7 +40,7 @@ jobs:
           log-lines = 1000
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
+      uses: cachix/cachix-action@v13
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
@@ -109,7 +109,7 @@ jobs:
           log-lines = 1000
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
+      uses: cachix/cachix-action@v13
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
@@ -156,7 +156,7 @@ jobs:
           log-lines = 1000
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
+      uses: cachix/cachix-action@v13
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
@@ -227,7 +227,7 @@ jobs:
           log-lines = 1000
 
     - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v12
+      uses: cachix/cachix-action@v13
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
