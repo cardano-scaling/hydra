@@ -1128,6 +1128,7 @@ definitions:
           - parameters
           - chainState
           - headId
+          - headSeed
         properties:
           tag:
             type: string
@@ -1138,6 +1139,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          headSeed:
+            $ref: "api.yaml#/components/schemas/HeadSeed"
       - title: "CommittedUTxO"
         additionalProperties: false
         required:
@@ -1344,6 +1347,7 @@ definitions:
       - committed
       - chainState
       - headId
+      - headSeed
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -1359,6 +1363,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
         $ref: "api.yaml#/components/schemas/HeadId"
+      headSeed:
+        $ref: "api.yaml#/components/schemas/HeadSeed"
 
   OpenState:
     type: object
@@ -1369,6 +1375,7 @@ definitions:
       - chainState
       - headId
       - currentSlot
+      - headSeed
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -1380,6 +1387,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/HeadId"
       currentSlot:
         $ref: "api.yaml#/components/schemas/ChainSlot"
+      headSeed:
+        $ref: "api.yaml#/components/schemas/HeadSeed"
 
   ClosedState:
     type: object
@@ -1391,6 +1400,7 @@ definitions:
       - readyToFanoutSent
       - chainState
       - headId
+      - headSeed
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -1404,6 +1414,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
         $ref: "api.yaml#/components/schemas/HeadId"
+      headSeed:
+        $ref: "api.yaml#/components/schemas/HeadSeed"
 
   CoordinatedHeadState:
     type: object
@@ -1719,6 +1731,7 @@ definitions:
           - contestationPeriod
           - parties
           - headId
+          - headSeed
         description: >-
           The initial transaction of the Head, announcing various parameters and
           the parties, has been posted on-chain.
@@ -1737,6 +1750,8 @@ definitions:
               $ref: "api.yaml#/components/schemas/Party"
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          headSeed:
+            $ref: "api.yaml#/components/schemas/HeadSeed"
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -1769,10 +1784,13 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
         properties:
           tag:
             type: string
             enum: ["OnCollectComTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
       - title: OnCloseTx
         type: object
         additionalProperties: false
