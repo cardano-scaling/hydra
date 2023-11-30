@@ -39,12 +39,14 @@ jobs:
       run: |
         nix build .#release
 
-    - name: 👀 Determine version
+    # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
+    - name: 🤐 Unzip and prepare upload
       run: |
         echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+        unzip result/*.zip -d out
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: hydra-x86_64-linux-${{ env.VERSION }}.zip
-        path: result/*.zip
+        name: hydra-aarch64-darwin-${{ env.VERSION }}.zip
+        path: out/*
