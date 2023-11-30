@@ -1634,6 +1634,24 @@ definitions:
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
 
+      - title: IgnoredInitTx
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - participants
+        properties:
+          tag:
+            type: string
+            enum: ["IgnoredInitTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          participants:
+            items:
+              type: string
+              contentEncoding: base16
+
       - title: Rollback
         type: object
         additionalProperties: false
@@ -1646,6 +1664,7 @@ definitions:
             enum: ["Rollback"]
           rolledBackChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+
       - title: Tick
         description: |
           Time has progressed on the chain.
