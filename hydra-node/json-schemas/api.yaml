@@ -965,6 +965,14 @@ components:
       example:
         "820082582089ff4f3ff4a6052ec9d073"
 
+    HeadSeed:
+      type: string
+      description: |
+        A unique seed identifier to create a 'HeadId', represented by a hex-encoded 16 bytes string.
+      contentEncoding: base16
+      example:
+        "820082582089ff4f3ff4a6052ec9d073"
+
     HeadParameters:
       type: object
       additionalProperties: false
@@ -1060,29 +1068,13 @@ components:
               enum: ["InitTx"]
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
-        - title: CommitTx
-          type: object
-          additionalProperties: false
-          required:
-            - tag
-            - party
-            - committed
-          description: |
-            Commit some UTxO set to the opening Head, signed by this party.
-          properties:
-            tag:
-              type: string
-              enum: ["CommitTx"]
-            party:
-              $ref: "api.yaml#/components/schemas/Party"
-            committed:
-              $ref: "api.yaml#/components/schemas/UTxO"
         - title: AbortTx
           type: object
           additionalProperties: false
           required:
             - tag
             - utxo
+            - headSeed
           description: |
             Abort the opening of the Head process.
           properties:
@@ -1091,12 +1083,14 @@ components:
               enum: ["AbortTx"]
             utxo:
               $ref: "api.yaml#/components/schemas/UTxO"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
         - title: CollectComTx
           type: object
           additionalProperties: false
           required:
             - tag
-            - utxo
+            - headId
           description: |
             Confirm the opening of the Head collecting the committed UTxO set
             combined from all individual commits.
@@ -1104,13 +1098,14 @@ components:
             tag:
               type: string
               enum: ["CollectComTx"]
-            utxo:
-              $ref: "api.yaml#/components/schemas/UTxO"
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
         - title: CloseTx
           type: object
           additionalProperties: false
           required:
             - tag
+            - headId
             - confirmedSnapshot
           description: |
             Close the currently open Head with the given snapshot.
@@ -1118,6 +1113,8 @@ components:
             tag:
               type: string
               enum: ["CloseTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
             confirmedSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: ContestTx
@@ -1125,6 +1122,7 @@ components:
           additionalProperties: false
           required:
             - tag
+            - headId
             - confirmedSnapshot
           description: |
             Contest a previously posted snapshot (from a Close or Contest
@@ -1133,6 +1131,8 @@ components:
             tag:
               type: string
               enum: ["ContestTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
             confirmedSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: FanoutTx
@@ -1141,6 +1141,7 @@ components:
           required:
             - tag
             - utxo
+            - headSeed
             - contestationDeadline
           description: |
             Finalise the Head posting all UTxO from the Head on-chain.
@@ -1150,6 +1151,8 @@ components:
               enum: ["FanoutTx"]
             utxo:
               $ref: "api.yaml#/components/schemas/UTxO"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
               $ref: "api.yaml#/components/schemas/UTCTime"
 
@@ -1335,7 +1338,6 @@ components:
               enum: ["FailedToPostTx"]
             failureReason:
               type: string
-
         - title: CommittedTooMuchADAForMainnet
           description: |
             Raised if the user tries to commit more than 100 ADA while on the mainnet network.
@@ -1375,7 +1377,75 @@ components:
             tag:
               type: string
               enum: ["SpendingNodeUtxoForbidden"]
-
+        - title: InvalidSeed
+          description: |
+            Raised if the user fails to submit an abort or fanout tx using the wrong seed.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - headSeed
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidSeed"]
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+        - title: FailedToConstructAbortTx
+          description: |
+            Raised if the user fails to submit an abort tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructAbortTx"]
+        - title: FailedToConstructCloseTx
+          description: |
+            Raised if the user fails to submit a close tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructCloseTx"]
+        - title: FailedToConstructContestTx
+          description: |
+            Raised if the user fails to submit a contest tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructContestTx"]
+        - title: FailedToConstructCollectTx
+          description: |
+            Raised if the user fails to submit a collect-com tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructCollectTx"]
+        - title: FailedToConstructFanoutTx
+          description: |
+            Raised if the user fails to submit a fanout tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructFanoutTx"]
 
     Signature:
       type: string
