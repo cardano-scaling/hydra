@@ -491,13 +491,15 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
+getHeadInput :: ScriptContext -> TxInInfo
+getHeadInput ctx =
+  fromMaybe
+    (traceError $(errorCode ScriptNotSpendingAHeadInput))
+    (findOwnInput ctx)
+{-# INLINEABLE getHeadInput #-}
+
 getHeadAddress :: ScriptContext -> Address
-getHeadAddress ctx =
-  let headInput =
-        fromMaybe
-          (traceError $(errorCode ScriptNotSpendingAHeadInput))
-          (findOwnInput ctx)
-   in txOutAddress (txInInfoResolved headInput)
+getHeadAddress = txOutAddress . txInInfoResolved . getHeadInput
 {-# INLINEABLE getHeadAddress #-}
 
 -- XXX: We might not need to distinguish between the three cases here.
