@@ -14,6 +14,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -54,6 +55,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
+import Test.QuickCheck (vectorOf)
 
 -- | Needed on-chain data to create Head transactions.
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
@@ -70,6 +72,9 @@ instance FromJSON UTxOHash where
     case Base16.decode $ encodeUtf8 cborText of
       Left e -> fail e
       Right bs -> pure $ UTxOHash bs
+
+instance Arbitrary UTxOHash where
+  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
 
 -- | Representation of the Head output after an Init transaction.
 data InitialThreadOutput = InitialThreadOutput
