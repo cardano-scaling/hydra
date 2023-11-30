@@ -590,10 +590,8 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
     case datum of
       Head.Closed{contesters, parties, contestationDeadline} -> do
         let closedThreadUTxO = headUTxO
-            closedParties = partyToChain ownParty : parties
+            closedParties = parties
             closedContestationDeadline = contestationDeadline
-            -- NOTE: we add only ownParty to 'closedParties', contester is added
-            -- to 'closedContesters' in closeTx
             closedContesters = contesters
         pure $
           ClosedThreadOutput
