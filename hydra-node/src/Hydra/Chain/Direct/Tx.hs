@@ -1105,7 +1105,7 @@ headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 headIdToPolicyId :: HeadId -> PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 
-headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
+headSeedToTxIn :: (MonadFail m) => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
     Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
@@ -1128,7 +1128,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
@@ -1144,3 +1144,13 @@ findHeadAssetId txOut =
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
   fmap (mkHeadId . fst) . findHeadAssetId
+
+-- | Try to find the datum in the Head 'UTxO'
+-- Useful when debugging.
+peekIntoHeadDatum :: UTxO -> Maybe Head.State
+peekIntoHeadDatum utxo = do
+  (_, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  datum <- txOutScriptData $ toTxContext headOutput
+  fromScriptData datum
+ where
+  headScript = fromPlutusScript Head.validatorScript
