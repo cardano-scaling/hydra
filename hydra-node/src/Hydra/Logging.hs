@@ -54,6 +54,10 @@ data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary Verbosity where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope
   { timestamp :: UTCTime
@@ -76,6 +80,7 @@ instance ToJSON a => ToJSON (Envelope a) where
 
 instance Arbitrary a => Arbitrary (Envelope a) where
   arbitrary = genericArbitrary
+  shrink = genericShrink
 
 defaultQueueSize :: Natural
 defaultQueueSize = 500

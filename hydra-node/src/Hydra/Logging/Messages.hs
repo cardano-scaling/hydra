@@ -34,3 +34,4 @@ deriving anyclass instance (FromJSON net, FromJSON (HydraNodeLog tx)) => FromJSO
 
 instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => Arbitrary (HydraLog tx net) where
   arbitrary = genericArbitrary
+  shrink = genericShrink

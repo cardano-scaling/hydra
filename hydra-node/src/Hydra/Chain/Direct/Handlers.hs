@@ -392,3 +392,4 @@ data DirectChainLog
 
 instance Arbitrary DirectChainLog where
   arbitrary = genericArbitrary
+  shrink = genericShrink

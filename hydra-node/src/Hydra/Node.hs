@@ -136,6 +136,7 @@ deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
+  shrink = genericShrink
 
 runHydraNode ::
   ( MonadCatch m

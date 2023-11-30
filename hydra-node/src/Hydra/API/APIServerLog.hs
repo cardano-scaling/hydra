@@ -34,6 +34,10 @@ instance Arbitrary APIServerLog where
       , APIHTTPRequestReceived <$> arbitrary <*> arbitrary
       ]
 
+  shrink = \case
+    APIInvalidInput r i -> [APIInvalidInput r' (Text.pack i') | r' <- shrink r, i' <- shrink (Text.unpack i)]
+    _other -> []
+
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString
   deriving stock (Eq, Show)

@@ -106,6 +106,9 @@ deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
+  shrink = \case
+    Combined l r -> [l, r] <> [Combined l' r' | l' <- shrink l, r' <- shrink r]
+    other -> genericShrink other
 
 collectEffects :: Outcome tx -> [Effect tx]
 collectEffects = \case

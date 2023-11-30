@@ -419,3 +419,4 @@ deriving anyclass instance FromJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary
+  shrink = genericShrink

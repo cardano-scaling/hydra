@@ -42,10 +42,6 @@ deriving stock instance IsChainState tx => Show (Event tx)
 deriving anyclass instance IsChainState tx => ToJSON (Event tx)
 deriving anyclass instance IsChainState tx => FromJSON (Event tx)
 
-instance
-  ( IsTx tx
-  , Arbitrary (ChainStateType tx)
-  ) =>
-  Arbitrary (Event tx)
-  where
+instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
+  shrink = genericShrink
