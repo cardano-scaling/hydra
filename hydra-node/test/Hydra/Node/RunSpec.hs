@@ -17,4 +17,4 @@ spec =
     run options `shouldThrow` aConfigurationException
 
 aConfigurationException :: Selector ConfigurationException
-aConfigurationException = (const True :: Selector ConfigurationException)
+aConfigurationException = const True
