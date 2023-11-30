@@ -492,10 +492,9 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 {-# INLINEABLE makeContestationDeadline #-}
 
 getHeadInput :: ScriptContext -> TxInInfo
-getHeadInput ctx =
-  fromMaybe
-    (traceError $(errorCode ScriptNotSpendingAHeadInput))
-    (findOwnInput ctx)
+getHeadInput ctx = case findOwnInput ctx of
+  Nothing -> traceError $(errorCode ScriptNotSpendingAHeadInput)
+  Just x -> x
 {-# INLINEABLE getHeadInput #-}
 
 getHeadAddress :: ScriptContext -> Address
