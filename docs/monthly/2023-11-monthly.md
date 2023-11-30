@@ -73,19 +73,41 @@ Big thanks to the MeshJS team on giving us much needed support! They were
 presenting these changes in our monthy review meeting so make sure to watch the
 [recording](https://drive.google.com/file/d/1-iv8IveUzA2KrJV_Kqrgx4ts05Ow0zjM).
 
+### Stateless chain observation + tool
 
-
-### Stateless chain observation
-
-TODO sebastian
+TODO
 
 ### Incremental decommit protocol design
 
 TODO sebastian
 
-### Rendered specification
+### Rendering the Hydra specification
 
-TODO sebastian
+Besides working on the design of incremental commits itself, we also wanted to
+tidy up the way the [Hydra protocol
+specification](https://hydra.family/head-protocol/core-concepts/specification)
+is written itself.
+
+So far, the specification was written in LaTex and rendered to a PDF. LaTeX was
+a good choice because of its expressiveness on math expressions, but not so
+great of a choice for pull requesting changes and the entry barrier is quite
+high. The majority of documentation around Hydra and Mithril is written using
+Markdown and rendered into a webpage using a static site generator, currently
+[Docusaurus](https://docusaurus.io/). Most modern markdown renderers do support
+LaTeX-style math nowadays, even the normal [Github file
+preview](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions).
+
+Hence, we experimented with using the more standard Markdown format to write the
+specification, but still being able to use LaTeX math **and** LaTeX macros
+(which are _still_ heavily used in the spec). From this we want to have both, a
+PDF and HTML rendering.
+
+TODO GIF
+
+While not yet finished, the GIF above shows already progress being made using
+[pandoc](https://pandoc.org/) to resolve macros, producing a PDF via `xelatex`
+and Docusaurus compatible markdown. Using powerful extensions of pandoc we can
+even convert TikZ, GraphViz and Mermaid into both target formats.
 
 ## Community update
 
