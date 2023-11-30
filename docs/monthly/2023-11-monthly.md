@@ -79,7 +79,7 @@ TODO
 
 ### Incremental decommit protocol design
 
-TODO sebastian
+TODO?
 
 ### Rendering the Hydra specification
 
@@ -102,7 +102,7 @@ specification, but still being able to use LaTeX math **and** LaTeX macros
 (which are _still_ heavily used in the spec). From this we want to have both, a
 PDF and HTML rendering.
 
-TODO GIF
+TODO GIF sebastian
 
 While not yet finished, the GIF above shows already progress being made using
 [pandoc](https://pandoc.org/) to resolve macros, producing a PDF via `xelatex`
@@ -111,14 +111,42 @@ even convert TikZ, GraphViz and Mermaid into both target formats.
 
 ## Community update
 
-TODO
+TODO?
 
 ## Conclusion
 
 The monthly review meeting for November 2023 was held on 2023-11-27 via Google
 Meet with these [slides][slides] and the [recording][recording].
 
-TODO
+We are thankful to have had again so many great demos from the numerous projects
+in and around Hydra and Mithril projects - we should really schedule it to be 1
+hour planned duration. Also, if you have not watched it already, make sure to
+check out the recording, the written report is merely expanding on a couple of
+topics but cannot render the cool demonstrations.
+
+At first look, the demonstrated projects may appear not related - we even had a
+minimal command-line wallet on the show after all. But as we went on, these
+impulses spark discussions and it becomes clear that all of these projects are
+connected.
+
+For example, the terminal based wallet "Cardaminal" as it was presented the
+first time in public this month, could itself become a mithril client for faster
+synchronizing or even light-mode using the recently published rust client
+library for mithril. Furthermore, such a minimal wallet would be a great testing
+ground for a hydra-aware wallet. The MeshJS integration also has further
+potential of Hydra specific `fetcher` and `submitter` providers.
+
+On the other hand, we also stumbled over not-so-optimistic sentiment even in
+much more mature scaling solutions like the Bitcoin Ligthning Network. [This
+tweet](https://twitter.com/udiWertheimer/status/1719122153155473492) summarizes
+that creating non-custodial [scalability/LN] solutions "feel like the most
+thankless thing in the world".
+
+It is an exciting ride still, but events like this monthly review meeting with
+its colorful demonstrations of small steps we can take to improve the usability
+and scalability of Cardano piece by piece with often unknown synergies is also
+empowering. This month again made us feel not "only a tribe", but more a working
+group across the Cardano community .. the Cardano Scaling group!?
 
 [slides]: https://docs.google.com/presentation/d/1JA_frlOXVrrBeaBGUnIq3U9cclrfU1A2cZR9B2AeVJg
 [recording]: https://drive.google.com/file/d/1-iv8IveUzA2KrJV_Kqrgx4ts05Ow0zjM
