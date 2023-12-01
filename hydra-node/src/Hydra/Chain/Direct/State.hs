@@ -89,6 +89,7 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   NotAnInit (..),
   OpenThreadOutput (..),
+  RawInitObservation (..),
   UTxOHash (UTxOHash),
   abortTx,
   closeTx,
@@ -226,8 +227,6 @@ data ChainContext = ChainContext
   , -- FIXME: otherParties should not be here
     otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
-  , -- FIXME: contestationPeriod should not be here
-    contestationPeriod :: ContestationPeriod
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -243,7 +242,6 @@ instance Arbitrary ChainContext where
     otherParties <- arbitrary
     ownParty <- elements otherParties
     scriptRegistry <- genScriptRegistry
-    contestationPeriod <- arbitrary
     pure
       ChainContext
         { networkId
@@ -252,7 +250,6 @@ instance Arbitrary ChainContext where
         , ownParty
         , otherParties
         , scriptRegistry
-        , contestationPeriod
         }
 
 -- | Get all cardano verification keys available in the chain context.
@@ -553,10 +550,11 @@ contest ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   HeadId ->
+  ContestationPeriod ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Either ContestTxError Tx
-contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
+contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToContest) pure $
       UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
@@ -592,7 +590,7 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
-  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -665,7 +663,7 @@ observeInit ::
   Tx ->
   Either NotAnInit (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
-  observed <-
+  observed@RawInitObservation{contestationPeriod} <-
     first NotAnInit $
       observeRawInitTx tx
 
@@ -673,7 +671,7 @@ observeInit ctx tx = do
     first NotAnInitForUs $
       observeInitTx
         (allVerificationKeys ctx)
-        (Hydra.Chain.Direct.State.contestationPeriod ctx)
+        contestationPeriod
         ownParty
         otherParties
         observed
@@ -980,7 +978,6 @@ deriveChainContexts ctx = do
         , ownParty = p
         , otherParties = allParties' \\ [p]
         , scriptRegistry = ctxScriptRegistry
-        , contestationPeriod = ctxContestationPeriod ctx
         }
  where
   allParties' = ctxParties ctx
@@ -1081,7 +1078,7 @@ genContestTx = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   confirmed <- genConfirmedSnapshot headId 0 u0 []
   cctx <- pickChainContext ctx
-  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime
@@ -1090,7 +1087,7 @@ genContestTx = do
   someUtxo <- arbitrary
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) someUtxo (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -1142,7 +1139,7 @@ genStClosed ctx utxo = do
           , utxo
           )
   cctx <- pickChainContext ctx
-  let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
+  let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo' = getKnownUTxO stOpen
   let txClose = unsafeClose cctx utxo' headId (ctxHeadParameters ctx) snapshot startSlot pointInTime
@@ -1207,11 +1204,12 @@ unsafeContest ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   HeadId ->
+  ContestationPeriod ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
   Tx
-unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
-  either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
+unsafeContest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime =
+  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime
 
 unsafeFanout ::
   HasCallStack =>

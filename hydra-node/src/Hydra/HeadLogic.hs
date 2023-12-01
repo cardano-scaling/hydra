@@ -570,7 +570,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     <> Effects
       ( notifyClient
           : [ OnChainEffect
-              { postChainTx = ContestTx{headId, confirmedSnapshot}
+              { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}
               }
             | doContest
             ]
@@ -589,7 +589,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{headId, coordinatedHeadState} = openState
+  OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -603,7 +603,7 @@ onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
       Effects
         [ ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}
-        , OnChainEffect{postChainTx = ContestTx{headId, confirmedSnapshot}}
+        , OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}}
         ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
       -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -612,7 +612,7 @@ onClosedChainContestTx closedState snapshotNumber
   | otherwise =
       Effects [ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}]
  where
-  ClosedState{confirmedSnapshot, headId} = closedState
+  ClosedState{parameters = headParameters, confirmedSnapshot, headId} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.

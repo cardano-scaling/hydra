@@ -66,7 +66,7 @@ data PostChainTx tx
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {headId :: HeadId, headParameters :: HeadParameters}
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
-  | ContestTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
+  | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 

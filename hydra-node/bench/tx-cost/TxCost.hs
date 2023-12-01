@@ -17,11 +17,11 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
   ClosedState (..),
   InitialState (..),
   OpenState (..),
   commit,
+  ctxContestationPeriod,
   ctxHeadParameters,
   ctxHydraSigningKeys,
   genCloseTx,
@@ -170,7 +170,8 @@ computeContestCost = do
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (unsafeContest cctx utxo headId snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    let cp = ctxContestationPeriod ctx
+    pure (unsafeContest cctx utxo headId cp snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -224,7 +225,7 @@ computeFanOutCost = do
     (_committed, stOpen@OpenState{headId, seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
-    let cp = contestationPeriod cctx
+    let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let spendableUTxO = UTxO.singleton openThreadUTxO
         closeTx = unsafeClose cctx spendableUTxO headId (ctxHeadParameters ctx) snapshot startSlot closePoint

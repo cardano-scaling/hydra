@@ -32,6 +32,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
@@ -49,7 +50,6 @@ import Hydra.Chain.Direct.State (
   collect,
   commit',
   contest,
-  contestationPeriod,
   fanout,
   getKnownUTxO,
   initialize,
@@ -358,7 +358,7 @@ prepareTxToPost ::
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStateAt{spendableUTxO} tx =
+prepareTxToPost timeHandle wallet ctx ChainStateAt{spendableUTxO} tx =
   case tx of
     InitTx params ->
       getSeedInput wallet >>= \case
@@ -387,14 +387,16 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
         Right collectTx -> pure collectTx
     CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
+      let HeadParameters{contestationPeriod} = headParameters
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
-    ContestTx{headId, confirmedSnapshot} -> do
+    ContestTx{headId, headParameters, confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      case contest ctx spendableUTxO headId confirmedSnapshot upperBound of
+      let HeadParameters{contestationPeriod} = headParameters
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
+      case contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
     FanoutTx{utxo, headSeed, contestationDeadline} -> do
@@ -413,7 +415,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
   TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
 
   -- See ADR21 for context
-  calculateTxUpperBoundFromContestationPeriod currentTime = do
+  calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod = do
     let effectiveDelay = min (toNominalDiffTime contestationPeriod) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime

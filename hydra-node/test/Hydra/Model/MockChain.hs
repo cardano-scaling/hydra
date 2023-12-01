@@ -44,7 +44,6 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (Environment (Environment, otherParties, party), Event (..), defaultTTL)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
@@ -74,10 +73,9 @@ mockChainAndNetwork ::
   ) =>
   Tracer m DirectChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  ContestationPeriod ->
   UTxO ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys cp commits = do
+mockChainAndNetwork tr seedKeys commits = do
   nodes <- newTVarIO []
   labelTVarIO nodes "nodes"
   queue <- newTQueueIO
@@ -115,7 +113,6 @@ mockChainAndNetwork tr seedKeys cp commits = do
             , ownParty
             , otherParties
             , scriptRegistry
-            , contestationPeriod = cp
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node

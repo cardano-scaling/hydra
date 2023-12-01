@@ -124,7 +124,6 @@ loadChainContext config party otherParties hydraScriptsTxId = do
       , ownParty = party
       , otherParties
       , scriptRegistry
-      , contestationPeriod
       }
  where
   DirectChainConfig
@@ -132,7 +131,6 @@ loadChainContext config party otherParties hydraScriptsTxId = do
     , nodeSocket
     , cardanoSigningKey
     , cardanoVerificationKeys
-    , contestationPeriod
     } = config
 
 mkTinyWallet ::

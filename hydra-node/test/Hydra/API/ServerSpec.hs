@@ -205,6 +205,7 @@ spec = describe "ServerSpec" $
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
+            headParameters <- generate arbitrary
 
             let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
@@ -222,6 +223,7 @@ spec = describe "ServerSpec" $
                     { postChainTx =
                         CloseTx
                           { headId
+                          , headParameters
                           , confirmedSnapshot =
                               ConfirmedSnapshot
                                 { Hydra.Snapshot.snapshot = sn
