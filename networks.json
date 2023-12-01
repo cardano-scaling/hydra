@@ -1,0 +1,12 @@
+{
+    "mainnet": {
+        "0.13.0": "989e3ab136a2cdd3132a99975e76e02f62bcb03ba64ddbb5d2dfddffca8d390d"
+    },
+    "preprod": {
+        "0.13.0": "f917dcd1fa2653e33d6d0ca5a067468595b546120c3085fab60848c34f92c265",
+        "0.14.0": "d8ba8c488f52228b200df48fe28305bc311d0507da2c2420b10835bf00d21948"
+    },
+    "preview": {
+        "0.13.0": "1e00c627ec4b2ad0b4aa68068d3818ca0e41338c87e5504cda118c4050a98763"
+    }
+}

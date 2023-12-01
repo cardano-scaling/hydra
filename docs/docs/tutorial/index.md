@@ -58,7 +58,7 @@ chmod +x bin/*
 mkdir -p bin
 version=0.13.0
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
-unzip -d bin hydra-aarch64-darwin-${version}.zip
+unzip -d bin hydra-aarch64-darwin-${HYDRA_VERSION}.zip
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2347.0/mithril-2347.0-macos-x64.tar.gz \
   | tar xz -C bin
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-macos.tar.gz \
@@ -381,11 +381,11 @@ In summary, the Hydra head participants exchanged and agreed on:
 
 ## Step 3: Start the Hydra node
 
-With all these parameters defined, we now pick a version of the Head protocol we
-want to use. This is defined by the `hydra-node --version` itself and the
+With all these parameters defined, we now pick a HYDRA_VERSION of the Head protocol we
+want to use. This is defined by the `hydra-node --HYDRA_VERSION` itself and the
 `--hydra-scripts-tx-id` which point to scripts published on-chain.
 
-For all [released](https://github.com/input-output-hk/hydra/releases) versions
+For all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs
 of the `hydra-node` and common Cardano networks, the scripts do get
 pre-published and we can just use them. See the [user
 manual](../getting-started/quickstart#reference-scripts) for more information
@@ -397,12 +397,13 @@ Let's start the `hydra-node` with all these parameters now:
 <TabItem value="alice" label="Alice">
 
 ```shell
+version=0.13.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
   --cardano-signing-key credentials/alice-node.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
-  --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/input-output-hk/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
@@ -419,12 +420,13 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
+version=0.13.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
   --cardano-signing-key credentials/bob-node.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
-  --hydra-scripts-tx-id e5eb53b913e274e4003692d7302f22355af43f839f7aa73cb5eb53510f564496 \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/input-output-hk/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \

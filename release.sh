@@ -49,6 +49,7 @@ check_can_release() {
   confirm_uncommitted_changes
   check_version_is_valid $version
   check_changelog_is_up_to_date $version
+  check_networks_is_up_to_date $version
 
   true #avoid error on last instruction of function (see bash -e)
 }
@@ -137,6 +138,24 @@ check_changelog_is_up_to_date() {
   && exit_err "$version is not released in CHANGELOG.md. Please replace UNRELEASED with the current date"
 
   true #avoid error on last instruction of function (see bash -e)
+}
+
+# Check whether a transaction id is present for all networks and given version.
+check_networks_is_up_to_date() {
+  local version="$1"
+
+  local networks=(
+    mainnet
+    preprod
+    preview
+  )
+
+  local networks_file=networks.json
+
+  for network in "${networks[@]}"; do
+    cat ${networks_file} | jq -e ".\"${network}\".\"${version}\"" > /dev/null \
+    || exit_err "Missing transaction id for ${version} on ${network} in ${networks_file}"
+  done
 }
 
 # Prepare helper functions

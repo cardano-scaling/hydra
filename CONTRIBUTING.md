@@ -198,7 +198,8 @@ During development
 To perform a release of next `<version>`:
 
 1. Publish hydra scripts onto `preview`, `preprod`, and `mainnet` using the
-   [smoke test][smoke-test] and take note of the transaction ids.
+   [smoke test][smoke-test] and put the transaction ids as new `<version>`
+   entries into [networks.json](./networks.json).
 2. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
 3. Run `./release.sh <version>`
