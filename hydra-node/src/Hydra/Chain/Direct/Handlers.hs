@@ -363,7 +363,7 @@ prepareTxToPost timeHandle wallet ctx ChainStateAt{spendableUTxO} tx =
     InitTx params ->
       getSeedInput wallet >>= \case
         Just seedInput ->
-          pure $ initialize ctx params seedInput
+          pure $ initialize ctx undefined params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
     AbortTx{utxo, headSeed} ->

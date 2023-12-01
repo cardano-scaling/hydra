@@ -131,7 +131,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, sized, vector)
+import Test.QuickCheck (choose, frequency, oneof, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -219,8 +219,6 @@ initialChainState =
 -- only contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
-  , -- FIXME: peerVerificationKeys should not be here
-    peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , -- FIXME: peerVerificationKeys should not be here
     ownParty :: Party
@@ -233,9 +231,8 @@ instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
 
 instance Arbitrary ChainContext where
-  arbitrary = sized $ \n -> do
+  arbitrary = do
     networkId <- Testnet . NetworkMagic <$> arbitrary
-    peerVerificationKeys <- replicateM n genVerificationKey
     ownVerificationKey <- genVerificationKey
     otherParties <- arbitrary
     ownParty <- elements otherParties
@@ -243,16 +240,10 @@ instance Arbitrary ChainContext where
     pure
       ChainContext
         { networkId
-        , peerVerificationKeys
         , ownVerificationKey
         , ownParty
         , scriptRegistry
         }
-
--- | Get all cardano verification keys available in the chain context.
-allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
-allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
-  ownVerificationKey : peerVerificationKeys
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
@@ -337,12 +328,13 @@ instance HasKnownUTxO ClosedState where
 -- 'HeadParameters' and a seed 'TxIn' which will be spent.
 initialize ::
   ChainContext ->
+  [VerificationKey PaymentKey] ->
   HeadParameters ->
   -- | Seed input.
   TxIn ->
   Tx
 initialize ctx =
-  initTx networkId (allVerificationKeys ctx)
+  initTx networkId
  where
   ChainContext{networkId} = ctx
 
@@ -657,9 +649,10 @@ data NoObservation
 -- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
 observeInit ::
   ChainContext ->
+  [VerificationKey PaymentKey] ->
   Tx ->
   Either NotAnInit (OnChainTx Tx, InitialState)
-observeInit ctx tx = do
+observeInit ctx allVerificationKeys tx = do
   observed@RawInitObservation{contestationPeriod, onChainParties} <-
     first NotAnInit $
       observeRawInitTx tx
@@ -668,7 +661,7 @@ observeInit ctx tx = do
   observation <-
     first NotAnInitForUs $
       observeInitTx
-        (allVerificationKeys ctx)
+        allVerificationKeys
         contestationPeriod
         ownParty
         otherParties
@@ -864,7 +857,7 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+    let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
     pure (cctx, Idle, tx, Init)
 
   genAbortWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -971,7 +964,6 @@ deriveChainContexts ctx = do
     flip map (zip ctxVerificationKeys allParties') $ \(vk, p) ->
       ChainContext
         { networkId = ctxNetworkId
-        , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
         , scriptRegistry = ctxScriptRegistry
@@ -998,8 +990,8 @@ genStInitial ::
 genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
-  let txInit = initialize cctx (ctxHeadParameters ctx) seedInput
-  let initState = unsafeObserveInit cctx txInit
+  let txInit = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
+  let initState = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
   pure (cctx, initState)
 
 genInitTx ::
@@ -1007,7 +999,7 @@ genInitTx ::
   Gen Tx
 genInitTx ctx = do
   cctx <- pickChainContext ctx
-  initialize cctx (ctxHeadParameters ctx) <$> genTxIn
+  initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) <$> genTxIn
 
 genCommits ::
   HydraContext ->
@@ -1030,7 +1022,7 @@ genCommits' genUTxO ctx txInit = do
 
   allChainContexts <- deriveChainContexts ctx
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
-    let stInitial@InitialState{headId} = unsafeObserveInit cctx txInit
+    let stInitial@InitialState{headId} = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
     pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit
  where
   scaleCommitUTxOs commitUTxOs =
@@ -1053,7 +1045,7 @@ genCollectComTx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
+  let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitialized
   let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxo)
@@ -1108,7 +1100,7 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   commits <- genCommits ctx txInit
   cctx <- pickChainContext ctx
-  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitial
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
   let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxo
@@ -1226,10 +1218,11 @@ unsafeFanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo =
 unsafeObserveInit ::
   HasCallStack =>
   ChainContext ->
+  [VerificationKey PaymentKey] ->
   Tx ->
   InitialState
-unsafeObserveInit cctx txInit =
-  case observeInit cctx txInit of
+unsafeObserveInit cctx txInit allVerificationKeys =
+  case observeInit cctx txInit allVerificationKeys of
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
 
@@ -1238,13 +1231,14 @@ unsafeObserveInit cctx txInit =
 unsafeObserveInitAndCommits ::
   HasCallStack =>
   ChainContext ->
+  [VerificationKey PaymentKey] ->
   Tx ->
   [Tx] ->
   ([UTxO], InitialState)
-unsafeObserveInitAndCommits ctx txInit commits =
+unsafeObserveInitAndCommits ctx allVerificationKeys txInit commits =
   (utxo, stInitial')
  where
-  stInitial = unsafeObserveInit ctx txInit
+  stInitial = unsafeObserveInit ctx allVerificationKeys txInit
 
   (utxo, stInitial') = flip runState stInitial $ do
     forM commits $ \txCommit -> do

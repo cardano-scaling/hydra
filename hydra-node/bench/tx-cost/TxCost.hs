@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.State (
   ctxContestationPeriod,
   ctxHeadParameters,
   ctxHydraSigningKeys,
+  ctxVerificationKeys,
   genCloseTx,
   genCommits,
   genCommits',
@@ -84,7 +85,7 @@ computeInitCost = do
     seedInput <- genTxIn
     seedOutput <- genOutput =<< arbitrary
     let utxo = UTxO.singleton (seedInput, seedOutput)
-    pure (initialize cctx (ctxHeadParameters ctx) seedInput, utxo)
+    pure (initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput, utxo)
 
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do
@@ -129,7 +130,7 @@ computeCollectComCost =
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
-    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
     let InitialState{headId} = stInitialized
     let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxOs
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxo, getKnownUTxO stInitialized <> getKnownUTxO cctx)
@@ -193,7 +194,7 @@ computeAbortCost =
     -- NOTE: Commits are more expensive to abort, so let's use all commits
     commits <- genCommits ctx initTx
     cctx <- pickChainContext ctx
-    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
     let InitialState{seedTxIn} = stInitialized
     let spendableUTxO = getKnownUTxO stInitialized <> getKnownUTxO cctx
     pure (unsafeAbort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)

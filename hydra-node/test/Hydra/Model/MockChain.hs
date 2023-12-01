@@ -104,11 +104,10 @@ mockChainAndNetwork tr seedKeys commits = do
   connectNode nodes queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let Environment{party = ownParty} = env node
-    let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
+    let vkey = fst $ findOwnCardanoKey ownParty seedKeys
     let ctx =
           ChainContext
             { networkId = testNetworkId
-            , peerVerificationKeys = vkeys
             , ownVerificationKey = vkey
             , ownParty
             , scriptRegistry

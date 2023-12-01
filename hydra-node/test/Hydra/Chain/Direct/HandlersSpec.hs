@@ -10,8 +10,10 @@ import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (ChainPointAtGenesis),
+  PaymentKey,
   SlotNo (..),
   Tx,
+  VerificationKey,
   genTxIn,
   getChainPoint,
  )
@@ -40,6 +42,7 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
+  ctxVerificationKeys,
   deriveChainContexts,
   genChainStateWithTx,
   genCommit,
@@ -323,7 +326,7 @@ genSequenceOfObservableBlocks = do
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx (ctxHeadParameters ctx)
+    initTx <- stepInit cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits ctx initTx allContexts
   pure (cctx, initialChainState, reverse blks)
@@ -344,10 +347,11 @@ genSequenceOfObservableBlocks = do
 
   stepInit ::
     ChainContext ->
+    [VerificationKey PaymentKey] ->
     HeadParameters ->
     StateT [TestBlock] Gen Tx
-  stepInit ctx params = do
-    initTx <- lift $ initialize ctx params <$> genTxIn
+  stepInit ctx allVerificationKeys params = do
+    initTx <- lift $ initialize ctx allVerificationKeys params <$> genTxIn
     initTx <$ putNextBlock initTx
 
   stepCommits ::
@@ -359,15 +363,16 @@ genSequenceOfObservableBlocks = do
     [] ->
       pure []
     ctx : rest -> do
-      stInitialized <- stepCommit ctx initTx
+      stInitialized <- stepCommit ctx (ctxVerificationKeys hydraCtx) initTx
       (stInitialized :) <$> stepCommits hydraCtx initTx rest
 
   stepCommit ::
     ChainContext ->
+    [VerificationKey PaymentKey] ->
     Tx ->
     StateT [TestBlock] Gen InitialState
-  stepCommit ctx initTx = do
-    let stInitial@InitialState{headId} = unsafeObserveInit ctx initTx
+  stepCommit ctx allVerificationKeys initTx = do
+    let stInitial@InitialState{headId} = unsafeObserveInit ctx allVerificationKeys initTx
     utxo <- lift genCommit
     let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
     putNextBlock commitTx

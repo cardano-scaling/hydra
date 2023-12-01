@@ -169,7 +169,7 @@ spec = parallel $ do
         vk <- pickBlind arbitrary
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
-        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
+        let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
@@ -408,7 +408,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   txInit <- pickBlind $ genInitTx ctx
   -- Commits
   commits <- pickBlind $ genCommits' (genUTxOSized 1) ctx txInit
-  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId = initialHeadId} = stInitial
   -- Collect
   let initialUTxO = fold committed
@@ -487,14 +487,14 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx (ctxHeadParameters ctx) seedIn
+        let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedIn
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
-                (null (peerVerificationKeys cctx))
+                (null (ctxVerificationKeys ctx))
                 "1 party"
               & classify
-                (not (null (peerVerificationKeys cctx)))
+                (not (null (ctxVerificationKeys ctx)))
                 "2+ parties"
 
 forAllCommit ::
@@ -534,7 +534,7 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
               InitialState{seedTxIn} = stInitialized
            in action utxo (unsafeAbort cctx seedTxIn utxo (fold committed))
@@ -637,7 +637,7 @@ genInitTxWithSeed :: HydraContext -> Gen (Tx, TxIn)
 genInitTxWithSeed ctx = do
   cctx <- pickChainContext ctx
   seedTxIn <- genTxIn
-  pure (initialize cctx (ctxHeadParameters ctx) seedTxIn, seedTxIn)
+  pure (initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedTxIn, seedTxIn)
 
 -- * Helpers
 
