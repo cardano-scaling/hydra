@@ -46,6 +46,7 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
+  getVerificationKey,
   toLedgerUTxO,
  )
 import Hydra.Chain (
@@ -176,7 +177,11 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateHistory
 
-  cardanoKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+  -- read other parties cardano vkeys
+  otherCardanoKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+  -- obtain our vkey from reading our skey from file
+  ourCardanoSK <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  let ourCardanoKey = getVerificationKey ourCardanoSK
 
   let chainHandle =
         mkChain
@@ -184,7 +189,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
           getTimeHandle
           wallet
           ctx
-          cardanoKeys
+          (ourCardanoKey : otherCardanoKeys)
           localChainState
           (submitTx queue)
 
@@ -201,7 +206,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectChainConfig{networkId, nodeSocket, startChainFrom, cardanoVerificationKeys} = config
+  DirectChainConfig{networkId, nodeSocket, startChainFrom, cardanoVerificationKeys, cardanoSigningKey} = config
 
   connectInfo =
     LocalNodeConnectInfo
