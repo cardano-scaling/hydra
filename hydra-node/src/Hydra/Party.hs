@@ -7,8 +7,16 @@ import Hydra.Prelude
 
 import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
-import Data.ByteString.Base16 qualified as Hex
-import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (deserialiseFromRawBytes, serialiseToRawBytes), SigningKey, VerificationKey, getVerificationKey, verificationKeyHash)
+import Hydra.Cardano.Api (
+  AsType (AsVerificationKey),
+  SerialiseAsRawBytes (..),
+  SigningKey,
+  VerificationKey,
+  deserialiseFromRawBytesHex,
+  getVerificationKey,
+  serialiseToRawBytesHexText,
+  verificationKeyHash,
+ )
 import Hydra.Crypto (AsType (AsHydraKey), HydraKey)
 import Hydra.Data.Party qualified as OnChain
 
@@ -18,21 +26,16 @@ newtype Party = Party {vkey :: VerificationKey HydraKey}
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToJSONKey Party where
-  toJSONKey = toJSONKeyText (decodeUtf8 . Hex.encode . serialiseToRawBytes . vkey)
+  toJSONKey = toJSONKeyText (serialiseToRawBytesHexText . vkey)
 
 instance FromJSONKey Party where
   fromJSONKey = FromJSONKeyTextParser $ partyFromHexText
    where
-    partyFromHexText ::
-      MonadFail m =>
-      Text ->
-      m Party
+    partyFromHexText :: MonadFail m => Text -> m Party
     partyFromHexText t =
-      case Hex.decode (encodeUtf8 t) of
-        Left err -> fail $ "failed to decode from base16: " <> err
-        Right bytes -> case deserialiseFromRawBytes (AsVerificationKey AsHydraKey) bytes of
-          Left err -> fail $ "failed to decode verification key from bytes: " <> show err
-          Right vkey -> pure $ Party{vkey}
+      case deserialiseFromRawBytesHex (AsVerificationKey AsHydraKey) (encodeUtf8 t) of
+        Left err -> fail $ "failed to decode Party: " <> show err
+        Right vkey -> pure $ Party{vkey}
 
 -- REVIEW: Do we really want to define Ord or also use unordered-containers
 -- based on Hashable?
