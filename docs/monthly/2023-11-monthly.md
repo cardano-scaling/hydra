@@ -102,7 +102,7 @@ specification, but still being able to use LaTeX math **and** LaTeX macros
 (which are _still_ heavily used in the spec). From this we want to have both, a
 PDF and HTML rendering.
 
-TODO GIF sebastian
+![](https://ipfs.io/ipfs/QmPUTYaSViLEyZcGmsTPL4jHdGSevH3yc3RD7TRhU3ivwH?filename=Peek%202023-11-28%2018-42.gif)
 
 While not yet finished, the GIF above shows already progress being made using
 [pandoc](https://pandoc.org/) to resolve macros, producing a PDF via `xelatex`
@@ -111,7 +111,6 @@ even convert TikZ, GraphViz and Mermaid into both target formats.
 
 ## Community update
 
-TODO?
 
 ## Conclusion
 
