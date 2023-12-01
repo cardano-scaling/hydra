@@ -18,8 +18,10 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  PaymentKey,
   Tx,
   TxId,
+  VerificationKey,
   chainPointToSlotNo,
   fromLedgerTxIn,
   getChainPoint,
@@ -146,10 +148,12 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
+  -- | All participants cardano keys.
+  [VerificationKey PaymentKey] ->
   LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx cardanoKeys LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         chainS@ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -166,7 +170,7 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
           -- details needed to establish connection to the other peers and
           -- to bootstrap the init transaction. For now, we bear with it and
           -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx chainS tx)
+          atomically (prepareTxToPost timeHandle wallet ctx cardanoKeys chainS tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
@@ -355,15 +359,17 @@ prepareTxToPost ::
   TimeHandle ->
   TinyWallet m ->
   ChainContext ->
+  -- | All participants cardano keys.
+  [VerificationKey PaymentKey] ->
   ChainStateType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx ChainStateAt{spendableUTxO} tx =
+prepareTxToPost timeHandle wallet ctx cardanoKeys ChainStateAt{spendableUTxO} tx =
   case tx of
     InitTx params ->
       getSeedInput wallet >>= \case
         Just seedInput ->
-          pure $ initialize ctx undefined params seedInput
+          pure $ initialize ctx cardanoKeys params seedInput
         Nothing ->
           throwIO (NoSeedInput @Tx)
     AbortTx{utxo, headSeed} ->
