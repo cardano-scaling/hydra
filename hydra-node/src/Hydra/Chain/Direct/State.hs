@@ -57,7 +57,6 @@ import Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
-import Hydra.Cardano.Api.AddressInEra (mkScriptAddress)
 import Hydra.Chain (
   ChainStateType,
   HeadParameters (..),
@@ -122,7 +121,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party, deriveParty, partyToChain)
+import Hydra.Party (Party, deriveParty)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -219,12 +218,16 @@ initialChainState =
 -- only contains data known to single peer.
 data ChainContext = ChainContext
   { networkId :: NetworkId
-  , peerVerificationKeys :: [VerificationKey PaymentKey]
+  , -- FIXME: peerVerificationKeys should not be here
+    peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
-  , ownParty :: Party
-  , otherParties :: [Party]
+  , -- FIXME: peerVerificationKeys should not be here
+    ownParty :: Party
+  , -- FIXME: otherParties should not be here
+    otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
-  , contestationPeriod :: ContestationPeriod
+  , -- FIXME: contestationPeriod should not be here
+    contestationPeriod :: ContestationPeriod
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -256,11 +259,6 @@ instance Arbitrary ChainContext where
 allVerificationKeys :: ChainContext -> [VerificationKey PaymentKey]
 allVerificationKeys ChainContext{peerVerificationKeys, ownVerificationKey} =
   ownVerificationKey : peerVerificationKeys
-
--- | Get all hydra verification keys available in the chain context.
-allParties :: ChainContext -> [Party]
-allParties ChainContext{ownParty, otherParties} =
-  ownParty : otherParties
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
@@ -489,20 +487,39 @@ collect ctx headId spendableUTxO = do
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
 
-  let headAddress = mkScriptAddress @PlutusScriptV2 networkId headScript
-      commits =
-        UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
+  (parties, contestationPeriod) <- extractHeadParameters headUTxO
 
+  let initialThreadOutput =
+        InitialThreadOutput
+          { initialThreadUTxO = headUTxO
+          , initialContestationPeriod = contestationPeriod
+          , initialParties = parties
+          }
   pure $
-    collectComTx headAddress scriptRegistry ownVerificationKey (allParties ctx) contestationPeriod headUTxO commits headId
+    collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
  where
+  extractHeadParameters (_, headOutput) = do
+    headDatum <-
+      maybe (error "missing head datum") pure $
+        txOutScriptData $
+          toTxContext headOutput
+    datum <-
+      maybe (error "FailedToConvertFromScriptDataInCollect") pure $
+        fromScriptData headDatum
+    case datum of
+      Head.Initial{parties, contestationPeriod} -> pure (parties, contestationPeriod)
+      _ -> error "WrongDatumInCollect"
+
+  commits =
+    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
+
   utxoOfThisHead' = utxoOfThisHead (headIdToPolicyId headId) spendableUTxO
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
 
-  ChainContext{networkId, ownVerificationKey, scriptRegistry, contestationPeriod} = ctx
+  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.
@@ -607,7 +624,7 @@ contest ctx spendableUTxO headId confirmedSnapshot pointInTime = do
       ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
       _ -> (getSnapshot confirmedSnapshot, mempty)
 
-  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry, ownParty} = ctx
+  ChainContext{contestationPeriod, ownVerificationKey, scriptRegistry} = ctx
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -1084,7 +1101,7 @@ genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot headId 0 u0 (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId 0 u0 []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -1167,7 +1184,7 @@ genStClosed ctx utxo = do
 -- ** Danger zone
 
 unsafeCommit ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   HeadId ->
   -- | Spendable 'UTxO'
@@ -1179,7 +1196,7 @@ unsafeCommit ctx headId spendableUTxO utxoToCommit =
   either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
 
 unsafeAbort ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Seed TxIn
   TxIn ->
@@ -1192,7 +1209,7 @@ unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
 
 unsafeClose ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1216,7 +1233,7 @@ unsafeCollect ctx headId spendableUTxO =
   either (error . show) id $ collect ctx headId spendableUTxO
 
 unsafeContest ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1228,7 +1245,7 @@ unsafeContest ctx spendableUTxO headId confirmedSnapshot pointInTime =
   either (error . show) id $ contest ctx spendableUTxO headId confirmedSnapshot pointInTime
 
 unsafeFanout ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
@@ -1243,7 +1260,7 @@ unsafeFanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo =
   either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo
 
 unsafeObserveInit ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   Tx ->
   InitialState
@@ -1255,7 +1272,7 @@ unsafeObserveInit cctx txInit =
 -- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
 -- returns just 'UTXO' instead of [UTxO]
 unsafeObserveInitAndCommits ::
-  (HasCallStack) =>
+  HasCallStack =>
   ChainContext ->
   Tx ->
   [Tx] ->

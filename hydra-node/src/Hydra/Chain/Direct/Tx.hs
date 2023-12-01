@@ -247,22 +247,20 @@ mkCommitDatum party utxo headId =
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
 collectComTx ::
-  AddressInEra ->
+  NetworkId ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  [Party] ->
-  ContestationPeriod ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, TxOut CtxUTxO) ->
+  InitialThreadOutput ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO) ->
   -- | Head id
   HeadId ->
   Tx
-collectComTx headAddress scriptRegistry vk parties contestationPeriod (headInput, initialHeadOutput) commits headId =
+collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -270,6 +268,11 @@ collectComTx headAddress scriptRegistry vk parties contestationPeriod (headInput
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
+  InitialThreadOutput
+    { initialThreadUTxO = (headInput, initialHeadOutput)
+    , initialParties
+    , initialContestationPeriod
+    } = initialThreadOutput
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
@@ -279,16 +282,16 @@ collectComTx headAddress scriptRegistry vk parties contestationPeriod (headInput
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
-      headAddress
+      (mkScriptAddress @PlutusScriptV2 networkId headScript)
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
     mkTxOutDatumInline
       Head.Open
-        { Head.parties = partyToChain <$> parties
+        { Head.parties = initialParties
         , utxoHash
-        , contestationPeriod = toChain contestationPeriod
+        , contestationPeriod = initialContestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
 
@@ -1105,7 +1108,7 @@ headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 headIdToPolicyId :: HeadId -> PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 
-headSeedToTxIn :: (MonadFail m) => HeadSeed -> m TxIn
+headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =
   case Aeson.decodeStrict bytes of
     Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
@@ -1128,7 +1131,7 @@ assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
-findFirst :: (Foldable t) => (a -> Maybe b) -> t a -> Maybe b
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)

@@ -25,6 +25,7 @@ import Hydra.Chain.Direct.Fixture (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
+  InitialThreadOutput (..),
   assetNameFromVerificationKey,
   collectComTx,
   hydraHeadV1AssetName,
@@ -33,17 +34,16 @@ import Hydra.Chain.Direct.Tx (
   mkHeadOutput,
   mkInitialOutput,
  )
-import Hydra.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (
   genAdaOnlyUTxO,
@@ -73,12 +73,10 @@ healthyCollectComTx =
 
   tx =
     collectComTx
-      headAddress
+      testNetworkId
       scriptRegistry
       somePartyCardanoVerificationKey
-      healthyParties
-      healthyContestationPeriod
-      (healthyHeadTxIn, healthyHeadTxOut)
+      initialThreadOutput
       (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
 
@@ -87,11 +85,12 @@ healthyCollectComTx =
   somePartyCardanoVerificationKey = flip generateWith 42 $ do
     genForParty genVerificationKey <$> elements healthyParties
 
-  headScript =
-    fromPlutusScript Head.validatorScript
-
-  headAddress =
-    mkScriptAddress @PlutusScriptV2 testNetworkId headScript
+  initialThreadOutput =
+    InitialThreadOutput
+      { initialThreadUTxO = (healthyHeadTxIn, healthyHeadTxOut)
+      , initialParties = healthyOnChainParties
+      , initialContestationPeriod = healthyContestationPeriod
+      }
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
@@ -104,7 +103,7 @@ healthyCommittedUTxO =
     replicateM (length healthyParties) $
       genUTxOAdaOnlyOfSize =<< choose (0, 5)
 
-healthyContestationPeriod :: ContestationPeriod
+healthyContestationPeriod :: OnChain.ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
@@ -122,7 +121,7 @@ healthyHeadTxOut =
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
-    { contestationPeriod = toChain healthyContestationPeriod
+    { contestationPeriod = healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
     , seed = toPlutusTxOutRef testSeedInput
