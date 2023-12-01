@@ -36,7 +36,6 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
-import Hydra.Party (Party)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
@@ -77,15 +76,6 @@ import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
 import Paths_hydra_node (version)
 import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
-
-data ParamMismatch
-  = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
-  | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ParamMismatch where
-  arbitrary = genericArbitrary
 
 data Command
   = Run RunOptions
@@ -619,7 +609,7 @@ contestationPeriodParser =
   option
     (parseNatural <|> parseNominalDiffTime)
     ( long "contestation-period"
-        <> metavar "CONTESTATION-PERIOD"
+        <> metavar "SECONDS"
         <> value defaultContestationPeriod
         <> showDefault
         <> completer (listCompleter ["60", "180", "300"])
@@ -642,11 +632,6 @@ data InvalidOptions
   = MaximumNumberOfPartiesExceeded
   | CardanoAndHydraKeysMissmatch
   deriving stock (Eq, Show)
-
-explain :: InvalidOptions -> String
-explain = \case
-  MaximumNumberOfPartiesExceeded -> "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
-  CardanoAndHydraKeysMissmatch -> "Number of loaded cardano and hydra keys needs to match"
 
 -- | Validate cmd line arguments for hydra-node and check if they make sense before actually running the node.
 -- Rules we apply:
