@@ -332,9 +332,6 @@ data ClosingSnapshot
 
 data CloseTxError
   = CannotFindHeadOutputToClose
-  | MissingHeadDatumInClose
-  | FailedToConvertFromScriptDataInClose
-  | WrongDatumInClose
   deriving stock (Show)
 
 -- | Create a transaction closing a head with either the initial snapshot or

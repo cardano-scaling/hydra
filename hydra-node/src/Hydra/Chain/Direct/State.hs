@@ -108,7 +108,7 @@ import Hydra.Chain.Direct.Tx (
   observeRawInitTx,
   txInToHeadSeed,
  )
-import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -121,7 +121,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -512,37 +512,25 @@ close ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   HeadId ->
+  HeadParameters ->
   ConfirmedSnapshot Tx ->
   -- | 'Tx' validity lower bound
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
   Either CloseTxError Tx
-close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime = do
+close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confirmedSnapshot startSlotNo pointInTime = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToClose) pure $
       UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
-  (parties, contestationPeriod) <- extractHeadParameters headUTxO
   let openThreadOutput =
         OpenThreadOutput
           { openThreadUTxO = headUTxO
-          , openContestationPeriod = ContestationPeriod.toChain (fromChain contestationPeriod)
-          , openParties = parties
+          , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , openParties = partyToChain <$> parties
           }
   pure $ closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId
  where
-  extractHeadParameters (_, headOutput) = do
-    headDatum <-
-      maybe (Left MissingHeadDatumInClose) pure $
-        txOutScriptData $
-          toTxContext headOutput
-    datum <-
-      maybe (Left FailedToConvertFromScriptDataInClose) pure $
-        fromScriptData headDatum
-    case datum of
-      Head.Open{parties, contestationPeriod} -> pure (parties, contestationPeriod)
-      _ -> Left WrongDatumInClose
-
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   closingSnapshot = case confirmedSnapshot of
@@ -652,8 +640,7 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
 -- * Helpers
 
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
-utxoOfThisHead policy spendableUTxO =
-  UTxO.filter hasHeadToken spendableUTxO
+utxoOfThisHead policy = UTxO.filter hasHeadToken
  where
   hasHeadToken =
     isJust . find isHeadToken . valueToList . txOutValue
@@ -1086,7 +1073,7 @@ genCloseTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeClose cctx utxo headId snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, unsafeClose cctx utxo headId (ctxHeadParameters ctx) snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -1097,7 +1084,7 @@ genContestTx = do
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx openUTxO headId confirmed startSlot closePointInTime
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
   someUtxo <- arbitrary
@@ -1158,7 +1145,7 @@ genStClosed ctx utxo = do
   let cp = Hydra.Chain.Direct.State.contestationPeriod cctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo' = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx utxo' headId snapshot startSlot pointInTime
+  let txClose = unsafeClose cctx utxo' headId (ctxHeadParameters ctx) snapshot startSlot pointInTime
   pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
@@ -1194,14 +1181,15 @@ unsafeClose ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   HeadId ->
+  HeadParameters ->
   ConfirmedSnapshot Tx ->
   -- | 'Tx' validity lower bound
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
   Tx
-unsafeClose ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime =
-  either (error . show) id $ close ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime
+unsafeClose ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime =
+  either (error . show) id $ close ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime
 
 unsafeCollect ::
   ChainContext ->
