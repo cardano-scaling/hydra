@@ -701,7 +701,7 @@ You can do this through the websocket API one last time:
 { "tag": "Fanout" }
 ```
 
-This will again submit a transactin to the layer one and once successful is
+This will again submit a transaction to the layer one and once successful is
 indicated by a `HeadIsFinalized` message which includes the distributed `utxo`.
 
 To confirm, you can query the funds of both, `alice` and `bob`, on the layer
