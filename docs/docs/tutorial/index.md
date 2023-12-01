@@ -46,7 +46,7 @@ curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz \
   | tar xz -C bin ./cardano-node ./cardano-cli
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2331.1/mithril-2331.1-linux-x64.tar.gz \
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2347.0/mithril-2347.0-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
 chmod +x bin/*
 ```
