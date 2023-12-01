@@ -36,7 +36,7 @@ This month, several items were restructured on the project
 
 - There was already an item about reacting to main chain parameter changes on the
   roadmap, which included not only protocol parameter updates, but also
-  hard-fork events. With the upcoming hard-fork into `Conway`, we split off the
+  hard-fork events. With the upcoming hard fork into `Conway`, the team split off the
   changes needed to navigate such hard-fork and concretized it:
 
   + [Conway support #1177](https://github.com/input-output-hk/hydra/issues/1177) will make the `hydra-node` support Conway and allow users to keep heads open across the hard-fork.
