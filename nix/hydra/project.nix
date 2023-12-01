@@ -25,6 +25,8 @@ let
       # Reason: haskell.nix modules/overlays neds to be last
       # https://github.com/input-output-hk/haskell.nix/issues/1954
       haskellNix.overlay
+      # Custom static libs used for darwin build
+      (import ../static-libs.nix)
     ];
   };
 
@@ -66,6 +68,17 @@ let
         # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
         packages.strict-containers.doHaddock = false;
       }
+      # Use different static libs on darwin
+      # TODO: Always use these?
+      (pkgs.lib.mkIf pkgs.hostPlatform.isDarwin {
+        packages.hydra-node.ghcOptions = with pkgs; [
+          "-L${lib.getLib static-gmp}/lib"
+          "-L${lib.getLib static-libsodium-vrf}/lib"
+          "-L${lib.getLib static-secp256k1}/lib"
+          "-L${lib.getLib static-openssl}/lib"
+          "-L${lib.getLib static-libblst}/lib"
+        ];
+      })
       # Fix compilation with newer ghc versions
       ({ lib, config, ... }:
         lib.mkIf (lib.versionAtLeast config.compiler.version "9.4") {
