@@ -329,14 +329,14 @@ will be used on the layer two by the `hydra-node`. For this, we will use the
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra-tools gen-hydra-key --output-file credentials/alice-hydra
+hydra-node gen-hydra-key --output-file credentials/alice-hydra
 ```
 
 </TabItem>
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra-tools gen-hydra-key --output-file credentials/bob-hydra
+hydra-node gen-hydra-key --output-file credentials/bob-hydra
 ```
 
 </TabItem>
