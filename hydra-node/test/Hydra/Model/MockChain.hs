@@ -45,7 +45,7 @@ import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Environment (Environment, otherParties, party), Event (..), defaultTTL)
+import Hydra.HeadLogic (Environment (Environment, party), Event (..), defaultTTL)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
@@ -103,7 +103,7 @@ mockChainAndNetwork tr seedKeys commits = do
 
   connectNode nodes queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
-    let Environment{party = ownParty, otherParties} = env node
+    let Environment{party = ownParty} = env node
     let (vkey, vkeys) = findOwnCardanoKey ownParty seedKeys
     let ctx =
           ChainContext
@@ -111,7 +111,6 @@ mockChainAndNetwork tr seedKeys commits = do
             , peerVerificationKeys = vkeys
             , ownVerificationKey = vkey
             , ownParty
-            , otherParties
             , scriptRegistry
             }
     let getTimeHandle = pure $ arbitrary `generateWith` 42

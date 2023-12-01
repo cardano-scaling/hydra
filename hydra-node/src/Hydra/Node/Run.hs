@@ -86,7 +86,7 @@ run opts = do
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
-        ctx <- loadChainContext chainConfig party otherParties hydraScriptsTxId
+        ctx <- loadChainContext chainConfig party hydraScriptsTxId
         wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
         withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
           -- API

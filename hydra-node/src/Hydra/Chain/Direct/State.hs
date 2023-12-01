@@ -122,7 +122,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party, deriveParty, partyToChain)
+import Hydra.Party (Party, deriveParty, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -224,8 +224,6 @@ data ChainContext = ChainContext
   , ownVerificationKey :: VerificationKey PaymentKey
   , -- FIXME: peerVerificationKeys should not be here
     ownParty :: Party
-  , -- FIXME: otherParties should not be here
-    otherParties :: [Party]
   , scriptRegistry :: ScriptRegistry
   }
   deriving stock (Eq, Show, Generic)
@@ -248,7 +246,6 @@ instance Arbitrary ChainContext where
         , peerVerificationKeys
         , ownVerificationKey
         , ownParty
-        , otherParties
         , scriptRegistry
         }
 
@@ -663,10 +660,11 @@ observeInit ::
   Tx ->
   Either NotAnInit (OnChainTx Tx, InitialState)
 observeInit ctx tx = do
-  observed@RawInitObservation{contestationPeriod} <-
+  observed@RawInitObservation{contestationPeriod, onChainParties} <-
     first NotAnInit $
       observeRawInitTx tx
-
+  let allParties = concatMap partyFromChain onChainParties
+      otherParties = allParties \\ [ownParty]
   observation <-
     first NotAnInitForUs $
       observeInitTx
@@ -689,7 +687,7 @@ observeInit ctx tx = do
       , seedTxIn
       }
 
-  ChainContext{ownParty, otherParties} = ctx
+  ChainContext{ownParty} = ctx
 
 -- ** InitialState transitions
 
@@ -976,7 +974,6 @@ deriveChainContexts ctx = do
         , peerVerificationKeys = ctxVerificationKeys \\ [vk]
         , ownVerificationKey = vk
         , ownParty = p
-        , otherParties = allParties' \\ [p]
         , scriptRegistry = ctxScriptRegistry
         }
  where
