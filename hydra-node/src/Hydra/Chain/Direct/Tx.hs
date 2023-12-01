@@ -85,6 +85,10 @@ data InitialThreadOutput = InitialThreadOutput
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary InitialThreadOutput where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
   { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
@@ -94,6 +98,10 @@ data OpenThreadOutput = OpenThreadOutput
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary OpenThreadOutput where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
 data ClosedThreadOutput = ClosedThreadOutput
   { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , closedParties :: [OnChain.Party]
@@ -102,6 +110,10 @@ data ClosedThreadOutput = ClosedThreadOutput
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ClosedThreadOutput where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)

@@ -451,6 +451,7 @@ instance Arbitrary TxId where
 
 instance Arbitrary (TxOut CtxUTxO) where
   arbitrary = genTxOut
+  shrink txOut = fromLedgerTxOut <$> shrink (toLedgerTxOut txOut)
 
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
