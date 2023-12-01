@@ -46,7 +46,6 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  getVerificationKey,
   toLedgerUTxO,
  )
 import Hydra.Chain (
@@ -177,8 +176,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateHistory
 
-  sk <- mapM (readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey)) cardanoVerificationKeys
-  let cardanoKeys = getVerificationKey <$> sk
+  cardanoKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
 
   let chainHandle =
         mkChain
