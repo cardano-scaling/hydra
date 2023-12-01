@@ -64,7 +64,7 @@ instance Arbitrary HeadParameters where
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
-  | CollectComTx {headId :: HeadId}
+  | CollectComTx {headId :: HeadId, headParameters :: HeadParameters}
   | CloseTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}

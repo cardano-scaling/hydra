@@ -177,14 +177,14 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   postCollectCom =
     OnChainEffect
-      { postChainTx = CollectComTx{headId}
+      { postChainTx = CollectComTx{headId, headParameters = parameters}
       }
 
   canCollectCom = null remainingParties
 
   remainingParties = Set.delete pt pendingCommits
 
-  InitialState{pendingCommits, headId} = st
+  InitialState{pendingCommits, headId, parameters} = st
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.

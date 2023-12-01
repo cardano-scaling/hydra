@@ -381,8 +381,8 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} ChainStat
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{headId} ->
-      case collect ctx headId spendableUTxO of
+    CollectComTx{headId, headParameters} ->
+      case collect ctx headId headParameters spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
     CloseTx{headId, confirmedSnapshot} -> do

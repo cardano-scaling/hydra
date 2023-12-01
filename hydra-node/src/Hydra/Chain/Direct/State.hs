@@ -479,37 +479,17 @@ data CollectTxError
 collect ::
   ChainContext ->
   HeadId ->
+  HeadParameters ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   Either CollectTxError Tx
-collect ctx headId spendableUTxO = do
+collect ctx headId headParameters spendableUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToCollect) pure $
       UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
-
-  (parties, contestationPeriod) <- extractHeadParameters headUTxO
-
-  let initialThreadOutput =
-        InitialThreadOutput
-          { initialThreadUTxO = headUTxO
-          , initialContestationPeriod = contestationPeriod
-          , initialParties = parties
-          }
   pure $
-    collectComTx networkId scriptRegistry ownVerificationKey initialThreadOutput commits headId
+    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits
  where
-  extractHeadParameters (_, headOutput) = do
-    headDatum <-
-      maybe (error "missing head datum") pure $
-        txOutScriptData $
-          toTxContext headOutput
-    datum <-
-      maybe (error "FailedToConvertFromScriptDataInCollect") pure $
-        fromScriptData headDatum
-    case datum of
-      Head.Initial{parties, contestationPeriod} -> pure (parties, contestationPeriod)
-      _ -> error "WrongDatumInCollect"
-
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
@@ -1095,7 +1075,7 @@ genCollectComTx = do
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitialized
   let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
-  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId utxo)
+  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxo)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1150,7 +1130,7 @@ genStOpen ctx = do
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
   let InitialState{headId} = stInitial
   let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
-  let txCollect = unsafeCollect cctx headId utxo
+  let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxo
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -1226,11 +1206,12 @@ unsafeClose ctx spendableUTxO headId confirmedSnapshot startSlotNo pointInTime =
 unsafeCollect ::
   ChainContext ->
   HeadId ->
+  HeadParameters ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   Tx
-unsafeCollect ctx headId spendableUTxO =
-  either (error . show) id $ collect ctx headId spendableUTxO
+unsafeCollect ctx headId headParameters spendableUTxO =
+  either (error . show) id $ collect ctx headId headParameters spendableUTxO
 
 unsafeContest ::
   HasCallStack =>
