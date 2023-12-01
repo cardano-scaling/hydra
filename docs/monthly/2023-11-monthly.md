@@ -1,7 +1,7 @@
 ---
 title: November 2023
 slug: 2023-11
-authors: [ch1bo]
+authors: [ch1bo, abailly]
 tags: [monthly]
 ---
 
@@ -73,14 +73,6 @@ Big thanks to the MeshJS team on giving us much needed support! They were
 presenting these changes in our monthy review meeting so make sure to watch the
 [recording](https://drive.google.com/file/d/1-iv8IveUzA2KrJV_Kqrgx4ts05Ow0zjM).
 
-### Stateless chain observation + tool
-
-TODO
-
-### Incremental decommit protocol design
-
-TODO?
-
 ### Rendering the Hydra specification
 
 Besides working on the design of incremental commits itself, we also wanted to
@@ -111,6 +103,28 @@ even convert TikZ, GraphViz and Mermaid into both target formats.
 
 ## Community update
 
+Beside the great work done by the MeshJS team towards supporting Hydra in the browser, here are some news and updates on community-led work streams related to Hydra:
+
+* SundaeLabs has made good progress on their [off-line mode
+  PR](https://github.com/input-output-hk/hydra/pull/1118) which should
+  hit the main branch soon,
+* TxPipe has been collaborating with IOG's Creative Engineering team
+  to build _Cardaminal_, a command-line wallet, and demonstrated it
+  during our monthly review meeting. Cardaminal is built in Rust,
+  leveraging [Pallas](https://github.com/txpipe/pallas) libraries, and
+  is aimed at being a fully-fledged scriptable wallet affording users
+  with powerful stateful transaction edition capabilities, native
+  assets management, chain synchronisation, etc.
+
+  We are already
+  thinking of making Cardaminal compatible with Hydra - to be able to
+  use it to interact with a Head - and Mithril - using snapshots to
+  synchronise the wallet.
+
+* The team behind [zkSNARK in
+  Hydra](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/a-zero-knowledge-proof-framework-for-cardano-based-on-hydra-and-zk-snarks)
+  Catalyst proposal is making good progress and should be able to give
+  a demo on our next monthly review meeting
 
 ## Conclusion
 
