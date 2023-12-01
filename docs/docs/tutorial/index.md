@@ -55,8 +55,8 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
-curl -L -o - https://github.com/input-output-hk/hydra/releases/download/0.12.0/tutorial-binaries-aarch64-darwin.tar.gz \
-  | tar xz -C bin
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/0.14.0/hydra-aarch64-darwin-0.14.0.zip
+unzip -d bin hydra-aarch64-darwin-0.14.0.zip
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2347.0/mithril-2347.0-macos-x64.tar.gz \
   | tar xz -C bin
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-macos.tar.gz \
