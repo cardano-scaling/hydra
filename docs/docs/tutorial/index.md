@@ -41,8 +41,9 @@ components of the Cardano ecosystem, putting them in a `bin/` directory:
 
 ```shell
 mkdir -p bin
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/0.14.0/hydra-x86_64-linux-0.14.0.zip
-unzip -d bin hydra-x86_64-linux-0.14.0.zip
+version=0.13.0
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
+unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz \
   | tar xz -C bin ./cardano-node ./cardano-cli
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2331.1/mithril-2331.1-linux-x64.tar.gz \
@@ -55,8 +56,9 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/0.14.0/hydra-aarch64-darwin-0.14.0.zip
-unzip -d bin hydra-aarch64-darwin-0.14.0.zip
+version=0.13.0
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
+unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2347.0/mithril-2347.0-macos-x64.tar.gz \
   | tar xz -C bin
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-macos.tar.gz \
