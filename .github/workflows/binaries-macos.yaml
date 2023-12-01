@@ -48,5 +48,5 @@ jobs:
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v3
       with:
-        name: hydra-aarch64-darwin-${{ env.VERSION }}.zip
+        name: hydra-aarch64-darwin-${{ env.VERSION }} # automatically zips
         path: out/*
