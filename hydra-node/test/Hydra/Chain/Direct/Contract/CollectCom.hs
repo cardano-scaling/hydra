@@ -213,7 +213,7 @@ genCollectComMutation (tx, _utxo) =
                 (AssetId pid _, _) -> pid /= testPolicyId
                 _ -> True
           (assetId, Quantity n) <- elements nonPTs
-          q <- Quantity <$> choose (0, n)
+          q <- Quantity <$> choose (1, n)
           pure $ valueFromList [(assetId, q)]
         -- Add another output which would extract the 'removedValue'. The ledger
         -- would check for this, and this is needed because the way we implement
