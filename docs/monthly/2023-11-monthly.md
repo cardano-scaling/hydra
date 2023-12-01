@@ -19,7 +19,7 @@ This month, several items were restructured on the project
 
 #### Notable updates
 
-- Release of version `0.14.0` imminent as most of the [stateless chain
+- Release of version `0.14.0` is imminent as most of the [stateless chain
   observation #1096](https://github.com/input-output-hk/hydra/issues/1096)
   feature is done and only some internal refactoring missing.
 
