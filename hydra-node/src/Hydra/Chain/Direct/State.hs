@@ -769,7 +769,6 @@ genChainState =
     , Closed <$> arbitrary
     ]
 
-
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
 genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
