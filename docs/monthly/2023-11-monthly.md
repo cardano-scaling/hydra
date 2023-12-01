@@ -34,7 +34,7 @@ This month, several items were restructured on the project
   example of a [2-player game in a hydra head
   #1098](https://github.com/input-output-hk/hydra/issues/1098).
 
-- There was already an item about reacting to mainchain parameter changes on the
+- There was already an item about reacting to main chain parameter changes on the
   roadmap, which included not only protocol parameter updates, but also
   hard-fork events. With the upcoming hard-fork into `Conway`, we split off the
   changes needed to navigate such hard-fork and concretized it:
