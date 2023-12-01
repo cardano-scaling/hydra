@@ -907,16 +907,17 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contents
+          - invalidEvent
+          - currentHeadState
         properties:
           tag:
             type: string
             enum: ["InvalidEvent"]
-          contents:
-            type: array
-            prefixItems:
-              - $ref: "logs.yaml#/definitions/Event"
-              - $ref: "logs.yaml#/definitions/HeadState"
+          invalidEvent:
+            $ref: "logs.yaml#/definitions/Event"
+          currentHeadState:
+            $ref: "logs.yaml#/definitions/HeadState"
+
       - title: RequireFailed
         description: >-
           A precondition for some state transition within the Hydra
@@ -928,13 +929,14 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contents
+          - requirementfailure
         properties:
           tag:
             type: string
             enum: ["RequireFailed"]
-          contents:
+          requirementFailure:
             $ref: "logs.yaml#/definitions/RequirementFailure"
+
       - title: NotOurHead
         description: >-
           We just observed an on-chain event that does not apply to
@@ -1051,6 +1053,26 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           lastSeenSn:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "SnapshotDoesNotApply"
+        description: >-
+          Received a ReqSn whose snapshot contains transactions that do not apply
+          cleanly on the currently confirmed UTxO set
+        additionalProperties: false
+        required:
+          - tag
+          - requestedSn
+          - txid
+          - error
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotDoesNotApply"]
+          requestedSn:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          txid:
+            $ref: "api.yaml#/components/schemas/TxId"
+          error:
+            $ref: "logs.yaml#/definitions/ValidationError"
   HeadState:
     oneOf:
       - title: "Idle"
@@ -1330,9 +1352,9 @@ definitions:
         items:
           $ref: "api.yaml#/components/schemas/Party"
       committed:
-        type: array
-        items:
-          $ref: "api.yaml#/components/schemas/Party"
+        type: object
+        additionalProperties:
+          $ref: "api.yaml#/components/schemas/UTxO"
       chainState:
         $ref: "api.yaml#/components/schemas/ChainState"
       headId:
@@ -1634,6 +1656,24 @@ definitions:
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
 
+      - title: IgnoredInitTx
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - participants
+        properties:
+          tag:
+            type: string
+            enum: ["IgnoredInitTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          participants:
+            items:
+              type: string
+              contentEncoding: base16
+
       - title: Rollback
         type: object
         additionalProperties: false
@@ -1646,6 +1686,7 @@ definitions:
             enum: ["Rollback"]
           rolledBackChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
+
       - title: Tick
         description: |
           Time has progressed on the chain.

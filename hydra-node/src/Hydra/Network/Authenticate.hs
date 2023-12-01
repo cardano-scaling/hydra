@@ -101,3 +101,4 @@ instance ToJSON AuthLog where
 
 instance Arbitrary AuthLog where
   arbitrary = genericArbitrary
+  shrink = genericShrink

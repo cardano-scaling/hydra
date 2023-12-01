@@ -127,6 +127,10 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
     headId <- arbitrary
     genConfirmedSnapshot headId 0 utxo ks
 
+  shrink = \case
+    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
+    ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
+
 genConfirmedSnapshot ::
   IsTx tx =>
   HeadId ->

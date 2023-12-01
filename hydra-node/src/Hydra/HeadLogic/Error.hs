@@ -15,8 +15,8 @@ import Hydra.Snapshot (SnapshotNumber)
 -- | Preliminary type for collecting errors occurring during 'update'.
 -- TODO: Try to merge this (back) into 'Outcome'.
 data LogicError tx
-  = InvalidEvent (Event tx) (HeadState tx)
-  | RequireFailed (RequirementFailure tx)
+  = InvalidEvent {invalidEvent :: (Event tx), currentHeadState :: (HeadState tx)}
+  | RequireFailed {requirementFailure :: (RequirementFailure tx)}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
@@ -24,6 +24,7 @@ instance (Typeable tx, Show (Event tx), Show (HeadState tx), Show (RequirementFa
 
 instance (Arbitrary (Event tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
+  shrink = genericShrink
 
 deriving stock instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
 deriving stock instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)

@@ -157,9 +157,11 @@ data ReliabilityLog
 
 instance Arbitrary (Vector Int) where
   arbitrary = fromList <$> listOf (getPositive <$> arbitrary)
+  shrink v = fromList <$> shrink (toList v)
 
 instance Arbitrary ReliabilityLog where
   arbitrary = genericArbitrary
+  shrink = genericShrink
 
 -- | Handle for all persistence operations in the Reliability network layer.
 -- This handle takes care of storing and retreiving vector clock and all

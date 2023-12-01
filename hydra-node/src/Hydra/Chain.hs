@@ -82,6 +82,13 @@ deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
 instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
+  shrink = \case
+    InitTx{headParameters} -> InitTx <$> shrink headParameters
+    AbortTx{utxo} -> AbortTx <$> shrink utxo
+    CollectComTx{utxo} -> CollectComTx <$> shrink utxo
+    CloseTx{confirmedSnapshot} -> CloseTx <$> shrink confirmedSnapshot
+    ContestTx{confirmedSnapshot} -> ContestTx <$> shrink confirmedSnapshot
+    FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.

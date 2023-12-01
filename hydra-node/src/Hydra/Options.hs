@@ -165,14 +165,19 @@ data RunOptions = RunOptions
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+-- Orphan instance
+instance Arbitrary IP where
+  arbitrary = IPv4 . toIPv4w <$> arbitrary
+  shrink = genericShrink
+
 instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
-    host <- IPv4 . toIPv4w <$> arbitrary
+    host <- arbitrary
     port <- arbitrary
     peers <- reasonablySized arbitrary
-    apiHost <- IPv4 . toIPv4w <$> arbitrary
+    apiHost <- arbitrary
     apiPort <- arbitrary
     monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
@@ -198,6 +203,8 @@ instance Arbitrary RunOptions where
         , chainConfig
         , ledgerConfig
         }
+
+  shrink = genericShrink
 
 runOptionsParser :: Parser RunOptions
 runOptionsParser =

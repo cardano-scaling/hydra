@@ -137,6 +137,7 @@ data ChainStateAt = ChainStateAt
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
+  shrink = genericShrink
 
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
@@ -179,6 +180,7 @@ data ChainState
 
 instance Arbitrary ChainState where
   arbitrary = genChainState
+  shrink = genericShrink
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -248,6 +250,13 @@ data InitialState = InitialState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary InitialState where
+  arbitrary = do
+    ctx <- genHydraContext maxGenParties
+    snd <$> genStInitial ctx
+
+  shrink = genericShrink
+
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
     UTxO $
@@ -269,6 +278,13 @@ data OpenState = OpenState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary OpenState where
+  arbitrary = do
+    ctx <- genHydraContext maxGenParties
+    snd <$> genStOpen ctx
+
+  shrink = genericShrink
+
 instance HasKnownUTxO OpenState where
   getKnownUTxO st =
     UTxO.singleton openThreadUTxO
@@ -284,6 +300,14 @@ data ClosedState = ClosedState
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ClosedState where
+  arbitrary = do
+    -- XXX: Untangle the whole generator mess here
+    (_, st, _) <- genFanoutTx maxGenParties maxGenAssets
+    pure st
+
+  shrink = genericShrink
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -740,23 +764,10 @@ genChainState :: Gen ChainState
 genChainState =
   oneof
     [ pure Idle
-    , Initial <$> genInitialState
-    , Open <$> genOpenState
-    , Closed <$> genClosedState
+    , Initial <$> arbitrary
+    , Open <$> arbitrary
+    , Closed <$> arbitrary
     ]
- where
-  genInitialState = do
-    ctx <- genHydraContext maxGenParties
-    snd <$> genStInitial ctx
-
-  genOpenState = do
-    ctx <- genHydraContext maxGenParties
-    snd <$> genStOpen ctx
-
-  genClosedState = do
-    -- XXX: Untangle the whole generator mess here
-    (_, st, _) <- genFanoutTx maxGenParties maxGenAssets
-    pure st
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
