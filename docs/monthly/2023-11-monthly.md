@@ -23,14 +23,14 @@ This month, several items were restructured on the project
   observation #1096](https://github.com/input-output-hk/hydra/issues/1096)
   feature is done and only some internal refactoring missing.
 
-- Refined user submitted feature idea on supporting extended keys
-  [#1141](https://github.com/input-output-hk/hydra/issues/1141). The purpose
-  (why?) of this item is clear now and work can be started (it's not a priority
-  still though).
+- The user-submitted feature idea on supporting extended keys,
+  [#1141](https://github.com/input-output-hk/hydra/issues/1141), has
+  been refined. The purpose of this item is now clear, and although
+  it's not currently a priority, work on it can be started.
 
 - Two new items were created to improve the developer experience of the [Hydra build
   toolchain #1146](https://github.com/input-output-hk/hydra/issues/1146). Additionally, a
-  follow-up on things learned by `hydra-poll` to create a full end-to-end
+  follow-up on things learned by `hydra-poll` aims to create a full end-to-end
   example of a [two-player game in a Hydra head
   #1098](https://github.com/input-output-hk/hydra/issues/1098).
 
@@ -75,7 +75,7 @@ presenting these changes in the monthly review meeting so make sure to watch the
 
 ### Rendering the Hydra specification
 
-Besides working on the design of incremental commits itself, the team also 
+Besides working on the design of incremental commits itself, the team also
 tidied up the way the [Hydra protocol
 specification](https://hydra.family/head-protocol/core-concepts/specification)
 is written.
