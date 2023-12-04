@@ -202,6 +202,7 @@ benchmark bench-e2e
   build-depends:
     , aeson
     , base                  >=4.7 && <5
+    , base16-bytestring
     , bytestring
     , cardano-binary
     , containers

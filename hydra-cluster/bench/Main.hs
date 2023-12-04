@@ -11,6 +11,8 @@ import Bench.Summary (Summary (..), markdownReport, textReport)
 import Cardano.Binary (decodeFull, serialize)
 import Data.Aeson (eitherDecodeFileStrict')
 import Data.ByteString (hPut)
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
@@ -79,13 +81,13 @@ main =
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
     putStrLn $ "Reading dataset from: " <> f
-    readFileLBS f >>= either (die . show) pure . decodeFull
+    readFileBS f >>= either (die . show) pure . (decodeFull . LBS.fromStrict . Base16.decodeLenient)
 
   saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.cbor"
     putStrLn $ "Writing dataset to: " <> txsFile
-    writeFileLBS txsFile $ serialize dataset
+    writeFileBS txsFile $ Base16.encode $ LBS.toStrict $ serialize dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure
