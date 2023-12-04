@@ -543,21 +543,30 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "20acc0e606e1868852b68140742f44287644cdb0acd071d1de2a50738f1eac26c6e4ffc4f3fc2dcfdc1d4f2b28df807757a10eb8b33882514c734e7c68741f0e",
-                                "e9599ca0c464fa24715ef596807b52c7a8704d13139d784b1d47b9999d3e1952a70511335db49337e7cf924a0124483eb6eb6a58b727dbd45ef3da63abe7d20b"
+                                "e03cc2a0535860e57eaa2bef87d113deb5349bd4ee544c033476bf51cc8103837e86d38de814846e18802ff7d65a6e12b378595507d04a329177b1848c54c707",
+                                "4d3f9a5c1e01bdb571fa990f5b5d38d88c7a7e1a51e8e01d7a7a4a1eb104f0750f07626a22ce192a9978567cb3e24c2f92ebd9902eb8d75aad438bf166a6fd0c",
+                                "e4c0c99988f2077143697234060a5bc1e3d1cc5f5861388568d2f5f5df02c1e8a127b4eee28d237b254b979e89cdc1a6e5886e452a9822c70a397dd4554e5808",
+                                "9f8e8b6fba9b119d9d25ab2ff28bae5e7397d9a7180b0d09e5578f30c502c9904904df722a87ccdf75301769a7c8cd1b4065143c121a9c215dd87252632fdc0e",
+                                "2290fc0cda654956093d580bc9a60728d5f622051cefd9890c55e7dc1553e37154832ebb8811464cc19b22f560d1206380ff346375dbf965474247ca5dea6203"
                             ]
                         },
                         "snapshot": {
                             "confirmedTransactions": [],
-                            "headId": "08040103000201000004060507080306",
+                            "headId": "06050007020007020101080307050702",
                             "snapshotNumber": 6,
-                            "utxo": [
-                                -5
-                            ]
+                            "utxo": []
                         },
                         "tag": "ConfirmedSnapshot"
                     },
                     "headId": "08030802040401040406070505080003",
+                    "headParameters": {
+                        "contestationPeriod": 2592000,
+                        "parties": [
+                            {
+                                "vkey": "95f72f9a8122216b6b6caacc8f4a6515152bb47d8ae717b69b6a5de223a86fa6"
+                            }
+                        ]
+                    },
                     "tag": "ContestTx"
                 }
             },
@@ -686,21 +695,41 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "5fe20e7e4bc974a69573a19d3fe8295a27ffc7873c17ad8b228140c05a3a0b32586dd1bfdb9cd75d3b280873f94ba6225279e728091ba09b04d8552a6b3ce80f",
-                            "91a23c1bb66cb12844b55d321f408feb17b5c27a842047aa2793e896e5cb044dceeb89ab1d7fd757a0723fff1b70b94e7d8a155a25063bd3492c7ccf36605802",
-                            "bc2ebd255da1b1b19ee345a66d84b983833c6012ac1bf4fe7ee0ed96ea6a792de47880be0079252f176aac17dcef0971e61ccda041e88530fe47cde2360d870e",
-                            "991708c9886f6c5315e13dcea65508989fa16796bd2120d540940b93ec09ed86bc128657495434c323137f0200769a29adec16714c555b04a9f2e4ba2a0b8102"
+                            "90fd2cfb22d9892b6c53500dc8d8213fbab90ab41a8cdaa4025c638bcba883dd0cd6572dd7f8b287b4f6d3f57ad8521740b46d15f3b92b285d67871f575b810c",
+                            "e427348489a8438d132b22ca52e4b47bbf81449a309e4e62e9be39e10998abb3f24c2e21f3604b061d6d23b5408e50d13218c2049518114a055cf3bf8e365008",
+                            "6cda4a188566a8ca1f9df14ba416ac8e6cd259e4a5fcdd713518d04e37dc96bdbbfd76df4021e944085b0b765f657408814559f89e143c0c1c0b7fd42c47ea08",
+                            "4fae12b157627919ee5d54eabc1fa1b12e558e08b2a9fe85ee01ab2a23007326483f83be67b540d422adf1f8f8ef9d3ee71e73ef043ad69fbee61c13fdbd490e",
+                            "59f9747ddb12ac7133635f2774b0db784e9a0b29a2d2f15db9bff7de62560f3c310184836170f54a21c0808727f5680951c237b2d5bfcbea5d041b58bdd1960f"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "06050507060707030108080708060303",
-                        "snapshotNumber": 2,
-                        "utxo": []
+                        "headId": "08050801020507080603070507040603",
+                        "snapshotNumber": 5,
+                        "utxo": [
+                            2
+                        ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
                 "headId": "05010407080808010702050005020001",
+                "headParameters": {
+                    "contestationPeriod": 43200,
+                    "parties": [
+                        {
+                            "vkey": "325a86f64849b8519a0590371e22ba017000741b19e119bcb28cfff9ed7297c2"
+                        },
+                        {
+                            "vkey": "a3a563256d8b153a1ce8e5b85797037a9de838bbf8669ed348f24f584f09ea51"
+                        },
+                        {
+                            "vkey": "884c25f2ddd60178ab4f51b0d2191166318d43c2f05d557ad2331d21b0a86022"
+                        },
+                        {
+                            "vkey": "f3c840ba32f23b8192f4e6c4c8fab64ccaaa67e7a5ec50a22c3ddc673cc25968"
+                        }
+                    ]
+                },
                 "tag": "ContestTx"
             },
             "postTxError": {
@@ -878,29 +907,36 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "3298aaa6c5671310ec679a598d9e392d00ccd3de7e87e9be7c575ca2fe1d7d0acb2fdcc6c162cdf0394bea3ce8bb29e2276afde73882678d3315500bf67d6a02",
-                            "995334808798a4a2bec409803b05baf820fe6c9504dd25077aff3b61ef1fb49dd20f5ae614130319a2e51df7f9ac6b68e2aaa18a7773d8e94cd9addde6105104",
-                            "63b73b1c79aa098acfd5d47974bbf2b3bf5f5c3d814f86745f890eae38fef4807153256805a864a15132acd70fe39070dc2b6a39500c60849e6105b9eda18a0b",
-                            "8a752c94123d4ddc5e3f2465f150b21c5ec609d561b63bfd780ec6eb52307c0e20e5da38d43ea0853665498a7ee5784c5b76a84d5a0fbf3e0ebb6e9f8d814804",
-                            "90f7058bd19598f7002e693aedd2e794e50144fe840a340469f572dd7656014bac2448c32afbfd50b4b5cb0bb8f2a90ae559b2886a08aff0089b0e18a1790e07",
-                            "d9fb7aab4fef3c6adbea432a05a1161c7b3e89a517223ecbd25eaed612f9cd9f8ad8a18ac0ae08a55648aa771220f03080e77ff4944493183e402de5c3967f09"
+                            "0a76d5358bfbb4de8bd6b15112ead9c90088b78795015ed1f0143e6213057db58cbe2a571459aef3046de0d0c126982188e953cc7e1caf1ffd914b7eba2b4b0e",
+                            "2bb39ef696ccf826ee0fc8ae9508b7b4e3846d7d3308646830aee8136d605b0c0e15f076427b0e1dd8bc66accf13d82da143eb3071a4cdaf0d2891464659f305",
+                            "d32084221fc15c4b2839649c0612d962475e9eceec38021dbbcce4dd54498bf9ea938f88139c4244c16724b1f9af8cdbea97e27b81bc84b5d8881011ee6be509",
+                            "c3c8e965e22d31374d1cad09f652f57bbcac61108cf74a2f8973bd610e1b0a35d2dfc86a7b839835db6c8afed4ad87ec009a59cf549462978c4faa9c3de73904",
+                            "d81c792b19b816a8489e5581ddecab2d1f462bd5fc0fc39fe0a302fef7eb9d0ac0e8deec2fa476574139d785367156ab9242934cc8f77a04eea3937ea5e5af0b"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "06020706080103020102050508040406",
-                        "snapshotNumber": 2,
+                        "headId": "08070101020408080203040406030502",
+                        "snapshotNumber": 1,
                         "utxo": [
                             -4,
-                            -3,
-                            -1,
-                            1,
-                            4
+                            -1
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
                 "headId": "05070102050201070802050803010807",
+                "headParameters": {
+                    "contestationPeriod": 16104,
+                    "parties": [
+                        {
+                            "vkey": "443b81d8f3d988d3ca001d3d9da7524ff1fb878fab2a02865c92175ab8987780"
+                        },
+                        {
+                            "vkey": "78837b0293691b8b7173877d2a790afcdf337010137ab5a75331b72a937eb552"
+                        }
+                    ]
+                },
                 "tag": "ContestTx"
             },
             "postTxError": {
@@ -1452,7 +1488,18 @@
         },
         {
             "postChainTx": {
-                "headId": "07040206040202000100080802010003",
+                "headId": "05060602010501080302040307030503",
+                "headParameters": {
+                    "contestationPeriod": 43200,
+                    "parties": [
+                        {
+                            "vkey": "f9e788af960cda2b3aa60c1338296798b09a047fd011851c3c04d1c22d6d7505"
+                        },
+                        {
+                            "vkey": "b267f84ddb9c4a520895824f6c9c4b533953b04a4a8fcc471b31fdca2f3002df"
+                        }
+                    ]
+                },
                 "tag": "CollectComTx"
             },
             "postTxError": {
@@ -1962,13 +2009,27 @@
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "02000007000302000308030508040501",
-                        "snapshotNumber": 6,
+                        "headId": "01030806070303000600030203000404",
+                        "snapshotNumber": 5,
                         "utxo": []
                     },
                     "tag": "ConfirmedSnapshot"
                 },
                 "headId": "02080304030700060300010701010107",
+                "headParameters": {
+                    "contestationPeriod": 44992,
+                    "parties": [
+                        {
+                            "vkey": "2ae12b067364d3d9bfdf76e016dcfac644756c6f0ab711b7e3e4a093f0d29d8b"
+                        },
+                        {
+                            "vkey": "4c0072f82a33e4268b699adb87fb0b7612b9d937b7e7dd2eac801f5be8698aa3"
+                        },
+                        {
+                            "vkey": "a899653a49e4bd2b6b050eb56c2644877ab917312e11be2b11ed308bf135bbc9"
+                        }
+                    ]
+                },
                 "tag": "ContestTx"
             },
             "postTxError": {

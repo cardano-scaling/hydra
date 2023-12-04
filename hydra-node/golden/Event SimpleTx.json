@@ -5,44 +5,33 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "c55762ed7a18656335769014623b9414904f80cb7c4c14a0648b2262f2bbaf0f75db1de062b1cc244035bcf5387f7b15b9ffd9d9cab61a97c2947c33d3a12a07",
-                            "1f25af95901968a619e269a7e10ba569917c612f7666a02901a0b514547445f948f59d4207e874beb860c0021a51ed4235d5e53ddbe4b090826232da0dbe8e04",
-                            "09e685697235cf93ac9da056ca6ede4bd866b6e35088eade97a9fa455383ff34f142a207f499e1d22204330ff6df6a958247cede55ad9b36218301231e3e540b",
-                            "f2d33646a5511c31dbb211459bd57e010f3a8f4df196f89d8246deb924556beb7599616ac624ff06169eef705af8d0cf894b06b098eed2df5422a867ba308501",
-                            "7d31a1c796bb5d28a0eaff7729980502235ea6fe46a16c25e2afb1305680eff971410f531a5fd84eb9b29cfc91f4579f01550867d448ec5108193796bd9fba04",
-                            "b0cd14ce59db5321b4ce9357f85132caecee9142c859ea7dcbc300cbc7ba5bca479d5faa1cdf673e0378e92ceeaeb63580f236d727ecaf5c6ab5172cdeddab08"
+                            "7acc594b607e17c7d275b512d2feab0865849f7f2842593a7398f409914a0e91372b3dd8db3ca62c45d1a468330451af82b46873ca98930ff2863faed279da0c",
+                            "63c7f2e54353aacf0e90876be875f68def0c38bf8c3937e0c34560ba035ad9455f630f3a58574c3ab941b44c9ef031e2aeed4ba07f843e5e3d5290f2fd1f0906",
+                            "417c10ea2b723c01e7a0f04a487d8e6484e25d376a05386cff5fa461fe154a128daff256e468dc89e69d0581fd4c5af875eb3cbe0ada2c54ef1cabcc204bf407",
+                            "2756453295179e357d5a533bfd56cbf1bacda088715fea72d3af7566a2b4f24f0878f4d54798e7e15d3d4d94871a5d2fd64c6a0db5e2c6fce275a4401cedc606",
+                            "062e353f2db34f825925f034859a8ee51d1add6311944fef339de85a35fb27d866f4e5aefc4e87a248e0d14f0a5714f5991b97cb86c3886fe893f7e7f91cb00e"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "456eb2e85f8812c64b7c7b2c826383b5",
-                        "snapshotNumber": 14,
+                        "headId": "d47ef17a7ccc05bf82f0625c1d931a0e",
+                        "snapshotNumber": 27,
                         "utxo": [
-                            -29,
-                            -28,
-                            -27,
-                            -26,
-                            -24,
-                            -22,
-                            -19,
-                            -15,
-                            -5,
-                            0,
-                            1,
-                            10,
-                            11,
-                            12,
-                            13,
-                            16,
-                            18,
-                            20,
-                            24,
-                            26
+                            2,
+                            12
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
                 "headId": "c59608c612d55a0c882abaa18a1c250e",
+                "headParameters": {
+                    "contestationPeriod": 75488,
+                    "parties": [
+                        {
+                            "vkey": "ba2b316673c386efb932066ceafeb187b3c055d8092ed46cc296b56588fb480b"
+                        }
+                    ]
+                },
                 "tag": "CloseTx"
             },
             "postTxError": {

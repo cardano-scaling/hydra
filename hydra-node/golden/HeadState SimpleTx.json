@@ -2764,7 +2764,7 @@
                         28
                     ],
                     "seenSnapshot": {
-                        "signatories": [],
+                        "signatories": {},
                         "snapshot": {
                             "confirmedTransactions": [
                                 1,
