@@ -64,6 +64,7 @@ import Hydra.Chain.Direct.State (
   genCloseTx,
   genCollectComTx,
   genCommit,
+  genCommitFor,
   genCommits,
   genCommits',
   genContestTx,
@@ -211,7 +212,7 @@ spec = parallel $ do
     it "only proper head is observed" $
       forAllCommit' $ \ctx st committedUtxo tx ->
         monadicIO $ do
-          let utxo = getKnownUTxO ctx <> getKnownUTxO st <> committedUtxo
+          let utxo = getKnownUTxO st <> committedUtxo
           mutation <- pick $ genCommitTxMutation utxo tx
           let (tx', utxo') = applyMutation mutation (tx, utxo)
 
@@ -513,7 +514,7 @@ forAllCommit' ::
 forAllCommit' action = do
   forAllBlind (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAllBlind (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllBlind genCommit $ \toCommit ->
+      forAllBlind (genCommitFor $ ownVerificationKey ctx) $ \toCommit ->
         -- TODO: generate script inputs here?
         let InitialState{headId} = stInitial
             tx = unsafeCommit ctx headId (getKnownUTxO stInitial) toCommit

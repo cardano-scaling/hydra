@@ -1032,6 +1032,13 @@ genCommits' genUTxO ctx txInit = do
   scaleQuantitiesDownBy x =
     valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
 
+genCommitFor :: VerificationKey PaymentKey -> Gen UTxO
+genCommitFor vkey =
+  frequency
+    [ (1, pure mempty)
+    , (10, genOneUTxOFor vkey)
+    ]
+
 genCommit :: Gen UTxO
 genCommit =
   frequency
