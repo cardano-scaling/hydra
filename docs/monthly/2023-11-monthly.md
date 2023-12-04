@@ -28,10 +28,10 @@ This month, several items were restructured on the project
   (why?) of this item is clear now and work can be started (it's not a priority
   still though).
 
-- Two new items were created to improve developer experience of the [hydra build
-  toolchain #1146](https://github.com/input-output-hk/hydra/issues/1146) and a
+- Two new items were created to improve the developer experience of the [Hydra build
+  toolchain #1146](https://github.com/input-output-hk/hydra/issues/1146). Additionally, a
   follow-up on things learned by `hydra-poll` to create a full end-to-end
-  example of a [2-player game in a hydra head
+  example of a [two-player game in a Hydra head
   #1098](https://github.com/input-output-hk/hydra/issues/1098).
 
 - There was already an item about reacting to main chain parameter changes on the
@@ -43,7 +43,7 @@ This month, several items were restructured on the project
   + [Drop Babbage support #1178](https://github.com/input-output-hk/hydra/issues/1178) will eventually drop support for the Babbage era and retain maintainability.
   + The original item is only about [reacting to protocol parameter changes #195](https://github.com/input-output-hk/hydra/issues/195) now.
 
-- Substantial updates on the design of the next major feature [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057) and work can be started on this item.
+- Substantial updates were made to the design of the next major feature [Incremental decommit #1057](https://github.com/input-output-hk/hydra/issues/1057), and work on it can be started.
 
 - In general, the team prepared several of these 💭 idea items and many of them will turn into 💬 features soon.
 
@@ -85,8 +85,8 @@ a good choice because of its expressiveness on math expressions, but not so
 great a choice for pull requests and the entry barrier is quite
 high. The majority of documentation around Hydra and Mithril is written using
 Markdown and rendered into a webpage using a static site generator, currently
-[Docusaurus](https://docusaurus.io/). Most modern markdown renderers do support
-LaTeX-style math nowadays, even the normal [Github file
+[Docusaurus](https://docusaurus.io/). Most modern Markdown renderers do support
+LaTeX-style math nowadays, even the normal [GitHub file
 preview](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions).
 
 Hence, the team experimented with using the more standard Markdown format to write the
@@ -105,7 +105,7 @@ even convert TikZ, GraphViz and Mermaid into both target formats.
 
 Beside the great work done by the MeshJS team towards supporting Hydra in the browser, here are some news and updates on community-led work streams related to Hydra:
 
-* SundaeLabs has made good progress on their [off-line mode
+* SundaeLabs has made good progress on their [offline mode
   PR](https://github.com/input-output-hk/hydra/pull/1118) which should
   hit the main branch soon,
 * TxPipe has been collaborating with IOG's Creative Engineering team
@@ -117,10 +117,10 @@ Beside the great work done by the MeshJS team towards supporting Hydra in the br
   assets management, chain synchronisation, etc.
 
   The plan is to make Cardaminal compatible with Hydra - to be able to
-  use it to interact with a Head - and Mithril - using snapshots to
+  use it to interact with a head - and Mithril - using snapshots to
   synchronise the wallet.
 
-* The team behind [zkSNARK in
+* The team behind [ZK Snarks in
   Hydra](https://projectcatalyst.io/funds/10/f10-development-and-infrastructure/a-zero-knowledge-proof-framework-for-cardano-based-on-hydra-and-zk-snarks)
   Catalyst proposal is making good progress and should be able to give
   a demo at the next monthly review meeting
@@ -141,7 +141,7 @@ minimal command-line wallet on the show after all. But as we went on, these
 impulses spark discussions and it becomes clear that all of these projects are
 connected.
 
-For example, the terminal based wallet "Cardaminal" as it was presented the
+For example, the terminal-based wallet 'Cardaminal' as it was presented the
 first time in public this month, could itself become a Mithril client for faster
 synchronizing or even light-mode using the recently published Rust client
 library for Mithril. Furthermore, such a minimal wallet would be a great testing
@@ -151,13 +151,13 @@ potential of Hydra specific `fetcher` and `submitter` providers.
 On the other hand, we also stumbled over not-so-optimistic sentiment even in
 much more mature scaling solutions like the Bitcoin Lightning Network. [This
 tweet](https://twitter.com/udiWertheimer/status/1719122153155473492) summarizes
-that creating non-custodial [scalability/LN] solutions "feel like the most
-thankless thing in the world".
+that creating non-custodial [scalability/LN] solutions 'feel like the most
+thankless thing in the world'.
 
 It is an exciting ride still, but events like this monthly review meeting with
 its colorful demonstrations of small steps to improve the usability
 and scalability of Cardano piece by piece with often unknown synergies is also
-empowering. This month again made us feel not "only a tribe", but more a working
+empowering. This month again made us feel not 'only a tribe', but more a working
 group across the Cardano community .. the Cardano Scaling group!?
 
 [slides]: https://docs.google.com/presentation/d/1JA_frlOXVrrBeaBGUnIq3U9cclrfU1A2cZR9B2AeVJg
