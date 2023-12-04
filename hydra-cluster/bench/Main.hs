@@ -54,7 +54,7 @@ main =
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
-    saveDataset benchDir dataset
+    saveDataset (benchDir </> "dataset.cbor") dataset
     run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
@@ -84,10 +84,9 @@ main =
     readFileBS f >>= either (die . show) pure . (decodeFull . LBS.fromStrict . Base16.decodeLenient)
 
   saveDataset :: FilePath -> Dataset -> IO ()
-  saveDataset tmpDir dataset = do
-    let txsFile = tmpDir </> "dataset.cbor"
-    putStrLn $ "Writing dataset to: " <> txsFile
-    writeFileBS txsFile $ Base16.encode $ LBS.toStrict $ serialize dataset
+  saveDataset f dataset = do
+    putStrLn $ "Writing dataset to: " <> f
+    writeFileBS f $ Base16.encode $ LBS.toStrict $ serialize dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure
