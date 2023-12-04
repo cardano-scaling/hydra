@@ -108,7 +108,7 @@ Beside the great work done by the MeshJS team towards supporting Hydra in the br
 * SundaeLabs has made good progress on their [offline mode
   PR](https://github.com/input-output-hk/hydra/pull/1118) which should
   hit the main branch soon,
-* TxPipe has been collaborating with IOG's Creative Engineering team
+* TxPipe has been collaborating with IOG's creative engineering team
   to build _Cardaminal_, a command-line wallet, and demonstrated it
   during the monthly review meeting. Cardaminal is built in Rust,
   leveraging [Pallas](https://github.com/txpipe/pallas) libraries, and
