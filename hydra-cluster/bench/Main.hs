@@ -8,14 +8,17 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (bench)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
-import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Cardano.Binary (decodeFull, serialize)
+import Data.Aeson (eitherDecodeFileStrict')
 import Data.ByteString (hPut)
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
-import Hydra.Generator (generateConstantUTxODataset)
+import Hydra.Generator (Dataset, generateConstantUTxODataset)
 import Options.Applicative (
   execParser,
  )
@@ -38,7 +41,7 @@ main =
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId tmpDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       benchDir <- createSystemTempDirectory "bench"
-      datasets <- mapM (eitherDecodeFileStrict' >=> either die pure) datasetFiles
+      datasets <- mapM loadDataset datasetFiles
       let targets = zip datasets $ (benchDir </>) . show <$> [1 .. length datasets]
       forM_ (snd <$> targets) (createDirectoryIfMissing True)
       run outputDirectory timeoutSeconds startingNodeId targets
@@ -51,11 +54,11 @@ main =
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
-    saveDataset benchDir dataset
+    saveDataset (benchDir </> "dataset.cbor") dataset
     run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    dataset <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
+    dataset <- loadDataset $ benchDir </> "dataset.cbor"
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
@@ -75,10 +78,15 @@ main =
       [] -> benchmarkSucceeded outputDirectory summaries
       errs -> mapM_ (\(_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
 
-  saveDataset tmpDir dataset = do
-    let txsFile = tmpDir </> "dataset.json"
-    putStrLn $ "Writing dataset to: " <> txsFile
-    encodeFile txsFile dataset
+  loadDataset :: FilePath -> IO Dataset
+  loadDataset f = do
+    putStrLn $ "Reading dataset from: " <> f
+    readFileBS f >>= either (die . show) pure . (decodeFull . LBS.fromStrict . Base16.decodeLenient)
+
+  saveDataset :: FilePath -> Dataset -> IO ()
+  saveDataset f dataset = do
+    putStrLn $ "Writing dataset to: " <> f
+    writeFileBS f $ Base16.encode $ LBS.toStrict $ serialize dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure

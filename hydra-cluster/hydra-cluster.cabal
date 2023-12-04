@@ -162,13 +162,12 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base                >=4.7 && <5
+    , base               >=4.7 && <5
     , bytestring
     , containers
     , directory
     , filepath
     , hspec
-    , hspec-golden-aeson
     , hydra-cardano-api
     , hydra-cluster
     , hydra-node
@@ -203,7 +202,9 @@ benchmark bench-e2e
   build-depends:
     , aeson
     , base                  >=4.7 && <5
+    , base16-bytestring
     , bytestring
+    , cardano-binary
     , containers
     , directory
     , filepath
