@@ -8,14 +8,15 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (bench)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
-import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Cardano.Binary (decodeFull, serialize)
+import Data.Aeson (eitherDecodeFileStrict')
 import Data.ByteString (hPut)
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
-import Hydra.Generator (generateConstantUTxODataset)
+import Hydra.Generator (Dataset, generateConstantUTxODataset)
 import Options.Applicative (
   execParser,
  )
@@ -38,7 +39,7 @@ main =
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId tmpDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       benchDir <- createSystemTempDirectory "bench"
-      datasets <- mapM (eitherDecodeFileStrict' >=> either die pure) datasetFiles
+      datasets <- mapM loadDataset datasetFiles
       let targets = zip datasets $ (benchDir </>) . show <$> [1 .. length datasets]
       forM_ (snd <$> targets) (createDirectoryIfMissing True)
       run outputDirectory timeoutSeconds startingNodeId targets
@@ -55,7 +56,7 @@ main =
     run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    dataset <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
+    dataset <- loadDataset $ benchDir </> "dataset.cbor"
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
 
@@ -75,10 +76,16 @@ main =
       [] -> benchmarkSucceeded outputDirectory summaries
       errs -> mapM_ (\(_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
 
+  loadDataset :: FilePath -> IO Dataset
+  loadDataset f = do
+    putStrLn $ "Reading dataset from: " <> f
+    readFileLBS f >>= either (die . show) pure . decodeFull
+
+  saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset tmpDir dataset = do
-    let txsFile = tmpDir </> "dataset.json"
+    let txsFile = tmpDir </> "dataset.cbor"
     putStrLn $ "Writing dataset to: " <> txsFile
-    encodeFile txsFile dataset
+    writeFileLBS txsFile $ serialize dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure

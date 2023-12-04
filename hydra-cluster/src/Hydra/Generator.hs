@@ -6,7 +6,6 @@ import Hydra.Prelude hiding (size)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (mkGenesisTx)
 import Control.Monad (foldM)
-import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
@@ -27,7 +26,18 @@ data Dataset = Dataset
   , description :: Maybe Text
   }
   deriving stock (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR Dataset where
+  toCBOR Dataset{fundingTransaction, clientDatasets, title, description} =
+    mconcat
+      [ toCBOR fundingTransaction
+      , toCBOR clientDatasets
+      , toCBOR title
+      , toCBOR description
+      ]
+
+instance FromCBOR Dataset where
+  fromCBOR = Dataset <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
@@ -42,25 +52,18 @@ data ClientKeys = ClientKeys
   }
   deriving stock (Show)
 
-instance ToJSON ClientKeys where
-  toJSON ClientKeys{signingKey, externalSigningKey} =
-    object
-      [ "signingKey" .= serialiseToBech32 signingKey
-      , "externalSigningKey" .= serialiseToBech32 externalSigningKey
-      ]
-
-instance FromJSON ClientKeys where
-  parseJSON =
-    withObject "ClientKeys" $ \o ->
-      ClientKeys
-        <$> (decodeSigningKey =<< o .: "signingKey")
-        <*> (decodeSigningKey =<< o .: "externalSigningKey")
-   where
-    decodeSigningKey =
-      either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
-
 instance Arbitrary ClientKeys where
   arbitrary = ClientKeys <$> genSigningKey <*> genSigningKey
+
+instance ToCBOR ClientKeys where
+  toCBOR ClientKeys{signingKey, externalSigningKey} =
+    mconcat
+      [ toCBOR signingKey
+      , toCBOR externalSigningKey
+      ]
+
+instance FromCBOR ClientKeys where
+  fromCBOR = ClientKeys <$> fromCBOR <*> fromCBOR
 
 data ClientDataset = ClientDataset
   { clientKeys :: ClientKeys
@@ -68,7 +71,17 @@ data ClientDataset = ClientDataset
   , txSequence :: [Tx]
   }
   deriving stock (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR ClientDataset where
+  toCBOR ClientDataset{clientKeys, initialUTxO, txSequence} =
+    mconcat
+      [ toCBOR clientKeys
+      , toCBOR initialUTxO
+      , toCBOR txSequence
+      ]
+
+instance FromCBOR ClientDataset where
+  fromCBOR = ClientDataset <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
 defaultProtocolParameters :: ProtocolParameters
 defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
