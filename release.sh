@@ -7,13 +7,24 @@ cd $(dirname $0)
 main() {
   local version="$1"
 
-  [[ -z "$version" ]]      && usage "Missing version number"
+  [[ -z "$version" ]] && usage "Missing version number"
 
   check_can_release "$version"
 
   prepare_release "$version"
 
-  publish_release "$version" # fake for now
+  publish_release_instructions "$version"
+}
+
+# Like 'echo' but on stderr
+err() {
+  echo >&2 "$1"
+}
+
+# Print error and exit with status 1
+exit_err() {
+  err "$1"
+  exit 1
 }
 
 usage() {
@@ -23,7 +34,8 @@ usage() {
 $message
 
   $0 <version>
-Publishes a new release of hydra.
+
+Prepares a new release of hydra.
 <version> must respect [Semantic Versioning](http://semver.org/)
 EOF
 
@@ -33,9 +45,11 @@ EOF
 check_can_release() {
   local version="$1"
 
-  check_no_uncommited_changes  
+  check_on_master
+  confirm_uncommitted_changes
   check_version_is_valid $version
   check_changelog_is_up_to_date $version
+  check_networks_is_up_to_date $version
 
   true #avoid error on last instruction of function (see bash -e)
 }
@@ -57,29 +71,46 @@ prepare_release() {
   git tag -as "$version" -F <(changelog "$version")
 
   # Make branch release point to tag so that the website is published
-  git checkout release
+  git checkout --track origin/release
   git merge "${version}" --ff-only
+
+  git checkout master
 }
 
-publish_release() {
+publish_release_instructions() {
   local version="$1"
 
-  >&2 echo Prepared the release commit and tag, review it now and if everything is okay, push using:
-  >&2 echo git push origin master
-  >&2 echo git push origin release
-  >&2 echo git push origin ${version}
-  >&2 echo
-  >&2 echo And then you shall manually create the release page, see CONTRIBUTING.md
+  err "Prepared the release commit and tag, review it now and if everything is okay, push using:"
+  err ""
+  err "git push origin master"
+  err "git push origin release"
+  err "git push origin ${version}"
 }
 
 # Checking helper functions
 
-check_no_uncommited_changes() {
+confirm_uncommitted_changes() {
   if [ ! -z "$(git status --porcelain)" ]
   then
     git status >&2
-    echo >&2
-    usage "Please commit your pending changes first"
+    echo >&2 "WARNING: You have unstaged changes. The release will stage everything and commit it."
+    ask_continue
+  fi
+}
+
+# Ask user whethery they want to continue, exit with error if not
+ask_continue() {
+  read -p "Do you want to continue? [y/n] " -n 1 -r
+  echo >&2 ""
+  if [[ ! $REPLY =~ ^[Yy]$ ]]
+  then
+    exit_err "Aborted release"
+  fi
+}
+
+check_on_master() {
+  if [ $(git rev-parse --abbrev-ref HEAD) != "master" ]; then
+    exit_err "Not on branch 'master'"
   fi
 }
 
@@ -87,10 +118,10 @@ check_version_is_valid() {
   local version="$1"
   
   echo $version | grep -E '^[0-9]*\.[0-9]*\.[0-9]*$' >/dev/null \
-  || usage "Invalid format for version: $version"
+  || exit_err "Invalid format for version: $version"
 
   git tag | grep "^$version$" >/dev/null \
-  && usage "A tag for this version already exists"
+  && exit_err "A tag for this version already exists"
 
   true #avoid error on last instruction of function (see bash -e)
 }
@@ -101,12 +132,30 @@ check_changelog_is_up_to_date() {
   local next_release="$(sed '/## *\[.*\]/ !d' CHANGELOG.md | head -n1)"
 
   echo "$next_release" | grep "\[$version\]" >/dev/null \
-  || usage "$version is not the next release in CHANGELOG.md"
+  || exit_err "$version is not the next release in CHANGELOG.md"
 
   echo "$next_release" | grep UNRELEASED >/dev/null \
-  && usage "$version is not released in CHANGELOG.md. Please replace UNRELEASED with the current date"
+  && exit_err "$version is not released in CHANGELOG.md. Please replace UNRELEASED with the current date"
 
   true #avoid error on last instruction of function (see bash -e)
+}
+
+# Check whether a transaction id is present for all networks and given version.
+check_networks_is_up_to_date() {
+  local version="$1"
+
+  local networks=(
+    mainnet
+    preprod
+    preview
+  )
+
+  local networks_file=networks.json
+
+  for network in "${networks[@]}"; do
+    cat ${networks_file} | jq -e ".\"${network}\".\"${version}\"" > /dev/null \
+    || exit_err "Missing transaction id for ${version} on ${network} in ${networks_file}"
+  done
 }
 
 # Prepare helper functions
@@ -117,7 +166,7 @@ update_cabal_version() {
   
   for file in $cabal_files
   do
-    sed -i.bak -e "s,\(^version: *\)[^ ]*,\1$version," $file
+    sed -i"" -e "s,\(^version: *\)[^ ]*,\1$version," $file
   done
 }
 
@@ -125,20 +174,20 @@ update_api_version() {
   local version="$1" ; shift
   local api_file=hydra-node/json-schemas/api.yaml
 
-  sed -i.bak -e "s,\(version: *\)'.*',\1'$version'," $api_file
+  sed -i"" -e "s,\(version: *\)'.*',\1'$version'," $api_file
 }
 
 update_tutorial_version() {
   local version="$1"
   local tutorial_file=docs/docs/tutorial/index.md
-  sed -i.bak -e "s,\(hydra/releases/download/)[^/]*,\1$version," $tutorial_file
+  sed -i"" -e "s,\(version=\).*,\1$version," $tutorial_file
 }
 
 update_demo_version() {
   local version="$1"
   (
     cd demo
-    sed -i.bak -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
+    sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
   )
 }
 
