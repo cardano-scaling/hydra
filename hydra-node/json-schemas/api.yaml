@@ -1088,6 +1088,7 @@ components:
           required:
             - tag
             - headId
+            - headParameters
           description: |
             Confirm the opening of the Head collecting the committed UTxO set
             combined from all individual commits.
@@ -1097,12 +1098,15 @@ components:
               enum: ["CollectComTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
         - title: CloseTx
           type: object
           additionalProperties: false
           required:
             - tag
             - headId
+            - headParameters
             - confirmedSnapshot
           description: |
             Close the currently open Head with the given snapshot.
@@ -1112,6 +1116,8 @@ components:
               enum: ["CloseTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
             confirmedSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: ContestTx
@@ -1120,6 +1126,7 @@ components:
           required:
             - tag
             - headId
+            - headParameters
             - confirmedSnapshot
           description: |
             Contest a previously posted snapshot (from a Close or Contest
@@ -1130,6 +1137,8 @@ components:
               enum: ["ContestTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
             confirmedSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: FanoutTx
