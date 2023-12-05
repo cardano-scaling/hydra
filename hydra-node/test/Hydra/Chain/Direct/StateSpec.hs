@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   genTxIn,
   hashScript,
+  isScriptTxOut,
   lovelaceToValue,
   mkScriptAddress,
   modifyTxOutAddress,
@@ -29,6 +30,8 @@ import Hydra.Cardano.Api (
   toPlutusCurrencySymbol,
   toScriptData,
   txInputSet,
+  txIns,
+  txIns',
   txOutValue,
   txOuts',
   utxoFromTx,
@@ -380,7 +383,11 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      findTxOutByScript @PlutusScriptV2 utxo initialScript
+      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+
+  resolvedInputs =
+    UTxO.fromPairs $
+      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
   initialRedeemer =
     fromMaybe (error "not found redeemer") $
