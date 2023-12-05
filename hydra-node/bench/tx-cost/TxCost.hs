@@ -172,7 +172,8 @@ computeContestCost = do
     snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
-    pure (unsafeContest cctx utxo headId cp snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
+    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime, contestUtxo)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -232,7 +233,8 @@ computeFanOutCost = do
         closeTx = unsafeClose cctx spendableUTxO headId (ctxHeadParameters ctx) snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-    pure (utxo, unsafeFanout cctx spendableUTxO seedTxIn utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+        utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
