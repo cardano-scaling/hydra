@@ -220,8 +220,7 @@ initialChainState =
 data ChainContext = ChainContext
   { networkId :: NetworkId
   , ownVerificationKey :: VerificationKey PaymentKey
-  , -- FIXME: peerVerificationKeys should not be here
-    ownParty :: Party
+  , ownParty :: Party
   , scriptRegistry :: ScriptRegistry
   }
   deriving stock (Eq, Show, Generic)
@@ -520,7 +519,6 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confi
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   closingSnapshot = case confirmedSnapshot of
-    -- REVIEW: Check if this is as good as using the deserialized output from the datum.
     InitialSnapshot{initialUTxO} -> CloseWithInitialSnapshot{openUtxoHash = UTxOHash $ hashUTxO @Tx initialUTxO}
     ConfirmedSnapshot{snapshot = Snapshot{number, utxo}, signatures} ->
       CloseWithConfirmedSnapshot

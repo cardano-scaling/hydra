@@ -179,7 +179,6 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
 
   -- read other parties cardano vkeys
   otherCardanoKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
-  -- obtain our vkey from reading our skey from file
   ourCardanoSK <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   let ourCardanoKey = getVerificationKey ourCardanoSK
 
