@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (
@@ -324,7 +324,7 @@ newTx registry client tx = do
           , invalidAt = Nothing
           , confirmedAt = Nothing
           }
-  send client $ input "NewTx" ["transaction" .= tx]
+  send client $ input "NewTx" ["transaction" .= serialiseToTextEnvelope Nothing tx]
 
 data WaitResult
   = TxInvalid {transaction :: Tx, reason :: Text}
