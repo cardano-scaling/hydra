@@ -657,8 +657,8 @@ returnFundsToFaucet tracer =
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
 headIsInitializingWith expectedParties v = do
   guard $ v ^? key "tag" == Just "HeadIsInitializing"
-  parties <- v ^? key "parties"
-  guard $ parties == toJSON expectedParties
+  parties <- v ^? key "parties" >>= parseMaybe parseJSON
+  guard $ parties == expectedParties
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
 
