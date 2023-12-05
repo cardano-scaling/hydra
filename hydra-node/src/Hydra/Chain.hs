@@ -79,11 +79,11 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
     InitTx{headParameters} -> InitTx <$> shrink headParameters
-    AbortTx{utxo} -> AbortTx <$> shrink utxo
-    CollectComTx{utxo} -> CollectComTx <$> shrink utxo
-    CloseTx{confirmedSnapshot} -> CloseTx <$> shrink confirmedSnapshot
-    ContestTx{confirmedSnapshot} -> ContestTx <$> shrink confirmedSnapshot
-    FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
+    AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
+    CollectComTx{headId, headParameters} -> CollectComTx <$> shrink headId <*> shrink headParameters
+    CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
+    ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
+    FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
