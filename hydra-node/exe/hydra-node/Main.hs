@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -7,6 +8,7 @@ import Hydra.Prelude hiding (fromList)
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
  )
+
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Logging (Verbosity (..))

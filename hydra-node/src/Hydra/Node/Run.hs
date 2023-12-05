@@ -4,16 +4,22 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Crypto qualified as Ledger
+import Cardano.Ledger.Shelley.API qualified as Shelley
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
+  GenesisParameters (..),
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
+  StandardCrypto,
   toLedgerPParams,
  )
+import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
-import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain, withOfflineChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (
   Environment (..),
@@ -46,10 +52,13 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
+  OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile),
   RunOptions (..),
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
+
+import Hydra.HeadId (HeadId (..))
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
@@ -69,7 +78,7 @@ explain = \case
 run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
+  let RunOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
   env@Environment{party, otherParties, signingKey} <- initEnvironment opts
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -80,15 +89,19 @@ run opts = do
       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
         Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
-      withCardanoLedger chainConfig pparams $ \ledger -> do
+      let onlineOrOfflineConfig = case offlineConfig of
+            Nothing -> Right chainConfig
+            Just offlineConfig' -> Left offlineConfig'
+
+      withCardanoLedger onlineOrOfflineConfig pparams $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
         ctx <- loadChainContext chainConfig party hydraScriptsTxId
-        wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-        withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
+        let headId = HeadId "FIXME(Elaine): headId"
+        withChain onlineOrOfflineConfig tracer ctx signingKey chainStateHistory headId (putEvent . OnChainEvent) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
@@ -115,7 +128,26 @@ run opts = do
     Connected nodeid -> sendOutput $ PeerConnected nodeid
     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
-  withCardanoLedger chainConfig protocolParams action = do
+  withChain onlineOrOfflineConfig tracer ctx signingKey chainStateHistory headId putEvent cont = case onlineOrOfflineConfig of
+    Left offlineConfig -> withOfflineChain (contramap DirectChain tracer) offlineConfig ctx headId chainStateHistory (putEvent . OnChainEvent) cont
+    Right onlineConfig -> do
+      wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
+      withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
+
+  withCardanoLedger onlineOrOfflineConfig protocolParams action = case onlineOrOfflineConfig of
+    Left offlineConfig -> withCardanoLedgerOffline offlineConfig protocolParams action
+    Right onlineConfig -> withCardanoLedgerOnline onlineConfig protocolParams action
+
+  withCardanoLedgerOffline OfflineConfig{ledgerGenesisFile} protocolParams action = do
+    -- TODO(Elaine): double check previous messy branch for any other places where we query node
+    genesisParameters <- readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) ledgerGenesisFile
+    globals <- newGlobals $ fromShelleyGenesis genesisParameters
+    -- NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
+    -- that function could probably take less info but it's upstream of hydra itself i believe
+    let ledgerEnv = newLedgerEnv protocolParams
+    action (Ledger.cardanoLedger globals ledgerEnv)
+
+  withCardanoLedgerOnline chainConfig protocolParams action = do
     let DirectChainConfig{networkId, nodeSocket} = chainConfig
     globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
     let ledgerEnv = newLedgerEnv protocolParams
@@ -124,3 +156,41 @@ run opts = do
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
+
+-- TODO(ELAINE): figure out a less strange way to do this
+
+-- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
+fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra
+fromShelleyGenesis
+  sg@Shelley.ShelleyGenesis
+    { Shelley.sgSystemStart
+    , Shelley.sgNetworkMagic
+    , Shelley.sgActiveSlotsCoeff
+    , Shelley.sgSecurityParam
+    , Shelley.sgEpochLength
+    , Shelley.sgSlotsPerKESPeriod
+    , Shelley.sgMaxKESEvolutions
+    , Shelley.sgSlotLength
+    , Shelley.sgUpdateQuorum
+    , Shelley.sgMaxLovelaceSupply
+    , Shelley.sgGenDelegs = _ -- unused, might be of interest
+    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
+    , Shelley.sgStaking = _ -- unused, not retained by the node
+    } =
+    GenesisParameters
+      { protocolParamSystemStart = sgSystemStart
+      , protocolParamNetworkId = Shelley.fromNetworkMagic $ Shelley.NetworkMagic sgNetworkMagic
+      , protocolParamActiveSlotsCoefficient =
+          Ledger.unboundRational
+            sgActiveSlotsCoeff
+      , protocolParamSecurity = fromIntegral sgSecurityParam
+      , protocolParamEpochLength = sgEpochLength
+      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
+      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
+      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
+      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
+      , protocolParamMaxLovelaceSupply =
+          Shelley.Lovelace
+            (fromIntegral sgMaxLovelaceSupply)
+      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
+      }

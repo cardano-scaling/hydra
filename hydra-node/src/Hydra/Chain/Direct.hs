@@ -1,4 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions.
@@ -9,8 +13,9 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
+
+import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Slot (EpochInfo, SlotNo(..))
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
 import Control.Concurrent.Class.MonadSTM (
   newEmptyTMVar,
@@ -45,13 +50,13 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  toLedgerUTxO,
+  toLedgerUTxO, readFileJSON,
  )
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
   PostTxError (..),
-  currentState,
+  currentState, ChainEvent (Tick, Observation, observedTx), chainTime, chainSlot, initHistory, OnChainTx (OnCommitTx, OnInitTx, headId, contestationPeriod, contestationPeriod, parties), newChainState, committed, party,
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
@@ -68,12 +73,12 @@ import Hydra.Chain.Direct.Handlers (
   mkChain,
   newLocalChainState,
   onRollBackward,
-  onRollForward,
+  onRollForward, mkFakeL1Chain,
  )
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainStateAt (..),
+  ChainStateAt (..), initialChainState, OpenState (OpenState, headId), ChainState (Idle, Open), openThreadOutput, observeCommit,
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
@@ -85,7 +90,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (..))
+import Hydra.Options (ChainConfig (..), OfflineConfig(..))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -100,6 +105,20 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
+import qualified Data.Map as M
+import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
+import Hydra.Cardano.Api.TxOut (toLedgerTxOut)
+import Cardano.Api.UTxO (UTxO'(toMap))
+import qualified Data.Aeson as Aeson
+import Hydra.Ledger (UTxOType, ChainSlot (ChainSlot))
+import Data.Time.Clock.POSIX (systemToPOSIXTime, getPOSIXTime, utcTimeToPOSIXSeconds)
+import Hydra.Plutus.Extras (posixFromUTCTime)
+import Hydra.Chain.Direct.Tx (OpenThreadOutput(OpenThreadOutput, openThreadUTxO))
+import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
+import Hydra.ContestationPeriod (fromChain)
+import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+
+import Hydra.HeadId (HeadId (..))
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
@@ -152,6 +171,68 @@ mkTinyWallet tracer config = do
   toEpochInfo (EraHistory _ interpreter) =
     hoistEpochInfo (first show . runExcept) $
       Consensus.interpreterToEpochInfo interpreter
+
+withOfflineChain ::
+  Tracer IO DirectChainLog -> -- TODO(ELAINE): change type maybe ?
+  -- ChainConfig ->
+  -- Ledger.Globals ->
+  OfflineConfig ->
+  ChainContext ->
+  HeadId ->
+  -- Ledger Tx -> --NOTE(Elaine): read from offlineconfig
+  -- | Last known chain state as loaded from persistence.
+  ChainStateHistory Tx -> --NOTE(Elaine): discard, or if there's time, make actually resume from disk, for longurnning sessions
+  ChainComponent Tx IO a
+withOfflineChain tracer OfflineConfig{initialUTxOFile} ctx@ChainContext{ownParty} ownHeadId _chainStateHistory callback action = do
+
+  initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
+  -- let ledgerInitialUtxo = M.fromList . map (bimap toLedgerTxIn toLedgerTxOut) . M.toList . toMap $ initialUTxO
+      
+  let emptyChainStateHistory = initHistory initialChainState
+  -- let chainStateHistory = initHistory ChainStateAt {chainState = Open (OpenState{
+  --   headId = ownHeadId,
+    
+  --   openThreadOutput = OpenThreadOutput {openThreadUTxO = (mempty, mempty, mempty)} }), recordedAt = Nothing}
+  
+  --TODO(Elaine): restore from disk for longrunning sessions having crashes
+  callback $ Observation { newChainState = initialChainState, observedTx =
+    OnInitTx
+    { headId = ownHeadId
+    , parties = [ownParty]
+    , contestationPeriod = fromChain $ contestationPeriodFromDiffTime (10) --TODO(Elaine): we should be able to set this to 0
+    } }
+
+  --NOTE(Elaine): should be no need to update the chain state, that's L1, there's nothing relevant there
+  -- observation events are to construct the L2 we want, with the initial utxo
+  callback $ Observation { newChainState = initialChainState, observedTx =
+    OnCommitTx 
+    { party = ownParty
+    , committed = initialUTxO
+    } }
+
+  localChainState <- newLocalChainState emptyChainStateHistory
+  let chainHandle = mkFakeL1Chain localChainState tracer ctx ownHeadId callback
+
+  let tickEverySec :: IO ()
+      tickEverySec = forever $ do
+        --FIXME(Elaine): we can just make our own era history for the L2?
+        --lets use the actual current posix time as the slot number
+        --TODO(Elaine): double check this immediately as not having problems
+        -- otherwise, use an interpreter object, but single era, from genesis params just added back
+        currentUTCTime <- getCurrentTime
+        let currentTimeWord64 = truncate $ utcTimeToPOSIXSeconds currentUTCTime
+        -- let currentSlotNo = SlotNo currentTimeWord64
+        callback $ Tick {chainTime = currentUTCTime, chainSlot = ChainSlot $ fromIntegral @Word64 @Natural currentTimeWord64 }
+        threadDelay 1
+
+  res <-
+    race
+      tickEverySec
+      (action chainHandle)
+
+  case res of
+    Left () -> error "'connectTo' cannot terminate but did?"
+    Right a -> pure a
 
 withDirectChain ::
   Tracer IO DirectChainLog ->

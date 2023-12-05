@@ -134,6 +134,43 @@ publishOptionsParser =
     <$> networkIdParser
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
+    
+initialUTxOFileParser :: Parser FilePath
+initialUTxOFileParser =
+  option
+    str
+    ( long "initial-utxo"
+        <> metavar "FILE"
+        <> value "utxo.json"
+        <> showDefault
+        <> help "File containing initial UTxO for the L2 chain."
+    )
+
+--NOTE(Elaine): we need globals here to call Cardano.Ledger.Shelley.API.Mempool.applyTxs ultimately
+-- that function could probably take less info but it's upstream of hydra itself i believe
+ledgerGenesisFileParser :: Parser FilePath
+ledgerGenesisFileParser =
+  option
+    str
+    ( long "ledger-genesis"
+        <> metavar "FILE"
+        <> value "genesis.json"
+        <> showDefault
+        <> help "File containing ledger genesis parameters."
+    )
+
+data OfflineConfig = OfflineConfig
+  {
+    initialUTxOFile :: FilePath
+  , ledgerGenesisFile :: FilePath
+  -- TODO(Elaine): need option to dump final utxo to file without going thru snapshot
+  } deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+offlineOptionsParser :: Parser OfflineConfig
+offlineOptionsParser =
+  OfflineConfig
+    <$> initialUTxOFileParser
+    <*> ledgerGenesisFileParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -151,6 +188,7 @@ data RunOptions = RunOptions
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , offlineConfig :: Maybe OfflineConfig --TODO(Elaine): nicer type ? Nothing = online mode, but thats a bit weird
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -192,8 +230,23 @@ instance Arbitrary RunOptions where
         , persistenceDir
         , chainConfig
         , ledgerConfig
+        , offlineConfig = Nothing --TODO(Elaine): should we change this? 
         }
 
+  shrink = genericShrink
+
+--FIXME(Elaine): this instance doesn't do stuff correctly but was necessary during rebasing
+instance Arbitrary OfflineConfig where
+  arbitrary = do
+    ledgerGenesisFile <- genFilePath "ledgerGenesis"
+    initialUTxOFile <- genFilePath "utxo.json"
+    -- writeFileBS initialUTxOFile "{}" 
+
+    pure $
+      OfflineConfig {
+        initialUTxOFile
+      , ledgerGenesisFile
+      }
   shrink = genericShrink
 
 runOptionsParser :: Parser RunOptions
@@ -213,6 +266,7 @@ runOptionsParser =
     <*> persistenceDirParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> optional offlineOptionsParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -753,6 +807,7 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , offlineConfig = Nothing --TODO(Elaine)
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]

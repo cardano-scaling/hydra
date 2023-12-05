@@ -39,7 +39,7 @@ import Hydra.Chain (
   PostTxError (..),
   currentState,
   pushNewState,
-  rollbackHistory,
+  rollbackHistory, OnChainTx (OnInitTx, headId, OnAbortTx, OnCollectComTx, OnCloseTx, parties, contestationDeadline, contestationPeriod, OnContestTx, OnFanoutTx), HeadParameters (HeadParameters), snapshotNumber,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -81,6 +81,9 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
+import Hydra.Snapshot (getSnapshot, Snapshot (number))
+
+import Hydra.HeadId (HeadId)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -124,6 +127,63 @@ type SubmitTx m = Tx -> m ()
 
 -- | A way to acquire a 'TimeHandle'
 type GetTimeHandle m = m TimeHandle
+
+mkFakeL1Chain ::
+  LocalChainState IO Tx
+  -- -> IO a
+  -> Tracer IO DirectChainLog
+  -> ChainContext
+  -- -> TinyWallet IO
+  -> HeadId
+  -> (ChainEvent Tx -> IO ())
+  -> Chain Tx IO
+mkFakeL1Chain localChainState tracer ctx ownHeadId callback =
+  Chain {
+    submitTx = const $ pure (),
+    draftCommitTx = \utxoToCommit -> do
+      ChainStateAt{chainState} <- atomically (getLatest localChainState)
+      case chainState of
+        Initial st ->
+          -- callback $ Observation { newChainState = cst, observedTx = OnCommitTx {party = ownParty ctx, committed = utxoToCommit}}
+          pure (commit' ctx st utxoToCommit)
+        _ ->  pure $ Left FailedToDraftTxNotInitializing,
+    postTx = \tx -> do
+      cst@ChainStateAt{chainState=_chainState} <- atomically (getLatest localChainState)
+      traceWith tracer $ ToPost{toPost = tx}
+      
+      let headId = ownHeadId
+      _ <- case tx of
+                InitTx{headParameters=HeadParameters contestationPeriod parties} ->
+                  -- should only be one party, us, since offlinemode
+                  -- _us  should == ownParty ctx
+                  -- TODO: need to finish figuring out how the headId is generated, its parsed from tx in headOutput= where block in observeInitTx
+                  -- NOTE: figured this out see the txout datum in initTx that is parsed back
+                  -- FIXME: i have not been able to figure this out its like, just the raw bytestring representation of the "headpolicyid" of the seedtxin which you can get from the wallet via getSeedInput
+                  -- it seems opaque, and since its the hash of something in the first place, i dont think it matters what we set it to
+
+                  -- we're not updating the L1 chainstate at all, i think that should be fine
+
+                  callback $ Observation { newChainState = cst, observedTx = OnInitTx {headId = headId, parties=parties, contestationPeriod}}
+                -- (CommitTx{..}) ->
+                --   -- normally this would be where we handle client sending commit event by initializing the L1 state
+                --   -- and then that L1 tx would get chainsycned, which we then would parse, and do the next state transition based on a finished commit transition (wait for collectcom)
+                --   -- but since we're in offline mode, and have no real L1, we just do the next state transition here
+                --   callback $ Observation { observedTx = OnCommitTx {..}}
+                AbortTx{} ->
+                  callback $ Observation { newChainState = cst, observedTx = OnAbortTx {}}
+                CollectComTx{} ->
+                  callback $ Observation { newChainState = cst, observedTx = OnCollectComTx {}}
+                CloseTx{confirmedSnapshot} -> do
+                  inOneMinute <- addUTCTime 60 <$> getCurrentTime
+                  callback $ Observation { newChainState = cst, observedTx =
+                    OnCloseTx {headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline=inOneMinute}} -- ELAINE TODO: probably we shouldnt allow the clietn to do contestation in offline mode ?
+                ContestTx{confirmedSnapshot} -> -- this shouldnt really happen, i dont think we should allow contesting in offline mode
+                  callback $ Observation { newChainState = cst, observedTx =
+                      OnContestTx{snapshotNumber = number $ getSnapshot confirmedSnapshot}}
+                FanoutTx{} ->
+                  callback $ Observation { newChainState = cst, observedTx =
+                      OnFanoutTx{}}
+      pure ()}
 
 -- | Create a `Chain` component for posting "real" cardano transactions.
 --
