@@ -656,7 +656,11 @@ observeInit ctx allVerificationKeys tx = do
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn} =
-    OnInitTx{contestationPeriod, parties, headId, headSeed = txInToHeadSeed seedTxIn}
+    OnInitTx
+      { headId
+      , headSeed = txInToHeadSeed seedTxIn
+      , headParameters = HeadParameters{contestationPeriod, parties}
+      }
 
   toState InitObservation{threadOutput, initials, commits, headId, seedTxIn} =
     InitialState

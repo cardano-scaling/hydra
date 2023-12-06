@@ -476,7 +476,7 @@ withDirectChainTest tracer config ctx action = do
 
 hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO (HeadId, HeadSeed)
 hasInitTxWith expectedContestationPeriod expectedParties = \case
-  OnInitTx{headId, headSeed, contestationPeriod, parties} -> do
+  OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}} -> do
     expectedContestationPeriod `shouldBe` contestationPeriod
     expectedParties `shouldBe` parties
     pure (headId, headSeed)

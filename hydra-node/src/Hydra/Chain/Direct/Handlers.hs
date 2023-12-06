@@ -333,8 +333,11 @@ convertObservation = \case
       OnInitTx
         { headId = mkHeadId headId
         , headSeed = txInToHeadSeed seedTxIn
-        , contestationPeriod
-        , parties = concatMap partyFromChain onChainParties
+        , headParameters =
+            HeadParameters
+              { contestationPeriod
+              , parties = concatMap partyFromChain onChainParties
+              }
         }
   Abort AbortObservation{} ->
     pure OnAbortTx

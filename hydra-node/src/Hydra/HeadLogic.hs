@@ -666,7 +666,7 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle _, ClientEvent Init) ->
     onIdleClientInit env
-  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, contestationPeriod, parties}, newChainState}) ->
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}}, newChainState}) ->
     onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
   (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
     onInitialChainCommitTx initialState newChainState pt utxo

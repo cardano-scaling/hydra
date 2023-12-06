@@ -28,7 +28,6 @@ import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   ChainStateType,
-  HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
@@ -693,8 +692,8 @@ createMockNetwork node nodes =
 -- and 'headSeed'.
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
-  InitTx HeadParameters{contestationPeriod, parties} ->
-    OnInitTx{contestationPeriod, parties, headId = testHeadId, headSeed = testHeadSeed}
+  InitTx headParameters ->
+    OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters}
   AbortTx{} ->
     OnAbortTx
   CollectComTx{headId} ->

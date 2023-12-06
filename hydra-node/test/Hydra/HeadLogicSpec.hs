@@ -537,7 +537,7 @@ propIgnoresUnrelatedOnInitTx =
     headSeed <- arbitrary
     cp <- arbitrary `suchThat` (/= contestationPeriod)
     parties <- shuffle =<< (arbitrary <&> (party :))
-    pure OnInitTx{headId, headSeed, contestationPeriod = cp, parties}
+    pure OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod = cp, parties}}
 
   genOnInitWithoutParty Environment{party, otherParties, contestationPeriod} = do
     headId <- arbitrary
@@ -545,7 +545,7 @@ propIgnoresUnrelatedOnInitTx =
     allParties <- shuffle (party : otherParties)
     toRemove <- elements allParties
     let differentParties = List.delete toRemove allParties
-    pure OnInitTx{headId, headSeed, contestationPeriod, parties = differentParties}
+    pure OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties = differentParties}}
 
 -- * Utilities
 
