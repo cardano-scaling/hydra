@@ -34,8 +34,8 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
    in fromLedgerUTxO $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 
 -- | Resolve tx inputs in a given UTxO
-resolvedInputs :: UTxO -> Tx Era -> UTxO
-resolvedInputs utxo tx =
+resolveInputsUTxO :: UTxO -> Tx Era -> UTxO
+resolveInputsUTxO utxo tx =
   UTxO.fromPairs $
     mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 

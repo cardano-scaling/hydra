@@ -919,9 +919,8 @@ observeCommitTx networkId utxo tx = do
       }
  where
   isSpendingFromInitial :: Bool
-  isSpendingFromInitial = do
-    let resolvedInputs = mapMaybe (`UTxO.resolve` utxo) $ txIns' tx
-    any (\o -> txOutAddress o == initialAddress) resolvedInputs
+  isSpendingFromInitial =
+    any (\o -> txOutAddress o == initialAddress) (resolveInputsUTxO utxo tx)
 
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 
