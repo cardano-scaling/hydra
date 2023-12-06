@@ -929,7 +929,7 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - requirementfailure
+          - requirementFailure
         properties:
           tag:
             type: string
