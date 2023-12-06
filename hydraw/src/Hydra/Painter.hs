@@ -69,7 +69,7 @@ mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
   pure $ signShelleyTransaction ShelleyBasedEraBabbage body [WitnessPaymentKey sk]
  where
   bodyContent =
-    defaultTxBodyContent BabbageEra
+    defaultTxBodyContent
       & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
       & addTxOut (toTxContext txOut)
       & setTxFee (TxFeeExplicit $ Lovelace 0)

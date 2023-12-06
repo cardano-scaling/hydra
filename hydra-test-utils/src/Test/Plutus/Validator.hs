@@ -121,7 +121,7 @@ transactionBodyFromScript validatorScript redeemer =
   body =
     either (error . show) id $
       createAndValidateTransactionBody $
-        defaultTxBodyContent BabbageEra
+        defaultTxBodyContent
           & addTxIn (defaultTxIn, scriptWitness)
           & setTxInsCollateral (TxInsCollateral mempty)
           & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)

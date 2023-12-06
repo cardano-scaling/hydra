@@ -66,6 +66,7 @@ import Cardano.Api as X hiding (
   UTxO (..),
   Witness (..),
   createAndValidateTransactionBody,
+  defaultTxBodyContent,
   makeShelleyKeyWitness,
   policyId,
   queryEraHistory,
@@ -368,6 +369,9 @@ pattern TxBody{txBodyContent} <-
 
 createAndValidateTransactionBody :: TxBodyContent BuildTx -> Either TxBodyError TxBody
 createAndValidateTransactionBody = Cardano.Api.createAndValidateTransactionBody cardanoEra
+
+defaultTxBodyContent :: TxBodyContent BuildTx
+defaultTxBodyContent = Cardano.Api.defaultTxBodyContent cardanoEra
 
 -- ** TxBodyContent
 

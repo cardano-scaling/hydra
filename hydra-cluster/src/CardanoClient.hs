@@ -40,7 +40,7 @@ buildScriptAddress script networkId =
 buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
 buildRaw ins outs fee =
   createAndValidateTransactionBody $
-    defaultTxBodyContent BabbageEra
+    defaultTxBodyContent
       & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       & setTxOuts outs
       & setTxFee (TxFeeExplicit fee)
