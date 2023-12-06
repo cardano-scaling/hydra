@@ -865,7 +865,7 @@ components:
         required:
           - tag
           - headId
-          - participants
+          - parties
           - seq
           - timestamp
         properties:
@@ -874,7 +874,7 @@ components:
             enum: ["IgnoredHeadInitializing"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
-          participants:
+          parties:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/Party"
