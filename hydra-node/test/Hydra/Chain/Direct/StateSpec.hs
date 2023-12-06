@@ -51,7 +51,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState,
+  ChainState (..),
+  ClosedState (..),
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
   InitialState (..),
@@ -86,9 +87,10 @@ import Hydra.Chain.Direct.State (
   unsafeFanout,
   unsafeObserveInitAndCommits,
  )
+import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   ClosedThreadOutput (closedContesters),
-  HeadObservation (NoHeadTx),
+  HeadObservation (..),
   NotAnInitReason (..),
   observeCommitTx,
   observeHeadTx,
@@ -149,17 +151,7 @@ spec = parallel $ do
     roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
-    prop "All valid transitions for all possible states can be observed." $
-      checkCoverage $
-        forAllShow genChainStateWithTx (\(_, _, _, t) -> show t) $ \(ctx, st, tx, transition) ->
-          forAllShow (genChainStateWithTx `suchThat` (\(_, _, _, t) -> t == transition)) (\(_, _, _, t) -> show t) $ \(_, otherSt, _, _) ->
-            -- FIXME: st and otherSt must be of different heads
-            genericCoverTable [transition] $
-              case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
-                NoHeadTx ->
-                  property False
-                    & counterexample ("observeHeadTx failed to observe transaction: " <> show tx)
-                _ -> property True
+    prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -407,6 +399,32 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
   genUTxO1 (modifyTxOutValue (const $ lovelaceToValue adaAmount) <$> genTxOut)
 
 -- * Properties
+
+prop_observeAnyTx :: Property
+prop_observeAnyTx =
+  checkCoverage $ do
+    forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
+      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) ->
+        -- FIXME: st and otherSt must be of different heads
+        genericCoverTable [transition] $
+          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+            NoHeadTx ->
+              False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+            Init{} -> transition === Transition.Init
+            Commit{} -> transition === Transition.Commit
+            Abort{} -> transition === Transition.Abort
+            CollectCom{} -> transition === Transition.Collect
+            Close{} -> transition === Transition.Close
+            Contest{} -> transition === Transition.Contest
+            Fanout{} -> transition === Transition.Fanout
+ where
+  showTransition = \(_, _, _, t) -> show t
+
+  chainStateHeadId = \case
+    Idle{} -> error "unexpected Idle"
+    Initial InitialState{headId} -> headId
+    Open OpenState{headId} -> headId
+    Closed ClosedState{headId} -> headId
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
