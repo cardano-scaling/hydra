@@ -116,6 +116,7 @@ import Hydra.Cardano.Api.Prelude (
 
 import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
+import Hydra.Cardano.Api.AlonzoEraOnwards as Extras
 import Hydra.Cardano.Api.BlockHeader as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
@@ -130,7 +131,6 @@ import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
-import Hydra.Cardano.Api.AlonzoEraOnwards as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
 import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
@@ -365,6 +365,9 @@ pattern TxBody :: TxBodyContent ViewTx -> TxBody
 pattern TxBody{txBodyContent} <-
   Cardano.Api.TxBody txBodyContent
 {-# COMPLETE TxBody #-}
+
+createAndValidateTransactionBody :: TxBodyContent BuildTx -> Either TxBodyError TxBody
+createAndValidateTransactionBody = Cardano.Api.createAndValidateTransactionBody cardanoEra
 
 -- ** TxBodyContent
 
@@ -717,3 +720,6 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
   Cardano.Api.ScriptWitness scriptWitnessInCtx scriptWitness
   where
     ScriptWitness = Cardano.Api.ScriptWitness
+
+makeShelleyKeyWitness :: TxBody -> ShelleyWitnessSigningKey -> KeyWitness
+makeShelleyKeyWitness = Cardano.Api.makeShelleyKeyWitness shelleyBasedEra

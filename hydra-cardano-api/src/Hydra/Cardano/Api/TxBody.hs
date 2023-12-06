@@ -2,7 +2,6 @@ module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api (createAndValidateTransactionBody)
 import Hydra.Cardano.Api.PlutusScript (fromLedgerScript)
 import Hydra.Cardano.Api.PolicyId (toLedgerScriptHash)
 import Hydra.Cardano.Api.ScriptData (FromScriptData)
@@ -72,6 +71,3 @@ lookupRedeemer ptr scriptData = do
       mempty
     TxBodyScriptData _ _ (Ledger.Redeemers rs) ->
       rs
-
-createAndValidateTransactionBody :: TxBodyContent BuildTx Era -> Either TxBodyError (TxBody Era)
-createAndValidateTransactionBody = Cardano.Api.createAndValidateTransactionBody BabbageEra

@@ -9,7 +9,6 @@ import Hydra.Cardano.Api.KeyWitness (
  )
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
-import Cardano.Api (makeShelleyKeyWitness)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
@@ -33,7 +32,7 @@ signTx ::
 signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
-  witness = Cardano.Api.makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
+  witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency
@@ -123,6 +122,3 @@ fromLedgerTx ledgerTx =
       TxScriptValidity AlonzoEraOnwardsBabbage ScriptValid
     Ledger.IsValid False ->
       TxScriptValidity AlonzoEraOnwardsBabbage ScriptInvalid
-
-makeShelleyKeyWitness :: TxBody Era -> ShelleyWitnessSigningKey -> KeyWitness Era
-makeShelleyKeyWitness = Cardano.Api.makeShelleyKeyWitness ShelleyBasedEraBabbage
