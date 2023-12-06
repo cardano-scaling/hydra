@@ -9,7 +9,7 @@ import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
-import Hydra.Cardano.Api.MultiAssetSupportedInEra (multiAssetSupportedInEra)
+import Hydra.Cardano.Api.MaryEraOnwards (maryEraOnwards)
 import PlutusLedgerApi.V1.Value (flattenValue)
 import PlutusLedgerApi.V2 (CurrencySymbol, adaSymbol, adaToken, fromBuiltin, unCurrencySymbol, unTokenName)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -31,7 +31,7 @@ minUTxOValue pparams (TxOut addr val dat ref) =
     TxOut
       addr
       ( TxOutValue
-          (multiAssetSupportedInEra @Era)
+          (maryEraOnwards @Era)
           (txOutValueToValue val <> defaultHighEnoughValue)
       )
       dat

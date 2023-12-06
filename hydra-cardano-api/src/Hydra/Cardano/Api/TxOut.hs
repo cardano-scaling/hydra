@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.TxOut where
 
-import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
+import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
@@ -46,7 +46,7 @@ mkTxOutAutoBalance ::
   ReferenceScript Era ->
   TxOut CtxTx Era
 mkTxOutAutoBalance pparams addr val dat ref =
-  let out = TxOut addr (TxOutValue MaryEraOnwardsBabbage val) dat ref
+  let out = TxOut addr (TxOutValue maryEraOnwards val) dat ref
       minValue = minUTxOValue pparams out
    in modifyTxOutValue (const minValue) out
 
@@ -60,7 +60,7 @@ modifyTxOutAddress fn (TxOut addr value dat ref) =
 
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
-  HasMultiAsset era =>
+  IsMaryEraOnwards era =>
   (Value -> Value) ->
   TxOut ctx era ->
   TxOut ctx era
@@ -119,7 +119,7 @@ toLedgerTxOut =
 -- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
-  (HasMultiAsset era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
+  (IsMaryEraOnwards era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
   Network ->
   Plutus.TxOut ->
   TxOut CtxUTxO era
@@ -128,7 +128,7 @@ fromPlutusTxOut network out =
  where
   addressInEra = fromPlutusAddress network plutusAddress
 
-  value = TxOutValue multiAssetSupportedInEra $ fromPlutusValue plutusValue
+  value = TxOutValue maryEraOnwards $ fromPlutusValue plutusValue
 
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone
