@@ -370,25 +370,23 @@ commit' ::
   UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
   Either (PostTxError Tx) Tx
 commit' ctx headId spendableUTxO utxoToCommit = do
-  case ownInitial of
-    Nothing ->
-      Left (CannotFindOwnInitial{knownUTxO = spendableUTxO})
-    Just (i, o) -> do
-      let utxo = fst <$> utxoToCommit
-      rejectByronAddress utxo
-      rejectReferenceScripts utxo
-      rejectMoreThanMainnetLimit networkId utxo
-      pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh)
+  pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
+  (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
+  let utxo = fst <$> utxoToCommit
+  rejectByronAddress utxo
+  rejectReferenceScripts utxo
+  rejectMoreThanMainnetLimit networkId utxo
+  pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh)
  where
   ChainContext{networkId, ownParty, scriptRegistry, ownVerificationKey} = ctx
 
   vkh = verificationKeyHash ownVerificationKey
 
-  ownInitial =
-    UTxO.find (hasMatchingPT . txOutValue) spendableUTxO
+  ownInitial pid =
+    UTxO.find (hasMatchingPT pid . txOutValue) spendableUTxO
 
-  hasMatchingPT val =
-    selectAsset val (AssetId (headIdToPolicyId headId) (AssetName (serialiseToRawBytes vkh))) == 1
+  hasMatchingPT pid val =
+    selectAsset val (AssetId pid (AssetName (serialiseToRawBytes vkh))) == 1
 
 rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
 rejectByronAddress u = do
@@ -455,7 +453,8 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
 data CollectTxError
-  = CannotFindHeadOutputToCollect
+  = InvalidHeadIdInCollect {headId :: HeadId}
+  | CannotFindHeadOutputToCollect
   deriving stock (Show)
 
 -- | Construct a collect transaction based on known, spendable UTxO. This
@@ -469,17 +468,13 @@ collect ::
   UTxO ->
   Either CollectTxError Tx
 collect ctx headId headParameters spendableUTxO = do
-  headUTxO <-
-    maybe (Left CannotFindHeadOutputToCollect) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInCollect{headId}
+  let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
+  headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
+  let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
   pure $
     collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits
  where
-  commits =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
-
-  utxoOfThisHead' = utxoOfThisHead (headIdToPolicyId headId) spendableUTxO
-
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
@@ -505,9 +500,10 @@ close ::
   PointInTime ->
   Either CloseTxError Tx
 close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confirmedSnapshot startSlotNo pointInTime = do
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
-    maybe (Left CannotFindHeadOutputToClose) pure $
-      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
+    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
+      ?> CannotFindHeadOutputToClose
   let openThreadOutput =
         OpenThreadOutput
           { openThreadUTxO = headUTxO
@@ -542,20 +538,16 @@ contest ::
   PointInTime ->
   Either ContestTxError Tx
 contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime = do
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInContest{headId}
   headUTxO <-
-    maybe (Left CannotFindHeadOutputToContest) pure $
-      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headIdToPolicyId headId) spendableUTxO)
+    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
+      ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
   pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
  where
   checkHeadDatum headUTxO@(_, headOutput) = do
-    headDatum <-
-      maybe (Left MissingHeadDatumInContest) pure $
-        txOutScriptData $
-          toTxContext headOutput
-    datum <-
-      maybe (Left FailedToConvertFromScriptDataInContest) pure $
-        fromScriptData headDatum
+    headDatum <- txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInContest
+    datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
 
     case datum of
       Head.Closed{contesters, parties, contestationDeadline} -> do
@@ -596,8 +588,8 @@ fanout ::
   Either FanoutTxError Tx
 fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
   headUTxO <-
-    maybe (Left CannotFindHeadOutputToFanout) pure $
-      UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+      ?> CannotFindHeadOutputToFanout
 
   closedThreadUTxO <- checkHeadDatum headUTxO
 
@@ -611,12 +603,9 @@ fanout ctx spendableUTxO seedTxIn utxo deadlineSlotNo = do
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-
-      maybe (Left MissingHeadDatumInFanout) pure $
-        txOutScriptData $
-          toTxContext headOutput
+      txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInFanout
     datum <-
-      maybe (Left FailedToConvertFromScriptDataInFanout) pure $
-        fromScriptData headDatum
+      fromScriptData headDatum ?> FailedToConvertFromScriptDataInFanout
 
     case datum of
       Head.Closed{} -> pure headUTxO

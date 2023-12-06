@@ -113,6 +113,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 data PostTxError tx
   = NoSeedInput
   | InvalidSeed {headSeed :: HeadSeed}
+  | InvalidHeadId {headId :: HeadId}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}

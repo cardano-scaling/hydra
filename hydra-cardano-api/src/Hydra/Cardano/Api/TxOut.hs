@@ -145,9 +145,10 @@ fromPlutusTxOut ::
   (IsMaryEraOnwards era, IsAlonzoEraOnwards era, IsBabbageEraOnwards era, IsShelleyBasedEra era) =>
   Network ->
   Plutus.TxOut ->
-  TxOut CtxUTxO era
-fromPlutusTxOut network out =
-  TxOut addressInEra value datum ReferenceScriptNone
+  Maybe (TxOut CtxUTxO era)
+fromPlutusTxOut network out = do
+  value <- TxOutValue multiAssetSupportedInEra <$> fromPlutusValue plutusValue
+  pure $ TxOut addressInEra value datum ReferenceScriptNone
  where
   addressInEra = fromPlutusAddress network plutusAddress
 

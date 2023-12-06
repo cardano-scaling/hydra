@@ -331,7 +331,8 @@ data ClosingSnapshot
       }
 
 data CloseTxError
-  = CannotFindHeadOutputToClose
+  = InvalidHeadIdInClose {headId :: HeadId}
+  | CannotFindHeadOutputToClose
   deriving stock (Show)
 
 -- | Create a transaction closing a head with either the initial snapshot or
@@ -416,7 +417,8 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
 data ContestTxError
-  = CannotFindHeadOutputToContest
+  = InvalidHeadIdInContest {headId :: HeadId}
+  | CannotFindHeadOutputToContest
   | MissingHeadDatumInContest
   | MissingHeadRedeemerInContest
   | WrongDatumInContest
@@ -734,7 +736,8 @@ observeRawInitTx tx = do
   -- check that we have a proper head
   (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> do
-      pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
+      pid <- maybe (Left NotAHeadPolicy) Right $ fromPlutusCurrencySymbol cid
+      pure (pid, fromChain cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
   let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
@@ -906,12 +909,13 @@ observeCommitTx networkId utxo tx = do
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
     pure . UTxO.fromPairs $ committedUTxO
 
+  policyId <- fromPlutusCurrencySymbol headId
   pure
     CommitObservation
       { commitOutput = (commitIn, toUTxOContext commitOut)
       , party
       , committed
-      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
+      , headId = mkHeadId policyId
       }
  where
   isSpendingFromInitial :: Bool
@@ -1101,7 +1105,7 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 
-headIdToPolicyId :: HeadId -> PolicyId
+headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 
 headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn

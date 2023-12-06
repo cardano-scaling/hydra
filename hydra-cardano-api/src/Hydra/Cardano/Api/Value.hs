@@ -84,13 +84,16 @@ toLedgerValue =
   toMaryValue
 
 -- | Convert a plutus 'Value' into a cardano-api 'Value'.
-fromPlutusValue :: Plutus.Value -> Value
-fromPlutusValue plutusValue =
-  valueFromList $ map convertAsset $ flattenValue plutusValue
+fromPlutusValue :: Plutus.Value -> Maybe Value
+fromPlutusValue plutusValue = do
+  fmap valueFromList . mapM convertAsset $ flattenValue plutusValue
  where
   convertAsset (cs, tk, i)
-    | cs == adaSymbol && tk == adaToken = (AdaAssetId, Quantity i)
-    | otherwise = (AssetId (fromPlutusCurrencySymbol cs) (toAssetName tk), Quantity i)
+    | cs == adaSymbol && tk == adaToken =
+        pure (AdaAssetId, Quantity i)
+    | otherwise = do
+        pid <- fromPlutusCurrencySymbol cs
+        pure (AssetId pid (toAssetName tk), Quantity i)
 
   toAssetName :: Plutus.TokenName -> AssetName
   toAssetName = AssetName . fromBuiltin . unTokenName

@@ -51,6 +51,12 @@ spec =
         headSeedToTxIn headSeed === Just txIn
           & counterexample (show headSeed)
 
+    describe "HeadId (cardano)" $
+      prop "headIdToPolicyId . mkHeadId === id" $ \pid -> do
+        let headId = mkHeadId pid
+        headIdToPolicyId headId === Just pid
+          & counterexample (show headId)
+
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $

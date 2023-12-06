@@ -9,6 +9,8 @@ import Cardano.Ledger.Shelley.Scripts qualified as Ledger
 import Data.ByteString qualified as BS
 import PlutusLedgerApi.V2 qualified as Plutus
 
+-- * Type conversions
+
 -- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
 toPlutusKeyHash (PaymentKeyHash vkh) =

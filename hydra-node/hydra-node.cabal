@@ -25,6 +25,7 @@ common project-config
     DeriveAnyClass
     DeriveDataTypeable
     DerivingStrategies
+    DuplicateRecordFields
     FunctionalDependencies
     GADTs
     LambdaCase
