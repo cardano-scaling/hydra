@@ -33,6 +33,7 @@ module Hydra.Prelude (
   padRight,
   Except,
   decodeBase16,
+  (?>),
 ) where
 
 import Cardano.Binary (
@@ -225,3 +226,12 @@ padRight c n str = T.take n (str <> T.replicate n (T.singleton c))
 decodeBase16 :: MonadFail f => Text -> f ByteString
 decodeBase16 =
   either fail pure . Base16.decode . encodeUtf8
+
+infixl 4 ?>
+
+-- | If 'Nothing' use given 'e' as 'Left'. Infix version of `maybeToEither`.
+(?>) :: Maybe a -> e -> Either e a
+(?>) m e =
+  case m of
+    Nothing -> Left e
+    Just a -> Right a
