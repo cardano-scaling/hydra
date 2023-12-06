@@ -25,7 +25,6 @@ import Data.Default (def)
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
-  CardanoEra (..),
   ExecutionUnits (..),
   IsScriptWitnessInCtx (scriptWitnessInCtx),
   LedgerEpochInfo (LedgerEpochInfo),

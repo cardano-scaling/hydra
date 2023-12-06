@@ -76,7 +76,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   pure $
     second balancedTxBody $
       makeTransactionBodyAutoBalance
-        ShelleyBasedEraBabbage
+        shelleyBasedEra
         systemStart
         (toLedgerEpochInfo eraHistory)
         (LedgerProtocolParameters pparams)

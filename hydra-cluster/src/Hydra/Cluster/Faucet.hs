@@ -71,7 +71,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
 
   theOutput =
     TxOut
-      (shelleyAddressInEra ShelleyBasedEraBabbage receivingAddress)
+      (shelleyAddressInEra shelleyBasedEra receivingAddress)
       (lovelaceToValue lovelace)
       TxOutDatumNone
       ReferenceScriptNone

@@ -50,7 +50,7 @@ calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
   let tx = makeSignedTransaction [] body
       noByronWitnesses = 0
    in estimateTransactionFee
-        ShelleyBasedEraBabbage
+        shelleyBasedEra
         networkId
         (protocolParamTxFeeFixed pparams)
         (protocolParamTxFeePerByte pparams)
