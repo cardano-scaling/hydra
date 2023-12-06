@@ -83,7 +83,7 @@ import Hydra.Chain.Direct.Tx (
   CommitObservation (..),
   ContestObservation (..),
   ContestTxError (..),
-  FanoutObservation (FanoutObservation),
+  FanoutObservation (..),
   FanoutTxError (..),
   InitObservation (..),
   InitialThreadOutput (..),
@@ -806,8 +806,14 @@ observeFanout ::
   Maybe (OnChainTx Tx)
 observeFanout st tx = do
   let utxo = getKnownUTxO st
-  FanoutObservation{} <- observeFanoutTx utxo tx
-  pure OnFanoutTx
+  observation <- observeFanoutTx utxo tx
+  let FanoutObservation{headId = fanoutObservationHeadId} = observation
+  guard (closedStateHeadId == fanoutObservationHeadId)
+  pure OnFanoutTx{headId = fanoutObservationHeadId}
+ where
+  ClosedState
+    { headId = closedStateHeadId
+    } = st
 
 -- * Generators
 

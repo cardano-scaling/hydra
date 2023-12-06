@@ -720,8 +720,11 @@ update env ledger st ev = case (st, ev) of
           <> Effects [ClientEffect $ ServerOutput.ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
-  (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
-    onClosedChainFanoutTx closedState newChainState
+  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnFanoutTx{headId}, newChainState})
+    | ourHeadId == headId ->
+        onClosedChainFanoutTx closedState newChainState
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
     StateChanged ChainRolledBack{chainState = rolledBackChainState}

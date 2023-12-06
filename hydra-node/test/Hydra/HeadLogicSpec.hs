@@ -473,7 +473,7 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores fanoutTx of another head" $ \otherHeadId -> do
-        let collectOtherHead = observationEvent $ OnFanoutTx -- TODO: add headId
+        let collectOtherHead = observationEvent $ OnFanoutTx{headId = otherHeadId}
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 

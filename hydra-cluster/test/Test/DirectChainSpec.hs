@@ -298,7 +298,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 , headSeed
                 , contestationDeadline = deadline
                 }
-            aliceChain `observesInTime` OnFanoutTx
+            aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
               waitForUTxO networkId nodeSocket someUTxO
 

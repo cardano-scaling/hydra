@@ -98,7 +98,7 @@ data OnChainTx tx
       , contestationDeadline :: UTCTime
       }
   | OnContestTx {headId :: HeadId, snapshotNumber :: SnapshotNumber}
-  | OnFanoutTx
+  | OnFanoutTx {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)

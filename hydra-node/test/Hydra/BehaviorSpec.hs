@@ -710,7 +710,7 @@ toOnChainTx now = \case
       , snapshotNumber = number (getSnapshot confirmedSnapshot)
       }
   FanoutTx{} ->
-    OnFanoutTx
+    OnFanoutTx{headId = testHeadId}
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
