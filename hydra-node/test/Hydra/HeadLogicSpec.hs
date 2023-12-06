@@ -442,7 +442,7 @@ spec =
         let snapshot2 = testSnapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
-            contestSnapshot1Event = observationEvent $ OnContestTx 1
+            contestSnapshot1Event = observationEvent $ OnContestTx testHeadId 1
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
             contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
@@ -468,7 +468,7 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber -> do
-        let contestOtherHead = observationEvent $ OnContestTx{snapshotNumber} -- TODO: add headId
+        let contestOtherHead = observationEvent $ OnContestTx{headId = otherHeadId, snapshotNumber}
         update bobEnv ledger (inClosedState threeParties) contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 

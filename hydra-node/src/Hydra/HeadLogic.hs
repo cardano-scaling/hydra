@@ -708,8 +708,11 @@ update env ledger st ev = case (st, ev) of
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
-  (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
-    onClosedChainContestTx closedState snapshotNumber
+  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnContestTx{headId, snapshotNumber}})
+    | ourHeadId == headId ->
+        onClosedChainContestTx closedState snapshotNumber
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         StateChanged

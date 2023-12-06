@@ -704,9 +704,10 @@ toOnChainTx now = \case
       , snapshotNumber = number (getSnapshot confirmedSnapshot)
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
-  ContestTx{confirmedSnapshot} ->
+  ContestTx{headId, confirmedSnapshot} ->
     OnContestTx
-      { snapshotNumber = number (getSnapshot confirmedSnapshot)
+      { headId
+      , snapshotNumber = number (getSnapshot confirmedSnapshot)
       }
   FanoutTx{} ->
     OnFanoutTx

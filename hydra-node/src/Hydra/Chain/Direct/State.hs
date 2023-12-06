@@ -790,7 +790,7 @@ observeContest st tx = do
   observation <- observeContestTx utxo tx
   let ContestObservation{contestedThreadOutput, headId = contestObservationHeadId, snapshotNumber, contesters} = observation
   guard (closedStateHeadId == contestObservationHeadId)
-  let event = OnContestTx{snapshotNumber}
+  let event = OnContestTx{headId = contestObservationHeadId, snapshotNumber}
   let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedContesters = contesters}}
   pure (event, st')
  where

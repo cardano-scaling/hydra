@@ -350,8 +350,8 @@ convertObservation = \case
         , snapshotNumber
         , contestationDeadline = posixToUTCTime closedContestationDeadline
         }
-  Contest ContestObservation{snapshotNumber} ->
-    pure OnContestTx{snapshotNumber}
+  Contest ContestObservation{headId, snapshotNumber} ->
+    pure OnContestTx{headId, snapshotNumber}
   Fanout FanoutObservation{} ->
     pure OnFanoutTx
 

@@ -410,7 +410,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 { snapshot = snapshot1
                 , signatures = aggregate [sign aliceSk snapshot1]
                 }
-            aliceChain `observesInTime` OnContestTx{snapshotNumber = 1}
+            aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1}
 
             -- Alice contests with some snapshot U2 -> expect fail
             let snapshot2 =
