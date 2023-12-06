@@ -945,7 +945,8 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -989,7 +990,8 @@ observeCloseTx ::
   Tx ->
   Maybe CloseObservation
 observeCloseTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -1033,7 +1035,8 @@ observeContestTx ::
   Tx ->
   Maybe ContestObservation
 observeContestTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -1069,7 +1072,8 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
@@ -1088,7 +1092,8 @@ observeAbortTx ::
   Tx ->
   Maybe AbortObservation
 observeAbortTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure $ AbortObservation headId
