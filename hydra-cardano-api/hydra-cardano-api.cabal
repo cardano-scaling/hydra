@@ -44,6 +44,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.AlonzoEraOnwards
     Hydra.Cardano.Api.BabbageEraOnwards
     Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
@@ -62,7 +63,6 @@ library
     Hydra.Cardano.Api.Pretty
     Hydra.Cardano.Api.ReferenceScript
     Hydra.Cardano.Api.ScriptData
-    Hydra.Cardano.Api.ScriptDataSupportedInEra
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptLanguageInEra

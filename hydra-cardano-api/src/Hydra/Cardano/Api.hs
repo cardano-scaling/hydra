@@ -130,7 +130,7 @@ import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
-import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
+import Hydra.Cardano.Api.AlonzoEraOnwards as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
 import Hydra.Cardano.Api.ScriptLanguageInEra as Extras

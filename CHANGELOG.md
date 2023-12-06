@@ -13,6 +13,8 @@ changes.
 - **BREAKING** Internal changes to `hydra-cardano-api`:
   - Renamed `HasMultiAsset` type class to `IsMaryEraOnwards`. Use
     `maryEraOnwards` to produce witnesses for features from mary onwards.
+  - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use
+    `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
   - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use
     `babbageEraOnwards` to produce witnesses for features from babbage onwards.
 
