@@ -65,7 +65,6 @@ import Hydra.Cluster.Fixture (
   cperiod,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (aggregate, sign)
 import Hydra.HeadId (HeadId, HeadSeed (..))
 import Hydra.Ledger (IsTx (..))
@@ -75,7 +74,6 @@ import Hydra.Options (
   ChainConfig (..),
   toArgNetworkId,
  )
-import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Process (proc, readCreateProcess)
 import Test.QuickCheck (generate)
@@ -99,9 +97,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             withDirectChainTest nullTracer bobChainConfig bobChainContext $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
-                postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                aliceHeadSeed <- snd <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
-                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                let params = HeadParameters cperiod [alice, bob, carol]
+                postTx $ InitTx params
+                aliceHeadSeed <- snd <$> aliceChain `observesInTimeSatisfying` hasInitTxWith params
+                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith params
 
                 aliceHeadSeed `shouldBe` bobHeadSeed
 
@@ -132,10 +131,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
 
                 aliceUTxO <- seedFromFaucet node aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
-
+                
+                let params = HeadParameters cperiod [alice, bob, carol]
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                (headId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
-                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, bob, carol]
+                (headId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith params
+                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith params
 
                 aliceHeadSeed `shouldBe` bobHeadSeed
 
@@ -178,11 +178,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             withDirectChainTest nullTracer bobChainConfig bobChainContext $
               \bobChain@DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
-                alicePostTx $ InitTx $ HeadParameters cperiod [alice, carol]
-                void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
+                let params = HeadParameters cperiod [alice, carol]
+                alicePostTx $ InitTx params
+                void $ aliceChain `observesInTimeSatisfying` hasInitTxWith params
 
                 -- Expect bob's chain layer to see the init of alice and carols exlusive head
-                headSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice, carol]
+                headSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith params
 
                 bobPostTx AbortTx{utxo = mempty, headSeed}
                   `shouldThrow` \case
@@ -203,10 +204,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            let params = HeadParameters cperiod [alice]
+            postTx $ InitTx params
 
-            postTx $ InitTx $ HeadParameters cperiod [alice]
-
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith params
             -- deliberately use alice's key known to hydra-node to trigger the error
             externalCommit node aliceChain aliceCardanoSk headId aliceUTxO
               `shouldThrow` \case
@@ -231,8 +232,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
+            let params = HeadParameters cperiod [alice]
             postTx $ InitTx $ HeadParameters cperiod [alice]
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith params
 
             (_, aliceExternalSk) <- generate genKeyPair
             externalCommit node aliceChain aliceExternalSk headId mempty
@@ -254,7 +256,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             let params = HeadParameters cperiod [alice]
             postTx $ InitTx params
-            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith params
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -309,13 +311,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket [] cperiod
         aliceChainContext <- loadChainContext aliceChainConfig alice hydraScriptsTxId
-
+        let params = HeadParameters cperiod [alice]
         -- Scenario
         tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig aliceChainContext $
           \aliceChain@DirectChainTest{postTx} -> do
             tip <- queryTip networkId nodeSocket
-            postTx $ InitTx $ HeadParameters cperiod [alice]
-            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            postTx $ InitTx params
+            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith params
             pure tip
 
         let aliceChainConfig' = aliceChainConfig{startChainFrom = Just tip}
@@ -323,7 +325,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         -- state here. Does this test even make sense with persistence?
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' aliceChainContext $
           \aliceChain@DirectChainTest{} ->
-            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            void $ aliceChain `observesInTimeSatisfying` hasInitTxWith params
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
@@ -379,7 +381,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             let params = HeadParameters cperiod [alice]
             postTx $ InitTx params
-            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith cperiod [alice]
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith params
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
@@ -474,8 +476,8 @@ withDirectChainTest tracer config ctx action = do
               Right tx -> pure tx
         }
 
-hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO (HeadId, HeadSeed)
-hasInitTxWith expectedContestationPeriod expectedParties = \case
+hasInitTxWith :: (HasCallStack, IsTx tx) => HeadParameters -> OnChainTx tx -> IO (HeadId, HeadSeed)
+hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, parties = expectedParties} = \case
   OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}} -> do
     expectedContestationPeriod `shouldBe` contestationPeriod
     expectedParties `shouldBe` parties
