@@ -305,11 +305,9 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             callback (Tick{chainTime = utcTime, chainSlot})
 
     forM_ receivedTxs $
-      maybeObserveSomeTx point
-        >=> ( \case
-                Nothing -> pure ()
-                Just event -> callback event
-            )
+      maybeObserveSomeTx point >=> \case
+        Nothing -> pure ()
+        Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
