@@ -428,7 +428,7 @@ spec =
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
-            params = fromMaybe (Prelude.error "No HeadParameters in Idle state") (getHeadParameters s0)
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
             contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
         runEvents bobEnv ledger s0 $ do
           o1 <- step closeTxEvent
@@ -444,7 +444,7 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             contestSnapshot1Event = observationEvent $ OnContestTx 1
-            params = fromMaybe (Prelude.error "No HeadParameters in Idle state") (getHeadParameters s0)
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
             contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
