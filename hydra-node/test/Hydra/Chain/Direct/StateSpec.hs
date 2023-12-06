@@ -89,9 +89,16 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
   ClosedThreadOutput (closedContesters),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  FanoutObservation (..),
   HeadObservation (..),
   NotAnInitReason (..),
+  RawInitObservation (..),
   observeCommitTx,
   observeHeadTx,
   observeRawInitTx,
@@ -134,11 +141,12 @@ import Test.QuickCheck (
   label,
   sized,
   sublistOf,
+  suchThat,
   tabulate,
+  (.&&.),
   (.||.),
   (===),
  )
-import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import Prelude qualified
 
@@ -400,31 +408,35 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
 
 -- * Properties
 
+-- | Given any Head protocol state and the transaction corresponding a protocol
+-- transition we should be able to observe this transition correctly even in
+-- presence of other valid Hydra Head protocol states in the used lookup utxo.
 prop_observeAnyTx :: Property
 prop_observeAnyTx =
   checkCoverage $ do
     forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
       forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) ->
-        -- FIXME: st and otherSt must be of different heads
-        genericCoverTable [transition] $
+        genericCoverTable [transition] $ do
+          let expectedHeadId = chainStateHeadId st
           case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
             NoHeadTx ->
               False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+            -- NOTE: we don't have the generated headId easily accessible in the initial state
             Init{} -> transition === Transition.Init
-            Commit{} -> transition === Transition.Commit
-            Abort{} -> transition === Transition.Abort
-            CollectCom{} -> transition === Transition.Collect
-            Close{} -> transition === Transition.Close
-            Contest{} -> transition === Transition.Contest
-            Fanout{} -> transition === Transition.Fanout
+            Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
+            Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
+            CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+            Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
+            Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
+            Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
   showTransition = \(_, _, _, t) -> show t
 
   chainStateHeadId = \case
-    Idle{} -> error "unexpected Idle"
-    Initial InitialState{headId} -> headId
-    Open OpenState{headId} -> headId
-    Closed ClosedState{headId} -> headId
+    Idle{} -> Nothing
+    Initial InitialState{headId} -> Just headId
+    Open OpenState{headId} -> Just headId
+    Closed ClosedState{headId} -> Just headId
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
