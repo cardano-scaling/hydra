@@ -99,15 +99,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 -- Scenario
                 let params = HeadParameters cperiod [alice, bob, carol]
                 postTx $ InitTx params
-                aliceHeadSeed <- snd <$> aliceChain `observesInTimeSatisfying` hasInitTxWith params
-                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith params
+                (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith params
+                (bobHeadId, bobHeadSeed) <- bobChain `observesInTimeSatisfying` hasInitTxWith params
 
                 aliceHeadSeed `shouldBe` bobHeadSeed
 
                 postTx $ AbortTx{utxo = mempty, headSeed = aliceHeadSeed}
 
-                aliceChain `observesInTime` OnAbortTx
-                bobChain `observesInTime` OnAbortTx
+                aliceChain `observesInTime` OnAbortTx{headId = aliceHeadId}
+                bobChain `observesInTime` OnAbortTx{headId = bobHeadId}
 
   it "can init and abort a 2-parties head after one party has committed" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -131,23 +131,23 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
 
                 aliceUTxO <- seedFromFaucet node aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
-                
+
                 let params = HeadParameters cperiod [alice, bob, carol]
                 postTx $ InitTx $ HeadParameters cperiod [alice, bob, carol]
-                (headId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith params
-                bobHeadSeed <- snd <$> bobChain `observesInTimeSatisfying` hasInitTxWith params
+                (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith params
+                (bobHeadId, bobHeadSeed) <- bobChain `observesInTimeSatisfying` hasInitTxWith params
 
                 aliceHeadSeed `shouldBe` bobHeadSeed
 
-                externalCommit node aliceChain aliceExternalSk headId aliceUTxO
+                externalCommit node aliceChain aliceExternalSk aliceHeadId aliceUTxO
 
                 aliceChain `observesInTime` OnCommitTx alice aliceUTxO
                 bobChain `observesInTime` OnCommitTx alice aliceUTxO
 
                 postTx $ AbortTx{utxo = aliceUTxO, headSeed = aliceHeadSeed}
                 --
-                aliceChain `observesInTime` OnAbortTx
-                bobChain `observesInTime` OnAbortTx
+                aliceChain `observesInTime` OnAbortTx{headId = aliceHeadId}
+                bobChain `observesInTime` OnAbortTx{headId = bobHeadId}
 
                 let aliceExternalAddress = buildAddress aliceExternalVk networkId
 

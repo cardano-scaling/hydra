@@ -337,8 +337,8 @@ convertObservation = \case
               , parties = concatMap partyFromChain onChainParties
               }
         }
-  Abort AbortObservation{} ->
-    pure OnAbortTx
+  Abort AbortObservation{headId} ->
+    pure OnAbortTx{headId}
   Commit CommitObservation{party, committed} ->
     pure OnCommitTx{party, committed}
   CollectCom CollectComObservation{headId} ->

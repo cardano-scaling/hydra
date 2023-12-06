@@ -695,7 +695,7 @@ toOnChainTx now = \case
   InitTx headParameters ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters}
   AbortTx{} ->
-    OnAbortTx
+    OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
   CloseTx{confirmedSnapshot} ->

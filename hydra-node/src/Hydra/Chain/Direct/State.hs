@@ -73,7 +73,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
  )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
-  AbortObservation (AbortObservation),
+  AbortObservation (..),
   AbortTxError (..),
   CloseObservation (..),
   CloseTxError (..),
@@ -741,8 +741,8 @@ observeAbort ::
   Maybe (OnChainTx Tx)
 observeAbort st tx = do
   let utxo = getKnownUTxO st
-  AbortObservation{} <- observeAbortTx utxo tx
-  pure OnAbortTx
+  AbortObservation{headId} <- observeAbortTx utxo tx
+  pure OnAbortTx{headId}
 
 -- ** OpenState transitions
 

@@ -379,14 +379,14 @@ spec =
             step (observationEvent $ OnCollectComTx testHeadId)
             getState
 
-        let invalidEvent = observationEvent OnAbortTx
+        let invalidEvent = observationEvent OnAbortTx{headId = testHeadId}
         update bobEnv ledger afterCollectCom invalidEvent
           `shouldBe` Error (InvalidEvent invalidEvent afterCollectCom)
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent OnAbortTx)
+            step (observationEvent OnAbortTx{headId = testHeadId})
             getState
 
         let invalidEvent = observationEvent (OnCollectComTx testHeadId)

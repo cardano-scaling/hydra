@@ -90,7 +90,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
 data OnChainTx tx
   = OnInitTx {headId :: HeadId, headSeed :: HeadSeed, headParameters :: HeadParameters}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
-  | OnAbortTx
+  | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
   | OnCloseTx
       { headId :: HeadId

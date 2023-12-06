@@ -1775,10 +1775,13 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
         properties:
           tag:
             type: string
             enum: ["OnAbortTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
       - title: OnCollectComTx
         type: object
         additionalProperties: false

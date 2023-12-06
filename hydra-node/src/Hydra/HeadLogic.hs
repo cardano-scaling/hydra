@@ -674,8 +674,9 @@ update env ledger st ev = case (st, ev) of
     onInitialClientAbort initialState
   (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
     onInitialChainCollectTx initialState newChainState
-  (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
-    onInitialChainAbortTx newChainState committed headId
+  (Initial InitialState{headId = ourHeadId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{headId}, newChainState})
+    | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ fold committed]
   -- Open
