@@ -11,9 +11,9 @@ import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
-import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
@@ -119,7 +119,7 @@ toLedgerTxOut =
 -- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
-  (IsMaryEraOnwards era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
+  (IsMaryEraOnwards era, HasScriptData era, IsBabbageEraOnwards era, IsShelleyBasedEra era) =>
   Network ->
   Plutus.TxOut ->
   TxOut CtxUTxO era
@@ -135,7 +135,7 @@ fromPlutusTxOut network out =
     OutputDatumHash (Plutus.DatumHash hashBytes) ->
       TxOutDatumHash scriptDataSupportedInEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
     OutputDatum (Plutus.Datum datumData) ->
-      TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
+      TxOutDatumInline babbageEraOnwards $ toScriptData datumData
 
   Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 

@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.TxOutDatum where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums (..))
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData (..))
 
@@ -27,8 +27,8 @@ mkTxOutDatumHash =
 -- | Construct an inline 'TxOutDatum' from some serialisable data.
 mkTxOutDatumInline ::
   forall era a ctx.
-  (ToScriptData a, HasInlineDatums era) =>
+  (ToScriptData a, IsBabbageEraOnwards era) =>
   a ->
   TxOutDatum ctx era
 mkTxOutDatumInline =
-  TxOutDatumInline (inlineDatumsSupportedInEra @era) . toScriptData
+  TxOutDatumInline (babbageEraOnwards @era) . toScriptData

@@ -2,8 +2,8 @@ module Hydra.Cardano.Api.ReferenceScript where
 
 import Hydra.Cardano.Api.Prelude
 
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
-import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums (..))
 import PlutusLedgerApi.V2 qualified as Plutus
 
 -- | Construct a 'ReferenceScript' from any given Plutus script.
@@ -11,7 +11,7 @@ import PlutusLedgerApi.V2 qualified as Plutus
 -- NOTE: The script is treated as a 'PlutusScriptV2'
 mkScriptRef :: Plutus.SerialisedScript -> ReferenceScript Era
 mkScriptRef =
-  ReferenceScript inlineDatumsSupportedInEra
+  ReferenceScript babbageEraOnwards
     . toScriptInAnyLang
     . PlutusScript PlutusScriptV2
     . fromPlutusScript
