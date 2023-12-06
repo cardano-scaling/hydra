@@ -233,7 +233,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing {headId :: HeadId} -- FIXME: This breaks the api of 'Greetings', document and fix api.yaml
+  | Initializing {headId :: HeadId}
   | Open
   | Closed
   | FanoutPossible
