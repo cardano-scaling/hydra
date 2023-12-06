@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.UTxO where
 
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxId (toLedgerTxId)
-import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn)
+import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn, txIns')
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -12,6 +12,7 @@ import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 import Data.Foldable (toList)
 import Data.Map qualified as Map
+import Data.Maybe (mapMaybe)
 import Data.String (IsString (..))
 import Data.Text qualified as Text
 
@@ -31,6 +32,12 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
         | ix <- [Ledger.TxIx 0 .. toEnum (length txOuts)]
         ]
    in fromLedgerUTxO $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
+
+-- | Resolve tx inputs in a given UTxO
+resolvedInputs :: UTxO -> Tx Era -> UTxO
+resolvedInputs utxo tx =
+  UTxO.fromPairs $
+    mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
 -- * Type Conversions
 

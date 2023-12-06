@@ -127,6 +127,7 @@ import Test.QuickCheck (
   cover,
   forAll,
   forAllBlind,
+  forAllShow,
   getPositive,
   label,
   sized,
@@ -135,6 +136,7 @@ import Test.QuickCheck (
   (.||.),
   (===),
  )
+import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import Prelude qualified
 
@@ -149,13 +151,15 @@ spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
-          genericCoverTable [transition] $
-            case observeHeadTx (networkId ctx) (getKnownUTxO st) tx of
-              NoHeadTx ->
-                property False
-                  & counterexample ("observeHeadTx failed to observe transaction: " <> show tx)
-              _ -> property True
+        forAllShow genChainStateWithTx (\(_, _, _, t) -> show t) $ \(ctx, st, tx, transition) ->
+          forAllShow (genChainStateWithTx `suchThat` (\(_, _, _, t) -> t == transition)) (\(_, _, _, t) -> show t) $ \(_, otherSt, _, _) ->
+            -- FIXME: st and otherSt must be of different heads
+            genericCoverTable [transition] $
+              case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+                NoHeadTx ->
+                  property False
+                    & counterexample ("observeHeadTx failed to observe transaction: " <> show tx)
+                _ -> property True
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
