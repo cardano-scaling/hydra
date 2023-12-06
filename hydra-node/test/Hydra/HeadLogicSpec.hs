@@ -28,7 +28,6 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
 import Hydra.Crypto qualified as Crypto
-import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -450,20 +449,32 @@ spec =
         s1 `hasEffect` contestTxEffect
         assertEffects s1
 
-      it "ignores unrelated initTx" propIgnoresUnrelatedOnInitTx
+      it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
-      it "ignores closeTx for another head" $ do
-        let otherHeadId = UnsafeHeadId "other head"
+      prop "ignores abortTx of another head" $ \otherHeadId -> do
+        let abortOtherHead = observationEvent $ OnAbortTx{headId = otherHeadId}
+        update bobEnv ledger (inInitialState threeParties) abortOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores collectComTx of another head" $ \otherHeadId -> do
+        let collectOtherHead = observationEvent $ OnCollectComTx{headId = otherHeadId}
+        update bobEnv ledger (inInitialState threeParties) collectOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let openState = inOpenState threeParties ledger
-        let closeOtherHead =
-              observationEvent $
-                OnCloseTx
-                  { headId = otherHeadId
-                  , snapshotNumber = 1
-                  , contestationDeadline = generateWith arbitrary 42
-                  }
-
+        let closeOtherHead = observationEvent $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
         update bobEnv ledger openState closeOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber -> do
+        let contestOtherHead = observationEvent $ OnContestTx{snapshotNumber} -- TODO: add headId
+        update bobEnv ledger (inClosedState threeParties) contestOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores fanoutTx of another head" $ \otherHeadId -> do
+        let collectOtherHead = observationEvent $ OnFanoutTx -- TODO: add headId
+        update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $
@@ -515,8 +526,8 @@ spec =
 
 -- * Properties
 
-propIgnoresUnrelatedOnInitTx :: Property
-propIgnoresUnrelatedOnInitTx =
+prop_ignoresUnrelatedOnInitTx :: Property
+prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> do
       let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
@@ -588,6 +599,7 @@ inIdleState :: HeadState SimpleTx
 inIdleState =
   Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
 
+-- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
   Initial
@@ -602,6 +614,7 @@ inInitialState parties =
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
+-- XXX: This is always called with threeParties and simpleLedger
 inOpenState ::
   [Party] ->
   Ledger SimpleTx ->
@@ -638,6 +651,7 @@ inOpenState' parties coordinatedHeadState =
 
   chainSlot = ChainSlot 0
 
+-- XXX: This is always called with 'threeParties'
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
