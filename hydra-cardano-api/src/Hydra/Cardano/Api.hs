@@ -74,6 +74,7 @@ import Cardano.Api as X hiding (
   queryStakePools,
   querySystemStart,
   scriptLanguageSupportedInEra,
+  signShelleyTransaction,
   toLedgerUTxO,
  )
 import Cardano.Api.Byron as X (
@@ -337,6 +338,9 @@ pattern ShelleyTxBody
   where
     ShelleyTxBody =
       Cardano.Api.Shelley.ShelleyTxBody ShelleyBasedEraBabbage
+
+signShelleyTransaction :: TxBody -> [ShelleyWitnessSigningKey] -> Tx
+signShelleyTransaction = Cardano.Api.signShelleyTransaction shelleyBasedEra
 
 -- ** TxAuxScripts
 
