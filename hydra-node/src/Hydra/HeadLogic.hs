@@ -672,8 +672,9 @@ update env ledger st ev = case (st, ev) of
     onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
-  (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
-    onInitialChainCollectTx initialState newChainState
+  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCollectComTx{headId}, newChainState})
+    | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial InitialState{headId = ourHeadId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{headId}, newChainState})
     | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
