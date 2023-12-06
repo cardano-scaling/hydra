@@ -1151,13 +1151,3 @@ findHeadAssetId txOut =
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
   fmap (mkHeadId . fst) . findHeadAssetId
-
--- | Try to find the datum in the Head 'UTxO'
--- Useful when debugging.
-peekIntoHeadDatum :: UTxO -> Maybe Head.State
-peekIntoHeadDatum utxo = do
-  (_, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
-  datum <- txOutScriptData $ toTxContext headOutput
-  fromScriptData datum
- where
-  headScript = fromPlutusScript Head.validatorScript
