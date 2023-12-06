@@ -18,14 +18,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
  )
 
-import Hydra.Chain (
-  ChainEvent (..),
-  HeadParameters,
-  chainStateSlot,
-  currentState,
-  initHistory,
-  maximumNumberOfParties,
- )
+import Hydra.Chain (ChainEvent (..), HeadParameters, OnChainTx (..), chainStateSlot, currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -54,8 +47,8 @@ import Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInit,
  )
+import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Chain.Direct.Tx (HeadObservation (NoHeadTx), observeHeadTx)
 import Hydra.Ledger (
   ChainSlot (..),
  )
@@ -136,20 +129,27 @@ spec = do
     prop "observes transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (ctx, st, tx, transition) <- pick genChainStateWithTx
+      let utxo = getKnownUTxO st
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = getKnownUTxO st, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
-            Observation{observedTx} ->
-              -- FIXME: compare observations
-              when (observeHeadTx (networkId ctx) (getKnownUTxO st) tx == NoHeadTx) $
-                failure $
-                  "" <> show observedTx
+            Observation{observedTx} -> do
+              let observedTransition =
+                    case observedTx of
+                      OnInitTx{} -> Transition.Init
+                      OnCommitTx{} -> Transition.Commit
+                      OnAbortTx{} -> Transition.Abort
+                      OnCollectComTx{} -> Transition.Collect
+                      OnCloseTx{} -> Transition.Close
+                      OnContestTx{} -> Transition.Contest
+                      OnFanoutTx{} -> Transition.Fanout
+              observedTransition `shouldBe` transition
 
       let handler =
             chainSyncHandler
