@@ -412,9 +412,8 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let InitialState{headId = initialHeadId} = stInitial
   -- Collect
   let initialUTxO = fold committed
-  let utxoToCollect = foldMap (<> mempty) committed
   let spendableUTxO = getKnownUTxO stInitial
-  let txCollect = unsafeCollect cctx initialHeadId (ctxHeadParameters ctx) utxoToCollect spendableUTxO
+  let txCollect = unsafeCollect cctx initialHeadId (ctxHeadParameters ctx) initialUTxO spendableUTxO
   stOpen@OpenState{seedTxIn, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod

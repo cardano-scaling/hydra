@@ -1047,7 +1047,7 @@ genCollectComTx = do
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitialized
-  let utxoToCollect = foldMap (<> mempty) committedUTxO
+  let utxoToCollect = fold committedUTxO
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
@@ -1103,7 +1103,7 @@ genStOpen ctx = do
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitial
-  let utxoToCollect = foldMap (<> mempty) committed
+  let utxoToCollect = fold committed
   let spendableUTxO = getKnownUTxO stInitial
   let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)

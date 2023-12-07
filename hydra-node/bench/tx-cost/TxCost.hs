@@ -104,7 +104,7 @@ computeCollectComCost =
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
     let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
     let InitialState{headId} = stInitialized
-    let utxoToCollect = foldMap (<> mempty) committedUTxOs
+    let utxoToCollect = fold committedUTxOs
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
