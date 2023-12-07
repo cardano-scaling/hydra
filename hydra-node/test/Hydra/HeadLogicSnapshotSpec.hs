@@ -31,7 +31,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 
@@ -42,11 +42,13 @@ spec = do
         Ledger{initUTxO} = simpleLedger
         envFor signingKey =
           let party = deriveParty signingKey
+              otherParties = List.delete party threeParties
            in Environment
                 { party
                 , signingKey
-                , otherParties = List.delete party threeParties
+                , otherParties
                 , contestationPeriod = defaultContestationPeriod
+                , participants = deriveOnChainId <$> threeParties
                 }
 
     let coordinatedHeadState =
@@ -115,20 +117,12 @@ spec = do
         actualState `shouldBe` st'
 
     describe "On AckSn" $ do
-      it "sends ReqSn  when leader and there are seen transactions" $ do
-        let
-          tx = aValidTx 1
-          bobEnv =
-            Environment
-              { party = bob
-              , signingKey = bobSk
-              , otherParties = [alice, carol]
-              , contestationPeriod = defaultContestationPeriod
-              }
+      let bobEnv = envFor bobSk
 
+      it "sends ReqSn  when leader and there are seen transactions" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
-          step (NetworkEvent defaultTTL carol $ ReqTx tx)
+          step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           getState
@@ -137,15 +131,6 @@ spec = do
         collectEffects outcome `shouldSatisfy` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
-        let
-          bobEnv =
-            Environment
-              { party = bob
-              , signingKey = bobSk
-              , otherParties = [alice, carol]
-              , contestationPeriod = defaultContestationPeriod
-              }
-
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (ackFrom carolSk carol)
@@ -157,19 +142,12 @@ spec = do
 
       it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
-          tx = aValidTx 1
-          notLeaderEnv =
-            Environment
-              { party = carol
-              , signingKey = carolSk
-              , otherParties = [alice, bob]
-              , contestationPeriod = defaultContestationPeriod
-              }
+          notLeaderEnv = envFor carolSk
 
         let initiateSigningASnapshot actor =
               step (NetworkEvent defaultTTL actor $ ReqSn 1 [])
             newTxBeforeSnapshotAcknowledged =
-              step (NetworkEvent defaultTTL carol $ ReqTx tx)
+              step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
 
         headState <- runEvents notLeaderEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           initiateSigningASnapshot alice
@@ -182,19 +160,9 @@ spec = do
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
-        let
-          tx = aValidTx 1
-          bobEnv =
-            Environment
-              { party = bob
-              , signingKey = bobSk
-              , otherParties = [alice, carol]
-              , contestationPeriod = defaultContestationPeriod
-              }
-
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
-          step (NetworkEvent defaultTTL carol $ ReqTx tx)
+          step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           step (ackFrom bobSk bob)
@@ -222,6 +190,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
             , signingKey = aliceSk
             , otherParties = []
             , contestationPeriod = defaultContestationPeriod
+            , participants = [deriveOnChainId party]
             }
     st =
       CoordinatedHeadState

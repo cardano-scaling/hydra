@@ -28,4 +28,8 @@ instance HasTypeProxy OnChainId where
   proxyToAsType _ = AsOnChainId
 
 instance Arbitrary OnChainId where
-  arbitrary = UnsafeOnChainId . BS.pack <$> vectorOf 28 arbitrary
+  arbitrary = genOnChainId
+
+-- | Generate an arbitrary 'OnChainId' of 28 bytes length.
+genOnChainId :: Gen OnChainId
+genOnChainId = UnsafeOnChainId . BS.pack <$> vectorOf 28 arbitrary

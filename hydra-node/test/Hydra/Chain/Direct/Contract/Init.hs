@@ -24,7 +24,8 @@ import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genValue)
+import Hydra.OnChainId (OnChainId, genOnChainId)
 import Hydra.Party (Party)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
@@ -41,9 +42,9 @@ healthyInitTx =
   tx =
     initTx
       testNetworkId
-      healthyCardanoKeys
-      healthyHeadParameters
       healthySeedInput
+      healthyParticipants
+      healthyHeadParameters
 
 healthyHeadParameters :: HeadParameters
 healthyHeadParameters =
@@ -60,13 +61,14 @@ healthyParties :: [Party]
 healthyParties =
   generateWith (vectorOf 3 arbitrary) 42
 
-healthyCardanoKeys :: [VerificationKey PaymentKey]
-healthyCardanoKeys =
-  genForParty genVerificationKey <$> healthyParties
+healthyParticipants :: [OnChainId]
+healthyParticipants =
+  genForParty genOnChainId <$> healthyParties
 
 healthyLookupUTxO :: UTxO
 healthyLookupUTxO =
-  generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
+  -- REVIEW: Was this checked by the ledger?
+  generateWith (genOneUTxOFor =<< arbitrary) 42
 
 data InitMutation
   = -- | Mint more than one ST and PTs.

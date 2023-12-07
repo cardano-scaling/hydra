@@ -61,10 +61,10 @@ import Hydra.Node (
  )
 import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, testHeadId, testHeadSeed)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -687,13 +687,12 @@ createMockNetwork node nodes =
   getNodeId HydraNode{env = Environment{party}} = party
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
--- NOTE: This implementation does *NOT* honor the 'HeadParameters' and announces
--- hard-coded contestationDeadlines. Also, all heads will have the same 'headId'
--- and 'headSeed'.
+-- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
+-- all heads will have the same 'headId' and 'headSeed'.
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
-  InitTx headParameters ->
-    OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters}
+  InitTx{participants, headParameters} ->
+    OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
   AbortTx{} ->
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
@@ -787,13 +786,20 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             }
       , env =
           Environment
-            { party = deriveParty signingKey
+            { party
             , signingKey
             , otherParties
             , contestationPeriod = cp
+            , participants
             }
       , persistence
       }
+ where
+  party = deriveParty signingKey
+
+  -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine
+  -- as this is a simulated network.
+  participants = deriveOnChainId <$> (party : otherParties)
 
 openHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->

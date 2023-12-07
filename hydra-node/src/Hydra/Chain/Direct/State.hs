@@ -17,6 +17,7 @@ import Hydra.Cardano.Api (
   AssetName (AssetName),
   ChainPoint (..),
   CtxUTxO,
+  Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
   KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
@@ -105,6 +106,7 @@ import Hydra.Chain.Direct.Tx (
   observeFanoutTx,
   observeInitTx,
   txInToHeadSeed,
+  verificationKeyToOnChainId,
  )
 import Hydra.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
@@ -119,6 +121,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
@@ -324,10 +327,11 @@ instance HasKnownUTxO ClosedState where
 -- 'HeadParameters' and a seed 'TxIn' which will be spent.
 initialize ::
   ChainContext ->
-  [VerificationKey PaymentKey] ->
-  HeadParameters ->
   -- | Seed input.
   TxIn ->
+  -- | Verification key hashes of all participants.
+  [OnChainId] ->
+  HeadParameters ->
   Tx
 initialize ctx =
   initTx networkId
@@ -636,11 +640,12 @@ observeInit ctx allVerificationKeys tx = do
   observation <- observeInitTx tx
   pure (toEvent observation, toState observation)
  where
-  toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn} =
+  toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn, participants} =
     OnInitTx
       { headId
       , headSeed = txInToHeadSeed seedTxIn
       , headParameters = HeadParameters{contestationPeriod, parties}
+      , participants
       }
 
   toState InitObservation{initialThreadUTxO, parties, contestationPeriod, initials, headId, seedTxIn} =
@@ -838,7 +843,7 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
+    let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
     pure (cctx, Idle, tx, Init)
 
   genAbortWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -907,6 +912,9 @@ data HydraContext = HydraContext
 ctxParties :: HydraContext -> [Party]
 ctxParties = fmap deriveParty . ctxHydraSigningKeys
 
+ctxParticipants :: HydraContext -> [OnChainId]
+ctxParticipants = map verificationKeyToOnChainId . ctxVerificationKeys
+
 ctxHeadParameters ::
   HydraContext ->
   HeadParameters
@@ -971,7 +979,7 @@ genStInitial ::
 genStInitial ctx = do
   seedInput <- genTxIn
   cctx <- pickChainContext ctx
-  let txInit = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
+  let txInit = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
   let initState = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
   pure (cctx, initState)
 
@@ -980,7 +988,8 @@ genInitTx ::
   Gen Tx
 genInitTx ctx = do
   cctx <- pickChainContext ctx
-  initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) <$> genTxIn
+  seedInput <- genTxIn
+  pure $ initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
 genCommits ::
   HydraContext ->

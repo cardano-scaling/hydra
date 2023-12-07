@@ -92,7 +92,8 @@ spec =
           forAll (elements cardanoKeys) $ \signer ->
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
-                  tx = initTx testNetworkId cardanoKeys params txIn
+                  participants = verificationKeyToOnChainId <$> cardanoKeys
+                  tx = initTx testNetworkId txIn participants params
                in case observeInitTx tx of
                     Right InitObservation{initials, initialThreadUTxO} -> do
                       let lookupUTxO =
@@ -239,6 +240,10 @@ genAbortableOutputs parties =
   initialScript = fromPlutusScript Initial.validatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
+
+assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
+assetNameFromVerificationKey =
+  onChainIdToAssetName . verificationKeyToOnChainId
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a

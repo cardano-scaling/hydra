@@ -144,17 +144,15 @@ import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, findFirst)
+import Hydra.Chain.Direct.Tx (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod
 import Hydra.Data.Party qualified as Data (Party)
-import Hydra.Ledger.Cardano (genKeyPair, genOutput, genVerificationKey)
+import Hydra.Ledger.Cardano (genKeyPair, genOutput)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
@@ -559,16 +557,18 @@ modifyInlineDatum fn txOut =
         Nothing ->
           error "Invalid data"
 
-addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
-addParticipationTokens parties txOut =
+addParticipationTokens :: [VerificationKey PaymentKey] -> TxOut CtxUTxO -> TxOut CtxUTxO
+addParticipationTokens vks txOut =
   txOut{txOutValue = val'}
  where
   val' =
     txOutValue txOut
       <> valueFromList
-        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
-        | cardanoVk <- genForParty genVerificationKey <$> parties
+        [ (AssetId testPolicyId (onChainIdToAssetName oid), 1)
+        | oid <- participants
         ]
+
+  participants = verificationKeyToOnChainId <$> vks
 
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData

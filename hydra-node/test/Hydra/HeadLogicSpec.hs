@@ -54,14 +54,13 @@ import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
-import Hydra.OnChainId (OnChainId (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId, testHeadSeed)
-import Test.QuickCheck (Property, counterexample, discard, elements, forAll, oneof, shuffle, suchThat)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -78,6 +77,7 @@ spec =
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
+            , participants = deriveOnChainId <$> threeParties
             }
 
     describe "Coordinated Head Protocol" $ do

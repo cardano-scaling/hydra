@@ -23,7 +23,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
-  AsType (..),
   Block (..),
   BlockInMode (..),
   CardanoMode,
@@ -46,7 +45,6 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  getVerificationKey,
   toLedgerUTxO,
  )
 import Hydra.Chain (
@@ -79,7 +77,6 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
-  readFileTextEnvelopeThrow,
   readKeyPair,
  )
 import Hydra.Chain.Direct.Wallet (
@@ -176,19 +173,12 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateHistory
-
-  -- read other parties cardano vkeys
-  otherCardanoKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
-  ourCardanoSK <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-  let ourCardanoKey = getVerificationKey ourCardanoSK
-
   let chainHandle =
         mkChain
           tracer
           getTimeHandle
           wallet
           ctx
-          (ourCardanoKey : otherCardanoKeys)
           localChainState
           (submitTx queue)
 
@@ -205,7 +195,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectChainConfig{networkId, nodeSocket, startChainFrom, cardanoVerificationKeys, cardanoSigningKey} = config
+  DirectChainConfig{networkId, nodeSocket, startChainFrom} = config
 
   connectInfo =
     LocalNodeConnectInfo

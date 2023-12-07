@@ -18,10 +18,8 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
-  PaymentKey,
   Tx,
   TxId,
-  VerificationKey,
   chainPointToSlotNo,
   fromLedgerTxIn,
   getChainPoint,
@@ -77,7 +75,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.Ledger (ChainSlot (ChainSlot))
+import Hydra.Ledger (ChainSlot (ChainSlot), UTxOType)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
@@ -146,29 +144,17 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
-  -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
   LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx cardanoKeys LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
-        chainS@ChainStateAt{spendableUTxO} <- atomically getLatest
+        ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
-          -- FIXME (MB): cardano keys should really not be here (as this
-          -- point they are in the 'chainState' stored in the 'ChainContext')
-          -- . They are only required for the init transaction and ought to
-          -- come from the _client_ and be part of the init request
-          -- altogether. This goes in the direction of 'dynamic heads' where
-          -- participants aren't known upfront but provided via the API.
-          -- Ultimately, an init request from a client would contain all the
-          -- details needed to establish connection to the other peers and
-          -- to bootstrap the init transaction. For now, we bear with it and
-          -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx cardanoKeys chainS tx)
+          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
@@ -324,12 +310,13 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation = \case
   NoHeadTx -> Nothing
-  Init InitObservation{headId, contestationPeriod, parties, seedTxIn} ->
+  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
     pure
       OnInitTx
         { headId
         , headSeed = txInToHeadSeed seedTxIn
         , headParameters = HeadParameters{contestationPeriod, parties}
+        , participants
         }
   Abort AbortObservation{headId} ->
     pure OnAbortTx{headId}
@@ -354,17 +341,16 @@ prepareTxToPost ::
   TimeHandle ->
   TinyWallet m ->
   ChainContext ->
-  -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
-  ChainStateType Tx ->
+  -- | Spendable UTxO
+  UTxOType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx cardanoKeys ChainStateAt{spendableUTxO} tx =
+prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
   case tx of
-    InitTx params ->
+    InitTx{participants, headParameters} ->
       getSeedInput wallet >>= \case
         Just seedInput ->
-          pure $ initialize ctx cardanoKeys params seedInput
+          pure $ initialize ctx seedInput participants headParameters
         Nothing ->
           throwIO (NoSeedInput @Tx)
     AbortTx{utxo, headSeed} ->

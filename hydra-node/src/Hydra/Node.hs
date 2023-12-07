@@ -91,7 +91,7 @@ initEnvironment options = do
         }
     } = options
 
--- | Checks that command line options match a given 'HeadState'. This funciton
+-- | Checks that command line options match a given 'HeadState'. This function
 -- takes 'Environment' because it is derived from 'RunOptions' via
 -- 'initEnvironment'.
 --

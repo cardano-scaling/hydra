@@ -49,44 +49,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainState (..),
-  ClosedState (..),
-  HasKnownUTxO (getKnownUTxO),
-  HydraContext (..),
-  InitialState (..),
-  OpenState (..),
-  abort,
-  closedThreadOutput,
-  commit,
-  ctxHeadParameters,
-  ctxParties,
-  genChainStateWithTx,
-  genCloseTx,
-  genCollectComTx,
-  genCommitFor,
-  genCommits,
-  genCommits',
-  genContestTx,
-  genFanoutTx,
-  genHydraContext,
-  genInitTx,
-  genStInitial,
-  getContestationDeadline,
-  getKnownUTxO,
-  initialize,
-  observeClose,
-  observeCollect,
-  observeCommit,
-  pickChainContext,
-  unsafeAbort,
-  unsafeClose,
-  unsafeCollect,
-  unsafeCommit,
-  unsafeFanout,
-  unsafeObserveInitAndCommits,
- )
+import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ClosedState (..), HasKnownUTxO (getKnownUTxO), HydraContext (..), InitialState (..), OpenState (..), abort, closedThreadOutput, commit, ctxHeadParameters, ctxParticipants, ctxParties, genChainStateWithTx, genCloseTx, genCollectComTx, genCommitFor, genCommits, genCommits', genContestTx, genFanoutTx, genHydraContext, genInitTx, genStInitial, getContestationDeadline, getKnownUTxO, initialize, observeClose, observeCollect, observeCommit, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeFanout, unsafeObserveInitAndCommits)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
@@ -172,7 +135,7 @@ spec = parallel $ do
         vk <- pickBlind arbitrary
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
-        let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput
+        let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
@@ -524,7 +487,7 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedIn
+        let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
@@ -674,7 +637,7 @@ genInitTxWithSeed :: HydraContext -> Gen (Tx, TxIn)
 genInitTxWithSeed ctx = do
   cctx <- pickChainContext ctx
   seedTxIn <- genTxIn
-  pure (initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedTxIn, seedTxIn)
+  pure (initialize cctx seedTxIn (ctxParticipants ctx) (ctxHeadParameters ctx), seedTxIn)
 
 -- * Helpers
 

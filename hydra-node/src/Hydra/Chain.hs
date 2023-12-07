@@ -63,7 +63,7 @@ instance Arbitrary HeadParameters where
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
-  = InitTx {headParameters :: HeadParameters}
+  = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {headId :: HeadId, headParameters :: HeadParameters}
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
@@ -79,7 +79,7 @@ deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
-    InitTx{headParameters} -> InitTx <$> shrink headParameters
+    InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{headId, headParameters} -> CollectComTx <$> shrink headId <*> shrink headParameters
     CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot

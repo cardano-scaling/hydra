@@ -120,12 +120,10 @@ mockChainAndNetwork tr seedKeys commits = do
       -- submission of a transaction and the possible failures it introduces,
       -- perhaps caused by the node lagging behind
       submitTx = atomically . writeTQueue queue
-      cardanoKeys = getVerificationKey . signingKey . snd <$> seedKeys
     let chainHandle =
           createMockChain
             tr
             ctx
-            cardanoKeys
             submitTx
             getTimeHandle
             seedInput
@@ -286,14 +284,12 @@ createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m DirectChainLog ->
   ChainContext ->
-  -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
   LocalChainState m Tx ->
   Chain Tx m
-createMockChain tracer ctx cardanoKeys submitTx timeHandle seedInput chainState =
+createMockChain tracer ctx submitTx timeHandle seedInput chainState =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
@@ -309,7 +305,6 @@ createMockChain tracer ctx cardanoKeys submitTx timeHandle seedInput chainState 
         timeHandle
         wallet
         ctx
-        cardanoKeys
         chainState
         submitTx
 

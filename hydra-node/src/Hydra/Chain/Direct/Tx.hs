@@ -124,23 +124,24 @@ hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
   NetworkId ->
-  -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
-  HeadParameters ->
+  -- | Seed input.
   TxIn ->
+  -- | Verification key hashes of all participants.
+  [OnChainId] ->
+  HeadParameters ->
   Tx
-initTx networkId cardanoKeys parameters seedTxIn =
+initTx networkId seedTxIn participants parameters =
   unsafeBuildTransaction $
     emptyTxBody
       & addVkInputs [seedTxIn]
       & addOutputs
         ( mkHeadOutputInitial networkId seedTxIn parameters
-            : map (mkInitialOutput networkId seedTxIn) cardanoKeys
+            : map (mkInitialOutput networkId seedTxIn) participants
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
   participationTokens =
-    [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
+    [(onChainIdToAssetName oid, 1) | oid <- participants]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
@@ -166,13 +167,13 @@ mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, partie
         , seed = toPlutusTxOutRef seedTxIn
         }
 
-mkInitialOutput :: NetworkId -> TxIn -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> TxIn -> OnChainId -> TxOut CtxTx
+mkInitialOutput networkId seedTxIn participant =
   TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
-    valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
+    valueFromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV2 networkId initialScript
   initialScript =
@@ -1024,6 +1025,9 @@ txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
 assetNameToOnChainId :: AssetName -> OnChainId
 assetNameToOnChainId (AssetName bs) = UnsafeOnChainId bs
 
+onChainIdToAssetName :: OnChainId -> AssetName
+onChainIdToAssetName = AssetName . serialiseToRawBytes
+
 -- | Derive the 'OnChainId' from a Cardano 'PaymentKey'. The on-chain identifier
 -- is the public key hash as it is also availble to plutus validators.
 verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
@@ -1038,10 +1042,6 @@ headTokensFromValue headTokenScript v =
   | (AssetId pid assetName, q) <- valueToList v
   , pid == scriptPolicyId (PlutusScript headTokenScript)
   ]
-
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-assetNameFromVerificationKey =
-  AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

@@ -24,7 +24,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput, verificationKeyToOnChainId)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
@@ -82,7 +82,8 @@ healthyIntialTxIn = generateWith arbitrary 42
 healthyInitialTxOut :: TxOut CtxTx
 healthyInitialTxOut =
   setMinUTxOValue Fixture.pparams . toUTxOContext $
-    mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput commitVerificationKey
+    mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
+      verificationKeyToOnChainId commitVerificationKey
 
 -- NOTE: A UTxO of length 2 is picked to mutate it into cases where committing a
 -- single and empty UTxO.

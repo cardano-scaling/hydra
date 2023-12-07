@@ -107,15 +107,15 @@ onIdleClientInit ::
   Environment ->
   Outcome tx
 onIdleClientInit env =
-  Effects [OnChainEffect{postChainTx = InitTx parameters}]
+  Effects [OnChainEffect{postChainTx = InitTx{participants, headParameters}}]
  where
-  parameters =
+  headParameters =
     HeadParameters
       { contestationPeriod
       , parties = party : otherParties
       }
 
-  Environment{party, otherParties, contestationPeriod} = env
+  Environment{party, otherParties, contestationPeriod, participants} = env
 
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.

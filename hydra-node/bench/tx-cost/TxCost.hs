@@ -16,35 +16,7 @@ import Hydra.Cardano.Api (
   genTxIn,
  )
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
-import Hydra.Chain.Direct.State (
-  ClosedState (..),
-  InitialState (..),
-  OpenState (..),
-  commit,
-  ctxContestationPeriod,
-  ctxHeadParameters,
-  ctxHydraSigningKeys,
-  ctxVerificationKeys,
-  genCloseTx,
-  genCommits,
-  genCommits',
-  genHydraContextFor,
-  genInitTx,
-  genStClosed,
-  genStInitial,
-  genStOpen,
-  getContestationDeadline,
-  getKnownUTxO,
-  initialize,
-  observeClose,
-  pickChainContext,
-  unsafeAbort,
-  unsafeClose,
-  unsafeCollect,
-  unsafeContest,
-  unsafeFanout,
-  unsafeObserveInitAndCommits,
- )
+import Hydra.Chain.Direct.State (ClosedState (..), InitialState (..), OpenState (..), commit, ctxContestationPeriod, ctxHeadParameters, ctxHydraSigningKeys, ctxParticipants, ctxVerificationKeys, genCloseTx, genCommits, genCommits', genHydraContextFor, genInitTx, genStClosed, genStInitial, genStOpen, getContestationDeadline, getKnownUTxO, initialize, observeClose, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeContest, unsafeFanout, unsafeObserveInitAndCommits)
 import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
 import Hydra.Ledger.Cardano (
   genOutput,
@@ -85,7 +57,7 @@ computeInitCost = do
     seedInput <- genTxIn
     seedOutput <- genOutput =<< arbitrary
     let utxo = UTxO.singleton (seedInput, seedOutput)
-    pure (initialize cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx) seedInput, utxo)
+    pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do

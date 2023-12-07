@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Ledger (
   ChainSlot (..),
  )
@@ -351,7 +352,9 @@ genSequenceOfObservableBlocks = do
     HeadParameters ->
     StateT [TestBlock] Gen Tx
   stepInit ctx allVerificationKeys params = do
-    initTx <- lift $ initialize ctx allVerificationKeys params <$> genTxIn
+    let participants = verificationKeyToOnChainId <$> allVerificationKeys
+    seedTxIn <- lift genTxIn
+    let initTx = initialize ctx seedTxIn participants params
     initTx <$ putNextBlock initTx
 
   stepCommits ::
