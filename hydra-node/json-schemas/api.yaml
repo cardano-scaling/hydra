@@ -985,72 +985,14 @@ components:
             $ref: "api.yaml#/components/schemas/Party"
 
     HeadStatus:
-      description: |
-        One of the possible Head protocol states.
-      type: object
-      oneOf:
-        - title: "Idle"
-          type: object
-          additionalProperties: false
-          required:
-           - tag
-          properties:
-            tag:
-             type: string
-             enum: ["Idle"]
-
-        - title: "Open"
-          type: object
-          additionalProperties: false
-          required:
-           - tag
-          properties:
-            tag:
-             type: string
-             enum: ["Open"]
-
-        - title: "Closed"
-          type: object
-          additionalProperties: false
-          required:
-           - tag
-          properties:
-            tag:
-             type: string
-             enum: ["Closed"]
-
-        - title: "FanoutPossible"
-          type: object
-          additionalProperties: false
-          required:
-           - tag
-          properties:
-            tag:
-             type: string
-             enum: ["FanoutPossible"]
-
-        - title: "Final"
-          type: object
-          additionalProperties: false
-          required:
-           - tag
-          properties:
-            tag:
-             type: string
-             enum: ["Final"]
-
-        - title: "Initializing"
-          type: object
-          required:
-            - tag
-            - headId
-          properties:
-            tag:
-              type: string
-              enum: ["Initializing"]
-            headId:
-              $ref: "api.yaml#/components/schemas/HeadId"
-
+      type: string
+      enum:
+        - Idle
+        - Initializing
+        - Open
+        - Closed
+        - FanoutPossible
+        - Final
 
     MultiSignature:
       type: object
