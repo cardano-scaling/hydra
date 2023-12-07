@@ -12,10 +12,12 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot (utxo), SnapshotNumber)
@@ -91,7 +93,12 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | IgnoredHeadInitializing {headId :: HeadId, parties :: [Party]}
+  | IgnoredHeadInitializing
+      { headId :: HeadId
+      , contestationPeriod :: ContestationPeriod
+      , parties :: [Party]
+      , participants :: [OnChainId]
+      }
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

@@ -190,7 +190,10 @@ spec = parallel $ do
               -- We expect bob to ignore alice's head which he is not part of
               -- although bob's configuration would includes alice as a
               -- peerconfigured)
-              waitUntil [n2] $ IgnoredHeadInitializing testHeadId (fromList [alice])
+              waitMatch n2 $ \case
+                IgnoredHeadInitializing{headId, parties} ->
+                  guard $ headId == testHeadId && parties == fromList [alice]
+                _ -> Nothing
 
     it "outputs committed utxo when client requests it" $
       shouldRunInSim $

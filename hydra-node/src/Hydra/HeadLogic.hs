@@ -133,7 +133,7 @@ onIdleChainInitTx ::
 onIdleChainInitTx env newChainState headId headSeed headParameters participants
   | configuredParties == initializedParties
       && party `member` initializedParties
-      && configuredContestationPeriod == initializedContestationPeriod
+      && configuredContestationPeriod == contestationPeriod
       && Set.fromList configuredParticipants == Set.fromList participants =
       StateChanged
         ( HeadInitialized
@@ -145,13 +145,21 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
         )
         <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties}]
   | otherwise =
-      Effects [ClientEffect $ ServerOutput.IgnoredHeadInitializing{headId, parties}]
+      Effects
+        [ ClientEffect $
+            ServerOutput.IgnoredHeadInitializing
+              { headId
+              , contestationPeriod
+              , parties
+              , participants
+              }
+        ]
  where
   initializedParties = Set.fromList parties
 
   configuredParties = Set.fromList (party : otherParties)
 
-  HeadParameters{parties, contestationPeriod = initializedContestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod} = headParameters
 
   Environment
     { party
