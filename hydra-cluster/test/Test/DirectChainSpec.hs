@@ -99,7 +99,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             withDirectChainTest nullTracer bobChainConfig bobChainContext $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
-                participants <- loadParticipants [Alice, Bob]
+                participants <- loadParticipants [Alice, Bob, Carol]
                 let headParameters = HeadParameters cperiod [alice, bob, carol]
                 postTx $ InitTx{participants, headParameters}
                 (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
