@@ -43,9 +43,14 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (Environment (Environment, party), Event (..), defaultTTL)
+import Hydra.HeadLogic (
+  Environment (Environment, participants, party),
+  Event (..),
+  defaultTTL,
+ )
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
@@ -101,6 +106,15 @@ mockChainAndNetwork tr seedKeys commits = do
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
+  -- NOTE: We need to modify the environment as 'createHydraNode' was
+  -- creating OnChainIds based on hydra keys. Here, however we will be
+  -- validating transactions and need to be signing with proper keys.
+  -- Consequently the identifiers of participants need to be derived from
+  -- the real keys.
+  updateEnvironment HydraNode{env} = do
+    let vks = getVerificationKey . signingKey . snd <$> seedKeys
+    env{participants = verificationKeyToOnChainId <$> vks}
+
   connectNode nodes queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let Environment{party = ownParty} = env node
@@ -139,6 +153,7 @@ mockChainAndNetwork tr seedKeys commits = do
           node
             { hn = createMockNetwork node nodes
             , oc = chainHandle
+            , env = updateEnvironment node
             }
     let mockNode = MockHydraNode{node = node', chainHandler}
     atomically $ modifyTVar nodes (mockNode :)
