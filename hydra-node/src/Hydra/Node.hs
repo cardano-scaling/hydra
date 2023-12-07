@@ -18,7 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Cardano.Api (AsType (AsSigningKey, AsVerificationKey))
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
   ChainStateHistory,
@@ -27,6 +27,7 @@ import Hydra.Chain (
   IsChainState,
   PostTxError,
  )
+import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
@@ -59,19 +60,36 @@ import Hydra.Persistence (PersistenceIncremental (..), loadAll)
 
 -- | Intialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
-initEnvironment RunOptions{hydraSigningKey, hydraVerificationKeys, chainConfig = DirectChainConfig{contestationPeriod}} = do
+initEnvironment options = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
+  -- NOTE: This is a cardano-specific initialization step of loading
+  -- --cardano-verification-key options and deriving 'OnChainId's from it.
+  ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+  let participants = verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
   pure $
     Environment
       { party = deriveParty sk
       , signingKey = sk
       , otherParties
+      , participants
       , contestationPeriod
       }
  where
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+
+  RunOptions
+    { hydraSigningKey
+    , hydraVerificationKeys
+    , chainConfig =
+      DirectChainConfig
+        { contestationPeriod
+        , cardanoVerificationKeys
+        , cardanoSigningKey
+        }
+    } = options
 
 -- | Checks that command line options match a given 'HeadState'. This funciton
 -- takes 'Environment' because it is derived from 'RunOptions' via

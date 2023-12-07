@@ -206,7 +206,7 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ observationEvent $ OnInitTx testHeadId testHeadSeed (HeadParameters defaultContestationPeriod [alice, bob, carol])
+  [ observationEvent $ OnInitTx testHeadId testHeadSeed (HeadParameters defaultContestationPeriod [alice, bob, carol]) []
   , observationEvent $ OnCommitTx carol (utxoRef 3)
   , observationEvent $ OnCommitTx bob (utxoRef 2)
   , observationEvent $ OnCommitTx alice (utxoRef 1)

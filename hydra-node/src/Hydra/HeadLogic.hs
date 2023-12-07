@@ -40,7 +40,6 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
   Signature,
   Verified (..),
@@ -89,6 +88,7 @@ import Hydra.Ledger (
   txId,
  )
 import Hydra.Network.Message (Message (..))
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -125,18 +125,19 @@ onIdleChainInitTx ::
   Environment ->
   -- | New chain state.
   ChainStateType tx ->
-  [Party] ->
-  ContestationPeriod ->
   HeadId ->
   HeadSeed ->
+  HeadParameters ->
+  [OnChainId] ->
   Outcome tx
-onIdleChainInitTx env newChainState parties initContestationPeriod headId headSeed
+onIdleChainInitTx env newChainState headId headSeed headParameters participants
   | configuredParties == initializedParties
-      && contestationPeriod == initContestationPeriod
-      && party `member` initializedParties =
+      && party `member` initializedParties
+      && configuredContestationPeriod == initializedContestationPeriod
+      && Set.fromList configuredParticipants == Set.fromList participants =
       StateChanged
         ( HeadInitialized
-            { parameters = HeadParameters{contestationPeriod, parties}
+            { parameters = headParameters
             , chainState = newChainState
             , headId
             , headSeed
@@ -150,7 +151,14 @@ onIdleChainInitTx env newChainState parties initContestationPeriod headId headSe
 
   configuredParties = Set.fromList (party : otherParties)
 
-  Environment{party, otherParties, contestationPeriod} = env
+  HeadParameters{parties, contestationPeriod = initializedContestationPeriod} = headParameters
+
+  Environment
+    { party
+    , otherParties
+    , contestationPeriod = configuredContestationPeriod
+    , participants = configuredParticipants
+    } = env
 
 -- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
@@ -666,8 +674,8 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle _, ClientEvent Init) ->
     onIdleClientInit env
-  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}}, newChainState}) ->
-    onIdleChainInitTx env newChainState parties contestationPeriod headId headSeed
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
+    onIdleChainInitTx env newChainState headId headSeed headParameters participants
   (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
     onInitialChainCommitTx initialState newChainState pt utxo
   (Initial initialState, ClientEvent Abort) ->

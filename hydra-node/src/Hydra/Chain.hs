@@ -29,6 +29,7 @@ import Hydra.Cardano.Api (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat)
@@ -88,7 +89,12 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {headId :: HeadId, headSeed :: HeadSeed, headParameters :: HeadParameters}
+  = OnInitTx
+      { headId :: HeadId
+      , headSeed :: HeadSeed
+      , headParameters :: HeadParameters
+      , participants :: [OnChainId]
+      }
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}

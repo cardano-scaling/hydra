@@ -133,27 +133,6 @@ spec =
                         & counterexample (renderTx tx)
                         & counterexample (show e)
 
--- FIXME: Test this in HeadLogic now!
--- prop "Ignore InitTx with wrong cardano keys" $
---   withMaxSuccess 60 $ \txIn cperiod (party :| parties) wrongParty ->
---     let allParties = party : parties
---         cardanoKeys = genForParty genVerificationKey <$> allParties
---         wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
---         params = HeadParameters cperiod allParties
---         tx = initTx testNetworkId cardanoKeys params txIn
---      in case first NotAnInit (observeRawInitTx tx)
---           >>= (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
---           Right InitObservation{} -> do
---             property False
---               & counterexample "Failed to ignore init tx with the wrong cardano keys."
---               & counterexample (renderTx tx)
---           Left (NotAnInitForUs PTsNotMintedCorrectly{}) -> property True
---           Left e ->
---             property False
---               & counterexample "Failed to ignore init tx for the right reason."
---               & counterexample (renderTx tx)
---               & counterexample (show e)
-
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =
   (totalMem <= maxMem && totalCpu <= maxCpu)

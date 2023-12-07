@@ -54,13 +54,14 @@ import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
+import Hydra.OnChainId (OnChainId (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId, testHeadSeed)
-import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
+import Test.QuickCheck (Property, counterexample, discard, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -541,25 +542,51 @@ prop_ignoresUnrelatedOnInitTx =
     oneof
       [ genOnInitWithDifferentContestationPeriod env
       , genOnInitWithoutParty env
-      , genOnInitWithoutOnchainId env
+      , genOnInitWithoutOnChainId env
       ]
 
-  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod} = do
+  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
     cp <- arbitrary `suchThat` (/= contestationPeriod)
     parties <- shuffle =<< (arbitrary <&> (party :))
-    pure OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod = cp, parties}}
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod = cp, parties}
+        , participants
+        }
 
-  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod} = do
+  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
     allParties <- shuffle (party : otherParties)
     toRemove <- elements allParties
     let differentParties = List.delete toRemove allParties
-    pure OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties = differentParties}}
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod, parties = differentParties}
+        , participants
+        }
 
-  genOnInitWithoutOnchainId env = Prelude.error "TODO: check we ignore heads that do not match configured --cardano-verification-keys"
+  genOnInitWithoutOnChainId Environment{party, otherParties, contestationPeriod, participants} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    differentParticipants <- case participants of
+      [] -> (: []) <$> arbitrary
+      ps -> do
+        toRemove <- elements participants
+        pure $ List.delete toRemove ps
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+        , participants = differentParticipants
+        }
 
 -- * Utilities
 

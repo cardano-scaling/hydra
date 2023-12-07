@@ -4,14 +4,16 @@
 
 module Hydra.HeadLogic.State where
 
+import Hydra.Prelude
+
 import Data.Map qualified as Map
 import Hydra.Chain (ChainStateType, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
 data Environment = Environment
@@ -21,6 +23,8 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
   , otherParties :: [Party]
+  , -- XXX: Improve naming
+    participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   }
   deriving stock (Show)
@@ -29,8 +33,16 @@ instance Arbitrary Environment where
   arbitrary = do
     signingKey <- arbitrary
     otherParties <- arbitrary
+    participants <- arbitrary
     contestationPeriod <- arbitrary
-    pure $ Environment{signingKey, party = deriveParty signingKey, otherParties, contestationPeriod}
+    pure $
+      Environment
+        { signingKey
+        , party = deriveParty signingKey
+        , otherParties
+        , contestationPeriod
+        , participants
+        }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

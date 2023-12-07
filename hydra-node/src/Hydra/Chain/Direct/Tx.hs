@@ -53,7 +53,7 @@ import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
-import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
+import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
 
@@ -1023,6 +1023,12 @@ txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
 
 assetNameToOnChainId :: AssetName -> OnChainId
 assetNameToOnChainId (AssetName bs) = UnsafeOnChainId bs
+
+-- | Derive the 'OnChainId' from a Cardano 'PaymentKey'. The on-chain identifier
+-- is the public key hash as it is also availble to plutus validators.
+verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
+verificationKeyToOnChainId =
+  UnsafeOnChainId . fromBuiltin . getPubKeyHash . toPlutusKeyHash . verificationKeyHash
 
 -- * Helpers
 
