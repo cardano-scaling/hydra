@@ -262,8 +262,11 @@ collectComTx ::
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO) ->
+  -- | UTxO to be used to collect.
+  -- Should match whatever is recorded in the commit inputs.
+  UTxO ->
   Tx
-collectComTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) commits =
+collectComTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) commits utxoToCollect =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -295,13 +298,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
         , headId = headIdToCurrencySymbol headId
         }
 
-  extractCommits txOut =
-    case txOutScriptData (toTxContext txOut) >>= fromScriptData of
-      Nothing -> error "Expected inline commit datum" -- TODO: proper error handling
-      Just ((_, cs, _) :: Commit.DatumType) -> cs
-
-  utxoHash =
-    Head.hashPreSerializedCommits $ foldMap extractCommits commits
+  utxoHash = toBuiltin $ hashUTxO @Tx utxoToCollect
 
   mkCommit commitTxIn = (commitTxIn, commitWitness)
   commitWitness =

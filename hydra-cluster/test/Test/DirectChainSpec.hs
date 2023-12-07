@@ -270,7 +270,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
-            postTx $ CollectComTx headId headParameters
+            postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
 
             let snapshot =
@@ -398,7 +398,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             externalCommit node aliceChain aliceExternalSk headId someUTxO
             aliceChain `observesInTime` OnCommitTx alice someUTxO
 
-            postTx $ CollectComTx headId headParameters
+            postTx $ CollectComTx someUTxO headId headParameters
             -- Head is open with someUTxO
             aliceChain `observesInTime` OnCollectComTx headId
 

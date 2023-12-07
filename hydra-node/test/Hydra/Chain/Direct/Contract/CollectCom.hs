@@ -63,9 +63,12 @@ healthyCollectComTx :: (Tx, UTxO)
 healthyCollectComTx =
   (tx, lookupUTxO)
  where
+  commitOutputs = txOut <$> healthyCommits
+  committedUTxO = foldMap committed $ Map.elems healthyCommits
+
   lookupUTxO =
     UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
-      <> UTxO (txOut <$> healthyCommits)
+      <> UTxO commitOutputs
       <> registryUTxO scriptRegistry
 
   tx =
@@ -76,7 +79,8 @@ healthyCollectComTx =
       (mkHeadId testPolicyId)
       parameters
       (healthyHeadTxIn, healthyHeadTxOut)
-      (txOut <$> healthyCommits)
+      commitOutputs
+      committedUTxO
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -102,12 +106,6 @@ healthyCommits =
   createHealthyCommit (vk, party) = do
     utxo <- genUTxOAdaOnlyOfSize =<< choose (0, 5)
     pure $ healthyCommitOutput (verificationKeyToOnChainId vk) party utxo
-
-healthyCommittedUTxO :: [UTxO]
-healthyCommittedUTxO =
-  flip generateWith 42 $
-    replicateM (length healthyParties) $
-      genUTxOAdaOnlyOfSize =<< choose (0, 5)
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -147,6 +145,7 @@ healthyParties = flip generateWith 42 $ do
 data HealthyCommit = HealthyCommit
   { participant :: OnChainId
   , txOut :: TxOut CtxUTxO
+  , committed :: UTxO
   }
   deriving stock (Show)
 
@@ -160,6 +159,7 @@ healthyCommitOutput participant party committed =
   , HealthyCommit
       { participant
       , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatumInline commitDatum) ReferenceScriptNone)
+      , committed
       }
   )
  where
@@ -240,9 +240,8 @@ genCollectComMutation (tx, _utxo) =
         -- the value, but not in the datum. This is not allowed by the protocol
         -- prior to this transaction.
         illedHeadResolvedInput <-
-          mkHeadOutput
-            <$> pure testNetworkId
-            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+          mkHeadOutput testNetworkId
+            <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do

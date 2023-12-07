@@ -391,7 +391,7 @@ prop_observeAnyTx =
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
-  showTransition = \(_, _, _, t) -> show t
+  showTransition (_, _, _, t) = show t
 
   chainStateHeadId = \case
     Idle{} -> Nothing
@@ -412,8 +412,9 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let InitialState{headId = initialHeadId} = stInitial
   -- Collect
   let initialUTxO = fold committed
-  let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
-  let txCollect = unsafeCollect cctx initialHeadId (ctxHeadParameters ctx) utxo
+  let utxoToCollect = foldMap (<> mempty) committed
+  let spendableUTxO = getKnownUTxO stInitial
+  let txCollect = unsafeCollect cctx initialHeadId (ctxHeadParameters ctx) utxoToCollect spendableUTxO
   stOpen@OpenState{seedTxIn, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod

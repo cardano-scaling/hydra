@@ -368,8 +368,8 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{headId, headParameters} ->
-      case collect ctx headId headParameters spendableUTxO of
+    CollectComTx{utxo, headId, headParameters} ->
+      case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
     CloseTx{headId, headParameters, confirmedSnapshot} -> do

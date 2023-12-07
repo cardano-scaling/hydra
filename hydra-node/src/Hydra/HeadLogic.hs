@@ -193,7 +193,7 @@ onInitialChainCommitTx st newChainState pt utxo =
 
   postCollectCom =
     OnChainEffect
-      { postChainTx = CollectComTx{headId, headParameters = parameters}
+      { postChainTx = CollectComTx{utxo, headId, headParameters = parameters}
       }
 
   canCollectCom = null remainingParties

@@ -465,16 +465,19 @@ collect ::
   ChainContext ->
   HeadId ->
   HeadParameters ->
+  -- | UTxO to be used to collect.
+  -- Should match whatever is recorded in the commit inputs.
+  UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   Either CollectTxError Tx
-collect ctx headId headParameters spendableUTxO = do
+collect ctx headId headParameters utxoToCollect spendableUTxO = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInCollect{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
   let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
   pure $
-    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits
+    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -1044,8 +1047,9 @@ genCollectComTx = do
   cctx <- pickChainContext ctx
   let (committedUTxO, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitialized
-  let utxo = getKnownUTxO stInitialized <> foldMap (<> mempty) committedUTxO
-  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxo)
+  let utxoToCollect = foldMap (<> mempty) committedUTxO
+  let spendableUTxO = getKnownUTxO stInitialized
+  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1099,8 +1103,9 @@ genStOpen ctx = do
   cctx <- pickChainContext ctx
   let (committed, stInitial) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
   let InitialState{headId} = stInitial
-  let utxo = getKnownUTxO stInitial <> foldMap (<> mempty) committed
-  let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxo
+  let utxoToCollect = foldMap (<> mempty) committed
+  let spendableUTxO = getKnownUTxO stInitial
+  let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO
   pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
@@ -1178,11 +1183,14 @@ unsafeCollect ::
   ChainContext ->
   HeadId ->
   HeadParameters ->
+  -- | UTxO to be used to collect.
+  -- Should match whatever is recorded in the commit inputs.
+  UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   Tx
-unsafeCollect ctx headId headParameters spendableUTxO =
-  either (error . show) id $ collect ctx headId headParameters spendableUTxO
+unsafeCollect ctx headId headParameters utxoToCollect spendableUTxO =
+  either (error . show) id $ collect ctx headId headParameters utxoToCollect spendableUTxO
 
 unsafeContest ::
   HasCallStack =>

@@ -1098,6 +1098,7 @@ components:
           additionalProperties: false
           required:
             - tag
+            - utxo
             - headId
             - headParameters
           description: |
@@ -1107,6 +1108,8 @@ components:
             tag:
               type: string
               enum: ["CollectComTx"]
+            utxo:
+              $ref: "api.yaml#/components/schemas/UTxO"
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
