@@ -16,8 +16,36 @@ import Hydra.Cardano.Api (
   genTxIn,
  )
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
-import Hydra.Chain.Direct.State (ClosedState (..), InitialState (..), OpenState (..), commit, ctxContestationPeriod, ctxHeadParameters, ctxHydraSigningKeys, ctxParticipants, ctxVerificationKeys, genCloseTx, genCommits, genCommits', genHydraContextFor, genInitTx, genStClosed, genStInitial, genStOpen, getContestationDeadline, getKnownUTxO, initialize, observeClose, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeContest, unsafeFanout, unsafeObserveInitAndCommits)
-import Hydra.Chain.Direct.Tx (OpenThreadOutput (..))
+import Hydra.Chain.Direct.State (
+  ClosedState (..),
+  InitialState (..),
+  OpenState (..),
+  commit,
+  ctxContestationPeriod,
+  ctxHeadParameters,
+  ctxHydraSigningKeys,
+  ctxParticipants,
+  ctxVerificationKeys,
+  genCloseTx,
+  genCommits,
+  genCommits',
+  genHydraContextFor,
+  genInitTx,
+  genStClosed,
+  genStInitial,
+  genStOpen,
+  getContestationDeadline,
+  getKnownUTxO,
+  initialize,
+  observeClose,
+  pickChainContext,
+  unsafeAbort,
+  unsafeClose,
+  unsafeCollect,
+  unsafeContest,
+  unsafeFanout,
+  unsafeObserveInitAndCommits,
+ )
 import Hydra.Ledger.Cardano (
   genOutput,
   genUTxOAdaOnlyOfSize,
@@ -197,13 +225,12 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen@OpenState{headId, seedTxIn, openThreadOutput = OpenThreadOutput{openThreadUTxO}}) <- genStOpen ctx
+    (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let spendableUTxO = UTxO.singleton openThreadUTxO
-        closeTx = unsafeClose cctx spendableUTxO headId (ctxHeadParameters ctx) snapshot startSlot closePoint
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx

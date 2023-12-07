@@ -416,8 +416,9 @@ rejectMoreThanMainnetLimit network u = do
  where
   lovelaceAmt = foldMap (selectLovelace . txOutValue) u
 
--- | Construct a collect transaction based on the 'InitialState'. This will
--- reimburse all the already committed outputs.
+-- | Construct a abort transaction based on known, spendable UTxO. This function
+-- looks for head, initial and commit outputs to spend and it will fail if we
+-- can't find the head output.
 abort ::
   ChainContext ->
   -- | Seed TxIn

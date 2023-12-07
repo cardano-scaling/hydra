@@ -4,6 +4,7 @@ module Test.Hydra.Fixture where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (Key (..), SerialiseAsRawBytes (..), SigningKey, VerificationKey, getVerificationKey)
+import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.OnChainId (AsType (AsOnChainId), OnChainId)
@@ -26,6 +27,9 @@ carolVk = getVerificationKey carolSk
 
 allVKeys :: [VerificationKey HydraKey]
 allVKeys = vkey <$> [alice, bob, carol]
+
+cperiod :: ContestationPeriod
+cperiod = UnsafeContestationPeriod 42
 
 testHeadId :: HeadId
 testHeadId = UnsafeHeadId "1234"

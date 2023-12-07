@@ -35,6 +35,7 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
+  ctxParticipants,
   ctxVerificationKeys,
   deriveChainContexts,
   genChainStateWithTx,
@@ -49,10 +50,10 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Ledger (
   ChainSlot (..),
  )
+import Hydra.OnChainId (OnChainId)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,
@@ -327,7 +328,7 @@ genSequenceOfObservableBlocks = do
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx (ctxVerificationKeys ctx) (ctxHeadParameters ctx)
+    initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits ctx initTx allContexts
   pure (cctx, initialChainState, reverse blks)
@@ -348,11 +349,10 @@ genSequenceOfObservableBlocks = do
 
   stepInit ::
     ChainContext ->
-    [VerificationKey PaymentKey] ->
+    [OnChainId] ->
     HeadParameters ->
     StateT [TestBlock] Gen Tx
-  stepInit ctx allVerificationKeys params = do
-    let participants = verificationKeyToOnChainId <$> allVerificationKeys
+  stepInit ctx participants params = do
     seedTxIn <- lift genTxIn
     let initTx = initialize ctx seedTxIn participants params
     initTx <$ putNextBlock initTx
