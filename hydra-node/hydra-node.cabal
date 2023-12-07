@@ -97,6 +97,7 @@ library
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
+    Hydra.OnChainId
     Hydra.Options
     Hydra.Party
     Hydra.Persistence
