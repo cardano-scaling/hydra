@@ -320,7 +320,7 @@ spec = describe "ServerSpec" $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" . key "tag" == Just (Aeson.String "Final")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Final")
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
@@ -333,7 +333,7 @@ spec = describe "ServerSpec" $
 
             mapM_ sendOutput [headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" . key "tag" == Just (Aeson.String "Open")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo)
 
             snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
@@ -342,7 +342,7 @@ spec = describe "ServerSpec" $
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" . key "tag" == Just (Aeson.String "FanoutPossible")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "FanoutPossible")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo')
 
     it "greets with correct head status and snapshot utxo after restart" $
@@ -362,13 +362,13 @@ spec = describe "ServerSpec" $
 
               mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
               waitForValue port $ \v -> do
-                guard $ v ^? key "headStatus" . key "tag" == Just (Aeson.String "Initializing")
+                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
             -- expect the api server to load events from apiPersistence and project headStatus correctly
             withTestAPIServer port alice apiPersistence tracer $ \_ -> do
               waitForValue port $ \v -> do
-                guard $ v ^? key "headStatus" . key "tag" == Just (Aeson.String "Initializing")
+                guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
     it "sends an error when input cannot be decoded" $
