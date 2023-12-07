@@ -88,7 +88,6 @@ library
     , data-default
     , directory
     , filepath
-    , hspec-expectations
     , http-conduit
     , hydra-cardano-api
     , hydra-node

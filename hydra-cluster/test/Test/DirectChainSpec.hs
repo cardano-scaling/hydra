@@ -196,7 +196,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     -- Note: We expect bob to be able to construct the abort tx but failing to submit
                     FailedToConstructAbortTx @Tx -> False
                     ScriptFailedInWallet{} -> True
-                    e -> False
+                    _ -> False
 
   it "can commit" $ \tracer ->
     withTempDir "hydra-cluster" $ \tmp -> do

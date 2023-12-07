@@ -17,7 +17,6 @@ import Hydra.Cardano.Api (
   AssetName (AssetName),
   ChainPoint (..),
   CtxUTxO,
-  Hash,
   Key (SigningKey, VerificationKey, verificationKeyHash),
   KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
@@ -632,14 +631,17 @@ utxoOfThisHead policy = UTxO.filter hasHeadToken
 
 -- ** IdleState transitions
 
+-- TODO: This function is not really used anymore (only from
+-- 'unsafeObserveInit'). In general, most functions here are actually not used
+-- from the "production code", but only to generate test cases and benchmarks.
+
 -- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
--- TODO: not really used anymore (at only from 'unsafeObserveInit')
 observeInit ::
   ChainContext ->
   [VerificationKey PaymentKey] ->
   Tx ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
-observeInit ctx allVerificationKeys tx = do
+observeInit _ctx _allVerificationKeys tx = do
   observation <- observeInitTx tx
   pure (toEvent observation, toState observation)
  where
