@@ -10,7 +10,6 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List ((\\))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -87,9 +86,8 @@ import Hydra.Chain.Direct.Tx (
   FanoutTxError (..),
   InitObservation (..),
   InitialThreadOutput (..),
-  NotAnInit (..),
+  NotAnInitReason,
   OpenThreadOutput (..),
-  RawInitObservation (..),
   UTxOHash (UTxOHash),
   abortTx,
   closeTx,
@@ -106,10 +104,9 @@ import Hydra.Chain.Direct.Tx (
   observeContestTx,
   observeFanoutTx,
   observeInitTx,
-  observeRawInitTx,
   txInToHeadSeed,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -122,7 +119,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.Json ()
-import Hydra.Party (Party, deriveParty, partyFromChain, partyToChain)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Snapshot (
   ConfirmedSnapshot (..),
@@ -626,33 +623,17 @@ utxoOfThisHead policy = UTxO.filter hasHeadToken
 
 -- * Observing Transitions
 
-data NoObservation
-  = NoObservation
-  | NotAnInitTx NotAnInit
-  deriving (Eq, Show)
-
 -- ** IdleState transitions
 
 -- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
+-- TODO: not really used anymore (at only from 'unsafeObserveInit')
 observeInit ::
   ChainContext ->
   [VerificationKey PaymentKey] ->
   Tx ->
-  Either NotAnInit (OnChainTx Tx, InitialState)
+  Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit ctx allVerificationKeys tx = do
-  observed@RawInitObservation{contestationPeriod, onChainParties} <-
-    first NotAnInit $
-      observeRawInitTx tx
-  let allParties = concatMap partyFromChain onChainParties
-      otherParties = allParties \\ [ownParty]
-  observation <-
-    first NotAnInitForUs $
-      observeInitTx
-        allVerificationKeys
-        contestationPeriod
-        ownParty
-        otherParties
-        observed
+  observation <- observeInitTx tx
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn} =
@@ -662,16 +643,19 @@ observeInit ctx allVerificationKeys tx = do
       , headParameters = HeadParameters{contestationPeriod, parties}
       }
 
-  toState InitObservation{threadOutput, initials, commits, headId, seedTxIn} =
+  toState InitObservation{initialThreadUTxO, parties, contestationPeriod, initials, headId, seedTxIn} =
     InitialState
-      { initialThreadOutput = threadOutput
+      { initialThreadOutput =
+          InitialThreadOutput
+            { initialThreadUTxO
+            , initialParties = partyToChain <$> parties
+            , initialContestationPeriod = toChain contestationPeriod
+            }
       , initialInitials = initials
-      , initialCommits = commits
+      , initialCommits = mempty
       , headId
       , seedTxIn
       }
-
-  ChainContext{ownParty} = ctx
 
 -- ** InitialState transitions
 

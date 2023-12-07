@@ -66,9 +66,8 @@ import Hydra.Chain.Direct.Tx (
   ContestObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
-  RawInitObservation (..),
+  InitObservation (..),
   headSeedToTxIn,
-  mkHeadId,
   observeHeadTx,
   txInToHeadSeed,
  )
@@ -81,7 +80,6 @@ import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Party (partyFromChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
@@ -326,16 +324,12 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation = \case
   NoHeadTx -> Nothing
-  Init RawInitObservation{headId, contestationPeriod, onChainParties, seedTxIn} ->
+  Init InitObservation{headId, contestationPeriod, parties, seedTxIn} ->
     pure
       OnInitTx
-        { headId = mkHeadId headId
+        { headId
         , headSeed = txInToHeadSeed seedTxIn
-        , headParameters =
-            HeadParameters
-              { contestationPeriod
-              , parties = concatMap partyFromChain onChainParties
-              }
+        , headParameters = HeadParameters{contestationPeriod, parties}
         }
   Abort AbortObservation{headId} ->
     pure OnAbortTx{headId}

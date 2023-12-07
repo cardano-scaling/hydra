@@ -15,7 +15,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Data.Map qualified as Map
 import Data.Text qualified as T
-import GHC.Natural (wordToNatural)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty)
@@ -31,14 +30,25 @@ import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
-import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllBlind, getPositive, label, property, vectorOf, withMaxSuccess, (===))
+import Test.QuickCheck (
+  Property,
+  choose,
+  counterexample,
+  elements,
+  forAll,
+  forAllBlind,
+  label,
+  property,
+  vectorOf,
+  withMaxSuccess,
+  (===),
+ )
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Property (checkCoverage)
 
@@ -83,11 +93,9 @@ spec =
             forAll genScriptRegistry $ \scriptRegistry ->
               let params = HeadParameters cperiod allParties
                   tx = initTx testNetworkId cardanoKeys params txIn
-               in case first NotAnInit (observeRawInitTx tx)
-                    >>= (first NotAnInitForUs . observeInitTx cardanoKeys cperiod party parties) of
-                    Right InitObservation{initials, threadOutput} -> do
-                      let InitialThreadOutput{initialThreadUTxO} = threadOutput
-                          lookupUTxO =
+               in case observeInitTx tx of
+                    Right InitObservation{initials, initialThreadUTxO} -> do
+                      let lookupUTxO =
                             mconcat
                               [ Map.fromList (initialThreadUTxO : initials)
                               , UTxO.toMap (registryUTxO scriptRegistry)
@@ -125,48 +133,26 @@ spec =
                         & counterexample (renderTx tx)
                         & counterexample (show e)
 
-      prop "Ignore InitTx with wrong contestation period" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) -> do
-          i <- getPositive <$> arbitrary
-          let params = HeadParameters cperiod allParties
-              allParties = party : parties
-              cardanoKeys = genForParty genVerificationKey <$> allParties
-              (UnsafeContestationPeriod cp) = cperiod
-              -- construct different/wrong CP
-              wrongCPeriod = UnsafeContestationPeriod $ cp + wordToNatural i
-              tx = initTx testNetworkId cardanoKeys params txIn
-          pure $ case first NotAnInit (observeRawInitTx tx)
-            >>= (first NotAnInitForUs . observeInitTx cardanoKeys wrongCPeriod party parties) of
-            Right InitObservation{} -> do
-              property False
-                & counterexample "Failed to ignore init tx with the wrong contestation period."
-                & counterexample (renderTx tx)
-            Left (NotAnInitForUs CPMismatch{}) -> property True
-            Left e ->
-              property False
-                & counterexample "Failed to ignore init tx for the right reason."
-                & counterexample (renderTx tx)
-                & counterexample (show e)
-
-      prop "Ignore InitTx with wrong cardano keys" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) wrongParty ->
-          let allParties = party : parties
-              cardanoKeys = genForParty genVerificationKey <$> allParties
-              wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
-              params = HeadParameters cperiod allParties
-              tx = initTx testNetworkId cardanoKeys params txIn
-           in case first NotAnInit (observeRawInitTx tx)
-                >>= (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
-                Right InitObservation{} -> do
-                  property False
-                    & counterexample "Failed to ignore init tx with the wrong cardano keys."
-                    & counterexample (renderTx tx)
-                Left (NotAnInitForUs PTsNotMintedCorrectly{}) -> property True
-                Left e ->
-                  property False
-                    & counterexample "Failed to ignore init tx for the right reason."
-                    & counterexample (renderTx tx)
-                    & counterexample (show e)
+-- FIXME: Test this in HeadLogic now!
+-- prop "Ignore InitTx with wrong cardano keys" $
+--   withMaxSuccess 60 $ \txIn cperiod (party :| parties) wrongParty ->
+--     let allParties = party : parties
+--         cardanoKeys = genForParty genVerificationKey <$> allParties
+--         wrongCardanoKeys = genForParty genVerificationKey <$> (wrongParty : parties)
+--         params = HeadParameters cperiod allParties
+--         tx = initTx testNetworkId cardanoKeys params txIn
+--      in case first NotAnInit (observeRawInitTx tx)
+--           >>= (first NotAnInitForUs . observeInitTx wrongCardanoKeys cperiod party parties) of
+--           Right InitObservation{} -> do
+--             property False
+--               & counterexample "Failed to ignore init tx with the wrong cardano keys."
+--               & counterexample (renderTx tx)
+--           Left (NotAnInitForUs PTsNotMintedCorrectly{}) -> property True
+--           Left e ->
+--             property False
+--               & counterexample "Failed to ignore init tx for the right reason."
+--               & counterexample (renderTx tx)
+--               & counterexample (show e)
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =

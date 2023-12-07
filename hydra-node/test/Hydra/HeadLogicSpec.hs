@@ -541,6 +541,7 @@ prop_ignoresUnrelatedOnInitTx =
     oneof
       [ genOnInitWithDifferentContestationPeriod env
       , genOnInitWithoutParty env
+      , genOnInitWithoutOnchainId env
       ]
 
   genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod} = do
@@ -557,6 +558,8 @@ prop_ignoresUnrelatedOnInitTx =
     toRemove <- elements allParties
     let differentParties = List.delete toRemove allParties
     pure OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties = differentParties}}
+
+  genOnInitWithoutOnchainId env = Prelude.error "TODO: check we ignore heads that do not match configured --cardano-verification-keys"
 
 -- * Utilities
 

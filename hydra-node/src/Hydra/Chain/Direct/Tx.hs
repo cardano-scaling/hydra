@@ -17,7 +17,6 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -49,6 +48,7 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityUpperBound,
   unsafeBuildTransaction,
  )
+import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -640,7 +640,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
 -- | Generalised type for arbitrary Head observations on-chain.
 data HeadObservation
   = NoHeadTx
-  | Init RawInitObservation
+  | Init InitObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
@@ -653,7 +653,7 @@ data HeadObservation
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
-    either (const Nothing) (Just . Init) (observeRawInitTx tx)
+    either (const Nothing) (Just . Init) (observeInitTx tx)
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
@@ -661,42 +661,20 @@ observeHeadTx networkId utxo tx =
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
 
--- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
--- interest to us.
-data RawInitObservation = RawInitObservation
-  { headId :: PolicyId
-  , contestationPeriod :: ContestationPeriod
-  , onChainParties :: [OnChain.Party]
-  , seedTxIn :: TxIn
-  , headPTsNames :: [AssetName]
-  , initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initials :: [(TxIn, TxOut CtxUTxO)]
-  }
-  deriving (Show, Eq)
-
--- | An observation for an `InitTx` which our node is a party for.
+-- | Data which can be observed from an `initTx`.
 data InitObservation = InitObservation
-  { threadOutput :: InitialThreadOutput
-  -- ^ The state machine UTxO produced by the Init transaction
-  -- This output should always be present and 'threaded' across all
-  -- transactions.
-  -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-  -- XXX(SN): Data and [OnChain.Party] are overlapping
+  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , initials :: [(TxIn, TxOut CtxUTxO)]
-  , commits :: [(TxIn, TxOut CtxUTxO)]
   , headId :: HeadId
-  , seedTxIn :: TxIn
+  , -- XXX: This is cardano-specific, while headId, parties and
+    -- contestationPeriod are already generic here. Check which is more
+    -- convenient and consistent!
+    seedTxIn :: TxIn
   , contestationPeriod :: ContestationPeriod
   , parties :: [Party]
+  , -- XXX: Improve naming
+    participants :: [OnChainId]
   }
-  deriving stock (Show, Eq)
-
--- | An explanation for a failed tentative `InitTx` observation.
-data NotAnInit
-  = -- | The transaction is definitely not a valid InitTx
-    NotAnInit NotAnInitReason
-  | -- | The transaction /is/ a valid  InitTx but does not match the configuration of our Head.
-    NotAnInitForUs MismatchReason
   deriving stock (Show, Eq)
 
 data NotAnInitReason
@@ -710,56 +688,43 @@ data NotAnInitReason
 instance Arbitrary NotAnInitReason where
   arbitrary = genericArbitrary
 
-data MismatchReason
-  = PartiesMismatch RawInitObservation
-  | OwnPartyMissing RawInitObservation
-  | CPMismatch RawInitObservation
-  | PTsNotMintedCorrectly RawInitObservation
-  deriving (Show, Eq)
-
-mismatchReasonObservation :: MismatchReason -> RawInitObservation
-mismatchReasonObservation = \case
-  PartiesMismatch obs -> obs
-  OwnPartyMissing obs -> obs
-  CPMismatch obs -> obs
-  PTsNotMintedCorrectly obs -> obs
-
-observeRawInitTx ::
+-- | Identify a init tx by checking the output value for holding tokens that are
+-- valid head tokens (checked by seed + policy).
+observeInitTx ::
   Tx ->
-  Either NotAnInitReason RawInitObservation
-observeRawInitTx tx = do
+  Either NotAnInitReason InitObservation
+observeInitTx tx = do
   -- XXX: Lots of redundant information here
   (ix, headOut, headState) <-
     maybeLeft NoHeadOutput $
       findFirst matchHeadOutput indexedOutputs
 
   -- check that we have a proper head
-  (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
+  (pid, contestationPeriod, onChainParties, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> do
-      pid <- maybe (Left NotAHeadPolicy) Right $ fromPlutusCurrencySymbol cid
+      pid <- fromPlutusCurrencySymbol cid ?> NotAHeadPolicy
       pure (pid, fromChain cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
-  let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+  let stQuantity = selectAsset (txOutValue headOut) (AssetId pid hydraHeadV1AssetName)
 
   -- check that ST is present in the head output
   unless (stQuantity == 1) $
     Left NoSTFound
 
   -- check that we are using the same seed and headId matches
-  unless (headId == HeadTokens.headPolicyId seedTxIn) $
+  unless (pid == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
   pure $
-    RawInitObservation
-      { headId
-      , contestationPeriod
-      , onChainParties
+    InitObservation
+      { headId = mkHeadId pid
       , seedTxIn
-      , headPTsNames = mintedTokenNames headId
-      , initialThreadUTxO =
-          (mkTxIn tx ix, toCtxUTxOTxOut headOut)
+      , initialThreadUTxO = (mkTxIn tx ix, toCtxUTxOTxOut headOut)
       , initials
+      , contestationPeriod
+      , parties = mapMaybe partyFromChain onChainParties
+      , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
   maybeLeft e = maybe (Left e) Right
@@ -783,78 +748,13 @@ observeRawInitTx tx = do
 
   initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
-  mintedTokenNames headId =
+  mintedTokenNames pid =
     [ assetName
     | (AssetId policyId assetName, q) <- txMintAssets tx
-    , -- NOTE: It is important to check quantity since we want to ensure
-    -- the tokens are unique.
-    q == 1
-    , policyId == headId
+    , q == 1 -- NOTE: Only consider unique tokens
+    , policyId == pid
     , assetName /= hydraHeadV1AssetName
     ]
-
-observeInitTx ::
-  [VerificationKey PaymentKey] ->
-  -- | Our node's contestation period
-  ContestationPeriod ->
-  Party ->
-  [Party] ->
-  RawInitObservation ->
-  Either MismatchReason InitObservation
-observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
-  let offChainParties = concatMap partyFromChain onChainParties
-
-  -- check that configured CP is present in the datum
-  unless (expectedCP == contestationPeriod) $
-    Left (CPMismatch rawTx)
-
-  -- check that our party is present in the datum
-  unless (party `elem` offChainParties) $
-    Left (OwnPartyMissing rawTx)
-
-  -- check that configured parties are matched in the datum
-  unless (containsSameElements offChainParties allConfiguredParties) $
-    Left (PartiesMismatch rawTx)
-
-  -- pub key hashes of all configured participants == the token names of PTs
-  unless (containsSameElements configuredTokenNames headPTsNames) $
-    Left (PTsNotMintedCorrectly rawTx)
-
-  pure
-    InitObservation
-      { threadOutput =
-          InitialThreadOutput
-            { initialThreadUTxO
-            , initialParties = onChainParties
-            , initialContestationPeriod = toChain contestationPeriod
-            }
-      , initials
-      , commits = []
-      , headId = mkHeadId headId
-      , seedTxIn
-      , -- NOTE: we should look into why parties and cp are duplicated in the InitObservation.
-        -- They are included: Once in the InitialThreadOutput in their on-chain form, once in
-        -- InitObservation in their off-chain form and they are also included in the datum of
-        -- the initialThreadUTxO`.. so three times.
-        contestationPeriod
-      , parties = offChainParties
-      }
- where
-  RawInitObservation
-    { headId
-    , contestationPeriod
-    , headPTsNames
-    , onChainParties
-    , seedTxIn
-    , initialThreadUTxO
-    , initials
-    } = rawTx
-
-  allConfiguredParties = party : otherParties
-
-  configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
-
-  containsSameElements a b = Set.fromList a == Set.fromList b
 
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
@@ -1101,7 +1001,7 @@ observeAbortTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
--- * Cardano specific HeadId and HeadSeed
+-- * Cardano specific identifiers
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId = UnsafeHeadId . serialiseToRawBytes
@@ -1120,6 +1020,9 @@ headSeedToTxIn (UnsafeHeadSeed bytes) =
 
 txInToHeadSeed :: TxIn -> HeadSeed
 txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
+
+assetNameToOnChainId :: AssetName -> OnChainId
+assetNameToOnChainId (AssetName bs) = UnsafeOnChainId bs
 
 -- * Helpers
 

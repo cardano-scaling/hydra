@@ -100,7 +100,7 @@ import Hydra.Chain.Direct.Tx (
   NotAnInitReason (..),
   observeCommitTx,
   observeHeadTx,
-  observeRawInitTx,
+  observeInitTx,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -163,7 +163,7 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
 
-    -- XXX: This is testing observeRawInitTx (we will get rid of 'observeInit')
+    -- XXX: This is testing observeInitTx (we will get rid of 'observeInit')
     it "only proper head is observed" $
       monadicIO $ do
         ctx <- pickBlind (genHydraContext maximumNumberOfParties)
@@ -177,7 +177,7 @@ spec = parallel $ do
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
 
-            originalIsObserved = property $ isRight (observeRawInitTx tx)
+            originalIsObserved = property $ isRight (observeInitTx tx)
 
             -- We expected mutated transaction to still be valid, but not observed.
             mutatedIsValid = property $
@@ -188,7 +188,7 @@ spec = parallel $ do
                   | otherwise -> False
 
             mutatedIsNotObserved =
-              observeRawInitTx tx' === Left expected
+              observeInitTx tx' === Left expected
 
         pure $
           conjoin
