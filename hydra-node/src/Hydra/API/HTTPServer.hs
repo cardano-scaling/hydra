@@ -154,7 +154,7 @@ httpApp ::
   -- | A means to get the 'HeadId' if initializing the Head.
   (STM IO) (Maybe HeadId) ->
   Application
-httpApp tracer directChain pparams getHeadId request respond = do
+httpApp tracer directChain pparams getInitializingHeadId request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -163,7 +163,7 @@ httpApp tracer directChain pparams getHeadId request respond = do
   case (requestMethod request, pathInfo request) of
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain getHeadId
+        >>= handleDraftCommitUtxo directChain getInitializingHeadId
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
@@ -257,12 +257,12 @@ handleDraftCommitUtxo ::
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain getHeadId body = do
+handleDraftCommitUtxo directChain getInitializingHeadId body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      atomically getHeadId >>= \case
+      atomically getInitializingHeadId >>= \case
         Just headId -> do
           draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
             Left e ->

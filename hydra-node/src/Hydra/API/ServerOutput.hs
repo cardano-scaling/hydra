@@ -252,11 +252,13 @@ instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
 -- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
--- NOTE: we only want to project 'HeadId' when the Head is in the 'Initializing'
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
 -- state since this is when Head parties need to commit some funds.
-projectHeadId :: Maybe HeadId -> ServerOutput tx -> Maybe HeadId
-projectHeadId mHeadId = \case
+projectInitializingHeadId :: Maybe HeadId -> ServerOutput tx -> Maybe HeadId
+projectInitializingHeadId mHeadId = \case
   HeadIsInitializing{headId} -> Just headId
+  HeadIsOpen{} -> Nothing
+  HeadIsAborted{} -> Nothing
   _other -> mHeadId
 
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
