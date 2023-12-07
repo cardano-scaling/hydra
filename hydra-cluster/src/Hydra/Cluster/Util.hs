@@ -66,13 +66,13 @@ chainConfigFor me targetDir nodeSocket them cp = do
       show me <> " must not be in " <> show them
   readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
   readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
-  -- forM_ them $ \actor ->
-  --   readConfigFile ("credentials" </> vkName actor) >>= writeFileBS (vkTarget actor)
+  forM_ them $ \actor ->
+    readConfigFile ("credentials" </> vkName actor) >>= writeFileBS (vkTarget actor)
   pure $
     defaultChainConfig
       { nodeSocket
       , cardanoSigningKey = skTarget me
-      , cardanoVerificationKeys = [] -- [vkTarget himOrHer | himOrHer <- them]
+      , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
       , contestationPeriod = cp
       }
  where
