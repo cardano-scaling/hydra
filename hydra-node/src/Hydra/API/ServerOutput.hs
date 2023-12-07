@@ -233,7 +233,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing {headId :: HeadId} -- FIXME: This breaks the api of 'Greetings', document and fix api.yaml
+  | Initializing
   | Open
   | Closed
   | FanoutPossible
@@ -244,10 +244,18 @@ data HeadStatus
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
+-- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
+-- NOTE: we only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectHeadId :: Maybe HeadId -> ServerOutput tx -> Maybe HeadId
+projectHeadId mHeadId = \case
+  HeadIsInitializing{headId} -> Just headId
+  _other -> mHeadId
+
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
 projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
 projectHeadStatus headStatus = \case
-  HeadIsInitializing{headId} -> Initializing{headId}
+  HeadIsInitializing{} -> Initializing
   HeadIsOpen{} -> Open
   HeadIsClosed{} -> Closed
   ReadyToFanout{} -> FanoutPossible

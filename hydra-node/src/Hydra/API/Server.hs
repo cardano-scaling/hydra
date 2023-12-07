@@ -17,6 +17,7 @@ import Hydra.API.ServerOutput (
   HeadStatus (Idle),
   ServerOutput,
   TimedServerOutput (..),
+  projectHeadId,
   projectHeadStatus,
   projectSnapshotUtxo,
  )
@@ -75,6 +76,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
     -- Intialize our read model from stored events
     headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
+    headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectHeadId
 
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
@@ -94,7 +96,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
             websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel)
-              (httpApp tracer chain pparams (getLatest headStatusP))
+              (httpApp tracer chain pparams (getLatest headIdP))
       )
       ( do
           waitForServerRunning
@@ -105,6 +107,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
                   atomically $ do
                     update headStatusP output
                     update snapshotUtxoP output
+                    update headIdP output
                     writeTChan responseChannel timedOutput
               }
       )

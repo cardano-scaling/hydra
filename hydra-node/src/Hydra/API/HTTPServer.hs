@@ -13,7 +13,6 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -34,6 +33,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Types (status200, status400, status500)
@@ -151,10 +151,10 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
-  -- | A means to get the latest 'HeadStatus'.
-  (STM IO) HeadStatus ->
+  -- | A means to get the 'HeadId' if initializing the Head.
+  (STM IO) (Maybe HeadId) ->
   Application
-httpApp tracer directChain pparams getHeadStatus request respond = do
+httpApp tracer directChain pparams getHeadId request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -163,7 +163,7 @@ httpApp tracer directChain pparams getHeadStatus request respond = do
   case (requestMethod request, pathInfo request) of
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain getHeadStatus
+        >>= handleDraftCommitUtxo directChain getHeadId
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
@@ -252,18 +252,18 @@ httpApp tracer directChain pparams getHeadStatus request respond = do
 --   @
 handleDraftCommitUtxo ::
   Chain tx IO ->
-  -- | A means to get the latest 'HeadStatus'.
-  (STM IO) HeadStatus ->
+  -- | A means to get the 'HeadId' if initializing the Head.
+  (STM IO) (Maybe HeadId) ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain getHeadStatus body = do
+handleDraftCommitUtxo directChain getHeadId body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      atomically getHeadStatus >>= \case
-        Initializing{headId} -> do
+      atomically getHeadId >>= \case
+        Just headId -> do
           draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
             Left e ->
               -- Distinguish between errors users can actually benefit from and
@@ -277,7 +277,7 @@ handleDraftCommitUtxo directChain getHeadStatus body = do
             Right commitTx ->
               responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
         -- XXX: This is not really an internal server error
-        _ -> pure $ responseLBS status500 [] (Aeson.encode $ FailedToDraftTxNotInitializing @Tx)
+        Nothing -> pure $ responseLBS status500 [] (Aeson.encode $ FailedToDraftTxNotInitializing @Tx)
  where
   Chain{draftCommitTx} = directChain
 
