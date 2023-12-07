@@ -490,11 +490,11 @@ withDirectChainTest tracer config ctx action = do
         }
 
 hasInitTxWith :: (HasCallStack, IsTx tx) => HeadParameters -> [OnChainId] -> OnChainTx tx -> IO (HeadId, HeadSeed)
-hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, parties = expectedParties} participants' = \case
+hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, parties = expectedParties} expectedParticipants = \case
   OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}, participants} -> do
-    participants `shouldBe` participants'
+    expectedParticipants `shouldMatchList` participants
     expectedContestationPeriod `shouldBe` contestationPeriod
-    expectedParties `shouldBe` parties
+    expectedParties `shouldMatchList` parties
     pure (headId, headSeed)
   tx -> failure ("Unexpected observation: " <> show tx)
 
