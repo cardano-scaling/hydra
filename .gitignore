@@ -24,6 +24,8 @@ result*
 *.o
 test-results.xml
 hspec-results.md
+hydra-node/golden/RunOptions.faulty.json
+hydra-node/golden/RunOptions.faulty.reencoded.json
 
 # Benchmark results
 *.html
