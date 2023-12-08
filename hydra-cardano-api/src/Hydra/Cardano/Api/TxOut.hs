@@ -147,12 +147,10 @@ fromPlutusTxOut ::
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
 fromPlutusTxOut network out = do
-  value <- TxOutValue multiAssetSupportedInEra <$> fromPlutusValue plutusValue
+  value <- TxOutValue maryEraOnwards <$> fromPlutusValue plutusValue
   pure $ TxOut addressInEra value datum ReferenceScriptNone
  where
   addressInEra = fromPlutusAddress network plutusAddress
-
-  value = TxOutValue maryEraOnwards $ fromPlutusValue plutusValue
 
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone

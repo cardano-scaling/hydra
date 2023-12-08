@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
-  CardanoEra (..),
   CardanoMode,
   ChainPoint,
   ChainSyncClient,
