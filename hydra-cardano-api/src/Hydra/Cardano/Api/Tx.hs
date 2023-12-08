@@ -32,7 +32,7 @@ signTx ::
 signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
-  witness = makeShelleyKeyWitness body (WitnessPaymentKey signingKey)
+  witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency
@@ -51,12 +51,7 @@ utxoProducedByTx tx =
 txFee' :: HasCallStack => Tx era -> Lovelace
 txFee' (getTxBody -> TxBody body) =
   case txFee body of
-    TxFeeExplicit TxFeesExplicitInShelleyEra fee -> fee
-    TxFeeExplicit TxFeesExplicitInAllegraEra fee -> fee
-    TxFeeExplicit TxFeesExplicitInMaryEra fee -> fee
-    TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
-    TxFeeExplicit TxFeesExplicitInBabbageEra fee -> fee
-    TxFeeExplicit TxFeesExplicitInConwayEra fee -> fee
+    TxFeeExplicit _ y -> y
     TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
 
 -- * Type Conversions
@@ -115,14 +110,15 @@ fromLedgerTx ledgerTx =
   scripts =
     Map.elems $ Ledger.txscripts' wits
 
+  scriptsData :: TxBodyScriptData Era
   scriptsData =
     TxBodyScriptData
-      ScriptDataInBabbageEra
+      AlonzoEraOnwardsBabbage
       (Ledger.txdats' wits)
       (Ledger.txrdmrs' wits)
 
   validity = case isValid of
     Ledger.IsValid True ->
-      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptValid
+      TxScriptValidity AlonzoEraOnwardsBabbage ScriptValid
     Ledger.IsValid False ->
-      TxScriptValidity TxScriptValiditySupportedInBabbageEra ScriptInvalid
+      TxScriptValidity AlonzoEraOnwardsBabbage ScriptInvalid

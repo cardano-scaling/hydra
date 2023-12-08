@@ -150,8 +150,8 @@ library
     , ouroboros-network-api                                     >=0.1.0.0
     , ouroboros-network-framework                               >=0.3.0.0
     , ouroboros-network-protocols                               >=0.3.0.0
-    , plutus-core                                               >=1.9     && <1.10
-    , plutus-ledger-api                                         >=1.9     && <1.10
+    , plutus-core                                               >=1.15.0.1 && <1.16
+    , plutus-ledger-api                                         >=1.15.0.1 && <1.16
     , prometheus
     , QuickCheck
     , quickcheck-instances

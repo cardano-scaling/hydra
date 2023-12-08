@@ -8,7 +8,7 @@ module Hydra.TUI.Handlers where
 import Hydra.Prelude hiding (Down, padLeft)
 
 import Brick
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 
 import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm, radioField)

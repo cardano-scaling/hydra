@@ -197,10 +197,8 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
               | valueOut /= valueIn
               ]
       , txFee = TxFeeExplicit $ Lovelace 0
-      , txValidityRange =
-          ( fromMaybe TxValidityNoLowerBound validityLowerBound
-          , fromMaybe TxValidityNoUpperBound validityUpperBound
-          )
+      , txValidityLowerBound = fromMaybe TxValidityNoLowerBound validityLowerBound
+      , txValidityUpperBound = fromMaybe TxValidityNoUpperBound validityUpperBound
       }
 
 -- | Utility function to "adjust" a `UTxO` set given a `Tx`

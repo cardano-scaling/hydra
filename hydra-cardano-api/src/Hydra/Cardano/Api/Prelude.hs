@@ -27,15 +27,11 @@ module Hydra.Cardano.Api.Prelude (
 
 import Cardano.Api hiding (
   UTxO,
-  multiAssetSupportedInEra,
-  scriptDataSupportedInEra,
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
 import Cardano.Api.Shelley hiding (
   UTxO,
-  multiAssetSupportedInEra,
-  scriptDataSupportedInEra,
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )

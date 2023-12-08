@@ -36,6 +36,7 @@ mkVkAddress ::
   AddressInEra era
 mkVkAddress networkId vk =
   makeShelleyAddressInEra
+    shelleyBasedEra
     networkId
     (PaymentCredentialByKey $ verificationKeyHash vk)
     NoStakeAddress
@@ -50,6 +51,7 @@ mkScriptAddress ::
   AddressInEra era
 mkScriptAddress networkId script =
   makeShelleyAddressInEra
+    shelleyBasedEra
     networkId
     (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
     NoStakeAddress
@@ -60,7 +62,7 @@ mkScriptAddress networkId script =
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'
 fromLedgerAddr :: IsShelleyBasedEra era => Ledger.Addr StandardCrypto -> AddressInEra era
-fromLedgerAddr = fromShelleyAddrIsSbe
+fromLedgerAddr = fromShelleyAddrIsSbe shelleyBasedEra
 
 -- | From an api 'AddressInEra' to a ledger 'Addr'
 toLedgerAddr :: AddressInEra era -> Ledger.Addr StandardCrypto

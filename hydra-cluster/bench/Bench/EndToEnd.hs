@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (
@@ -324,11 +324,11 @@ newTx registry client tx = do
           , invalidAt = Nothing
           , confirmedAt = Nothing
           }
-  send client $ input "NewTx" ["transaction" .= tx]
+  send client $ input "NewTx" ["transaction" .= serialiseToTextEnvelope Nothing tx]
 
 data WaitResult
-  = TxInvalid {transaction :: Tx, reason :: Text}
-  | TxValid {transaction :: Tx}
+  = TxInvalid {transactionId :: TxId, reason :: Text}
+  | TxValid {transactionId :: TxId}
   | SnapshotConfirmed {txIds :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
@@ -375,13 +375,12 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
         putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
         waitForSnapshotConfirmation >>= \case
-          TxValid{transaction} -> do
-            validTx processedTxs (txId transaction)
+          TxValid{transactionId} -> do
+            validTx processedTxs transactionId
             go remainingIds
-          TxInvalid{transaction} -> do
-            let txid = txId transaction
-            invalidTx processedTxs txid
-            go $ Set.delete txid remainingIds
+          TxInvalid{transactionId} -> do
+            invalidTx processedTxs transactionId
+            go $ Set.delete transactionId remainingIds
           SnapshotConfirmed{txIds} -> do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
@@ -392,14 +391,14 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transaction" . to fromJSON >>= \case
+      ^? key "transaction" . key "id" . to fromJSON >>= \case
         Error _ -> Nothing
-        Success tx -> pure $ TxValid tx
+        Success txid -> pure $ TxValid txid
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "transaction" . to fromJSON >>= \case
+      ^? key "transaction" . key "id" . to fromJSON >>= \case
         Error _ -> Nothing
         Success tx ->
           TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String

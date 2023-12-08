@@ -8,7 +8,7 @@ module Hydra.TUI.Drawing where
 import Hydra.Prelude hiding (Down, State, padLeft)
 
 import Brick
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (Active)
 
 import Brick.Forms (
   renderForm,

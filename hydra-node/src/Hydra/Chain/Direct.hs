@@ -301,7 +301,7 @@ chainSyncClient handler wallet startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode (Block header txs) BabbageEraInCardanoMode -> do
+            BlockInMode _ (Block header txs) BabbageEraInCardanoMode -> do
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions

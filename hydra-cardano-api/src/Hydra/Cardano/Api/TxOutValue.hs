@@ -2,13 +2,13 @@ module Hydra.Cardano.Api.TxOutValue where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
+import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::
   forall era.
-  HasMultiAsset era =>
+  IsMaryEraOnwards era =>
   Value ->
   TxOutValue era
 mkTxOutValue =
-  TxOutValue (multiAssetSupportedInEra @era)
+  TxOutValue (maryEraOnwards @era)

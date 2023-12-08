@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.15.0] - UNRELEASEd
+
+- **BREAKING** Internal changes to `hydra-cardano-api`:
+  - Renamed `HasMultiAsset` type class to `IsMaryEraOnwards`. Use
+    `maryEraOnwards` to produce witnesses for features from mary onwards.
+  - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use
+    `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
+  - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use
+    `babbageEraOnwards` to produce witnesses for features from babbage onwards.
+
 ## [0.14.0] - 2023-12-04
 
 - **BREAKING** Multiple changes to the Hydra Head protocol on-chain:

@@ -5,7 +5,7 @@ module Hydra.Cardano.Api.ValidityInterval where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
-import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
 import Test.QuickCheck (oneof)
 
 toLedgerValidityInterval ::
@@ -20,7 +20,7 @@ toLedgerValidityInterval (lowerBound, upperBound) =
     , Ledger.invalidHereafter =
         case upperBound of
           TxValidityNoUpperBound _ -> SNothing
-          TxValidityUpperBound _ s -> SJust s
+          TxValidityUpperBound _ s -> maybeToStrictMaybe s
     }
 fromLedgerValidityInterval ::
   Ledger.ValidityInterval ->
@@ -29,22 +29,18 @@ fromLedgerValidityInterval validityInterval =
   let Ledger.ValidityInterval{Ledger.invalidBefore = invalidBefore, Ledger.invalidHereafter = invalidHereAfter} = validityInterval
       lowerBound = case invalidBefore of
         SNothing -> TxValidityNoLowerBound
-        SJust s -> TxValidityLowerBound ValidityLowerBoundInBabbageEra s
+        SJust s -> TxValidityLowerBound AllegraEraOnwardsBabbage s
       upperBound = case invalidHereAfter of
-        SNothing -> TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
-        SJust s -> TxValidityUpperBound ValidityUpperBoundInBabbageEra s
+        SNothing -> TxValidityUpperBound ShelleyBasedEraBabbage Nothing
+        SJust s -> TxValidityUpperBound ShelleyBasedEraBabbage (Just s)
    in (lowerBound, upperBound)
 
 instance Arbitrary (TxValidityLowerBound Era) where
   arbitrary =
     oneof
       [ pure TxValidityNoLowerBound
-      , TxValidityLowerBound ValidityLowerBoundInBabbageEra . SlotNo <$> arbitrary
+      , TxValidityLowerBound AllegraEraOnwardsBabbage . SlotNo <$> arbitrary
       ]
 
 instance Arbitrary (TxValidityUpperBound Era) where
-  arbitrary =
-    oneof
-      [ pure $ TxValidityNoUpperBound ValidityNoUpperBoundInBabbageEra
-      , TxValidityUpperBound ValidityUpperBoundInBabbageEra . SlotNo <$> arbitrary
-      ]
+  arbitrary = TxValidityUpperBound ShelleyBasedEraBabbage . fmap SlotNo <$> arbitrary

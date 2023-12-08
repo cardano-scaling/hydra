@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.TxOut where
 
-import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
+import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
@@ -11,11 +11,11 @@ import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
+import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
-import Hydra.Cardano.Api.ReferenceTxInsScriptsInlineDatumsSupportedInEra (HasInlineDatums, inlineDatumsSupportedInEra)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
-import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData, scriptDataSupportedInEra)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import PlutusLedgerApi.V2 (OutputDatum (..), fromBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -46,7 +46,7 @@ mkTxOutAutoBalance ::
   ReferenceScript Era ->
   TxOut CtxTx Era
 mkTxOutAutoBalance pparams addr val dat ref =
-  let out = TxOut addr (TxOutValue MultiAssetInBabbageEra val) dat ref
+  let out = TxOut addr (TxOutValue maryEraOnwards val) dat ref
       minValue = minUTxOValue pparams out
    in modifyTxOutValue (const minValue) out
 
@@ -60,7 +60,7 @@ modifyTxOutAddress fn (TxOut addr value dat ref) =
 
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
-  HasMultiAsset era =>
+  IsMaryEraOnwards era =>
   (Value -> Value) ->
   TxOut ctx era ->
   TxOut ctx era
@@ -119,7 +119,7 @@ toLedgerTxOut =
 -- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
-  (HasMultiAsset era, HasScriptData era, HasInlineDatums era, IsShelleyBasedEra era) =>
+  (IsMaryEraOnwards era, IsAlonzoEraOnwards era, IsBabbageEraOnwards era, IsShelleyBasedEra era) =>
   Network ->
   Plutus.TxOut ->
   TxOut CtxUTxO era
@@ -128,14 +128,14 @@ fromPlutusTxOut network out =
  where
   addressInEra = fromPlutusAddress network plutusAddress
 
-  value = TxOutValue multiAssetSupportedInEra $ fromPlutusValue plutusValue
+  value = TxOutValue maryEraOnwards $ fromPlutusValue plutusValue
 
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone
     OutputDatumHash (Plutus.DatumHash hashBytes) ->
-      TxOutDatumHash scriptDataSupportedInEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
+      TxOutDatumHash alonzoEraOnwards . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
     OutputDatum (Plutus.Datum datumData) ->
-      TxOutDatumInline inlineDatumsSupportedInEra $ toScriptData datumData
+      TxOutDatumInline babbageEraOnwards $ toScriptData datumData
 
   Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 

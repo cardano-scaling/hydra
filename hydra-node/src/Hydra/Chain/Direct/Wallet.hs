@@ -15,10 +15,11 @@ import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfe
 import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
 import Cardano.Ledger.Api (TransactionScriptFailure, ensureMinCoinTxOut, evalTxExUnits, outputsTxBodyL, ppMaxTxExUnitsL, ppPricesL)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, refScripts, wits)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
+import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
@@ -176,7 +177,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
   address =
     makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress
 
-  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era address
+  ledgerAddress = toLedgerAddr $ shelleyAddressInEra @Api.Era Api.shelleyBasedEra address
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.
@@ -266,7 +267,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         needlesslyHighFee
   let newOutputs = txOuts <> StrictSeq.singleton change
 
-  let referenceScripts = refScripts @LedgerEra (Babbage.referenceInputs' body) (Ledger.UTxO utxo)
+      referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (Babbage.referenceInputs' body)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
