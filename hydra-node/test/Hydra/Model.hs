@@ -525,7 +525,7 @@ seedWorld seedKeys seedCP futureCommits = do
 
   mockChain@SimulatedChainNetwork{tickThread} <-
     lift $
-      mockChainAndNetwork (contramap DirectChain tr) seedKeys seedCP (foldMap toRealUTxO $ Map.elems futureCommits)
+      mockChainAndNetwork (contramap DirectChain tr) seedKeys (foldMap toRealUTxO $ Map.elems futureCommits)
   pushThread tickThread
 
   clients <- forM seedKeys $ \(hsk, _csk) -> do

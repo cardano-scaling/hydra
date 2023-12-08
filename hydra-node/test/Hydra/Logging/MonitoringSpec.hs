@@ -10,7 +10,7 @@ import Hydra.HeadLogic (
   Event (NetworkEvent),
   defaultTTL,
  )
-import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
+import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
@@ -18,7 +18,7 @@ import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (BeginEffect, BeginEvent))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
-import Test.Hydra.Fixture (alice)
+import Test.Hydra.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec

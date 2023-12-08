@@ -5,37 +5,54 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "0fbfae9acbaa1b1ff2ff632011e03634bb77251ba4856fa2add72d46c86d762f3e5bbf3cf3b6baad8e82be944fc5e6667b64f7d8fc5146aca14a6e0a7d041904",
-                            "cdd6612f7203911a84038084d0cd64ece0de58749caa845a33258480e22ff1ddc6ba518ea39a7b69a36e89dd787f65e83bf162bf6592aa62e9120a39a300f90c",
-                            "7e0b6be1180661ef5fdc1304b621164c06a0ebdd3e388d76cb34744825190bcddb47e878d3a9cc003e2ed8a56c4a3fca509f0355216ffa022b073244e238be0e",
-                            "7114e8baf29d0119ff5ee45586cd3f9f3dafc6199f0c86a1e2600a53e178593a09bc17758211a23ae9738a41b3e3e22f3c2e8ad2ff1c3586560390c1509dfc01",
-                            "b27eb719a1c1db7f5508db0f9f5942edbb755473da13980ab5cc3263f57e1927e9e1191e04b3d5ee459be65221c9fcc33c7b03df462450b8b2de9d6210d62e07"
+                            "7acc594b607e17c7d275b512d2feab0865849f7f2842593a7398f409914a0e91372b3dd8db3ca62c45d1a468330451af82b46873ca98930ff2863faed279da0c",
+                            "63c7f2e54353aacf0e90876be875f68def0c38bf8c3937e0c34560ba035ad9455f630f3a58574c3ab941b44c9ef031e2aeed4ba07f843e5e3d5290f2fd1f0906",
+                            "417c10ea2b723c01e7a0f04a487d8e6484e25d376a05386cff5fa461fe154a128daff256e468dc89e69d0581fd4c5af875eb3cbe0ada2c54ef1cabcc204bf407",
+                            "2756453295179e357d5a533bfd56cbf1bacda088715fea72d3af7566a2b4f24f0878f4d54798e7e15d3d4d94871a5d2fd64c6a0db5e2c6fce275a4401cedc606",
+                            "062e353f2db34f825925f034859a8ee51d1add6311944fef339de85a35fb27d866f4e5aefc4e87a248e0d14f0a5714f5991b97cb86c3886fe893f7e7f91cb00e"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "9d93288b56b4687abd52b59ebd470518",
-                        "snapshotNumber": 22,
+                        "headId": "d47ef17a7ccc05bf82f0625c1d931a0e",
+                        "snapshotNumber": 27,
                         "utxo": [
-                            -27,
-                            -9,
-                            -6,
-                            1,
-                            7,
-                            8,
-                            9,
-                            16,
-                            27,
-                            30
+                            2,
+                            12
                         ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
+                "headId": "c59608c612d55a0c882abaa18a1c250e",
+                "headParameters": {
+                    "contestationPeriod": 75488,
+                    "parties": [
+                        {
+                            "vkey": "ba2b316673c386efb932066ceafeb187b3c055d8092ed46cc296b56588fb480b"
+                        }
+                    ]
+                },
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "byronAddress": "2RhQhCGqYPDnFEKdSSphE8JHbUqUL62AcCnxXP88TrLwoq4gDm7WYvQJXF2LpAPk9HJpvt1bcKvnNwfTPEtGXHP7BDUjjeHx7bnQPoDLHr3TrB",
-                "tag": "UnsupportedLegacyOutput"
+                "knownUTxO": [
+                    -27,
+                    -23,
+                    -17,
+                    -16,
+                    -13,
+                    -9,
+                    -3,
+                    2,
+                    5,
+                    10,
+                    11,
+                    16,
+                    17,
+                    21,
+                    27
+                ],
+                "tag": "CannotFindOwnInitial"
             },
             "tag": "PostTxError"
         },

@@ -75,7 +75,7 @@ deserializeCommit network Commit{input, preSerializedOutput} =
   case deserialiseOrFail . fromStrict $ fromBuiltin preSerializedOutput of
     Left{} -> Nothing
     Right dat -> do
-      txOut <- fromPlutusTxOut network <$> fromData dat
+      txOut <- fromPlutusTxOut network =<< fromData dat
       pure (fromPlutusTxOutRef input, txOut)
 
 -- TODO: Party is not used on-chain but is needed off-chain while it's still

@@ -137,7 +137,7 @@ healthyOpenHeadTxIn = generateWith arbitrary 42
 healthyOpenHeadTxOut :: TxOut CtxUTxO
 healthyOpenHeadTxOut =
   mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParties
+    & addParticipationTokens healthyParticipants
  where
   headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
@@ -176,9 +176,13 @@ healthyContestationPeriodSeconds = 10
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
+
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-somePartyCardanoVerificationKey = flip generateWith 42 $ do
-  genForParty genVerificationKey <$> elements healthyParties
+somePartyCardanoVerificationKey =
+  elements healthyParticipants `generateWith` 42
 
 healthySigningKeys :: [SigningKey HydraKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]

@@ -9,7 +9,6 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
-import Data.List (intersect)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
@@ -18,10 +17,10 @@ import Hydra.Cardano.Api (
   TxIn,
   UTxO,
   findRedeemerSpending,
-  findTxOutByScript,
   fromPlutusScript,
   genTxIn,
   hashScript,
+  isScriptTxOut,
   lovelaceToValue,
   mkScriptAddress,
   modifyTxOutAddress,
@@ -30,8 +29,10 @@ import Hydra.Cardano.Api (
   toPlutusCurrencySymbol,
   toScriptData,
   txInputSet,
+  txIns',
   txOutValue,
   txOuts',
+  utxoFromTx,
   valueSize,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
@@ -48,46 +49,22 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainState,
-  HasKnownUTxO (getKnownUTxO),
-  HydraContext (..),
-  InitialState (..),
-  OpenState (..),
-  abort,
-  close,
-  closedThreadOutput,
-  collect,
-  commit,
-  ctxHeadParameters,
-  ctxParties,
-  fanout,
-  genChainStateWithTx,
-  genCloseTx,
-  genCollectComTx,
-  genCommit,
-  genCommits,
-  genCommits',
-  genContestTx,
-  genFanoutTx,
-  genHydraContext,
-  genInitTx,
-  genStInitial,
-  getContestationDeadline,
-  getKnownUTxO,
-  initialize,
-  observeAbort,
-  observeClose,
-  observeCollect,
-  observeCommit,
-  observeInit,
-  observeSomeTx,
-  pickChainContext,
-  unsafeCommit,
-  unsafeObserveInitAndCommits,
+import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ClosedState (..), HasKnownUTxO (getKnownUTxO), HydraContext (..), InitialState (..), OpenState (..), abort, closedThreadOutput, commit, ctxHeadParameters, ctxParticipants, ctxParties, genChainStateWithTx, genCloseTx, genCollectComTx, genCommitFor, genCommits, genCommits', genContestTx, genFanoutTx, genHydraContext, genInitTx, genStInitial, getContestationDeadline, getKnownUTxO, initialize, observeClose, observeCollect, observeCommit, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeFanout, unsafeObserveInitAndCommits)
+import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
+  ClosedThreadOutput (closedContesters),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  NotAnInitReason (..),
+  observeCommitTx,
+  observeHeadTx,
+  observeInitTx,
  )
-import Hydra.Chain.Direct.Tx (ClosedThreadOutput (closedContesters), NotAnInit (NotAnInit), NotAnInitReason (..), observeCommitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -119,18 +96,17 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   cover,
-  discard,
   forAll,
   forAllBlind,
+  forAllShow,
   getPositive,
   label,
   sized,
   sublistOf,
   tabulate,
+  (.&&.),
   (.||.),
-  (=/=),
   (===),
-  (==>),
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import Prelude qualified
@@ -144,20 +120,13 @@ spec = parallel $ do
     roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
-    prop "All valid transitions for all possible states can be observed." $
-      checkCoverage $
-        forAll genChainStateWithTx $ \(ctx, st, tx, transition) ->
-          genericCoverTable [transition] $
-            case observeSomeTx ctx st tx of
-              Right{} -> property True
-              Left err ->
-                property False
-                  & counterexample ("observeSomeTx returned an error: " <> show err)
+    prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
     propIsValid forAllInit
 
+    -- XXX: This is testing observeInitTx (we will get rid of 'observeInit')
     it "only proper head is observed" $
       monadicIO $ do
         ctx <- pickBlind (genHydraContext maximumNumberOfParties)
@@ -166,11 +135,13 @@ spec = parallel $ do
         vk <- pickBlind arbitrary
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
-        let tx = initialize cctx (ctxHeadParameters ctx) seedInput
-            originalIsObserved = property $ isRight (observeInit cctx tx)
+        let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
+
+            originalIsObserved = property $ isRight (observeInitTx tx)
+
             -- We expected mutated transaction to still be valid, but not observed.
             mutatedIsValid = property $
               case evaluateTx tx' utxo' of
@@ -178,8 +149,9 @@ spec = parallel $ do
                 Right ok
                   | all isRight ok -> True
                   | otherwise -> False
+
             mutatedIsNotObserved =
-              observeInit cctx tx' === Left expected
+              observeInitTx tx' === Left expected
 
         pure $
           conjoin
@@ -195,15 +167,6 @@ spec = parallel $ do
             ]
             & counterexample cex
             & label (show expected)
-
-    prop "is not observed if not invited" $
-      forAll2 (genHydraContext maximumNumberOfParties) (genHydraContext maximumNumberOfParties) $ \(ctxA, ctxB) ->
-        null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
-          forAll2 (pickChainContext ctxA) (pickChainContext ctxB) $
-            \(cctxA, cctxB) ->
-              forAll genTxIn $ \seedInput ->
-                let tx = initialize cctxA (ctxHeadParameters ctxA) seedInput
-                 in isLeft (observeInit cctxB tx)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
@@ -266,31 +229,31 @@ spec = parallel $ do
     prop "reject committing outputs with byron addresses" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
         pure $
-          case commit ctx stInitial utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
     prop "reject committing outputs with reference scripts" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
         pure $
-          case commit ctx stInitial utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
     prop "reject Commits with more than maxMainnetLovelace Lovelace" $
       monadicST $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial) <- pickBlind $ genStInitial hctx
+        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
         pure $
-          case commit mainnetChainContext stInitial utxo of
+          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
@@ -301,20 +264,30 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllAbort
     propIsValid forAllAbort
 
-    prop "ignore aborts of other heads" $ do
-      let twoDistinctHeads = do
-            ctx <- genHydraContext maximumNumberOfParties
-            (ctx1, st1@InitialState{headId = h1}) <- genStInitial ctx
-            (ctx2, st2@InitialState{headId = h2}) <- genStInitial ctx
-            when (h1 == h2) discard
-            pure ((ctx1, st1), (ctx2, st2))
-      forAll twoDistinctHeads $ \((ctx1, stHead1), (ctx2, stHead2)) ->
-        let observedIn1 = observeAbort stHead1 (abort ctx1 stHead1 mempty)
-            observedIn2 = observeAbort stHead2 (abort ctx2 stHead1 mempty)
-         in conjoin
-              [ observedIn1 =/= Nothing
-              , observedIn2 === Nothing
-              ]
+    -- XXX: This is something we should test for all tx creation functions.
+    -- Maybe extend the forAllXXX generators to work on artificially duplicated,
+    -- compatible UTxOs.
+    prop "can create valid abort transactions for any observed head" $
+      monadicST $ do
+        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
+        ctx <- pickBlind $ pickChainContext hctx
+        -- Generate a head in initialized state
+        (initTx1, seed1) <- pickBlind $ genInitTxWithSeed hctx
+        -- Generate another head in initialized state
+        (initTx2, seed2) <- pickBlind $ genInitTxWithSeed hctx
+        -- Expect to create abort transactions for either head
+        let utxo = getKnownUTxO ctx <> utxoFromTx initTx1 <> utxoFromTx initTx2
+        let propIsValidAbortTx res =
+              case res of
+                Left err -> property False & counterexample ("Failed to create abort: " <> show err)
+                Right tx -> propTransactionEvaluates (tx, utxo)
+        pure $
+          conjoin
+            [ propIsValidAbortTx (abort ctx seed1 utxo mempty)
+                & counterexample "AbortTx of head 1"
+            , propIsValidAbortTx (abort ctx seed2 utxo mempty)
+                & counterexample "AbortTx of head 2"
+            ]
 
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
@@ -336,7 +309,7 @@ spec = parallel $ do
     it "can close & fanout every collected head" $ do
       prop_canCloseFanoutEveryCollect
 
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInit)
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
   genChangeMintingPolicy
  where
@@ -346,7 +319,7 @@ genInitTxMutation seedInput tx =
           ChangeMintingPolicy alwaysSucceedsV2
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
       , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
-      , NotAnInit NotAHeadPolicy
+      , NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to
@@ -373,7 +346,11 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      findTxOutByScript @PlutusScriptV2 utxo initialScript
+      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+
+  resolvedInputs =
+    UTxO.fromPairs $
+      mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
   initialRedeemer =
     fromMaybe (error "not found redeemer") $
@@ -392,6 +369,36 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
 
 -- * Properties
 
+-- | Given any Head protocol state and the transaction corresponding a protocol
+-- transition we should be able to observe this transition correctly even in
+-- presence of other valid Hydra Head protocol states in the used lookup utxo.
+prop_observeAnyTx :: Property
+prop_observeAnyTx =
+  checkCoverage $ do
+    forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
+      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) ->
+        genericCoverTable [transition] $ do
+          let expectedHeadId = chainStateHeadId st
+          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+            NoHeadTx ->
+              False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+            -- NOTE: we don't have the generated headId easily accessible in the initial state
+            Init{} -> transition === Transition.Init
+            Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
+            Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
+            CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+            Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
+            Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
+            Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+ where
+  showTransition (_, _, _, t) = show t
+
+  chainStateHeadId = \case
+    Idle{} -> Nothing
+    Initial InitialState{headId} -> Just headId
+    Open OpenState{headId} -> Just headId
+    Closed ClosedState{headId} -> Just headId
+
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
   let maxParties = 10
@@ -401,19 +408,23 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   txInit <- pickBlind $ genInitTx ctx
   -- Commits
   commits <- pickBlind $ genCommits' (genUTxOSized 1) ctx txInit
-  let (committed, stInitial) = unsafeObserveInitAndCommits cctx txInit commits
+  let (committed, stInitial) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) txInit commits
+  let InitialState{headId = initialHeadId} = stInitial
   -- Collect
   let initialUTxO = fold committed
-  let txCollect = collect cctx stInitial
-  stOpen@OpenState{headId} <- mfail $ snd <$> observeCollect stInitial txCollect
+  let spendableUTxO = getKnownUTxO stInitial
+  let txCollect = unsafeCollect cctx initialHeadId (ctxHeadParameters ctx) initialUTxO spendableUTxO
+  stOpen@OpenState{seedTxIn, headId} <- mfail $ snd <$> observeCollect stInitial txCollect
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
-  let txClose = close cctx stOpen InitialSnapshot{headId, initialUTxO} closeLower closeUpper
+  let closeUTxO = getKnownUTxO stOpen
+      txClose = unsafeClose cctx closeUTxO headId (ctxHeadParameters ctx) InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
   -- Fanout
-  let txFanout = fanout cctx stClosed initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let fanoutUTxO = getKnownUTxO stClosed
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO (Fixture.slotNoFromUTCTime deadline)
 
   -- Properties
   let collectFails =
@@ -463,9 +474,7 @@ propIsValid forAllTx =
     forAllTx $
       \utxo tx -> propTransactionEvaluates (tx, utxo)
 
---
--- QuickCheck Extras
---
+-- * Generators
 
 -- TODO: These forAllXX functions are hard to use and understand. Maybe simple
 -- 'Gen' or functions in 'PropertyM' are better combinable?
@@ -478,14 +487,14 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutput (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx (ctxHeadParameters ctx) seedIn
+        let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
             utxo = UTxO.singleton (seedIn, seedOut) <> getKnownUTxO cctx
          in action utxo tx
               & classify
-                (null (peerVerificationKeys cctx))
+                (null (ctxVerificationKeys ctx))
                 "1 party"
               & classify
-                (not (null (peerVerificationKeys cctx)))
+                (not (null (ctxVerificationKeys ctx)))
                 "2+ parties"
 
 forAllCommit ::
@@ -504,9 +513,10 @@ forAllCommit' ::
 forAllCommit' action = do
   forAllBlind (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAllBlind (genStInitial hctx) $ \(ctx, stInitial) ->
-      forAllBlind genCommit $ \toCommit ->
-        -- TODO: generate script inputs here?
-        let tx = unsafeCommit ctx stInitial toCommit
+      forAllBlind (genCommitFor $ ownVerificationKey ctx) $ \toCommit ->
+        -- TODO: generate script inputs here? <- SB: what script inputs?
+        let InitialState{headId} = stInitial
+            tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit
          in action ctx stInitial toCommit tx
               & classify
                 (null toCommit)
@@ -524,9 +534,10 @@ forAllAbort action = do
     forAll (pickChainContext ctx) $ \cctx ->
       forAllBlind (genInitTx ctx) $ \initTx -> do
         forAllBlind (sublistOf =<< genCommits ctx initTx) $ \commits ->
-          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
+          let (committed, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
               utxo = getKnownUTxO stInitialized <> getKnownUTxO cctx
-           in action utxo (abort cctx stInitialized (fold committed))
+              InitialState{seedTxIn} = stInitialized
+           in action utxo (unsafeAbort cctx seedTxIn utxo (fold committed))
                 & classify
                   (null commits)
                   "Abort immediately, after 0 commits"
@@ -620,6 +631,13 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
+
+-- | Generate an init tx with the used seed TxIn.
+genInitTxWithSeed :: HydraContext -> Gen (Tx, TxIn)
+genInitTxWithSeed ctx = do
+  cctx <- pickChainContext ctx
+  seedTxIn <- genTxIn
+  pure (initialize cctx seedTxIn (ctxParticipants ctx) (ctxHeadParameters ctx), seedTxIn)
 
 -- * Helpers
 

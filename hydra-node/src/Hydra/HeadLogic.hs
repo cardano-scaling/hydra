@@ -40,7 +40,6 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (
   Signature,
   Verified (..),
@@ -48,7 +47,7 @@ import Hydra.Crypto (
   sign,
   verifyMultiSignature,
  )
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -89,6 +88,7 @@ import Hydra.Ledger (
   txId,
  )
 import Hydra.Network.Message (Message (..))
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -107,36 +107,66 @@ onIdleClientInit ::
   Environment ->
   Outcome tx
 onIdleClientInit env =
-  Effects [OnChainEffect{postChainTx = InitTx parameters}]
+  Effects [OnChainEffect{postChainTx = InitTx{participants, headParameters}}]
  where
-  parameters =
+  headParameters =
     HeadParameters
       { contestationPeriod
       , parties = party : otherParties
       }
 
-  Environment{party, otherParties, contestationPeriod} = env
+  Environment{party, otherParties, contestationPeriod, participants} = env
 
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.
 --
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
+  Environment ->
   -- | New chain state.
   ChainStateType tx ->
-  [Party] ->
-  ContestationPeriod ->
   HeadId ->
+  HeadSeed ->
+  HeadParameters ->
+  [OnChainId] ->
   Outcome tx
-onIdleChainInitTx newChainState parties contestationPeriod headId =
-  StateChanged
-    ( HeadInitialized
-        { parameters = HeadParameters{contestationPeriod, parties}
-        , chainState = newChainState
-        , headId
-        }
-    )
-    <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing headId (fromList parties)]
+onIdleChainInitTx env newChainState headId headSeed headParameters participants
+  | configuredParties == initializedParties
+      && party `member` initializedParties
+      && configuredContestationPeriod == contestationPeriod
+      && Set.fromList configuredParticipants == Set.fromList participants =
+      StateChanged
+        ( HeadInitialized
+            { parameters = headParameters
+            , chainState = newChainState
+            , headId
+            , headSeed
+            }
+        )
+        <> Effects [ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties}]
+  | otherwise =
+      Effects
+        [ ClientEffect $
+            ServerOutput.IgnoredHeadInitializing
+              { headId
+              , contestationPeriod
+              , parties
+              , participants
+              }
+        ]
+ where
+  initializedParties = Set.fromList parties
+
+  configuredParties = Set.fromList (party : otherParties)
+
+  HeadParameters{parties, contestationPeriod} = headParameters
+
+  Environment
+    { party
+    , otherParties
+    , contestationPeriod = configuredContestationPeriod
+    , participants = configuredParticipants
+    } = env
 
 -- | Observe a commit transaction and record the committed UTxO in the state.
 -- Also, if this is the last commit to be observed, post a collect-com
@@ -160,20 +190,25 @@ onInitialChainCommitTx st newChainState pt utxo =
           : [postCollectCom | canCollectCom]
       )
  where
-  newCommitted = Map.insert pt utxo committed
-
-  notifyClient = ClientEffect $ ServerOutput.Committed headId pt utxo
+  notifyClient = ClientEffect $ ServerOutput.Committed{headId, party = pt, utxo}
 
   postCollectCom =
     OnChainEffect
-      { postChainTx = CollectComTx $ fold newCommitted
+      { postChainTx =
+          CollectComTx
+            { utxo = fold newCommitted
+            , headId
+            , headParameters = parameters
+            }
       }
 
   canCollectCom = null remainingParties
 
   remainingParties = Set.delete pt pendingCommits
 
-  InitialState{pendingCommits, committed, headId} = st
+  newCommitted = Map.insert pt utxo committed
+
+  InitialState{pendingCommits, committed, headId, parameters} = st
 
 -- | Client request to abort the head. This leads to an abort transaction on
 -- chain, reimbursing already committed UTxOs.
@@ -184,9 +219,9 @@ onInitialClientAbort ::
   InitialState tx ->
   Outcome tx
 onInitialClientAbort st =
-  Effects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed}}]
+  Effects [OnChainEffect{postChainTx = AbortTx{utxo = fold committed, headSeed}}]
  where
-  InitialState{committed} = st
+  InitialState{committed, headSeed} = st
 
 -- | Observe an abort transaction by switching the state and notifying clients
 -- about it.
@@ -534,11 +569,11 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  Effects [OnChainEffect{postChainTx = CloseTx confirmedSnapshot}]
+  Effects [OnChainEffect{postChainTx = CloseTx headId parameters confirmedSnapshot}]
  where
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState} = st
+  OpenState{coordinatedHeadState, headId, parameters} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -559,7 +594,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     <> Effects
       ( notifyClient
           : [ OnChainEffect
-              { postChainTx = ContestTx{confirmedSnapshot}
+              { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}
               }
             | doContest
             ]
@@ -578,7 +613,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
-  OpenState{headId, coordinatedHeadState} = openState
+  OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -592,7 +627,7 @@ onClosedChainContestTx closedState snapshotNumber
   | snapshotNumber < number (getSnapshot confirmedSnapshot) =
       Effects
         [ ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}
-        , OnChainEffect{postChainTx = ContestTx{confirmedSnapshot}}
+        , OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}}
         ]
   | snapshotNumber > number (getSnapshot confirmedSnapshot) =
       -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -601,7 +636,7 @@ onClosedChainContestTx closedState snapshotNumber
   | otherwise =
       Effects [ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}]
  where
-  ClosedState{confirmedSnapshot, headId} = closedState
+  ClosedState{parameters = headParameters, confirmedSnapshot, headId} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
@@ -614,13 +649,13 @@ onClosedClientFanout closedState =
   Effects
     [ OnChainEffect
         { postChainTx =
-            FanoutTx{utxo, contestationDeadline}
+            FanoutTx{utxo, headSeed, contestationDeadline}
         }
     ]
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
 
-  ClosedState{confirmedSnapshot, contestationDeadline} = closedState
+  ClosedState{headSeed, confirmedSnapshot, contestationDeadline} = closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -655,16 +690,19 @@ update ::
 update env ledger st ev = case (st, ev) of
   (Idle _, ClientEvent Init) ->
     onIdleClientInit env
-  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, contestationPeriod, parties}, newChainState}) ->
-    onIdleChainInitTx newChainState parties contestationPeriod headId
-  (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
-    onInitialChainCommitTx initialState newChainState pt utxo
+  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
+    onIdleChainInitTx env newChainState headId headSeed headParameters participants
+  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
+    | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
-  (Initial initialState, OnChainEvent Observation{observedTx = OnCollectComTx{}, newChainState}) ->
-    onInitialChainCollectTx initialState newChainState
-  (Initial InitialState{headId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{}, newChainState}) ->
-    onInitialChainAbortTx newChainState committed headId
+  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCollectComTx{headId}, newChainState})
+    | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Initial InitialState{headId = ourHeadId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{headId}, newChainState})
+    | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ fold committed]
   -- Open
@@ -696,8 +734,11 @@ update env ledger st ev = case (st, ev) of
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
-  (Closed closedState, OnChainEvent Observation{observedTx = OnContestTx{snapshotNumber}}) ->
-    onClosedChainContestTx closedState snapshotNumber
+  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnContestTx{headId, snapshotNumber}})
+    | ourHeadId == headId ->
+        onClosedChainContestTx closedState snapshotNumber
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         StateChanged
@@ -705,8 +746,11 @@ update env ledger st ev = case (st, ev) of
           <> Effects [ClientEffect $ ServerOutput.ReadyToFanout headId]
   (Closed closedState, ClientEvent Fanout) ->
     onClosedClientFanout closedState
-  (Closed closedState, OnChainEvent Observation{observedTx = OnFanoutTx{}, newChainState}) ->
-    onClosedChainFanoutTx closedState newChainState
+  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnFanoutTx{headId}, newChainState})
+    | ourHeadId == headId ->
+        onClosedChainFanoutTx closedState newChainState
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
   (_, OnChainEvent Rollback{rolledBackChainState}) ->
     StateChanged ChainRolledBack{chainState = rolledBackChainState}
@@ -724,7 +768,7 @@ update env ledger st ev = case (st, ev) of
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, chainState} ->
+  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
     Initial
       InitialState
         { parameters = parameters
@@ -732,10 +776,11 @@ aggregate st = \case
         , committed = mempty
         , chainState
         , headId
+        , headSeed
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
     case st of
-      Initial InitialState{parameters, pendingCommits, committed, headId} ->
+      Initial InitialState{parameters, pendingCommits, committed, headId, headSeed} ->
         Initial
           InitialState
             { parameters
@@ -743,6 +788,7 @@ aggregate st = \case
             , committed = newCommitted
             , chainState
             , headId
+            , headSeed
             }
        where
         newCommitted = Map.insert party committedUTxO committed
@@ -824,6 +870,7 @@ aggregate st = \case
               { confirmedSnapshot
               }
           , headId
+          , headSeed
           } ->
           Closed
             ClosedState
@@ -833,6 +880,7 @@ aggregate st = \case
               , readyToFanoutSent = False
               , chainState
               , headId
+              , headSeed
               }
       _otherState -> st
   HeadFannedOut{chainState} ->
@@ -845,7 +893,7 @@ aggregate st = \case
       _otherState -> st
   HeadOpened{chainState, initialUTxO} ->
     case st of
-      Initial InitialState{parameters, headId} ->
+      Initial InitialState{parameters, headId, headSeed} ->
         Open
           OpenState
             { parameters
@@ -859,6 +907,7 @@ aggregate st = \case
                   }
             , chainState
             , headId
+            , headSeed
             , currentSlot = chainStateSlot chainState
             }
       _otherState -> st

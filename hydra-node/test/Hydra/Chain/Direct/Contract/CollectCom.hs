@@ -10,6 +10,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -25,15 +26,17 @@ import Hydra.Chain.Direct.Fixture (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
-  InitialThreadOutput (..),
-  assetNameFromVerificationKey,
   collectComTx,
   hydraHeadV1AssetName,
   mkCommitDatum,
   mkHeadId,
   mkHeadOutput,
   mkInitialOutput,
+  onChainIdToAssetName,
+  verificationKeyToOnChainId,
  )
+import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
@@ -43,20 +46,14 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano (
-  genAdaOnlyUTxO,
-  genAddressInEra,
-  genUTxOAdaOnlyOfSize,
-  genVerificationKey,
- )
+import Hydra.Ledger.Cardano (genAddressInEra, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, partyToChain)
 import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
-import Prelude qualified
 
 --
 -- CollectComTx
@@ -66,9 +63,12 @@ healthyCollectComTx :: (Tx, UTxO)
 healthyCollectComTx =
   (tx, lookupUTxO)
  where
+  commitOutputs = txOut <$> healthyCommits
+  committedUTxO = foldMap committed $ Map.elems healthyCommits
+
   lookupUTxO =
     UTxO.singleton (healthyHeadTxIn, healthyHeadTxOut)
-      <> UTxO (txOut <$> healthyCommits)
+      <> UTxO commitOutputs
       <> registryUTxO scriptRegistry
 
   tx =
@@ -76,34 +76,38 @@ healthyCollectComTx =
       testNetworkId
       scriptRegistry
       somePartyCardanoVerificationKey
-      initialThreadOutput
-      (txOut <$> healthyCommits)
       (mkHeadId testPolicyId)
+      parameters
+      (healthyHeadTxIn, healthyHeadTxOut)
+      commitOutputs
+      committedUTxO
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
-  somePartyCardanoVerificationKey = flip generateWith 42 $ do
-    genForParty genVerificationKey <$> elements healthyParties
+  somePartyCardanoVerificationKey = elements healthyParticipants `generateWith` 42
 
-  initialThreadOutput =
-    InitialThreadOutput
-      { initialThreadUTxO = (healthyHeadTxIn, healthyHeadTxOut)
-      , initialParties = healthyOnChainParties
-      , initialContestationPeriod = healthyContestationPeriod
+  parameters =
+    HeadParameters
+      { parties = healthyParties
+      , contestationPeriod = healthyContestationPeriod
       }
+
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
 
 healthyCommits :: Map TxIn HealthyCommit
 healthyCommits =
-  (uncurry healthyCommitOutput <$> zip healthyParties healthyCommittedUTxO)
-    & Map.fromList
+  Map.fromList
+    <$> flip generateWith 42
+    $ mapM createHealthyCommit
+    $ zip healthyParticipants healthyParties
+ where
+  createHealthyCommit (vk, party) = do
+    utxo <- genUTxOAdaOnlyOfSize =<< choose (0, 5)
+    pure $ healthyCommitOutput (verificationKeyToOnChainId vk) party utxo
 
-healthyCommittedUTxO :: [UTxO]
-healthyCommittedUTxO =
-  flip generateWith 42 $
-    replicateM (length healthyParties) $
-      genUTxOAdaOnlyOfSize =<< choose (0, 5)
-
-healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
@@ -121,7 +125,7 @@ healthyHeadTxOut =
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
-    { contestationPeriod = healthyContestationPeriod
+    { contestationPeriod = ContestationPeriod.toChain healthyContestationPeriod
     , parties = healthyOnChainParties
     , headId = toPlutusCurrencySymbol testPolicyId
     , seed = toPlutusTxOutRef testSeedInput
@@ -138,31 +142,28 @@ healthyParties = flip generateWith 42 $ do
   carol <- arbitrary
   pure [alice, bob, carol]
 
-genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
-genCommittableTxOut =
-  Prelude.head . UTxO.pairs <$> (genAdaOnlyUTxO `suchThat` (\u -> length u > 1))
-
 data HealthyCommit = HealthyCommit
-  { cardanoKey :: VerificationKey PaymentKey
+  { participant :: OnChainId
   , txOut :: TxOut CtxUTxO
+  , committed :: UTxO
   }
   deriving stock (Show)
 
 healthyCommitOutput ::
+  OnChainId ->
   Party ->
   UTxO ->
   (TxIn, HealthyCommit)
-healthyCommitOutput party committed =
+healthyCommitOutput participant party committed =
   ( txIn
   , HealthyCommit
-      { cardanoKey
+      { participant
       , txOut = toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatumInline commitDatum) ReferenceScriptNone)
+      , committed
       }
   )
  where
   txIn = genTxIn `genForParty` party
-
-  cardanoKey = genVerificationKey `genForParty` party
 
   commitScript =
     fromPlutusScript Commit.validatorScript
@@ -171,7 +172,7 @@ healthyCommitOutput party committed =
   commitValue =
     foldMap txOutValue committed
       <> valueFromList
-        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoKey), 1)
+        [ (AssetId testPolicyId (onChainIdToAssetName participant), 1)
         ]
   commitDatum =
     mkCommitDatum party committed (toPlutusCurrencySymbol $ headPolicyId healthyHeadTxIn)
@@ -239,9 +240,8 @@ genCollectComMutation (tx, _utxo) =
         -- the value, but not in the datum. This is not allowed by the protocol
         -- prior to this transaction.
         illedHeadResolvedInput <-
-          mkHeadOutput
-            <$> pure testNetworkId
-            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+          mkHeadOutput testNetworkId
+            <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -252,12 +252,12 @@ genCollectComMutation (tx, _utxo) =
         -- where we do pretend to have collected every commit, but we just
         -- changed one back to be an initial. This should be caught by the
         -- initial validator.
-        (txIn, HealthyCommit{cardanoKey}) <- elements $ Map.toList healthyCommits
+        (txIn, HealthyCommit{participant}) <- elements $ Map.toList healthyCommits
         pure $
           Changes
             [ ChangeInput
                 txIn
-                (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput cardanoKey)
+                (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput participant)
                 (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
             , AddScript $ fromPlutusScript Initial.validatorScript
             ]

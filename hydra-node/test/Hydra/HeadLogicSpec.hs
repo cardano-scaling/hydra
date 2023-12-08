@@ -12,6 +12,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -27,7 +28,6 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
 import Hydra.Crypto qualified as Crypto
-import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -35,6 +35,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   InitialState (..),
   LogicError (..),
   OpenState (..),
@@ -48,6 +49,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
+import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -57,7 +59,8 @@ import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -74,6 +77,7 @@ spec =
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
+            , participants = deriveOnChainId <$> threeParties
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -354,9 +358,9 @@ spec =
         update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
       it "everyone does collect on last commit after collect com" $ do
-        let aliceCommit = OnCommitTx alice (utxoRef 1)
-            bobCommit = OnCommitTx bob (utxoRef 2)
-            carolCommit = OnCommitTx carol (utxoRef 3)
+        let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
+            bobCommit = OnCommitTx testHeadId bob (utxoRef 2)
+            carolCommit = OnCommitTx testHeadId carol (utxoRef 3)
         waitingForLastCommit <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observeEventAtSlot 1 aliceCommit)
@@ -372,20 +376,20 @@ spec =
       it "cannot observe abort after collect com" $ do
         afterCollectCom <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent OnCollectComTx)
+            step (observationEvent $ OnCollectComTx testHeadId)
             getState
 
-        let invalidEvent = observationEvent OnAbortTx
+        let invalidEvent = observationEvent OnAbortTx{headId = testHeadId}
         update bobEnv ledger afterCollectCom invalidEvent
           `shouldBe` Error (InvalidEvent invalidEvent afterCollectCom)
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent OnAbortTx)
+            step (observationEvent OnAbortTx{headId = testHeadId})
             getState
 
-        let invalidEvent = observationEvent OnCollectComTx
+        let invalidEvent = observationEvent (OnCollectComTx testHeadId)
         update bobEnv ledger afterAbort invalidEvent
           `shouldBe` Error (InvalidEvent invalidEvent afterAbort)
 
@@ -424,7 +428,8 @@ spec =
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
             closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
-            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
+            contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
         runEvents bobEnv ledger s0 $ do
           o1 <- step closeTxEvent
           lift $ o1 `hasEffect` contestTxEffect
@@ -438,24 +443,39 @@ spec =
         let snapshot2 = testSnapshot 2 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
-            contestSnapshot1Event = observationEvent $ OnContestTx 1
-            contestTxEffect = chainEffect $ ContestTx latestConfirmedSnapshot
+            contestSnapshot1Event = observationEvent $ OnContestTx testHeadId 1
+            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
+            contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
             s1 = update bobEnv ledger s0 contestSnapshot1Event
         s1 `hasEffect` contestTxEffect
         assertEffects s1
 
-      it "ignores closeTx for another head" $ do
-        let otherHeadId = HeadId "other head"
-        let openState = inOpenState threeParties ledger
-        let closeOtherHead =
-              observationEvent $
-                OnCloseTx
-                  { headId = otherHeadId
-                  , snapshotNumber = 1
-                  , contestationDeadline = generateWith arbitrary 42
-                  }
+      it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
+      prop "ignores abortTx of another head" $ \otherHeadId -> do
+        let abortOtherHead = observationEvent $ OnAbortTx{headId = otherHeadId}
+        update bobEnv ledger (inInitialState threeParties) abortOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores collectComTx of another head" $ \otherHeadId -> do
+        let collectOtherHead = observationEvent $ OnCollectComTx{headId = otherHeadId}
+        update bobEnv ledger (inInitialState threeParties) collectOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
+        let openState = inOpenState threeParties ledger
+        let closeOtherHead = observationEvent $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
         update bobEnv ledger openState closeOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber -> do
+        let contestOtherHead = observationEvent $ OnContestTx{headId = otherHeadId, snapshotNumber}
+        update bobEnv ledger (inClosedState threeParties) contestOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores fanoutTx of another head" $ \otherHeadId -> do
+        let collectOtherHead = observationEvent $ OnFanoutTx{headId = otherHeadId}
+        update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
     describe "Coordinated Head Protocol using real Tx" $
@@ -476,7 +496,7 @@ spec =
             st0 =
               Open
                 OpenState
-                  { parameters = HeadParameters cperiod threeParties
+                  { parameters = HeadParameters defaultContestationPeriod threeParties
                   , coordinatedHeadState =
                       CoordinatedHeadState
                         { localUTxO = UTxO.singleton utxo
@@ -487,6 +507,7 @@ spec =
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
+                  , headSeed = testHeadSeed
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
 
@@ -503,6 +524,71 @@ spec =
                 CoordinatedHeadState{localTxs}
               } -> null localTxs
           _ -> False
+
+-- * Properties
+
+prop_ignoresUnrelatedOnInitTx :: Property
+prop_ignoresUnrelatedOnInitTx =
+  forAll arbitrary $ \env ->
+    forAll (genUnrelatedInit env) $ \unrelatedInit -> do
+      let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
+      counterexample ("Outcome: " <> show outcome) $
+        outcome
+          `hasEffectSatisfying` \case
+            ClientEffect IgnoredHeadInitializing{} -> True
+            _ -> False
+ where
+  genUnrelatedInit env =
+    oneof
+      [ genOnInitWithDifferentContestationPeriod env
+      , genOnInitWithoutParty env
+      , genOnInitWithoutOnChainId env
+      ]
+
+  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod, participants} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    cp <- arbitrary `suchThat` (/= contestationPeriod)
+    parties <- shuffle =<< (arbitrary <&> (party :))
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod = cp, parties}
+        , participants
+        }
+
+  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod, participants} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    allParties <- shuffle (party : otherParties)
+    toRemove <- elements allParties
+    let differentParties = List.delete toRemove allParties
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod, parties = differentParties}
+        , participants
+        }
+
+  genOnInitWithoutOnChainId Environment{party, otherParties, contestationPeriod, participants} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    differentParticipants <- case participants of
+      [] -> (: []) <$> arbitrary
+      ps -> do
+        toRemove <- elements participants
+        pure $ List.delete toRemove ps
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+        , participants = differentParticipants
+        }
+
+-- * Utilities
 
 runEvents :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
 runEvents env ledger headState = (`evalStateT` StepState{env, ledger, headState})
@@ -539,6 +625,11 @@ observationEvent observedTx =
           }
     }
 
+inIdleState :: HeadState SimpleTx
+inIdleState =
+  Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+
+-- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
   Initial
@@ -548,10 +639,12 @@ inInitialState parties =
       , committed = mempty
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
+      , headSeed = testHeadSeed
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
+-- XXX: This is always called with threeParties and simpleLedger
 inOpenState ::
   [Party] ->
   Ledger SimpleTx ->
@@ -580,13 +673,15 @@ inOpenState' parties coordinatedHeadState =
       , coordinatedHeadState
       , chainState = SimpleChainState{slot = chainSlot}
       , headId = testHeadId
+      , headSeed = testHeadSeed
       , currentSlot = chainSlot
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
   chainSlot = ChainSlot 0
 
+-- XXX: This is always called with 'threeParties'
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
@@ -603,9 +698,10 @@ inClosedState' parties confirmedSnapshot =
       , readyToFanoutSent = False
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
+      , headSeed = testHeadSeed
       }
  where
-  parameters = HeadParameters cperiod parties
+  parameters = HeadParameters defaultContestationPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
 
@@ -648,25 +744,22 @@ hasWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO 
 hasWait outcome waitReason = do
   let waits = collectWaits outcome
   unless (waitReason `elem` waits) $
-    Hydra.Prelude.error $
+    failure $
       "No wait matching reason " <> show waitReason
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate = do
   let effects = collectEffects outcome
   unless (any predicate effects) $
-    Hydra.Prelude.error $
+    failure $
       "No effect matching predicate in produced effects: " <> show outcome
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying outcome predicate = do
   let effects = collectEffects outcome
   when (any predicate effects) $
-    Hydra.Prelude.error $
+    failure $
       "Found unwanted effect in: " <> show effects
-
-testHeadId :: HeadId
-testHeadId = HeadId "1234"
 
 testSnapshot ::
   SnapshotNumber ->

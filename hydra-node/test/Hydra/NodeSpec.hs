@@ -10,18 +10,9 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (
-  Chain (..),
-  ChainEvent (..),
-  HeadParameters (..),
-  IsChainState,
-  OnChainTx (..),
-  PostChainTx (InitTx),
-  PostTxError (NoSeedInput),
- )
+import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
-import Hydra.HeadId (HeadId (HeadId))
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -49,7 +40,7 @@ import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 
 spec :: Spec
 spec = parallel $ do
@@ -109,12 +100,18 @@ spec = parallel $ do
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
       let events = [ClientEvent Init]
-      (node, getServerOutputs) <- createHydraNode aliceSk [bob, carol] cperiod events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
+      (node, getServerOutputs) <-
+        createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
+          >>= throwExceptionOnPostTx NoSeedInput
+          >>= recordServerOutputs
 
       runToCompletion tracer node
 
       outputs <- getServerOutputs
-      outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters cperiod [alice, bob, carol]) NoSeedInput]
+      let isPostTxOnChainFailed = \case
+            PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+            _ -> False
+      any isPostTxOnChainFailed outputs `shouldBe` True
 
   it "signs snapshot even if it has seen conflicting transactions" $
     failAfter 1 $
@@ -148,7 +145,7 @@ spec = parallel $ do
             >>= recordServerOutputs
         runToCompletion tracer node
 
-        getServerOutputs >>= (`shouldContain` [TxValid{headId = HeadId "1234", transaction = tx1}])
+        getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
 
   describe "Configuration mismatch" $ do
     let defaultEnv =
@@ -156,7 +153,8 @@ spec = parallel $ do
             { party = alice
             , signingKey = aliceSk
             , otherParties = [bob]
-            , contestationPeriod = cperiod
+            , contestationPeriod = defaultContestationPeriod
+            , participants = error "should not be recorded in head state"
             }
         headState = inInitialState [alice, bob]
 
@@ -167,7 +165,7 @@ spec = parallel $ do
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
-              defaultEnv{HeadLogic.contestationPeriod = defaultContestationPeriod}
+              defaultEnv{HeadLogic.contestationPeriod = UnsafeContestationPeriod 42}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
@@ -207,11 +205,11 @@ isReqSn = \case
 
 eventsToOpenHead :: [Event SimpleTx]
 eventsToOpenHead =
-  [ observationEvent $ OnInitTx (HeadId "1234") cperiod [alice, bob, carol]
-  , observationEvent $ OnCommitTx carol (utxoRef 3)
-  , observationEvent $ OnCommitTx bob (utxoRef 2)
-  , observationEvent $ OnCommitTx alice (utxoRef 1)
-  , observationEvent OnCollectComTx
+  [ observationEvent $ OnInitTx testHeadId testHeadSeed headParameters participants
+  , observationEvent $ OnCommitTx testHeadId carol (utxoRef 3)
+  , observationEvent $ OnCommitTx testHeadId bob (utxoRef 2)
+  , observationEvent $ OnCommitTx testHeadId alice (utxoRef 1)
+  , observationEvent $ OnCollectComTx testHeadId
   ]
  where
   observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
@@ -223,6 +221,10 @@ eventsToOpenHead =
             , newChainState = SimpleChainState{slot = ChainSlot 0}
             }
       }
+
+  parties = [alice, bob, carol]
+  headParameters = HeadParameters defaultContestationPeriod parties
+  participants = deriveOnChainId <$> parties
 
 runToCompletion ::
   IsChainState tx =>
@@ -281,11 +283,16 @@ createHydraNode' persistence signingKey otherParties contestationPeriod events =
             , signingKey
             , otherParties
             , contestationPeriod
+            , participants
             }
       , persistence
       }
  where
   party = deriveParty signingKey
+
+  -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine
+  -- as this is a simulated network.
+  participants = deriveOnChainId <$> (party : otherParties)
 
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do

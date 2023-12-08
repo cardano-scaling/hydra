@@ -28,7 +28,6 @@ import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   ChainStateType,
-  HeadParameters (..),
   IsChainState,
   OnChainTx (..),
   PostChainTx (..),
@@ -47,7 +46,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   defaultTTL,
  )
-import Hydra.HeadLogicSpec (testHeadId, testSnapshot)
+import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
@@ -62,10 +61,10 @@ import Hydra.Node (
  )
 import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -181,20 +180,34 @@ spec = parallel $ do
               send n1 Abort
               waitUntil [n1] (CommandFailed Abort)
 
+    it "ignores head initialization of other head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+              -- We expect bob to ignore alice's head which he is not part of
+              -- although bob's configuration would includes alice as a
+              -- peerconfigured)
+              waitMatch n2 $ \case
+                IgnoredHeadInitializing{headId, parties} ->
+                  guard $ headId == testHeadId && parties == fromList [alice]
+                _ -> Nothing
+
     it "outputs committed utxo when client requests it" $
       shouldRunInSim $
-        do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                send n1 Init
-                waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-                simulateCommit chain (alice, utxoRef 1)
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              simulateCommit chain (alice, utxoRef 1)
 
-                waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-                send n2 GetUTxO
+              waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
+              send n2 GetUTxO
 
-                waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
+              waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
@@ -603,7 +616,7 @@ simulatedChainAndNetwork initialChainState = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
-          createAndYieldEvent nodes history localChainState $ OnCommitTx{party, committed}
+          createAndYieldEvent nodes history localChainState $ OnCommitTx{headId = testHeadId, party, committed}
       }
  where
   -- seconds
@@ -677,28 +690,29 @@ createMockNetwork node nodes =
   getNodeId HydraNode{env = Environment{party}} = party
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
--- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
--- announces hard-coded contestationDeadlines.
+-- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
+-- all heads will have the same 'headId' and 'headSeed'.
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
-  InitTx HeadParameters{contestationPeriod, parties} ->
-    OnInitTx{contestationPeriod, parties, headId = testHeadId}
+  InitTx{participants, headParameters} ->
+    OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
   AbortTx{} ->
-    OnAbortTx
-  CollectComTx{} ->
-    OnCollectComTx
-  (CloseTx confirmedSnapshot) ->
+    OnAbortTx{headId = testHeadId}
+  CollectComTx{headId} ->
+    OnCollectComTx{headId}
+  CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot confirmedSnapshot)
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
-  ContestTx{confirmedSnapshot} ->
+  ContestTx{headId, confirmedSnapshot} ->
     OnContestTx
-      { snapshotNumber = number (getSnapshot confirmedSnapshot)
+      { headId
+      , snapshotNumber = number (getSnapshot confirmedSnapshot)
       }
   FanoutTx{} ->
-    OnFanoutTx
+    OnFanoutTx{headId = testHeadId}
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
@@ -775,13 +789,20 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             }
       , env =
           Environment
-            { party = deriveParty signingKey
+            { party
             , signingKey
             , otherParties
             , contestationPeriod = cp
+            , participants
             }
       , persistence
       }
+ where
+  party = deriveParty signingKey
+
+  -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine
+  -- as this is a simulated network.
+  participants = deriveOnChainId <$> (party : otherParties)
 
 openHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->

@@ -85,7 +85,6 @@ spec = do
 -- TODO: we should add more tests for other routes here (eg. /commit)
 apiServerSpec :: Spec
 apiServerSpec = do
-  let webServer = httpApp nullTracer dummyChainHandle defaultPParams
   with (return webServer) $ do
     describe "API should respond correctly" $
       it "GET /protocol-parameters works" $
@@ -99,3 +98,6 @@ apiServerSpec = do
                         else Nothing
                   )
             }
+ where
+  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId
+  getHeadId = pure Nothing

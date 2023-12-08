@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.14.0
+version:       0.15.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -25,6 +25,7 @@ common project-config
     DeriveAnyClass
     DeriveDataTypeable
     DerivingStrategies
+    DuplicateRecordFields
     FunctionalDependencies
     GADTs
     LambdaCase
@@ -69,7 +70,6 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event
-    Hydra.HeadLogic.Heads
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
@@ -97,6 +97,7 @@ library
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
+    Hydra.OnChainId
     Hydra.Options
     Hydra.Party
     Hydra.Persistence

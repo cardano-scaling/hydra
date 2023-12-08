@@ -4,7 +4,7 @@
 module Hydra.Cluster.Scenarios where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude (HUnitFailure, anyException, failure)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
@@ -33,7 +33,6 @@ import Hydra.API.HTTPServer (
   TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
-  BabbageEra,
   File (File),
   Lovelace (..),
   PlutusScriptV2,
@@ -46,16 +45,17 @@ import Hydra.Cardano.Api (
   mkScriptAddress,
   mkTxOutDatumHash,
   mkTxOutDatumInline,
-  mkTxOutValue,
   mkVkAddress,
   selectLovelace,
   signTx,
   toLedgerTx,
   toScriptData,
   writeFileTextEnvelope,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Prelude (ReferenceScript (..), TxOut (..), TxOutDatum (..))
-import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey)
+import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
@@ -98,7 +98,6 @@ import Network.HTTP.Req (
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import Test.Hspec.Expectations (Selector, shouldBe, shouldReturn, shouldThrow)
 import Test.QuickCheck (generate)
 
 data EndToEndLog
@@ -520,7 +519,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
           carolsOutput =
             TxOut
               carolsAddress
-              (mkTxOutValue @BabbageEra $ lovelaceToValue $ Lovelace 2_000_000)
+              (lovelaceToValue $ Lovelace 2_000_000)
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
@@ -612,18 +611,18 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         waitForAllMatch 10 [n1] $
           headIsInitializingWith (Set.fromList [alice, bob])
 
-      let expectedHashes =
-            assetNameFromVerificationKey
+      let expectedParticipants =
+            verificationKeyToOnChainId
               <$> [aliceCardanoVk, carolCardanoVk]
 
       -- We want the client to observe headId being opened without bob (node 2)
       -- being part of it
-      pubKeyHashes <- waitMatch 10 n2 $ \v -> do
+      participants <- waitMatch 10 n2 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "participants" . _JSON
 
-      Set.fromList pubKeyHashes `shouldBe` Set.fromList expectedHashes
+      participants `shouldMatchList` expectedParticipants
 
 -- * Utilities
 
@@ -657,8 +656,8 @@ returnFundsToFaucet tracer =
 headIsInitializingWith :: Set Party -> Value -> Maybe HeadId
 headIsInitializingWith expectedParties v = do
   guard $ v ^? key "tag" == Just "HeadIsInitializing"
-  parties <- v ^? key "parties"
-  guard $ parties == toJSON expectedParties
+  parties <- v ^? key "parties" >>= parseMaybe parseJSON
+  guard $ parties == expectedParties
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
 

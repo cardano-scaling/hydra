@@ -78,7 +78,6 @@ import Hydra.Chain.Direct.State (
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Util (
   readKeyPair,
-  readVerificationKey,
  )
 import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
@@ -107,32 +106,24 @@ loadChainContext ::
   ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
-  -- | Other configured parties
-  [Party] ->
   -- | Transaction id at which to look for Hydra scripts.
   TxId ->
   IO ChainContext
-loadChainContext config party otherParties hydraScriptsTxId = do
+loadChainContext config party hydraScriptsTxId = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   pure $
     ChainContext
       { networkId
-      , peerVerificationKeys = otherCardanoKeys
       , ownVerificationKey = vk
       , ownParty = party
-      , otherParties
       , scriptRegistry
-      , contestationPeriod
       }
  where
   DirectChainConfig
     { networkId
     , nodeSocket
     , cardanoSigningKey
-    , cardanoVerificationKeys
-    , contestationPeriod
     } = config
 
 mkTinyWallet ::
@@ -182,7 +173,6 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
 
   let getTimeHandle = queryTimeHandle networkId nodeSocket
   localChainState <- newLocalChainState chainStateHistory
-
   let chainHandle =
         mkChain
           tracer

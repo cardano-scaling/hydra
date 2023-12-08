@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
-  CardanoEra (..),
   CardanoMode,
   ChainPoint,
   ChainSyncClient,
@@ -36,8 +35,7 @@ import Hydra.Chain.Direct.Tx (
   ContestObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
-  RawInitObservation (..),
-  mkHeadId,
+  InitObservation (..),
   observeHeadTx,
  )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
@@ -169,7 +167,7 @@ observeTx networkId utxo tx =
   let utxo' = adjustUTxO tx utxo
    in case observeHeadTx networkId utxo tx of
         NoHeadTx -> (utxo, Nothing)
-        Init RawInitObservation{headId} -> (utxo', pure $ HeadInitTx{headId = mkHeadId headId})
+        Init InitObservation{headId} -> (utxo', pure $ HeadInitTx{headId})
         Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
         CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
         Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})

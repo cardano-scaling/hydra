@@ -27,10 +27,9 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
-import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   Chain (Chain),
-  PostChainTx (CloseTx),
+  PostChainTx (..),
   PostTxError (NoSeedInput),
   confirmedSnapshot,
   draftCommitTx,
@@ -38,9 +37,8 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.HeadId (HeadId (HeadId))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
@@ -49,7 +47,7 @@ import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremen
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
-import Test.Hydra.Fixture (alice)
+import Test.Hydra.Fixture (alice, testHeadId)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -207,6 +205,7 @@ spec = describe "ServerSpec" $
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
             tx :: SimpleTx <- generate arbitrary
             generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
+            headParameters <- generate arbitrary
 
             let Snapshot{headId} = generatedSnapshot
             -- The three server output message types which contain transactions
@@ -218,11 +217,14 @@ spec = describe "ServerSpec" $
                     , snapshot = sn
                     , signatures = mempty
                     }
+
             let postTxFailedMessage =
                   PostTxOnChainFailed
                     { postChainTx =
                         CloseTx
-                          { confirmedSnapshot =
+                          { headId
+                          , headParameters
+                          , confirmedSnapshot =
                               ConfirmedSnapshot
                                 { Hydra.Snapshot.snapshot = sn
                                 , Hydra.Snapshot.signatures = mempty
@@ -270,7 +272,7 @@ spec = describe "ServerSpec" $
             snapshot <- generate arbitrary
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
-                    { headId = HeadId "some-head-id"
+                    { headId = testHeadId
                     , Hydra.API.ServerOutput.snapshot
                     , Hydra.API.ServerOutput.signatures = mempty
                     }
@@ -322,7 +324,10 @@ spec = describe "ServerSpec" $
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
-            headIsOpenMsg <- generate $ HeadIsOpen <$> arbitrary <*> arbitrary
+            (headId, headIsOpenMsg) <- generate $ do
+              headId <- arbitrary
+              output <- HeadIsOpen headId <$> arbitrary
+              pure (headId, output)
             snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
               generateSnapshot
 
@@ -333,7 +338,7 @@ spec = describe "ServerSpec" $
 
             snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
               generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout $ ServerOutput.headId headIsOpenMsg
+            let readyToFanoutMsg = ReadyToFanout{headId}
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do

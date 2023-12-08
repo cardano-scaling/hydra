@@ -13,30 +13,26 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
-import Data.ByteString qualified as BS
 import Data.List (nub)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   CtxUTxO,
-  HasTypeProxy (..),
   Lovelace (..),
-  SerialiseAsRawBytes,
   Tx,
   TxOut,
   UTxO',
-  UsingRawBytesHex (..),
   WitCtxTxIn,
   Witness,
  )
-import Hydra.Cardano.Api.Prelude (SerialiseAsRawBytes (..))
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
-import Test.QuickCheck (scale, suchThat, vectorOf)
+import Test.QuickCheck (scale, suchThat)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -67,12 +63,12 @@ instance Arbitrary HeadParameters where
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
-  = InitTx {headParameters :: HeadParameters}
-  | AbortTx {utxo :: UTxOType tx}
-  | CollectComTx {utxo :: UTxOType tx}
-  | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | ContestTx {confirmedSnapshot :: ConfirmedSnapshot tx}
-  | FanoutTx {utxo :: UTxOType tx, contestationDeadline :: UTCTime}
+  = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
+  | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
+  | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
+  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
+  | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
+  | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -83,27 +79,32 @@ deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 instance IsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
-    InitTx{headParameters} -> InitTx <$> shrink headParameters
-    AbortTx{utxo} -> AbortTx <$> shrink utxo
-    CollectComTx{utxo} -> CollectComTx <$> shrink utxo
-    CloseTx{confirmedSnapshot} -> CloseTx <$> shrink confirmedSnapshot
-    ContestTx{confirmedSnapshot} -> ContestTx <$> shrink confirmedSnapshot
-    FanoutTx{utxo, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink contestationDeadline
+    InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
+    AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
+    CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
+    CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
+    ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
+    FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {headId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnCommitTx {party :: Party, committed :: UTxOType tx}
-  | OnAbortTx
-  | OnCollectComTx
+  = OnInitTx
+      { headId :: HeadId
+      , headSeed :: HeadSeed
+      , headParameters :: HeadParameters
+      , participants :: [OnChainId]
+      }
+  | OnCommitTx {headId :: HeadId, party :: Party, committed :: UTxOType tx}
+  | OnAbortTx {headId :: HeadId}
+  | OnCollectComTx {headId :: HeadId}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
       }
-  | OnContestTx {snapshotNumber :: SnapshotNumber}
-  | OnFanoutTx
+  | OnContestTx {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | OnFanoutTx {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
@@ -117,6 +118,8 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = NoSeedInput
+  | InvalidSeed {headSeed :: HeadSeed}
+  | InvalidHeadId {headId :: HeadId}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
@@ -146,6 +149,11 @@ data PostTxError tx
     FailedToDraftTxNotInitializing
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
     SpendingNodeUtxoForbidden
+  | FailedToConstructAbortTx
+  | FailedToConstructCloseTx
+  | FailedToConstructContestTx
+  | FailedToConstructCollectTx
+  | FailedToConstructFanoutTx
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)
@@ -226,6 +234,7 @@ data Chain tx m = Chain
   -- Does at least throw 'PostTxError'.
   , draftCommitTx ::
       MonadThrow m =>
+      HeadId ->
       UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
       m (Either (PostTxError Tx) Tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
@@ -245,14 +254,6 @@ data ChainEvent tx
       { observedTx :: OnChainTx tx
       , newChainState :: ChainStateType tx
       }
-  | -- | The chain layer ignored a head initialization transaction of given
-    -- HeadId and participants.
-    --
-    -- XXX: This is very specific and assumes that any chain layer would have
-    -- the means (credentials + parameters) and authority to ignore a head
-    -- initialization. Instead, an 'Observation' should not contain a new chain
-    -- state and hence a normal 'OnInitTx' can be used instead of this event.
-    IgnoredInitTx {headId :: HeadId, participants :: [OnChainId]}
   | Rollback
       { rolledBackChainState :: ChainStateType tx
       }
@@ -290,19 +291,3 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
-
--- | Identifier for a Hydra head participant used on-chain.
-newtype OnChainId = OnChainId ByteString
-  deriving (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
-
-instance SerialiseAsRawBytes OnChainId where
-  serialiseToRawBytes (OnChainId bytes) = bytes
-  deserialiseFromRawBytes _ = Right . OnChainId
-
-instance HasTypeProxy OnChainId where
-  data AsType OnChainId = AsOnChainId
-  proxyToAsType _ = AsOnChainId
-
-instance Arbitrary OnChainId where
-  arbitrary = OnChainId . BS.pack <$> vectorOf 16 arbitrary

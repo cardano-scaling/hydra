@@ -95,7 +95,7 @@ healthyClosedHeadTxIn = generateWith arbitrary 42
 healthyClosedHeadTxOut :: TxOut CtxUTxO
 healthyClosedHeadTxOut =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParties
+    & addParticipationTokens healthyParticipants
  where
   headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
 
@@ -161,9 +161,13 @@ healthyClosedUTxO :: UTxO
 healthyClosedUTxO =
   genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
+
 healthyContesterVerificationKey :: VerificationKey PaymentKey
-healthyContesterVerificationKey = flip generateWith 42 $ do
-  genForParty genVerificationKey <$> elements healthyParties
+healthyContesterVerificationKey =
+  elements healthyParticipants `generateWith` 42
 
 healthySigningKeys :: [SigningKey HydraKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]

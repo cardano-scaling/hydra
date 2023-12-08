@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            0.14.0
+version:            0.15.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -88,7 +88,6 @@ library
     , data-default
     , directory
     , filepath
-    , hspec-expectations
     , http-conduit
     , hydra-cardano-api
     , hydra-node

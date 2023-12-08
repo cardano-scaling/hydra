@@ -16,7 +16,6 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  AssetName (..),
   BlockHeader,
   ChainPoint (..),
   Tx,
@@ -33,8 +32,9 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  HeadParameters (..),
   IsChainState,
-  OnChainId (..),
+  OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
@@ -43,27 +43,31 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
-  ChainState (Closed, Idle, Initial, Open),
   ChainStateAt (..),
-  NoObservation (..),
   abort,
   chainSlotFromPoint,
   close,
   collect,
   commit',
   contest,
-  contestationPeriod,
   fanout,
   getKnownUTxO,
   initialize,
-  observeSomeTx,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
-  NotAnInit (..),
-  RawInitObservation (..),
-  mismatchReasonObservation,
-  mkHeadId,
+  AbortObservation (..),
+  CloseObservation (..),
+  ClosedThreadOutput (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  InitObservation (..),
+  headSeedToTxIn,
+  observeHeadTx,
+  txInToHeadSeed,
  )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -71,8 +75,10 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.Ledger (ChainSlot (ChainSlot))
+import Hydra.Ledger (ChainSlot (ChainSlot), UTxOType)
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
@@ -144,41 +150,27 @@ mkChain ::
 mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
-        chainState <- atomically getLatest
+        ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
-          -- FIXME (MB): cardano keys should really not be here (as this
-          -- point they are in the 'chainState' stored in the 'ChainContext')
-          -- . They are only required for the init transaction and ought to
-          -- come from the _client_ and be part of the init request
-          -- altogether. This goes in the direction of 'dynamic heads' where
-          -- participants aren't known upfront but provided via the API.
-          -- Ultimately, an init request from a client would contain all the
-          -- details needed to establish connection to the other peers and
-          -- to bootstrap the init transaction. For now, we bear with it and
-          -- keep the static keys in context.
-          atomically (prepareTxToPost timeHandle wallet ctx chainState tx)
-            >>= finalizeTx wallet ctx chainState mempty
+          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
+            >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , -- Handle that creates a draft commit tx using the user utxo.
       -- Possible errors are handled at the api server level.
-      draftCommitTx = \utxoToCommit -> do
-        chainState <- atomically getLatest
-        case Hydra.Chain.Direct.State.chainState chainState of
-          Initial st -> do
-            walletUtxos <- atomically getUTxO
-            let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
-            let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
-            let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
-            -- prevent trying to spend internal wallet's utxo
-            if null matchedWalletUtxo
-              then
-                sequenceA $
-                  commit' ctx st utxoToCommit
-                    <&> finalizeTx wallet ctx chainState (fst <$> utxoToCommit)
-              else pure $ Left SpendingNodeUtxoForbidden
-          _ -> pure $ Left FailedToDraftTxNotInitializing
+      draftCommitTx = \headId utxoToCommit -> do
+        ChainStateAt{spendableUTxO} <- atomically getLatest
+        walletUtxos <- atomically getUTxO
+        let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
+        let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
+        let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
+        -- prevent trying to spend internal wallet's utxo
+        if null matchedWalletUtxo
+          then
+            traverse (finalizeTx wallet ctx spendableUTxO (fst <$> utxoToCommit)) $
+              commit' ctx headId spendableUTxO utxoToCommit
+          else pure $ Left SpendingNodeUtxoForbidden
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -189,12 +181,12 @@ finalizeTx ::
   MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
-  ChainStateType Tx ->
+  UTxO.UTxO ->
   UTxO.UTxO ->
   Tx ->
   m Tx
-finalizeTx TinyWallet{sign, coverFee} ctx ChainStateAt{chainState} userUTxO partialTx = do
-  let headUTxO = getKnownUTxO ctx <> getKnownUTxO chainState <> userUTxO
+finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
+  let headUTxO = getKnownUTxO ctx <> utxo <> userUTxO
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO (NoFuelUTXOFound :: PostTxError Tx)
@@ -267,6 +259,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
     , onRollForward
     }
  where
+  ChainContext{networkId} = ctx
   LocalChainState{rollback, getLatest, pushNew} = localChainState
 
   onRollBackward :: ChainPoint -> m ()
@@ -295,46 +288,79 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
             callback (Tick{chainTime = utcTime, chainSlot})
 
-    forM_ receivedTxs $ \tx ->
-      maybeObserveSomeTx point tx >>= \case
+    forM_ receivedTxs $
+      maybeObserveSomeTx point >=> \case
         Nothing -> pure ()
         Just event -> callback event
 
   maybeObserveSomeTx point tx = atomically $ do
-    ChainStateAt{chainState} <- getLatest
-    case observeSomeTx ctx chainState tx of
-      Left (NotAnInitTx (NotAnInitForUs (mismatchReasonObservation -> RawInitObservation{headId, headPTsNames}))) ->
-        pure $ Just IgnoredInitTx{headId = mkHeadId headId, participants = asChainId <$> headPTsNames}
-      Left _err -> pure Nothing
-      Right (observedTx, cs') -> do
+    ChainStateAt{spendableUTxO} <- getLatest
+    let observation = observeHeadTx networkId spendableUTxO tx
+    case convertObservation observation of
+      Nothing -> pure Nothing
+      Just observedTx -> do
         let newChainState =
               ChainStateAt
-                { chainState = cs'
+                { spendableUTxO = adjustUTxO tx spendableUTxO
                 , recordedAt = Just point
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}
 
-  asChainId (AssetName bs) = OnChainId bs
+convertObservation :: HeadObservation -> Maybe (OnChainTx Tx)
+convertObservation = \case
+  NoHeadTx -> Nothing
+  Init InitObservation{headId, contestationPeriod, parties, seedTxIn, participants} ->
+    pure
+      OnInitTx
+        { headId
+        , headSeed = txInToHeadSeed seedTxIn
+        , headParameters = HeadParameters{contestationPeriod, parties}
+        , participants
+        }
+  Abort AbortObservation{headId} ->
+    pure OnAbortTx{headId}
+  Commit CommitObservation{headId, party, committed} ->
+    pure OnCommitTx{headId, party, committed}
+  CollectCom CollectComObservation{headId} ->
+    pure OnCollectComTx{headId}
+  Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
+    pure
+      OnCloseTx
+        { headId
+        , snapshotNumber
+        , contestationDeadline = posixToUTCTime closedContestationDeadline
+        }
+  Contest ContestObservation{headId, snapshotNumber} ->
+    pure OnContestTx{headId, snapshotNumber}
+  Fanout FanoutObservation{headId} ->
+    pure OnFanoutTx{headId}
 
 prepareTxToPost ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
   TinyWallet m ->
   ChainContext ->
-  ChainStateType Tx ->
+  -- | Spendable UTxO
+  UTxOType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@ChainStateAt{chainState} tx =
-  case (tx, chainState) of
-    (InitTx params, Idle) ->
+prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
+  case tx of
+    InitTx{participants, headParameters} ->
       getSeedInput wallet >>= \case
         Just seedInput ->
-          pure $ initialize ctx params seedInput
+          pure $ initialize ctx seedInput participants headParameters
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    (AbortTx{utxo}, Initial st) ->
-      pure $ abort ctx st utxo
+    AbortTx{utxo, headSeed} ->
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case abort ctx seedTxIn spendableUTxO utxo of
+            Left _ -> throwIO (FailedToConstructAbortTx @Tx)
+            Right abortTx -> pure abortTx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -342,20 +368,33 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@Chain
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    (CollectComTx{}, Initial st) ->
-      pure $ collect ctx st
-    (CloseTx{confirmedSnapshot}, Open st) -> do
+    CollectComTx{utxo, headId, headParameters} ->
+      case collect ctx headId headParameters utxo spendableUTxO of
+        Left _ -> throwIO (FailedToConstructCollectTx @Tx)
+        Right collectTx -> pure collectTx
+    CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (close ctx st confirmedSnapshot currentSlot upperBound)
-    (ContestTx{confirmedSnapshot}, Closed st) -> do
+      let HeadParameters{contestationPeriod} = headParameters
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
+      case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound of
+        Left _ -> throwIO (FailedToConstructCloseTx @Tx)
+        Right closeTx -> pure closeTx
+    ContestTx{headId, headParameters, confirmedSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
-      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime
-      pure (contest ctx st confirmedSnapshot upperBound)
-    (FanoutTx{utxo, contestationDeadline}, Closed st) -> do
+      let HeadParameters{contestationPeriod} = headParameters
+      upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
+      case contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot upperBound of
+        Left _ -> throwIO (FailedToConstructContestTx @Tx)
+        Right contestTx -> pure contestTx
+    FanoutTx{utxo, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      pure (fanout ctx st utxo deadlineSlot)
-    (_, _) -> throwIO $ InvalidStateToPost{txTried = tx, chainState = cst}
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case fanout ctx spendableUTxO seedTxIn utxo deadlineSlot of
+            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
+            Right fanoutTx -> pure fanoutTx
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft = either (throwSTM . userError . toString) pure
@@ -363,7 +402,7 @@ prepareTxToPost timeHandle wallet ctx@ChainContext{contestationPeriod} cst@Chain
   TimeHandle{currentPointInTime, slotFromUTCTime} = timeHandle
 
   -- See ADR21 for context
-  calculateTxUpperBoundFromContestationPeriod currentTime = do
+  calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod = do
     let effectiveDelay = min (toNominalDiffTime contestationPeriod) maxGraceTime
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime

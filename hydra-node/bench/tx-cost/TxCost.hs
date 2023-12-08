@@ -17,17 +17,15 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
-  ChainContext (contestationPeriod),
   ClosedState (..),
+  InitialState (..),
   OpenState (..),
-  abort,
-  close,
-  collect,
   commit,
-  contest,
+  ctxContestationPeriod,
   ctxHeadParameters,
   ctxHydraSigningKeys,
-  fanout,
+  ctxParticipants,
+  ctxVerificationKeys,
   genCloseTx,
   genCommits,
   genCommits',
@@ -41,6 +39,11 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
+  unsafeAbort,
+  unsafeClose,
+  unsafeCollect,
+  unsafeContest,
+  unsafeFanout,
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano (
@@ -82,7 +85,7 @@ computeInitCost = do
     seedInput <- genTxIn
     seedOutput <- genOutput =<< arbitrary
     let utxo = UTxO.singleton (seedInput, seedOutput)
-    pure (initialize cctx (ctxHeadParameters ctx) seedInput, utxo)
+    pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
 computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCommitCost = do
@@ -106,7 +109,9 @@ computeCommitCost = do
     -- NOTE: number of parties is irrelevant for commit tx
     ctx <- genHydraContextFor 1
     (cctx, stInitial) <- genStInitial ctx
-    pure (commit cctx stInitial utxo, getKnownUTxO stInitial <> getKnownUTxO cctx)
+    let InitialState{headId} = stInitial
+        knownUTxO = getKnownUTxO stInitial <> getKnownUTxO cctx
+    pure (commit cctx headId knownUTxO utxo, knownUTxO)
 
 computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =
@@ -125,8 +130,11 @@ computeCollectComCost =
     cctx <- pickChainContext ctx
     initTx <- genInitTx ctx
     commits <- genCommits' (genUTxOAdaOnlyOfSize 1) ctx initTx
-    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (fold committedUTxOs, collect cctx stInitialized, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    let (committedUTxOs, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
+    let InitialState{headId} = stInitialized
+    let utxoToCollect = fold committedUTxOs
+    let spendableUTxO = getKnownUTxO stInitialized
+    pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
 computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCloseCost = do
@@ -164,7 +172,9 @@ computeContestCost = do
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) utxo (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-    pure (contest cctx stClosed snapshot pointInTime, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    let cp = ctxContestationPeriod ctx
+    let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
+    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime, contestUtxo)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeAbortCost =
@@ -186,8 +196,10 @@ computeAbortCost =
     -- NOTE: Commits are more expensive to abort, so let's use all commits
     commits <- genCommits ctx initTx
     cctx <- pickChainContext ctx
-    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx initTx commits
-    pure (abort cctx stInitialized (fold committed), getKnownUTxO stInitialized <> getKnownUTxO cctx)
+    let (committed, stInitialized) = unsafeObserveInitAndCommits cctx (ctxVerificationKeys ctx) initTx commits
+    let InitialState{seedTxIn} = stInitialized
+    let spendableUTxO = getKnownUTxO stInitialized <> getKnownUTxO cctx
+    pure (unsafeAbort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeFanOutCost = do
@@ -213,15 +225,16 @@ computeFanOutCost = do
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
-    (_committed, stOpen@OpenState{headId}) <- genStOpen ctx
+    (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
     snapshot <- genConfirmedSnapshot headId 1 utxo [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
-    let cp = contestationPeriod cctx
+    let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let closeTx = close cctx stOpen snapshot startSlot closePoint
-    let stClosed = snd . fromJust $ observeClose stOpen closeTx
-    let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
-    pure (utxo, fanout cctx stClosed utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpen closeTx
+        deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+        utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)

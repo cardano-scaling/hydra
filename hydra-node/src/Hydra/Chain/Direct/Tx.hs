@@ -17,7 +17,6 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
@@ -34,7 +33,7 @@ import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.HeadId (HeadId (..))
+import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (addReferenceInputs)
 import Hydra.Ledger.Cardano.Builder (
@@ -49,11 +48,12 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityUpperBound,
   unsafeBuildTransaction,
  )
+import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
-import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, toBuiltin)
+import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
 
@@ -124,23 +124,24 @@ hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
   NetworkId ->
-  -- | All participants cardano keys.
-  [VerificationKey PaymentKey] ->
-  HeadParameters ->
+  -- | Seed input.
   TxIn ->
+  -- | Verification key hashes of all participants.
+  [OnChainId] ->
+  HeadParameters ->
   Tx
-initTx networkId cardanoKeys parameters seedTxIn =
+initTx networkId seedTxIn participants parameters =
   unsafeBuildTransaction $
     emptyTxBody
       & addVkInputs [seedTxIn]
       & addOutputs
         ( mkHeadOutputInitial networkId seedTxIn parameters
-            : map (mkInitialOutput networkId seedTxIn) cardanoKeys
+            : map (mkInitialOutput networkId seedTxIn) participants
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
   participationTokens =
-    [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
+    [(onChainIdToAssetName oid, 1) | oid <- participants]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
@@ -166,13 +167,13 @@ mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, partie
         , seed = toPlutusTxOutRef seedTxIn
         }
 
-mkInitialOutput :: NetworkId -> TxIn -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> TxIn -> OnChainId -> TxOut CtxTx
+mkInitialOutput networkId seedTxIn participant =
   TxOut initialAddress initialValue initialDatum ReferenceScriptNone
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
-    valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
+    valueFromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV2 networkId initialScript
   initialScript =
@@ -252,15 +253,20 @@ collectComTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
+  -- | Head identifier
+  HeadId ->
+  -- | Parameters of the head to collect .
+  HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
-  InitialThreadOutput ->
+  (TxIn, TxOut CtxUTxO) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO) ->
-  -- | Head id
-  HeadId ->
+  -- | UTxO to be used to collect.
+  -- Should match whatever is recorded in the commit inputs.
+  UTxO ->
   Tx
-collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
+collectComTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) commits utxoToCollect =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
@@ -268,11 +274,8 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
-  InitialThreadOutput
-    { initialThreadUTxO = (headInput, initialHeadOutput)
-    , initialParties
-    , initialContestationPeriod
-    } = initialThreadOutput
+  HeadParameters{parties, contestationPeriod} = headParameters
+
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
@@ -289,19 +292,13 @@ collectComTx networkId scriptRegistry vk initialThreadOutput commits headId =
   headDatumAfter =
     mkTxOutDatumInline
       Head.Open
-        { Head.parties = initialParties
+        { Head.parties = partyToChain <$> parties
         , utxoHash
-        , contestationPeriod = initialContestationPeriod
+        , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
 
-  extractCommits txOut =
-    case txOutScriptData (toTxContext txOut) >>= fromScriptData of
-      Nothing -> error "Expected inline commit datum" -- TODO: proper error handling
-      Just ((_, cs, _) :: Commit.DatumType) -> cs
-
-  utxoHash =
-    Head.hashPreSerializedCommits $ foldMap extractCommits commits
+  utxoHash = toBuiltin $ hashUTxO @Tx utxoToCollect
 
   mkCommit commitTxIn = (commitTxIn, commitWitness)
   commitWitness =
@@ -330,6 +327,11 @@ data ClosingSnapshot
         -- and the closeUtxoHash as also included above
         signatures :: MultiSignature (Snapshot Tx)
       }
+
+data CloseTxError
+  = InvalidHeadIdInClose {headId :: HeadId}
+  | CannotFindHeadOutputToClose
+  deriving stock (Show)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
@@ -412,6 +414,15 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
 
+data ContestTxError
+  = InvalidHeadIdInContest {headId :: HeadId}
+  | CannotFindHeadOutputToContest
+  | MissingHeadDatumInContest
+  | MissingHeadRedeemerInContest
+  | WrongDatumInContest
+  | FailedToConvertFromScriptDataInContest
+  deriving stock (Show)
+
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
 -- the close's one. We could potentially refactor this to avoid repetition or do
@@ -487,6 +498,13 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+data FanoutTxError
+  = CannotFindHeadOutputToFanout
+  | MissingHeadDatumInFanout
+  | WrongDatumInFanout
+  | FailedToConvertFromScriptDataInFanout
+  deriving stock (Show)
+
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.
@@ -528,7 +546,9 @@ fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScr
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
 
-data AbortTxError = OverlappingInputs
+data AbortTxError
+  = OverlappingInputs
+  | CannotFindHeadOutputToAbort
   deriving stock (Show)
 
 -- | Create transaction which aborts a head by spending the Head output and all
@@ -618,19 +638,20 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
 -- | Generalised type for arbitrary Head observations on-chain.
 data HeadObservation
   = NoHeadTx
-  | Init RawInitObservation
+  | Init InitObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
+  deriving (Eq, Show)
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
   fromMaybe NoHeadTx $
-    either (const Nothing) (Just . Init) (observeRawInitTx networkId tx)
+    either (const Nothing) (Just . Init) (observeInitTx tx)
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
@@ -638,42 +659,20 @@ observeHeadTx networkId utxo tx =
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
 
--- | Data extracted from a `Tx` that looks like an `InitTx` which could be of
--- interest to us.
-data RawInitObservation = RawInitObservation
-  { headId :: PolicyId
-  , contestationPeriod :: ContestationPeriod
-  , onChainParties :: [OnChain.Party]
-  , seedTxIn :: TxIn
-  , headPTsNames :: [AssetName]
-  , initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initials :: [(TxIn, TxOut CtxUTxO)]
-  }
-  deriving (Show, Eq)
-
--- | An observation for an `InitTx` which our node is a party for.
+-- | Data which can be observed from an `initTx`.
 data InitObservation = InitObservation
-  { threadOutput :: InitialThreadOutput
-  -- ^ The state machine UTxO produced by the Init transaction
-  -- This output should always be present and 'threaded' across all
-  -- transactions.
-  -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-  -- XXX(SN): Data and [OnChain.Party] are overlapping
+  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , initials :: [(TxIn, TxOut CtxUTxO)]
-  , commits :: [(TxIn, TxOut CtxUTxO)]
   , headId :: HeadId
-  , seedTxIn :: TxIn
+  , -- XXX: This is cardano-specific, while headId, parties and
+    -- contestationPeriod are already generic here. Check which is more
+    -- convenient and consistent!
+    seedTxIn :: TxIn
   , contestationPeriod :: ContestationPeriod
   , parties :: [Party]
+  , -- XXX: Improve naming
+    participants :: [OnChainId]
   }
-  deriving stock (Show, Eq)
-
--- | An explanation for a failed tentative `InitTx` observation.
-data NotAnInit
-  = -- | The transaction is definitely not a valid InitTx
-    NotAnInit NotAnInitReason
-  | -- | The transaction /is/ a valid  InitTx but does not match the configuration of our Head.
-    NotAnInitForUs MismatchReason
   deriving stock (Show, Eq)
 
 data NotAnInitReason
@@ -687,69 +686,52 @@ data NotAnInitReason
 instance Arbitrary NotAnInitReason where
   arbitrary = genericArbitrary
 
-data MismatchReason
-  = PartiesMismatch RawInitObservation
-  | OwnPartyMissing RawInitObservation
-  | CPMismatch RawInitObservation
-  | PTsNotMintedCorrectly RawInitObservation
-  deriving (Show, Eq)
-
-mismatchReasonObservation :: MismatchReason -> RawInitObservation
-mismatchReasonObservation = \case
-  PartiesMismatch obs -> obs
-  OwnPartyMissing obs -> obs
-  CPMismatch obs -> obs
-  PTsNotMintedCorrectly obs -> obs
-
-observeRawInitTx ::
-  NetworkId ->
+-- | Identify a init tx by checking the output value for holding tokens that are
+-- valid head tokens (checked by seed + policy).
+observeInitTx ::
   Tx ->
-  Either NotAnInitReason RawInitObservation
-observeRawInitTx networkId tx = do
+  Either NotAnInitReason InitObservation
+observeInitTx tx = do
   -- XXX: Lots of redundant information here
   (ix, headOut, headState) <-
     maybeLeft NoHeadOutput $
-      findFirst headOutput indexedOutputs
+      findFirst matchHeadOutput indexedOutputs
 
   -- check that we have a proper head
-  (headId, contestationPeriod, onChainParties, seedTxIn) <- case headState of
+  (pid, contestationPeriod, onChainParties, seedTxIn) <- case headState of
     (Head.Initial cp ps cid outRef) -> do
-      pure (fromPlutusCurrencySymbol cid, fromChain cp, ps, fromPlutusTxOutRef outRef)
+      pid <- fromPlutusCurrencySymbol cid ?> NotAHeadPolicy
+      pure (pid, fromChain cp, ps, fromPlutusTxOutRef outRef)
     _ -> Left NotAHeadDatum
 
-  let stQuantity = selectAsset (txOutValue headOut) (AssetId headId hydraHeadV1AssetName)
+  let stQuantity = selectAsset (txOutValue headOut) (AssetId pid hydraHeadV1AssetName)
 
   -- check that ST is present in the head output
   unless (stQuantity == 1) $
     Left NoSTFound
 
   -- check that we are using the same seed and headId matches
-  unless (headId == HeadTokens.headPolicyId seedTxIn) $
+  unless (pid == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
   pure $
-    RawInitObservation
-      { headId
-      , contestationPeriod
-      , onChainParties
+    InitObservation
+      { headId = mkHeadId pid
       , seedTxIn
-      , headPTsNames = mintedTokenNames headId
-      , initialThreadUTxO =
-          (mkTxIn tx ix, toCtxUTxOTxOut headOut)
+      , initialThreadUTxO = (mkTxIn tx ix, toCtxUTxOTxOut headOut)
       , initials
+      , contestationPeriod
+      , parties = mapMaybe partyFromChain onChainParties
+      , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
   maybeLeft e = maybe (Left e) Right
 
-  headOutput = \case
-    (ix, out@(TxOut addr _ (TxOutDatumInline d) _)) -> do
-      guard $ addr == headAddress
-      (ix,out,) <$> fromScriptData d
-    _ -> Nothing
+  matchHeadOutput (ix, out) = do
+    guard $ isScriptTxOut headScript out
+    (ix,out,) <$> (fromScriptData =<< txOutScriptData out)
 
-  headAddress =
-    mkScriptAddress @PlutusScriptV2 networkId $
-      fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
@@ -757,87 +739,20 @@ observeRawInitTx networkId tx = do
 
   initials =
     map
-      (\(i, o) -> (mkTxIn tx i, toCtxUTxOTxOut o))
+      (bimap (mkTxIn tx) toCtxUTxOTxOut)
       initialOutputs
 
-  isInitial (TxOut addr _ _ _) = addr == initialAddress
+  isInitial = isScriptTxOut initialScript
 
-  initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
+  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
-  initialScript = fromPlutusScript Initial.validatorScript
-
-  mintedTokenNames headId =
+  mintedTokenNames pid =
     [ assetName
     | (AssetId policyId assetName, q) <- txMintAssets tx
-    , -- NOTE: It is important to check quantity since we want to ensure
-    -- the tokens are unique.
-    q == 1
-    , policyId == headId
+    , q == 1 -- NOTE: Only consider unique tokens
+    , policyId == pid
     , assetName /= hydraHeadV1AssetName
     ]
-
-observeInitTx ::
-  [VerificationKey PaymentKey] ->
-  -- | Our node's contestation period
-  ContestationPeriod ->
-  Party ->
-  [Party] ->
-  RawInitObservation ->
-  Either MismatchReason InitObservation
-observeInitTx cardanoKeys expectedCP party otherParties rawTx = do
-  let offChainParties = concatMap partyFromChain onChainParties
-
-  -- check that configured CP is present in the datum
-  unless (expectedCP == contestationPeriod) $
-    Left (CPMismatch rawTx)
-
-  -- check that our party is present in the datum
-  unless (party `elem` offChainParties) $
-    Left (OwnPartyMissing rawTx)
-
-  -- check that configured parties are matched in the datum
-  unless (containsSameElements offChainParties allConfiguredParties) $
-    Left (PartiesMismatch rawTx)
-
-  -- pub key hashes of all configured participants == the token names of PTs
-  unless (containsSameElements configuredTokenNames headPTsNames) $
-    Left (PTsNotMintedCorrectly rawTx)
-
-  pure
-    InitObservation
-      { threadOutput =
-          InitialThreadOutput
-            { initialThreadUTxO
-            , initialParties = onChainParties
-            , initialContestationPeriod = toChain contestationPeriod
-            }
-      , initials
-      , commits = []
-      , headId = mkHeadId headId
-      , seedTxIn
-      , -- NOTE: we should look into why parties and cp are duplicated in the InitObservation.
-        -- They are included: Once in the InitialThreadOutput in their on-chain form, once in
-        -- InitObservation in their off-chain form and they are also included in the datum of
-        -- the initialThreadUTxO`.. so three times.
-        contestationPeriod
-      , parties = offChainParties
-      }
- where
-  RawInitObservation
-    { headId
-    , contestationPeriod
-    , headPTsNames
-    , onChainParties
-    , seedTxIn
-    , initialThreadUTxO
-    , initials
-    } = rawTx
-
-  allConfiguredParties = party : otherParties
-
-  configuredTokenNames = assetNameFromVerificationKey <$> cardanoKeys
-
-  containsSameElements a b = Set.fromList a == Set.fromList b
 
 -- | Full observation of a commit transaction.
 data CommitObservation = CommitObservation
@@ -847,6 +762,7 @@ data CommitObservation = CommitObservation
   , committed :: UTxO
   , headId :: HeadId
   }
+  deriving (Eq, Show)
 
 -- | Identify a commit tx by:
 --
@@ -891,18 +807,18 @@ observeCommitTx networkId utxo tx = do
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
     pure . UTxO.fromPairs $ committedUTxO
 
+  policyId <- fromPlutusCurrencySymbol headId
   pure
     CommitObservation
       { commitOutput = (commitIn, toUTxOContext commitOut)
       , party
       , committed
-      , headId = mkHeadId $ fromPlutusCurrencySymbol headId
+      , headId = mkHeadId policyId
       }
  where
   isSpendingFromInitial :: Bool
-  isSpendingFromInitial = do
-    let resolvedInputs = mapMaybe (`UTxO.resolve` utxo) $ txIns' tx
-    any (\o -> txOutAddress o == initialAddress) resolvedInputs
+  isSpendingFromInitial =
+    any (\o -> txOutAddress o == initialAddress) (resolveInputsUTxO utxo tx)
 
   initialAddress = mkScriptAddress @PlutusScriptV2 networkId initialScript
 
@@ -927,7 +843,8 @@ observeCollectComTx ::
   Tx ->
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -971,7 +888,8 @@ observeCloseTx ::
   Tx ->
   Maybe CloseObservation
 observeCloseTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -1015,7 +933,8 @@ observeContestTx ::
   Tx ->
   Maybe ContestObservation
 observeContestTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -1041,7 +960,7 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-data FanoutObservation = FanoutObservation {headId :: HeadId}
+newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -1051,7 +970,8 @@ observeFanoutTx ::
   Tx ->
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
@@ -1060,7 +980,7 @@ observeFanoutTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
-data AbortObservation = AbortObservation {headId :: HeadId}
+newtype AbortObservation = AbortObservation {headId :: HeadId} deriving (Eq, Show)
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
@@ -1070,7 +990,8 @@ observeAbortTx ::
   Tx ->
   Maybe AbortObservation
 observeAbortTx utxo tx = do
-  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 utxo headScript
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure $ AbortObservation headId
@@ -1078,14 +999,39 @@ observeAbortTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
--- * Helpers
+-- * Cardano specific identifiers
 
 mkHeadId :: PolicyId -> HeadId
-mkHeadId =
-  HeadId . serialiseToRawBytes
+mkHeadId = UnsafeHeadId . serialiseToRawBytes
 
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
-headIdToCurrencySymbol (HeadId headId) = CurrencySymbol (toBuiltin headId)
+headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
+
+headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
+headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
+
+headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
+headSeedToTxIn (UnsafeHeadSeed bytes) =
+  case Aeson.decodeStrict bytes of
+    Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
+    Just txIn -> pure txIn
+
+txInToHeadSeed :: TxIn -> HeadSeed
+txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
+
+assetNameToOnChainId :: AssetName -> OnChainId
+assetNameToOnChainId (AssetName bs) = UnsafeOnChainId bs
+
+onChainIdToAssetName :: OnChainId -> AssetName
+onChainIdToAssetName = AssetName . serialiseToRawBytes
+
+-- | Derive the 'OnChainId' from a Cardano 'PaymentKey'. The on-chain identifier
+-- is the public key hash as it is also availble to plutus validators.
+verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
+verificationKeyToOnChainId =
+  UnsafeOnChainId . fromBuiltin . getPubKeyHash . toPlutusKeyHash . verificationKeyHash
+
+-- * Helpers
 
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =
@@ -1093,10 +1039,6 @@ headTokensFromValue headTokenScript v =
   | (AssetId pid assetName, q) <- valueToList v
   , pid == scriptPolicyId (PlutusScript headTokenScript)
   ]
-
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-assetNameFromVerificationKey =
-  AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

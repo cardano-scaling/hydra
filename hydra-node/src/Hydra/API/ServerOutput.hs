@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.ServerOutput where
@@ -10,11 +11,13 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, IsChainState, OnChainId, PostChainTx (..), PostTxError)
+import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
 import Hydra.Snapshot (Snapshot (utxo), SnapshotNumber)
@@ -51,7 +54,7 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
 data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
-  | HeadIsInitializing {headId :: HeadId, parties :: Set Party}
+  | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsClosed
@@ -90,7 +93,12 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | IgnoredHeadInitializing {headId :: HeadId, participants :: [OnChainId]}
+  | IgnoredHeadInitializing
+      { headId :: HeadId
+      , contestationPeriod :: ContestationPeriod
+      , parties :: [Party]
+      , participants :: [OnChainId]
+      }
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -242,6 +250,16 @@ data HeadStatus
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
+
+-- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectInitializingHeadId :: Maybe HeadId -> ServerOutput tx -> Maybe HeadId
+projectInitializingHeadId mHeadId = \case
+  HeadIsInitializing{headId} -> Just headId
+  HeadIsOpen{} -> Nothing
+  HeadIsAborted{} -> Nothing
+  _other -> mHeadId
 
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
 projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus

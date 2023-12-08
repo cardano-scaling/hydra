@@ -10,20 +10,15 @@ import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (ChainPointAtGenesis),
+  PaymentKey,
   SlotNo (..),
   Tx,
+  VerificationKey,
   genTxIn,
   getChainPoint,
  )
 
-import Hydra.Chain (
-  ChainEvent (..),
-  HeadParameters,
-  chainStateSlot,
-  currentState,
-  initHistory,
-  maximumNumberOfParties,
- )
+import Hydra.Chain (ChainEvent (..), HeadParameters, OnChainTx (..), chainStateSlot, currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -40,21 +35,25 @@ import Hydra.Chain.Direct.State (
   InitialState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
+  ctxParticipants,
+  ctxVerificationKeys,
   deriveChainContexts,
   genChainStateWithTx,
   genCommit,
   genHydraContext,
+  getKnownUTxO,
   initialChainState,
   initialize,
   observeCommit,
-  observeSomeTx,
   unsafeCommit,
   unsafeObserveInit,
  )
+import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Ledger (
   ChainSlot (..),
  )
+import Hydra.OnChainId (OnChainId)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,
@@ -87,7 +86,7 @@ genTimeHandleWithSlotPastHorizon = do
 
 spec :: Spec
 spec = do
-  describe "chainSyncHanlder" $ do
+  describe "chainSyncHandler" $ do
     prop "roll forward results in Tick events" $
       monadicIO $ do
         (timeHandle, slot) <- pickBlind genTimeHandleWithSlotInsideHorizon
@@ -132,20 +131,27 @@ spec = do
     prop "observes transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (ctx, st, tx, transition) <- pick genChainStateWithTx
+      let utxo = getKnownUTxO st
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (initHistory ChainStateAt{chainState = st, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} ->
               failure "rolled back but expected roll forward."
             Tick{} -> pure ()
-            IgnoredInitTx{} -> pure ()
-            Observation{observedTx} ->
-              when ((fst <$> observeSomeTx ctx st tx) /= Right observedTx) $
-                failure $
-                  show (fst <$> observeSomeTx ctx st tx) <> " /= " <> show observedTx
+            Observation{observedTx} -> do
+              let observedTransition =
+                    case observedTx of
+                      OnInitTx{} -> Transition.Init
+                      OnCommitTx{} -> Transition.Commit
+                      OnAbortTx{} -> Transition.Abort
+                      OnCollectComTx{} -> Transition.Collect
+                      OnCloseTx{} -> Transition.Close
+                      OnContestTx{} -> Transition.Contest
+                      OnFanoutTx{} -> Transition.Fanout
+              observedTransition `shouldBe` transition
 
       let handler =
             chainSyncHandler
@@ -322,7 +328,7 @@ genSequenceOfObservableBlocks = do
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx (ctxHeadParameters ctx)
+    initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
     -- Commit using all contexts
     void $ stepCommits ctx initTx allContexts
   pure (cctx, initialChainState, reverse blks)
@@ -343,10 +349,12 @@ genSequenceOfObservableBlocks = do
 
   stepInit ::
     ChainContext ->
+    [OnChainId] ->
     HeadParameters ->
     StateT [TestBlock] Gen Tx
-  stepInit ctx params = do
-    initTx <- lift $ initialize ctx params <$> genTxIn
+  stepInit ctx participants params = do
+    seedTxIn <- lift genTxIn
+    let initTx = initialize ctx seedTxIn participants params
     initTx <$ putNextBlock initTx
 
   stepCommits ::
@@ -358,17 +366,18 @@ genSequenceOfObservableBlocks = do
     [] ->
       pure []
     ctx : rest -> do
-      stInitialized <- stepCommit ctx initTx
+      stInitialized <- stepCommit ctx (ctxVerificationKeys hydraCtx) initTx
       (stInitialized :) <$> stepCommits hydraCtx initTx rest
 
   stepCommit ::
     ChainContext ->
+    [VerificationKey PaymentKey] ->
     Tx ->
     StateT [TestBlock] Gen InitialState
-  stepCommit ctx initTx = do
-    let stInitial = unsafeObserveInit ctx initTx
+  stepCommit ctx allVerificationKeys initTx = do
+    let stInitial@InitialState{headId} = unsafeObserveInit ctx allVerificationKeys initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx stInitial utxo
+    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 

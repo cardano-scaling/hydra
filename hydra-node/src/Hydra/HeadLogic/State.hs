@@ -4,14 +4,16 @@
 
 module Hydra.HeadLogic.State where
 
+import Hydra.Prelude
+
 import Data.Map qualified as Map
 import Hydra.Chain (ChainStateType, HeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, Signature, SigningKey)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
+import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Prelude
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
 data Environment = Environment
@@ -21,6 +23,8 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey HydraKey
   , otherParties :: [Party]
+  , -- XXX: Improve naming
+    participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   }
   deriving stock (Show)
@@ -29,8 +33,16 @@ instance Arbitrary Environment where
   arbitrary = do
     signingKey <- arbitrary
     otherParties <- arbitrary
+    participants <- arbitrary
     contestationPeriod <- arbitrary
-    pure $ Environment{signingKey, party = deriveParty signingKey, otherParties, contestationPeriod}
+    pure $
+      Environment
+        { signingKey
+        , party = deriveParty signingKey
+        , otherParties
+        , contestationPeriod
+        , participants
+        }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -96,6 +108,7 @@ data InitialState tx = InitialState
   , committed :: Committed tx
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , headSeed :: HeadSeed
   }
   deriving stock (Generic)
 
@@ -108,6 +121,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx)
   arbitrary = do
     InitialState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -127,6 +141,7 @@ data OpenState tx = OpenState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , currentSlot :: ChainSlot
+  , headSeed :: HeadSeed
   }
   deriving stock (Generic)
 
@@ -139,6 +154,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
   arbitrary =
     OpenState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -218,6 +234,7 @@ data ClosedState tx = ClosedState
   -- 'ReadyToFanout'.
   , chainState :: ChainStateType tx
   , headId :: HeadId
+  , headSeed :: HeadSeed
   }
   deriving stock (Generic)
 
@@ -230,6 +247,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
   arbitrary =
     ClosedState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

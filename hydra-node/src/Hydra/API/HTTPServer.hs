@@ -33,6 +33,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Types (status200, status400, status500)
@@ -150,8 +151,10 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
+  -- | A means to get the 'HeadId' if initializing the Head.
+  (STM IO) (Maybe HeadId) ->
   Application
-httpApp tracer directChain pparams request respond = do
+httpApp tracer directChain pparams getInitializingHeadId request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -160,7 +163,7 @@ httpApp tracer directChain pparams request respond = do
   case (requestMethod request, pathInfo request) of
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain
+        >>= handleDraftCommitUtxo directChain getInitializingHeadId
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ responseLBS status200 [] (Aeson.encode pparams)
@@ -249,26 +252,32 @@ httpApp tracer directChain pparams request respond = do
 --   @
 handleDraftCommitUtxo ::
   Chain tx IO ->
+  -- | A means to get the 'HeadId' if initializing the Head.
+  (STM IO) (Maybe HeadId) ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain body = do
+handleDraftCommitUtxo directChain getInitializingHeadId body = do
   case Aeson.eitherDecode' body :: Either String DraftCommitTxRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      draftCommitTx (fromTxOutWithWitness <$> utxoToCommit) <&> \case
-        Left e ->
-          -- Distinguish between errors users can actually benefit from and
-          -- other errors that are turned into 500 responses.
-          case e of
-            CannotCommitReferenceScript -> return400 e
-            CommittedTooMuchADAForMainnet _ _ -> return400 e
-            UnsupportedLegacyOutput _ -> return400 e
-            walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
-            _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
-        Right commitTx ->
-          responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+      atomically getInitializingHeadId >>= \case
+        Just headId -> do
+          draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
+            Left e ->
+              -- Distinguish between errors users can actually benefit from and
+              -- other errors that are turned into 500 responses.
+              case e of
+                CannotCommitReferenceScript -> return400 e
+                CommittedTooMuchADAForMainnet _ _ -> return400 e
+                UnsupportedLegacyOutput _ -> return400 e
+                walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
+                _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
+            Right commitTx ->
+              responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
+        -- XXX: This is not really an internal server error
+        Nothing -> pure $ responseLBS status500 [] (Aeson.encode $ FailedToDraftTxNotInitializing @Tx)
  where
   Chain{draftCommitTx} = directChain
 
