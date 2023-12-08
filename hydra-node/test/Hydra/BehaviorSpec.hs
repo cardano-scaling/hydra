@@ -616,7 +616,7 @@ simulatedChainAndNetwork initialChainState = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
-          createAndYieldEvent nodes history localChainState $ OnCommitTx{party, committed}
+          createAndYieldEvent nodes history localChainState $ OnCommitTx{headId = testHeadId, party, committed}
       }
  where
   -- seconds

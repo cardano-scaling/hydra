@@ -681,7 +681,7 @@ observeCommit ctx st tx = do
   observation <- observeCommitTx networkId utxo tx
   let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
   guard $ commitHeadId == headId
-  let event = OnCommitTx{party, committed}
+  let event = OnCommitTx{headId, party, committed}
   let st' =
         st
           { initialInitials =

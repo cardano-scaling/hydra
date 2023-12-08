@@ -692,8 +692,9 @@ update env ledger st ev = case (st, ev) of
     onIdleClientInit env
   (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
-  (Initial initialState, OnChainEvent Observation{observedTx = OnCommitTx{party = pt, committed = utxo}, newChainState}) ->
-    onInitialChainCommitTx initialState newChainState pt utxo
+  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
+    | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
+    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial initialState, ClientEvent Abort) ->
     onInitialClientAbort initialState
   (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCollectComTx{headId}, newChainState})

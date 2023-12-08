@@ -320,8 +320,8 @@ convertObservation = \case
         }
   Abort AbortObservation{headId} ->
     pure OnAbortTx{headId}
-  Commit CommitObservation{party, committed} ->
-    pure OnCommitTx{party, committed}
+  Commit CommitObservation{headId, party, committed} ->
+    pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->

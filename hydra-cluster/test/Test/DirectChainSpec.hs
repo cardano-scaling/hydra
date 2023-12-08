@@ -145,8 +145,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
                 externalCommit node aliceChain aliceExternalSk aliceHeadId aliceUTxO
 
-                aliceChain `observesInTime` OnCommitTx alice aliceUTxO
-                bobChain `observesInTime` OnCommitTx alice aliceUTxO
+                aliceChain `observesInTime` OnCommitTx aliceHeadId alice aliceUTxO
+                bobChain `observesInTime` OnCommitTx bobHeadId alice aliceUTxO
 
                 postTx $ AbortTx{utxo = aliceUTxO, headSeed = aliceHeadSeed}
                 --
@@ -226,7 +226,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             externalCommit node aliceChain aliceExternalSk headId newAliceUTxO
-            aliceChain `observesInTime` OnCommitTx alice newAliceUTxO
+            aliceChain `observesInTime` OnCommitTx headId alice newAliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -247,7 +247,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             (_, aliceExternalSk) <- generate genKeyPair
             externalCommit node aliceChain aliceExternalSk headId mempty
-            aliceChain `observesInTime` OnCommitTx alice mempty
+            aliceChain `observesInTime` OnCommitTx headId alice mempty
 
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -269,7 +269,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
-            aliceChain `observesInTime` OnCommitTx alice someUTxO
+            aliceChain `observesInTime` OnCommitTx headId alice someUTxO
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
@@ -397,7 +397,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
             externalCommit node aliceChain aliceExternalSk headId someUTxO
-            aliceChain `observesInTime` OnCommitTx alice someUTxO
+            aliceChain `observesInTime` OnCommitTx headId alice someUTxO
 
             postTx $ CollectComTx someUTxO headId headParameters
             -- Head is open with someUTxO

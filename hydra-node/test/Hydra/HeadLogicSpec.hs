@@ -358,9 +358,9 @@ spec =
         update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
       it "everyone does collect on last commit after collect com" $ do
-        let aliceCommit = OnCommitTx alice (utxoRef 1)
-            bobCommit = OnCommitTx bob (utxoRef 2)
-            carolCommit = OnCommitTx carol (utxoRef 3)
+        let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
+            bobCommit = OnCommitTx testHeadId bob (utxoRef 2)
+            carolCommit = OnCommitTx testHeadId carol (utxoRef 3)
         waitingForLastCommit <-
           runEvents bobEnv ledger (inInitialState threeParties) $ do
             step (observeEventAtSlot 1 aliceCommit)

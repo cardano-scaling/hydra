@@ -95,7 +95,7 @@ data OnChainTx tx
       , headParameters :: HeadParameters
       , participants :: [OnChainId]
       }
-  | OnCommitTx {party :: Party, committed :: UTxOType tx}
+  | OnCommitTx {headId :: HeadId, party :: Party, committed :: UTxOType tx}
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
   | OnCloseTx
