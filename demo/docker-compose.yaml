@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: inputoutput/cardano-node:8.1.2
+    image: inputoutput/cardano-node:8.7.2
     volumes:
       - ./devnet:/devnet
     environment:
