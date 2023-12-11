@@ -140,10 +140,20 @@ handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> Vty.Event -> Eve
 handleVtyEventsOpen cardanoClient hydraClient utxo e = do
   case e of
     EvKey (KChar 'c') [] ->
-      liftIO $ sendInput hydraClient Close
+      id .= ConfirmingClose confirmRadioField
     _ -> pure ()
   k <- use id
   case k of
+    ConfirmingClose i -> do
+      case e of
+        EvKey KEsc [] -> id .= OpenHome
+        EvKey KEnter [] -> do
+          let (_, selected) = formState i
+          if selected
+            then liftIO $ sendInput hydraClient Close
+            else id .= OpenHome
+        _ -> pure ()
+      zoom confirmingCloseFormL $ handleFormEvent (VtyEvent e)
     OpenHome -> do
       case e of
         EvKey (KChar 'n') [] -> do
