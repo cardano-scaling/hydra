@@ -42,7 +42,7 @@ type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 
-type ConfirmingRadioFieldForm e n = Form (Text, Bool) e n
+type ConfirmingRadioFieldForm e n = Form Bool e n
 
 data InitializingState = InitializingState
   { remainingParties :: [Party]

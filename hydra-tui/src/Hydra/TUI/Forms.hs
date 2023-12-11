@@ -63,7 +63,7 @@ utxoRadioField u =
 
 confirmRadioField ::
   forall s e n.
-  ( s ~ (Text, Bool)
+  ( s ~ Bool
   , n ~ Text
   ) =>
   Form s e n
@@ -71,11 +71,11 @@ confirmRadioField =
   newForm
     [ radioField
         id
-        [ (opt, fst opt, fst opt)
+        [ (snd opt, fst opt, fst opt)
         | opt <- options
         ]
     ]
-    (Prelude.head options)
+    True
  where
   options = [("[y]es", True), ("[n]o", False)]
 

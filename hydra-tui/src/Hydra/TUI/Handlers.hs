@@ -140,7 +140,7 @@ handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
       case e of
         EvKey KEsc [] -> id .= InitializingHome
         EvKey KEnter [] -> do
-          let (_, selected) = formState i
+          let selected = formState i
           if selected
             then liftIO $ sendInput hydraClient Abort
             else id .= InitializingHome
@@ -159,7 +159,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
       case e of
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
-          let (_, selected) = formState i
+          let selected = formState i
           if selected
             then liftIO $ sendInput hydraClient Close
             else id .= OpenHome
