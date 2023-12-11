@@ -116,7 +116,8 @@ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo e = do
 handleVtyEventsInitializingScreen :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name InitializingScreen ()
 handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
   case e of
-    EvKey (KChar 'a') [] -> liftIO (sendInput hydraClient Abort)
+    EvKey (KChar 'a') [] ->
+      id .= ConfirmingAbort confirmRadioField
     _ -> pure ()
   initializingScreen <- use id
   case initializingScreen of
@@ -135,6 +136,16 @@ handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
           id .= InitializingHome
         _ -> pure ()
       zoom commitMenuL $ handleFormEvent (VtyEvent e)
+    ConfirmingAbort i -> do
+      case e of
+        EvKey KEsc [] -> id .= InitializingHome
+        EvKey KEnter [] -> do
+          let (_, selected) = formState i
+          if selected
+            then liftIO $ sendInput hydraClient Abort
+            else id .= InitializingHome
+        _ -> pure ()
+      zoom confirmingAbortFormL $ handleFormEvent (VtyEvent e)
 
 handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> Vty.Event -> EventM Name OpenScreen ()
 handleVtyEventsOpen cardanoClient hydraClient utxo e = do

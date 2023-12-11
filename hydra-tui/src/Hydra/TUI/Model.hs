@@ -52,6 +52,7 @@ data InitializingState = InitializingState
 data InitializingScreen
   = InitializingHome
   | CommitMenu {commitMenu :: UTxOCheckboxForm (HydraEvent Tx) Name}
+  | ConfirmingAbort {confirmingAbortForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
 
 data OpenScreen
   = OpenHome
@@ -111,6 +112,7 @@ makeLensesFor
 
 makeLensesFor
   [ ("commitMenu", "commitMenuL")
+  , ("confirmingAbortForm", "confirmingAbortFormL")
   ]
   ''InitializingScreen
 
