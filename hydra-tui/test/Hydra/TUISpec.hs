@@ -74,6 +74,8 @@ spec = do
           shouldRender "Head id"
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'q') []
 
