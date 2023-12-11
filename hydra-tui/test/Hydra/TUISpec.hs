@@ -95,6 +95,8 @@ spec = do
           shouldRender "Open"
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
           shouldRender "Closed"
           shouldRender "Remaining time to contest"
           -- XXX: This is a hack to estimate the time it takes until we can
