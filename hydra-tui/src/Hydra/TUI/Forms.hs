@@ -60,3 +60,23 @@ utxoRadioField u =
         ]
     ]
     (Prelude.head $ Map.toList u)
+
+confirmRadioField ::
+  forall s e n.
+  ( s ~ (Text, Bool)
+  , n ~ Text
+  ) =>
+  Form s e n
+confirmRadioField =
+  newForm
+    [ radioField
+        id
+        [ (opt, fst opt, fst opt)
+        | opt <- options
+        ]
+    ]
+    (Prelude.head options)
+ where
+  options = [("[y]es", True), ("[n]o", False)]
+
+  radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
