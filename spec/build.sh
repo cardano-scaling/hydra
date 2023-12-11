@@ -46,10 +46,13 @@ cp -a img $out/
 
 # The raw_html <img> paths are not supported well by docusaurus. We do convert
 # them to markdown-style images but retain html for the <figure>
-cat converted.md | sed 's|<img src="\(.*\)" />|\n![](\1)\n|' > replaced-images.md
+sed -i 's|<img src="\(.*\)" />|\n![](\1)\n|' converted.md
+
+# The generated references html is broken
+sed -i 's|<\(http[^>]*\)>|<a href="\1">\1</a>|' converted.md
 
 # TODO: avoid duplication on document title
 echo "# Hydra HeadV1 Specification: Coordinated Head protocol" > $out/hydra-spec.md
-cat replaced-images.md >> $out/hydra-spec.md
+cat converted.md >> $out/hydra-spec.md
 
 echo ${out}
