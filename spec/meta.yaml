@@ -8,6 +8,9 @@ geometry: "left=4cm, right=3cm, top=2.5cm, bottom=2.5cm"
 numbersections: true
 boxlinks: true
 
+# TODO: fix bibliography in html output
+suppress-bibliography: true
+
 bibliography: short.bib
 reference-section-title: References
 link-bibliography: true

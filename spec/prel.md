@@ -120,12 +120,7 @@ reference="fig:utxo-graph"}, where boxes represent transactions with
 (unconnected) output is an *unspent transaction output (UTxO)* --- there
 are two UTxOs in the figure.
 
-<!-- FIXME: this alt text broken in docusaurus  -->
-<!-- ![Example of a plain UTxO graph](figures/utxo-graph.pdf){#fig:utxo-graph width="50%"} -->
-
-<!-- FIXME: manually convert pdfs into svg  -->
-
-![](figures/utxo-graph.svg){#fig:utxo-graph width="50%"}
+![Example of a plain UTxO graph](figures/utxo-graph.svg){#fig:utxo-graph}
 
 The following paragraphs will give definitions of the UTxO model and
 it's extension to support scripting (EUTxO) suitable for this Hydra Head

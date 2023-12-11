@@ -38,7 +38,7 @@ pandoc macros.md intro.md overview.md prel.md \
       --strip-comments \
       --filter pandoc-crossref \
       --citeproc \
-      --to markdown \
+      --to gfm \
       -o converted.md
 
 # Copy extracted images
