@@ -11,7 +11,10 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Control.Monad.IOSim (runSimOrThrow)
+import Control.Monad.Class.MonadFork (forkIO)
+import Control.Monad.Class.MonadSay (say)
+import Control.Monad.Class.MonadTest (exploreRaces)
+import Control.Monad.IOSim (ExplorationOptions (..), IOSim, exploreSimTrace, runSimOrThrow, selectTraceEventsSay, traceEvents)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
@@ -33,6 +36,7 @@ import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
   Positive (Positive),
+  Property,
   collect,
   counterexample,
   generate,
@@ -167,6 +171,8 @@ spec = parallel $ do
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
+    prop "runs IOSimPOR" $ testIOSimPOR
+
     it "appends messages to disk and can load them back" $ do
       withTempDir "network-messages-persistence" $ \tmpDir -> do
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
@@ -244,6 +250,25 @@ spec = parallel $ do
     let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
     writeTVar seed' newGenSeed
     pure res
+
+testIOSimPOR :: Property
+testIOSimPOR =
+  exploreSimTrace
+    id
+    sim
+    ( \_ tr ->
+        let says = selectTraceEventsSay tr
+         in says == ["foobar"] || says == [""]
+              & counterexample (unlines $ map show $ traceEvents tr)
+    )
+ where
+  sim :: IOSim s ()
+  sim = do
+    exploreRaces
+    var <- newTVarIO ""
+    forkIO (atomically (writeTVar var "foo") >> atomically (modifyTVar' var (<> "bar")))
+    forkIO (readTVarIO var >>= say)
+    threadDelay 1
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
