@@ -16,9 +16,12 @@ import Control.Monad.Class.MonadSay (say)
 import Control.Monad.Class.MonadTest (exploreRaces)
 import Control.Monad.IOSim (ExplorationOptions (..), IOSim, exploreSimTrace, runSimOrThrow, selectTraceEventsSay, traceEvents)
 import Control.Tracer (Tracer (..), nullTracer)
+import Data.ByteString qualified as BS
 import Data.Sequence.Strict ((|>))
+import Data.Text qualified as Text
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
+import Hydra.Logging (showLogsOnFailure, withTracerOutputTo)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
@@ -37,14 +40,18 @@ import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
+  arbitraryPrintableChar,
   collect,
   counterexample,
   generate,
+  resize,
   tabulate,
+  vectorOf,
   within,
   (===),
  )
-import Prelude (unlines)
+import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
+import Prelude (unlines, userError)
 
 spec :: Spec
 spec = parallel $ do
@@ -129,8 +136,8 @@ spec = parallel $ do
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork (captureTraces emittedTraces) "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork (captureTraces emittedTraces) "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -148,6 +155,54 @@ spec = parallel $ do
               & counterexample (unlines $ show <$> reverse traces)
               & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
               & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+
+    modifyMaxSuccess (const 10) $
+      prop "stress test networking persistence layer" $
+        monadicIO $ do
+          seed <- pick arbitrary
+          aliceToBobMessages :: [TestMsg] <- pickBlind (resize 100 $ arbitrary)
+          bobToAliceMessages :: [TestMsg] <- pickBlind (resize 100 $ arbitrary)
+          result <- run $
+            withTempDir "network-messages-persistence" $ \tmpDir -> do
+              let logFile = tmpDir </> "nodes.log"
+              withFile logFile ReadWriteMode $ \hdl ->
+                race
+                  (threadDelay 60 >> throwIO (userError $ "timeout exhausted, log file written to :" <> logFile))
+                  ( withTracerOutputTo hdl "network persistence" $ \tracer -> do
+                      messagesReceivedByBob <- newTVarIO empty
+                      messagesReceivedByAlice <- newTVarIO empty
+                      randomSeed <- newTVarIO $ mkStdGen seed
+                      aliceToBob <- newTQueueIO
+                      bobToAlice <- newTQueueIO
+                      alicePersistence <- realPersistenceFor "alice" tmpDir
+                      bobPersistence <- realPersistenceFor "bob" tmpDir
+
+                      let
+                        -- this is a NetworkComponent that broadcasts authenticated messages
+                        -- mediated through a read and a write TQueue but drops 0.2 % of them
+                        aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
+                        bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
+
+                        bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork tracer "bob" bob [alice]
+                        aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork tracer "alice" alice [bob]
+
+                        runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
+                        runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
+
+                      concurrently_ runAlice runBob
+
+                      aliceReceived <- Vector.toList <$> readTVarIO messagesReceivedByAlice
+                      bobReceived <- Vector.toList <$> readTVarIO messagesReceivedByBob
+                      pure (aliceReceived, bobReceived)
+                  )
+
+          case result of
+            Right (msgReceivedByAlice, msgReceivedByBob) -> do
+              assert $ msgReceivedByBob == aliceToBobMessages
+              assert $ msgReceivedByAlice == bobToAliceMessages
+              monitor $ tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
+              monitor $ tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
+            Left () -> assert False
 
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
@@ -226,10 +281,10 @@ spec = parallel $ do
         (waitForAllMessages expectedMessages receivedMessageContainer)
         (waitForAllMessages messagesToSend sentMessageContainer)
 
-  reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
+  reliabilityStack persistence underlyingNetwork tracer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) persistence party peers underlyingNetwork
+        withReliability tracer persistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -326,3 +381,27 @@ mockMessagePersistence numberOfParties = do
       , loadMessages = toList <$> readTVarIO messages
       , appendMessage = \msg -> atomically $ modifyTVar' messages (|> msg)
       }
+
+realPersistenceFor :: (FromJSON msg, ToJSON msg) => String -> FilePath -> IO (MessagePersistence IO msg)
+realPersistenceFor actor tmpDir = do
+  Persistence{load, save} <- createPersistence $ tmpDir </> actor </> "acks"
+  PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir </> actor </> "network-messages"
+
+  pure $
+    MessagePersistence
+      { loadAcks = do
+          mloaded <- load
+          case mloaded of
+            Nothing -> pure $ replicate (length [alice, bob]) 0
+            Just acks -> pure acks
+      , saveAcks = save
+      , loadMessages = loadAll
+      , appendMessage = append
+      }
+
+newtype TestMsg = T Text
+  deriving newtype (Eq, Show, ToJSON, FromJSON)
+
+instance Arbitrary TestMsg where
+  arbitrary =
+    T . Text.pack <$> vectorOf 10000 arbitraryPrintableChar
