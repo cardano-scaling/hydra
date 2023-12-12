@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.16.0] - UNRELEASED
+
+- Add withdrawal of UTxO from an open head via a `POST /decommit` request or
+  using dedicated client input.
 
 ## [0.15.0] - 2024-01-18
 
