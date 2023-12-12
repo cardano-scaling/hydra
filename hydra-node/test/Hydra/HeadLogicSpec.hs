@@ -52,7 +52,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Network.Message (Connectivity (..), Message (AckSn, ReqSn, ReqTx), NetworkEvent (..))
+import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
@@ -73,6 +73,14 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , participants = deriveOnChainId <$> threeParties
             }
+        aliceEnv =
+          Environment
+            { party = alice
+            , signingKey = aliceSk
+            , otherParties = [bob, carol]
+            , contestationPeriod = defaultContestationPeriod
+            , participants = deriveOnChainId <$> threeParties
+            }
 
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
@@ -84,6 +92,7 @@ spec =
               , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
+              , decommitTx = Nothing
               }
 
       it "reports if a requested tx is expired" $ do
@@ -106,9 +115,10 @@ spec =
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
-        let reqSn = receiveMessage $ ReqSn 1 []
-            snapshot1 = Snapshot testHeadId 1 mempty []
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+        -- TODO: perhaps use smart constructor for ReqSn to reduce the noise
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
+            snapshot1 = Snapshot testHeadId 1 mempty [] mempty
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
           step (ackFrom carolSk carol)
@@ -122,6 +132,92 @@ spec =
             step (ackFrom bobSk bob)
             getState
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+      describe "Decommit" $ do
+        it "observes DecommitRequested and ReqDec in an Open state" $
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              input = NetworkInput defaultTTL alice reqDec
+              st = inOpenState threeParties
+              outcome = update aliceEnv ledger st input
+           in outcome
+                `hasEffectSatisfying` \case
+                  ClientEffect DecommitRequested{headId, utxoToDecommit} ->
+                    headId == testHeadId && utxoToDecommit == utxoRef 1
+                  NetworkEffect ReqDec{transaction, decommitRequester} ->
+                    transaction == decommitTx && decommitRequester == alice
+                  _ -> False
+
+        it "ignores ReqDec when not in Open state" $ monadicIO $ do
+          let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1), decommitRequester = alice}
+          let input = NetworkInput defaultTTL alice reqDec
+          st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
+          pure $
+            update aliceEnv ledger st input
+              `hasEffectSatisfying` \case
+                NetworkEffect reqDec' -> reqDec' == reqDec
+                _ -> False
+
+        it "cannot request decommit when another one is in flight" $ do
+          let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
+              decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
+              reqDec1 = ReqDec{transaction = decommitTx1, decommitRequester = alice}
+              reqDec2 = ReqDec{transaction = decommitTx2, decommitRequester = bob}
+              reqDecEvent1 = NetworkInput defaultTTL alice reqDec1
+              reqDecEvent2 = NetworkInput defaultTTL bob reqDec2
+              s0 = inOpenState threeParties
+
+          s1 <- runHeadLogic aliceEnv ledger s0 $ do
+            step reqDecEvent1
+            getState
+
+          let outcome = update bobEnv ledger s1 reqDecEvent2
+
+          outcome `shouldSatisfy` \case
+            Error (RequireFailed DecommitTxInFlight{decommitTx = decommitTx''}) ->
+              decommitTx1 == decommitTx''
+            _ -> False
+
+        it "updates decommitTx on valid ReqDec" $ do
+          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
+          let reqDec = ReqDec{transaction = decommitTx', decommitRequester = alice}
+              reqDecEvent = NetworkInput defaultTTL alice reqDec
+              s0 = inOpenState threeParties
+
+          s0 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
+            _ -> False
+
+          s1 <- runHeadLogic aliceEnv ledger s0 $ do
+            step reqDecEvent
+            getState
+
+          s1 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
+            _ -> False
+
+          -- running the 'ReqDec' again should not alter the recorded state
+          s2 <- runHeadLogic aliceEnv ledger s1 $ do
+            step reqDecEvent
+            getState
+
+          s2 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
+            _ -> False
+
+        it "emits ReqSn on valid RecDec" $ do
+          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+          let s0 = inOpenState threeParties
+
+          s0 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
+            _ -> False
+
+          let reqDecEvent = NetworkInput defaultTTL alice ReqDec{transaction = decommitTx', decommitRequester = alice}
+          let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
+
+          let s1 = update aliceEnv ledger s0 reqDecEvent
+          s1 `hasEffect` NetworkEffect reqSn
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
@@ -139,7 +235,7 @@ spec =
         it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = receiveMessage $ ReqSn 1 [1]
+              reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1] Nothing
 
           s1 <- runHeadLogic bobEnv ledger s0 $ do
             step $ receiveMessage $ ReqTx t1
@@ -153,7 +249,7 @@ spec =
         it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
-              reqSn = receiveMessage $ ReqSn 1 [1]
+              reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1] Nothing
               snapshot1 = testSnapshot 1 (utxoRefs [1]) [1]
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -173,7 +269,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
-        let reqSn = receiveMessage $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot = testSnapshot 1 mempty []
             snapshot' = testSnapshot 2 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
@@ -190,7 +286,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
-        let reqSn = receiveMessage $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot = testSnapshot 1 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
@@ -206,7 +302,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
-        let reqSn = receiveMessage $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
@@ -225,7 +321,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if already received signature from this party" $ do
-        let reqSn = receiveMessage $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
@@ -240,9 +336,9 @@ spec =
             _ -> False
 
       it "waits if we receive a snapshot with transaction not applicable on previous snapshot" $ do
-        let reqTx42 = receiveMessage $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
-            reqTx1 = receiveMessage $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            input = receiveMessage $ ReqSn 1 [1]
+        let reqTx42 = NetworkInput defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
+            reqTx1 = NetworkInput defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
+            input = NetworkInput defaultTTL alice $ ReqSn 1 [1] Nothing
             s0 = inOpenState threeParties
 
         s2 <- runHeadLogic bobEnv ledger s0 $ do
@@ -255,7 +351,7 @@ spec =
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
-            reqSn = receiveMessage $ ReqSn 1 [1]
+            reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1] Nothing
         update bobEnv ledger s0 reqSn
           `assertWait` WaitOnTxs [1]
 
@@ -270,13 +366,13 @@ spec =
       -- snapshot collection.
 
       it "rejects if we receive a too far future snapshot" $ do
-        let input = receiveMessageFrom bob $ ReqSn 2 []
+        let input = NetworkInput defaultTTL bob $ ReqSn 2 [] Nothing
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
-        let reqSn1 = receiveMessage $ ReqSn 1 []
-            reqSn2 = receiveMessageFrom bob $ ReqSn 2 []
+        let reqSn1 = NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing
+            reqSn2 = NetworkInput defaultTTL bob $ ReqSn 2 [] Nothing
         st <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn1
@@ -288,14 +384,14 @@ spec =
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
             snapshot = testSnapshot 1 mempty []
-            input = receiveMessageFrom leader $ ReqSn (number snapshot) []
+            input = NetworkInput defaultTTL leader $ ReqSn (number snapshot) [] Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
         update bobEnv ledger st input `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
-        let input = receiveMessageFrom notTheLeader $ ReqSn 1 []
+        let input = NetworkInput defaultTTL notTheLeader $ ReqSn 1 [] Nothing
             notTheLeader = bob
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldSatisfy` \case
@@ -303,7 +399,7 @@ spec =
           _ -> False
 
       it "rejects too-old snapshots" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 2 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
@@ -312,7 +408,7 @@ spec =
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 2 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
@@ -324,7 +420,7 @@ spec =
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
-        let input = receiveMessageFrom theLeader $ ReqSn 3 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 3 [] Nothing
             theLeader = carol
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
@@ -332,10 +428,10 @@ spec =
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice
             nextSN = 1
-            firstReqTx = receiveMessage $ ReqTx (aValidTx 42)
-            firstReqSn = receiveMessageFrom theLeader $ ReqSn nextSN [42]
-            secondReqTx = receiveMessage $ ReqTx (aValidTx 51)
-            secondReqSn = receiveMessageFrom theLeader $ ReqSn nextSN [51]
+            firstReqTx = NetworkInput defaultTTL alice $ ReqTx (aValidTx 42)
+            firstReqSn = NetworkInput defaultTTL theLeader $ ReqSn nextSN [42] Nothing
+            secondReqTx = NetworkInput defaultTTL alice $ ReqTx (aValidTx 51)
+            secondReqSn = NetworkInput defaultTTL theLeader $ ReqSn nextSN [51] Nothing
 
         s3 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step firstReqTx
@@ -502,6 +598,7 @@ spec =
                         , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
+                        , decommitTx = Nothing
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
@@ -510,7 +607,7 @@ spec =
                   }
 
         st <- run $ runHeadLogic bobEnv ledger st0 $ do
-          step (receiveMessage $ ReqSn 1 [])
+          step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
           getState
 
         assert $ case st of
@@ -657,6 +754,7 @@ inOpenState parties =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
+      , decommitTx = Nothing
       }
  where
   u0 = mempty
@@ -705,7 +803,10 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot ::
+  Monoid (UTxOType tx) =>
+  HeadState tx ->
+  Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -773,8 +874,16 @@ hasNoEffectSatisfying outcome predicate =
           "Expected no effect satisfying the predicate, but got: " <> show effects
 
 testSnapshot ::
+  Monoid (UTxOType tx) =>
   SnapshotNumber ->
   UTxOType tx ->
   [TxIdType tx] ->
   Snapshot tx
-testSnapshot = Snapshot testHeadId
+testSnapshot number utxo confirmed =
+  Snapshot
+    { headId = testHeadId
+    , number
+    , utxo
+    , confirmed
+    , utxoToDecommit = mempty
+    }

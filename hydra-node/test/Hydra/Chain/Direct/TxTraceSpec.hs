@@ -264,6 +264,7 @@ correctlySignedSnapshot = \case
         , number
         , utxo = snapshotUTxO number
         , confirmed = []
+        , utxoToDecommit = Nothing
         }
 
     signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]

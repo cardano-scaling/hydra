@@ -1098,6 +1098,52 @@ definitions:
             $ref: "api.yaml#/components/schemas/TxId"
           error:
             $ref: "logs.yaml#/definitions/ValidationError"
+      - title: "DecommitTxInvalid"
+        description: >-
+          Received a Decommit which contains transaction that does not apply
+          cleanly on the currently confirmed UTxO set
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitTxInvalid"]
+          decommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          error:
+            $ref: "logs.yaml#/definitions/ValidationError"
+      - title: "DecommitTxInFlight"
+        description: >-
+          Received a Decommit request but there is a previous decommit that is still not resolved.
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitTxInFlight"]
+          decommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "DecommitDoesNotApply"
+        description: >-
+          Decommit which was requested contains transaction that does not apply
+          on the current UTxO set when trying to acknowledge new Snapshot.
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitDoesNotApply"]
+          decommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          error:
+            $ref: "logs.yaml#/definitions/ValidationError"
+
   HeadState:
     oneOf:
       - title: "Idle"
@@ -1268,6 +1314,26 @@ definitions:
             enum: ["TransactionReceived"]
           tx:
             $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "DecommitRecorded"
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitRecorded"]
+          decommitTx:
+            type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "DecommitFinalized"
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitFinalized"]
       - title: "PartySignedSnapshot"
         additionalProperties: false
         required:
@@ -1465,6 +1531,7 @@ definitions:
       - allTxs
       - confirmedSnapshot
       - seenSnapshot
+      - decommitTx
     properties:
       localUTxO:
         $ref: "api.yaml#/components/schemas/UTxO"
@@ -1482,6 +1549,8 @@ definitions:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
         $ref: "logs.yaml#/definitions/SeenSnapshot"
+      decommitTx:
+        $ref: "api.yaml#/components/schemas/Transaction"
 
   SeenSnapshot:
     oneOf:
@@ -1567,6 +1636,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Init/payload"
               - $ref: "api.yaml#/components/messages/Abort/payload"
               - $ref: "api.yaml#/components/messages/NewTx/payload"
+              - $ref: "api.yaml#/components/messages/Decommit/payload"
               - $ref: "api.yaml#/components/messages/GetUTxO/payload"
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
@@ -1707,6 +1777,7 @@ definitions:
           - tag
           - snapshotNumber
           - transactionIds
+          - decommitTx
         description: >-
           Request from the current snapshot leader to sign some snapshot, eg. a
           bunch of transaction ids.
@@ -1720,6 +1791,12 @@ definitions:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
+          decommitTx:
+           oneOf:
+            - type: "null"
+            - type: object
+              $ref: "api.yaml#/components/schemas/Transaction"
+
       - title: AckSn
         type: object
         additionalProperties: false
@@ -1742,6 +1819,25 @@ definitions:
             description: >-
               Signature from given party of the snapshot. The bytes representing
               the signature are hex-encoded.
+      - title: ReqDec
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - transaction
+          - decommitRequester
+        description: >-
+          Notify the peers about the request to decommit some funds from the Head.
+        properties:
+          tag:
+            type: string
+            enum: ["ReqDec"]
+          transaction:
+            type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
+          decommitRequester:
+            type: object
+            $ref: "api.yaml#/components/schemas/Party"
 
   ChainEvent:
     oneOf:
@@ -1873,6 +1969,18 @@ definitions:
           tag:
             type: string
             enum: ["OnAbortTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+      - title: OnDecrementTx
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+        properties:
+          tag:
+            type: string
+            enum: ["OnDecrementTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
       - title: OnCollectComTx

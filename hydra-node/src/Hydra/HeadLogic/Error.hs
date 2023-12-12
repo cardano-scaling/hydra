@@ -37,12 +37,15 @@ data RequirementFailure tx
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
+  | DecommitTxInvalid {decommitTx :: tx, error :: ValidationError}
+  | DecommitTxInFlight {decommitTx :: tx}
+  | DecommitDoesNotApply {decommitTx :: tx, error :: ValidationError}
   deriving stock (Generic)
 
-deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
-deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
-deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
-deriving anyclass instance FromJSON (TxIdType tx) => FromJSON (RequirementFailure tx)
+deriving stock instance (Eq tx, Eq (TxIdType tx)) => Eq (RequirementFailure tx)
+deriving stock instance (Show tx, Show (TxIdType tx)) => Show (RequirementFailure tx)
+deriving anyclass instance (ToJSON tx, ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
+deriving anyclass instance (FromJSON tx, FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
 
-instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
+instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (RequirementFailure tx) where
   arbitrary = genericArbitrary

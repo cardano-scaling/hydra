@@ -147,6 +147,9 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
+  , decommitTx :: Maybe tx
+  -- ^ Client requested to decommit a 'UTxO' which is present in the
+  -- 'ConfirmedSnapshot'.
   }
   deriving stock (Generic)
 

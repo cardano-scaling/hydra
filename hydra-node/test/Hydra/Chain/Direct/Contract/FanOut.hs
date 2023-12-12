@@ -82,6 +82,7 @@ healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
+    , utxoToDecommitHash = toBuiltin $ hashUTxO @Tx mempty
     , parties =
         partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline

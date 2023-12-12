@@ -172,6 +172,109 @@ by the appropriate redeemer.
 \end{figure}
 \todo{update with multiple commits}
 
+\subsection{CollectCom Transaction}\label{sec:collect-tx}
+
+\noindent The \mtxCCom{} transaction (Figure~\ref{fig:collectComTx}) collects
+all the committed UTxOs to the same head. It has
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item $\forall i \in \{1 \dots \nop\}$ inputs spending commit outputs
+	      $(\valCommit{i}, \nuCommit, \datumCommit{i})$ with $\pt_{i} \in \valCommit{i}$
+	      and $\datumCommit{i} = (\cid, C_{i})$, and
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = \mathsf{collect}$ and checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stInitial$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
+	unchanged and the new state is governed again by $\nuHead$:
+	\[
+		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta)
+	\]
+	\item Commits collected in $\eta = (0, U^{\#})$ with snapshot number $0$,
+	where
+	\[
+		U^{\#} = \combine([C_{1}, \dots, C_{\nop}])
+	\]
+	\[
+		\combine(\underline{C}) = \hash(\mathsf{concat}({\sortOn(1, \mathsf{concat}(\underline{C}))}^{\downarrow2}))
+	\]
+	% TODO: mention in off-chain that it is limited what we can fan out, so size
+	% & complexity of U needs to be contained, especially off-chain.
+	That is, given a list of committed UTxO $\underline{C}$, where each element is
+	a list of output references and the serialised representation of what was
+	committed, $\combine$ first concatenates all commits together, sorts this list
+	by the output references, concatenates all bytes and hashes the
+	result\footnote{Sorting is required to ensure a canonical representation which
+		can also be reproduced from the UTxO set later in the fanout.}.
+
+	\item All committed value captured and no value is extracted
+	$\valHead' = \valHead \cup (\bigcup_{i=1}^{n} \valCommit{i})$.
+	\item Every participant had the chance to commit, by checking all tokens are
+	present in output\footnote{This is sufficient as a Head participant would
+		check off-chain whether a Head is initialized correctly with the right
+		number of tokens.}
+	% NOTE: Implemented slightly different as we would only count PTs and = n
+	$|\{\cid \rightarrow . \rightarrow 1\} \in \valHead'| = \nop + 1$.
+	\item Transaction is signed by a participant $\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valCommit{i} \Rightarrow \keyHash_{i} \in \txKeys$.
+	\item No minting or burning  $\txMint = \varnothing$.
+\end{menumerate}
+
+\noindent Each spent $\nuCommit$ validator with $\datumCommit{i} = (\cid,\cdot)$ and $\redeemerCommit{i} = \mathsf{collect}$ ensures that:
+\begin{menumerate}
+	\item The state token of currency $\cid$ is present in the output value
+	$\st \in \valHead'$.
+\end{menumerate}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{figures/collectComTx.pdf}
+	\caption{\mtxCCom{} transaction spending the head output in $\stInitial$
+		state and collecting from multiple commit outputs into a single
+		$\stOpen$ head output.}\label{fig:collectComTx}
+\end{figure}
+
+\subsection{Increment Transaction}\label{sec:increment-tx}
+
+\noindent The \mtxIncrement{} transaction (Figure~\ref{fig:incrementTx}) allows
+a party to add a UTxO to an already open head and consists of:
+
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item one or more inputs with reference $\txOutRef_{\mathsf{committed}_{j}}$
+	      spending output $o_{\mathsf{committed}_{j}}$ with
+	      $\val_{\mathsf{committed}_{j}}$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{increment}, \xi)$, where $\xi$ is a multi-signature of
+the increment snapshot which authorizes addition of some UTxO $U_\alpha$, and checks:
+\begin{menumerate}
+  \item State is advanced from $\datumHead \sim \stOpen$ to
+$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+stay unchanged and the new state is governed again by $\nuHead$:
+  \[
+	(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta) \xrightarrow[\xi]{\mathsf{increment}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta')
+  \]
+	\item Increment snapshot is newer $s' > s$, where $(s, \cdot) = \eta$ is the
+		current and $(s', \cdot) = \eta'$ is the incremented snapshot number.
+	\item $\xi$ is a valid multi-signature of the new snapshot state
+    $\msVfy(\hydraKeysAgg,(\cid || \textcolor{red}{\eta_{0}} || \eta'),\xi) = \true$.
+  \item \todo{Need to ensure all value of $U_\alpha$ is captured! Right now, this could be attached with $\txOutRef_{\mathsf{committed}} = []$} All committed value is in the output
+	$\valHead' \supseteq \valHead \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$
+\end{menumerate}
+
+\begin{figure}[h] \centering
+	\includegraphics[width=0.8\textwidth]{figures/incrementTx.pdf}
+	\caption{\mtxIncrement{} transaction spending an open head output and a single
+		committed output, and producing a new head output.}\label{fig:incrementTx}
+\end{figure}
+
 \subsection{Abort Transaction}\label{sec:abort-tx}
 
 The \mtxAbort{} transaction (see Figure~\ref{fig:abortTx}) allows a

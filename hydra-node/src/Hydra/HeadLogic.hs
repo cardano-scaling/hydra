@@ -1,5 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
 --
@@ -81,12 +83,17 @@ import Hydra.HeadLogic.State (
   setChainState,
  )
 import Hydra.Ledger (
+  ChainSlot,
   IsTx,
   Ledger (..),
   TxIdType,
   UTxOType,
+  ValidationResult (..),
   applyTransactions,
+  canApply,
   txId,
+  utxoFromTx,
+  withoutUTxO,
  )
 import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
 import Hydra.OnChainId (OnChainId)
@@ -316,12 +323,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
       ( if not snapshotInFlight && isLeader parameters party nextSn
           then
             newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO}
-              <>
-              -- XXX: This state update has no equivalence in the
-              -- spec. Do we really need to store that we have
-              -- requested a snapshot? If yes, should update spec.
-              newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs'))
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs') decommitTx)
           else newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
@@ -349,7 +352,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -388,11 +391,10 @@ onOpenNetworkReqSn ::
   SnapshotNumber ->
   -- | List of transactions to snapshot.
   [TxIdType tx] ->
+  -- | Optional decommit transaction of removing funds from the head.
+  Maybe tx ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
-  -- TODO: Verify the request is signed by (?) / comes from the leader
-  -- (Can we prove a message comes from a given peer, without signature?)
-
+onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
   -- Spec: require s = ŝ + 1 and leader(s) = j
   requireReqSn $
     -- Spec: wait s̅ = ŝ
@@ -401,24 +403,33 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       waitResolvableTxs $ do
         -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
         let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
-        -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
-        requireApplyTxs requestedTxs $ \u -> do
-          -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot headId (confSn + 1) u requestedTxIds
-          -- Spec: σᵢ
-          let snapshotSignature = sign signingKey nextSnapshot
-          (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
-            do
-              -- Spec: for loop which updates T̂ and L̂
-              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-              -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-              newState
-                SnapshotRequested
-                  { snapshot = nextSnapshot
-                  , requestedTxIds
-                  , newLocalUTxO
-                  , newLocalTxs
-                  }
+        -- Spec: require U̅ ◦ txω /= ⊥ combined with Ū_active ← Ū \ Uω and Uω ← outputs(txω)
+        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
+          -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
+          requireApplyTxs activeUTxO requestedTxs $ \u -> do
+            -- NOTE: confSn == seenSn == sn here
+            let nextSnapshot =
+                  Snapshot
+                    { headId
+                    , number = confSn + 1
+                    , utxo = u
+                    , confirmed = requestedTxIds
+                    , utxoToDecommit = mUtxoToDecommit
+                    }
+            -- Spec: σᵢ
+            let snapshotSignature = sign signingKey nextSnapshot
+            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
+              do
+                -- Spec: for loop which updates T̂ and L̂
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
+                    }
  where
   requireReqSn continue
     | sn /= seenSn + 1 =
@@ -439,13 +450,27 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
       [] -> continue
       unseen -> wait $ WaitOnTxs unseen
 
+  -- TODO: We should probably check here that 'utxoToDecommit' from the 'Snapshot'
+  -- is matches the one from the 'decrementTx'
+  requireApplicableDecommitTx cont =
+    case mDecommitTx of
+      Nothing -> cont (confirmedUTxO, Nothing)
+      Just decommitTx ->
+        case canApply ledger currentSlot confirmedUTxO decommitTx of
+          Invalid err ->
+            Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
+          Valid -> do
+            let utxoToDecommit = utxoFromTx decommitTx
+            let activeUTxO = confirmedUTxO `withoutUTxO` utxoToDecommit
+            cont (activeUTxO, Just utxoToDecommit)
+
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
   -- are part of the localTxs. The snapshot can contain less transactions than the ones
   -- we have seen at this stage, but they all _must_ apply correctly to the latest
   -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
-  requireApplyTxs requestedTxs cont =
-    case applyTransactions ledger currentSlot confirmedUTxO requestedTxs of
+  requireApplyTxs utxo requestedTxs cont =
+    case applyTransactions ledger currentSlot utxo requestedTxs of
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
@@ -516,6 +541,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
               newState SnapshotConfirmed{snapshot, signatures = multisig}
               <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
               & maybeEmitSnapshot
+              & maybeEmitDecrementTx snapshot multisig
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -560,16 +586,35 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             InvalidMultisignature{multisig = show multisig, vkeys}
 
   maybeEmitSnapshot outcome =
-    if isLeader parameters party nextSn && not (null localTxs)
+    if partyIsLeader
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs))
+          <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
+  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
+    case utxoToDecommit of
+      Just utxoToDecommit' ->
+        outcome
+          <> causes
+            [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+            , OnChainEffect
+                { postChainTx =
+                    DecrementTx
+                      { headId
+                      , headParameters = parameters
+                      , snapshot
+                      , signatures
+                      }
+                }
+            ]
+      Nothing -> outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
+
+  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
 
   OpenState
     { parameters = parameters@HeadParameters{parties}
@@ -577,7 +622,93 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx} = coordinatedHeadState
+
+-- | Decide to output 'ReqDec' effect by checking first if there is no decommit
+-- _in flight_ and if the tx applies cleanly to the local ledger state.
+onOpenClientDecommit ::
+  Monoid (UTxOType tx) =>
+  Environment ->
+  HeadId ->
+  Ledger tx ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Outcome tx
+onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx =
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
+      causes
+        [ ClientEffect
+            ServerOutput.DecommitInvalid
+              { headId
+              , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+              }
+        ]
+    Nothing ->
+      requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
+        causes
+          [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
+          ]
+ where
+  Environment{party} = env
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
+
+-- | Process the request 'ReqDec' to decommit something from the Open head.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+--
+-- When node receives 'ReqDec' network message it should:
+-- - Check there is no decommit in flight:
+--   - Alter it's state to record what is to be decommitted
+--   - Issue a server output 'DecommitRequested' with the relevant utxo
+--   - Issue a 'ReqSn' since all parties need to agree in order for decommit to
+--   be taken out of a Head.
+-- - Check if we are the leader
+--
+-- We don't check here if decommit tx can be applied to the confirmed ledger
+-- state since this is already done if our party is the decommit _initiator_
+-- (see usage of 'requireValidDecommitTx' when receiving 'Decommit' client
+-- input) and should be done when the snapshot is to be acknowledged.
+--
+-- This way we are checking _later_ than we could but it will allow us to not
+-- discard decommit tx which is maybe part of the snapshot _in flight_ but we
+-- just didn't see the `AckSn` for it yet.
+onOpenNetworkReqDec ::
+  IsTx tx =>
+  Environment ->
+  OpenState tx ->
+  tx ->
+  Outcome tx
+onOpenNetworkReqDec env openState decommitTx =
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
+      Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+    Nothing ->
+      let decommitUTxO = utxoFromTx decommitTx
+       in newState (DecommitRecorded decommitTx)
+            <> causes
+              [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+              ]
+            <> if isLeader parameters party nextSn
+              then
+                causes
+                  [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
+              else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+ where
+  Environment{party} = env
+
+  Snapshot{number} = getSnapshot confirmedSnapshot
+
+  nextSn = number + 1
+
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs} = coordinatedHeadState
+
+  OpenState
+    { headId
+    , parameters
+    , coordinatedHeadState
+    } = openState
 
 -- ** Closing the Head
 
@@ -601,6 +732,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  Monoid (UTxOType tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -640,6 +772,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -675,6 +808,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -689,6 +823,7 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
@@ -740,10 +875,10 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sn txIds})) ->
+  (Open openState, NetworkInput _ otherParty (ReqSn sn txIds decommitTx)) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState sender sn txIds
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
+    onOpenNetworkReqSn env ledger openState otherParty sn txIds decommitTx
+  (Open openState, NetworkInput _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
@@ -761,6 +896,20 @@ update env ledger st ev = case (st, ev) of
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
+    onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
+  (Open openState, NetworkInput _ _ (ReqDec{transaction})) ->
+    onOpenNetworkReqDec env openState transaction
+  ( Open OpenState{headId = ourHeadId}
+    , ChainInput Observation{observedTx = OnDecrementTx{headId}}
+    )
+      -- TODO: What happens if observed decrement tx get's rolled back?
+      | ourHeadId == headId ->
+          causes
+            [ClientEffect $ ServerOutput.DecommitFinalized{headId}]
+            <> newState DecommitFinalized
+      | otherwise ->
+          Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
     | ourHeadId == headId ->
@@ -945,6 +1094,7 @@ aggregate st = \case
                   , localTxs = mempty
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
+                  , decommitTx = Nothing
                   }
             , chainState
             , headId
@@ -987,7 +1137,31 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  HeadIsReadyToFanout{} ->
+  DecommitRecorded decommitTx ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState{decommitTx = Just decommitTx}
+              }
+      _otherState -> st
+  DecommitFinalized ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState{decommitTx = Nothing}
+              }
+      _otherState -> st
+  HeadIsReadyToFanout ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -1030,6 +1204,8 @@ recoverChainStateHistory initialChainState =
     TransactionReceived{} -> history
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
+    DecommitRecorded{} -> history
+    DecommitFinalized -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout{} -> history
@@ -1044,3 +1220,40 @@ recoverState ::
   t (StateChanged tx) ->
   HeadState tx
 recoverState = foldl' aggregate
+
+-- Decommit helpers
+
+-- TODO: Spec: require U̅ ◦ decTx /= ⊥
+
+-- | Prevents further evaluation if Decommit tx is not applicable to the local
+-- ledger state. In this case emits 'DecommitInvalid' otherwise it alows
+-- continuation to proceed.
+requireValidDecommitTx ::
+  Monoid (UTxOType tx) =>
+  HeadId ->
+  Ledger tx ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Outcome tx ->
+  Outcome tx
+requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx cont =
+  case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+    Left (_, err) ->
+      causes
+        [ ClientEffect
+            ServerOutput.DecommitInvalid
+              { headId
+              , decommitInvalidReason =
+                  ServerOutput.DecommitTxInvalid
+                    { confirmedUTxO
+                    , decommitTx
+                    , validationError = err
+                    }
+              }
+        ]
+    Right _ -> cont
+ where
+  confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
+
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState

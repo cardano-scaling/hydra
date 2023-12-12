@@ -48,6 +48,26 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
+data DecommitInvalidReason tx
+  = DecommitTxInvalid {confirmedUTxO :: UTxOType tx, decommitTx :: tx, validationError :: ValidationError}
+  | DecommitAlreadyInFlight {decommitTx :: tx}
+  deriving stock (Generic)
+
+deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)
+deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DecommitInvalidReason tx)
+
+instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DecommitInvalidReason tx) where
+  toJSON = genericToJSON defaultOptions
+
+instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
+  parseJSON = genericParseJSON defaultOptions
+
+instance
+  IsTx tx =>
+  Arbitrary (DecommitInvalidReason tx)
+  where
+  arbitrary = genericArbitrary
+
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ServerOutput tx
@@ -103,6 +123,10 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
+  | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitInvalid {headId :: HeadId, decommitInvalidReason :: DecommitInvalidReason tx}
+  | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -130,7 +154,9 @@ instance
   where
   arbitrary = genericArbitrary
 
-  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
+  -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
+  -- should be only one 'UTxOType tx'
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
@@ -157,6 +183,10 @@ instance
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
+    DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
+    DecommitInvalid headId reason -> DecommitInvalid <$> shrink headId <*> shrink reason
+    DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
+    DecommitFinalized headId -> DecommitFinalized <$> shrink headId
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
@@ -205,6 +235,10 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     Greetings{} -> encodedResponse
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
+    DecommitRequested{} -> encodedResponse
+    DecommitApproved{} -> encodedResponse
+    DecommitFinalized{} -> encodedResponse
+    DecommitInvalid{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

@@ -22,12 +22,15 @@ import Hydra.Cardano.Api (
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Environment (Environment (..))
+import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
 import Test.Cardano.Ledger.Core.Arbitrary ()
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
+import Test.QuickCheck (scale, suchThat)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -66,6 +69,12 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
+  | DecrementTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , snapshot :: Snapshot tx
+      , signatures :: MultiSignature (Snapshot tx)
+      }
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
@@ -82,6 +91,8 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
+    DecrementTx{headId, headParameters, snapshot, signatures} ->
+      DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink snapshot <*> shrink signatures
     CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline
@@ -102,6 +113,7 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
+  | OnDecrementTx {headId :: HeadId}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -157,6 +169,7 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructDecrementTx
   | FailedToConstructFanoutTx
   deriving stock (Generic)
 

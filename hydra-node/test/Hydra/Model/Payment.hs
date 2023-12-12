@@ -9,6 +9,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Data.List qualified as List
+import Data.Set ((\\))
+import Data.Set qualified as Set
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair)
@@ -24,13 +26,14 @@ instance Show CardanoSigningKey where
   show CardanoSigningKey{signingKey} =
     show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
 
-instance Ord CardanoSigningKey where
-  CardanoSigningKey ska <= CardanoSigningKey skb =
-    verificationKeyHash (getVerificationKey ska) <= verificationKeyHash (getVerificationKey skb)
-
 instance Eq CardanoSigningKey where
   CardanoSigningKey ska == CardanoSigningKey skb =
     verificationKeyHash (getVerificationKey ska) == verificationKeyHash (getVerificationKey skb)
+
+instance Ord CardanoSigningKey where
+  CardanoSigningKey a <= CardanoSigningKey b = hashOf a <= hashOf b
+   where
+    hashOf = verificationKeyHash . getVerificationKey
 
 instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"
@@ -92,6 +95,12 @@ instance IsTx Payment where
     [] -> error "nothing to spend spending"
     [(from, value)] -> Payment{from, to = from, value}
     _ -> error "cant spend from multiple utxo in one payment"
+  utxoFromTx Payment{to, value} = [(to, value)]
+  withoutUTxO a b =
+    let as = bimap id valueToList <$> a
+        bs = bimap id valueToList <$> b
+        result = Set.toList $ Set.fromList as \\ Set.fromList bs
+     in bimap id valueFromList <$> result
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =

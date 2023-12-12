@@ -67,7 +67,7 @@ instance Arbitrary Connectivity where
 
 data Message tx
   = ReqTx {transaction :: tx}
-  | ReqSn {snapshotNumber :: SnapshotNumber, transactionIds :: [TxIdType tx]}
+  | ReqSn {snapshotNumber :: SnapshotNumber, transactionIds :: [TxIdType tx], decommitTx :: Maybe tx}
   | -- NOTE: We remove the party from the ackSn but, it would make sense to put it
     -- back as the signed snapshot is tied to the party and we should not
     -- consider which party sent this message to validate this snapshot signature.
@@ -77,6 +77,7 @@ data Message tx
     -- good idea to introduce the party in AckSn again or, maybe better, only
     -- the verification key of the party.
     AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
+  | ReqDec {transaction :: tx, decommitRequester :: Party}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -90,15 +91,17 @@ instance IsTx tx => Arbitrary (Message tx) where
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    ReqSn sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs
+    ReqSn sn txs decommitTx -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
+    ReqDec utxo requester -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo <> toCBOR requester
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR
+      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
+      "ReqDec" -> ReqDec <$> fromCBOR <*> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance IsTx tx => SignableRepresentation (Message tx) where
