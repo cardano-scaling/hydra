@@ -151,7 +151,7 @@ chainSyncClient tracer networkId startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode _ (Block _header txs) BabbageEraInCardanoMode -> do
+            BlockInMode _ (Block _header txs) ConwayEraInCardanoMode -> do
               traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
               let (utxo', logs) = observeAll networkId utxo txs
               forM_ logs (traceWith tracer)

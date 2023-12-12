@@ -135,7 +135,7 @@ submitTransaction networkId socket tx =
       throwIO (SubmitTxValidationError e)
  where
   txInMode =
-    TxInMode tx BabbageEraInCardanoMode
+    TxInMode tx ConwayEraInCardanoMode
 
 -- | Exceptions that 'can' occur during a transaction submission.
 --
@@ -228,9 +228,9 @@ queryProtocolParameters ::
 queryProtocolParameters networkId socket queryPoint = do
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ConwayEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraConway
               QueryProtocolParameters
           )
   runQuery networkId socket queryPoint query >>= throwOnEraMismatch
@@ -242,9 +242,9 @@ queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisPa
 queryGenesisParameters networkId socket queryPoint =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ConwayEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraConway
               QueryGenesisParameters
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
@@ -256,9 +256,9 @@ queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> I
 queryUTxO networkId socket queryPoint addresses =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ConwayEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraConway
               ( QueryUTxO
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
@@ -272,9 +272,9 @@ queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> IO UTxO
 queryUTxOByTxIn networkId socket queryPoint inputs =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ConwayEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraConway
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
    in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
@@ -289,9 +289,9 @@ queryUTxOWhole networkId socket queryPoint = do
  where
   query =
     QueryInEra
-      BabbageEraInCardanoMode
+      ConwayEraInCardanoMode
       ( QueryInShelleyBasedEra
-          ShelleyBasedEraBabbage
+          ShelleyBasedEraConway
           (QueryUTxO QueryUTxOWhole)
       )
 
@@ -313,9 +313,9 @@ queryStakePools :: NetworkId -> SocketPath -> QueryPoint -> IO (Set PoolId)
 queryStakePools networkId socket queryPoint =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
+          ConwayEraInCardanoMode
           ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
+              ShelleyBasedEraConway
               QueryStakePools
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
