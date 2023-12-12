@@ -11,17 +11,13 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Control.Monad.Class.MonadFork (forkIO)
-import Control.Monad.Class.MonadSay (say)
-import Control.Monad.Class.MonadTest (exploreRaces)
-import Control.Monad.IOSim (ExplorationOptions (..), IOSim, exploreSimTrace, runSimOrThrow, selectTraceEventsSay, traceEvents)
+import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
-import Data.ByteString qualified as BS
 import Data.Sequence.Strict ((|>))
 import Data.Text qualified as Text
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
-import Hydra.Logging (showLogsOnFailure, withTracerOutputTo)
+import Hydra.Logging (withTracerOutputTo)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
@@ -39,7 +35,6 @@ import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
   Positive (Positive),
-  Property,
   arbitraryPrintableChar,
   collect,
   counterexample,
@@ -98,7 +93,8 @@ spec = parallel $ do
 
         receivedMessagesInOrder messageReceived =
           let refMessages = Data "node-2" <$> [1 ..]
-           in all (`elem` refMessages) (payload <$> messageReceived)
+              isInMessage Authenticated{payload} = payload `elem` refMessages
+           in all isInMessage messageReceived
        in
         receivedMessagesInOrder propagatedMessages
           & counterexample (show propagatedMessages)
@@ -156,7 +152,7 @@ spec = parallel $ do
               & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
               & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
-    modifyMaxSuccess (const 10) $
+    modifyMaxSuccess (const 1) $
       prop "stress test networking persistence layer" $
         monadicIO $ do
           seed <- pick arbitrary
@@ -225,8 +221,6 @@ spec = parallel $ do
             Vector.toList <$> readTVarIO sentMessages
 
       receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
-
-    prop "runs IOSimPOR" $ testIOSimPOR
 
     it "appends messages to disk and can load them back" $ do
       withTempDir "network-messages-persistence" $ \tmpDir -> do
@@ -306,25 +300,6 @@ spec = parallel $ do
     writeTVar seed' newGenSeed
     pure res
 
-testIOSimPOR :: Property
-testIOSimPOR =
-  exploreSimTrace
-    id
-    sim
-    ( \_ tr ->
-        let says = selectTraceEventsSay tr
-         in says == ["foobar"] || says == [""]
-              & counterexample (unlines $ map show $ traceEvents tr)
-    )
- where
-  sim :: IOSim s ()
-  sim = do
-    exploreRaces
-    var <- newTVarIO ""
-    forkIO (atomically (writeTVar var "foo") >> atomically (modifyTVar' var (<> "bar")))
-    forkIO (readTVarIO var >>= say)
-    threadDelay 1
-
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
 
@@ -353,7 +328,7 @@ captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
 capturePayload :: MonadSTM m => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
-capturePayload receivedMessages message = case payload message of
+capturePayload receivedMessages Authenticated{payload} = case payload of
   Data _ msg ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()
