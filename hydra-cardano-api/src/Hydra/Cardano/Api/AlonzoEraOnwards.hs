@@ -12,3 +12,6 @@ instance IsAlonzoEraOnwards AlonzoEra where
 
 instance IsAlonzoEraOnwards BabbageEra where
   alonzoEraOnwards = AlonzoEraOnwardsBabbage
+
+instance IsAlonzoEraOnwards ConwayEra where
+  alonzoEraOnwards = AlonzoEraOnwardsConway

@@ -15,3 +15,6 @@ instance IsMaryEraOnwards AlonzoEra where
 
 instance IsMaryEraOnwards BabbageEra where
   maryEraOnwards = MaryEraOnwardsBabbage
+
+instance IsMaryEraOnwards ConwayEra where
+  maryEraOnwards = MaryEraOnwardsConway
