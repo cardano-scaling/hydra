@@ -13,5 +13,5 @@ instance HasScriptLanguage PlutusScriptV1 AlonzoEra where
 instance HasScriptLanguage PlutusScriptV1 BabbageEra where
   scriptLanguageInEra = PlutusScriptV1InBabbage
 
-instance HasScriptLanguage PlutusScriptV2 BabbageEra where
-  scriptLanguageInEra = PlutusScriptV2InBabbage
+instance HasScriptLanguage PlutusScriptV2 ConwayEra where
+  scriptLanguageInEra = PlutusScriptV2InConway
