@@ -59,14 +59,13 @@ data HydraNode tx m = HydraNode
 
 ## Consequences
 
-* TODO: Naming conflicts / overloaded terms -> should resolve by calling something not "Event"?
-
-* The default operation of the `hyda-node` remains unchanged
-* The API `Server` can be modelled and refactored as an `EventSink`
+* The default operation of the `hyda-node` remains unchanged.
+* There are other things called `Event` and `EventQueue(putEvent)` right now in the `hydra-node`. This is getting confusing and when we implement this, we should also rename several things first (tidying).
+* The API `Server` can be modelled and refactored as an `EventSink`.
   - TBD: Do `Network` and `Chain` parts qualify as `EventSink`s as well or shall those be triggered by `Effect`s still?
-* Projects forking the hydra node have a natively supported mechanism to extend node persistence
-* These extensions can preserve robust "at least once" semantics for each hydra event
-* Sundae Labs can build a "Save transaction batches to S3" proof of concept `EventSink`
-* Sundae Labs can build a "Scrolls source" `EventSink`
-* Sundae Labs can build a "Amazon Kinesis" `EventSource` and `EventSink`
-* Extension points like `EventSource` and `EventSink` could be dynamically loaded as plugins without having to fork `hydra-node` (maybe in a future ADR)
+* Projects forking the hydra node have a natively extensions points for producing and consuming events.
+* TBD: These extensions can preserve robust "at least once" semantics for each hydra event.
+* Sundae Labs can build a "Save transaction batches to S3" proof of concept `EventSink`.
+* Sundae Labs can build a "Scrolls source" `EventSink`.
+* Sundae Labs can build a "Amazon Kinesis" `EventSource` and `EventSink`.
+* Extension points like `EventSource` and `EventSink` could be dynamically loaded as plugins without having to fork `hydra-node` (maybe in a future ADR).
