@@ -138,7 +138,7 @@ On top of the aforementioned _Coding standards_, to get something merged would u
 Merging a PR requires approval from a majority of reviewers from the
 core _Hydra engineering_ team. This implies that:
 + Contributions from outside this core team would need 3 approvals,
-+ Contributions from a single core team member would need a single approval,
++ Contributions from a single core team member would need 2 approvals,
 + PRs developed in pair would need a single approval,
 + and of course PRs developed in ensembles would not need any approval.
 
