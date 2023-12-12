@@ -24,42 +24,34 @@ import Hydra.Cardano.Api (
   Address,
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
-  IsCardanoEra,
   IsShelleyBasedEra,
   Key (VerificationKey, getVerificationKey, verificationKeyHash),
-  Lovelace,
   NetworkId,
   PaymentKey,
   ShelleyAddr,
-  SigningKey (GenesisUTxOSigningKey, PaymentSigningKey),
+  SigningKey,
   SocketPath,
   StakeAddressReference (NoStakeAddress),
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   Tx,
-  TxOutValue (TxOutValue),
   UTxO' (UTxO),
   VerificationKey (GenesisUTxOVerificationKey, PaymentVerificationKey),
-  castSigningKey,
-  castVerificationKey,
   deserialiseFromTextEnvelope,
   genesisUTxOPseudoTxIn,
-  lovelaceToTxOutValue,
   mkTxOutValue,
   shelleyAddressInEra,
   textEnvelopeToJSON,
  )
 import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset)
-import Hydra.Cardano.Api.Prelude (PaymentCredential (PaymentCredentialByKey), ReferenceScript (ReferenceScriptNone), TxOut (TxOut), TxOutDatum (TxOutDatumNone), Value, lovelaceToTxOutValue, makeShelleyAddress, shelleyAddressInEra)
-import Hydra.Chain (ChainEvent, OnChainTx (OnInitTx, contestationPeriod, parties), PostChainTx)
+import Hydra.Cardano.Api.Prelude (PaymentCredential (PaymentCredentialByKey), ReferenceScript (ReferenceScriptNone), TxOut (TxOut), TxOutDatum (TxOutDatumNone), Value, makeShelleyAddress)
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile), defaultChainConfig)
-import Hydra.Party (Party)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
-import Test.Hydra.Prelude (Expectation, failure, shouldBe)
+import Test.Hydra.Prelude (failure)
 import Test.QuickCheck (generate)
 
 -- import CardanoClient (buildAddress)

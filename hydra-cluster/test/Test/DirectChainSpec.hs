@@ -527,7 +527,7 @@ observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
 observesInTime chain expected =
   observesInTimeSatisfying chain (`shouldBe` expected)
 
-observesInTimeSatisfying :: IsTx tx => DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
+observesInTimeSatisfying :: DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
 observesInTimeSatisfying c check =
   failAfter 10 go
  where
@@ -539,7 +539,7 @@ observesInTimeSatisfying c check =
       _TickOrRollback ->
         go
 
-waitMatch :: IsTx tx => DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
+waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
 waitMatch c match = go
  where
   go = do

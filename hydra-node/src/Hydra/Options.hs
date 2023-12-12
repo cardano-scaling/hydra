@@ -834,8 +834,8 @@ toArgs
       Nothing -> []
       Just OfflineConfig{initialUTxOFile, ledgerGenesisFile} ->
         ["offline"]
-          <> ["--initial-utxo-file", initialUTxOFile]
-          <> maybe [] (\s -> ["--ledger-genesis-file", s]) ledgerGenesisFile
+          <> ["--initial-utxo", initialUTxOFile]
+          <> maybe [] (\s -> ["--ledger-genesis", s]) ledgerGenesisFile
 
 defaultRunOptions :: RunOptions
 defaultRunOptions =
