@@ -58,22 +58,8 @@ import Hydra.Cluster.Fixture (
   carolVk,
   cperiod,
  )
-import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
-  canCloseWithLongContestationPeriod,
-  canSubmitTransactionThroughAPI,
-  headIsInitializingWith,
-  initWithWrongKeys,
-  refuelIfNeeded,
-  restartedNodeCanAbort,
-  restartedNodeCanObserveCommitTx,
-  singlePartyCannotCommitExternallyWalletUtxo,
-  singlePartyCommitsExternalScriptWithInlineDatum,
-  singlePartyCommitsFromExternalScript,
-  singlePartyHeadFullLifeCycle,
-  testPreventResumeReconfiguredPeer,
-  threeNodesNoErrorsOnOpen,
- )
+import Hydra.Cluster.Scenarios (EndToEndLog (..),
+  canCloseWithLongContestationPeriod, canDecommit, canSubmitTransactionThroughAPI, headIsInitializingWith, initWithWrongKeys, refuelIfNeeded, restartedNodeCanAbort, restartedNodeCanObserveCommitTx, singlePartyCannotCommitExternallyWalletUtxo, singlePartyCommitsExternalScriptWithInlineDatum, singlePartyCommitsFromExternalScript, singlePartyHeadFullLifeCycle, testPreventResumeReconfiguredPeer, threeNodesNoErrorsOnOpen)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
@@ -198,6 +184,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
+      it "can decommit utxo" $ \tracer -> do
+        withClusterTempDir "can-decommit-utxo" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canDecommit tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->

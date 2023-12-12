@@ -82,6 +82,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -621,6 +622,39 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Open a a single participant head with some UTxO and decommit parts of it.
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canDecommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+      -- Commit nothing for now
+      -- TODO: commit something
+      let commitUTxO = mempty
+      requestCommitTx n1 commitUTxO >>= submitTx node
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
+
+      decommitUTxO <- (error "pick subset of") commitUTxO
+      res <- parseUrlThrow "POST /decommit"
+      -- TODO: requestBody decommitUTxO (or [TxIn])
+
+      -- TODO: wait for decommitUTxO become available
+      pure ()
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket} = node
 
 -- * Utilities
 
