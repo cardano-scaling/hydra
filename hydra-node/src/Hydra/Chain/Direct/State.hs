@@ -70,7 +70,7 @@ import Hydra.Chain.Direct.ScriptRegistry (
   genScriptRegistry,
   registryUTxO,
  )
-import Hydra.Chain.Direct.TimeHandle (PointInTime)
+import Hydra.Chain.Direct.TimeHandle (PointInTime, TimeHandle, TimeHandleParams (..), currentPointInTime, genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   AbortTxError (..),
@@ -352,6 +352,8 @@ commit ::
   UTxO ->
   -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
   UTxO ->
+  -- | 'TimeHandle' needed to calculate Lower and upper validity bound for a commit tx
+  TimeHandle ->
   Either (PostTxError Tx) Tx
 commit ctx headId spendableUTxO utxoToCommit =
   commit' ctx headId spendableUTxO $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
@@ -369,15 +371,21 @@ commit' ::
   UTxO ->
   -- | 'UTxO' to commit, along with witnesses to spend them.
   UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+  -- | 'TimeHandle' needed to calculate Lower and upper validity bound for a commit tx
+  TimeHandle ->
   Either (PostTxError Tx) Tx
-commit' ctx headId spendableUTxO utxoToCommit = do
+commit' ctx headId spendableUTxO utxoToCommit timeHandle = do
   pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
   (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
   let utxo = fst <$> utxoToCommit
   rejectByronAddress utxo
   rejectReferenceScripts utxo
   rejectMoreThanMainnetLimit networkId utxo
-  pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh)
+  (startSlot, _) <- either (Left . FailedToPostTx) pure $ currentPointInTime timeHandle
+  -- TODO: how to calculate upper validity with respect to the underlying
+  -- network?
+  let endSlot = startSlot + SlotNo 100
+  pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh) (startSlot, endSlot)
  where
   ChainContext{networkId, ownParty, scriptRegistry, ownVerificationKey} = ctx
 
@@ -869,7 +877,10 @@ genChainStateWithTx =
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
     let InitialState{headId} = stInitial
-    let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo
+
+    TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
+    let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
+    let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo timeHandle
     pure (cctx, Initial stInitial, tx, Commit)
 
   genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -1018,9 +1029,11 @@ genCommits' genUTxO ctx txInit = do
   let scaledCommitUTxOs = scaleCommitUTxOs commitUTxOs
 
   allChainContexts <- deriveChainContexts ctx
+  TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
+  let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
   forM (zip allChainContexts scaledCommitUTxOs) $ \(cctx, toCommit) -> do
     let stInitial@InitialState{headId} = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-    pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit
+    pure $ unsafeCommit cctx headId (getKnownUTxO stInitial) toCommit timeHandle
  where
   scaleCommitUTxOs commitUTxOs =
     let numberOfUTxOs = length $ fold commitUTxOs
@@ -1150,9 +1163,10 @@ unsafeCommit ::
   UTxO ->
   -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
   UTxO ->
+  TimeHandle ->
   Tx
-unsafeCommit ctx headId spendableUTxO utxoToCommit =
-  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
+unsafeCommit ctx headId spendableUTxO utxoToCommit timeHandle =
+  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit timeHandle
 
 unsafeAbort ::
   HasCallStack =>

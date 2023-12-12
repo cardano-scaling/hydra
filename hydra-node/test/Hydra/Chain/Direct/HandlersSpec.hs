@@ -377,8 +377,11 @@ genSequenceOfObservableBlocks = do
   stepCommit ctx allVerificationKeys initTx = do
     let stInitial@InitialState{headId} = unsafeObserveInit ctx allVerificationKeys initTx
     utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
+    (timeHandle, _slot) <- lift genTimeHandleWithSlotInsideHorizon
+
+    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo timeHandle
     putNextBlock commitTx
+
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
 
 showRollbackInfo :: (Word, ChainPoint) -> String

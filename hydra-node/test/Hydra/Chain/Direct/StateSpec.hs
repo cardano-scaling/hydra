@@ -51,6 +51,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId)
 import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ClosedState (..), HasKnownUTxO (getKnownUTxO), HydraContext (..), InitialState (..), OpenState (..), abort, closedThreadOutput, commit, ctxHeadParameters, ctxParticipants, ctxParties, genChainStateWithTx, genCloseTx, genCollectComTx, genCommitFor, genCommits, genCommits', genContestTx, genFanoutTx, genHydraContext, genInitTx, genStInitial, getContestationDeadline, getKnownUTxO, initialize, observeClose, observeCollect, observeCommit, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeFanout, unsafeObserveInitAndCommits)
 import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.Chain.Direct.TimeHandle (TimeHandleParams (..), genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   CloseObservation (..),
@@ -231,8 +232,11 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutByron
+
+        TimeHandleParams{systemStart, eraHistory, currentSlot} <- pickBlind genTimeParams
+        let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
         pure $
-          case commit ctx headId (getKnownUTxO stInitial) utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo timeHandle of
             Left UnsupportedLegacyOutput{} -> property True
             _ -> property False
 
@@ -241,8 +245,10 @@ spec = parallel $ do
         hctx <- pickBlind $ genHydraContext maximumNumberOfParties
         (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
+        TimeHandleParams{systemStart, eraHistory, currentSlot} <- pickBlind genTimeParams
+        let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
         pure $
-          case commit ctx headId (getKnownUTxO stInitial) utxo of
+          case commit ctx headId (getKnownUTxO stInitial) utxo timeHandle of
             Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
@@ -252,8 +258,11 @@ spec = parallel $ do
         (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
         utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
         let mainnetChainContext = ctx{networkId = Mainnet}
+
+        TimeHandleParams{systemStart, eraHistory, currentSlot} <- pickBlind genTimeParams
+        let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
         pure $
-          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo of
+          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo timeHandle of
             Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
               -- check that user committed more than our limit but also use 'maxMainnetLovelace'
               -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
@@ -514,16 +523,18 @@ forAllCommit' action = do
   forAllBlind (genHydraContext maximumNumberOfParties) $ \hctx ->
     forAllBlind (genStInitial hctx) $ \(ctx, stInitial) ->
       forAllBlind (genCommitFor $ ownVerificationKey ctx) $ \toCommit ->
-        -- TODO: generate script inputs here? <- SB: what script inputs?
-        let InitialState{headId} = stInitial
-            tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit
-         in action ctx stInitial toCommit tx
-              & classify
-                (null toCommit)
-                "Empty commit"
-              & classify
-                (not (null toCommit))
-                "Non-empty commit"
+        forAllBlind genTimeParams $ \TimeHandleParams{systemStart, eraHistory, currentSlot} ->
+          let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
+              -- TODO: generate script inputs here? <- SB: what script inputs?
+              InitialState{headId} = stInitial
+              tx = unsafeCommit ctx headId (getKnownUTxO ctx <> getKnownUTxO stInitial) toCommit timeHandle
+           in action ctx stInitial toCommit tx
+                & classify
+                  (null toCommit)
+                  "Empty commit"
+                & classify
+                  (not (null toCommit))
+                  "Non-empty commit"
 
 forAllAbort ::
   Testable property =>

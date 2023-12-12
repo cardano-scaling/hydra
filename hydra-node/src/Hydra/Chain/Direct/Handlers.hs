@@ -165,11 +165,12 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
         let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
         let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
         let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
+        timeHandle <- queryTimeHandle
         -- prevent trying to spend internal wallet's utxo
         if null matchedWalletUtxo
           then
             traverse (finalizeTx wallet ctx spendableUTxO (fst <$> utxoToCommit)) $
-              commit' ctx headId spendableUTxO utxoToCommit
+              commit' ctx headId spendableUTxO utxoToCommit timeHandle
           else pure $ Left SpendingNodeUtxoForbidden
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.

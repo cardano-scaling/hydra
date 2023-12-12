@@ -46,6 +46,7 @@ import Hydra.Chain.Direct.State (
   unsafeFanout,
   unsafeObserveInitAndCommits,
  )
+import Hydra.Chain.Direct.TimeHandle (TimeHandleParams (..), mkTimeHandle, genTimeParams)
 import Hydra.Ledger.Cardano (
   genOutput,
   genUTxOAdaOnlyOfSize,
@@ -113,7 +114,10 @@ computeCommitCost = do
     (cctx, stInitial) <- genStInitial ctx
     let InitialState{headId} = stInitial
         knownUTxO = getKnownUTxO stInitial <> getKnownUTxO cctx
-    pure (commit cctx headId knownUTxO utxo, knownUTxO)
+
+    TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
+    let timeHandle = mkTimeHandle currentSlot systemStart eraHistory
+    pure (commit cctx headId knownUTxO utxo timeHandle, knownUTxO)
 
 computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
 computeCollectComCost =

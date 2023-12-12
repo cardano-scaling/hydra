@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.TimeHandle (TimeHandleParams (..), currentPointInTime, genTimeParams, mkTimeHandle)
 import Hydra.Chain.Direct.Tx (commitTx, mkHeadId, mkInitialOutput, verificationKeyToOnChainId)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (toErrorCode)
@@ -65,6 +66,7 @@ healthyCommitTx =
       commitParty
       (healthyCommittedUTxO <&> (,KeyWitness KeyWitnessForSpending))
       (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
+      commitValidityBounds
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -72,6 +74,13 @@ healthyCommitTx =
 
   commitParty :: Party
   commitParty = generateWith arbitrary 42
+
+commitValidityBounds :: (SlotNo, SlotNo)
+commitValidityBounds =
+  let TimeHandleParams{systemStart, eraHistory, currentSlot} = genTimeParams `generateWith` 42
+      timeHandle = mkTimeHandle currentSlot systemStart eraHistory
+      (startSlot, _) = either (error . show) id $ currentPointInTime timeHandle
+   in (startSlot, startSlot + SlotNo 100)
 
 commitVerificationKey :: VerificationKey PaymentKey
 commitVerificationKey = generateWith arbitrary 42

@@ -193,8 +193,10 @@ commitTx ::
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
+  -- | Lower and upper validity bound for a commit tx
+  (SlotNo, SlotNo) ->
   Tx
-commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInput, out, vkh) =
+commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInput, out, vkh) (startSlot, endSlot) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
@@ -202,6 +204,8 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
       & addInputs committedTxIns
       & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
+      & setValidityLowerBound startSlot
+      & setValidityUpperBound endSlot
  where
   initialWitness =
     BuildTxWith $
