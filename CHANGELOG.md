@@ -11,6 +11,8 @@ changes.
 
 ## [0.15.0] - UNRELEASED
 
+- Add withdrawal of UTxO from an open head via a `POST /decommit` request.
+
 - Hydra Direct Chain layer does not maintain state and does not make any logic
   decisions. This is now completely responsibility of the HydraLogic layer.
   Posting transactions from this layer is now free of any knowledge of L1 keys.
