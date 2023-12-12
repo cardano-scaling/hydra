@@ -638,12 +638,13 @@ canDecommit tracer workDir node hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket [] contestationPeriod
         <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1@HydraClient{hydraNodeId} -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       (walletVk, walletSk) <- generate genKeyPair
+
       firstUTxO <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
       decommitUTxO <- seedFromFaucet node walletVk 1_000_000 (contramap FromFaucet tracer)
 
@@ -655,10 +656,10 @@ canDecommit tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
       -- TODO: find out the url from HydraClient
-      res <- httpLbs =<< parseUrlThrow "POST http://localhost:4001/decommit"
+      res <- httpLbs =<< parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
       -- TODO: requestBody decommitUTxO (or [TxIn])
 
-      waitForUTxO node decommitUTxO
+      failAfter 10 $ waitForUTxO node decommitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 
