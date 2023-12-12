@@ -85,6 +85,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -639,40 +640,23 @@ canDecommit tracer workDir node hydraScriptsTxId =
           case config of
             Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
             _ -> error "Should not be in offline mode"
-
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      (walletVk, walletSk) <- generate genKeyPair
-
-      commitUTxO <- seedFromFaucet node walletVk 10_000_000 (contramap FromFaucet tracer)
-
-      requestCommitTx n1 commitUTxO <&> signTx walletSk >>= submitTx node
-
+      -- Commit nothing for now
+      -- TODO: commit something
+      let commitUTxO = mempty
+      requestCommitTx n1 commitUTxO >>= submitTx node
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      decommitTx <-
-        either (failure . show) pure $
-          mkSimpleTx
-            (List.head $ UTxO.pairs commitUTxO)
-            (mkVkAddress networkId walletVk, lovelaceToValue 2_000_000)
-            walletSk
+      decommitUTxO <- (error "pick subset of") commitUTxO
+      res <- parseUrlThrow "POST /decommit"
+      -- TODO: requestBody decommitUTxO (or [TxIn])
 
-      send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
-      -- NOTE: Alternative:
-      --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
-      --     <&> setRequestBodyJSON decommitTx
-      --     >>= httpLbs
-      let decommitUTxO = utxoFromTx decommitTx
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitApproved" []
-
-      failAfter 10 $ waitForUTxO node decommitUTxO
+      -- TODO: wait for decommitUTxO become available
+      pure ()
  where
   hydraTracer = contramap FromHydraNode tracer
 
