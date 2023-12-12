@@ -14,6 +14,7 @@ import CardanoClient (
   queryTip,
   queryUTxOFor,
   submitTx,
+  waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent.Async (mapConcurrently_)
@@ -96,6 +97,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (httpLbs)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -647,12 +649,13 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      decommitUTxO <- (error "pick subset of") commitUTxO
-      res <- parseUrlThrow "POST /decommit"
+      -- TODO: pick a subset of committed UTxO to decommit
+      let decommitUTxO = id commitUTxO
+      -- TODO: find out the url from HydraClient
+      res <- httpLbs =<< parseUrlThrow "POST http://localhost:4001/decommit"
       -- TODO: requestBody decommitUTxO (or [TxIn])
 
-      -- TODO: wait for decommitUTxO become available
-      pure ()
+      waitForUTxO node decommitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 

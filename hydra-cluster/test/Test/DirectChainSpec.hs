@@ -310,7 +310,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 }
             aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
-              waitForUTxO networkId nodeSocket someUTxO
+              waitForUTxO node someUTxO
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
