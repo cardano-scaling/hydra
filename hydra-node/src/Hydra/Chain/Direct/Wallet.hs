@@ -17,7 +17,7 @@ import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redee
 import Cardano.Ledger.Api (TransactionScriptFailure, ensureMinCoinTxOut, evalTxExUnits, outputsTxBodyL, ppMaxTxExUnitsL, ppPricesL)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
-import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), outputs', spendInputs')
+import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), spendInputs')
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -193,7 +193,7 @@ applyTxs txs isOurs utxo =
       let txId = getTxId tx
       modify (`Map.withoutKeys` spendInputs' (body tx))
       let indexedOutputs =
-            let outs = toList $ outputs' (body tx)
+            let outs = toList $ body tx ^. outputsTxBodyL
                 maxIx = fromIntegral $ length outs
              in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->

@@ -8,7 +8,6 @@ import Cardano.Ledger.Core (getMinCoinTxOut)
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
-import Hydra.Cardano.Api.Hash (unsafeScriptHashFromBytes)
 import Hydra.Cardano.Api.MaryEraOnwards (maryEraOnwards)
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)

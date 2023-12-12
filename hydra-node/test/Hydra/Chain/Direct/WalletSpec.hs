@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Api (bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
-import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..), outputs')
+import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
@@ -16,7 +16,7 @@ import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Control.Lens ((.~), (<>~), (^.))
+import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
@@ -322,9 +322,9 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . outputs' . body)
+  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . view outputsTxBodyL . body)
   txIn <- toLedgerTxIn <$> genTxIn
-  let txOut = scaleAda $ Prelude.head $ toList $ outputs' $ body tx
+  let txOut = scaleAda $ Prelude.head $ toList $ body tx ^. outputsTxBodyL
   pure $ Map.singleton txIn txOut
  where
   scaleAda :: TxOut -> TxOut
@@ -354,7 +354,7 @@ allTxIns txs =
 
 allTxOuts :: [Tx LedgerEra] -> [TxOut]
 allTxOuts txs =
-  toList $ mconcat (outputs' . body <$> txs)
+  toList $ mconcat (view outputsTxBodyL . body <$> txs)
 
 isOurs :: Map TxIn TxOut -> Address -> Bool
 isOurs utxo addr =
@@ -390,4 +390,4 @@ knownInputBalance utxo = foldMap resolve . toList . btbInputs . body
 -- | NOTE: This does not account for deposits
 outputBalance :: Tx LedgerEra -> Value LedgerEra
 outputBalance =
-  foldMap getValue . outputs' . body
+  foldMap getValue . view outputsTxBodyL . body

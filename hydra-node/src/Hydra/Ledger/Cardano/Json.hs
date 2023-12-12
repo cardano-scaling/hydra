@@ -17,6 +17,7 @@ import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Api (outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), isSJust)
@@ -41,6 +42,7 @@ import Cardano.Ledger.SafeHash qualified as Ledger
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Shelley.TxCert qualified as Ledger
 import Codec.Binary.Bech32 qualified as Bech32
+import Control.Lens ((^.))
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
   FromJSONKeyFunction (FromJSONKeyTextParser),
@@ -217,7 +219,7 @@ instance ToJSON (Ledger.BabbageTxBody LedgerEra) where
         [ onlyIf (const True) "inputs" (Set.map fromLedgerTxIn (Ledger.spendInputs' b))
         , onlyIf (not . null) "collateral" (Set.map fromLedgerTxIn (Ledger.collateralInputs' b))
         , onlyIf (not . null) "referenceInputs" (Set.map fromLedgerTxIn (Ledger.referenceInputs' b))
-        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> Ledger.outputs' b)
+        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> b ^. outputsTxBodyL)
         , onlyIf isSJust "collateralReturn" (fromLedgerTxOut <$> Ledger.collateralReturn' b)
         , onlyIf isSJust "totalCollateral" (Ledger.totalCollateral' b)
         , onlyIf (not . null) "certificates" (Ledger.certs' b)
