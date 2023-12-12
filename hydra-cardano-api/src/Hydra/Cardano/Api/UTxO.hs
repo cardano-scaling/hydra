@@ -6,10 +6,12 @@ import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn, txIns')
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (outputsTxBodyL)
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
+import Control.Lens ((^.))
 import Data.Foldable (toList)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
@@ -26,7 +28,7 @@ renderUTxO =
 -- outputs they correspond to.
 utxoFromTx :: Tx Era -> UTxO
 utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
-  let txOuts = toList $ Ledger.outputs' ledgerBody
+  let txOuts = toList $ ledgerBody ^. outputsTxBodyL
       txIns =
         [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
         | ix <- [Ledger.TxIx 0 .. toEnum (length txOuts)]
