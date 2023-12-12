@@ -37,8 +37,8 @@ import Cardano.Api.Shelley hiding (
  )
 import Cardano.Api.UTxO (Era, UTxO, UTxO' (..))
 import Cardano.Crypto.Hash.Class qualified as CC
-import Cardano.Ledger.Babbage qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
+import Cardano.Ledger.Conway qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (EraCrypto)
@@ -55,7 +55,7 @@ import GHC.Stack (HasCallStack)
 import Test.QuickCheck (Arbitrary (..), Gen)
 
 -- | Currently supported ledger era.
-type LedgerEra = Ledger.BabbageEra StandardCrypto
+type LedgerEra = Ledger.ConwayEra StandardCrypto
 
 type UsesStandardCrypto era = (EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto)
 
