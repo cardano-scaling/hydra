@@ -642,15 +642,18 @@ canDecommit tracer workDir node hydraScriptsTxId =
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
-      -- Commit nothing for now
-      -- TODO: commit something
-      let commitUTxO = mempty
-      requestCommitTx n1 commitUTxO >>= submitTx node
+
+      (walletVk, walletSk) <- generate genKeyPair
+      firstUTxO <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
+      decommitUTxO <- seedFromFaucet node walletVk 1_000_000 (contramap FromFaucet tracer)
+
+      let commitUTxO = firstUTxO <> decommitUTxO
+
+      requestCommitTx n1 commitUTxO <&> signTx walletSk >>= submitTx node
+
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      -- TODO: pick a subset of committed UTxO to decommit
-      let decommitUTxO = id commitUTxO
       -- TODO: find out the url from HydraClient
       res <- httpLbs =<< parseUrlThrow "POST http://localhost:4001/decommit"
       -- TODO: requestBody decommitUTxO (or [TxIn])
