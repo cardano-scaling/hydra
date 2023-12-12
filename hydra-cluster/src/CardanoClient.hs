@@ -98,14 +98,17 @@ waitForPayment networkId socket amount addr =
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . selectLovelace . txOutValue) utxo
 
+-- | Wait for transaction outputs with matching lovelace value and addresses of
+-- the whole given UTxO
 waitForUTxO ::
-  NetworkId ->
-  SocketPath ->
+  RunningNode ->
   UTxO ->
   IO ()
-waitForUTxO networkId nodeSocket utxo =
+waitForUTxO node utxo =
   forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
  where
+  RunningNode{networkId, nodeSocket} = node
+
   forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
