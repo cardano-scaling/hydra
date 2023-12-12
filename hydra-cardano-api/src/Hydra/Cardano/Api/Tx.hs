@@ -105,7 +105,7 @@ fromLedgerTx ledgerTx =
   Ledger.AlonzoTx body wits isValid auxData = ledgerTx
 
   era =
-    ShelleyBasedEraBabbage
+    ShelleyBasedEraConway
 
   scripts =
     Map.elems $ Ledger.txscripts' wits
@@ -113,12 +113,12 @@ fromLedgerTx ledgerTx =
   scriptsData :: TxBodyScriptData Era
   scriptsData =
     TxBodyScriptData
-      AlonzoEraOnwardsBabbage
+      AlonzoEraOnwardsConway
       (Ledger.txdats' wits)
       (Ledger.txrdmrs' wits)
 
   validity = case isValid of
     Ledger.IsValid True ->
-      TxScriptValidity AlonzoEraOnwardsBabbage ScriptValid
+      TxScriptValidity AlonzoEraOnwardsConway ScriptValid
     Ledger.IsValid False ->
-      TxScriptValidity AlonzoEraOnwardsBabbage ScriptInvalid
+      TxScriptValidity AlonzoEraOnwardsConway ScriptInvalid

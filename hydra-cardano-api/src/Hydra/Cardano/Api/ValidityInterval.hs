@@ -29,18 +29,18 @@ fromLedgerValidityInterval validityInterval =
   let Ledger.ValidityInterval{Ledger.invalidBefore = invalidBefore, Ledger.invalidHereafter = invalidHereAfter} = validityInterval
       lowerBound = case invalidBefore of
         SNothing -> TxValidityNoLowerBound
-        SJust s -> TxValidityLowerBound AllegraEraOnwardsBabbage s
+        SJust s -> TxValidityLowerBound AllegraEraOnwardsConway s
       upperBound = case invalidHereAfter of
-        SNothing -> TxValidityUpperBound ShelleyBasedEraBabbage Nothing
-        SJust s -> TxValidityUpperBound ShelleyBasedEraBabbage (Just s)
+        SNothing -> TxValidityUpperBound ShelleyBasedEraConway Nothing
+        SJust s -> TxValidityUpperBound ShelleyBasedEraConway (Just s)
    in (lowerBound, upperBound)
 
 instance Arbitrary (TxValidityLowerBound Era) where
   arbitrary =
     oneof
       [ pure TxValidityNoLowerBound
-      , TxValidityLowerBound AllegraEraOnwardsBabbage . SlotNo <$> arbitrary
+      , TxValidityLowerBound AllegraEraOnwardsConway . SlotNo <$> arbitrary
       ]
 
 instance Arbitrary (TxValidityUpperBound Era) where
-  arbitrary = TxValidityUpperBound ShelleyBasedEraBabbage . fmap SlotNo <$> arbitrary
+  arbitrary = TxValidityUpperBound ShelleyBasedEraConway . fmap SlotNo <$> arbitrary
