@@ -197,7 +197,7 @@ pattern ShelleyAddressInAnyEra <-
   Cardano.Api.ShelleyAddressInEra _
   where
     ShelleyAddressInAnyEra =
-      Cardano.Api.ShelleyAddressInEra ShelleyBasedEraBabbage
+      Cardano.Api.ShelleyAddressInEra ShelleyBasedEraConway
 
 -- ** BalancedTxBody
 
@@ -221,14 +221,14 @@ pattern ShelleyBootstrapWitness{shelleyBootstrapWitness} <-
   Cardano.Api.Shelley.ShelleyBootstrapWitness _ shelleyBootstrapWitness
   where
     ShelleyBootstrapWitness =
-      Cardano.Api.Shelley.ShelleyBootstrapWitness ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyBootstrapWitness ShelleyBasedEraConway
 
 pattern ShelleyKeyWitness :: Ledger.WitVKey 'Ledger.Witness StandardCrypto -> KeyWitness
 pattern ShelleyKeyWitness{shelleyKeyWitness} <-
   Cardano.Api.Shelley.ShelleyKeyWitness _ shelleyKeyWitness
   where
     ShelleyKeyWitness =
-      Cardano.Api.Shelley.ShelleyKeyWitness ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyKeyWitness ShelleyBasedEraConway
 
 -- ** PlutusScript
 
@@ -288,7 +288,7 @@ pattern PlutusScriptWitness
   , plutusScriptWitnessExecutionUnits
   } <-
   Cardano.Api.PlutusScriptWitness
-    PlutusScriptV2InBabbage
+    PlutusScriptV2InConway
     PlutusScriptV2
     (PScript plutusScriptWitnessScript)
     plutusScriptWitnessDatum
@@ -297,7 +297,7 @@ pattern PlutusScriptWitness
   where
     PlutusScriptWitness =
       Cardano.Api.PlutusScriptWitness
-        PlutusScriptV2InBabbage
+        PlutusScriptV2InConway
         PlutusScriptV2
         . PScript
 
@@ -337,7 +337,7 @@ pattern ShelleyTxBody
     txBodyScriptValidity
   where
     ShelleyTxBody =
-      Cardano.Api.Shelley.ShelleyTxBody ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyTxBody ShelleyBasedEraConway
 
 signShelleyTransaction :: TxBody -> [ShelleyWitnessSigningKey] -> Tx
 signShelleyTransaction = Cardano.Api.signShelleyTransaction shelleyBasedEra
@@ -359,7 +359,7 @@ pattern TxAuxScripts{txAuxScripts'} <-
   Cardano.Api.TxAuxScripts _ txAuxScripts'
   where
     TxAuxScripts =
-      Cardano.Api.TxAuxScripts AllegraEraOnwardsBabbage
+      Cardano.Api.TxAuxScripts AllegraEraOnwardsConway
 
 -- ** TxBody
 
@@ -470,7 +470,7 @@ pattern TxBodyScriptData{txBodyScriptDatums, txBodyScriptRedeemers} <-
   Cardano.Api.TxBodyScriptData _ txBodyScriptDatums txBodyScriptRedeemers
   where
     TxBodyScriptData =
-      Cardano.Api.TxBodyScriptData AlonzoEraOnwardsBabbage
+      Cardano.Api.TxBodyScriptData AlonzoEraOnwardsConway
 
 -- ** TxExtraKeyWitnesses
 
@@ -488,7 +488,7 @@ pattern TxExtraKeyWitnesses{txExtraKeyWitnesses} <-
   Cardano.Api.TxExtraKeyWitnesses _ txExtraKeyWitnesses
   where
     TxExtraKeyWitnesses =
-      Cardano.Api.TxExtraKeyWitnesses AlonzoEraOnwardsBabbage
+      Cardano.Api.TxExtraKeyWitnesses AlonzoEraOnwardsConway
 
 -- ** TxFee
 
@@ -500,7 +500,7 @@ pattern TxFeeExplicit{txFeeExplicit} <-
   Cardano.Api.TxFeeExplicit _ txFeeExplicit
   where
     TxFeeExplicit =
-      Cardano.Api.TxFeeExplicit ShelleyBasedEraBabbage
+      Cardano.Api.TxFeeExplicit ShelleyBasedEraConway
 
 -- ** TxIns
 
@@ -523,7 +523,7 @@ pattern TxInsReference{txInsReference'} <-
   Cardano.Api.TxInsReference _ txInsReference'
   where
     TxInsReference =
-      Cardano.Api.TxInsReference Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+      Cardano.Api.TxInsReference Cardano.Api.Shelley.BabbageEraOnwardsConway
 
 -- ** TxInsCollateral
 
@@ -542,7 +542,7 @@ pattern TxInsCollateral{txInsCollateral'} <-
   Cardano.Api.TxInsCollateral _ txInsCollateral'
   where
     TxInsCollateral =
-      Cardano.Api.TxInsCollateral AlonzoEraOnwardsBabbage
+      Cardano.Api.TxInsCollateral AlonzoEraOnwardsConway
 
 -- ** TxMetadataInEra
 
@@ -561,7 +561,7 @@ pattern TxMetadataInEra{txMetadataInEra} <-
   Cardano.Api.TxMetadataInEra _ txMetadataInEra
   where
     TxMetadataInEra =
-      Cardano.Api.TxMetadataInEra ShelleyBasedEraBabbage
+      Cardano.Api.TxMetadataInEra ShelleyBasedEraConway
 
 -- ** TxMintValue
 
@@ -583,7 +583,7 @@ pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
   Cardano.Api.TxMintValue _ txMintValueInEra txMintValueScriptWitnesses
   where
     TxMintValue =
-      Cardano.Api.TxMintValue MaryEraOnwardsBabbage
+      Cardano.Api.TxMintValue MaryEraOnwardsConway
 
 -- ** TxOut
 
@@ -595,14 +595,14 @@ pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> ReferenceScript -> T
 pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
   Cardano.Api.TxOut
     txOutAddress
-    (TxOutValue MaryEraOnwardsBabbage txOutValue)
+    (TxOutValue MaryEraOnwardsConway txOutValue)
     txOutDatum
     txOutReferenceScript
   where
     TxOut addr value datum ref =
       Cardano.Api.TxOut
         addr
-        (TxOutValue MaryEraOnwardsBabbage value)
+        (TxOutValue MaryEraOnwardsConway value)
         datum
         ref
 
@@ -614,12 +614,12 @@ type ReferenceScript = Cardano.Api.Shelley.ReferenceScript Era
 pattern ReferenceScript :: ScriptInAnyLang -> ReferenceScript
 pattern ReferenceScript{referenceScript} <-
   Cardano.Api.Shelley.ReferenceScript
-    Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+    Cardano.Api.Shelley.BabbageEraOnwardsConway
     referenceScript
   where
     ReferenceScript =
       Cardano.Api.Shelley.ReferenceScript
-        Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+        Cardano.Api.Shelley.BabbageEraOnwardsConway
 
 pattern ReferenceScriptNone :: Cardano.Api.Shelley.ReferenceScript Era
 pattern ReferenceScriptNone <-
@@ -645,21 +645,21 @@ pattern TxOutDatumHash{txOutDatumHash} <-
   Cardano.Api.TxOutDatumHash _ txOutDatumHash
   where
     TxOutDatumHash =
-      Cardano.Api.TxOutDatumHash AlonzoEraOnwardsBabbage
+      Cardano.Api.TxOutDatumHash AlonzoEraOnwardsConway
 
 pattern TxOutDatumInTx :: HashableScriptData -> TxOutDatum CtxTx
 pattern TxOutDatumInTx{txOutDatumScriptData} <-
   Cardano.Api.TxOutDatumInTx _ txOutDatumScriptData
   where
     TxOutDatumInTx =
-      Cardano.Api.TxOutDatumInTx AlonzoEraOnwardsBabbage
+      Cardano.Api.TxOutDatumInTx AlonzoEraOnwardsConway
 
 pattern TxOutDatumInline :: HashableScriptData -> TxOutDatum ctx
 pattern TxOutDatumInline{txOutDatumInlineScriptData} <-
   Cardano.Api.TxOutDatumInline _ txOutDatumInlineScriptData
   where
     TxOutDatumInline =
-      Cardano.Api.TxOutDatumInline Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+      Cardano.Api.TxOutDatumInline Cardano.Api.Shelley.BabbageEraOnwardsConway
 
 -- ** TxScriptValidity
 
@@ -678,7 +678,7 @@ pattern TxScriptValidity{txScriptValidity'} <-
   Cardano.Api.TxScriptValidity _ txScriptValidity'
   where
     TxScriptValidity =
-      Cardano.Api.TxScriptValidity AlonzoEraOnwardsBabbage
+      Cardano.Api.TxScriptValidity AlonzoEraOnwardsConway
 
 -- ** TxValidityLowerBound
 
@@ -697,7 +697,7 @@ pattern TxValidityLowerBound{lowerBound} <-
   Cardano.Api.TxValidityLowerBound _ lowerBound
   where
     TxValidityLowerBound =
-      Cardano.Api.TxValidityLowerBound AllegraEraOnwardsBabbage
+      Cardano.Api.TxValidityLowerBound AllegraEraOnwardsConway
 
 -- ** TxValidityUpperBound
 
@@ -706,11 +706,11 @@ type TxValidityUpperBound = Cardano.Api.TxValidityUpperBound Era
 
 pattern TxValidityNoUpperBound :: TxValidityUpperBound
 pattern TxValidityNoUpperBound =
-  Cardano.Api.TxValidityUpperBound ShelleyBasedEraBabbage Nothing
+  Cardano.Api.TxValidityUpperBound ShelleyBasedEraConway Nothing
 
 pattern TxValidityUpperBound :: SlotNo -> TxValidityUpperBound
 pattern TxValidityUpperBound{upperBound} =
-  Cardano.Api.TxValidityUpperBound ShelleyBasedEraBabbage (Just upperBound)
+  Cardano.Api.TxValidityUpperBound ShelleyBasedEraConway (Just upperBound)
 
 -- ** Witness
 
