@@ -19,7 +19,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Prelude
 
-type Era = BabbageEra
+type Era = ConwayEra
 
 type UTxO = UTxO' (TxOut CtxUTxO Era)
 
