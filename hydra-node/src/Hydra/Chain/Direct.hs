@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   ConsensusModeParams (..),
   EpochSlots (..),
   EraHistory (EraHistory),
-  EraInMode (BabbageEraInCardanoMode),
+  EraInMode (ConwayEraInCardanoMode),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
@@ -291,7 +291,7 @@ chainSyncClient handler wallet startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode _ (Block header txs) BabbageEraInCardanoMode -> do
+            BlockInMode _ (Block header txs) ConwayEraInCardanoMode -> do
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
@@ -326,7 +326,7 @@ txSubmissionClient tracer queue =
     traceWith tracer PostingTx{txId}
     pure $
       SendMsgSubmitTx
-        (TxInMode tx BabbageEraInCardanoMode)
+        (TxInMode tx ConwayEraInCardanoMode)
         ( \case
             SubmitSuccess -> do
               traceWith tracer PostedTx{txId}
