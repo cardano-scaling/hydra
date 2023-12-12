@@ -91,6 +91,10 @@ channels:
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
+          - $ref: "api.yaml#/components/messages/DecommitInvalid"
+          - $ref: "api.yaml#/components/messages/DecommitRequested"
+          - $ref: "api.yaml#/components/messages/DecommitApproved"
+          - $ref: "api.yaml#/components/messages/DecommitFinalized"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -101,6 +105,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
+          - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
@@ -132,6 +137,7 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+
   /snapshot/utxo:
     servers:
       - localhost-http
@@ -151,6 +157,39 @@ channels:
           type: response
           method: GET
           bindingVersion: '0.1.0'
+
+  /decommit:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Provide decommit transaction that needs to be applicable to the Hydra's local ledger state. Specified transaction outputs will be
+        available on layer 1 after decommit is successfully processed.
+      operationId: decommitRequest
+      message:
+        payload:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: decommitResponse
+      description: |
+        Possible responses of this endpoint are:
+          * String - 200 OK
+          * String - 400 bad request
+      message:
+        payload:
+            type: string
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
   /protocol-parameters:
     servers:
       - localhost-http
@@ -253,6 +292,24 @@ components:
           transaction:
             $ref: "api.yaml#/components/schemas/Transaction"
 
+    Decommit:
+      title: Decommit
+      description: |
+        Request to decommit a UTxO from a Head by providing a decommit tx. Upon reaching consensus, this
+        will eventually result in corresponding transaction outputs becoming
+        available on the layer 1.
+      payload:
+        type: object
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["Decommit"]
+          decommitTx:
+            type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
     Close:
       title: Close
       description: |
@@ -467,6 +524,36 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
 
+    DecommitInvalid:
+      title: DecommitInvalid
+      description: |
+        Decommit tx could not be applied to local ledger state or there is another
+        requested decommit which is not yet finalized.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitInvalid"
+
+    DecommitRequested:
+      title: DecommitRequested
+      description: |
+        Notify client that the request for decommit was received.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitRequested"
+
+    DecommitApproved:
+      title: DecommitApproved
+      description: |
+        Decommit request is validated by other participants and decommit tx is ready to be posted on layer 1.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitApproved"
+
+    DecommitFinalized:
+      title: DecommitFinalized
+      description: |
+        Decommit request is fully processed and hydra-node is ready to accept another decommit request.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitFinalized"
+
+
     # END OF SERVER OUTPUT MESSAGES
 
     DraftCommitTxRequest:
@@ -518,6 +605,10 @@ components:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
+        - $ref: "api.yaml#/components/schemas/DecommitRequested"
+        - $ref: "api.yaml#/components/schemas/DecommitApproved"
+        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
 
     Greetings:
       type: object
@@ -933,6 +1024,7 @@ components:
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
@@ -970,6 +1062,133 @@ components:
             contentEncoding: base16
             description: |
               A hex-encoded string identifying a participant on-chain (usually a hash of a key)
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitInvalid:
+      title: DecommitInvalid
+      description: |
+        Decommit tx could not be applied to local ledger state or there is another
+        requested decommit which is not yet finalized.
+      type: object
+      required:
+        - tag
+        - headId
+        - decommitInvalidReason
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        decommitInvalidReason:
+          oneOf:
+            - type: object
+              required:
+                - tag
+                - confirmedUTxO
+                - decommitTx
+                - validationError
+              properties:
+                tag:
+                  type: string
+                  enum: ["DecommitTxInvalid"]
+                confirmedUTxO:
+                  $ref: "api.yaml#/components/schemas/UTxO"
+                decommitTx:
+                  $ref: "api.yaml#/components/schemas/Transaction"
+                validationError:
+                  type: object
+                  properties:
+                    reason:
+                      type: string
+
+            - type: object
+              required:
+                - tag
+                - decommitTx
+              properties:
+                tag:
+                  type: string
+                  enum: ["DecommitAlreadyInFlight"]
+                decommitTx:
+                  $ref: "api.yaml#/components/schemas/Transaction"
+                seq:
+                  $ref: "api.yaml#/components/schemas/SequenceNumber"
+                timestamp:
+                  $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitRequested:
+      title: DecommitRequested
+      description: |
+        Notify client that the request for decommit was received.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToDecommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitRequested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToDecommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitApproved:
+      title: DecommitApproved
+      description: |
+        Decommit request is validated by other participants and decommit tx is ready to be posted on layer 1.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToDecommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToDecommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitFinalized:
+      title: DecommitFinalized
+      description: |
+        Decommit request is fully processed and hydra-node is ready to accept another decommit request.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1324,6 +1543,29 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
+        - title: DecrementTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - snapshot
+            - signatures
+          description: |
+            Post a transaction to decommit some UTxO from the Head.
+          properties:
+            tag:
+              type: string
+              enum: ["DecrementTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            snapshot:
+              $ref: "api.yaml#/components/schemas/Snapshot"
+            signatures:
+              $ref: "api.yaml#/components/schemas/MultiSignature"
         - title: CloseTx
           type: object
           additionalProperties: false
@@ -1657,6 +1899,17 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructCollectTx"]
+        - title: FailedToConstructDecrementTx
+          description: |
+            Raised if the user fails to submit a decrement tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructDecrementTx"]
         - title: FailedToConstructFanoutTx
           description: |
             Raised if the user fails to submit a fanout tx.
@@ -1694,6 +1947,8 @@ components:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/TxId"
+        utxoToDecommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
 
     SnapshotNumber:
       type: integer

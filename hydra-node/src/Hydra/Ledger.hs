@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module Hydra.Ledger where
 
@@ -41,7 +42,7 @@ class
   ) =>
   IsTx tx
   where
-  type UTxOType tx
+  type UTxOType tx = utxo | utxo -> tx
   type TxIdType tx
   type ValueType tx
 
@@ -53,6 +54,12 @@ class
   hashUTxO :: UTxOType tx -> ByteString
 
   txSpendingUTxO :: UTxOType tx -> tx
+
+  -- | Get the UTxO produced by given transaction.
+  utxoFromTx :: tx -> UTxOType tx
+
+  -- | Return the left-hand side without the right-hand side.
+  withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural

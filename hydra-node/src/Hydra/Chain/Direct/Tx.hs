@@ -87,6 +87,7 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
 
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
+  deriving newtype (Semigroup, Monoid)
 
 instance ToJSON UTxOHash where
   toJSON (UTxOHash bytes) =
@@ -413,6 +414,59 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
+-- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
+-- in the L2 ledger state and makes it available on L1.
+decrementTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
+  -- | Head identifier
+  HeadId ->
+  -- | Parameters of the head.
+  HeadParameters ->
+  -- | Everything needed to spend the Head state-machine output.
+  (TxIn, TxOut CtxUTxO) ->
+  -- | Confirmed Snapshot
+  Snapshot Tx ->
+  MultiSignature (Snapshot Tx) ->
+  Tx
+decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
+      -- NOTE: at this point 'utxoToDecommit' is populated
+      & addOutputs (headOutput' : map toTxContext (maybe [] (fmap snd . UTxO.pairs) utxoToDecommit))
+      & addExtraRequiredSigners [verificationKeyHash vk]
+ where
+  headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
+  HeadParameters{parties, contestationPeriod} = headParameters
+
+  headOutput' =
+    modifyTxOutDatum (const headDatumAfter) headOutput
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  headScriptRef = fst (headReference scriptRegistry)
+
+  headWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
+  headDatumAfter =
+    mkTxOutDatumInline
+      Head.Open
+        { Head.parties = partyToChain <$> parties
+        , utxoHash
+        , contestationPeriod = toChain contestationPeriod
+        , headId = headIdToCurrencySymbol headId
+        }
+  Snapshot{utxo, utxoToDecommit} = snapshot
+
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
 -- contains relevant chain state like the 'openUtxoHash'.
@@ -421,6 +475,7 @@ data ClosingSnapshot
   | CloseWithConfirmedSnapshot
       { snapshotNumber :: SnapshotNumber
       , closeUtxoHash :: UTxOHash
+      , closeUtxoToDecommitHash :: UTxOHash
       , -- XXX: This is a bit of a wart and stems from the fact that our
         -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
         -- and the closeUtxoHash as also included above
@@ -492,6 +547,8 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
+        , -- TODO: find a way to introduce this value
+          utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
         , parties = openParties
         , contestationDeadline
         , contestationPeriod = openContestationPeriod
@@ -503,9 +560,9 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     CloseWithInitialSnapshot{} -> 0
     CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
 
-  UTxOHash utxoHashBytes = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
-    CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
+  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes) = case closing of
+    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, mempty)
+    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash} -> (closeUtxoHash, closeUtxoToDecommitHash)
 
   signature = case closing of
     CloseWithInitialSnapshot{} -> mempty
@@ -544,7 +601,7 @@ contestTx ::
   HeadId ->
   ContestationPeriod ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
+contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -591,6 +648,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
       Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
+        , utxoToDecommitHash
         , parties = closedParties
         , contestationDeadline = newContestationDeadline
         , contestationPeriod = onChainConstestationPeriod
@@ -598,6 +656,8 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
         , contesters = contester : closedContesters
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
+  utxoToDecommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
 
 data FanoutTxError
   = CannotFindHeadOutputToFanout
@@ -744,6 +804,7 @@ data HeadObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
+  | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
@@ -760,6 +821,7 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
@@ -986,6 +1048,40 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
+
+newtype DecrementObservation = DecrementObservation
+  { headId :: HeadId
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary DecrementObservation where
+  arbitrary = genericArbitrary
+
+observeDecrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe DecrementObservation
+observeDecrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Decrement{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just Head.Open{} ->
+          pure
+            DecrementObservation
+              { headId
+              }
+        _ -> Nothing
+    _ -> Nothing
+ where
+  headScript = fromPlutusScript Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput

@@ -94,6 +94,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
+  DecrementObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   NotAnInitReason (..),
@@ -414,6 +415,7 @@ prop_observeAnyTx =
             Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
             Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
             CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+            Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId

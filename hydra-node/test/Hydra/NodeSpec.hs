@@ -184,7 +184,7 @@ spec = parallel $ do
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
+        getNetworkMessages `shouldReturn` [ReqSn 1 [1] Nothing, AckSn signedSnapshot 1]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -193,10 +193,10 @@ spec = parallel $ do
             sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotNumber = 1, transactionIds = mempty}
-                   , receiveMessage $ AckSn (sign aliceSk sn1) 1
-                   , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
-                   , receiveMessage ReqTx{transaction = tx1}
+                <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
+                   , NetworkInput{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
                    ]
 
         (node, getNetworkEvents) <-
@@ -204,7 +204,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
+        getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1] Nothing, AckSn (sign bobSk sn2) 2]
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -213,8 +213,8 @@ spec = parallel $ do
             sigAlice = sign aliceSk snapshot
             inputs =
               inputsToOpenHead
-                <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotNumber = 1, transactionIds = []}
+                <> [ NetworkInput{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Nothing}}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
@@ -245,9 +245,9 @@ spec = parallel $ do
               sigBob = sign bobSk snapshot
               inputs =
                 inputsToOpenHead
-                  <> [ receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
-                     , receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}
-                     , receiveMessage ReqSn{snapshotNumber = 1, transactionIds = [2]}
+                  <> [ NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
+                     , NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
+                     , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing}}
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs

@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutat
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
+import Hydra.Chain.Direct.Contract.Decrement (healthyDecrementTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation)
@@ -113,6 +114,9 @@ spec = parallel $ do
       propTransactionEvaluates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
+  describe "Decrement" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyDecrementTx
   describe "Close" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseTx
@@ -203,27 +207,32 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
       let sk = generateSigningKey seed
           offChainSig = sign sk snapshot
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
+          utxoHash =
+            (toBuiltin $ hashUTxO @SimpleTx utxo)
+          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
+            & counterexample ("utxoHash: " <> show utxoHash)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash signatures
+          utxoHash =
+            toBuiltin (hashUTxO @SimpleTx utxo)
+          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash signatures

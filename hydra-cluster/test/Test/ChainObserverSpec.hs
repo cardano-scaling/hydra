@@ -9,6 +9,7 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
@@ -16,15 +17,18 @@ import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
+import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
-import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile)
+import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = do
@@ -33,15 +37,19 @@ spec = do
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
         withTempDir "hydra-cluster" $ \tmpDir -> do
           -- Start a cardano devnet
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{networkId, nodeSocket} -> do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
-            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            (aliceCardanoVk, _) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+                (walletVk, walletSk) <- generate genKeyPair
+
+                commitUTxO <- seedFromFaucet cardanoNode walletVk 10_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
 
@@ -51,12 +59,31 @@ spec = do
 
                 chainObserverSees observer "HeadInitTx" headId
 
-                requestCommitTx hydraNode mempty >>= submitTx cardanoNode
+                commitTx <- requestCommitTx hydraNode commitUTxO
+
+                pure (signTx walletSk commitTx) >>= submitTx cardanoNode
+
                 waitFor hydraTracer 5 [hydraNode] $
-                  output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+                  output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
                 chainObserverSees observer "HeadCommitTx" headId
                 chainObserverSees observer "HeadCollectComTx" headId
+
+                let walletAddress = mkVkAddress networkId walletVk
+
+                decommitTx <-
+                  either (failure . show) pure $
+                    mkSimpleTx
+                      (List.head $ UTxO.pairs commitUTxO)
+                      (walletAddress, lovelaceToValue 2_000_000)
+                      walletSk
+
+                send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
+
+                chainObserverSees observer "HeadDecrementTx" headId
+
+                waitFor hydraTracer 50 [hydraNode] $
+                  output "DecommitFinalized" ["headId" .= headId]
 
                 send hydraNode $ input "Close" []
 

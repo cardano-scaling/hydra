@@ -14,6 +14,7 @@ import CardanoClient (
   queryTip,
   queryUTxOFor,
   submitTx,
+  waitForUTxO,
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
@@ -24,9 +25,44 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
+import Data.List qualified as List
 import Data.Set qualified as Set
-import Hydra.API.HTTPServer (DraftCommitTxResponse (..), TransactionSubmitted (..))
-import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, Tx, TxId, UTxO, getVerificationKey, isVkTxOut, lovelaceToValue, makeSignedTransaction, mkVkAddress, selectLovelace, signTx, txOutAddress, txOutValue, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
+import Hydra.API.HTTPServer (
+  DraftCommitTxRequest (..),
+  DraftCommitTxResponse (..),
+  ScriptInfo (..),
+  TransactionSubmitted (..),
+  TxOutWithWitness (..),
+ )
+import Hydra.Cardano.Api (
+  Coin (..),
+  File (File),
+  Key (SigningKey),
+  PaymentKey,
+  PlutusScriptV2,
+  Tx,
+  TxId,
+  UTxO,
+  fromPlutusScript,
+  getVerificationKey,
+  isVkTxOut,
+  lovelaceToValue,
+  makeSignedTransaction,
+  mkScriptAddress,
+  mkTxOutDatumHash,
+  mkTxOutDatumInline,
+  mkVkAddress,
+  selectLovelace,
+  signTx,
+  toScriptData,
+  txOutAddress,
+  txOutValue,
+  utxoFromTx,
+  writeFileTextEnvelope,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
+ )
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -39,7 +75,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (networkId, startChainFrom)
+import Hydra.Options (ChainConfig (Direct), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -70,9 +106,11 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
+import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import Test.QuickCheck (choose, generate)
+import Test.QuickCheck (choose, generate, oneof)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -565,6 +603,65 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Open a a single participant head with some UTxO and decommit parts of it.
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canDecommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 30_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> \case
+          Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
+          _ -> error "Should not be in offline mode"
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1@HydraClient{hydraNodeId} -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (walletVk, walletSk) <- generate genKeyPair
+
+      commitUTxO <- seedFromFaucet node walletVk 10_000_000 (contramap FromFaucet tracer)
+
+      requestCommitTx n1 commitUTxO <&> signTx walletSk >>= submitTx node
+
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
+
+      decommitTx <-
+        either (failure . show) pure $
+          mkSimpleTx
+            (List.head $ UTxO.pairs commitUTxO)
+            (mkVkAddress networkId walletVk, lovelaceToValue 2_000_000)
+            walletSk
+
+      let decommitClientInput = send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
+
+      let callDecommitHttpEndpoint =
+            void $
+              L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+                <&> setRequestBodyJSON decommitTx
+                  >>= httpLbs
+
+      join . generate $ oneof [pure decommitClientInput, pure callDecommitHttpEndpoint]
+
+      let decommitUTxO = utxoFromTx decommitTx
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+
+      failAfter 10 $ waitForUTxO node decommitUTxO
+
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitFinalized" ["headId" .= headId]
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket} = node
 
 -- * L2 scenarios
 

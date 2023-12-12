@@ -52,6 +52,8 @@ instance IsTx SimpleTx where
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
   hashUTxO = toStrict . foldMap (serialise . unSimpleTxIn)
+  utxoFromTx = txOutputs
+  withoutUTxO = Set.difference
 
   txSpendingUTxO utxo =
     SimpleTx

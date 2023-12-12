@@ -9,7 +9,7 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (initialLedgerState)
+import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
 import Cardano.Api.UTxO (fromPairs, pairs)
@@ -42,6 +42,7 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import PlutusLedgerApi.V2 (fromBuiltin)
@@ -118,6 +119,10 @@ instance IsTx Tx where
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
   txSpendingUTxO = Hydra.Cardano.Api.txSpendingUTxO
+
+  utxoFromTx = Api.utxoFromTx
+
+  withoutUTxO = UTxO.difference
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
