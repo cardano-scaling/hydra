@@ -77,6 +77,6 @@ confirmRadioField =
     ]
     True
  where
-  options = [("[y]es", True), ("[n]o", False)]
+  options = [("yes", True), ("no", False)]
 
   radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
