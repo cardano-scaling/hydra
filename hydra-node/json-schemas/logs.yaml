@@ -1423,6 +1423,7 @@ definitions:
     required:
       - localUTxO
       - localTxs
+      - allTxs
       - confirmedSnapshot
       - seenSnapshot
     properties:
@@ -1432,6 +1433,8 @@ definitions:
         type: array
         items:
           $ref: "api.yaml#/components/schemas/Transaction"
+      allTxs:
+        type: object
       confirmedSnapshot:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
