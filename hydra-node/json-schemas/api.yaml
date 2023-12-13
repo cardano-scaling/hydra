@@ -105,9 +105,12 @@ channels:
           - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
+          - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+
+  # FIXME: document or remove /decommit
 
   /commit:
     servers:
@@ -138,6 +141,7 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+
   /protocol-parameters:
     servers:
       - localhost-http
@@ -246,6 +250,25 @@ components:
               - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
               - $ref: "api.yaml#/components/schemas/Transaction"
 
+    Decommit:
+      title: Decommit
+      description: |
+        Request a decommit of the 'UTxO' referenced by given 'TxIn's. Upon
+        reaching consensus, this will eventually result in corresponding
+        transaction outputs becoming available on the layer 1.
+      payload:
+        type: object
+        required:
+          - tag
+          - txIns
+        properties:
+          tag:
+            type: string
+            enum: ["Decommit"]
+          txIns:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxIn"
     Close:
       title: Close
       description: |
