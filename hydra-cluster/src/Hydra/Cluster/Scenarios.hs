@@ -82,8 +82,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
-import Network.HTTP.Client.Conduit (Request (requestBody))
-import Network.HTTP.Conduit (RequestBody (RequestBodyLBS), parseUrlThrow)
+import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -98,7 +97,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import Network.HTTP.Simple (httpLbs)
+import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -656,10 +655,14 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      request <- parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
-      let decommitRequest = request{requestBody = RequestBodyLBS $ Aeson.encode decommitUTxO}
+      let decommitInputs = UTxO.inputSet decommitUTxO
+
+      request <-
+        parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
+          <&> setRequestBodyJSON decommitInputs
+
       -- TODO: check that we get the expected response
-      res <- httpLbs decommitRequest
+      res <- httpLbs request
 
       failAfter 10 $ waitForUTxO node decommitUTxO
  where
