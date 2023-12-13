@@ -13,6 +13,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
@@ -149,9 +150,7 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
-newtype DecommitRequest = DecommitRequest
-  { utxoToDecommit :: Set TxIn
-  }
+newtype DecommitRequest = DecommitRequest {txInsToDecommit :: Set TxIn}
   deriving stock (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
@@ -167,8 +166,10 @@ httpApp ::
   PParams LedgerEra ->
   -- | A means to get the 'HeadId' if initializing the Head.
   (STM IO) (Maybe HeadId) ->
+  -- | Callback to yield a 'ClientInput' to the main event loop.
+  (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain pparams getInitializingHeadId request respond = do
+httpApp tracer directChain pparams getInitializingHeadId putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -181,7 +182,7 @@ httpApp tracer directChain pparams getInitializingHeadId request respond = do
         >>= respond
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDecommit directChain
+        >>= handleDecommit putClientInput
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 [] . Aeson.encode $
@@ -334,16 +335,14 @@ handleSubmitUserTx directChain body = do
  where
   Chain{submitTx} = directChain
 
-handleDecommit :: Chain tx IO -> LBS.ByteString -> IO Response
-handleDecommit directChain body =
+handleDecommit :: (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
+handleDecommit putClientInput body =
   case Aeson.eitherDecode' body :: Either String DecommitRequest of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right DecommitRequest{} -> do
-      putTextLn "not implemented"
-      undefined
- where
-  Chain{} = directChain
+    Right DecommitRequest{txInsToDecommit} -> do
+      putClientInput Decommit{txIns = txInsToDecommit}
+      pure $ responseLBS status200 [] ""
 
 return400 :: IsChainState tx => PostTxError tx -> Response
 return400 = responseLBS status400 [] . Aeson.encode . toJSON
