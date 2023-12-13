@@ -1489,9 +1489,7 @@ definitions:
         snapshot:
           $ref: "api.yaml#/components/schemas/Snapshot"
         signatories:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/Party"
+          type: object
 
   Event:
     description: >-
