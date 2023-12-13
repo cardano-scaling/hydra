@@ -662,7 +662,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
       -- TODO: Do we expect anything on the websocket?
       waitFor hydraTracer 10 [n1] $
-        output "DecommitRequested" []
+        output "DecommitRequested" ["headId" .= headId]
       waitFor hydraTracer 10 [n1] $
         output "DecommitApproved" []
 

@@ -99,6 +99,7 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
+  | DecommitRequested {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -126,7 +127,9 @@ instance
   where
   arbitrary = genericArbitrary
 
-  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
+  -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
+  -- should be only one 'UTxOType tx'
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
@@ -152,6 +155,7 @@ instance
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
+    DecommitRequested headId -> DecommitRequested <$> shrink headId
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -222,6 +226,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     Greetings{} -> encodedResponse
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
+    DecommitRequested{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
