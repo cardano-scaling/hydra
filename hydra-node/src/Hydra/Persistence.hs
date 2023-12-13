@@ -56,6 +56,11 @@ data PersistenceIncremental a m = PersistenceIncremental
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
+--
+-- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
+-- it prevents loading from a different thread once one starts `append`ing
+-- through the handle. If another thread attempts to `loadAll` after this point,
+-- an `IncorrectAccessException` will be raised.
 createPersistenceIncremental ::
   forall a m.
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
