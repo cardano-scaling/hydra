@@ -74,6 +74,8 @@ spec = do
           shouldRender "Head id"
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'q') []
 
@@ -94,6 +96,8 @@ spec = do
           threadDelay 1
           shouldRender "Open"
           sendInputEvent $ EvKey (KChar 'c') []
+          threadDelay 1
+          sendInputEvent $ EvKey KEnter []
           threadDelay 1
           shouldRender "Closed"
           shouldRender "Remaining time to contest"

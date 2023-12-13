@@ -42,6 +42,8 @@ type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 
+type ConfirmingRadioFieldForm e n = Form Bool e n
+
 data InitializingState = InitializingState
   { remainingParties :: [Party]
   , initializingScreen :: InitializingScreen
@@ -50,12 +52,14 @@ data InitializingState = InitializingState
 data InitializingScreen
   = InitializingHome
   | CommitMenu {commitMenu :: UTxOCheckboxForm (HydraEvent Tx) Name}
+  | ConfirmingAbort {confirmingAbortForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
 
 data OpenScreen
   = OpenHome
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
   | SelectingRecipient {utxoSelected :: (TxIn, TxOut CtxUTxO), amountEntered :: Integer, selectingRecipientForm :: Form AddressInEra (HydraEvent Tx) Name}
+  | ConfirmingClose {confirmingCloseForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
 
 newtype ClosedState = ClosedState {contestationDeadline :: UTCTime}
 
@@ -83,6 +87,7 @@ makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
+  , ("confirmingCloseForm", "confirmingCloseFormL")
   ]
   ''OpenScreen
 
@@ -107,6 +112,7 @@ makeLensesFor
 
 makeLensesFor
   [ ("commitMenu", "commitMenuL")
+  , ("confirmingAbortForm", "confirmingAbortFormL")
   ]
   ''InitializingScreen
 

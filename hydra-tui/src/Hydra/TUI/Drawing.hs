@@ -127,6 +127,7 @@ drawFocusPanelInitializing :: IdentifiedState -> InitializingState -> Widget Nam
 drawFocusPanelInitializing me InitializingState{remainingParties, initializingScreen} = case initializingScreen of
   InitializingHome -> drawRemainingParties me remainingParties
   CommitMenu x -> vBox [txt "Select UTxOs to commit:", renderForm x]
+  ConfirmingAbort x -> vBox [txt "Confirm Abort action:", renderForm x]
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo = \case
@@ -134,6 +135,7 @@ drawFocusPanelOpen networkId vk utxo = \case
   SelectingUTxO x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
+  ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
  where
   ownAddress = mkVkAddress networkId vk
 
