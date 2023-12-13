@@ -1,19 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Utilities used across hydra-cluster
-module Hydra.Cluster.Util (
-  readConfigFile,
-  keysFor,
-  createAndSaveSigningKey,
-  offlineConfigFor,
-  offlineConfigForUTxO,
-  chainConfigFor,
-  initialUtxoWithFunds,
-  buildAddress,
-) where
+module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 

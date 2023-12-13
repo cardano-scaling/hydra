@@ -1,6 +1,3 @@
-{-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Chain.Offline (
   withOfflineChain,
 ) where

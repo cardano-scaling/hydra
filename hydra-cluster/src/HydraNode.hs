@@ -303,7 +303,6 @@ withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
-
 withOfflineHydraNode' ::
   OfflineConfig ->
   FilePath ->

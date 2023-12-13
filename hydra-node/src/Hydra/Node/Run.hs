@@ -22,6 +22,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
+import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -59,8 +60,6 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Persistence (createPersistenceIncremental)
-
-import Hydra.HeadId (HeadId (..))
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError

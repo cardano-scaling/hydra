@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
 import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)

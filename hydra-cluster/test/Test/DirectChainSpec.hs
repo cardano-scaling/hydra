@@ -462,10 +462,6 @@ data DirectChainTest tx m = DirectChainTest
   , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> HeadId -> m tx
   }
 
--- instance ChainTest DirectChainTest Tx IO  where
---   postTx = (postTx :: PostChainTx Tx -> IO ())
---   waitCallback = (waitCallback :: IO (ChainEvent Tx))
-
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
 -- 'postTx' and 'waitCallback' calls.
 withDirectChainTest ::
@@ -493,6 +489,38 @@ withDirectChainTest tracer config ctx action = do
               Right tx -> pure tx
         }
 
+hasInitTxWith :: (HasCallStack, IsTx tx) => HeadParameters -> [OnChainId] -> OnChainTx tx -> IO (HeadId, HeadSeed)
+hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, parties = expectedParties} expectedParticipants = \case
+  OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}, participants} -> do
+    expectedParticipants `shouldMatchList` participants
+    expectedContestationPeriod `shouldBe` contestationPeriod
+    expectedParties `shouldMatchList` parties
+    pure (headId, headSeed)
+  tx -> failure ("Unexpected observation: " <> show tx)
+
+observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
+observesInTime chain expected =
+  observesInTimeSatisfying chain (`shouldBe` expected)
+
+observesInTimeSatisfying :: DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
+observesInTimeSatisfying DirectChainTest{waitCallback} check =
+  failAfter 10 go
+ where
+  go = do
+    e <- waitCallback
+    case e of
+      Observation{observedTx} ->
+        check observedTx
+      _TickOrRollback ->
+        go
+
+waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
+waitMatch DirectChainTest{waitCallback} match = go
+ where
+  go = do
+    a <- waitCallback
+    maybe go pure (match a)
+
 delayUntil :: (MonadDelay m, MonadTime m) => UTCTime -> m ()
 delayUntil target = do
   now <- getCurrentTime
@@ -515,33 +543,9 @@ externalCommit node hydraClient externalSk headId utxoToCommit' = do
  where
   DirectChainTest{draftCommitTx} = hydraClient
 
-hasInitTxWith :: (HasCallStack, IsTx tx) => ContestationPeriod -> [Party] -> OnChainTx tx -> IO HeadId
-hasInitTxWith expectedContestationPeriod expectedParties = \case
-  OnInitTx{headId, contestationPeriod, parties} -> do
-    expectedContestationPeriod `shouldBe` contestationPeriod
-    expectedParties `shouldBe` parties
-    pure headId
-  tx -> failure ("Unexpected observation: " <> show tx)
-
-observesInTime :: IsTx tx => DirectChainTest tx IO -> OnChainTx tx -> IO ()
-observesInTime chain expected =
-  observesInTimeSatisfying chain (`shouldBe` expected)
-
-observesInTimeSatisfying :: DirectChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
-observesInTimeSatisfying c check =
-  failAfter 10 go
- where
-  go = do
-    e <- waitCallback c
-    case e of
-      Observation{observedTx} ->
-        check observedTx
-      _TickOrRollback ->
-        go
-
-waitMatch :: DirectChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
-waitMatch c match = go
- where
-  go = do
-    a <- waitCallback c
-    maybe go pure (match a)
+-- | Load key files for given 'Actor's (see keysFor) and directly convert them to 'OnChainId'.
+loadParticipants :: [Actor] -> IO [OnChainId]
+loadParticipants actors =
+  forM actors $ \a -> do
+    (vk, _) <- keysFor a
+    pure $ verificationKeyToOnChainId vk
