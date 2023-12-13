@@ -1558,18 +1558,6 @@ definitions:
             enum: ["OnChainEvent"]
           chainEvent:
             $ref: "logs.yaml#/definitions/OnChainEvent"
-      - title: ShouldPostFanout
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-        description: >-
-          An placeholder event denoting the Head should post a Fanout transaction
-          to finalize the head.
-        properties:
-          tag:
-            type: string
-            enum: ["ShouldPostFanout"]
       - title: PostTxError
         type: object
         additionalProperties: false
