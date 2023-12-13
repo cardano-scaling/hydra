@@ -182,6 +182,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
+      it "can survive a conway fork" $ \tracer -> do
+        withClusterTempDir "survive-conway-fork" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartySurviveConwayFork tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->
@@ -744,3 +749,55 @@ outputRef tid tix =
     [ "txId" .= tid
     , "index" .= tix
     ]
+
+singlePartySurviveConwayFork ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartySurviveConwayFork tracer workDir node hydraScriptsTxId = do
+    refuelIfNeeded tracer node Alice 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      -- Commit nothing for now
+      requestCommitTx n1 mempty >>= submitTx node
+      waitFor hydraTracer 600 [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+      -- Close head
+
+      -- TODO: Fork to conway
+      x <- queryTip networkId nodeSocket
+      print x
+
+      threadDelay 10
+
+      x <- queryTip networkId nodeSocket
+      print x
+
+
+      send n1 $ input "Close" []
+      deadline <- waitMatch 5 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        v ^? key "contestationDeadline" . _JSON
+      -- Expect to see ReadyToFanout within 600 seconds after deadline.
+      -- XXX: We still would like to have a network-specific time here
+      remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 60) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitFor hydraTracer 600 [n1] $
+        output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket} = node

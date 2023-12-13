@@ -297,7 +297,8 @@ chainSyncClient handler wallet startingPoint =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            _ ->
+            _ -> do
+              _ <- error "Not supported"
               -- NOTE: We are just ignoring different era blocks. It's not
               -- entirely clear if we would reach this point on a "next-era"
               -- network (e.g. Conway) or just have a handshake problem before.
