@@ -20,7 +20,7 @@ spec = do
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
-    getCardanoNodeVersion >>= (`shouldContain` "8.1.2")
+    getCardanoNodeVersion >>= (`shouldContain` "8.7.2")
 
   -- NOTE: We hard-code the expected networkId here to detect any change to the
   -- genesis-shelley.json
