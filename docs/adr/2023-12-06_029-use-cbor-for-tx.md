@@ -29,8 +29,10 @@ Proposed
 
 ## Decision
 
+* Replace JSON representation of Transaction and UTxO by their CBOR representation
+* When part of a JSON message, CBOR is hex-encoded
+
 ## Consequences
 
-The Hydra node would be usable offline, for transaction validation, and other custom L2 applications. The lifecycle & state machine associated with a Hydra would remain unchanged in both online, and offline mode.
-
-The Hydra node can be deployed and run without an accompanying Cardano node, simplifying deployment and testing.
+* We no longer have transaction ids inside the Tx representation, so it might need to be provided alongside the CBOR encoding to alleviate the need of clients to decode and compute it "manually"
+* We need to _version_ the data that's persisted and exchanged, e.g the Head state and network messages, in order to ensure nodes can either gracefully migrate stored data or detect explicitly versions inconsistency
