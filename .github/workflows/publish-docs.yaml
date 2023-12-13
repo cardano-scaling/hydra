@@ -23,7 +23,7 @@ jobs:
         fetch-depth: 0
 
     - name: 📥 Download released hydra-spec
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -33,7 +33,7 @@ jobs:
         path: docs/static
 
     - name: 📥 Download released benchmarks
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -43,7 +43,7 @@ jobs:
         path: docs/benchmarks
 
     - name: 📥 Download released test-results
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -53,7 +53,7 @@ jobs:
         path: docs/benchmarks/tests
 
     - name: 📥 Download released haddock documentation
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -86,7 +86,7 @@ jobs:
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
 
     - name: 📥 Download latest hydra-spec
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -96,7 +96,7 @@ jobs:
         path: docs/static
 
     - name: 📥 Download latest benchmarks
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -106,7 +106,7 @@ jobs:
         path: docs/benchmarks
 
     - name: 📥 Download latest test-results
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
@@ -116,7 +116,7 @@ jobs:
         path: docs/benchmarks/tests
 
     - name: 📥 Download latest haddock documentation
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v3
       with:
         repo: input-output-hk/hydra
         workflow: ci-nix.yaml
