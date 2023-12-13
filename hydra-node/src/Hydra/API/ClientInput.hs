@@ -4,15 +4,14 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (TxIn)
-import Hydra.Ledger (IsTx)
+import Hydra.Ledger (IsTx, UTxOType)
 
 data ClientInput tx
   = Init
   | Abort
   | NewTx {transaction :: tx}
   | GetUTxO
-  | Decommit {txIns :: Set TxIn}
+  | Decommit {utxoToDecommit :: UTxOType tx}
   | Close
   | Contest
   | Fanout
@@ -23,6 +22,18 @@ deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
-instance Arbitrary tx => Arbitrary (ClientInput tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
-  shrink = genericShrink
+
+  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
+  -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
+  -- should be only one 'UTxOType tx'
+  shrink = \case
+    Init -> []
+    Abort -> []
+    NewTx tx -> NewTx <$> shrink tx
+    GetUTxO -> []
+    Decommit u -> Decommit <$> shrink u
+    Close -> []
+    Contest -> []
+    Fanout -> []
