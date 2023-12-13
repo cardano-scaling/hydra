@@ -76,6 +76,7 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
+          # FIXME: revisit this, missing DecommitRequested
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
