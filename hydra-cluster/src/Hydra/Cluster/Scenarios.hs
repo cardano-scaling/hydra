@@ -661,8 +661,17 @@ canDecommit tracer workDir node hydraScriptsTxId =
         parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
           <&> setRequestBodyJSON decommitInputs
 
-      -- TODO: check that we get the expected response
+      -- TODO: What is the expected response?
       res <- httpLbs request
+
+      -- TODO: It's weird to need to look onto the websocket if we have an HTTP
+      -- endpoint, but decommitting is asynchronous!
+
+      -- TODO: Do we expect anything on the websocket?
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitRequested" []
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitApproved" []
 
       failAfter 10 $ waitForUTxO node decommitUTxO
  where

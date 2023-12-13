@@ -251,7 +251,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice

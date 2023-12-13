@@ -4,6 +4,7 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
+import Hydra.Cardano.Api (TxIn)
 import Hydra.Ledger (IsTx)
 
 data ClientInput tx
@@ -11,6 +12,7 @@ data ClientInput tx
   | Abort
   | NewTx {transaction :: tx}
   | GetUTxO
+  | Decommit {txIns :: Set TxIn}
   | Close
   | Contest
   | Fanout
@@ -23,15 +25,4 @@ deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
 instance Arbitrary tx => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
-
-  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
-  -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
-  -- should be only one 'UTxOType tx'
-  shrink = \case
-    Init -> []
-    Abort -> []
-    NewTx tx -> NewTx <$> shrink tx
-    GetUTxO -> []
-    Close -> []
-    Contest -> []
-    Fanout -> []
+  shrink = genericShrink

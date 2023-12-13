@@ -203,6 +203,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
             (key "transaction" .~ txToCbor tx)
             encodedResponse
         GetUTxO -> encodedResponse
+        Decommit{} -> encodedResponse
         Close -> encodedResponse
         Contest -> encodedResponse
         Fanout -> encodedResponse
