@@ -9,3 +9,6 @@ class IsBabbageEraOnwards era where
 
 instance IsBabbageEraOnwards BabbageEra where
   babbageEraOnwards = BabbageEraOnwardsBabbage
+
+instance IsBabbageEraOnwards ConwayEra where
+  babbageEraOnwards = BabbageEraOnwardsConway
