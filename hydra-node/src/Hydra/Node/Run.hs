@@ -17,7 +17,7 @@ import Hydra.Cardano.Api (
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
-import Hydra.Chain (ChainEvent (..), OnChainTx (..), maximumNumberOfParties)
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -25,7 +25,6 @@ import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
-  StateChanged (..),
   defaultTTL,
  )
 import Hydra.Ledger.Cardano qualified as Ledger
@@ -116,7 +115,7 @@ run opts = do
         -- Chain
         let withChain cont = case onlineOrOfflineConfig of
               Left offlineConfig' ->
-                let headId = HeadId "HeadId"
+                let headId = UnsafeHeadId "HeadId"
                  in withOfflineChain (contramap DirectChain tracer) offlineConfig' globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
               Right onlineConfig -> do
                 ctx <- loadChainContext chainConfig party hydraScriptsTxId

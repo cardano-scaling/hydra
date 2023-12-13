@@ -12,7 +12,8 @@ import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (
   ChainEvent (Observation, observedTx),
   ChainStateHistory,
-  OnChainTx (OnCommitTx, OnInitTx, contestationPeriod, headId, parties),
+  HeadParameters (..),
+  OnChainTx (..),
   committed,
   initHistory,
   newChainState,
@@ -47,8 +48,7 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
         , observedTx =
             OnInitTx
               { headId = ownHeadId
-              , parties = [ownParty]
-              , contestationPeriod = contestationPeriod
+              , headParameters = HeadParameters{parties = [ownParty], contestationPeriod}
               }
         }
 

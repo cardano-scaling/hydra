@@ -5,9 +5,19 @@ module Hydra.Chain.Offline.Handlers (
   mkFakeL1Chain,
 ) where
 
-import Hydra.Chain (Chain (Chain, draftCommitTx, postTx, submitTx), ChainEvent (Observation, newChainState, observedTx), HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnContestTx, OnFanoutTx, OnInitTx, contestationPeriod, headId, parties), PostChainTx (AbortTx, CloseTx, CollectComTx, ContestTx, FanoutTx, InitTx, confirmedSnapshot, headParameters), PostTxError (FailedToDraftTxNotInitializing), confirmedSnapshot, contestationDeadline, snapshotNumber)
+import Hydra.Chain (
+  Chain (Chain, draftCommitTx, postTx, submitTx),
+  ChainEvent (Observation, newChainState, observedTx),
+  HeadParameters (HeadParameters),
+  OnChainTx (..),
+  PostChainTx (..),
+  PostTxError (FailedToDraftTxNotInitializing),
+  confirmedSnapshot,
+  contestationDeadline,
+  snapshotNumber,
+ )
 import Hydra.Chain.Direct.Handlers (DirectChainLog (ToPost, toPost), LocalChainState, getLatest)
-import Hydra.Chain.Direct.State (ChainStateAt (ChainStateAt), chainState)
+import Hydra.Chain.Direct.State (ChainStateAt (ChainStateAt))
 import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger.Cardano (Tx)
@@ -25,15 +35,15 @@ mkFakeL1Chain ::
 mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
   Chain
     { submitTx = const $ pure ()
-    , draftCommitTx = const . pure $ Left FailedToDraftTxNotInitializing
+    , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
     , postTx = \tx -> do
-        cst@ChainStateAt{chainState = _chainState} <- atomically (getLatest localChainState)
+        cst@ChainStateAt{} <- atomically (getLatest localChainState)
         traceWith tracer $ ToPost{toPost = tx}
 
         let headId = ownHeadId
         _ <- case tx of
-          InitTx{headParameters = HeadParameters contestationPeriod' parties} ->
-            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, parties, contestationPeriod = contestationPeriod'}}
+          InitTx{headParameters} ->
+            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters}}
           AbortTx{} ->
             callback $ Observation{newChainState = cst, observedTx = OnAbortTx{}}
           CollectComTx{} ->

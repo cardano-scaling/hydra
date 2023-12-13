@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
   Address,
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
+  IsMaryEraOnwards,
   IsShelleyBasedEra,
   Key (VerificationKey, getVerificationKey, verificationKeyHash),
   NetworkId,
@@ -39,10 +40,9 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   genesisUTxOPseudoTxIn,
   mkTxOutValue,
-  shelleyAddressInEra,
+  mkVkAddress,
   textEnvelopeToJSON,
  )
-import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset)
 import Hydra.Cardano.Api.Prelude (PaymentCredential (PaymentCredentialByKey), ReferenceScript (ReferenceScriptNone), TxOut (TxOut), TxOutDatum (TxOutDatumNone), Value, makeShelleyAddress)
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
@@ -117,7 +117,7 @@ buildAddress vKey networkId =
 
 initialUtxoWithFunds ::
   forall era ctx.
-  (IsShelleyBasedEra era, HasMultiAsset era) =>
+  (IsShelleyBasedEra era, IsMaryEraOnwards era) =>
   NetworkId ->
   [(VerificationKey PaymentKey, Value)] ->
   IO (UTxO' (TxOut ctx era))
@@ -130,7 +130,7 @@ initialUtxoWithFunds networkId valueMap =
  where
   txout vKey val =
     TxOut
-      (shelleyAddressInEra @era $ buildAddress vKey networkId)
+      (mkVkAddress networkId vKey)
       (mkTxOutValue val)
       TxOutDatumNone
       ReferenceScriptNone
