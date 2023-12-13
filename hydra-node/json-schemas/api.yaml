@@ -254,9 +254,9 @@ components:
     Decommit:
       title: Decommit
       description: |
-        Request a decommit of the 'UTxO' referenced by given 'TxIn's. Upon
-        reaching consensus, this will eventually result in corresponding
-        transaction outputs becoming available on the layer 1.
+        Request a decommit of the given 'UTxO'. Upon reaching consensus, this
+        will eventually result in corresponding transaction outputs becoming
+        available on the layer 1.
       payload:
         type: object
         required:
@@ -266,10 +266,8 @@ components:
           tag:
             type: string
             enum: ["Decommit"]
-          txIns:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/TxIn"
+          utxoToDecommit:
+            $ref: "api.yaml#/components/schemas/UTxO"
     Close:
       title: Close
       description: |

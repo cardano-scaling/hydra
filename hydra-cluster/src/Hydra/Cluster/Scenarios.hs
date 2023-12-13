@@ -634,7 +634,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket [] contestationPeriod
         <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1@HydraClient{hydraNodeId} -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -656,11 +656,11 @@ canDecommit tracer workDir node hydraScriptsTxId =
       --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
       --     <&> setRequestBodyJSON (UTxO.inputSet decommitUTxO)
 
-      send n1 $ input "Decommit" ["txIns" .= UTxO.inputSet decommitUTxO]
+      send n1 $ input "Decommit" ["utxoToDecommit" .= decommitUTxO]
 
       -- TODO: Do we expect anything on the websocket?
       waitFor hydraTracer 10 [n1] $
-        output "DecommitRequested" ["headId" .= headId]
+        output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
       waitFor hydraTracer 10 [n1] $
         output "DecommitApproved" []
 

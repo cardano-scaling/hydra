@@ -99,7 +99,7 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
-  | DecommitRequested {headId :: HeadId}
+  | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -155,7 +155,7 @@ instance
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
-    DecommitRequested headId -> DecommitRequested <$> shrink headId
+    DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
 
 -- | Possible transaction formats in the api server output
 data OutputFormat

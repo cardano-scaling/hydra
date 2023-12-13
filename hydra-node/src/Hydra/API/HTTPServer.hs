@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
-  TxIn,
   TxOut,
   UTxO',
   deserialiseFromTextEnvelope,
@@ -38,6 +37,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadId (HeadId)
+import Hydra.Ledger (UTxOType)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Types (status200, status400, status500)
@@ -150,17 +150,21 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
-newtype DecommitRequest = DecommitRequest {txInsToDecommit :: Set TxIn}
-  deriving stock (Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
+newtype DecommitRequest tx = DecommitRequest {utxoToDecommit :: UTxOType tx}
+  deriving stock (Generic)
 
-instance Arbitrary DecommitRequest where
+deriving stock instance Eq (UTxOType tx) => Eq (DecommitRequest tx)
+deriving stock instance Show (UTxOType tx) => Show (DecommitRequest tx)
+deriving newtype instance ToJSON (UTxOType tx) => ToJSON (DecommitRequest tx)
+deriving newtype instance FromJSON (UTxOType tx) => FromJSON (DecommitRequest tx)
+
+instance Arbitrary (UTxOType tx) => Arbitrary (DecommitRequest tx) where
   arbitrary = genericArbitrary
-
   shrink = genericShrink
 
 -- | Hydra HTTP server
 httpApp ::
+  FromJSON (UTxOType tx) =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
@@ -336,13 +340,13 @@ handleSubmitUserTx directChain body = do
  where
   Chain{submitTx} = directChain
 
-handleDecommit :: (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
+handleDecommit :: forall tx. FromJSON (UTxOType tx) => (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
 handleDecommit putClientInput body =
-  case Aeson.eitherDecode' body :: Either String DecommitRequest of
+  case Aeson.eitherDecode' body :: Either String (DecommitRequest tx) of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right DecommitRequest{txInsToDecommit} -> do
-      putClientInput Decommit{txIns = txInsToDecommit}
+    Right DecommitRequest{utxoToDecommit} -> do
+      putClientInput Decommit{utxoToDecommit}
       pure $ responseLBS status200 [] ""
 
 return400 :: IsChainState tx => PostTxError tx -> Response
