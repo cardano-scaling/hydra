@@ -9,7 +9,7 @@ import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
 import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
-import Test.QuickCheck (checkCoverage, counterexample, cover, elements, generate, oneof, suchThat, (===))
+import Test.QuickCheck (checkCoverage, counterexample, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
 
