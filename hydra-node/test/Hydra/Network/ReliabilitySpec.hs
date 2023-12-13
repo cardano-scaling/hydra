@@ -17,7 +17,6 @@ import Data.Sequence.Strict ((|>))
 import Data.Text qualified as Text
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
-import Hydra.Logging (withTracerOutputTo)
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
@@ -39,14 +38,12 @@ import Test.QuickCheck (
   collect,
   counterexample,
   generate,
-  resize,
   tabulate,
   vectorOf,
   within,
   (===),
  )
-import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
-import Prelude (unlines, userError)
+import Prelude (unlines)
 
 spec :: Spec
 spec = parallel $ do
@@ -176,8 +173,10 @@ spec = parallel $ do
 
     it "appends messages to disk and can load them back" $ do
       withTempDir "network-messages-persistence" $ \tmpDir -> do
+        let networkMessagesFile = tmpDir <> "/network-messages"
+
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
-        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
+        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ networkMessagesFile
 
         let messagePersistence =
               MessagePersistence
@@ -211,8 +210,8 @@ spec = parallel $ do
 
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
-        doesFileExist (tmpDir </> "network-messages") `shouldReturn` True
-        loadAll `shouldReturn` [Data "node-1" msg]
+        doesFileExist networkMessagesFile `shouldReturn` True
+        reloadAll networkMessagesFile `shouldReturn` [Data "node-1" msg]
 
         doesFileExist (tmpDir </> "acks") `shouldReturn` True
         load `shouldReturn` Just (fromList [1, 1])
@@ -251,6 +250,11 @@ spec = parallel $ do
     let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
     writeTVar seed' newGenSeed
     pure res
+
+  reloadAll :: FilePath -> IO [Heartbeat (Heartbeat String)]
+  reloadAll fileName =
+    createPersistenceIncremental fileName
+      >>= \PersistenceIncremental{loadAll} -> loadAll
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

@@ -86,6 +86,7 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, writeTQueue),
+  modifyTVar',
   newTQueueIO,
   newTVarIO,
   readTVarIO,
@@ -93,6 +94,8 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Tracer (Tracer)
 import Data.IntMap qualified as IMap
+import Data.Sequence.Strict ((|>))
+import Data.Sequence.Strict qualified as Seq
 import Data.Vector (
   Vector,
   elemIndex,
@@ -224,23 +227,24 @@ withReliability ::
   NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
 withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
   acksCache <- loadAcks >>= newTVarIO
+  sentMessages <- loadMessages >>= newTVarIO . Seq.fromList
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
-  withRawNetwork (reliableCallback acksCache resend ourIndex) $ \network@Network{broadcast} -> do
+  withRawNetwork (reliableCallback acksCache sentMessages resend ourIndex) $ \network@Network{broadcast} -> do
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
-      reliableBroadcast ourIndex acksCache network
+      reliableBroadcast sentMessages ourIndex acksCache network
  where
   allParties = fromList $ sort $ me : otherParties
-  reliableBroadcast ourIndex acksCache Network{broadcast} =
+  reliableBroadcast sentMessages ourIndex acksCache Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                localCounter <- incrementAckCounter
-                appendMessage msg
+                localCounter <- atomically $ cacheMessage msg >> incrementAckCounter
                 saveAcks localCounter
+                appendMessage msg
                 traceWith tracer BroadcastCounter{ourIndex, localCounter}
                 broadcast $ ReliableMsg localCounter msg
               Ping{} -> do
@@ -250,13 +254,16 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
                 broadcast $ ReliableMsg localCounter msg
         }
    where
-    incrementAckCounter = atomically $ do
+    incrementAckCounter = do
       acks <- readTVar acksCache
       let newAcks = constructAcks acks ourIndex
       writeTVar acksCache newAcks
       pure newAcks
 
-  reliableCallback acksCache resend ourIndex (Authenticated (ReliableMsg acknowledged payload) party) = do
+    cacheMessage msg =
+      modifyTVar' sentMessages (|> msg)
+
+  reliableCallback acksCache sentMessages resend ourIndex (Authenticated (ReliableMsg acknowledged payload) party) = do
     if length acknowledged /= length allParties
       then
         traceWith
@@ -294,7 +301,7 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
               else traceWith tracer Ignored{acknowledged, localCounter, theirIndex, ourIndex}
 
             when (isPing payload) $
-              resendMessagesIfLagging resend theirIndex localCounter acknowledged ourIndex
+              resendMessagesIfLagging sentMessages resend theirIndex localCounter acknowledged ourIndex
           Nothing -> pure ()
 
   constructAcks acks wantedIndex =
@@ -302,7 +309,7 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
 
   partyIndexes = generate (length allParties) id
 
-  resendMessagesIfLagging resend theirIndex knownAcks acknowledged myIndex = do
+  resendMessagesIfLagging sentMessages resend theirIndex knownAcks acknowledged myIndex = do
     let mmessageAckForUs = acknowledged !? myIndex
     let mknownAckForUs = knownAcks !? myIndex
     case (mmessageAckForUs, mknownAckForUs) of
@@ -311,8 +318,8 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
         -- latest message sent
         when (messageAckForUs < knownAckForUs) $ do
           let missing = fromList [messageAckForUs + 1 .. knownAckForUs]
-          storedMessages <- loadMessages
-          let messages = IMap.fromList (zip [1 ..] storedMessages)
+          storedMessages <- readTVarIO sentMessages
+          let messages = IMap.fromList (zip [1 ..] $ toList storedMessages)
           forM_ missing $ \idx -> do
             case messages IMap.!? idx of
               Nothing ->
