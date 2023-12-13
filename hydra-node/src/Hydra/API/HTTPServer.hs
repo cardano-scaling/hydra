@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
   Tx,
+  TxIn,
   TxOut,
   UTxO',
   deserialiseFromTextEnvelope,
@@ -148,6 +149,17 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
+newtype DecommitRequest = DecommitRequest
+  { utxoToDecommit :: Set TxIn
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving newtype (ToJSON, FromJSON)
+
+instance Arbitrary DecommitRequest where
+  arbitrary = genericArbitrary
+
+  shrink = genericShrink
+
 -- | Hydra HTTP server
 httpApp ::
   Tracer IO APIServerLog ->
@@ -166,6 +178,10 @@ httpApp tracer directChain pparams getInitializingHeadId request respond = do
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
         >>= handleDraftCommitUtxo directChain getInitializingHeadId
+        >>= respond
+    ("POST", ["decommit"]) ->
+      consumeRequestBodyStrict request
+        >>= handleDecommit directChain
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 [] . Aeson.encode $
@@ -317,6 +333,17 @@ handleSubmitUserTx directChain body = do
           responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
   Chain{submitTx} = directChain
+
+handleDecommit :: Chain tx IO -> LBS.ByteString -> IO Response
+handleDecommit directChain body =
+  case Aeson.eitherDecode' body :: Either String DecommitRequest of
+    Left err ->
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right DecommitRequest{} -> do
+      putTextLn "not implemented"
+      undefined
+ where
+  Chain{} = directChain
 
 return400 :: IsChainState tx => PostTxError tx -> Response
 return400 = responseLBS status400 [] . Aeson.encode . toJSON
