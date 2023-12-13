@@ -5,6 +5,7 @@ module CardanoNode where
 import Hydra.Prelude
 
 import Control.Lens ((?~), (^?!))
+import Cardano.Ledger.Core (PParams)
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -14,6 +15,7 @@ import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cardano.Api qualified as Api
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
@@ -41,6 +43,7 @@ newtype NodeId = NodeId Int
 data RunningNode = RunningNode
   { nodeSocket :: SocketPath
   , networkId :: NetworkId
+  , pparams :: PParams Api.LedgerEra
   }
 
 -- | Configuration parameters for a single node devnet
@@ -120,6 +123,13 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    let rn =
+          RunningNode
+            { nodeSocket
+            , networkId
+            , pparams
+            }
     action rn
  where
   -- NOTE: This needs to match what's in config/genesis-shelley.json
@@ -137,9 +147,16 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
-  withCardanoNode tracer networkId workDir args $ \node -> do
+  withCardanoNode tracer workDir args $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    action node
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    let rn =
+          RunningNode
+            { nodeSocket
+            , networkId
+            , pparams
+            }
+    action rn
  where
   args =
     defaultCardanoNodeArgs
@@ -260,12 +277,11 @@ forkIntoConwayInEpoch stateDirectory args n = do
 
 withCardanoNode ::
   Tracer IO NodeLog ->
-  NetworkId ->
   FilePath ->
   CardanoNodeArgs ->
-  (RunningNode -> IO a) ->
+  (SocketPath -> IO a) ->
   IO a
-withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
+withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   traceWith tr $ MsgNodeStarting{stateDirectory}
   withLogFile logFilePath $ \out -> do
@@ -288,21 +304,21 @@ withCardanoNode tr networkId stateDirectory args@CardanoNodeArgs{nodeSocket} act
   socketPath = stateDirectory </> nodeSocket
 
   waitForNode = do
-    let rn = RunningNode{nodeSocket = File socketPath, networkId}
-    waitForSocket rn
-    traceWith tr $ MsgSocketIsReady socketPath
-    action rn
+    let nodeSocketPath = File socketPath
+    waitForSocket nodeSocketPath
+    traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
+    action nodeSocketPath
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
       removeFile socketPath
 
 -- | Wait for the node socket file to become available.
-waitForSocket :: RunningNode -> IO ()
-waitForSocket node@RunningNode{nodeSocket} =
-  unlessM (doesFileExist $ unFile nodeSocket) $ do
+waitForSocket :: SocketPath -> IO ()
+waitForSocket socketPath =
+  unlessM (doesFileExist $ unFile socketPath) $ do
     threadDelay 0.1
-    waitForSocket node
+    waitForSocket socketPath
 
 -- | Generate command-line arguments for launching @cardano-node@.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess

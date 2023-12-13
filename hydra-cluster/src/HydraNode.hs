@@ -6,13 +6,17 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
+import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
+import Cardano.Ledger.Core (PParams (..))
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
+import Control.Lens ((?~))
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Lens (atKey, key)
 import Data.Aeson.Types (Pair)
 import Data.List qualified as List
 import Data.Text (pack)
@@ -215,10 +219,11 @@ withHydraCluster ::
   [SigningKey HydraKey] ->
   -- | Transaction id at which Hydra scripts should have been published.
   TxId ->
+  PParams LedgerEra ->
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId pparams contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -258,6 +263,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         hydraSigningKey
         hydraVerificationKeys
         allNodeIds
+        pparams
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
@@ -270,11 +276,12 @@ withHydraNode ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
+  PParams LedgerEra ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
+    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams (Just logFileHandle) $ do
       \_ _ processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
@@ -292,14 +299,15 @@ withHydraNode' ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
+  PParams LedgerEra ->
   -- | If given use this as std out.
   Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
+withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
-    readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
+    writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
     hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
@@ -337,6 +345,24 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds m
         (Nothing, _) -> error "Should not happen™"
         (_, Nothing) -> error "Should not happen™"
  where
+  -- NOTE: We want to have zeroed fees in the Head.
+  writeZeroedPParams (PParams BabbagePParams{bppProtocolVersion}) =
+    toStrict $
+      ( Aeson.encode (toJSON pparams)
+          -- FIXME: this is a hack because cardano-ledger has a bug
+          -- (https://github.com/IntersectMBO/cardano-ledger/issues/3948) in the
+          -- BabbagePParams ToJSON instance where 'protocolVersion' is missing.
+          & atKey "protocolVersion" ?~ toJSON bppProtocolVersion
+          & atKey "minFeeA" ?~ toJSON (Number 0)
+          & atKey "minFeeB" ?~ toJSON (Number 0)
+          & atKey "txFeeFixed" ?~ toJSON (Number 0)
+          & atKey "txFeePerByte" ?~ toJSON (Number 0)
+          & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+          & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+      )
+
+  -- \| jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > protocol-parameters.json
+
   peers =
     [ Host
       { Network.hostname = "127.0.0.1"

@@ -151,7 +151,7 @@ setupNodeAndTUI' lovelace action =
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId, pparams} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
@@ -165,7 +165,7 @@ setupNodeAndTUI' lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
 
-        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] pparams $ \HydraClient{hydraNodeId} -> do
           seedFromFaucet_ node aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

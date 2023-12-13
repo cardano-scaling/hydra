@@ -31,7 +31,7 @@ data-files:
   config/devnet/kes.skey
   config/devnet/opcert.cert
   config/devnet/vrf.skey
-  config/protocol-parameters.json
+  config/pparams.json
 
 source-repository head
   type:     git
@@ -81,6 +81,7 @@ library
     , async
     , base                                         >=4.7     && <5
     , bytestring
+    , cardano-ledger-babbage
     , cardano-ledger-core
     , cardano-slotting
     , containers
@@ -155,7 +156,6 @@ test-suite tests
     Test.GeneratorSpec
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
-    Test.Ledger.Cardano.ConfigurationSpec
     Test.LogFilterSpec
     Test.OfflineChainSpec
 
