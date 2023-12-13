@@ -14,6 +14,7 @@ import CardanoClient (
   queryTip,
   queryUTxOFor,
   submitTx,
+  waitForUTxO,
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent.Async (mapConcurrently_)
@@ -81,6 +82,8 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import Network.HTTP.Client.Conduit (Request (requestBody))
+import Network.HTTP.Conduit (RequestBody (RequestBodyLBS), parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -95,6 +98,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (httpLbs)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -623,6 +627,45 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Open a a single participant head with some UTxO and decommit parts of it.
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canDecommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 25_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 100
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
+        <&> \config -> config{networkId, startChainFrom = Just tip}
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1@HydraClient{hydraNodeId} -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (walletVk, walletSk) <- generate genKeyPair
+
+      firstUTxO <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
+      decommitUTxO <- seedFromFaucet node walletVk 1_000_000 (contramap FromFaucet tracer)
+
+      let commitUTxO = firstUTxO <> decommitUTxO
+
+      requestCommitTx n1 commitUTxO <&> signTx walletSk >>= submitTx node
+
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
+
+      request <- parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
+      let decommitRequest = request{requestBody = RequestBodyLBS $ Aeson.encode decommitUTxO}
+      -- TODO: check that we get the expected response
+      res <- httpLbs decommitRequest
+
+      failAfter 10 $ waitForUTxO node decommitUTxO
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket} = node
 
 -- * Utilities
 
