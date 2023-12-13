@@ -48,7 +48,6 @@ let
     pkgs.plantuml
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
-  ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
     # For integration tests
     cardano-node.packages.${system}.cardano-node
   ];
@@ -67,7 +66,6 @@ let
     # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
     pkgs.nodejs
-  ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
     # To interact with cardano-node and testing out things
     cardano-node.packages.${system}.cardano-cli
   ];
@@ -126,7 +124,6 @@ let
     buildInputs = [
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
-    ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
       cardano-node.packages.${system}.cardano-node
       cardano-node.packages.${system}.cardano-cli
     ];
@@ -139,7 +136,6 @@ let
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-tui.components.exes.hydra-tui
       run-tmux
-    ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
       cardano-node.packages.${system}.cardano-node
       cardano-node.packages.${system}.cardano-cli
     ];
