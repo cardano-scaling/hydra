@@ -2063,19 +2063,19 @@ definitions:
           tag:
             type: string
             enum: ["WaitOnContestationDeadline"]
-      - title: WaitOnSeenTxs
+      - title: WaitOnTxs
         description: >-
           Some transactions from a proposed snapshot have not been seen yet
         type: object
         additionalProperties: false
         required:
           - tag
-          - unseenTxIds
+          - waitingForTxIds
         properties:
           tag:
             type: string
-            enum: ["WaitOnSeenTxs"]
-          unseenTxIds:
+            enum: ["WaitOnTxs"]
+          waitingForTxIds:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
