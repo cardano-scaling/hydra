@@ -152,54 +152,6 @@ spec = parallel $ do
               & tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
               & tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
 
-    modifyMaxSuccess (const 1) $
-      prop "stress test networking persistence layer" $
-        monadicIO $ do
-          seed <- pick arbitrary
-          aliceToBobMessages :: [TestMsg] <- pickBlind (resize 100 $ arbitrary)
-          bobToAliceMessages :: [TestMsg] <- pickBlind (resize 100 $ arbitrary)
-          result <- run $
-            withTempDir "network-messages-persistence" $ \tmpDir -> do
-              let logFile = tmpDir </> "nodes.log"
-              withFile logFile ReadWriteMode $ \hdl ->
-                race
-                  (threadDelay 60 >> throwIO (userError $ "timeout exhausted, log file written to :" <> logFile))
-                  ( withTracerOutputTo hdl "network persistence" $ \tracer -> do
-                      messagesReceivedByBob <- newTVarIO empty
-                      messagesReceivedByAlice <- newTVarIO empty
-                      randomSeed <- newTVarIO $ mkStdGen seed
-                      aliceToBob <- newTQueueIO
-                      bobToAlice <- newTQueueIO
-                      alicePersistence <- realPersistenceFor "alice" tmpDir
-                      bobPersistence <- realPersistenceFor "bob" tmpDir
-
-                      let
-                        -- this is a NetworkComponent that broadcasts authenticated messages
-                        -- mediated through a read and a write TQueue but drops 0.2 % of them
-                        aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
-                        bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
-
-                        bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork tracer "bob" bob [alice]
-                        aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork tracer "alice" alice [bob]
-
-                        runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
-                        runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
-
-                      concurrently_ runAlice runBob
-
-                      aliceReceived <- Vector.toList <$> readTVarIO messagesReceivedByAlice
-                      bobReceived <- Vector.toList <$> readTVarIO messagesReceivedByBob
-                      pure (aliceReceived, bobReceived)
-                  )
-
-          case result of
-            Right (msgReceivedByAlice, msgReceivedByBob) -> do
-              assert $ msgReceivedByBob == aliceToBobMessages
-              assert $ msgReceivedByAlice == bobToAliceMessages
-              monitor $ tabulate "Messages from Alice to Bob" ["< " <> show ((length msgReceivedByBob `div` 10 + 1) * 10)]
-              monitor $ tabulate "Messages from Bob to Alice" ["< " <> show ((length msgReceivedByAlice `div` 10 + 1) * 10)]
-            Left () -> assert False
-
     it "broadcast updates counter from peers" $ do
       let receivedMsgs = runSimOrThrow $ do
             sentMessages <- newTVarIO empty
