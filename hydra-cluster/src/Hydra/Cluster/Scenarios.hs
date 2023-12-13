@@ -83,7 +83,6 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
-import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -98,7 +97,6 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -653,17 +651,12 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      let decommitInputs = UTxO.inputSet decommitUTxO
+      -- FIXME: Decide whether we want to keep this
+      -- httpLbs =<<
+      --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
+      --     <&> setRequestBodyJSON (UTxO.inputSet decommitUTxO)
 
-      request <-
-        parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
-          <&> setRequestBodyJSON decommitInputs
-
-      -- TODO: What is the expected response?
-      res <- httpLbs request
-
-      -- TODO: It's weird to need to look onto the websocket if we have an HTTP
-      -- endpoint, but decommitting is asynchronous!
+      send n1 $ input "Decommit" ["txIns" .= UTxO.inputSet decommitUTxO]
 
       -- TODO: Do we expect anything on the websocket?
       waitFor hydraTracer 10 [n1] $
