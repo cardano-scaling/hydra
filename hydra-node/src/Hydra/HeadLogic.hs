@@ -730,6 +730,8 @@ update env ledger st ev = case (st, ev) of
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open OpenState{headId}, ClientEvent Decommit{utxoToDecommit}) ->
+    -- FIXME: Revisit this. Our plan changed and now we want to accept a signed
+    -- decommit tx.
     Effects [ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}]
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []

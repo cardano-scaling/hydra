@@ -183,7 +183,6 @@ httpApp tracer directChain pparams getInitializingHeadId putClientInput request 
         >>= handleDraftCommitUtxo directChain getInitializingHeadId
         >>= respond
     ("POST", ["decommit"]) ->
-      -- FIXME: Decide whether we want to keep this
       consumeRequestBodyStrict request
         >>= handleDecommit putClientInput
         >>= respond

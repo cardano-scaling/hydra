@@ -18,6 +18,8 @@ import Hydra.Logging (nullTracer)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
 import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.Ledger.Simple (SimpleTx)
 
 spec :: Spec
 spec = do
@@ -99,5 +101,5 @@ apiServerSpec = do
                   )
             }
  where
-  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId
+  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId (\(_ :: ClientInput SimpleTx) -> pure ())
   getHeadId = pure Nothing
