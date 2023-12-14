@@ -3,7 +3,7 @@ slug: 29
 title: |
   29. EventSource & EventSink abstractions
 authors: [@cardenaso11, @quantumplation, @ch1bo]
-tags: []
+tags: [Draft]
 ---
 
 ## Status
@@ -47,25 +47,36 @@ data HydraNode tx m = HydraNode
   }
 ```
 
-* The `stepHydraNode` main loop does call `putEvent` on all `eventSinks` in sequence.
- 
-  - TBD: transaction semantics? what happens if one fails?
+* The `hydra-node` will load events and __hydra_te its `HeadState` using `getEvents` of the single `eventSource`.
+
+* The `stepHydraNode` main loop does call `putEvent` on all `eventSinks` in sequence. Any failure will make the `hydra-node` process terminate and require a restart.
+
+* When loading events from `eventSource` on `hydra-node` startup, it will also re-submit events via `putEvent` to all `eventSinks`.
 
 * The default `hydra-node` main loop does use the file-based `EventSource` and a single file-based `EventSink` (using the same file).
-
-* TBD: As the node starts up, when loading events from the `EventSource`, it will also ensure "at least once" semantics for each `EventSink`.
 
 * We realize that the `EventSource` and `EventSink` handles, as well as their aggregation in `HydraNode` are used as an API by forks of the `hydra-node` and try to minimize changes to it.
 
 ## Consequences
 
 * The default operation of the `hyda-node` remains unchanged.
+
 * There are other things called `Event` and `EventQueue(putEvent)` right now in the `hydra-node`. This is getting confusing and when we implement this, we should also rename several things first (tidying).
+
+* Interface first: Implementations of `EventSink` should specify their format in a non-ambiguous and versioned way, especially when a corresponding `EventSource` exists.
+
 * The API `Server` can be modelled and refactored as an `EventSink`.
-  - TBD: Do `Network` and `Chain` parts qualify as `EventSink`s as well or shall those be triggered by `Effect`s still?
-* Projects forking the hydra node have a natively extensions points for producing and consuming events.
-* TBD: These extensions can preserve robust "at least once" semantics for each hydra event.
+
+* Projects forking the hydra node have dedicated extension points for producing and consuming events.
+
 * Sundae Labs can build a "Save transaction batches to S3" proof of concept `EventSink`.
 * Sundae Labs can build a "Scrolls source" `EventSink`.
 * Sundae Labs can build a "Amazon Kinesis" `EventSource` and `EventSink`.
-* Extension points like `EventSource` and `EventSink` could be dynamically loaded as plugins without having to fork `hydra-node` (maybe in a future ADR).
+
+## Out of scope / future work
+
+* Available implementations for `EventSource` and `EventSink` could be
+  - configured upon `hydra-node` startup using for example URIs: `--event-source file://state` or `--event-sink s3://some-bucket`
+  - dynamically loaded as plugins without having to fork `hydra-node`.
+
+* The `Network` and `Chain` parts qualify as `EventSink`s as well or shall those be triggered by `Effect`s still?
