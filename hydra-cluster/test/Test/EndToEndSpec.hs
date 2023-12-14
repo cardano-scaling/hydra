@@ -461,7 +461,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             chainConfig <- chainConfigFor Alice dir nodeSocket [] (UnsafeContestationPeriod 1)
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _processHandle -> do
+            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
@@ -493,18 +493,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _processHandle -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \stdout stderr n1 -> do
               -- Assert nominal startup
-              waitForLog 5 stdOut "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+              waitForLog 5 stdout "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+
               delayEpoch args 1
-              -- TODO: should assert on stderr
-              hGetContents stdOut >>= (`shouldContain` "upgrade hydra-node")
+
+              hGetContents stderr >>= (`shouldContain` "upgrade hydra-node")
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
 -- TODO: not hard-code but use args
 delayEpoch :: CardanoNodeArgs -> Natural -> IO ()
-delayEpoch args epochs =
+delayEpoch _ epochs =
   threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
  where
   epochLength = 20

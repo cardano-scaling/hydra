@@ -298,7 +298,7 @@ chainSyncClient handler wallet startingPoint =
               onRollForward handler header txs
               pure clientStIdle
             _ -> do
-              _ <- error "Not supported"
+              _ <- error "Era not supported. Please upgrade hydra-node."
               -- NOTE: We are just ignoring different era blocks. It's not
               -- entirely clear if we would reach this point on a "next-era"
               -- network (e.g. Conway) or just have a handshake problem before.

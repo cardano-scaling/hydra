@@ -366,14 +366,16 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
-      \_ processHandle -> do
-        race
-          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-          (withConnectionToNode tracer hydraNodeId action)
-          <&> either absurd id
+    withLogFile errorLogFilePath $ \errorLogFileHandle -> do
+      withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) (Just errorLogFileHandle) $ do
+        \_ _ processHandle -> do
+          race
+            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+            (withConnectionToNode tracer hydraNodeId action)
+            <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+  errorLogFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <> "-errors" <.> "log"
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -388,9 +390,11 @@ withHydraNode' ::
   TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> ProcessHandle -> IO a) ->
+  -- | If given use this as std err.
+  Maybe Handle ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
+withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut mGivenStdErr action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
@@ -423,12 +427,12 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = Inherit
+            , std_err = maybe CreatePipe UseHandle mGivenStdErr
             }
     withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
       case (mCreatedHandle, mGivenStdOut, mErr) of
-        (Just out, _, _) -> action out processHandle
-        (Nothing, Just out, _) -> action out processHandle
+        (Just out, _, Just err) -> action out err processHandle
+        (Nothing, Just out, Just err) -> action out err processHandle
         (_, _, _) -> error "Should not happen™"
  where
   peers =
