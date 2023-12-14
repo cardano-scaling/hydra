@@ -4,7 +4,7 @@ module Hydra.Persistence where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, throwSTM)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -73,7 +73,7 @@ createPersistenceIncremental fp = do
     PersistenceIncremental
       { append = \a -> do
           tid <- myThreadId
-          atomically $ modifyTVar' authorizedThread (const $ Just tid)
+          atomically $ writeTVar authorizedThread $ Just tid
           let bytes = toStrict $ Aeson.encode a <> "\n"
           liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
       , loadAll = do
