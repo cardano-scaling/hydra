@@ -76,7 +76,7 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
-          # FIXME: revisit this, missing DecommitRequested
+          - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -111,8 +111,6 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
 
-  # FIXME: document or remove /decommit
-
   /commit:
     servers:
       - localhost-http
@@ -142,6 +140,26 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+
+  /decommit:
+    servers:
+      - localhost-http
+    publish:
+      description: Draft a decommit transaction, which needs to be signed by the requester and later on validated against the local ledger.
+      operationId: draftDecommitTx
+      message:
+        $ref: "api.yaml#/components/messages/DecommitRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: draftCommitTxResponse
+      description: |
+        Possible responses of this endpoint are:
+          # TODO: Add return type here once we have it
+          200 ""
 
   /protocol-parameters:
     servers:
@@ -444,6 +462,31 @@ components:
           party:
             $ref: "api.yaml#/components/schemas/Party"
           utxo:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitRequested:
+      title: DecommitRequested
+      description: |
+        Client requested `Decommit` transaction.
+      payload:
+        type: object
+        required:
+          - tag
+          - party
+          - utxo
+          - seq
+          - timestamp
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitRequested"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          utxoToDecommit:
             $ref: "api.yaml#/components/schemas/UTxO"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
