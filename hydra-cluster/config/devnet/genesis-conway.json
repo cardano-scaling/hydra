@@ -1,4 +1,5 @@
 {
+  "genDelegs": {},
   "poolVotingThresholds": {
     "pvtCommitteeNormal": 0.51,
     "pvtCommitteeNoConfidence": 0.51,
