@@ -2,7 +2,7 @@
 slug: 29
 title: |
   29. EventSource & EventSink abstractions
-authors: [@cardenaso11, @quantumplation, @ch1bo]
+authors: [cardenaso11, quantumplation, ch1bo]
 tags: [Draft]
 ---
 
