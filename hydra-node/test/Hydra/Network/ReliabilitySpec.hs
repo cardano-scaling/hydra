@@ -14,7 +14,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.IOSim (runSimOrThrow)
 import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
-import Data.Text qualified as Text
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
 import Hydra.Network (Network (..))
@@ -34,12 +33,10 @@ import System.Random (mkStdGen, uniformR)
 import Test.Hydra.Fixture (alice, bob, carol)
 import Test.QuickCheck (
   Positive (Positive),
-  arbitraryPrintableChar,
   collect,
   counterexample,
   generate,
   tabulate,
-  vectorOf,
   within,
   (===),
  )
@@ -312,27 +309,3 @@ mockMessagePersistence numberOfParties = do
       , loadMessages = toList <$> readTVarIO messages
       , appendMessage = \msg -> atomically $ modifyTVar' messages (|> msg)
       }
-
-realPersistenceFor :: (FromJSON msg, ToJSON msg) => String -> FilePath -> IO (MessagePersistence IO msg)
-realPersistenceFor actor tmpDir = do
-  Persistence{load, save} <- createPersistence $ tmpDir </> actor </> "acks"
-  PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir </> actor </> "network-messages"
-
-  pure $
-    MessagePersistence
-      { loadAcks = do
-          mloaded <- load
-          case mloaded of
-            Nothing -> pure $ replicate (length [alice, bob]) 0
-            Just acks -> pure acks
-      , saveAcks = save
-      , loadMessages = loadAll
-      , appendMessage = append
-      }
-
-newtype TestMsg = T Text
-  deriving newtype (Eq, Show, ToJSON, FromJSON)
-
-instance Arbitrary TestMsg where
-  arbitrary =
-    T . Text.pack <$> vectorOf 10000 arbitraryPrintableChar
