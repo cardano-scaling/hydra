@@ -979,7 +979,7 @@ components:
         A unique seed identifier to create a 'HeadId', represented by a hex-encoded 16 bytes string.
       contentEncoding: base16
       example:
-        "820082582089ff4f3ff4a6052ec9d073"
+        "111206190b110f1417181e0120141e05"
 
     HeadParameters:
       type: object
@@ -1422,6 +1422,20 @@ components:
               enum: ["InvalidSeed"]
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
+        - title: InvalidHeadId
+          description: |
+            Raised if the user fails to submit a commit tx using the wrong headId.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - headId
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidHeadId"]
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadId"
         - title: FailedToConstructAbortTx
           description: |
             Raised if the user fails to submit an abort tx.

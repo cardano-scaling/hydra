@@ -1423,6 +1423,7 @@ definitions:
     required:
       - localUTxO
       - localTxs
+      - allTxs
       - confirmedSnapshot
       - seenSnapshot
     properties:
@@ -1430,6 +1431,12 @@ definitions:
         $ref: "api.yaml#/components/schemas/UTxO"
       localTxs:
         type: array
+        items:
+          $ref: "api.yaml#/components/schemas/Transaction"
+      allTxs:
+        type: object
+        propertyNames:
+          $ref: "api.yaml#/components/schemas/TxId"
         items:
           $ref: "api.yaml#/components/schemas/Transaction"
       confirmedSnapshot:
@@ -1489,9 +1496,12 @@ definitions:
         snapshot:
           $ref: "api.yaml#/components/schemas/Snapshot"
         signatories:
-          type: array
+          type: object
+          propertyNames:
+            type: string
+            contentEncoding: base16
           items:
-            $ref: "api.yaml#/components/schemas/Party"
+            $ref: "api.yaml#/components/schemas/Signature"
 
   Event:
     description: >-
@@ -1558,18 +1568,6 @@ definitions:
             enum: ["OnChainEvent"]
           chainEvent:
             $ref: "logs.yaml#/definitions/OnChainEvent"
-      - title: ShouldPostFanout
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-        description: >-
-          An placeholder event denoting the Head should post a Fanout transaction
-          to finalize the head.
-        properties:
-          tag:
-            type: string
-            enum: ["ShouldPostFanout"]
       - title: PostTxError
         type: object
         additionalProperties: false
@@ -2063,19 +2061,19 @@ definitions:
           tag:
             type: string
             enum: ["WaitOnContestationDeadline"]
-      - title: WaitOnSeenTxs
+      - title: WaitOnTxs
         description: >-
           Some transactions from a proposed snapshot have not been seen yet
         type: object
         additionalProperties: false
         required:
           - tag
-          - unseenTxIds
+          - waitingForTxIds
         properties:
           tag:
             type: string
-            enum: ["WaitOnSeenTxs"]
-          unseenTxIds:
+            enum: ["WaitOnTxs"]
+          waitingForTxIds:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
