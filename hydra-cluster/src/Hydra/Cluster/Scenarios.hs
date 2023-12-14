@@ -85,7 +85,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
-import Network.HTTP.Conduit (parseUrlThrow)
+import Network.HTTP.Client.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -100,6 +100,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -640,7 +641,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
           case config of
             Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
             _ -> error "Should not be in offline mode"
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1@HydraClient{hydraNodeId} -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -652,11 +653,19 @@ canDecommit tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
       decommitUTxO <- (error "pick subset of") commitUTxO
-      res <- parseUrlThrow "POST /decommit"
-      -- TODO: requestBody decommitUTxO (or [TxIn])
+      res <-
+        httpLbs
+          =<< ( parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
+                  <&> setRequestBodyJSON decommitUTxO
+              )
 
-      -- TODO: wait for decommitUTxO become available
-      pure ()
+      -- TODO: Do we expect anything on the websocket?
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitApproved" []
+
+      failAfter 10 $ waitForUTxO node decommitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 

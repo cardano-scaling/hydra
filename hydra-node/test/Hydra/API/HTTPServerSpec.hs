@@ -20,6 +20,9 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
 import Test.QuickCheck.Property (counterexample, forAll, property)
+import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.Ledger.Simple (SimpleTx)
 
 spec :: Spec
 spec = do
