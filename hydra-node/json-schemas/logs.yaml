@@ -1435,6 +1435,10 @@ definitions:
           $ref: "api.yaml#/components/schemas/Transaction"
       allTxs:
         type: object
+        propertyNames:
+          $ref: "api.yaml#/components/schemas/TxId"
+        items:
+          $ref: "api.yaml#/components/schemas/Transaction"
       confirmedSnapshot:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
@@ -1493,6 +1497,11 @@ definitions:
           $ref: "api.yaml#/components/schemas/Snapshot"
         signatories:
           type: object
+          propertyNames:
+            type: string
+            contentEncoding: base16
+          items:
+            $ref: "api.yaml#/components/schemas/Signature"
 
   Event:
     description: >-
