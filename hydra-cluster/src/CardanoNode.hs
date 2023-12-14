@@ -251,7 +251,14 @@ setupCardanoDevnet stateDirectory = do
 -- number. See 'config/devnet/genesis-shelley.json' for the epoch length (in
 -- slots).
 forkIntoConwayInEpoch :: CardanoNodeArgs -> Natural -> IO ()
-forkIntoConwayInEpoch = undefined
+forkIntoConwayInEpoch args n = do
+  config <-
+    unsafeDecodeJsonFile (nodeConfigFile args)
+      <&> addField "TestConwayHardForkAtEpoch" n
+  Aeson.encodeFile
+    (nodeConfigFile args)
+    config
+  return ()
 
 withCardanoNode ::
   Tracer IO NodeLog ->
