@@ -489,7 +489,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "does report on unsupported era" $ \tracer -> do
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch args 1
+          forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
