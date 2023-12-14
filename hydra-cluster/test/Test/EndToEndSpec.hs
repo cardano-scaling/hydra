@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoNode (CardanoNodeArgs, RunningNode (..), forkIntoConwayInEpoch, setupCardanoDevnet, withCardanoNode, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
@@ -19,6 +19,7 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
@@ -43,18 +44,7 @@ import Hydra.Cluster.Faucet (
   seedFromFaucet,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (
-  Actor (Alice, Bob, Carol, Faucet),
-  alice,
-  aliceSk,
-  aliceVk,
-  bob,
-  bobSk,
-  bobVk,
-  carol,
-  carolSk,
-  carolVk,
- )
+import Hydra.Cluster.Fixture (Actor (Alice, Bob, Carol, Faucet), alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk, cperiod, defaultNetworkId)
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
@@ -97,7 +87,7 @@ import HydraNode (
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import System.IO (hGetLine)
+import System.IO (hGetContents, hGetLine)
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
 import Prelude qualified
@@ -182,11 +172,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
-      it "can survive a conway fork" $ \tracer -> do
-        withClusterTempDir "survive-conway-fork" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartySurviveConwayFork tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->
@@ -500,6 +485,31 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
 
+    describe "forking eras" $ do
+      it "does report on unsupported era" $ \tracer -> do
+        withClusterTempDir "unsupported-era" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+          forkIntoConwayInEpoch args 1
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _processHandle -> do
+              -- Assert nominal startup
+              waitForLog 5 stdOut "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+              delayEpoch args 1
+              -- TODO: should assert on stderr
+              hGetContents stdOut >>= (`shouldContain` "upgrade hydra-node")
+
+-- | Wait for given number of epochs. This uses the epoch and slot lengths from
+-- the 'ShelleyGenesisFile' of the node args passed in.
+-- TODO: not hard-code but use args
+delayEpoch :: CardanoNodeArgs -> Natural -> IO ()
+delayEpoch args epochs =
+  threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
+ where
+  epochLength = 20
+  slotLength = 0.1 :: Double
+
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
   seenLogs <- newTVarIO []
@@ -749,55 +759,3 @@ outputRef tid tix =
     [ "txId" .= tid
     , "index" .= tix
     ]
-
-singlePartySurviveConwayFork ::
-  Tracer IO EndToEndLog ->
-  FilePath ->
-  RunningNode ->
-  TxId ->
-  IO ()
-singlePartySurviveConwayFork tracer workDir node hydraScriptsTxId = do
-    refuelIfNeeded tracer node Alice 25_000_000
-    -- Start hydra-node on chain tip
-    tip <- queryTip networkId nodeSocket
-    let contestationPeriod = UnsafeContestationPeriod 100
-    aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
-        <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-      -- Initialize & open head
-      send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
-      -- Commit nothing for now
-      requestCommitTx n1 mempty >>= submitTx node
-      waitFor hydraTracer 600 [n1] $
-        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-      -- Close head
-
-      -- TODO: Fork to conway
-      x <- queryTip networkId nodeSocket
-      print x
-
-      threadDelay 10
-
-      x <- queryTip networkId nodeSocket
-      print x
-
-
-      send n1 $ input "Close" []
-      deadline <- waitMatch 5 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "HeadIsClosed"
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        v ^? key "contestationDeadline" . _JSON
-      -- Expect to see ReadyToFanout within 600 seconds after deadline.
-      -- XXX: We still would like to have a network-specific time here
-      remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
-      waitFor hydraTracer (remainingTime + 60) [n1] $
-        output "ReadyToFanout" ["headId" .= headId]
-      send n1 $ input "Fanout" []
-      waitFor hydraTracer 600 [n1] $
-        output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
- where
-  hydraTracer = contramap FromHydraNode tracer
-
-  RunningNode{networkId, nodeSocket} = node

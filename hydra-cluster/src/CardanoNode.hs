@@ -117,27 +117,29 @@ withCardanoNodeDevnet ::
   (RunningNode -> IO a) ->
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
-  createDirectoryIfMissing True stateDirectory
-  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
-    mapM
-      copyDevnetCredential
-      [ "byron-delegation.cert"
-      , "byron-delegate.key"
-      , "vrf.skey"
-      , "kes.skey"
-      , "opcert.cert"
-      ]
-  let args =
-        defaultCardanoNodeArgs
-          { nodeDlgCertFile = Just dlgCert
-          , nodeSignKeyFile = Just signKey
-          , nodeVrfKeyFile = Just vrfKey
-          , nodeKesKeyFile = Just kesKey
-          , nodeOpCertFile = Just opCert
-          }
-  copyDevnetFiles args
-  refreshSystemStart stateDirectory args
-  writeTopology [] args
+  args <- setupCardanoDevnet stateDirectory
+  -- TODO: move these into ^
+  -- createDirectoryIfMissing True stateDirectory
+  -- [dlgCert, signKey, vrfKey, kesKey, opCert] <-
+  --   mapM
+  --     copyDevnetCredential
+  --     [ "byron-delegation.cert"
+  --     , "byron-delegate.key"
+  --     , "vrf.skey"
+  --     , "kes.skey"
+  --     , "opcert.cert"
+  --     ]
+  -- let args =
+  --       defaultCardanoNodeArgs
+  --         { nodeDlgCertFile = Just dlgCert
+  --         , nodeSignKeyFile = Just signKey
+  --         , nodeVrfKeyFile = Just vrfKey
+  --         , nodeKesKeyFile = Just kesKey
+  --         , nodeOpCertFile = Just opCert
+  --         }
+  -- copyDevnetFiles args
+  -- refreshSystemStart stateDirectory args
+  -- writeTopology [] args
 
   withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
@@ -240,6 +242,17 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 
   fetchConfigFile path =
     parseRequestThrow path >>= httpBS <&> getResponseBody
+
+-- | Setup the cardano-node to run a local devnet producing blocks. This copies
+-- the appropriate files and prepares 'CardanoNodeArgs' for 'withCardanoNode'.
+setupCardanoDevnet :: FilePath -> IO CardanoNodeArgs
+setupCardanoDevnet tmpDir = undefined
+
+-- | Modify the cardano-node configuration to fork into conway at given era
+-- number. See 'config/devnet/genesis-shelley.json' for the epoch length (in
+-- slots).
+forkIntoConwayInEpoch :: CardanoNodeArgs -> Natural -> IO ()
+forkIntoConwayInEpoch = undefined
 
 withCardanoNode ::
   Tracer IO NodeLog ->
