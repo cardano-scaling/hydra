@@ -118,64 +118,12 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  -- TODO: move these into ^
-  -- createDirectoryIfMissing True stateDirectory
-  -- [dlgCert, signKey, vrfKey, kesKey, opCert] <-
-  --   mapM
-  --     copyDevnetCredential
-  --     [ "byron-delegation.cert"
-  --     , "byron-delegate.key"
-  --     , "vrf.skey"
-  --     , "kes.skey"
-  --     , "opcert.cert"
-  --     ]
-  -- let args =
-  --       defaultCardanoNodeArgs
-  --         { nodeDlgCertFile = Just dlgCert
-  --         , nodeSignKeyFile = Just signKey
-  --         , nodeVrfKeyFile = Just vrfKey
-  --         , nodeKesKeyFile = Just kesKey
-  --         , nodeOpCertFile = Just opCert
-  --         }
-  -- copyDevnetFiles args
-  -- refreshSystemStart stateDirectory args
-  -- writeTopology [] args
-
   withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
     action rn
  where
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
-
-  copyDevnetCredential file = do
-    let destination = stateDirectory </> file
-    unlessM (doesFileExist destination) $
-      readConfigFile ("devnet" </> file)
-        >>= writeFileBS destination
-    setFileMode destination ownerReadMode
-    pure file
-
-  copyDevnetFiles args = do
-    readConfigFile ("devnet" </> "cardano-node.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeConfigFile args)
-    readConfigFile ("devnet" </> "genesis-byron.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeByronGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-shelley.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeShelleyGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-alonzo.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeAlonzoGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-conway.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeConwayGenesisFile args)
-
-  writeTopology peers args =
-    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
-      mkTopology peers
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -246,7 +194,58 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 -- | Setup the cardano-node to run a local devnet producing blocks. This copies
 -- the appropriate files and prepares 'CardanoNodeArgs' for 'withCardanoNode'.
 setupCardanoDevnet :: FilePath -> IO CardanoNodeArgs
-setupCardanoDevnet tmpDir = undefined
+setupCardanoDevnet stateDirectory = do
+  createDirectoryIfMissing True stateDirectory
+  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
+    mapM
+      copyDevnetCredential
+      [ "byron-delegation.cert"
+      , "byron-delegate.key"
+      , "vrf.skey"
+      , "kes.skey"
+      , "opcert.cert"
+      ]
+  let args =
+        defaultCardanoNodeArgs
+          { nodeDlgCertFile = Just dlgCert
+          , nodeSignKeyFile = Just signKey
+          , nodeVrfKeyFile = Just vrfKey
+          , nodeKesKeyFile = Just kesKey
+          , nodeOpCertFile = Just opCert
+          }
+  copyDevnetFiles args
+  refreshSystemStart stateDirectory args
+  writeTopology [] args
+  pure args
+ where
+  copyDevnetCredential file = do
+    let destination = stateDirectory </> file
+    unlessM (doesFileExist destination) $
+      readConfigFile ("devnet" </> file)
+        >>= writeFileBS destination
+    setFileMode destination ownerReadMode
+    pure file
+
+  copyDevnetFiles args = do
+    readConfigFile ("devnet" </> "cardano-node.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConfigFile args)
+    readConfigFile ("devnet" </> "genesis-byron.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeByronGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-shelley.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeShelleyGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-alonzo.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeAlonzoGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-conway.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConwayGenesisFile args)
+
+  writeTopology peers args =
+    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
+      mkTopology peers
 
 -- | Modify the cardano-node configuration to fork into conway at given era
 -- number. See 'config/devnet/genesis-shelley.json' for the epoch length (in
