@@ -77,7 +77,7 @@ defaultCardanoNodeArgs :: CardanoNodeArgs
 defaultCardanoNodeArgs =
   CardanoNodeArgs
     { nodeSocket = "node.socket"
-    , nodeConfigFile = "configuration.json"
+    , nodeConfigFile = "cardano-node.json"
     , nodeByronGenesisFile = "genesis-byron.json"
     , nodeShelleyGenesisFile = "genesis-shelley.json"
     , nodeAlonzoGenesisFile = "genesis-alonzo.json"
