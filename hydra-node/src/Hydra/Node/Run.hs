@@ -78,12 +78,9 @@ explain = \case
 
 run :: RunOptions -> IO ()
 run opts = do
-  putStrLn $ "LOG: Called run()"
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  putStrLn $ "LOG: Called validateRunOptions()"
   let RunOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
   env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironment opts
-  putStrLn $ "LOG: Called initEnvironment()"
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       traceWith tracer (NodeOptions opts)
@@ -107,17 +104,13 @@ run opts = do
         Just OfflineConfig{ledgerGenesisFile} -> do
           -- offline
           loadGlobalsFromGenesis ledgerGenesisFile
-      putStrLn $ "LOG: Got globals"
 
       withCardanoLedger pparams globals $ \ledger -> do
-        putStrLn $ "LOG: Called withCardanoLedger"
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
-        putStrLn $ "LOG: Loaded state from persistence directory: " <> persistenceDir <> "/state"
 
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
-        putStrLn $ "LOG: Created node state"
         -- Chain
         let withChain cont = case onlineOrOfflineConfig of
               Left offlineConfig' ->
@@ -128,18 +121,15 @@ run opts = do
                 wallet <- mkTinyWallet (contramap DirectChain tracer) onlineConfig
                 withDirectChain (contramap DirectChain tracer) onlineConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
         withChain $ \chain -> do
-          putStrLn $ "LOG: Called withChain"
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
-            putStrLn $ "LOG: Called withAPIServer"
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
-              putStrLn $ "LOG: Called withNetwork"
               -- Main loop
               runHydraNode (contramap Node tracer) $
                 HydraNode
@@ -165,7 +155,7 @@ identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
 
--- TODO(ELAINE): figure out a less strange way to do this
+-- TODO: export from cardano-api
 
 -- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
 fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra

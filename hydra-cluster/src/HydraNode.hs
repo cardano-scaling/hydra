@@ -304,15 +304,6 @@ withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
-withPersistentDebugDirectory :: FilePath -> (FilePath -> IO a) -> IO a
-withPersistentDebugDirectory newFolder action = do
-  tempDirectory <- getCanonicalTemporaryDirectory 
-  let newPath =  tempDirectory </> newFolder
-  createDirectoryIfMissing True newPath
-
-  putStrLn $ "LOG: PERSISTENT BUG DIRECTORY: " <> newPath
-  action newPath
-
 withOfflineHydraNode' ::
   OfflineConfig ->
   FilePath ->
@@ -320,25 +311,20 @@ withOfflineHydraNode' ::
   SigningKey HydraKey ->
   -- | If given use this as std out.
   Maybe Handle ->
-  -- -> (HydraClient -> IO a)
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut action =
-  withPersistentDebugDirectory "hydra-node-e2e" $ \dir -> do
-    putStrLn $ "LOG: Called withOfflineHydraNode': dir = " <> dir 
+  withSystemTempDirectory "hydra-node-e2e" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
-    putStrLn $ "LOG: Writing protocol-parameters.json at directory: " <> cardanoLedgerProtocolParametersFile
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
-    putStrLn $ "LOG: Writing hydraSigningKey at directory: " <> hydraSigningKey
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
     let ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
             }
     let p =
-          ( hydraNodeProcess . (\args -> trace ("ARGS DUMP: " <> foldMap (" "<>) (toArgs args)) args) $
-          -- ( hydraNodeProcess $
+          ( hydraNodeProcess $
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId

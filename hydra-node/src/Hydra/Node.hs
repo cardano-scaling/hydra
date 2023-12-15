@@ -70,24 +70,16 @@ import Hydra.OnChainId (OnChainId(UnsafeOnChainId))
 -- | Intialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
-  putStrLn $ "LOG: before readFileTextEnvelopeThrow hydraSigningKey"
-  putStrLn $ "LOG: hydraSigningKey: " ++ hydraSigningKey
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
-  putStrLn "LOG: before readFileTextEnvelopeThrow hydraVerificationKeys"
-  putStrLn $ "LOG: hydraVerificationKeys: " ++ show hydraVerificationKeys
   otherParties <- mapM loadParty hydraVerificationKeys
   -- NOTE: This is a cardano-specific initialization step of loading
   -- --cardano-verification-key options and deriving 'OnChainId's from it.
-  putStrLn "LOG: before readFileTextEnvelopeThrow cardanoSigningKey"
-  putStrLn $ "LOG: cardanoSigningKey: " ++ cardanoSigningKey
   ownSigningKey <- case offlineConfig of
-      -- Nothing for offlineconfig means we are running in online mode
+      -- online mode
     Nothing -> readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-      -- Just offlineconfig means we are running in offline mode
+      -- offline mode
     Just _ -> pure $ Hydra.Prelude.error "Shouldn't be using cardanoSigningKey in offline mode!"
     
-  putStrLn "LOG: before readFileTextEnvelopeThrow cardanoVerificationKeys"
-  putStrLn $ "LOG: cardanoVerificationKeys: " ++ show cardanoVerificationKeys
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
   let participants =  case offlineConfig of
         Nothing -> verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys) 
@@ -202,28 +194,20 @@ stepHydraNode ::
   HydraNode tx m ->
   m ()
 stepHydraNode tracer node = do
-  -- trace ("LOG: starting hydra step") (pure ())
   e@Queued{eventId, queuedEvent} <- nextEvent eq
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
-  -- trace "LOG: processing event" (pure ())
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  -- trace "LOG: processed event" (pure ())
-  -- trace "LOG: handling outcome" (pure ())
   handleOutcome e outcome
-  -- trace "LOG: handled outcome" (pure ())
-  -- trace "LOG: processing effects" (pure ())
   processEffects node tracer eventId outcome
   traceWith tracer EndEvent{by = party, eventId}
-  -- trace "LOG: finished hydra step" (pure ())
-  -- trace "LOG: finished step" (pure ())
  where
   handleOutcome e = \case
-    Error _ -> {- trace "LOG: Handle: error" $ -} pure ()
-    Wait _reason -> {-trace "LOG: Handle: Wait" $ -}putEventAfter eq waitDelay (decreaseTTL e)
-    StateChanged sc ->{- trace "LOG: Handle: StateChanged" $-} append sc
-    Effects _ -> {-trace "LOG: Handle: Effects" $ -}pure ()
-    Combined l r -> {-trace "LOG: Handle: Combined" $ -}handleOutcome e l >> handleOutcome e r
+    Error _ -> pure ()
+    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
+    StateChanged sc -> append sc
+    Effects _ -> pure ()
+    Combined l r -> handleOutcome e l >> handleOutcome e r
 
   decreaseTTL =
     \case
@@ -249,14 +233,13 @@ processNextEvent ::
   Event tx ->
   STM m (Outcome tx)
 processNextEvent HydraNode{nodeState, ledger, env} e =
-  -- trace "LOG: processNextEvent called with " $
   modifyHeadState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
   NodeState{modifyHeadState} = nodeState
 
-  computeOutcome = {- trace "LOG: computeOutcome" $-} Logic.update env ledger
+  computeOutcome = Logic.update env ledger
 
 processEffects ::
   ( MonadAsync m

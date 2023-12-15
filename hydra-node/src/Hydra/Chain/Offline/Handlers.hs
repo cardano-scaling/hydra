@@ -59,10 +59,10 @@ mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
               Observation
                 { newChainState = cst
                 , observedTx =
-                    OnCloseTx{headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline} -- ELAINE TODO: probably we shouldnt allow the clietn to do contestation in offline mode ?
+                    OnCloseTx{headId, snapshotNumber = number $ getSnapshot confirmedSnapshot, contestationDeadline}
                 }
           ContestTx{confirmedSnapshot} ->
-            -- this shouldnt really happen, i dont think we should allow contesting in offline mode
+            -- TODO: this shouldn't really happen... make it impossible to do contestation in offline mode?
             callback $
               Observation
                 { newChainState = cst
