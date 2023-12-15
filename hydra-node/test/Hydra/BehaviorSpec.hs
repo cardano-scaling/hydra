@@ -377,6 +377,16 @@ spec = parallel $ do
 
                 waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
+      it "can request decommit" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+
+                send n1 (Decommit (aValidTx 42))
+                waitUntil [n1, n2] $ DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
