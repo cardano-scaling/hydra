@@ -75,7 +75,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, offlineConfigFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
@@ -124,9 +124,16 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             ]
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
-      offlineConfig <- offlineConfigFor startingState tmpDir networkId
+      initialUtxo <- generate $ do
+        a <- genUTxOFor aliceCardanoVk
+        b <- genUTxOFor bobCardanoVk
+        pure $ a <> b
+      Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
+      let offlineConfig = OfflineConfig
+            { initialUTxOFile = tmpDir </> "utxo.json"
+            , ledgerGenesisFile = Nothing
+            }
 
-      initialUtxo <- Aeson.throwDecodeStrict @UTxO.UTxO =<< readFileBS (initialUTxOFile offlineConfig)
       let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
 
       withOfflineHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk $ \node -> do
