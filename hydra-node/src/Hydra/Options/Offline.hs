@@ -107,7 +107,6 @@ toArgs
           ["--initial-utxo", initialUTxOFile offlineConfig]
           <> maybe [] (\s -> ["--ledger-genesis", s]) (ledgerGenesisFile offlineConfig)
 
--- FIXME(Elaine): this instance doesn't do stuff correctly but was necessary during rebasing
 instance Arbitrary OfflineConfig where
   arbitrary = do
     ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "ledgerGenesis"]

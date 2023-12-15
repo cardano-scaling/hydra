@@ -53,8 +53,6 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
               }
         }
 
-    -- NOTE(Elaine): should be no need to update the chain state, that's L1, there's nothing relevant there
-    -- observation events are to construct the L2 we want, with the initial utxo
     callback $
       Observation
         { newChainState = initialChainState

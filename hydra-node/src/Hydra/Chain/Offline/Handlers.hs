@@ -43,8 +43,7 @@ mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
             headSeed = offlineHeadSeed
         _ <- case tx of
           InitTx{headParameters} ->
-            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters, headSeed, participants = []}} 
-            -- FIXME(Elaine): might want to make participants nonempty, a singleton list of just some random 28 byte garbage
+            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters, headSeed, participants = []}}
           AbortTx{} ->
             callback $ Observation{newChainState = cst, observedTx = OnAbortTx{headId}}
           CollectComTx{} ->

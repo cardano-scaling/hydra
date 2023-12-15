@@ -331,13 +331,11 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
             { cardanoLedgerProtocolParametersFile
             }
     let p =
-          -- ( hydraNodeOfflineProcess $
-          (hydraNodeOfflineProcess {-. (\x -> trace (show (toArgs x)) x)-} $
+          (hydraNodeOfflineProcess $
               RunOfflineOptions
                 { verbosity = Verbose "HydraNode"
                 , host = "127.0.0.1"
-                , -- NOTE(Elaine): port 5000 is used on recent versions of macos
-                  port = fromIntegral $ 5_100 + hydraNodeId
+                , port = fromIntegral $ 5_000 + hydraNodeId
                 , apiHost = "127.0.0.1"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
                 , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
@@ -413,7 +411,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
             }
     let p =
           ( hydraNodeProcess $
-          -- ( hydraNodeProcess . (\x-> trace ( "ARGS DUMP:" <> show (OnlineOptions.toArgs x) ) x)$
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
