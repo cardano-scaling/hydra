@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download test results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: test-results
 
@@ -181,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: benchmarks
         path: artifact
@@ -270,25 +270,25 @@ jobs:
         yarn validate
 
     - name: 📥 Download benchmark results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: benchmarks
         path: docs/benchmarks
 
     - name: 📥 Download haddock documentation
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: haddocks
         path: docs/static/haddock
 
     - name: 📥 Download test results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: test-results
         path: docs/benchmarks/tests
 
     - name: 📥 Download specification PDF
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: hydra-spec
         path: docs/static/
