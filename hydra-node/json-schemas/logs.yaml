@@ -115,6 +115,23 @@ properties:
             description: >-
               Configuration needed to run the hydra node
 
+      - title: NodeOfflineOptions
+        description: >-
+          Hydra node in offline mode parsed command line arguments
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - runOfflineOptions
+        properties:
+          tag:
+            type: string
+            enum: ["NodeOfflineOptions"]
+          runOfflineOptions:
+            "$ref": "logs.yaml#/definitions/RunOfflineOptions"
+            description: >-
+              Configuration needed to run the hydra node in offline mode
+
       - title: Authentication
         description: >-
           Hydra node detected a difference between the signer and the sender
@@ -2171,6 +2188,71 @@ definitions:
         properties:
           cardanoLedgerProtocolParametersFile:
             type: string
+
+  RunOfflineOptions:
+    type: object
+    required:
+      - verbosity
+      - host
+      - port
+      - apiHost
+      - apiPort
+      - monitoringPort
+      - hydraSigningKey
+      - hydraVerificationKeys
+      - persistenceDir
+      - ledgerConfig
+      - offlineConfig
+    properties:
+      verbosity:
+        oneOf:
+          - title: Quiet
+            properties:
+              tag:
+                type: string
+                enum: ["Quiet"]
+          - title: Verbose
+            properties:
+              tag:
+                type: string
+                enum: ["Verbose"]
+              contents:
+                type: string
+      host:
+        type: object
+        $ref: "logs.yaml#/definitions/IP"
+      port:
+        type: integer
+      apiHost:
+        $ref: "logs.yaml#/definitions/IP"
+      apiPort:
+        type: integer
+      monitoringPort:
+        oneOf:
+          - type: "null"
+          - type: integer
+      hydraSigningKey:
+        type: string
+      hydraVerificationKeys:
+        type: array
+        items:
+          type: string
+      persistenceDir:
+        type: string
+      ledgerConfig:
+        type: object
+        properties:
+          cardanoLedgerProtocolParametersFile:
+            type: string
+      offlineConfig:
+        type: object
+        properties:
+          initialUTxOFile:
+            type: string
+          ledgerGenesisFile:
+            oneOf:
+              - type: "null"
+              - type: string
 
   AuthLog:
     type: object
