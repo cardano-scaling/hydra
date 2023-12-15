@@ -736,7 +736,7 @@ update env ledger st ev = case (st, ev) of
     requireValidDecommitTx $ \utxoToDecommit ->
       Effects
         [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-        -- TODO NetworkEffect ReqDec{decommitTx}
+        , NetworkEffect ReqDec{decommitTx}
         ]
    where
     requireValidDecommitTx cont =

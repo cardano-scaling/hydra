@@ -29,6 +29,7 @@ data Message tx
     -- good idea to introduce the party in AckSn again or, maybe better, only
     -- the verification key of the party.
     AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
+  | ReqDec {utxoToDecommit :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -44,6 +45,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Mess
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     ReqSn sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
+    ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
@@ -51,6 +53,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
+      "ReqDec" -> ReqDec <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance IsTx tx => SignableRepresentation (Message tx) where

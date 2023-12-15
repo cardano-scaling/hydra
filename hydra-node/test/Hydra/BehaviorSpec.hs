@@ -385,7 +385,8 @@ spec = parallel $ do
                 openHead chain n1 n2
 
                 send n1 (Decommit (aValidTx 42))
-                waitUntil [n1, n2] $ DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+                waitUntil [n1] $
+                  DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do

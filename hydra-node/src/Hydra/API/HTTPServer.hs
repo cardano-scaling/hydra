@@ -37,7 +37,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadId (HeadId)
-import Hydra.Ledger (UTxOType)
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Types (status200, status400, status500)
