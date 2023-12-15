@@ -148,8 +148,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         waitMatch 10 node $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
-        pure ()
-
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do

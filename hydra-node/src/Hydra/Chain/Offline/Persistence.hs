@@ -2,7 +2,6 @@
 
 module Hydra.Chain.Offline.Persistence (
   initializeStateIfOffline,
-  createPersistenceWithUTxOWriteBack,
 ) where
 
 import Hydra.Prelude
@@ -49,8 +48,8 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
             OnInitTx
               { headId = ownHeadId
               , headParameters = HeadParameters{parties = [ownParty], contestationPeriod}
-              , headSeed = UnsafeHeadSeed "OfflineHeadSeed_" -- FIXME(Elaine): might want to generate?
-              , participants = []-- error "Participants unimplemented!" -- FIXME(Elaine): might want to make arbitrary / garbage 28 byte value
+              , headSeed = UnsafeHeadSeed "OfflineHeadSeed_"
+              , participants = []
               }
         }
 
@@ -66,23 +65,3 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
               , headId = ownHeadId
               }
         }
-
-createPersistenceWithUTxOWriteBack ::
-  (MonadIO m, MonadThrow m) =>
-  -- The filepath to write the main state change event persistence to
-  FilePath ->
-  -- The filepath to write UTxO to. UTxO is written after every confirmed snapshot.
-  FilePath ->
-  m (PersistenceIncremental (StateChanged Tx) m)
-createPersistenceWithUTxOWriteBack persistenceFilePath utxoFilePath = do
-  PersistenceIncremental{append, loadAll} <- createPersistenceIncremental persistenceFilePath
-  pure
-    PersistenceIncremental
-      { loadAll
-      , append = \stateChange -> do
-          append stateChange
-          case stateChange of
-            SnapshotConfirmed{snapshot = Snapshot{utxo}} ->
-              writeBinaryFileDurableAtomic utxoFilePath . toStrict $ Aeson.encode utxo
-            _ -> pure ()
-      }
