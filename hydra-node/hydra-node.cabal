@@ -173,6 +173,8 @@ library
     , wai-websockets
     , warp
     , websockets
+    --FIXME: get rid of this test dependency before merging ! 
+    , cardano-prelude-test
 
   ghc-options:     -haddock
 
