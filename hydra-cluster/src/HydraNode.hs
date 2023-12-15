@@ -329,8 +329,7 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
                 , host = "127.0.0.1"
-                , -- NOTE(Elaine): port 5000 is used on recent versions of macos
-                  port = fromIntegral $ 5_100 + hydraNodeId
+                , port = fromIntegral $ 5_000 + hydraNodeId
                 , peers
                 , apiHost = "127.0.0.1"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
@@ -414,7 +413,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
                 , host = "127.0.0.1"
-                , port = fromIntegral $ 5_100 + hydraNodeId
+                , port = fromIntegral $ 5_000 + hydraNodeId
                 , peers
                 , apiHost = "127.0.0.1"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
@@ -440,7 +439,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
   peers =
     [ Host
       { Network.hostname = "127.0.0.1"
-      , Network.port = fromIntegral $ 5_100 + i
+      , Network.port = fromIntegral $ 5_000 + i
       }
     | i <- allNodeIds
     , i /= hydraNodeId
