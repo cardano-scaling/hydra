@@ -64,7 +64,7 @@ jobs:
         nix develop .#tests.${{ matrix.package }} --build
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: |
@@ -74,7 +74,7 @@ jobs:
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: hydra-cluster-e2e-test-logs
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
@@ -121,7 +121,7 @@ jobs:
         cp -aL result/* haddocks/
 
     - name: 💾 Upload haddock artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: haddocks
         path: haddocks
@@ -168,7 +168,7 @@ jobs:
         nix develop .#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmarks
         path: benchmarks
@@ -237,7 +237,7 @@ jobs:
         nix build .#spec && cp result/*.pdf spec/
 
     - name: 💾 Upload specification
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: hydra-spec
         path: |

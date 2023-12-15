@@ -46,7 +46,7 @@ jobs:
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
         path: out/*
