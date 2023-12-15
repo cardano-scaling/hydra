@@ -146,7 +146,7 @@ run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
-  env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironment opts
+  env@Environment{party, otherParties, signingKey} <- initEnvironment opts
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       traceWith tracer (NodeOptions opts)

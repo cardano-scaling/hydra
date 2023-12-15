@@ -49,7 +49,6 @@ import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..), RunOfflineOptions (..), defaultContestationPeriod)
-import Hydra.Options.Offline qualified as OfflineOptions
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), )
 
@@ -63,7 +62,6 @@ initEnvironment options = do
   -- NOTE: This is a cardano-specific initialization step of loading
   -- --cardano-verification-key options and deriving 'OnChainId's from it.
 
-  otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
   ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
   let participants = verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)

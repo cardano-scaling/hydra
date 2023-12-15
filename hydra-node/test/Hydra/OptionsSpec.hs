@@ -364,5 +364,4 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
-    , offlineConfig = Nothing
     }
