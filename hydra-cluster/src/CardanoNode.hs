@@ -155,7 +155,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   readNetworkId = do
     shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readFileBS (workDir </> "shelley-genesis.json")
     if shelleyGenesis ^?! key "networkId" == "Mainnet"
-      then pure $ Api.Mainnet
+      then pure Api.Mainnet
       else do
         let magic = shelleyGenesis ^?! key "networkMagic" . _Number
         pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
@@ -372,7 +372,7 @@ refreshSystemStart stateDirectory args = do
   config <-
     unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
       <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
-      <&> addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+        . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)
@@ -423,6 +423,14 @@ data NodeLog
 
 addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
 addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
+
+getField :: ToJSON a => Aeson.Key -> a -> Aeson.Value
+getField k v =
+  let o = toJSON v
+      keyMap = case o of
+        Aeson.Object km -> km
+        _ -> error "Not an Object"
+   in fromMaybe Aeson.Null (Aeson.KeyMap.lookup k keyMap)
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.

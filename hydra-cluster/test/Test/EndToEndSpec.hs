@@ -9,7 +9,16 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
-import CardanoNode (CardanoNodeArgs, RunningNode (..), forkIntoConwayInEpoch, setupCardanoDevnet, withCardanoNode, withCardanoNodeDevnet)
+import CardanoNode (
+  CardanoNodeArgs (..),
+  RunningNode (..),
+  forkIntoConwayInEpoch,
+  getField,
+  setupCardanoDevnet,
+  unsafeDecodeJsonFile,
+  withCardanoNode,
+  withCardanoNodeDevnet,
+ )
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
@@ -44,7 +53,20 @@ import Hydra.Cluster.Faucet (
   seedFromFaucet,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (Actor (Alice, Bob, Carol, Faucet), alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk, cperiod, defaultNetworkId)
+import Hydra.Cluster.Fixture (
+  Actor (Alice, Bob, Carol, Faucet),
+  alice,
+  aliceSk,
+  aliceVk,
+  bob,
+  bobSk,
+  bobVk,
+  carol,
+  carolSk,
+  carolVk,
+  cperiod,
+  defaultNetworkId,
+ )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
@@ -497,19 +519,24 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               -- Assert nominal startup
               waitForLog 5 stdout "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
-              delayEpoch args 1
+              delayEpoch tmpDir args 1
 
               hGetContents stderr >>= (`shouldContain` "upgrade hydra-node")
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
--- TODO: not hard-code but use args
-delayEpoch :: CardanoNodeArgs -> Natural -> IO ()
-delayEpoch _ epochs =
+delayEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
+delayEpoch stateDirectory args epochs = do
+  shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
+  let slotLength :: Double =
+        case fromJSON (shellyGenesisFile & getField "slotLength") of
+          Aeson.Error _ -> error "Field slotLength not found"
+          Aeson.Success d -> d
+      epochLength =
+        case fromJSON (shellyGenesisFile & getField "epochLength") of
+          Aeson.Error _ -> error "Field epochLength not found"
+          Aeson.Success d -> d
   threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
- where
-  epochLength = 20
-  slotLength = 0.1 :: Double
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
