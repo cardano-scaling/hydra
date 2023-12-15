@@ -150,21 +150,9 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
-newtype DecommitRequest tx = DecommitRequest {utxoToDecommit :: UTxOType tx}
-  deriving stock (Generic)
-
-deriving stock instance Eq (UTxOType tx) => Eq (DecommitRequest tx)
-deriving stock instance Show (UTxOType tx) => Show (DecommitRequest tx)
-deriving newtype instance ToJSON (UTxOType tx) => ToJSON (DecommitRequest tx)
-deriving newtype instance FromJSON (UTxOType tx) => FromJSON (DecommitRequest tx)
-
-instance Arbitrary (UTxOType tx) => Arbitrary (DecommitRequest tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 -- | Hydra HTTP server
 httpApp ::
-  FromJSON (UTxOType tx) =>
+  FromJSON tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
@@ -339,13 +327,13 @@ handleSubmitUserTx directChain body = do
  where
   Chain{submitTx} = directChain
 
-handleDecommit :: forall tx. FromJSON (UTxOType tx) => (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
+handleDecommit :: forall tx. FromJSON tx => (ClientInput tx -> IO ()) -> LBS.ByteString -> IO Response
 handleDecommit putClientInput body =
-  case Aeson.eitherDecode' body :: Either String (DecommitRequest tx) of
+  case Aeson.eitherDecode' body :: Either String tx of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-    Right DecommitRequest{utxoToDecommit} -> do
-      putClientInput Decommit{utxoToDecommit}
+    Right decommitTx -> do
+      putClientInput Decommit{decommitTx}
       pure $ responseLBS status200 [] ""
 
 return400 :: IsChainState tx => PostTxError tx -> Response

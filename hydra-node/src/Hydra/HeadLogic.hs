@@ -729,10 +729,10 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open OpenState{headId}, ClientEvent Decommit{utxoToDecommit}) ->
+  (Open OpenState{headId}, ClientEvent Decommit{decommitTx}) ->
     -- TODO: Revisit this. Our plan changed and now we want to accept a signed
     -- decommit tx.
-    Effects [ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}]
+    Effects [ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit = undefined}]
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
