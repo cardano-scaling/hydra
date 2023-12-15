@@ -7,7 +7,6 @@ import Cardano.Binary (serialize')
 import Data.Aeson (Result (Error, Success), Value (String), eitherDecode, encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Base16 qualified as Base16
-import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra, toLedgerTx)
@@ -99,8 +98,9 @@ apiServerSpec = do
               { matchBody = matchJSON $ fromLedgerPParams shelleyBasedEra defaultPParams
               }
  where
-  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId (\(_ :: ClientInput SimpleTx) -> pure ())
-  getHeadId = pure Nothing
+  webServer = httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getHeadId putClientInput
+  putClientInput _ = failure "unexpected call to putClientInput"
+  getHeadId = failure "unexpected call to getHeadId"
 
 -- * Helpers
 
