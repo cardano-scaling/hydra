@@ -22,7 +22,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId, HeadSeed (UnsafeHeadSeed))
-import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot), Environment (participants))
+import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot))
 import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll), createPersistenceIncremental)

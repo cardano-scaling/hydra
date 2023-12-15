@@ -32,7 +32,6 @@ import Hydra.Node (
   HydraNodeLog (..),
   checkHeadState,
   createNodeState,
-  loadState,
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
@@ -41,6 +40,7 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Hydra.Chain.Offline (loadState)
 
 spec :: Spec
 spec = parallel $ do

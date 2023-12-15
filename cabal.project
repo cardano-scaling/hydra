@@ -35,7 +35,7 @@ package *
 
 -- Warnings as errors for local packages
 program-options
-  ghc-options: -Wwarn
+  ghc-options: -Werror
 
 -- Always build tests and benchmarks of local packages
 tests: True

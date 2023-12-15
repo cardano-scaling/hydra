@@ -29,8 +29,9 @@ import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOpt
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
+import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
-import System.IO.Temp (withSystemTempDirectory, getCanonicalTemporaryDirectory)
+import System.IO.Temp (withSystemTempDirectory, getCanonicalTemporaryDirectory )
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -40,7 +41,6 @@ import System.Process (
  )
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
 import Prelude qualified
-import System.Directory (createDirectoryIfMissing)
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
@@ -304,6 +304,20 @@ withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
+-- withPersistentDebguDirectory ::
+--   Tracer IO HydraNodeLog ->
+--   FilePath ->
+--   Int ->
+--   SigningKey HydraKey ->
+--   (HydraClient -> IO a) ->
+--   IO a
+withPersistentDebugDirectory newDir action = do
+  systemTempDir <- getCanonicalTemporaryDirectory
+  let newPath = systemTempDir </> "hydra-node"
+
+  
+  action newPath
+
 withOfflineHydraNode' ::
   OfflineConfig ->
   FilePath ->
@@ -314,7 +328,7 @@ withOfflineHydraNode' ::
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut action =
-  withSystemTempDirectory "hydra-node-e2e" $ \dir -> do
+  withPersistentDebugDirectory "hydra-node-e2e" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
@@ -324,7 +338,8 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
             { cardanoLedgerProtocolParametersFile
             }
     let p =
-          ( hydraNodeProcess $
+          -- ( hydraNodeProcess $
+          (hydraNodeProcess . (\x -> trace (show (toArgs x)) x) $ 
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
@@ -395,7 +410,7 @@ withHydraNode' ::
   (Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
-  withSystemTempDirectory "hydra-node" $ \dir -> do
+  withPersistentDebugDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")

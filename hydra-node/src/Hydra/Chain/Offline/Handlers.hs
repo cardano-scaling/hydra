@@ -8,12 +8,10 @@ module Hydra.Chain.Offline.Handlers (
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx, submitTx),
   ChainEvent (Observation, newChainState, observedTx),
-  HeadParameters (HeadParameters),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (FailedToDraftTxNotInitializing),
   confirmedSnapshot,
-  contestationDeadline,
   snapshotNumber,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog (ToPost, toPost), LocalChainState, getLatest)

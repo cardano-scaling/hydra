@@ -21,7 +21,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (withOfflineChain)
+import Hydra.Chain.Offline (withOfflineChain, loadGlobalsFromGenesis, loadState)
 import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   Environment (..),
@@ -45,8 +45,6 @@ import Hydra.Node (
   checkHeadState,
   createNodeState,
   initEnvironment,
-  loadGlobalsFromGenesis,
-  loadState,
   runHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)

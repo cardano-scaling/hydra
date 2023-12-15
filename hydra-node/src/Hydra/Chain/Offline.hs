@@ -1,19 +1,22 @@
 module Hydra.Chain.Offline (
   withOfflineChain,
+  loadGlobalsFromGenesis,
+  loadState
+
 ) where
 
 import Hydra.Prelude
 
 import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
 
-import Hydra.Logging (Tracer)
+import Hydra.Logging (Tracer, traceWith)
 
 import Hydra.Chain (
   ChainComponent,
   ChainEvent (Tick),
   ChainStateHistory,
   chainSlot,
-  chainTime,
+  chainTime, IsChainState (ChainStateType),
  )
 import Hydra.HeadId (HeadId)
 
@@ -23,11 +26,13 @@ import Hydra.Chain.Direct.Handlers (
  )
 
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow, newGlobals)
 
 import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
 
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Crypto qualified as Ledger
 
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -45,14 +50,20 @@ import Ouroboros.Consensus.Util.Time (nominalDelay)
 
 import Hydra.Cardano.Api (
   StandardCrypto,
-  Tx,
+  Tx, GenesisParameters (..), ShelleyEra,
  )
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Party (Party)
+import Hydra.Persistence (PersistenceIncremental(..))
+import Hydra.Node (HydraNodeLog (..))
+import Hydra.HeadLogic (StateChanged, IdleState (..), recoverChainStateHistory, recoverState, HeadState(Idle))
+import qualified Cardano.Ledger.Shelley.API as Shelley
+import Hydra.Cardano.Api qualified as Shelley
+import Hydra.Chain.Direct.Fixture (defaultGlobals)
 
 withOfflineChain ::
-  Tracer IO DirectChainLog -> -- TODO(ELAINE): change type to indicate offline mode maybe?
+  Tracer IO DirectChainLog ->
   OfflineConfig ->
   Ledger.Globals ->
   HeadId ->
@@ -136,3 +147,72 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
+
+-- | Load a 'HeadState' from persistence.
+loadState ::
+  (MonadThrow m, IsChainState tx) =>
+  Tracer m (HydraNodeLog tx) ->
+  PersistenceIncremental (StateChanged tx) m ->
+  ChainStateType tx ->
+  m (HeadState tx, ChainStateHistory tx)
+loadState tracer persistence defaultChainState = do
+  events <- loadAll persistence
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  let headState = recoverState initialState events
+      chainStateHistory = recoverChainStateHistory defaultChainState events
+  pure (headState, chainStateHistory)
+ where
+  initialState = Idle IdleState{chainState = defaultChainState}
+
+loadGlobalsFromGenesis :: Maybe FilePath -> IO Shelley.Globals
+loadGlobalsFromGenesis ledgerGenesisFile = do
+  shelleyGenesis <- case ledgerGenesisFile of
+    Nothing -> pure Nothing
+    Just filePath -> Just <$> readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
+  systemStart <- maybe (SystemStart <$> getCurrentTime) (pure . SystemStart . Ledger.sgSystemStart) shelleyGenesis
+
+  let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
+
+  globals <-
+    maybe
+      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
+      newGlobals
+      genesisParameters
+
+  pure globals
+
+-- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
+fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters ShelleyEra
+fromShelleyGenesis
+  sg@Shelley.ShelleyGenesis
+    { Shelley.sgSystemStart
+    , Shelley.sgNetworkMagic
+    , Shelley.sgActiveSlotsCoeff
+    , Shelley.sgSecurityParam
+    , Shelley.sgEpochLength
+    , Shelley.sgSlotsPerKESPeriod
+    , Shelley.sgMaxKESEvolutions
+    , Shelley.sgSlotLength
+    , Shelley.sgUpdateQuorum
+    , Shelley.sgMaxLovelaceSupply
+    , Shelley.sgGenDelegs = _ -- unused, might be of interest
+    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
+    , Shelley.sgStaking = _ -- unused, not retained by the node
+    } =
+    GenesisParameters
+      { protocolParamSystemStart = sgSystemStart
+      , protocolParamNetworkId = Shelley.fromNetworkMagic $ Shelley.NetworkMagic sgNetworkMagic
+      , protocolParamActiveSlotsCoefficient =
+          Ledger.unboundRational
+            sgActiveSlotsCoeff
+      , protocolParamSecurity = fromIntegral sgSecurityParam
+      , protocolParamEpochLength = sgEpochLength
+      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
+      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
+      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
+      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
+      , protocolParamMaxLovelaceSupply =
+          Shelley.Lovelace
+            (fromIntegral sgMaxLovelaceSupply)
+      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
+      }

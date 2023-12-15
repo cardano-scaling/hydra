@@ -10,10 +10,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.BaseTypes (Globals)
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Crypto qualified as Ledger
-import Cardano.Ledger.Shelley.API qualified as Shelley
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
@@ -22,17 +18,14 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), GenesisParameters (..), ShelleyEra, StandardCrypto, SystemStart (..), getVerificationKey)
-import Hydra.Cardano.Api qualified as Shelley
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
-  ChainStateHistory,
   ChainStateType,
   HeadParameters (..),
   IsChainState,
   PostTxError,
  )
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
@@ -41,20 +34,15 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  IdleState (IdleState),
   Outcome (..),
   aggregateState,
   collectEffects,
   defaultTTL,
-  recoverChainStateHistory,
-  recoverState,
  )
 import Hydra.HeadLogic qualified as Logic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (IsTx (), Ledger)
-import Hydra.Ledger.Cardano qualified as Ledger
-import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -62,7 +50,7 @@ import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (PersistenceIncremental (..), loadAll)
+import Hydra.Persistence (PersistenceIncremental (..), )
 
 -- * Environment Handling
 
@@ -73,13 +61,15 @@ initEnvironment options = do
   otherParties <- mapM loadParty hydraVerificationKeys
   -- NOTE: This is a cardano-specific initialization step of loading
   -- --cardano-verification-key options and deriving 'OnChainId's from it.
+    
+  otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
   ownSigningKey <- case offlineConfig of
       -- online mode
     Nothing -> readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
       -- offline mode
-    Just _ -> die "Shouldn't be using cardanoSigningKey in offline mode!"
-    
-  otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+    --Note: die doesn't work here because it gets forced immediately by the IO action
+    -- we can rewrite this to not have to have any error call, but the CLI refactor eliminates this anyway
+    Just _ -> pure $ Hydra.Prelude.error "Shouldn't be using cardanoSigningKey in offline mode!"
   let participants =  case offlineConfig of
         Nothing -> verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys) 
         Just _ -> []
@@ -281,73 +271,4 @@ createNodeState initialState = do
     NodeState
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
-      }
-
--- | Load a 'HeadState' from persistence.
-loadState ::
-  (MonadThrow m, IsChainState tx) =>
-  Tracer m (HydraNodeLog tx) ->
-  PersistenceIncremental (StateChanged tx) m ->
-  ChainStateType tx ->
-  m (HeadState tx, ChainStateHistory tx)
-loadState tracer persistence defaultChainState = do
-  events <- loadAll persistence
-  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory defaultChainState events
-  pure (headState, chainStateHistory)
- where
-  initialState = Idle IdleState{chainState = defaultChainState}
-
-loadGlobalsFromGenesis :: Maybe FilePath -> IO Globals
-loadGlobalsFromGenesis ledgerGenesisFile = do
-  shelleyGenesis <- case ledgerGenesisFile of
-    Nothing -> pure Nothing
-    Just filePath -> Just <$> readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
-  systemStart <- maybe (SystemStart <$> getCurrentTime) (pure . SystemStart . Ledger.sgSystemStart) shelleyGenesis
-
-  let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
-
-  globals <-
-    maybe
-      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
-      newGlobals
-      genesisParameters
-
-  pure globals
-
--- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
-fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters ShelleyEra
-fromShelleyGenesis
-  sg@Shelley.ShelleyGenesis
-    { Shelley.sgSystemStart
-    , Shelley.sgNetworkMagic
-    , Shelley.sgActiveSlotsCoeff
-    , Shelley.sgSecurityParam
-    , Shelley.sgEpochLength
-    , Shelley.sgSlotsPerKESPeriod
-    , Shelley.sgMaxKESEvolutions
-    , Shelley.sgSlotLength
-    , Shelley.sgUpdateQuorum
-    , Shelley.sgMaxLovelaceSupply
-    , Shelley.sgGenDelegs = _ -- unused, might be of interest
-    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
-    , Shelley.sgStaking = _ -- unused, not retained by the node
-    } =
-    GenesisParameters
-      { protocolParamSystemStart = sgSystemStart
-      , protocolParamNetworkId = Shelley.fromNetworkMagic $ Shelley.NetworkMagic sgNetworkMagic
-      , protocolParamActiveSlotsCoefficient =
-          Ledger.unboundRational
-            sgActiveSlotsCoeff
-      , protocolParamSecurity = fromIntegral sgSecurityParam
-      , protocolParamEpochLength = sgEpochLength
-      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
-      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
-      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
-      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
-      , protocolParamMaxLovelaceSupply =
-          Shelley.Lovelace
-            (fromIntegral sgMaxLovelaceSupply)
-      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
       }
