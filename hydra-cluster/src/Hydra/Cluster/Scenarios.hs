@@ -655,13 +655,12 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      res <-
-        httpLbs
-          =<< ( parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
-                  <&> setRequestBodyJSON decommitUTxO
-              )
+      send n1 $ input "Decommit" ["utxoToDecommit" .= decommitUTxO]
+      -- NOTE: Alternative:
+      --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
+      --     <&> setRequestBodyJSON decommitUTxO
+      --     >>= httpLbs
 
-      -- TODO: Do we expect anything on the websocket?
       waitFor hydraTracer 10 [n1] $
         output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
       waitFor hydraTracer 10 [n1] $
