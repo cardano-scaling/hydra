@@ -28,7 +28,6 @@ import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll), createPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (Snapshot, utxo))
 import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
-import Hydra.OnChainId (OnChainId(UnsafeOnChainId))
 
 initializeStateIfOffline ::
   ChainStateHistory Tx ->
@@ -50,8 +49,8 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
             OnInitTx
               { headId = ownHeadId
               , headParameters = HeadParameters{parties = [ownParty], contestationPeriod}
-              , headSeed = UnsafeHeadSeed "OfflineHeadSeed_"
-              , participants = [UnsafeOnChainId "___OfflineHeadParticipant___"]
+              , headSeed = UnsafeHeadSeed "OfflineHeadSeed_" -- FIXME(Elaine): might want to generate?
+              , participants = []-- error "Participants unimplemented!" -- FIXME(Elaine): might want to make arbitrary / garbage 28 byte value
               }
         }
 

@@ -63,7 +63,6 @@ import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), loadAll)
-import Hydra.OnChainId (OnChainId(UnsafeOnChainId))
 
 -- * Environment Handling
 
@@ -81,9 +80,10 @@ initEnvironment options = do
     Just _ -> pure $ Hydra.Prelude.error "Shouldn't be using cardanoSigningKey in offline mode!"
     
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+  -- let participants = []
   let participants =  case offlineConfig of
         Nothing -> verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys) 
-        Just _ -> [UnsafeOnChainId "___OfflineHeadParticipant___"]
+        Just _ -> []
   pure $
     Environment
       { party = deriveParty sk

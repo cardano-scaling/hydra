@@ -24,7 +24,6 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot (number), getSnapshot)
-import Hydra.OnChainId (OnChainId(UnsafeOnChainId))
 
 mkFakeL1Chain ::
   ContestationPeriod ->
@@ -44,11 +43,10 @@ mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
         let headId = ownHeadId
         let offlineHeadSeed = UnsafeHeadSeed "OfflineHeadSeed_"
             headSeed = offlineHeadSeed
-            ownParticipant = UnsafeOnChainId "___OfflineHeadParticipant___"
-            participants = [ownParticipant]
         _ <- case tx of
           InitTx{headParameters} ->
-            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters, headSeed, participants}}
+            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters, headSeed, participants = []}} 
+            -- FIXME(Elaine): might want to make participants nonempty, a singleton list of just some random 28 byte garbage
           AbortTx{} ->
             callback $ Observation{newChainState = cst, observedTx = OnAbortTx{headId}}
           CollectComTx{} ->
