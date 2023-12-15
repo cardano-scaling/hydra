@@ -21,8 +21,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.HeadId (HeadId)
-import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot))
+import Hydra.HeadId (HeadId, HeadSeed (UnsafeHeadSeed))
+import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot), Environment (participants))
 import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll), createPersistenceIncremental)
@@ -49,6 +49,8 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
             OnInitTx
               { headId = ownHeadId
               , headParameters = HeadParameters{parties = [ownParty], contestationPeriod}
+              , headSeed = UnsafeHeadSeed "OfflineHeadSeed_" -- FIXME(Elaine): might want to generate?
+              , participants = []-- error "Participants unimplemented!" -- FIXME(Elaine): might want to make arbitrary / garbage 28 byte value
               }
         }
 
@@ -61,6 +63,7 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
             OnCommitTx
               { party = ownParty
               , committed = initialUTxO
+              , headId = ownHeadId
               }
         }
 

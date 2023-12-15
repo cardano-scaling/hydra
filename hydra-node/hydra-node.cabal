@@ -184,6 +184,7 @@ executable hydra-node
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , base
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 

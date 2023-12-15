@@ -19,7 +19,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Handlers (DirectChainLog (ToPost, toPost), LocalChainState, getLatest)
 import Hydra.Chain.Direct.State (ChainStateAt (ChainStateAt))
 import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId, HeadSeed (UnsafeHeadSeed))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Prelude
@@ -41,13 +41,16 @@ mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
         traceWith tracer $ ToPost{toPost = tx}
 
         let headId = ownHeadId
+        let offlineHeadSeed = UnsafeHeadSeed "OfflineHeadSeed_"
+            headSeed = offlineHeadSeed
         _ <- case tx of
           InitTx{headParameters} ->
-            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters}}
+            callback $ Observation{newChainState = cst, observedTx = OnInitTx{headId, headParameters, headSeed, participants = []}} 
+            -- FIXME(Elaine): might want to make participants nonempty, a singleton list of just some random 28 byte garbage
           AbortTx{} ->
-            callback $ Observation{newChainState = cst, observedTx = OnAbortTx{}}
+            callback $ Observation{newChainState = cst, observedTx = OnAbortTx{headId}}
           CollectComTx{} ->
-            callback $ Observation{newChainState = cst, observedTx = OnCollectComTx{}}
+            callback $ Observation{newChainState = cst, observedTx = OnCollectComTx{headId}}
           CloseTx{confirmedSnapshot} -> do
             contestationDeadline <- addUTCTime (toNominalDiffTime contestationPeriod) <$> getCurrentTime
             callback $
@@ -62,14 +65,14 @@ mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback =
               Observation
                 { newChainState = cst
                 , observedTx =
-                    OnContestTx{snapshotNumber = number $ getSnapshot confirmedSnapshot}
+                    OnContestTx{snapshotNumber = number $ getSnapshot confirmedSnapshot, headId}
                 }
           FanoutTx{} ->
             callback $
               Observation
                 { newChainState = cst
                 , observedTx =
-                    OnFanoutTx{}
+                    OnFanoutTx{headId}
                 }
         pure ()
     }
