@@ -158,8 +158,8 @@ channels:
       operationId: draftCommitTxResponse
       description: |
         Possible responses of this endpoint are:
-          # TODO: Add return type here once we have it
-          200 ""
+          * 200 OK with empty body
+          * 400 BadRequest on parsing errors with string as body
 
   /protocol-parameters:
     servers:
