@@ -58,7 +58,8 @@ import Hydra.Options.Online (
   cardanoSigningKeyFileParser,
   defaultChainConfig,
   startChainFromParser,
-  toArgNetworkId
+  toArgNetworkId,
+  toArgs
  )
 import Hydra.Options.Online qualified as OnlineOptions
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
