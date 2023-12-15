@@ -505,17 +505,28 @@ waitUntil nodes expected =
 -- years before - but we since we are having the protocol produce 'Tick' events
 -- constantly this would be fully simulated to the end.
 waitUntilMatch ::
-  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
-waitUntilMatch nodes predicate =
-  failAfter oneMonth $
-    forConcurrently_ nodes go
+waitUntilMatch nodes predicate = do
+  seenMsgs <- newTVarIO []
+  timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "waitUntilMatch did not match a message within " <> show oneMonth
+            , unlines (show <$> msgs)
+            ]
  where
-  go n = do
-    next <- waitForNext n
-    unless (predicate next) $ go n
+  match seenMsgs n = do
+    msg <- waitForNext n
+    atomically (modifyTVar' seenMsgs (msg :))
+    unless (predicate msg) $
+      match seenMsgs n
 
   oneMonth = 3600 * 24 * 30
 
