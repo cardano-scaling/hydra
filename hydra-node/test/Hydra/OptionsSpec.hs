@@ -27,9 +27,9 @@ import Hydra.Options (
   outputFile,
   parseHydraCommandFromArgs,
   renderFailure,
-  toArgs,
   validateRunOptions,
  )
+import Hydra.Options.Online qualified as OnlineOptions
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
@@ -327,7 +327,7 @@ spec = parallel $
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
-  let args = toArgs opts
+  let args = OnlineOptions.toArgs opts
    in counterexample ("args:  " <> show args) $
         case parseHydraCommandFromArgs args of
           Success cmd -> cmd === Run opts

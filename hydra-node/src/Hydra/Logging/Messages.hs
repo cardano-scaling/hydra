@@ -15,7 +15,8 @@ import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Network.Reliability (ReliabilityLog)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Options (RunOptions)
+import Hydra.Options (RunOptions, RunOfflineOptions)
+import Hydra.Options.Offline ()
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
@@ -23,6 +24,7 @@ data HydraLog tx net
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
+  | NodeOfflineOptions {runOfflineOptions :: RunOfflineOptions}
   | Authentication {authentication :: AuthLog}
   | Reliability {reliability :: ReliabilityLog}
   deriving stock (Generic)

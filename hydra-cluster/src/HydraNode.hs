@@ -25,7 +25,9 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOptions (..), defaultChainConfig, toArgs)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOptions (..), RunOfflineOptions (..))
+import Hydra.Options.Online qualified as OnlineOptions
+import Hydra.Options.Offline qualified as OfflineOptions
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -265,7 +267,7 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
             chainConfigDecorator nodeId $
-              defaultChainConfig
+              OnlineOptions.defaultChainConfig
                 { nodeSocket
                 , cardanoSigningKey
                 , cardanoVerificationKeys
@@ -304,18 +306,9 @@ withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
--- withPersistentDebguDirectory ::
---   Tracer IO HydraNodeLog ->
---   FilePath ->
---   Int ->
---   SigningKey HydraKey ->
---   (HydraClient -> IO a) ->
---   IO a
 withPersistentDebugDirectory newDir action = do
   systemTempDir <- getCanonicalTemporaryDirectory
   let newPath = systemTempDir </> "hydra-node"
-
-  
   action newPath
 
 withOfflineHydraNode' ::
@@ -328,7 +321,7 @@ withOfflineHydraNode' ::
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut action =
-  withPersistentDebugDirectory "hydra-node-e2e" $ \dir -> do
+  withSystemTempDirectory "hydra-node-e2e" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
@@ -338,24 +331,21 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
             { cardanoLedgerProtocolParametersFile
             }
     let p =
-          -- ( hydraNodeProcess $
-          (hydraNodeProcess . (\x -> trace (show (toArgs x)) x) $ 
-              RunOptions
+          -- ( hydraNodeOfflineProcess $
+          (hydraNodeOfflineProcess {-. (\x -> trace (show (toArgs x)) x)-} $
+              RunOfflineOptions
                 { verbosity = Verbose "HydraNode"
-                , nodeId = NodeId $ show hydraNodeId
                 , host = "127.0.0.1"
-                , port = fromIntegral $ 5_000 + hydraNodeId
-                , peers
+                , -- NOTE(Elaine): port 5000 is used on recent versions of macos
+                  port = fromIntegral $ 5_100 + hydraNodeId
                 , apiHost = "127.0.0.1"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
                 , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
                 , hydraSigningKey
                 , hydraVerificationKeys = []
-                , hydraScriptsTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
-                , chainConfig = defaultChainConfig
                 , ledgerConfig
-                , offlineConfig = Just offlineConfig
+                , offlineConfig
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
@@ -367,7 +357,6 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
         (Nothing, Just out, Just err) -> action out err processHandle
         (_, _, _) -> error "Should not happen™"
  where
-  peers = []
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -410,7 +399,7 @@ withHydraNode' ::
   (Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
-  withPersistentDebugDirectory "hydra-node" $ \dir -> do
+  withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
@@ -424,6 +413,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
             }
     let p =
           ( hydraNodeProcess $
+          -- ( hydraNodeProcess . (\x-> trace ( "ARGS DUMP:" <> show (OnlineOptions.toArgs x) ) x)$
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
@@ -439,7 +429,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
                 , chainConfig
                 , ledgerConfig
-                , offlineConfig = Nothing
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
@@ -481,7 +470,10 @@ withConnectionToNode tracer hydraNodeId action = do
     pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
-hydraNodeProcess = proc "hydra-node" . toArgs
+hydraNodeProcess = proc "hydra-node" . OnlineOptions.toArgs
+
+hydraNodeOfflineProcess :: RunOfflineOptions -> CreateProcess
+hydraNodeOfflineProcess = proc "hydra-node" . OfflineOptions.toArgs
 
 waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> IO ()
 waitForNodesConnected tracer timeOut clients =
