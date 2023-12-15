@@ -423,11 +423,9 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 , hydraVerificationKeys
                 , hydraScriptsTxId
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
-                , -- , chainConfig = fromRight defaultChainConfig chainConfig
-                  chainConfig
+                , chainConfig
                 , ledgerConfig
-                , -- , offlineConfig = leftToMaybe chainConfig
-                  offlineConfig = Nothing
+                , offlineConfig = Nothing
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut

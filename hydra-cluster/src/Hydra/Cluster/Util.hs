@@ -42,8 +42,6 @@ import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
 import Test.QuickCheck (generate)
 
--- import CardanoClient (buildAddress)
-
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
 -- resolved relative to its value otherwise they will be looked up in the
@@ -96,7 +94,6 @@ seedInitialUTxOFromOffline targetDir utxo = do
   let destinationPath = targetDir </> "utxo.json"
   writeFileBS destinationPath . toStrict . Aeson.encode $ utxo
 
-  -- Aeson.throwDecodeStrict =<< readFileBS (targetDir </> "utxo.json")
   pure destinationPath
 
 buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
@@ -135,7 +132,7 @@ initialUtxoForActors actorToVal networkId = do
       vkForActor actor <&> (,val)
 
 chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
-chainConfigFor me targetDir nodeSocket them cp = do
+chainConfigFor me targetDir nodeSocket them contestationPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -148,7 +145,7 @@ chainConfigFor me targetDir nodeSocket them cp = do
       { nodeSocket
       , cardanoSigningKey = skTarget me
       , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
-      , contestationPeriod = cp :: ContestationPeriod
+      , contestationPeriod
       }
  where
   skTarget x = targetDir </> skName x
