@@ -36,23 +36,6 @@ import Hydra.Cardano.Api (
   signTx,
   pattern TxOut,
   pattern TxValidityLowerBound,
-  CtxTx,
-  txFee,
-  txIns,
-  txOuts,
-  makeSignedTransaction,
-  makeShelleyKeyWitness,
-  ShelleyWitnessSigningKey(..),
-  createAndValidateTransactionBody,
-  pattern TxFeeExplicit,
-  KeyWitnessInCtx (..),
-  pattern KeyWitness,
-  pattern BuildTxWith,
-  ToTxContext (toTxContext),
-  negateValue,
-  pattern TxOutDatumNone,
-  pattern ReferenceScriptNone,
-  Lovelace (..),
  )
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
@@ -92,7 +75,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, offlineConfigFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx, Tx, emptyTxBody)
+import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
@@ -112,13 +95,12 @@ import HydraNode (
   withHydraNode',
   withOfflineHydraNode,
  )
-import System.Directory (removeDirectoryRecursive, listDirectory)
+import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
 import Prelude qualified
-import qualified Data.ByteString.Char8 as BS
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
@@ -134,263 +116,32 @@ withClusterTempDir name =
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
-    withTempDir ("offline-mode-e2e") $ \tmpDir ->
-      
-      
-      
-      
-      
-      
-      
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-      
-      
-      -- Offline mode demo!
-      
-      do
+    withTempDir ("offline-mode-e2e") $ \tmpDir -> do
       let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
       let startingState =
             [ (Alice, lovelaceToValue 100_000_000)
             , (Bob, lovelaceToValue 100_000_000)
-            , (Carol, lovelaceToValue 998_987_654) -- 999_999_999 - 1_012_345
             ]
-      
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-      (bobCardanoVk, bobCardanoSk) <- keysFor Bob
-      (carolCardanoVk, _carolCardanoSk) <- keysFor Carol
+      (bobCardanoVk, _) <- keysFor Bob
       offlineConfig <- offlineConfigFor startingState tmpDir networkId
 
       initialUtxo <- Aeson.throwDecodeStrict @UTxO.UTxO =<< readFileBS (initialUTxOFile offlineConfig)
       let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
 
-      let putStrLnGreen s = do
-            putStrLn $ "\x1b[32m" <> replicate (length s + 6) '=' <> "\x1b[0m" 
-            putStrLn $ "\x1b[32m" <> "|| " <> s <> " ||" <> "\x1b[0m"
-            putStrLn $ "\x1b[32m" <> replicate (length s + 6) '=' <> "\x1b[0m"
-      
-      let printJSON :: Aeson.ToJSON a => a -> IO ()
-          printJSON = BS.putStrLn . toStrict . Aeson.encode
-
-      let waitABit = void @IO $ threadDelay 30
-
       withOfflineHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk $ \node -> do
-        -- An offline Hydra node all booted up!
-        putStrLnGreen "DEMO: An offline Hydra node all booted up!"
-
-        waitABit
-
-        -- Let's build a simple transaction, from Alice to Bob, of 1_000_000 lovelace
-        putStrLnGreen "DEMO: Let's build a simple transaction, from Alice to Bob, of 1_000_000 lovelace"
         let Right tx =
               mkSimpleTx
                 (aliceSeedTxIn, aliceSeedTxOut)
-                (mkVkAddress networkId bobCardanoVk, lovelaceToValue paymentFromAliceToBob) -- 1_000_000
+                (mkVkAddress networkId bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
                 aliceCardanoSk
-
-        waitABit
-        -- Here's our first transaction, from Alice to bob
-        putStrLnGreen "DEMO: Here's our first transaction, from Alice to Bob"
-
-        printJSON tx
 
         send node $ input "NewTx" ["transaction" .= tx]
 
-        confirmedTxValue <- waitMatch 10 node $ \v -> do
-          v <$ guard ( v ^? key "tag" == Just "SnapshotConfirmed")
+        waitMatch 10 node $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
-        waitABit
-        putStrLnGreen "DEMO: Transaction confirmed! Here's the Hydra's response"
-        printJSON confirmedTxValue
-
-        
-
-
-
-        waitABit
-
-        -- Let's build a second transaction, from Bob to Carol, of 1_012_345 lovelace
-        putStrLnGreen "DEMO: Let's build a second transaction, from Bob to Carol, of 1_012_345 lovelace"
-
-        -- putStrLn $ "Writing passing_transaction_1.json to disk"
-        -- Aeson.encodeFile "passing_transaction_1.json" tx
-
-        let bobUTxOSet = UTxO.filter (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId bobCardanoVk) initialUtxo
-
-        let (bobTxIns, bobTxOuts) = unzip $ UTxO.pairs bobUTxOSet 
-
-        let Right tx2 = do
-              let fee = Lovelace 0
-                  recipient = mkVkAddress networkId carolCardanoVk
-                  sk = bobCardanoSk
-
-                  txins = bobTxIns
-                  valueIn = foldMap (\(TxOut _ v _ _) -> v) bobTxOuts
-                  owner = mkVkAddress networkId bobCardanoVk
-                  refScript = ReferenceScriptNone
-                  datum = TxOutDatumNone
-
-                  valueOut = lovelaceToValue 1_012_345
-                  
-                  txOuts = 
-                    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-                      : [ TxOut @CtxTx
-                          owner
-                          (valueIn <> negateValue valueOut)
-                          (toTxContext datum)
-                          refScript
-                        | valueOut /= valueIn
-                        ]
-                  bodyContent = 
-                    emptyTxBody
-                      { txIns = zip txins (repeat $ BuildTxWith $ KeyWitness KeyWitnessForSpending)
-                      , txOuts
-                      , txFee = TxFeeExplicit fee
-                      }
-              
-              body <- createAndValidateTransactionBody bodyContent
-              let witnesses =  [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
-              pure $ makeSignedTransaction witnesses body
-                
-        waitABit
-        -- Here's our second transaction, from Bob to Carol
-        putStrLnGreen "DEMO: Here's our second transaction, from Bob to Carol"
-        printJSON tx2
-
-        send node $ input "NewTx" ["transaction" .= tx2]
-
-        waitABit
-        -- Our confirmation of our second transaction, from Bob to Carol
-        putStrLnGreen "DEMO: Our confirmation of our second transaction, from Bob to Carol"
-
-        nextSnapshotConfirmed <- waitMatch 10 node $ \v -> do
-          v <$ guard ( v ^? key "tag" == Just "SnapshotConfirmed")
-        
-        waitABit
-        -- Transaction confirmed! Here's the Hydra's response to our second transaction
-        putStrLnGreen "DEMO: Transaction confirmed! Here's the Hydra's response"
-        
-        printJSON nextSnapshotConfirmed
-
-        waitABit
-        -- Now, some invalid transactions
-        putStrLnGreen "DEMO: Now, three invalid transactions, loaded from disk"
-
-        let failDirectory = "tmp/example_transactions/should_fail"
-        transactions <- traverse
-          (Aeson.throwDecodeStrict @Tx <=< BS.readFile . (failDirectory </> ))
-           =<< listDirectory failDirectory
-        forM_ (take 3 transactions) $ \tx -> do
-          waitABit
-
-          -- Here's the transaction we're trying to submit
-          putStrLnGreen "DEMO: Here's the invalid transaction we're trying to submit"
-          printJSON tx
-          send node $ input "NewTx" ["transaction" .= tx]
-
-
-          waitABit
-          -- Here's the response from the Hydra node
-          putStrLnGreen "DEMO: Here's the rejection from the Hydra node"
-
-          response <- waitMatch 10 node $ \v -> do
-            v <$ guard ( v ^? key "tag" == Just "TxInvalid")
-          printJSON response
-          waitABit
-
-        
-        putStrLnGreen "DEMO: All done :)"
         pure ()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
