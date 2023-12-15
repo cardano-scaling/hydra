@@ -13,15 +13,13 @@ import Hydra.Cardano.Api (
 
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.Network (PortNumber, readPort)
 import Hydra.Ledger.Cardano ()
 
-import Data.IP ( IP (IPv4), toIPv4, toIPv4w )
+import Data.IP ( IP (IPv4), toIPv4w )
 import Data.ByteString qualified as BS
 import Options.Applicative (
   Parser,
-  ParserInfo,
-  ParserResult (..),
   short,
   long,
   flag,
@@ -36,7 +34,7 @@ import Options.Applicative (
   help
  )
 
-import Test.QuickCheck (elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, listOf1, vectorOf)
 
 newtype LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerProtocolParametersFile :: FilePath

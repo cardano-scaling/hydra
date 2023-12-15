@@ -42,7 +42,6 @@ import Options.Applicative (
  )
 import Test.QuickCheck.Gen (elements, oneof)
 import Test.QuickCheck (listOf)
-import Hydra.Cardano.Api.Prelude
 import Options.Applicative.Extra (helper)
 
 data RunOfflineOptions = RunOfflineOptions

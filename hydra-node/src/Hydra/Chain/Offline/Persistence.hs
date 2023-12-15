@@ -6,7 +6,6 @@ module Hydra.Chain.Offline.Persistence (
 
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (
   ChainEvent (Observation, observedTx),
@@ -21,12 +20,8 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId, HeadSeed (UnsafeHeadSeed))
-import Hydra.HeadLogic (StateChanged (SnapshotConfirmed, snapshot))
 import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental (PersistenceIncremental, append, loadAll), createPersistenceIncremental)
-import Hydra.Snapshot (Snapshot (Snapshot, utxo))
-import UnliftIO.IO.File (writeBinaryFileDurableAtomic)
 
 initializeStateIfOffline ::
   ChainStateHistory Tx ->

@@ -15,7 +15,6 @@ import Hydra.Options (
   Command (GenHydraKey, Publish, Run, RunOffline),
   PublishOptions (..),
   RunOptions (..),
-  RunOfflineOptions (..),
   parseHydraCommand,
  )
 import Hydra.Options.Online qualified as OnlineOptions

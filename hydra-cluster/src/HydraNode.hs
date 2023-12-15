@@ -31,9 +31,8 @@ import Hydra.Options.Offline qualified as OfflineOptions
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
-import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
-import System.IO.Temp (withSystemTempDirectory, getCanonicalTemporaryDirectory )
+import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -305,11 +304,6 @@ withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
           Right a -> pure a
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
-
-withPersistentDebugDirectory newDir action = do
-  systemTempDir <- getCanonicalTemporaryDirectory
-  let newPath = systemTempDir </> "hydra-node"
-  action newPath
 
 withOfflineHydraNode' ::
   OfflineConfig ->

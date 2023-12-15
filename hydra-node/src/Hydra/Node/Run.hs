@@ -54,7 +54,7 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  OfflineConfig (OfflineConfig, ledgerGenesisFile),
+  OfflineConfig (..),
   RunOptions (..),
   RunOfflineOptions (..),
   validateRunOptions

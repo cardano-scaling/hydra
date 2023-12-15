@@ -71,7 +71,7 @@ import Hydra.Cluster.Scenarios (
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, offlineConfigFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
@@ -118,10 +118,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
     withTempDir ("offline-mode-e2e") $ \tmpDir -> do
       let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
-      let startingState =
-            [ (Alice, lovelaceToValue 100_000_000)
-            , (Bob, lovelaceToValue 100_000_000)
-            ]
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
       initialUtxo <- generate $ do
