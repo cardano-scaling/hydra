@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
@@ -729,10 +730,24 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open OpenState{headId}, ClientEvent Decommit{decommitTx}) ->
-    -- TODO: Revisit this. Our plan changed and now we want to accept a signed
-    -- decommit tx.
-    Effects [ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit = undefined}]
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
+    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
+    requireValidDecommitTx $ \utxoToDecommit ->
+      Effects
+        [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
+        -- TODO NetworkEffect ReqDec{decommitTx}
+        ]
+   where
+    requireValidDecommitTx cont =
+      case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+        Left (_, err) ->
+          -- TODO: client output?
+          Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
+        Right utxoToDecommit -> cont utxoToDecommit
+
+    confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
+
+    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
