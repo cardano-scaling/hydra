@@ -63,6 +63,7 @@ import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), RunOptions (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), loadAll)
+import Hydra.OnChainId (OnChainId(UnsafeOnChainId))
 
 -- * Environment Handling
 
@@ -88,10 +89,9 @@ initEnvironment options = do
   putStrLn "LOG: before readFileTextEnvelopeThrow cardanoVerificationKeys"
   putStrLn $ "LOG: cardanoVerificationKeys: " ++ show cardanoVerificationKeys
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
-  -- let participants = []
   let participants =  case offlineConfig of
         Nothing -> verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys) 
-        Just _ -> []
+        Just _ -> [UnsafeOnChainId "___OfflineHeadParticipant___"]
   pure $
     Environment
       { party = deriveParty sk
