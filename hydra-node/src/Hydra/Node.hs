@@ -77,10 +77,9 @@ initEnvironment options = do
       -- online mode
     Nothing -> readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
       -- offline mode
-    Just _ -> pure $ Hydra.Prelude.error "Shouldn't be using cardanoSigningKey in offline mode!"
+    Just _ -> die "Shouldn't be using cardanoSigningKey in offline mode!"
     
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
-  -- let participants = []
   let participants =  case offlineConfig of
         Nothing -> verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys) 
         Just _ -> []
