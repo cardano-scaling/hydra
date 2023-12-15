@@ -9,7 +9,7 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (initialLedgerState)
+import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
 import Cardano.Api.UTxO (fromPairs, pairs)
@@ -50,6 +50,7 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
+import qualified Hydra.Cardano.Api.UTxO as Api
 
 -- * Ledger
 
@@ -112,6 +113,8 @@ instance IsTx Tx where
 
   -- NOTE: See note from `Head.hashTxOuts`.
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
+
+  utxoFromTx = Api.utxoFromTx
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx

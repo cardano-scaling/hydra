@@ -83,6 +83,7 @@ instance IsTx Payment where
   txId = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
+  utxoFromTx Payment{to, value} = [(to, value)]
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =

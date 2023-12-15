@@ -87,6 +87,7 @@ import Hydra.Ledger (
   UTxOType,
   applyTransactions,
   txId,
+  utxoFromTx,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.OnChainId (OnChainId)
@@ -743,7 +744,7 @@ update env ledger st ev = case (st, ev) of
         Left (_, err) ->
           -- TODO: client output?
           Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
-        Right utxoToDecommit -> cont utxoToDecommit
+        Right _ -> cont $ utxoFromTx decommitTx
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
 
