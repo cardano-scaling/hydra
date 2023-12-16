@@ -53,7 +53,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
+import Hydra.Network.Message (Message (AckSn, ReqDec, ReqSn, ReqTx))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
@@ -129,6 +129,13 @@ spec =
             step (ackFrom bobSk bob)
             getState
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+      describe "Decommit" $ do
+        it "observes ReqDec" $
+          let reqDec = ReqDec (utxoRef 1)
+              event = NetworkEvent defaultTTL alice reqDec
+              st = inOpenState threeParties ledger
+           in update bobEnv ledger st event `hasEffect` NetworkEffect reqDec
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do

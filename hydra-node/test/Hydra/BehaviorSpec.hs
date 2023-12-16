@@ -387,6 +387,10 @@ spec = parallel $ do
                 send n1 (Decommit (aValidTx 42))
                 waitUntil [n1] $
                   DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+                send n2 (Decommit (aValidTx 24))
+
+                waitUntil [n2] $
+                  DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [24]}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
