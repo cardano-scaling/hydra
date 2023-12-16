@@ -87,7 +87,8 @@ spec = parallel $ do
 
         receivedMessagesInOrder messageReceived =
           let refMessages = Data "node-2" <$> [1 ..]
-           in all (`elem` refMessages) (payload <$> messageReceived)
+              isInMessage Authenticated{payload} = payload `elem` refMessages
+           in all isInMessage messageReceived
        in
         receivedMessagesInOrder propagatedMessages
           & counterexample (show propagatedMessages)
@@ -125,8 +126,8 @@ spec = parallel $ do
               aliceFailingNetwork = failingNetwork randomSeed alice (bobToAlice, aliceToBob)
               bobFailingNetwork = failingNetwork randomSeed bob (aliceToBob, bobToAlice)
 
-              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork emittedTraces "bob" bob [alice]
-              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork emittedTraces "alice" alice [bob]
+              bobReliabilityStack = reliabilityStack bobPersistence bobFailingNetwork (captureTraces emittedTraces) "bob" bob [alice]
+              aliceReliabilityStack = reliabilityStack alicePersistence aliceFailingNetwork (captureTraces emittedTraces) "alice" alice [bob]
 
               runAlice = runPeer aliceReliabilityStack "alice" messagesReceivedByAlice messagesReceivedByBob aliceToBobMessages bobToAliceMessages
               runBob = runPeer bobReliabilityStack "bob" messagesReceivedByBob messagesReceivedByAlice bobToAliceMessages aliceToBobMessages
@@ -169,8 +170,10 @@ spec = parallel $ do
 
     it "appends messages to disk and can load them back" $ do
       withTempDir "network-messages-persistence" $ \tmpDir -> do
+        let networkMessagesFile = tmpDir <> "/network-messages"
+
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
-        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/network-messages"
+        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ networkMessagesFile
 
         let messagePersistence =
               MessagePersistence
@@ -204,8 +207,8 @@ spec = parallel $ do
 
         receivedMsgs `shouldBe` [ReliableMsg (fromList [1, 1]) (Data "node-1" msg)]
 
-        doesFileExist (tmpDir </> "network-messages") `shouldReturn` True
-        loadAll `shouldReturn` [Data "node-1" msg]
+        doesFileExist networkMessagesFile `shouldReturn` True
+        reloadAll networkMessagesFile `shouldReturn` [Data "node-1" msg]
 
         doesFileExist (tmpDir </> "acks") `shouldReturn` True
         load `shouldReturn` Just (fromList [1, 1])
@@ -220,10 +223,10 @@ spec = parallel $ do
         (waitForAllMessages expectedMessages receivedMessageContainer)
         (waitForAllMessages messagesToSend sentMessageContainer)
 
-  reliabilityStack persistence underlyingNetwork tracesContainer nodeId party peers =
+  reliabilityStack persistence underlyingNetwork tracer nodeId party peers =
     withHeartbeat nodeId noop $
       withFlipHeartbeats $
-        withReliability (captureTraces tracesContainer) persistence party peers underlyingNetwork
+        withReliability tracer persistence party peers underlyingNetwork
 
   failingNetwork seed peer (readQueue, writeQueue) callback action =
     withAsync
@@ -244,6 +247,11 @@ spec = parallel $ do
     let (res, newGenSeed) = uniformR (0 :: Double, 1) genSeed
     writeTVar seed' newGenSeed
     pure res
+
+  reloadAll :: FilePath -> IO [Heartbeat (Heartbeat String)]
+  reloadAll fileName =
+    createPersistenceIncremental fileName
+      >>= \PersistenceIncremental{loadAll} -> loadAll
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
@@ -273,7 +281,7 @@ captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
 capturePayload :: MonadSTM m => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
-capturePayload receivedMessages message = case payload message of
+capturePayload receivedMessages Authenticated{payload} = case payload of
   Data _ msg ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()

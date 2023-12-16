@@ -143,7 +143,7 @@ withNetwork tracer connectionMessages configuration callback action = do
 --   * Some state already exists and is loaded,
 --   * The number of parties is not the same as the number of acknowledgments saved.
 configureMessagePersistence ::
-  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
+  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
   Tracer m (HydraNodeLog tx) ->
   FilePath ->
   Int ->

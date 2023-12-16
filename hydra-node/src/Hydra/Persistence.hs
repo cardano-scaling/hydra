@@ -4,6 +4,8 @@ module Hydra.Persistence where
 
 import Hydra.Prelude
 
+import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
+import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
@@ -11,8 +13,9 @@ import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
 
-newtype PersistenceException
+data PersistenceException
   = PersistenceException String
+  | IncorrectAccessException String
   deriving stock (Eq, Show)
 
 instance Exception PersistenceException
@@ -53,18 +56,33 @@ data PersistenceIncremental a m = PersistenceIncremental
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
+--
+-- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
+-- it prevents loading from a different thread once one starts `append`ing
+-- through the handle. If another thread attempts to `loadAll` after this point,
+-- an `IncorrectAccessException` will be raised.
 createPersistenceIncremental ::
-  (MonadIO m, MonadThrow m) =>
+  forall a m.
+  (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
   FilePath ->
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  authorizedThread <- newTVarIO Nothing
   pure $
     PersistenceIncremental
       { append = \a -> do
+          tid <- myThreadId
+          atomically $ writeTVar authorizedThread $ Just tid
           let bytes = toStrict $ Aeson.encode a <> "\n"
           liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
-      , loadAll =
+      , loadAll = do
+          tid <- myThreadId
+          atomically $ do
+            authTid <- readTVar authorizedThread
+            when (isJust authTid && authTid /= Just tid) $
+              throwSTM (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
+
           liftIO (doesFileExist fp) >>= \case
             False -> pure []
             True -> do

@@ -365,8 +365,8 @@ spec = describe "ServerSpec" $
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
-            -- expect the api server to load events from apiPersistence and project headStatus correctly
-            withTestAPIServer port alice apiPersistence tracer $ \_ -> do
+            newApiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withTestAPIServer port alice newApiPersistence tracer $ \_ -> do
               waitForValue port $ \v -> do
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
