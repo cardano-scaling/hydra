@@ -561,6 +561,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
+onOpenNetworkReqDec :: Environment -> OpenState tx -> Party -> UTxOType tx -> Outcome tx
+onOpenNetworkReqDec = undefined
+
 -- ** Closing the Head
 
 -- | Client request to close the head. This leads to a close transaction on
@@ -731,14 +734,23 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+  (Open openState, NetworkEvent _ otherParty (ReqDec{utxoToDecommit})) ->
+    onOpenNetworkReqDec env openState otherParty utxoToDecommit
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
-    requireValidDecommitTx $ \utxoToDecommit ->
-      Effects
-        [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-        , NetworkEffect ReqDec{decommitTx}
-        ]
+    requireNoDecommitInFlight $
+      -- TODO: Spec: require U̅ ◦ decTx /= ⊥
+      requireValidDecommitTx $ \utxoToDecommit ->
+        Effects
+          [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
+          , NetworkEffect ReqDec{utxoToDecommit}
+          ]
    where
+    requireNoDecommitInFlight cont
+      | isJust existingDecommitUTxO =
+          Error $ RequireFailed $ DecommitTxInFlight{decommitTx}
+      | otherwise = cont
+
+    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
     requireValidDecommitTx cont =
       case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
         Left (_, err) ->
@@ -748,7 +760,7 @@ update env ledger st ev = case (st, ev) of
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
 
-    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+    CoordinatedHeadState{confirmedSnapshot, utxoToDecommit = existingDecommitUTxO} = coordinatedHeadState
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
@@ -922,6 +934,7 @@ aggregate st = \case
                   , localTxs = mempty
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
+                  , utxoToDecommit = Nothing
                   }
             , chainState
             , headId
