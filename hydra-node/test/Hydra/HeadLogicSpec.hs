@@ -90,6 +90,7 @@ spec =
               , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
+              , utxoToDecommit = Nothing
               }
 
       it "reports if a requested tx is expired" $ do
@@ -504,6 +505,7 @@ spec =
                         , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
+                        , utxoToDecommit = Nothing
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
@@ -657,6 +659,7 @@ inOpenState parties Ledger{initUTxO} =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
+      , utxoToDecommit = Nothing
       }
  where
   u0 = initUTxO
