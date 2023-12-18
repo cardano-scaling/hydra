@@ -152,6 +152,22 @@ spec =
             update bobEnv ledger st event
               `shouldNotBe` Effects [NetworkEffect reqDec]
 
+        it "cannot request decommit when another one is in flight" $ do
+          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
+              reqDec = ReqDec decommitTx'
+              reqDecEvent = NetworkEvent defaultTTL alice reqDec
+              s0 = inOpenState threeParties ledger
+
+          s1 <- runEvents bobEnv ledger s0 $ do
+            step reqDecEvent
+            getState
+
+          let outcome = update bobEnv ledger s1 reqDecEvent
+
+          outcome `shouldSatisfy` \case
+            Error (RequireFailed DecommitTxInFlight{decommitTx}) -> decommitTx == decommitTx'
+            _ -> False
+
         it "updates utxoToDecommit on valid ReqDec" $ do
           let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
