@@ -6,29 +6,22 @@ import Hydra.Prelude
 
 import Cardano.Ledger.BaseTypes (epochInfoPure)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Crypto qualified as Ledger
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Shelley.API qualified as Shelley
 import Cardano.Ledger.Slot (SlotNo (SlotNo, unSlotNo))
 import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Cardano.Slotting.Time qualified as Slotting
 import Hydra.Cardano.Api (
-  GenesisParameters (..),
-  ShelleyEra,
   StandardCrypto,
   Tx,
  )
-import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (
   ChainComponent,
   ChainEvent (Tick),
   ChainStateHistory,
-  IsChainState (ChainStateType),
   chainSlot,
   chainTime,
  )
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (),
   newLocalChainState,
@@ -37,14 +30,11 @@ import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId)
-import Hydra.HeadLogic (HeadState (Idle), IdleState (..), StateChanged, recoverChainStateHistory, recoverState)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
-import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (HydraNodeLog (..))
+import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+import Hydra.Logging (Tracer)
 import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
 import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental (..))
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Consensus.Util.Time (nominalDelay)
