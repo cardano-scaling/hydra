@@ -131,11 +131,17 @@ spec =
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
 
       describe "Decommit" $ do
-        it "observes ReqDec" $
+        it "observes DecommitRequested in an Open state" $
           let reqDec = ReqDec (utxoRef 1)
               event = NetworkEvent defaultTTL alice reqDec
               st = inOpenState threeParties ledger
-           in update bobEnv ledger st event `hasEffect` NetworkEffect reqDec
+           in update bobEnv ledger st event `hasEffect` ClientEffect (DecommitRequested testHeadId (utxoRef 1))
+
+        it "ignores ReqDec when not in Open state" $ monadicIO $ do
+          let reqDec = ReqDec (utxoRef 1)
+          let event = NetworkEvent defaultTTL alice reqDec
+          st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
+          pure $ update bobEnv ledger st event `shouldNotBe` Effects [NetworkEffect reqDec]
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
