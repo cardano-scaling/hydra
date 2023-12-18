@@ -366,16 +366,14 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withLogFile errorLogFilePath $ \errorLogFileHandle -> do
-      withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) (Just errorLogFileHandle) $ do
-        \_ _ processHandle -> do
-          race
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (withConnectionToNode tracer hydraNodeId action)
-            <&> either absurd id
+    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) Nothing $ do
+      \_ _ processHandle -> do
+        race
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+          (withConnectionToNode tracer hydraNodeId action)
+          <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
-  errorLogFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <> "-errors" <.> "log"
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -429,11 +427,11 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
             , std_err = maybe CreatePipe UseHandle mGivenStdErr
             }
-    withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
-      case (mCreatedHandle, mGivenStdOut, mErr) of
-        (Just out, _, Just err) -> action out err processHandle
-        (Nothing, Just out, Just err) -> action out err processHandle
-        (_, _, _) -> error "Should not happen™"
+    withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
+      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr <|> mGivenStdErr) of
+        (Just out, Just err) -> action out err processHandle
+        (Nothing, _) -> error "Should not happen™"
+        (_, Nothing) -> error "Should not happen™"
  where
   peers =
     [ Host

@@ -253,6 +253,16 @@ newtype IntersectionNotFoundException = IntersectionNotFound
 
 instance Exception IntersectionNotFoundException
 
+data ChainClientException
+  = EraNotSupportedException
+  deriving stock (Show)
+
+instance Exception ChainClientException
+
+explain :: ChainClientException -> String
+explain = \case
+  EraNotSupportedException -> "Please upgrade hydra-node."
+
 -- | The block type used in the node-to-client protocols.
 type BlockType = BlockInMode CardanoMode
 
@@ -297,12 +307,7 @@ chainSyncClient handler wallet startingPoint =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            _ -> do
-              _ <- error "Era not supported. Please upgrade hydra-node."
-              -- NOTE: We are just ignoring different era blocks. It's not
-              -- entirely clear if we would reach this point on a "next-era"
-              -- network (e.g. Conway) or just have a handshake problem before.
-              pure clientStIdle
+            _ -> throwIO EraNotSupportedException
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
           reset wallet

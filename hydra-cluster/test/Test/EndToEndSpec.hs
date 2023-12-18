@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxValidityLowerBound,
  )
+import Hydra.Chain.Direct (ChainClientException)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -109,7 +110,9 @@ import HydraNode (
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import System.IO (hGetContents, hGetLine)
+import System.IO (
+  hGetLine,
+ )
 import System.IO.Error (isEOFError)
 import Test.QuickCheck (generate)
 import Prelude qualified
@@ -515,13 +518,17 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \stdout stderr n1 -> do
-              -- Assert nominal startup
-              waitForLog 5 stdout "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+            let hydraNodeId = 1
 
-              delayEpoch tmpDir args 1
+                aChainClientException :: Selector ChainClientException
+                aChainClientException = const True
 
-              hGetContents stderr >>= (`shouldContain` "upgrade hydra-node")
+            let action = withHydraNode' chainConfig tmpDir hydraNodeId aliceSk [] [1] hydraScriptsTxId (Just stdout) (Just stderr) $ \stdout stderr n1 -> do
+                  -- Assert nominal startup
+                  waitForLog 5 stdout "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+
+                  delayEpoch tmpDir args 1
+            action `shouldThrow` aChainClientException
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
