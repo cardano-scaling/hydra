@@ -1,6 +1,5 @@
 module Hydra.Chain.Offline (
   withOfflineChain,
-  loadGlobalsFromGenesis,
   loadState,
 ) where
 
@@ -152,56 +151,3 @@ loadState tracer persistence defaultChainState = do
   pure (headState, chainStateHistory)
  where
   initialState = Idle IdleState{chainState = defaultChainState}
-
-loadGlobalsFromGenesis :: Maybe FilePath -> IO Shelley.Globals
-loadGlobalsFromGenesis ledgerGenesisFile = do
-  shelleyGenesis <- case ledgerGenesisFile of
-    Nothing -> pure Nothing
-    Just filePath -> Just <$> readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
-  systemStart <- maybe (SystemStart <$> getCurrentTime) (pure . SystemStart . Ledger.sgSystemStart) shelleyGenesis
-
-  let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
-
-  globals <-
-    maybe
-      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
-      newGlobals
-      genesisParameters
-
-  pure globals
-
--- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
-fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters ShelleyEra
-fromShelleyGenesis
-  sg@Shelley.ShelleyGenesis
-    { Shelley.sgSystemStart
-    , Shelley.sgNetworkMagic
-    , Shelley.sgActiveSlotsCoeff
-    , Shelley.sgSecurityParam
-    , Shelley.sgEpochLength
-    , Shelley.sgSlotsPerKESPeriod
-    , Shelley.sgMaxKESEvolutions
-    , Shelley.sgSlotLength
-    , Shelley.sgUpdateQuorum
-    , Shelley.sgMaxLovelaceSupply
-    , Shelley.sgGenDelegs = _ -- unused, might be of interest
-    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
-    , Shelley.sgStaking = _ -- unused, not retained by the node
-    } =
-    GenesisParameters
-      { protocolParamSystemStart = sgSystemStart
-      , protocolParamNetworkId = Shelley.fromNetworkMagic $ Shelley.NetworkMagic sgNetworkMagic
-      , protocolParamActiveSlotsCoefficient =
-          Ledger.unboundRational
-            sgActiveSlotsCoeff
-      , protocolParamSecurity = fromIntegral sgSecurityParam
-      , protocolParamEpochLength = sgEpochLength
-      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
-      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
-      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
-      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
-      , protocolParamMaxLovelaceSupply =
-          Shelley.Lovelace
-            (fromIntegral sgMaxLovelaceSupply)
-      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
-      }

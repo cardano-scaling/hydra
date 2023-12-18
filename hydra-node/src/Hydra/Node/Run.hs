@@ -14,14 +14,17 @@ import Hydra.Cardano.Api (
   GenesisParameters (..),
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
+  StandardCrypto,
+  SystemStart (..),
   toLedgerPParams,
  )
 import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (loadGlobalsFromGenesis, loadState, withOfflineChain)
+import Hydra.Chain.Offline (loadState, withOfflineChain)
 import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   Environment (..),
@@ -205,7 +208,22 @@ identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{OnlineOptions.verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
 
--- TODO: export from cardano-api
+loadGlobalsFromGenesis :: Maybe FilePath -> IO Shelley.Globals
+loadGlobalsFromGenesis ledgerGenesisFile = do
+  shelleyGenesis <- case ledgerGenesisFile of
+    Nothing -> pure Nothing
+    Just filePath -> Just <$> readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
+  systemStart <- maybe (SystemStart <$> getCurrentTime) (pure . SystemStart . Ledger.sgSystemStart) shelleyGenesis
+
+  let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
+
+  globals <-
+    maybe
+      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
+      newGlobals
+      genesisParameters
+
+  pure globals
 
 -- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
 fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra
