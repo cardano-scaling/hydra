@@ -11,7 +11,6 @@ import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput))
-import Hydra.Chain.Offline (loadState)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
@@ -33,6 +32,7 @@ import Hydra.Node (
   HydraNodeLog (..),
   checkHeadState,
   createNodeState,
+  loadState,
   stepHydraNode,
  )
 import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)

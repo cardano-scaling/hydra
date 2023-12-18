@@ -21,6 +21,7 @@ import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
+  ChainStateHistory,
   ChainStateType,
   HeadParameters (..),
   IsChainState,
@@ -34,10 +35,13 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  IdleState (..),
   Outcome (..),
   aggregateState,
   collectEffects,
   defaultTTL,
+  recoverChainStateHistory,
+  recoverState,
  )
 import Hydra.HeadLogic qualified as Logic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -286,3 +290,19 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
+
+-- | Load a 'HeadState' from persistence.
+loadState ::
+  (MonadThrow m, IsChainState tx) =>
+  Tracer m (HydraNodeLog tx) ->
+  PersistenceIncremental (StateChanged tx) m ->
+  ChainStateType tx ->
+  m (HeadState tx, ChainStateHistory tx)
+loadState tracer persistence defaultChainState = do
+  events <- loadAll persistence
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  let headState = recoverState initialState events
+      chainStateHistory = recoverChainStateHistory defaultChainState events
+  pure (headState, chainStateHistory)
+ where
+  initialState = Idle IdleState{chainState = defaultChainState}

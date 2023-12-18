@@ -1,6 +1,5 @@
 module Hydra.Chain.Offline (
   withOfflineChain,
-  loadState,
 ) where
 
 import Hydra.Prelude
@@ -135,19 +134,3 @@ withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} global
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
-
--- | Load a 'HeadState' from persistence.
-loadState ::
-  (MonadThrow m, IsChainState tx) =>
-  Tracer m (HydraNodeLog tx) ->
-  PersistenceIncremental (StateChanged tx) m ->
-  ChainStateType tx ->
-  m (HeadState tx, ChainStateHistory tx)
-loadState tracer persistence defaultChainState = do
-  events <- loadAll persistence
-  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory defaultChainState events
-  pure (headState, chainStateHistory)
- where
-  initialState = Idle IdleState{chainState = defaultChainState}
