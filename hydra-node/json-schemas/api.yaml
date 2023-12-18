@@ -76,7 +76,6 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
-          - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -96,6 +95,8 @@ channels:
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
+          - $ref: "api.yaml#/components/messages/DecommitRequested"
+          - $ref: "api.yaml#/components/messages/DecommitIgnored"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -477,7 +478,7 @@ components:
         required:
           - tag
           - party
-          - utxo
+          - utxoToDecommit
           - seq
           - timestamp
         properties:
@@ -492,6 +493,36 @@ components:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitIgnored:
+      title: DecommitIgnored
+      description: |
+        Requested decommit was ignored with the provided reason.
+      payload:
+        type: object
+        required:
+          - tag
+          - headId
+          - utxoToDecommit
+          - reason
+          - seq
+          - timestamp
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitIgnored"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          utxoToDecommit:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          reason:
+            type: string
+            enum: ["DecommitTxInFlight"]
+          seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
 
     HeadIsOpen:
       title: HeadIsOpen
