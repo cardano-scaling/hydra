@@ -29,7 +29,7 @@ data Message tx
     -- good idea to introduce the party in AckSn again or, maybe better, only
     -- the verification key of the party.
     AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  | ReqDec {utxoToDecommit :: UTxOType tx}
+  | ReqDec {decommitTx :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)

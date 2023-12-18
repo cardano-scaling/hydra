@@ -561,13 +561,40 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
-onOpenNetworkReqDec :: Environment -> OpenState tx -> Party -> UTxOType tx -> Outcome tx
-onOpenNetworkReqDec env openState party utxoToDecommit =
-  -- TODO: check if it's valid to emit 'DecommitRequested' here
-  Effects [ClientEffect $ ServerOutput.DecommitRequested headId utxoToDecommit]
+onOpenNetworkReqDec ::
+  IsTx tx =>
+  Environment ->
+  Ledger tx ->
+  OpenState tx ->
+  Party ->
+  tx ->
+  Outcome tx
+onOpenNetworkReqDec env ledger openState party decommitTx =
+  requireNoDecommitInFlight $
+    requireValidDecommitTx $ \utxoToDecommit ->
+      Effects [ClientEffect $ ServerOutput.DecommitRequested headId utxoToDecommit]
  where
+  requireValidDecommitTx cont =
+    case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+      Left (_, err) ->
+        -- TODO: client output?
+        Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
+      Right _ -> cont $ utxoFromTx decommitTx
+
+  confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
+  requireNoDecommitInFlight cont
+    | isJust existingUTxOToDecommit =
+        Error $
+          RequireFailed $
+            DecommitTxInFlight{decommitTx}
+    | otherwise = cont
+
+  CoordinatedHeadState{confirmedSnapshot, utxoToDecommit = existingUTxOToDecommit} = coordinatedHeadState
+
   OpenState
     { headId
+    , coordinatedHeadState
+    , currentSlot
     } = openState
 
 -- ** Closing the Head
@@ -740,15 +767,15 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open openState, NetworkEvent _ otherParty (ReqDec{utxoToDecommit})) ->
-    onOpenNetworkReqDec env openState otherParty utxoToDecommit
+  (Open openState, NetworkEvent _ otherParty (ReqDec{decommitTx})) ->
+    onOpenNetworkReqDec env ledger openState otherParty decommitTx
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
       requireValidDecommitTx $ \utxoToDecommit ->
         Effects
           [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-          , NetworkEffect ReqDec{utxoToDecommit}
+          , NetworkEffect ReqDec{decommitTx}
           ]
    where
     requireNoDecommitInFlight cont
