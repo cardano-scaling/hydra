@@ -100,6 +100,7 @@ data ServerOutput tx
       , participants :: [OnChainId]
       }
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitIgnored {headId :: HeadId, utxoToDecommit :: UTxOType tx, reason :: String}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -156,6 +157,7 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
+    DecommitIgnored headId u reason -> DecommitIgnored <$> shrink headId <*> shrink u <*> shrink reason
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -227,6 +229,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
+    DecommitIgnored{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
