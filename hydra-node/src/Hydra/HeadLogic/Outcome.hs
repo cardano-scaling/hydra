@@ -72,6 +72,7 @@ data StateChanged tx
       , newLocalTxs :: [tx]
       }
   | TransactionReceived {tx :: tx}
+  | DecommitRecorded {decommitUTxO :: UTxOType tx}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}

@@ -561,38 +561,39 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
+-- | Process the request 'ReqDec' to decommit something from the Open head.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+--
+-- When node receives 'ReqDec' network message it should:
+-- - Check there is no decommit in flight
+-- - Alter it's state to record what is to be decommitted
+-- - Issue a server output 'DecommitRequested' with the relevant utxo
+-- - Issue a 'ReqSn' since all parties need to agree in order for decommit be
+-- valid to be taken out of a Head.
+--
+-- We don't check here if decommit tx can be applied to the confirmed ledger
+-- state since this should be done when the snapshot is to be acknowledged. This
+-- way we are checking _later_ than we could but it will allow us to not discard
+-- decommit UTxOs which are maybe part of the snapshot _in flight_ but we just
+-- didn't see the `AckSn` for it yet.
 onOpenNetworkReqDec ::
   IsTx tx =>
-  Ledger tx ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec ledger openState decommitTx =
+onOpenNetworkReqDec openState decommitTx =
   requireNoDecommitInFlight $
-    requireValidDecommitTx $ \utxoToDecommit ->
-      Effects [ClientEffect $ ServerOutput.DecommitRequested headId utxoToDecommit]
- where
-  requireValidDecommitTx cont =
-    case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
-      Left (_, err) ->
-        -- TODO: client output?
-        Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
-      Right _ -> do
-        -- TODO: send out a ReqSn here
-        -- TODO: check if decommit utxo is actually present in the confirmed
-        -- snapshot utxo
-        let _decrementUTxO = utxoFromTx decommitTx
-
-        StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
+    let decommitUTxO = utxoFromTx decommitTx
+     in StateChanged (DecommitRecorded decommitUTxO)
           <> Effects
-            [ NetworkEffect (ReqSn nextSn (txId <$> localTxs <> [decommitTx]))
+            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+            , NetworkEffect (ReqSn nextSn (txId <$> localTxs <> [decommitTx]))
             ]
-
-  snapshot@Snapshot{number} = getSnapshot confirmedSnapshot
+ where
+  Snapshot{number} = getSnapshot confirmedSnapshot
 
   nextSn = number + 1
-
-  confirmedUTxO = snapshot.utxo
 
   requireNoDecommitInFlight cont
     | isJust existingUTxOToDecommit =
@@ -606,7 +607,6 @@ onOpenNetworkReqDec ledger openState decommitTx =
   OpenState
     { headId
     , coordinatedHeadState
-    , currentSlot
     } = openState
 
 -- ** Closing the Head
@@ -779,16 +779,17 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open openState, NetworkEvent _ otherParty (ReqDec{decommitTx})) ->
-    onOpenNetworkReqDec ledger openState decommitTx
+  (Open openState, NetworkEvent _ _ (ReqDec{decommitTx})) ->
+    onOpenNetworkReqDec openState decommitTx
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
       requireValidDecommitTx $ \utxoToDecommit ->
-        Effects
-          [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-          , NetworkEffect ReqDec{decommitTx}
-          ]
+        StateChanged (DecommitRecorded utxoToDecommit)
+          <> Effects
+            [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
+            , NetworkEffect ReqDec{decommitTx}
+            ]
    where
     requireNoDecommitInFlight cont
       | isJust existingDecommitUTxO =
@@ -1022,6 +1023,21 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
+  DecommitRecorded utxo ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState
+          } ->
+          case utxoToDecommit coordinatedHeadState of
+            Nothing ->
+              Open
+                os
+                  { coordinatedHeadState =
+                      coordinatedHeadState{utxoToDecommit = Just utxo}
+                  }
+            Just _decommitUTxO -> st
+      _otherState -> st
   HeadIsReadyToFanout ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
@@ -1068,6 +1084,7 @@ recoverChainStateHistory initialChainState =
     TransactionReceived{} -> history
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
+    DecommitRecorded{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
