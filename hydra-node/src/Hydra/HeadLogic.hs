@@ -563,13 +563,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
 onOpenNetworkReqDec ::
   IsTx tx =>
-  Environment ->
   Ledger tx ->
   OpenState tx ->
-  Party ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env ledger openState party decommitTx =
+onOpenNetworkReqDec ledger openState decommitTx =
   requireNoDecommitInFlight $
     requireValidDecommitTx $ \utxoToDecommit ->
       Effects [ClientEffect $ ServerOutput.DecommitRequested headId utxoToDecommit]
@@ -579,9 +577,23 @@ onOpenNetworkReqDec env ledger openState party decommitTx =
       Left (_, err) ->
         -- TODO: client output?
         Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
-      Right _ -> cont $ utxoFromTx decommitTx
+      Right _ -> do
+        -- TODO: send out a ReqSn here
+        -- TODO: check if decommit utxo is actually present in the confirmed
+        -- snapshot utxo
+        let _decrementUTxO = utxoFromTx decommitTx
 
-  confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
+        StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> Effects
+            [ NetworkEffect (ReqSn nextSn (txId <$> localTxs <> [decommitTx]))
+            ]
+
+  snapshot@Snapshot{number} = getSnapshot confirmedSnapshot
+
+  nextSn = number + 1
+
+  confirmedUTxO = snapshot.utxo
+
   requireNoDecommitInFlight cont
     | isJust existingUTxOToDecommit =
         Error $
@@ -589,7 +601,7 @@ onOpenNetworkReqDec env ledger openState party decommitTx =
             DecommitTxInFlight{decommitTx}
     | otherwise = cont
 
-  CoordinatedHeadState{confirmedSnapshot, utxoToDecommit = existingUTxOToDecommit} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, localTxs, utxoToDecommit = existingUTxOToDecommit} = coordinatedHeadState
 
   OpenState
     { headId
@@ -768,7 +780,7 @@ update env ledger st ev = case (st, ev) of
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState, NetworkEvent _ otherParty (ReqDec{decommitTx})) ->
-    onOpenNetworkReqDec env ledger openState otherParty decommitTx
+    onOpenNetworkReqDec ledger openState decommitTx
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
