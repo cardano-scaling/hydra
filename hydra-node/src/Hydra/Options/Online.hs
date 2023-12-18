@@ -1,27 +1,41 @@
 module Hydra.Options.Online (
-  module Hydra.Options.Online
- ) where
+  module Hydra.Options.Online,
+) where
 
-import Hydra.Prelude
 import Hydra.Cardano.Api (
+  AsType (..),
   ChainPoint (..),
-  SocketPath,
-  NetworkId (Testnet, Mainnet),
+  File (..),
+  HasTypeProxy (proxyToAsType),
+  NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   SlotNo (..),
-  File (..),
-  AsType (..),
-  TxId(..),
+  SocketPath,
+  TxId (..),
   deserialiseFromRawBytesHex,
-  HasTypeProxy (proxyToAsType), serialiseToRawBytesHexText,
+  serialiseToRawBytesHexText,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Prelude
 
 import Hydra.Options.Common (
+  InvalidOptions (..),
+  LedgerConfig (..),
+  apiHostParser,
+  apiPortParser,
   cardanoVerificationKeyFileParser,
-  genFilePath,
   defaultLedgerConfig,
-  genChainPoint, LedgerConfig (..), verbosityParser, hostParser, portParser, apiHostParser, apiPortParser, monitoringPortParser, hydraSigningKeyFileParser, hydraVerificationKeyFileParser, persistenceDirParser, ledgerConfigParser, genDirPath, InvalidOptions (..),
+  genChainPoint,
+  genDirPath,
+  genFilePath,
+  hostParser,
+  hydraSigningKeyFileParser,
+  hydraVerificationKeyFileParser,
+  ledgerConfigParser,
+  monitoringPortParser,
+  persistenceDirParser,
+  portParser,
+  verbosityParser,
  )
 
 import Options.Applicative (
@@ -42,19 +56,18 @@ import Options.Applicative (
   value,
  )
 
-
-import Hydra.Network (Host, NodeId (NodeId), readHost, PortNumber)
-import Hydra.Ledger.Cardano ()
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
+import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost)
 
-import Data.Text qualified as T
-import Data.Text (unpack)
-import Data.Time.Clock (nominalDiffTimeToSeconds)
-import Data.IP (IP (IPv4), toIPv4)
-import Options.Applicative.Builder (str)
-import qualified Data.ByteString.Char8 as BSC
 import Control.Arrow (left)
+import Data.ByteString.Char8 qualified as BSC
+import Data.IP (IP (IPv4), toIPv4)
+import Data.Text (unpack)
+import Data.Text qualified as T
+import Data.Time.Clock (nominalDiffTimeToSeconds)
+import Options.Applicative.Builder (str)
 
 import Test.QuickCheck (elements, listOf, oneof, suchThat)
 
@@ -112,7 +125,6 @@ chainConfigParser =
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
-
 
 networkIdParser :: Parser NetworkId
 networkIdParser = pMainnet <|> fmap Testnet pTestnetMagic
@@ -247,7 +259,6 @@ contestationPeriodParser =
       if s <= 0
         then fail "negative contestation period"
         else pure $ UnsafeContestationPeriod $ truncate s
-
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -387,7 +398,6 @@ defaultRunOptions =
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
 
-
 instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
@@ -423,7 +433,6 @@ instance Arbitrary RunOptions where
         }
 
   shrink = genericShrink
-
 
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =

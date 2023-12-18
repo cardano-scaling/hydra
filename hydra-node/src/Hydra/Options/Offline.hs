@@ -1,8 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-
 
 module Hydra.Options.Offline (
   module Hydra.Options.Offline,
@@ -13,8 +12,13 @@ import Hydra.Prelude
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (PortNumber)
 import Hydra.Options.Common (
-  LedgerConfig(..),
-  InvalidOptions(MaximumNumberOfPartiesExceeded),
+  InvalidOptions (MaximumNumberOfPartiesExceeded),
+  LedgerConfig (..),
+  apiHostParser,
+  apiPortParser,
+  genDirPath,
+  genFilePath,
+  hostParser,
   hydraSigningKeyFileParser,
   hydraVerificationKeyFileParser,
   ledgerConfigParser,
@@ -22,31 +26,29 @@ import Hydra.Options.Common (
   persistenceDirParser,
   portParser,
   verbosityParser,
-  hostParser, InvalidOptions, genFilePath, genDirPath, apiHostParser, apiPortParser,
  )
 
-import Data.IP ( IP(..) )
+import Data.IP (IP (..))
 import Options.Applicative (
   Parser,
+  command,
+  help,
+  info,
   long,
-  str,
+  metavar,
   option,
   progDesc,
-  info,
-  value,
-  subparser,
-  command,
   showDefault,
-  metavar,
-  help,
+  str,
+  subparser,
+  value,
  )
-import Test.QuickCheck.Gen (elements, oneof)
-import Test.QuickCheck (listOf)
 import Options.Applicative.Extra (helper)
+import Test.QuickCheck (listOf)
+import Test.QuickCheck.Gen (elements, oneof)
 
 data RunOfflineOptions = RunOfflineOptions
-  {
-    verbosity :: Verbosity
+  { verbosity :: Verbosity
   , host :: IP
   , port :: PortNumber
   , apiHost :: IP
@@ -57,7 +59,8 @@ data RunOfflineOptions = RunOfflineOptions
   , persistenceDir :: FilePath
   , ledgerConfig :: LedgerConfig
   , offlineConfig :: OfflineConfig
-} deriving stock (Eq, Show, Generic)
+  }
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
@@ -78,7 +81,8 @@ toArgs
     , persistenceDir
     , ledgerConfig
     , offlineConfig
-    } = ["offline"]
+    } =
+    ["offline"]
       <> isVerbose verbosity
       <> ["--host", show host]
       <> ["--port", show port]
@@ -103,8 +107,8 @@ toArgs
       } = ledgerConfig
 
     argsOfflineConfig =
-          ["--initial-utxo", initialUTxOFile offlineConfig]
-          <> maybe [] (\s -> ["--ledger-genesis", s]) (ledgerGenesisFile offlineConfig)
+      ["--initial-utxo", initialUTxOFile offlineConfig]
+        <> maybe [] (\s -> ["--ledger-genesis", s]) (ledgerGenesisFile offlineConfig)
 
 instance Arbitrary OfflineConfig where
   arbitrary = do
@@ -147,20 +151,22 @@ runOfflineOptionsParser =
   subparser $
     command "offline" $
       info
-        (helper <*> (RunOfflineOptions
-          <$> verbosityParser
-          <*> hostParser
-          <*> portParser
-          <*> apiHostParser
-          <*> apiPortParser
-          <*> optional monitoringPortParser
-          <*> hydraSigningKeyFileParser
-          <*> many hydraVerificationKeyFileParser
-          <*> persistenceDirParser
-          <*> ledgerConfigParser
-          <*> offlineOptionsParser))
+        ( helper
+            <*> ( RunOfflineOptions
+                    <$> verbosityParser
+                    <*> hostParser
+                    <*> portParser
+                    <*> apiHostParser
+                    <*> apiPortParser
+                    <*> optional monitoringPortParser
+                    <*> hydraSigningKeyFileParser
+                    <*> many hydraVerificationKeyFileParser
+                    <*> persistenceDirParser
+                    <*> ledgerConfigParser
+                    <*> offlineOptionsParser
+                )
+        )
         (progDesc "Run Hydra Head in offline mode.")
-
 
 data OfflineConfig = OfflineConfig
   { initialUTxOFile :: FilePath
@@ -177,11 +183,9 @@ defaultOfflineConfig =
 
 offlineOptionsParser :: Parser OfflineConfig
 offlineOptionsParser =
-       OfflineConfig
-          <$> initialUTxOFileParser
-          <*> ledgerGenesisFileParser
-
-
+  OfflineConfig
+    <$> initialUTxOFileParser
+    <*> ledgerGenesisFileParser
 
 initialUTxOFileParser :: Parser FilePath
 initialUTxOFileParser =
@@ -204,4 +208,3 @@ ledgerGenesisFileParser =
         <> showDefault
         <> help "File containing ledger genesis parameters."
     )
-

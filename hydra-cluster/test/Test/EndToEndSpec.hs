@@ -125,10 +125,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         b <- genUTxOFor bobCardanoVk
         pure $ a <> b
       Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
-      let offlineConfig = OfflineConfig
-            { initialUTxOFile = tmpDir </> "utxo.json"
-            , ledgerGenesisFile = Nothing
-            }
+      let offlineConfig =
+            OfflineConfig
+              { initialUTxOFile = tmpDir </> "utxo.json"
+              , ledgerGenesisFile = Nothing
+              }
 
       let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
 

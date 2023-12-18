@@ -21,7 +21,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (withOfflineChain, loadGlobalsFromGenesis, loadState)
+import Hydra.Chain.Offline (loadGlobalsFromGenesis, loadState, withOfflineChain)
 import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   Environment (..),
@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
+import Hydra.Network (NodeId (NodeId))
 import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
@@ -55,15 +56,13 @@ import Hydra.Options (
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineConfig (..),
-  RunOptions (..),
   RunOfflineOptions (..),
-  validateRunOptions
+  RunOptions (..),
+  validateRunOptions,
  )
 import Hydra.Options.Offline qualified as OfflineOptions
 import Hydra.Options.Online qualified as OnlineOptions
 import Hydra.Persistence (createPersistenceIncremental)
-import Hydra.Network (NodeId(NodeId))
-
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
@@ -107,8 +106,8 @@ runOffline opts = do
         nodeState <- createNodeState hs
         -- Chain
         let withChain cont =
-                let headId = UnsafeHeadId "HeadId"
-                 in withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
+              let headId = UnsafeHeadId "HeadId"
+               in withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
         withChain $ \chain -> do
           -- API
           let RunOfflineOptions{host, port} = opts
@@ -169,9 +168,9 @@ run opts = do
         nodeState <- createNodeState hs
         -- Chain
         let withChain cont = do
-                ctx <- loadChainContext chainConfig party hydraScriptsTxId
-                wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-                withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
+              ctx <- loadChainContext chainConfig party hydraScriptsTxId
+              wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
+              withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
         withChain $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts

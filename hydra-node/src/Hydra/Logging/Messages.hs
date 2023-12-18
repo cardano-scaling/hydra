@@ -15,7 +15,7 @@ import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Network.Reliability (ReliabilityLog)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Options (RunOptions, RunOfflineOptions)
+import Hydra.Options (RunOfflineOptions, RunOptions)
 import Hydra.Options.Offline ()
 
 data HydraLog tx net

@@ -1,37 +1,38 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Options.Common (
   module Hydra.Options.Common,
- ) where
+) where
 
-import Hydra.Prelude
 import Hydra.Cardano.Api (
   ChainPoint (..),
   SlotNo (..),
   deserialiseFromRawBytes,
   proxyToAsType,
  )
+import Hydra.Prelude
 
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (PortNumber, readPort)
-import Hydra.Ledger.Cardano ()
 
-import Data.IP ( IP (IPv4), toIPv4w )
 import Data.ByteString qualified as BS
+import Data.IP (IP (IPv4), toIPv4w)
 import Options.Applicative (
   Parser,
-  short,
-  long,
-  flag,
   auto,
-  value,
+  flag,
+  help,
+  long,
+  maybeReader,
+  metavar,
   option,
+  short,
+  showDefault,
   str,
   strOption,
-  metavar,
-  maybeReader,
-  showDefault,
-  help
+  value,
  )
 
 import Test.QuickCheck (elements, listOf1, vectorOf)
@@ -97,7 +98,6 @@ genChainPoint = ChainPoint <$> (SlotNo <$> arbitrary) <*> someHeaderHash
     bytes <- vectorOf 32 arbitrary
     let hash = either (error "invalid bytes") id $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
     pure hash
-
 
 cardanoVerificationKeyFileParser :: Parser FilePath
 cardanoVerificationKeyFileParser =

@@ -1,66 +1,55 @@
 module Hydra.Chain.Offline (
   withOfflineChain,
   loadGlobalsFromGenesis,
-  loadState
-
+  loadState,
 ) where
 
 import Hydra.Prelude
 
-import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
-
-import Hydra.Logging (Tracer, traceWith)
-
+import Cardano.Ledger.BaseTypes (epochInfoPure)
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Crypto qualified as Ledger
+import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Shelley.API qualified as Shelley
+import Cardano.Ledger.Slot (SlotNo (SlotNo, unSlotNo))
+import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime)
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
+import Cardano.Slotting.Time qualified as Slotting
+import Hydra.Cardano.Api (
+  GenesisParameters (..),
+  ShelleyEra,
+  StandardCrypto,
+  Tx,
+ )
+import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (
   ChainComponent,
   ChainEvent (Tick),
   ChainStateHistory,
+  IsChainState (ChainStateType),
   chainSlot,
-  chainTime, IsChainState (ChainStateType),
+  chainTime,
  )
-import Hydra.HeadId (HeadId)
-
+import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.Handlers (
   DirectChainLog (),
   newLocalChainState,
  )
-
-import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow, newGlobals)
-
-import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
-
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Crypto qualified as Ledger
-
-import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
-
-import Cardano.Ledger.Slot (SlotNo (SlotNo, unSlotNo))
-
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
-import Cardano.Slotting.Time qualified as Slotting
-
-import Cardano.Ledger.BaseTypes (epochInfoPure)
-
-import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime)
-
-import Ouroboros.Consensus.Util.Time (nominalDelay)
-
-import Hydra.Cardano.Api (
-  StandardCrypto,
-  Tx, GenesisParameters (..), ShelleyEra,
- )
+import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental(..))
+import Hydra.HeadId (HeadId)
+import Hydra.HeadLogic (HeadState (Idle), IdleState (..), StateChanged, recoverChainStateHistory, recoverState)
+import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
+import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node (HydraNodeLog (..))
-import Hydra.HeadLogic (StateChanged, IdleState (..), recoverChainStateHistory, recoverState, HeadState(Idle))
-import qualified Cardano.Ledger.Shelley.API as Shelley
-import Hydra.Cardano.Api qualified as Shelley
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
+import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
+import Hydra.Party (Party)
+import Hydra.Persistence (PersistenceIncremental (..))
+import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import Ouroboros.Consensus.Util.Time (nominalDelay)
 
 withOfflineChain ::
   Tracer IO DirectChainLog ->

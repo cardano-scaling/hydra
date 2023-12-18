@@ -25,9 +25,9 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOptions (..), RunOfflineOptions (..))
-import Hydra.Options.Online qualified as OnlineOptions
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOfflineOptions (..), RunOptions (..))
 import Hydra.Options.Offline qualified as OfflineOptions
+import Hydra.Options.Online qualified as OnlineOptions
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -325,7 +325,7 @@ withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut a
             { cardanoLedgerProtocolParametersFile
             }
     let p =
-          (hydraNodeOfflineProcess $
+          ( hydraNodeOfflineProcess $
               RunOfflineOptions
                 { verbosity = Verbose "HydraNode"
                 , host = "127.0.0.1"

@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
-module Hydra.Options.Common,
+  module Hydra.Options.Common,
   module Hydra.Options.Offline,
   module Hydra.Options.Online,
   module Hydra.Options,
@@ -21,45 +21,45 @@ import Hydra.Cardano.Api (
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Options.Common (
-  LedgerConfig(..),
-  InvalidOptions(..),
-  defaultLedgerConfig,
-  ledgerConfigParser,
-  hydraVerificationKeyFileParser,
-  hydraSigningKeyFileParser,
-  cardanoVerificationKeyFileParser,
-  verbosityParser,
-  hostParser,
-  portParser,
+  InvalidOptions (..),
+  LedgerConfig (..),
   apiHostParser,
   apiPortParser,
+  cardanoVerificationKeyFileParser,
+  defaultLedgerConfig,
+  genChainPoint,
+  genDirPath,
+  genFilePath,
+  hostParser,
+  hydraSigningKeyFileParser,
+  hydraVerificationKeyFileParser,
+  ledgerConfigParser,
   monitoringPortParser,
   persistenceDirParser,
-  genChainPoint,
-  genFilePath,
-  genDirPath
+  portParser,
+  verbosityParser,
  )
 import Hydra.Options.Offline (
-  RunOfflineOptions (..),
   OfflineConfig (..),
-  validateRunOfflineOptions,
+  RunOfflineOptions (..),
   defaultOfflineConfig,
   offlineOptionsParser,
   runOfflineOptionsParser,
+  validateRunOfflineOptions,
  )
 import Hydra.Options.Online (
-  ChainConfig(..),
-  RunOptions(..),
-  validateRunOptions,
-  defaultContestationPeriod,
-  runOptionsParser,
-  networkIdParser,
-  nodeSocketParser,
+  ChainConfig (..),
+  RunOptions (..),
   cardanoSigningKeyFileParser,
   defaultChainConfig,
+  defaultContestationPeriod,
+  networkIdParser,
+  nodeSocketParser,
+  runOptionsParser,
   startChainFromParser,
   toArgNetworkId,
-  toArgs
+  toArgs,
+  validateRunOptions,
  )
 import Hydra.Options.Online qualified as OnlineOptions
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
@@ -176,7 +176,6 @@ outputFileParser =
         <> help "Basename of files to generate key-pair into. Signing key will be suffixed '.sk' and verification key '.vk'"
     )
 
-
 hydraNodeCommand :: ParserInfo Command
 hydraNodeCommand =
   info
@@ -210,8 +209,6 @@ hydraNodeVersion =
         <|> gitRevision
         <|> Just unknownVersion
 
-
-
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
 parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
@@ -219,5 +216,3 @@ parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 -- | Pure parsing of `Option` from a list of arguments.
 parseHydraCommandFromArgs :: [String] -> ParserResult Command
 parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
-
-
