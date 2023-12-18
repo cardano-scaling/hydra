@@ -169,7 +169,8 @@ spec =
             _ -> False
 
         it "updates utxoToDecommit on valid ReqDec" $ do
-          let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
+          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
+          let reqDec = ReqDec decommitTx'
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
               s0 = inOpenState threeParties ledger
 
@@ -182,6 +183,15 @@ spec =
             getState
 
           s1 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Just (utxoRef 1)
+            _ -> False
+
+          -- running the 'ReqDec' again should not alter the recorded state
+          s2 <- runEvents bobEnv ledger s1 $ do
+            step reqDecEvent
+            getState
+
+          s2 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Just (utxoRef 1)
             _ -> False
 
