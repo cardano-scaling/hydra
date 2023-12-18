@@ -147,6 +147,23 @@ spec = parallel $ do
 
         getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
 
+  it "Emits ReqSn on valid RecDec" $
+    failAfter 1 $
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
+        let events =
+              eventsToOpenHead
+                <> [ NetworkEvent
+                      { ttl = defaultTTL
+                      , party = bob
+                      , message = ReqDec{decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
+                      }
+                   ]
+
+        node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
+        (node', getNetworkMessages) <- recordNetwork node
+        runToCompletion tracer node'
+        getNetworkMessages `shouldReturn` [ReqSn{snapshotNumber = 1, transactionIds = [1]}]
+
   describe "Configuration mismatch" $ do
     let defaultEnv =
           Environment
