@@ -53,7 +53,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Network.Message (Message (AckSn, ReqDec, ReqSn, ReqTx))
+import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
@@ -131,17 +131,27 @@ spec =
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
 
       describe "Decommit" $ do
-        it "observes DecommitRequested in an Open state" $
-          let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
+        it "observes DecommitRequested and ReqDec in an Open state" $
+          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
+              reqDec = ReqDec decommitTx'
               event = NetworkEvent defaultTTL alice reqDec
               st = inOpenState threeParties ledger
-           in update bobEnv ledger st event `hasEffect` ClientEffect (DecommitRequested testHeadId (utxoRef 1))
+              outcome = update bobEnv ledger st event
+           in outcome
+                `hasEffectSatisfying` \case
+                  ClientEffect DecommitRequested{headId, utxoToDecommit} ->
+                    headId == testHeadId && utxoToDecommit == utxoRef 1
+                  NetworkEffect ReqDec{decommitTx} -> decommitTx == decommitTx'
+                  _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
           let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
           let event = NetworkEvent defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
-          pure $ update bobEnv ledger st event `shouldNotBe` Effects [NetworkEffect reqDec]
+          pure $
+            update bobEnv ledger st event
+              `shouldNotBe` Effects [NetworkEffect reqDec]
+
         it "updates utxoToDecommit on valid ReqDec" $ do
           let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
