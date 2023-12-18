@@ -1098,3 +1098,26 @@ recoverState ::
   t (StateChanged tx) ->
   HeadState tx
 recoverState = foldl' aggregate
+
+-- Decommit helpers
+
+requireNoDecommitInFlight ::
+  OpenState tx ->
+  tx ->
+  Outcome tx ->
+  Outcome tx
+requireNoDecommitInFlight st decommitTx cont =
+  case mExistingDecommitUTxO of
+    Just existingDecommitUTxO ->
+      Effects
+        [ ClientEffect
+            ServerOutput.DecommitIgnored
+              { headId
+              , utxoToDecommit = existingDecommitUTxO
+              , reason = "DecommitTxInFlight"
+              }
+        ]
+        <> Error (RequireFailed $ DecommitTxInFlight{decommitTx})
+    Nothing -> cont
+ where
+  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{utxoToDecommit = mExistingDecommitUTxO}} = st
