@@ -142,6 +142,22 @@ spec =
           let event = NetworkEvent defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $ update bobEnv ledger st event `shouldNotBe` Effects [NetworkEffect reqDec]
+        it "updates utxoToDecommit on valid ReqDec" $ do
+          let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
+              reqDecEvent = NetworkEvent defaultTTL alice reqDec
+              s0 = inOpenState threeParties ledger
+
+          s0 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Nothing
+            _ -> False
+
+          s1 <- runEvents bobEnv ledger s0 $ do
+            step reqDecEvent
+            getState
+
+          s1 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Just (utxoRef 1)
+            _ -> False
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
