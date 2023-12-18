@@ -562,7 +562,13 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
 
 onOpenNetworkReqDec :: Environment -> OpenState tx -> Party -> UTxOType tx -> Outcome tx
-onOpenNetworkReqDec = undefined
+onOpenNetworkReqDec env openState party utxoToDecommit =
+  -- TODO: check if it's valid to emit 'DecommitRequested' here
+  Effects [ClientEffect $ ServerOutput.DecommitRequested headId utxoToDecommit]
+ where
+  OpenState
+    { headId
+    } = openState
 
 -- ** Closing the Head
 

@@ -636,7 +636,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket [] contestationPeriod
         <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1@HydraClient{hydraNodeId} -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
