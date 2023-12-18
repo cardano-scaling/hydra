@@ -94,7 +94,6 @@ runOffline opts = do
       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
         Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
-      -- let DirectChainConfig{networkId, nodeSocket} = chainConfig
 
       globals <- loadGlobalsFromGenesis (ledgerGenesisFile offlineConfig)
 

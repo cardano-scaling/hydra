@@ -1,6 +1,4 @@
-module Hydra.Options.Online (
-  module Hydra.Options.Online,
-) where
+module Hydra.Options.Online where
 
 import Hydra.Cardano.Api (
   AsType (..),

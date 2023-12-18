@@ -1,11 +1,8 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Options.Offline (
-  module Hydra.Options.Offline,
-) where
+module Hydra.Options.Offline where
 
 import Hydra.Prelude
 
