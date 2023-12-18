@@ -583,10 +583,13 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec openState decommitTx =
-  requireNoDecommitInFlight $
+  requireNoDecommitInFlight openState decommitTx $
     let decommitUTxO = utxoFromTx decommitTx
      in StateChanged (DecommitRecorded decommitUTxO)
           <> Effects
+            -- REVIEW: Do we need to emit TransactionAppliedToLocalUTxO here?
+            -- Perhaps we do want to alter 'localUTxO' the same way we do for
+            -- 'ReqTx'?
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
             , NetworkEffect (ReqSn nextSn (txId <$> localTxs <> [decommitTx]))
             ]
@@ -595,14 +598,7 @@ onOpenNetworkReqDec openState decommitTx =
 
   nextSn = number + 1
 
-  requireNoDecommitInFlight cont
-    | isJust existingUTxOToDecommit =
-        Error $
-          RequireFailed $
-            DecommitTxInFlight{decommitTx}
-    | otherwise = cont
-
-  CoordinatedHeadState{confirmedSnapshot, localTxs, utxoToDecommit = existingUTxOToDecommit} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, localTxs} = coordinatedHeadState
 
   OpenState
     { headId
@@ -781,8 +777,8 @@ update env ledger st ev = case (st, ev) of
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState, NetworkEvent _ _ (ReqDec{decommitTx})) ->
     onOpenNetworkReqDec openState decommitTx
-  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    requireNoDecommitInFlight $
+  (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
+    requireNoDecommitInFlight openState decommitTx $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
       requireValidDecommitTx $ \utxoToDecommit ->
         StateChanged (DecommitRecorded utxoToDecommit)
@@ -791,22 +787,16 @@ update env ledger st ev = case (st, ev) of
             , NetworkEffect ReqDec{decommitTx}
             ]
    where
-    requireNoDecommitInFlight cont
-      | isJust existingDecommitUTxO =
-          Error $ RequireFailed $ DecommitTxInFlight{decommitTx}
-      | otherwise = cont
-
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥
     requireValidDecommitTx cont =
       case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
         Left (_, err) ->
-          -- TODO: client output?
           Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
         Right _ -> cont $ utxoFromTx decommitTx
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
 
-    CoordinatedHeadState{confirmedSnapshot, utxoToDecommit = existingDecommitUTxO} = coordinatedHeadState
+    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed

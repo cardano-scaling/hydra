@@ -165,7 +165,23 @@ spec =
           let outcome = update bobEnv ledger s1 reqDecEvent
 
           outcome `shouldSatisfy` \case
-            Error (RequireFailed DecommitTxInFlight{decommitTx}) -> decommitTx == decommitTx'
+            Combined
+              { left =
+                Effects
+                  [ ClientEffect
+                      DecommitIgnored
+                        { headId
+                        , utxoToDecommit
+                        , reason
+                        }
+                    ]
+              , right =
+                Error (RequireFailed DecommitTxInFlight{decommitTx})
+              } ->
+                decommitTx == decommitTx'
+                  && headId == testHeadId
+                  && utxoToDecommit == utxoRef 1
+                  && reason == "DecommitTxInFlight"
             _ -> False
 
         it "updates utxoToDecommit on valid ReqDec" $ do
