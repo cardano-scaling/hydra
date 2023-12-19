@@ -29,6 +29,7 @@ import Hydra.Options (
   renderFailure,
   validateRunOptions,
  )
+import Hydra.Options.Offline (RunOfflineOptions (..), defaultOfflineConfig, initialUTxOFile, ledgerGenesisFile)
 import Hydra.Options.Online qualified as OnlineOptions
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
@@ -314,6 +315,36 @@ spec = parallel $
               , publishNetworkId = Mainnet
               , publishSigningKey = "crux"
               }
+
+    describe "offline sub-command" $ do
+      it "does parse with defaults" $
+        ["offline"]
+          `shouldParse` RunOffline defaultRunOfflineOptions
+
+      it "does parse --ledger-genesis" $
+        mconcat
+          [ ["offline"]
+          , ["--ledger-genesis", "some-file"]
+          ]
+          `shouldParse` RunOffline
+            defaultRunOfflineOptions
+              { offlineConfig =
+                  defaultOfflineConfig
+                    { ledgerGenesisFile = Just "some-file"
+                    }
+              }
+
+      it "does parse --initial-utxo" $
+        mconcat
+          [ ["offline"]
+          , ["--initial-utxo", "some-file"]
+          ]
+          `shouldParse` RunOffline
+            defaultRunOfflineOptions
+              { offlineConfig =
+                  defaultOfflineConfig{initialUTxOFile = "some-file"}
+              }
+
     describe "gen-hydra-keys sub-command" $ do
       it "should be able to parse gen-hydra-keys sub-command" $
         mconcat
@@ -364,4 +395,20 @@ defaultRunOptions =
     , persistenceDir = "./"
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
+    }
+
+defaultRunOfflineOptions :: RunOfflineOptions
+defaultRunOfflineOptions =
+  RunOfflineOptions
+    { verbosity = Verbose "HydraNode"
+    , host = "127.0.0.1"
+    , port = 5001
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , persistenceDir = "./"
+    , ledgerConfig = defaultLedgerConfig
+    , offlineConfig = defaultOfflineConfig
     }
