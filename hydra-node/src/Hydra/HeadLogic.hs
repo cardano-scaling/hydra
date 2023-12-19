@@ -777,12 +777,10 @@ update env ledger st ev = case (st, ev) of
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState, NetworkEvent _ _ (ReqDec{decommitTx})) ->
     onOpenNetworkReqDec openState decommitTx
-  (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    requireNoDecommitInFlight openState decommitTx $
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
       requireValidDecommitTx $ \utxoToDecommit ->
-        StateChanged (DecommitRecorded utxoToDecommit)
-          <> Effects
+           Effects
             [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
             , NetworkEffect ReqDec{decommitTx}
             ]
@@ -1019,14 +1017,11 @@ aggregate st = \case
         os@OpenState
           { coordinatedHeadState
           } ->
-          case utxoToDecommit coordinatedHeadState of
-            Nothing ->
               Open
                 os
                   { coordinatedHeadState =
                       coordinatedHeadState{utxoToDecommit = Just utxo}
                   }
-            Just _decommitUTxO -> st
       _otherState -> st
   HeadIsReadyToFanout ->
     case st of
