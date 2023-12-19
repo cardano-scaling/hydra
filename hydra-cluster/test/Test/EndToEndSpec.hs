@@ -102,7 +102,6 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
   withHydraNode',
-  withOfflineHydraNode,
  )
 import System.Directory (removeDirectoryRecursive)
 import System.Exit (ExitCode (ExitFailure))
@@ -140,14 +139,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         pure $ a <> b
       Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
       let offlineConfig =
-            OfflineConfig
+            OfflineChainConfig
               { initialUTxOFile = tmpDir </> "utxo.json"
               , ledgerGenesisFile = Nothing
               }
 
       let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
 
-      withOfflineHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk $ \node -> do
+      let hydraScriptsTxId = undefined -- TODO
+      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] hydraScriptsTxId $ \node -> do
         let Right tx =
               mkSimpleTx
                 (aliceSeedTxIn, aliceSeedTxOut)

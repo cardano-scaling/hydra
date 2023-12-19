@@ -11,8 +11,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host (Host), NodeId (NodeId))
+import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
   Command (..),
@@ -22,15 +21,16 @@ import Hydra.Options (
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
-  defaultChainConfig,
+  defaultDirectChainConfig,
   defaultLedgerConfig,
+  defaultOfflineChainConfig,
+  defaultRunOptions,
   outputFile,
   parseHydraCommandFromArgs,
   renderFailure,
+  toArgs,
   validateRunOptions,
  )
-import Hydra.Options.Offline (RunOfflineOptions (..), defaultOfflineConfig, initialUTxOFile, ledgerGenesisFile)
-import Hydra.Options.Online qualified as OnlineOptions
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
@@ -39,7 +39,7 @@ spec :: Spec
 spec = parallel $
   describe "Hydra Node RunOptions" $ do
     -- NOTE: --node-id flag needs to be set so we set a default here
-    let setFlags a = ["--node-id", "node-id-1"] <> a
+    let setFlags a = ["--node-id", "hydra-node-1"] <> a
         genKeyString = vectorOf 10 $ chooseEnum ('a', 'z')
         genCardanoAndHydraKeys f1 f2 = flip generateWith 42 $ do
           cks <- replicateM (f1 maximumNumberOfParties) genKeyString
@@ -124,13 +124,13 @@ spec = parallel $
       setFlags ["--hydra-signing-key", "./alice.sk"]
         `shouldParse` Run defaultRunOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --testned-magic option as a number" $ do
+    it "parses --testnet-magic option as a number" $ do
       shouldNotParse ["--testnet-magic", "abc"]
       setFlags ["--testnet-magic", "0"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { networkId = Testnet (NetworkMagic 0)
                   }
             }
@@ -138,7 +138,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { networkId = Testnet (NetworkMagic 4294967295)
                   }
             }
@@ -146,17 +146,17 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { networkId = Testnet (NetworkMagic 123)
                   }
             }
 
     it "parses --mainnet option" $ do
-      ["--node-id", "node-id-1", "--mainnet"]
+      ["--node-id", "hydra-node-1", "--mainnet"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { networkId = Mainnet
                   }
             }
@@ -171,7 +171,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { contestationPeriod = UnsafeContestationPeriod 60
                   }
             }
@@ -179,7 +179,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { contestationPeriod = UnsafeContestationPeriod 300
                   }
             }
@@ -192,7 +192,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { nodeSocket = "foo.sock"
                   }
             }
@@ -202,7 +202,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { cardanoSigningKey = "./alice-cardano.sk"
                   }
             }
@@ -212,7 +212,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { cardanoVerificationKeys = ["./alice-cardano.vk"]
                   }
             }
@@ -232,7 +232,7 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultChainConfig
+                defaultDirectChainConfig
                   { startChainFrom =
                       Just $
                         ChainPoint 1000 $
@@ -244,7 +244,7 @@ spec = parallel $
       setFlags ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultChainConfig{startChainFrom = Just ChainPointAtGenesis}
+            { chainConfig = defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
@@ -319,17 +319,17 @@ spec = parallel $
     describe "offline sub-command" $ do
       it "does parse with defaults" $
         ["offline"]
-          `shouldParse` RunOffline defaultRunOfflineOptions
+          `shouldParse` Run defaultRunOptions{chainConfig = defaultOfflineChainConfig}
 
       it "does parse --ledger-genesis" $
         mconcat
           [ ["offline"]
           , ["--ledger-genesis", "some-file"]
           ]
-          `shouldParse` RunOffline
-            defaultRunOfflineOptions
-              { offlineConfig =
-                  defaultOfflineConfig
+          `shouldParse` Run
+            defaultRunOptions
+              { chainConfig =
+                  defaultOfflineChainConfig
                     { ledgerGenesisFile = Just "some-file"
                     }
               }
@@ -339,10 +339,10 @@ spec = parallel $
           [ ["offline"]
           , ["--initial-utxo", "some-file"]
           ]
-          `shouldParse` RunOffline
-            defaultRunOfflineOptions
-              { offlineConfig =
-                  defaultOfflineConfig{initialUTxOFile = "some-file"}
+          `shouldParse` Run
+            defaultRunOptions
+              { chainConfig =
+                  defaultOfflineChainConfig{initialUTxOFile = "some-file"}
               }
 
     describe "gen-hydra-keys sub-command" $ do
@@ -358,7 +358,7 @@ spec = parallel $
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
-  let args = OnlineOptions.toArgs opts
+  let args = toArgs opts
    in counterexample ("args:  " <> show args) $
         case parseHydraCommandFromArgs args of
           Success cmd -> cmd === Run opts
@@ -376,39 +376,3 @@ shouldNotParse args =
     Success a -> failure $ "Unexpected successful parse to " <> show a
     Failure _ -> pure ()
     CompletionInvoked _ -> failure "Unexpected completion invocation"
-
--- Default options as they should also be provided by the option parser.
-defaultRunOptions :: RunOptions
-defaultRunOptions =
-  RunOptions
-    { verbosity = Verbose "HydraNode"
-    , nodeId = NodeId "node-id-1"
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , hydraScriptsTxId = "0101010101010101010101010101010101010101010101010101010101010101"
-    , persistenceDir = "./"
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    }
-
-defaultRunOfflineOptions :: RunOfflineOptions
-defaultRunOfflineOptions =
-  RunOfflineOptions
-    { verbosity = Verbose "HydraNode"
-    , host = "127.0.0.1"
-    , port = 5001
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , persistenceDir = "./"
-    , ledgerConfig = defaultLedgerConfig
-    , offlineConfig = defaultOfflineConfig
-    }

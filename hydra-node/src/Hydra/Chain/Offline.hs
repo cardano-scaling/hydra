@@ -33,7 +33,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Logging (Tracer)
-import Hydra.Options (OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile))
+import Hydra.Options (ChainConfig (OfflineChainConfig, initialUTxOFile, ledgerGenesisFile))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -41,7 +41,7 @@ import Ouroboros.Consensus.Util.Time (nominalDelay)
 
 withOfflineChain ::
   Tracer IO DirectChainLog ->
-  OfflineConfig ->
+  ChainConfig ->
   Ledger.Globals ->
   HeadId ->
   Party ->
@@ -49,7 +49,7 @@ withOfflineChain ::
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} ownHeadId party contestationPeriod chainStateHistory callback action = do
+withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} ownHeadId party contestationPeriod chainStateHistory callback action = do
   initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
   initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
 

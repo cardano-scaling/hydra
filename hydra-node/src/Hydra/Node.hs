@@ -52,7 +52,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), RunOfflineOptions (..), RunOptions (..), defaultContestationPeriod)
+import Hydra.Options (ChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
 
@@ -92,28 +92,29 @@ initEnvironment options = do
         }
     } = options
 
-initEnvironmentOffline :: RunOfflineOptions -> IO Environment
-initEnvironmentOffline options = do
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
-  otherParties <- mapM loadParty hydraVerificationKeys
+-- TODO
+-- initEnvironmentOffline :: RunOfflineOptions -> IO Environment
+-- initEnvironmentOffline options = do
+--   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
+--   otherParties <- mapM loadParty hydraVerificationKeys
 
-  let participants = []
-  pure $
-    Environment
-      { party = deriveParty sk
-      , signingKey = sk
-      , otherParties
-      , participants
-      , contestationPeriod = defaultContestationPeriod
-      }
- where
-  loadParty p =
-    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+--   let participants = []
+--   pure $
+--     Environment
+--       { party = deriveParty sk
+--       , signingKey = sk
+--       , otherParties
+--       , participants
+--       , contestationPeriod = defaultContestationPeriod
+--       }
+--  where
+--   loadParty p =
+--     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 
-  RunOfflineOptions
-    { hydraSigningKey
-    , hydraVerificationKeys
-    } = options
+--   RunOfflineOptions
+--     { hydraSigningKey
+--     , hydraVerificationKeys
+--     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
 -- takes 'Environment' because it is derived from 'RunOptions' via

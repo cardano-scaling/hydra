@@ -24,8 +24,6 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (withOfflineChain)
-import Hydra.HeadId (HeadId (..))
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -41,7 +39,6 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (NodeId (NodeId))
 import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
@@ -49,7 +46,6 @@ import Hydra.Node (
   checkHeadState,
   createNodeState,
   initEnvironment,
-  initEnvironmentOffline,
   loadState,
   runHydraNode,
  )
@@ -59,13 +55,9 @@ import Hydra.Options (
   ChainConfig (..),
   InvalidOptions (..),
   LedgerConfig (..),
-  OfflineConfig (..),
-  RunOfflineOptions (..),
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Options.Offline qualified as OfflineOptions
-import Hydra.Options.Online qualified as OnlineOptions
 import Hydra.Persistence (createPersistenceIncremental)
 
 data ConfigurationException
@@ -82,66 +74,67 @@ instance Exception ConfigurationException where
     ConfigurationException err ->
       "Incorrect protocol parameters configuration provided: " <> show err
 
-runOffline :: RunOfflineOptions -> IO ()
-runOffline opts = do
-  either (throwIO . InvalidOptionException) pure $ OfflineOptions.validateRunOfflineOptions opts
-  let RunOfflineOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
-  env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironmentOffline opts
+-- TODO
+-- runOffline :: RunOfflineOptions -> IO ()
+-- runOffline opts = do
+--   either (throwIO . InvalidOptionException) pure $ OfflineOptions.validateRunOfflineOptions opts
+--   let RunOfflineOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
+--   env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironmentOffline opts
 
-  withTracer verbosity $ \tracer' ->
-    withMonitoring monitoringPort tracer' $ \tracer -> do
-      traceWith tracer (NodeOfflineOptions opts)
-      eq@EventQueue{putEvent} <- createEventQueue
-      let RunOfflineOptions{ledgerConfig} = opts
-      protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-      pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
-        Left err -> throwIO (ConfigurationException err)
-        Right bpparams -> pure bpparams
+--   withTracer verbosity $ \tracer' ->
+--     withMonitoring monitoringPort tracer' $ \tracer -> do
+--       traceWith tracer (NodeOfflineOptions opts)
+--       eq@EventQueue{putEvent} <- createEventQueue
+--       let RunOfflineOptions{ledgerConfig} = opts
+--       protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+--       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
+--         Left err -> throwIO (ConfigurationException err)
+--         Right bpparams -> pure bpparams
 
-      globals <- loadGlobalsFromGenesis (ledgerGenesisFile offlineConfig)
+--       globals <- loadGlobalsFromGenesis (ledgerGenesisFile offlineConfig)
 
-      withCardanoLedger pparams globals $ \ledger -> do
-        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
+--       withCardanoLedger pparams globals $ \ledger -> do
+--         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+--         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
 
-        checkHeadState (contramap Node tracer) env hs
-        nodeState <- createNodeState hs
-        -- Chain
-        let withChain cont =
-              let headId = UnsafeHeadId "HeadId"
-               in withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
-        withChain $ \chain -> do
-          -- API
-          let RunOfflineOptions{host, port} = opts
-              peers = []
-              nodeId = NodeId "offline"
-              putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
-              RunOfflineOptions{apiHost, apiPort} = opts
-          apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
-            -- Network
-            let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
-              -- Main loop
-              runHydraNode (contramap Node tracer) $
-                HydraNode
-                  { eq
-                  , hn
-                  , nodeState
-                  , oc = chain
-                  , server
-                  , ledger
-                  , env
-                  , persistence
-                  }
- where
-  connectionMessages Server{sendOutput} = \case
-    Connected nodeid -> sendOutput $ PeerConnected nodeid
-    Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
+--         checkHeadState (contramap Node tracer) env hs
+--         nodeState <- createNodeState hs
+--         -- Chain
+--         let withChain cont =
+--               let headId = UnsafeHeadId "HeadId"
+--                in withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
+--         withChain $ \chain -> do
+--           -- API
+--           let RunOfflineOptions{host, port} = opts
+--               peers = []
+--               nodeId = NodeId "offline"
+--               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
+--               RunOfflineOptions{apiHost, apiPort} = opts
+--           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+--           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
+--             -- Network
+--             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
+--             withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
+--               -- Main loop
+--               runHydraNode (contramap Node tracer) $
+--                 HydraNode
+--                   { eq
+--                   , hn
+--                   , nodeState
+--                   , oc = chain
+--                   , server
+--                   , ledger
+--                   , env
+--                   , persistence
+--                   }
+--  where
+--   connectionMessages Server{sendOutput} = \case
+--     Connected nodeid -> sendOutput $ PeerConnected nodeid
+--     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
 
-  withCardanoLedger protocolParams globals action =
-    let ledgerEnv = newLedgerEnv protocolParams
-     in action (Ledger.cardanoLedger globals ledgerEnv)
+--   withCardanoLedger protocolParams globals action =
+--     let ledgerEnv = newLedgerEnv protocolParams
+--      in action (Ledger.cardanoLedger globals ledgerEnv)
 
 run :: RunOptions -> IO ()
 run opts = do
@@ -205,7 +198,7 @@ run opts = do
      in action (Ledger.cardanoLedger globals ledgerEnv)
 
 identifyNode :: RunOptions -> RunOptions
-identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{OnlineOptions.verbosity = Verbose $ "HydraNode-" <> show nodeId}
+identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
 
 loadGlobalsFromGenesis :: Maybe FilePath -> IO Shelley.Globals

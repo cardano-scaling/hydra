@@ -102,9 +102,6 @@ library
     Hydra.Node.Run
     Hydra.OnChainId
     Hydra.Options
-    Hydra.Options.Common
-    Hydra.Options.Offline
-    Hydra.Options.Online
     Hydra.Party
     Hydra.Persistence
     Hydra.Snapshot
