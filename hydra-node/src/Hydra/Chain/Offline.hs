@@ -1,20 +1,17 @@
-module Hydra.Chain.Offline (
-  withOfflineChain,
-) where
+module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
+import Cardano.Api.Genesis (shelleyGenesisDefaults)
+import Cardano.Api.GenesisParameters (fromShelleyGenesis)
 import Cardano.Ledger.BaseTypes (epochInfoPure)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Shelley.API (fromNominalDiffTimeMicro)
 import Cardano.Ledger.Slot (SlotNo (SlotNo, unSlotNo))
 import Cardano.Slotting.EpochInfo (EpochInfo (EpochInfo), epochInfoFirst, epochInfoSlotToUTCTime)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
 import Cardano.Slotting.Time qualified as Slotting
-import Hydra.Cardano.Api (
-  StandardCrypto,
-  Tx,
- )
+import Hydra.Cardano.Api (ShelleyGenesis (..), StandardCrypto, Tx)
 import Hydra.Chain (
   ChainComponent,
   ChainEvent (Tick),
@@ -31,13 +28,26 @@ import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Logging (Tracer)
 import Hydra.Options (ChainConfig (OfflineChainConfig, initialUTxOFile, ledgerGenesisFile))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Consensus.Util.Time (nominalDelay)
+
+loadGlobalsFromFile :: Maybe FilePath -> IO Ledger.Globals
+loadGlobalsFromFile ledgerGenesisFile = do
+  shelleyGenesis <- case ledgerGenesisFile of
+    Nothing -> do
+      now <- getCurrentTime
+      -- TODO: uses internal cardano-api lib
+      pure shelleyGenesisDefaults{sgSystemStart = now}
+    Just filePath ->
+      readJsonFileThrow (parseJSON @(ShelleyGenesis StandardCrypto)) filePath
+
+  -- TODO: uses internal cardano-api lib
+  newGlobals $ fromShelleyGenesis shelleyGenesis
 
 withOfflineChain ::
   Tracer IO DirectChainLog ->
@@ -61,9 +71,9 @@ withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} g
 
   tickForeverAction <- case ledgerGenesisFile of
     Just filePath -> do
-      Ledger.ShelleyGenesis{sgSystemStart, sgSlotLength, sgEpochLength} <-
-        readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
-      let slotLengthNominalDiffTime = Ledger.fromNominalDiffTimeMicro sgSlotLength
+      ShelleyGenesis{sgSystemStart, sgSlotLength, sgEpochLength} <-
+        readJsonFileThrow (parseJSON @(ShelleyGenesis StandardCrypto)) filePath
+      let slotLengthNominalDiffTime = fromNominalDiffTimeMicro sgSlotLength
           slotLength = mkSlotLength slotLengthNominalDiffTime
 
       let interpreter = mkInterpreter $ neverForksSummary sgEpochLength slotLength

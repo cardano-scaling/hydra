@@ -5,25 +5,19 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Crypto qualified as Ledger
 import Cardano.Ledger.Shelley.API qualified as Shelley
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
-  GenesisParameters (..),
   ProtocolParametersConversionError,
   ShelleyBasedEra (..),
-  StandardCrypto,
-  SystemStart (..),
   toLedgerPParams,
  )
-import Hydra.Cardano.Api qualified as Shelley
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Offline (loadGlobalsFromFile)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -151,9 +145,8 @@ run opts = do
         Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
 
+      globals <- getGlobalsForChain chainConfig
       let DirectChainConfig{networkId, nodeSocket, hydraScriptsTxId} = chainConfig
-
-      globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
 
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
@@ -197,56 +190,14 @@ run opts = do
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)
 
+getGlobalsForChain :: ChainConfig -> IO Shelley.Globals
+getGlobalsForChain = \case
+  OfflineChainConfig{ledgerGenesisFile} ->
+    loadGlobalsFromFile ledgerGenesisFile
+  DirectChainConfig{networkId, nodeSocket} ->
+    queryGenesisParameters networkId nodeSocket QueryTip
+      >>= newGlobals
+
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
-
-loadGlobalsFromGenesis :: Maybe FilePath -> IO Shelley.Globals
-loadGlobalsFromGenesis ledgerGenesisFile = do
-  shelleyGenesis <- case ledgerGenesisFile of
-    Nothing -> pure Nothing
-    Just filePath -> Just <$> readJsonFileThrow (parseJSON @(Ledger.ShelleyGenesis StandardCrypto)) filePath
-  systemStart <- maybe (SystemStart <$> getCurrentTime) (pure . SystemStart . Ledger.sgSystemStart) shelleyGenesis
-
-  let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
-
-  maybe
-    (pure $ defaultGlobals{Ledger.systemStart = systemStart})
-    newGlobals
-    genesisParameters
-
--- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
-fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra
-fromShelleyGenesis
-  sg@Shelley.ShelleyGenesis
-    { Shelley.sgSystemStart
-    , Shelley.sgNetworkMagic
-    , Shelley.sgActiveSlotsCoeff
-    , Shelley.sgSecurityParam
-    , Shelley.sgEpochLength
-    , Shelley.sgSlotsPerKESPeriod
-    , Shelley.sgMaxKESEvolutions
-    , Shelley.sgSlotLength
-    , Shelley.sgUpdateQuorum
-    , Shelley.sgMaxLovelaceSupply
-    , Shelley.sgGenDelegs = _ -- unused, might be of interest
-    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
-    , Shelley.sgStaking = _ -- unused, not retained by the node
-    } =
-    GenesisParameters
-      { protocolParamSystemStart = sgSystemStart
-      , protocolParamNetworkId = Shelley.fromNetworkMagic $ Shelley.NetworkMagic sgNetworkMagic
-      , protocolParamActiveSlotsCoefficient =
-          Ledger.unboundRational
-            sgActiveSlotsCoeff
-      , protocolParamSecurity = fromIntegral sgSecurityParam
-      , protocolParamEpochLength = sgEpochLength
-      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
-      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
-      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
-      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
-      , protocolParamMaxLovelaceSupply =
-          Shelley.Lovelace
-            (fromIntegral sgMaxLovelaceSupply)
-      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
-      }

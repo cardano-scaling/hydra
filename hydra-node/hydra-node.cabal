@@ -114,6 +114,7 @@ library
     , base16-bytestring
     , bech32
     , bytestring
+    , cardano-api:internal
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
