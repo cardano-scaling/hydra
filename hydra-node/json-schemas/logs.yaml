@@ -2116,7 +2116,6 @@ definitions:
       - apiPort
       - hydraSigningKey
       - hydraVerificationKeys
-      - hydraScriptsTxId
       - persistenceDir
       - chainConfig
       - ledgerConfig
@@ -2160,8 +2159,6 @@ definitions:
         type: array
         items:
           type: string
-      hydraScriptsTxId:
-        $ref: "api.yaml#/components/schemas/TxId"
       persistenceDir:
         type: string
       chainConfig:
@@ -2182,6 +2179,7 @@ definitions:
           - tag
           - networkId
           - nodeSocket
+          - hydraScriptsTxId
           - cardanoSigningKey
           - cardanoVerificationKeys
         properties:
@@ -2192,6 +2190,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/NetworkMagic"
           nodeSocket:
             type: string
+          hydraScriptsTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
           cardanoSigningKey:
             type: string
           cardanoVerificationKeys:

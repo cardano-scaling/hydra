@@ -145,13 +145,13 @@ run opts = do
     withMonitoring monitoringPort tracer' $ \tracer -> do
       traceWith tracer (NodeOptions opts)
       eq@EventQueue{putEvent} <- createEventQueue
-      let RunOptions{hydraScriptsTxId, chainConfig, ledgerConfig} = opts
+      let RunOptions{chainConfig, ledgerConfig} = opts
       protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
         Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
 
-      let DirectChainConfig{networkId, nodeSocket} = chainConfig
+      let DirectChainConfig{networkId, nodeSocket, hydraScriptsTxId} = chainConfig
 
       globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip
 

@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   SocketPath,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
+  TxId,
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
@@ -59,8 +60,17 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
-chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
-chainConfigFor me targetDir nodeSocket them contestationPeriod = do
+chainConfigFor ::
+  HasCallStack =>
+  Actor ->
+  FilePath ->
+  SocketPath ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
+  [Actor] ->
+  ContestationPeriod ->
+  IO ChainConfig
+chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -71,6 +81,7 @@ chainConfigFor me targetDir nodeSocket them contestationPeriod = do
   pure $
     defaultDirectChainConfig
       { nodeSocket
+      , hydraScriptsTxId
       , cardanoSigningKey = skTarget me
       , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
       , contestationPeriod

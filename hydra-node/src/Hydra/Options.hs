@@ -164,7 +164,6 @@ data RunOptions = RunOptions
   , monitoringPort :: Maybe PortNumber
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
-  , hydraScriptsTxId :: TxId
   , persistenceDir :: FilePath
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
@@ -189,7 +188,6 @@ instance Arbitrary RunOptions where
     monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
-    hydraScriptsTxId <- arbitrary
     persistenceDir <- genDirPath
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
@@ -205,7 +203,6 @@ instance Arbitrary RunOptions where
         , monitoringPort
         , hydraSigningKey
         , hydraVerificationKeys
-        , hydraScriptsTxId
         , persistenceDir
         , chainConfig
         , ledgerConfig
@@ -227,7 +224,6 @@ defaultRunOptions =
     , monitoringPort = Nothing
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
-    , hydraScriptsTxId = TxId "0101010101010101010101010101010101010101010101010101010101010101"
     , persistenceDir = "./"
     , chainConfig = defaultDirectChainConfig
     , ledgerConfig = defaultLedgerConfig
@@ -249,7 +245,6 @@ runOptionsParser =
     <*> optional monitoringPortParser
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
-    <*> hydraScriptsTxIdParser
     <*> persistenceDirParser
     <*> (directChainConfigParser <|> offlineChainConfigParser)
     <*> ledgerConfigParser
@@ -317,13 +312,17 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig
   = OfflineChainConfig
       { initialUTxOFile :: FilePath
+      -- ^ Path to a json encoded starting 'UTxO' for the offline-mode head.
       , ledgerGenesisFile :: Maybe FilePath
+      -- ^ Path to a shelley genesis file with slot lengths used by the offline-mode chain.
       }
   | DirectChainConfig
       { networkId :: NetworkId
       -- ^ Network identifer to which we expect to connect.
       , nodeSocket :: SocketPath
       -- ^ Path to a domain socket used to connect to the server.
+      , hydraScriptsTxId :: TxId
+      -- ^ Identifier of transaction holding the hydra scripts to use.
       , cardanoSigningKey :: FilePath
       -- ^ Path to the cardano signing key of the internal wallet.
       , cardanoVerificationKeys :: [FilePath]
@@ -347,6 +346,7 @@ defaultDirectChainConfig =
   DirectChainConfig
     { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
+    , hydraScriptsTxId = TxId "0101010101010101010101010101010101010101010101010101010101010101"
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
@@ -359,6 +359,7 @@ instance Arbitrary ChainConfig where
     genDirectChainConfig = do
       networkId <- Testnet . NetworkMagic <$> arbitrary
       nodeSocket <- File <$> genFilePath "socket"
+      hydraScriptsTxId <- arbitrary
       cardanoSigningKey <- genFilePath "sk"
       cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
@@ -367,6 +368,7 @@ instance Arbitrary ChainConfig where
         DirectChainConfig
           { networkId
           , nodeSocket
+          , hydraScriptsTxId
           , cardanoSigningKey
           , cardanoVerificationKeys
           , startChainFrom
@@ -415,6 +417,7 @@ directChainConfigParser =
   DirectChainConfig
     <$> networkIdParser
     <*> nodeSocketParser
+    <*> hydraScriptsTxIdParser
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -768,7 +771,6 @@ toArgs
     , monitoringPort
     , hydraSigningKey
     , hydraVerificationKeys
-    , hydraScriptsTxId
     , persistenceDir
     , chainConfig
     , ledgerConfig
@@ -783,7 +785,6 @@ toArgs
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
-      <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
       <> ["--persistence-dir", persistenceDir]
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
@@ -817,6 +818,7 @@ toArgs
       DirectChainConfig
         { networkId
         , nodeSocket
+        , hydraScriptsTxId
         , cardanoSigningKey
         , cardanoVerificationKeys
         , startChainFrom
@@ -824,6 +826,7 @@ toArgs
         } ->
           toArgNetworkId networkId
             <> ["--node-socket", unFile nodeSocket]
+            <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys

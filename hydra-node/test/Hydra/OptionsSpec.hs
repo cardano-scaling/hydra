@@ -256,7 +256,7 @@ spec = parallel $
       ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
         `shouldParse` Run
           defaultRunOptions
-            { hydraScriptsTxId = txId
+            { chainConfig = defaultDirectChainConfig{hydraScriptsTxId = txId}
             }
 
     it "switches to offline chain when using --initial-utxo" $

@@ -36,6 +36,9 @@ changes.
 - The `hydra-node` now also has a default `--node-id` (`"hydra-node-1"`) to
   simplify configuration.
 
+- **BREAKING** Changes the `NodeOptions` log output because of internal
+  restructuring of chain layer configuration.
+
 ## [0.14.0] - 2023-12-04
 
 - **BREAKING** Multiple changes to the Hydra Head protocol on-chain:

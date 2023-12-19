@@ -266,6 +266,7 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
             chainConfigDecorator nodeId $
               defaultDirectChainConfig
                 { nodeSocket
+                , hydraScriptsTxId
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
@@ -278,7 +279,6 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
         hydraSigningKey
         hydraVerificationKeys
         allNodeIds
-        hydraScriptsTxId
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
@@ -291,13 +291,11 @@ withHydraNode ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
-  -- | Transaction id at which Hydra scripts should have been published.
-  TxId ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
+    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
       \_ _ processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
@@ -315,13 +313,11 @@ withHydraNode' ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
-  -- | Transaction id at which Hydra scripts should have been published.
-  TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
+withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
@@ -347,7 +343,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
                 , hydraSigningKey
                 , hydraVerificationKeys
-                , hydraScriptsTxId
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
                 , chainConfig
                 , ledgerConfig
@@ -356,6 +351,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
             , std_err = CreatePipe
             }
+
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
         (Just out, Just err) -> action out err processHandle
