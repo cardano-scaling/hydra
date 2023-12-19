@@ -25,9 +25,9 @@ main = do
   command <- parseHydraCommand
   case command of
     Run options ->
-      run (identifyNode options) `catch` (die . explain)
+      run (identifyNode options) `catch` \(SomeException e) -> die $ displayException e
     RunOffline options ->
-      runOffline options `catch` (die . explain)
+      runOffline options `catch` \(SomeException e) -> die $ displayException e
     Publish options ->
       publish options
     GenHydraKey outputFile ->
