@@ -388,6 +388,31 @@ spec = parallel $ do
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
 
+      it "requested decommits get approved" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+                let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                send n1 (Decommit decommitTx)
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+
+                -- let snapshot = Snapshot testHeadId 1 (utxoRefs [2]) [42]
+                -- let sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
+                -- TODO; should add decommit tx to SnapshotConfirmed
+                -- waitUntil [n1] $ SnapshotConfimed snapshot sigs
+                waitUntil [n1] $ DecommitApproved testHeadId (utxoRefs [42])
+
+                send n1 GetUTxO
+
+                waitUntilMatch [n1] $
+                  \case
+                   GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 1 utxo)
+                   _ -> False
+
+
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->

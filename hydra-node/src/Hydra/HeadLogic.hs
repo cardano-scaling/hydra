@@ -591,7 +591,8 @@ onOpenNetworkReqDec openState decommitTx =
             -- Perhaps we do want to alter 'localUTxO' the same way we do for
             -- 'ReqTx'?
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            , NetworkEffect (ReqSn nextSn (txId <$> localTxs <> [decommitTx]))
+            -- FIXME: add decommitTx to ReqSn as a new field
+            , NetworkEffect (ReqSn nextSn (txId <$> localTxs))
             ]
  where
   Snapshot{number} = getSnapshot confirmedSnapshot
@@ -1086,6 +1087,7 @@ recoverState = foldl' aggregate
 
 -- Decommit helpers
 
+-- TODO: require or wait?
 requireNoDecommitInFlight ::
   OpenState tx ->
   tx ->
