@@ -69,7 +69,6 @@ import Options.Applicative (
   short,
   showDefault,
   strOption,
-  subparser,
   value,
  )
 import Options.Applicative.Builder (str)
@@ -85,41 +84,58 @@ data Command
 
 commandParser :: Parser Command
 commandParser =
-  asum
-    [ Run <$> runOptionsParser
-    , Publish <$> publishScriptsParser
-    , GenHydraKey <$> genHydraKeyParser
-    ]
+  subcommands
+    <|> Run <$> runOptionsParser
  where
-  publishScriptsParser :: Parser PublishOptions
-  publishScriptsParser =
-    subparser $
-      command
-        "publish-scripts"
-        ( info
-            (helper <*> publishOptionsParser)
-            ( fullDesc
-                <> progDescDoc
-                  ( Just $
-                      vsep
-                        [ "Publish Hydra's Plutus scripts on chain to be used"
-                        , "by the hydra-node as --hydra-script-tx-id."
-                        , ""
-                        , " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
-                        , " ┃              ⚠ WARNING ⚠              ┃ "
-                        , " ┣═══════════════════════════════════════┫ "
-                        , " ┃    This costs money. About 50 Ada.    ┃ "
-                        , " ┃ Spent using the provided signing key. ┃ "
-                        , " ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ "
-                        ]
-                  )
-                <> footer
-                  "The command outputs the transaction id (in base16) \
-                  \of the publishing transaction. This transaction id \
-                  \can then be passed onto '--hydra-scripts-tx-id' to \
-                  \start a hydra-node using the referenced scripts."
-            )
-        )
+  subcommands =
+    hsubparser $
+      offlineCommand
+        <> publishScriptsCommand
+        <> genHydraKeyCommand
+
+  offlineCommand =
+    command
+      "offline"
+      ( info
+          (Run <$> runOptionsParser) -- FIXME
+          (progDesc "Run the node in offline mode.")
+      )
+
+  publishScriptsCommand =
+    command
+      "publish-scripts"
+      ( info
+          (Publish <$> publishOptionsParser)
+          ( fullDesc
+              <> progDescDoc
+                ( Just $
+                    vsep
+                      [ "Publish Hydra's Plutus scripts on chain to be used"
+                      , "by the hydra-node as --hydra-script-tx-id."
+                      , ""
+                      , " ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                      , " ┃              ⚠ WARNING ⚠              ┃ "
+                      , " ┣═══════════════════════════════════════┫ "
+                      , " ┃    This costs money. About 50 Ada.    ┃ "
+                      , " ┃ Spent using the provided signing key. ┃ "
+                      , " ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ "
+                      ]
+                )
+              <> footer
+                "The command outputs the transaction id (in base16) \
+                \of the publishing transaction. This transaction id \
+                \can then be passed onto '--hydra-scripts-tx-id' to \
+                \start a hydra-node using the referenced scripts."
+          )
+      )
+
+  genHydraKeyCommand =
+    command
+      "gen-hydra-key"
+      ( info
+          (GenHydraKey . GenerateKeyPair <$> outputFileParser)
+          (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
+      )
 
 data PublishOptions = PublishOptions
   { publishNetworkId :: NetworkId
@@ -240,17 +256,6 @@ newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
   }
   deriving stock (Eq, Show)
-
-genHydraKeyParser :: Parser GenerateKeyPair
-genHydraKeyParser =
-  hsubparser
-    ( command
-        "gen-hydra-key"
-        ( info
-            (helper <*> (GenerateKeyPair <$> outputFileParser))
-            (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
-        )
-    )
 
 outputFileParser :: Parser FilePath
 outputFileParser =
