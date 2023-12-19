@@ -132,7 +132,7 @@ withClusterTempDir name =
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
-    withTempDir ("offline-mode-e2e") $ \tmpDir -> do
+    withTempDir "offline-mode-e2e" $ \tmpDir -> do
       let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
@@ -538,7 +538,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             delayEpoch tmpDir args 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \out err ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \_out err ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
               -- TODO: keep the matched string to a minimum
               hGetContents err >>= (`shouldContain` "Connected to node in not supported era. Make sure to upgrade hydra-node.")
@@ -588,12 +588,12 @@ waitForLog delay nodeOutput failureMessage predicate = do
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  let aliceSk = generateSigningKey "alice-timed"
-  let alice = deriveParty aliceSk
+  let aliceTimedSk = generateSigningKey "alice-timed"
+  let aliceTimed = deriveParty aliceTimedSk
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+  withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceTimedSk [] [1] hydraScriptsTxId $ \n1 -> do
     waitForNodesConnected hydraTracer 20 [n1]
     let lovelaceBalanceValue = 100_000_000
 
@@ -602,7 +602,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
-        headIsInitializingWith (Set.fromList [alice])
+        headIsInitializingWith (Set.fromList [aliceTimed])
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair

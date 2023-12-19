@@ -372,7 +372,7 @@ refreshSystemStart stateDirectory args = do
   config <-
     unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
       <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
-        . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+      . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)

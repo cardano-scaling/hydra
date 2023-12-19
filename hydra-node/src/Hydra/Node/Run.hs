@@ -218,13 +218,10 @@ loadGlobalsFromGenesis ledgerGenesisFile = do
 
   let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
 
-  globals <-
-    maybe
-      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
-      newGlobals
-      genesisParameters
-
-  pure globals
+  maybe
+    (pure $ defaultGlobals{Ledger.systemStart = systemStart})
+    newGlobals
+    genesisParameters
 
 -- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
 fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra
