@@ -1,6 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Test.EndToEndSpec where
 
@@ -109,11 +108,14 @@ import HydraNode (
   withOfflineHydraNode,
  )
 import System.Directory (removeDirectoryRecursive)
+import System.Exit (ExitCode (ExitFailure))
 import System.FilePath ((</>))
 import System.IO (
+  hGetContents,
   hGetLine,
  )
 import System.IO.Error (isEOFError)
+import System.Process (waitForProcess)
 import Test.QuickCheck (generate)
 import Prelude qualified
 
@@ -518,17 +520,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            let hydraNodeId = 1
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \out err ph -> do
+              -- Assert nominal startup
+              waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
-                aChainClientException :: Selector ChainClientException
-                aChainClientException = const True
+              delayEpoch tmpDir args 1
 
-            let action = withHydraNode' chainConfig tmpDir hydraNodeId aliceSk [] [1] hydraScriptsTxId (Just stdout) (Just stderr) $ \stdout stderr n1 -> do
-                  -- Assert nominal startup
-                  waitForLog 5 stdout "missing NodeOptions" (Text.isInfixOf "NodeOptions")
-
-                  delayEpoch tmpDir args 1
-            action `shouldThrow` aChainClientException
+              waitForProcess ph `shouldReturn` ExitFailure 1
+              hGetContents err >>= (`shouldContain` "upgrade hydra-node")
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
