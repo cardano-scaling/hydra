@@ -25,7 +25,9 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultChainConfig, toArgs)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), OfflineConfig, RunOfflineOptions (..), RunOptions (..))
+import Hydra.Options.Offline qualified as OfflineOptions
+import Hydra.Options.Online qualified as OnlineOptions
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -264,7 +266,7 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
             chainConfigDecorator nodeId $
-              defaultChainConfig
+              OnlineOptions.defaultChainConfig
                 { nodeSocket
                 , cardanoSigningKey
                 , cardanoVerificationKeys
@@ -280,6 +282,73 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
         allNodeIds
         hydraScriptsTxId
         (\c -> startNodes (c : clients) rest)
+
+withOfflineHydraNode ::
+  Tracer IO HydraNodeLog ->
+  OfflineConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  (HydraClient -> IO a) ->
+  IO a
+withOfflineHydraNode tracer offlineConfig workDir hydraNodeId hydraSKey action =
+  withLogFile logFilePath $ \logFileHandle -> do
+    withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey (Just logFileHandle) $ do
+      \_stdoutHandle _stderrHandle processHandle -> do
+        result <-
+          race
+            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+            (withConnectionToNode tracer hydraNodeId action)
+        case result of
+          Left e -> absurd e
+          Right a -> pure a
+ where
+  logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+withOfflineHydraNode' ::
+  OfflineConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  -- | If given use this as std out.
+  Maybe Handle ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
+  IO a
+withOfflineHydraNode' offlineConfig workDir hydraNodeId hydraSKey mGivenStdOut action =
+  withSystemTempDirectory "hydra-node-e2e" $ \dir -> do
+    let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+    readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
+    let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
+    void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
+    let ledgerConfig =
+          CardanoLedgerConfig
+            { cardanoLedgerProtocolParametersFile
+            }
+    let p =
+          ( hydraNodeOfflineProcess $
+              RunOfflineOptions
+                { verbosity = Verbose "HydraNode"
+                , host = "127.0.0.1"
+                , port = fromIntegral $ 5_000 + hydraNodeId
+                , apiHost = "127.0.0.1"
+                , apiPort = fromIntegral $ 4_000 + hydraNodeId
+                , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
+                , hydraSigningKey
+                , hydraVerificationKeys = []
+                , persistenceDir = workDir </> "state-" <> show hydraNodeId
+                , ledgerConfig
+                , offlineConfig
+                }
+          )
+            { std_out = maybe CreatePipe UseHandle mGivenStdOut
+            , std_err = CreatePipe
+            }
+    withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
+      case (mCreatedHandle, mGivenStdOut, mErr) of
+        (Just out, _, Just err) -> action out err processHandle
+        (Nothing, Just out, Just err) -> action out err processHandle
+        (_, _, _) -> error "Should not happen™"
+ where
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -392,7 +461,10 @@ withConnectionToNode tracer hydraNodeId action = do
     pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
-hydraNodeProcess = proc "hydra-node" . toArgs
+hydraNodeProcess = proc "hydra-node" . OnlineOptions.toArgs
+
+hydraNodeOfflineProcess :: RunOfflineOptions -> CreateProcess
+hydraNodeOfflineProcess = proc "hydra-node" . OfflineOptions.toArgs
 
 waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> IO ()
 waitForNodesConnected tracer timeOut clients =

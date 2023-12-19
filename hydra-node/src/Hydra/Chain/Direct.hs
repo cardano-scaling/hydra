@@ -50,7 +50,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
-  PostTxError (..),
+  PostTxError (FailedToPostTx, failureReason),
   currentState,
  )
 import Hydra.Chain.CardanoClient (

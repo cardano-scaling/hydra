@@ -24,6 +24,12 @@ changes.
   - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use
     `babbageEraOnwards` to produce witnesses for features from babbage onwards.
 
+- New top-level offline mode command, `offline`
+  - Initializes ledger via `--initial-utxo` parameter, and does not connect to a
+    cardano-node.
+- Hydra.Options split into Hydra.Options.Common, Hydra.Options.Offline,
+  Hydra.Options.Online, re-exported from Hydra.Options.
+
 
 ## [0.14.0] - 2023-12-04
 

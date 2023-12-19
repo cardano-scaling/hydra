@@ -64,6 +64,9 @@ library
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
+    Hydra.Chain.Offline
+    Hydra.Chain.Offline.Handlers
+    Hydra.Chain.Offline.Persistence
     Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadId
@@ -99,6 +102,9 @@ library
     Hydra.Node.Run
     Hydra.OnChainId
     Hydra.Options
+    Hydra.Options.Common
+    Hydra.Options.Offline
+    Hydra.Options.Online
     Hydra.Party
     Hydra.Persistence
     Hydra.Snapshot

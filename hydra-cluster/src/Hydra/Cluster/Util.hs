@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 -- | Utilities used across hydra-cluster
 module Hydra.Cluster.Util where
 
@@ -5,21 +7,36 @@ import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.Map qualified as Map
 import Hydra.Cardano.Api (
+  Address,
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
-  Key (VerificationKey, getVerificationKey),
+  IsMaryEraOnwards,
+  IsShelleyBasedEra,
+  Key (VerificationKey, getVerificationKey, verificationKeyHash),
+  NetworkId,
   PaymentKey,
+  ShelleyAddr,
   SigningKey,
   SocketPath,
+  StakeAddressReference (NoStakeAddress),
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
+  Tx,
+  UTxO' (UTxO),
+  VerificationKey (GenesisUTxOVerificationKey, PaymentVerificationKey),
   deserialiseFromTextEnvelope,
+  genesisUTxOPseudoTxIn,
+  mkTxOutValue,
+  mkVkAddress,
   textEnvelopeToJSON,
  )
+import Hydra.Cardano.Api.Prelude (PaymentCredential (PaymentCredentialByKey), ReferenceScript (ReferenceScriptNone), TxOut (TxOut), TxOutDatum (TxOutDatumNone), Value, makeShelleyAddress)
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Ledger (IsTx (UTxOType))
 import Hydra.Ledger.Cardano (genSigningKey)
-import Hydra.Options (ChainConfig (..), defaultChainConfig)
+import Hydra.Options (ChainConfig (..), OfflineConfig (OfflineConfig, initialUTxOFile, ledgerGenesisFile), defaultChainConfig)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -59,8 +76,63 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
+offlineConfigFor :: [(Actor, Value)] -> FilePath -> NetworkId -> IO OfflineConfig
+offlineConfigFor actorToVal targetDir networkId = do
+  initialUtxoForActors actorToVal networkId >>= offlineConfigForUTxO @Tx targetDir
+
+offlineConfigForUTxO :: forall tx. IsTx tx => FilePath -> UTxOType tx -> IO OfflineConfig
+offlineConfigForUTxO targetDir utxo = do
+  utxoPath <- seedInitialUTxOFromOffline @tx targetDir utxo
+  pure $
+    OfflineConfig
+      { initialUTxOFile = utxoPath
+      , ledgerGenesisFile = Nothing
+      }
+
+seedInitialUTxOFromOffline :: IsTx tx => FilePath -> UTxOType tx -> IO FilePath
+seedInitialUTxOFromOffline targetDir utxo = do
+  let destinationPath = targetDir </> "utxo.json"
+  writeFileBS destinationPath . toStrict . Aeson.encode $ utxo
+
+  pure destinationPath
+
+buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
+buildAddress vKey networkId =
+  makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
+
+initialUtxoWithFunds ::
+  forall era ctx.
+  (IsShelleyBasedEra era, IsMaryEraOnwards era) =>
+  NetworkId ->
+  [(VerificationKey PaymentKey, Value)] ->
+  IO (UTxO' (TxOut ctx era))
+initialUtxoWithFunds networkId valueMap =
+  pure
+    . UTxO
+    . Map.fromList
+    . map (\(vKey, val) -> (txin vKey, txout vKey val))
+    $ valueMap
+ where
+  txout vKey val =
+    TxOut
+      (mkVkAddress networkId vKey)
+      (mkTxOutValue val)
+      TxOutDatumNone
+      ReferenceScriptNone
+  txin vKey = genesisUTxOPseudoTxIn networkId (verificationKeyHash . castKey $ vKey)
+  castKey (PaymentVerificationKey vkey) = GenesisUTxOVerificationKey vkey
+
+initialUtxoForActors :: [(Actor, Value)] -> NetworkId -> IO (UTxOType Tx)
+initialUtxoForActors actorToVal networkId = do
+  initialUtxoWithFunds networkId =<< vkToVal
+ where
+  vkForActor actor = fmap fst (keysFor actor)
+  vkToVal =
+    forM actorToVal $ \(actor, val) ->
+      vkForActor actor <&> (,val)
+
 chainConfigFor :: HasCallStack => Actor -> FilePath -> SocketPath -> [Actor] -> ContestationPeriod -> IO ChainConfig
-chainConfigFor me targetDir nodeSocket them cp = do
+chainConfigFor me targetDir nodeSocket them contestationPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -73,7 +145,7 @@ chainConfigFor me targetDir nodeSocket them cp = do
       { nodeSocket
       , cardanoSigningKey = skTarget me
       , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
-      , contestationPeriod = cp
+      , contestationPeriod
       }
  where
   skTarget x = targetDir </> skName x

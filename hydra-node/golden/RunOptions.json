@@ -39,6 +39,7 @@
             },
             "monitoringPort": 10,
             "nodeId": "ibqamqhmfggaqsj",
+            "offlineConfig": null,
             "peers": [
                 {
                     "hostname": "0.0.0.2",
@@ -89,6 +90,7 @@
             },
             "monitoringPort": null,
             "nodeId": "spdagobgcblquqlviwbymhcdr",
+            "offlineConfig": null,
             "peers": [
                 {
                     "hostname": "0.0.0.7",
@@ -145,6 +147,7 @@
             },
             "monitoringPort": 19746,
             "nodeId": "icqna",
+            "offlineConfig": null,
             "peers": [
                 {
                     "hostname": "0.0.0.4",
@@ -216,6 +219,7 @@
             },
             "monitoringPort": 6616,
             "nodeId": "ip",
+            "offlineConfig": null,
             "peers": [],
             "persistenceDir": "b/b/c",
             "port": 12529,
@@ -264,6 +268,7 @@
             },
             "monitoringPort": 9885,
             "nodeId": "vgnfmvtyrtutqozcjppmpaab",
+            "offlineConfig": null,
             "peers": [
                 {
                     "hostname": "0.0.0.0",

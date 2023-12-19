@@ -35,7 +35,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  IdleState (IdleState),
+  IdleState (..),
   Outcome (..),
   aggregateState,
   collectEffects,
@@ -46,15 +46,15 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as Logic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.Ledger (IsTx, Ledger)
+import Hydra.Ledger (IsTx (), Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), RunOptions (..))
+import Hydra.Options (ChainConfig (..), RunOfflineOptions (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (PersistenceIncremental (..), loadAll)
+import Hydra.Persistence (PersistenceIncremental (..))
 
 -- * Environment Handling
 
@@ -65,6 +65,7 @@ initEnvironment options = do
   otherParties <- mapM loadParty hydraVerificationKeys
   -- NOTE: This is a cardano-specific initialization step of loading
   -- --cardano-verification-key options and deriving 'OnChainId's from it.
+
   ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
   let participants = verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
@@ -89,6 +90,29 @@ initEnvironment options = do
         , cardanoVerificationKeys
         , cardanoSigningKey
         }
+    } = options
+
+initEnvironmentOffline :: RunOfflineOptions -> IO Environment
+initEnvironmentOffline options = do
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
+  otherParties <- mapM loadParty hydraVerificationKeys
+
+  let participants = []
+  pure $
+    Environment
+      { party = deriveParty sk
+      , signingKey = sk
+      , otherParties
+      , participants
+      , contestationPeriod = defaultContestationPeriod
+      }
+ where
+  loadParty p =
+    Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
+
+  RunOfflineOptions
+    { hydraSigningKey
+    , hydraVerificationKeys
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function

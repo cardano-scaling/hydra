@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
+  pattern TxOut,
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain.Direct.State ()
@@ -74,7 +75,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Party (deriveParty)
@@ -92,6 +93,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
   withHydraNode',
+  withOfflineHydraNode,
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
@@ -112,7 +114,37 @@ withClusterTempDir name =
   withTempDir ("hydra-cluster-e2e-" <> name)
 
 spec :: Spec
-spec = around (showLogsOnFailure "EndToEndSpec") $
+spec = around (showLogsOnFailure "EndToEndSpec") $ do
+  it "End-to-end offline mode" $ \tracer -> do
+    withTempDir ("offline-mode-e2e") $ \tmpDir -> do
+      let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
+      (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+      (bobCardanoVk, _) <- keysFor Bob
+      initialUtxo <- generate $ do
+        a <- genUTxOFor aliceCardanoVk
+        b <- genUTxOFor bobCardanoVk
+        pure $ a <> b
+      Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
+      let offlineConfig =
+            OfflineConfig
+              { initialUTxOFile = tmpDir </> "utxo.json"
+              , ledgerGenesisFile = Nothing
+              }
+
+      let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
+
+      withOfflineHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk $ \node -> do
+        let Right tx =
+              mkSimpleTx
+                (aliceSeedTxIn, aliceSeedTxOut)
+                (mkVkAddress networkId bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                aliceCardanoSk
+
+        send node $ input "NewTx" ["transaction" .= tx]
+
+        waitMatch 10 node $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
