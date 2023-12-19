@@ -10,6 +10,9 @@ module Hydra.Options (
 import Hydra.Prelude
 
 import Control.Arrow (left)
+import Control.Lens ((?~))
+import Data.Aeson (Value (Object, String), withObject, (.:))
+import Data.Aeson.Lens (atKey)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4, toIPv4w)
@@ -225,7 +228,7 @@ defaultRunOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , persistenceDir = "./"
-    , chainConfig = defaultDirectChainConfig
+    , chainConfig = Direct defaultDirectChainConfig
     , ledgerConfig = defaultLedgerConfig
     }
  where
@@ -246,7 +249,9 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
-    <*> (directChainConfigParser <|> offlineChainConfigParser)
+    <*> ( Direct <$> directChainConfigParser
+            <|> Offline <$> offlineChainConfigParser
+        )
     <*> ledgerConfigParser
 
 -- | Alternative parser to 'runOptionsParser' for running the cardano-node in
@@ -255,7 +260,7 @@ offlineModeParser :: Parser RunOptions
 offlineModeParser = do
   -- NOTE: We must parse the offline options first as the 'runOptionsParser'
   -- would also "consume" those options
-  chainConfig <- offlineChainConfigParser
+  chainConfig <- Offline <$> offlineChainConfigParser
   -- NOTE: We can re-use the runOptionsParser only as it never fails
   -- because it has defaults for all options.
   options <- runOptionsParser
@@ -310,38 +315,58 @@ cardanoLedgerProtocolParametersParser =
     )
 
 data ChainConfig
-  = OfflineChainConfig
-      { initialUTxOFile :: FilePath
-      -- ^ Path to a json encoded starting 'UTxO' for the offline-mode head.
-      , ledgerGenesisFile :: Maybe FilePath
-      -- ^ Path to a shelley genesis file with slot lengths used by the offline-mode chain.
-      }
-  | DirectChainConfig
-      { networkId :: NetworkId
-      -- ^ Network identifer to which we expect to connect.
-      , nodeSocket :: SocketPath
-      -- ^ Path to a domain socket used to connect to the server.
-      , hydraScriptsTxId :: TxId
-      -- ^ Identifier of transaction holding the hydra scripts to use.
-      , cardanoSigningKey :: FilePath
-      -- ^ Path to the cardano signing key of the internal wallet.
-      , cardanoVerificationKeys :: [FilePath]
-      -- ^ Paths to other node's verification keys.
-      , startChainFrom :: Maybe ChainPoint
-      -- ^ Point at which to start following the chain.
-      , contestationPeriod :: ContestationPeriod
-      }
+  = Offline OfflineChainConfig
+  | Direct DirectChainConfig
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON ChainConfig where
+  toJSON = \case
+    Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
+    Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
+
+instance FromJSON ChainConfig where
+  parseJSON =
+    withObject "ChainConfig" $ \o ->
+      o .: "tag" >>= \case
+        "OfflineChainConfig" -> Offline <$> parseJSON (Object o)
+        "DirectChainConfig" -> Direct <$> parseJSON (Object o)
+        tag -> fail $ "unexpected tag " <> tag
+
+data OfflineChainConfig = OfflineChainConfig
+  { initialUTxOFile :: FilePath
+  -- ^ Path to a json encoded starting 'UTxO' for the offline-mode head.
+  , ledgerGenesisFile :: Maybe FilePath
+  -- ^ Path to a shelley genesis file with slot lengths used by the offline-mode chain.
+  }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-defaultOfflineChainConfig :: ChainConfig
+defaultOfflineChainConfig :: OfflineChainConfig
 defaultOfflineChainConfig =
   OfflineChainConfig
     { initialUTxOFile = "utxo.json"
     , ledgerGenesisFile = Nothing
     }
 
-defaultDirectChainConfig :: ChainConfig
+data DirectChainConfig = DirectChainConfig
+  { networkId :: NetworkId
+  -- ^ Network identifer to which we expect to connect.
+  , nodeSocket :: SocketPath
+  -- ^ Path to a domain socket used to connect to the server.
+  , hydraScriptsTxId :: TxId
+  -- ^ Identifier of transaction holding the hydra scripts to use.
+  , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , cardanoVerificationKeys :: [FilePath]
+  -- ^ Paths to other node's verification keys.
+  , startChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
+  , contestationPeriod :: ContestationPeriod
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+defaultDirectChainConfig :: DirectChainConfig
 defaultDirectChainConfig =
   DirectChainConfig
     { networkId = Testnet (NetworkMagic 42)
@@ -354,7 +379,11 @@ defaultDirectChainConfig =
     }
 
 instance Arbitrary ChainConfig where
-  arbitrary = oneof [genDirectChainConfig, genOfflineChainConfig]
+  arbitrary =
+    oneof
+      [ Direct <$> genDirectChainConfig
+      , Offline <$> genOfflineChainConfig
+      ]
    where
     genDirectChainConfig = do
       networkId <- Testnet . NetworkMagic <$> arbitrary
@@ -384,7 +413,7 @@ instance Arbitrary ChainConfig where
           , ledgerGenesisFile
           }
 
-offlineChainConfigParser :: Parser ChainConfig
+offlineChainConfigParser :: Parser OfflineChainConfig
 offlineChainConfigParser =
   OfflineChainConfig
     <$> initialUTxOFileParser
@@ -412,7 +441,7 @@ ledgerGenesisFileParser =
         <> help "File containing ledger genesis parameters for the simulated L1 in onffline mode."
     )
 
-directChainConfigParser :: Parser ChainConfig
+directChainConfigParser :: Parser DirectChainConfig
 directChainConfigParser =
   DirectChainConfig
     <$> networkIdParser
@@ -738,17 +767,13 @@ data InvalidOptions
 validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
   case chainConfig of
-    OfflineChainConfig{} -> Right ()
-    DirectChainConfig{cardanoVerificationKeys}
-      | numberOfOtherParties + 1 > maximumNumberOfParties ->
+    Offline{} -> Right ()
+    Direct DirectChainConfig{cardanoVerificationKeys}
+      | max (length hydraVerificationKeys) (length cardanoVerificationKeys) + 1 > maximumNumberOfParties ->
           Left MaximumNumberOfPartiesExceeded
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMissmatch
       | otherwise -> Right ()
- where
-  -- let's take the higher number of loaded cardano/hydra keys
-  numberOfOtherParties =
-    max (length hydraVerificationKeys) (length $ cardanoVerificationKeys chainConfig)
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
@@ -811,23 +836,25 @@ toArgs
         []
 
     argsChainConfig = \case
-      OfflineChainConfig
-        { initialUTxOFile
-        , ledgerGenesisFile
-        } ->
+      Offline
+        OfflineChainConfig
+          { initialUTxOFile
+          , ledgerGenesisFile
+          } ->
           ["--initial-utxo", initialUTxOFile]
             <> case ledgerGenesisFile of
               Just fp -> ["--ledger-genesis", fp]
               Nothing -> []
-      DirectChainConfig
-        { networkId
-        , nodeSocket
-        , hydraScriptsTxId
-        , cardanoSigningKey
-        , cardanoVerificationKeys
-        , startChainFrom
-        , contestationPeriod
-        } ->
+      Direct
+        DirectChainConfig
+          { networkId
+          , nodeSocket
+          , hydraScriptsTxId
+          , cardanoSigningKey
+          , cardanoVerificationKeys
+          , startChainFrom
+          , contestationPeriod
+          } ->
           toArgNetworkId networkId
             <> ["--node-socket", unFile nodeSocket]
             <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]

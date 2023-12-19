@@ -9,6 +9,7 @@ import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   HasTypeProxy (AsType),
   Key (VerificationKey, getVerificationKey),
+  NetworkId,
   PaymentKey,
   SigningKey,
   SocketPath,
@@ -20,7 +21,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cluster.Fixture (Actor, actorName)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
-import Hydra.Options (ChainConfig (..), defaultDirectChainConfig)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -79,15 +80,26 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
   forM_ them $ \actor ->
     readConfigFile ("credentials" </> vkName actor) >>= writeFileBS (vkTarget actor)
   pure $
-    defaultDirectChainConfig
-      { nodeSocket
-      , hydraScriptsTxId
-      , cardanoSigningKey = skTarget me
-      , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
-      , contestationPeriod
-      }
+    Direct
+      defaultDirectChainConfig
+        { nodeSocket
+        , hydraScriptsTxId
+        , cardanoSigningKey = skTarget me
+        , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
+        , contestationPeriod
+        }
  where
   skTarget x = targetDir </> skName x
   vkTarget x = targetDir </> vkName x
   skName x = actorName x <.> ".sk"
   vkName x = actorName x <.> ".vk"
+
+modifyConfig :: (DirectChainConfig -> DirectChainConfig) -> ChainConfig -> ChainConfig
+modifyConfig fn = \case
+  Direct config -> Direct $ fn config
+  x -> x
+
+setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
+setNetworkId networkId = \case
+  Direct config -> Direct config{networkId}
+  x -> x

@@ -25,7 +25,7 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -218,28 +218,7 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId =
-  withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId (const id)
-
-withConfiguredHydraCluster ::
-  HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  FilePath ->
-  SocketPath ->
-  -- | First node id
-  -- This sets the starting point for assigning ports
-  Int ->
-  -- | NOTE: This decides on the size of the cluster!
-  [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
-  [SigningKey HydraKey] ->
-  -- | Transaction id at which Hydra scripts should have been published.
-  TxId ->
-  -- | Modifies the `ChainConfig` passed to a node upon startup
-  (Int -> ChainConfig -> ChainConfig) ->
-  ContestationPeriod ->
-  (NonEmpty HydraClient -> IO a) ->
-  IO a
-withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId chainConfigDecorator contestationPeriod action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -263,7 +242,7 @@ withConfiguredHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKe
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
-            chainConfigDecorator nodeId $
+            Direct
               defaultDirectChainConfig
                 { nodeSocket
                 , hydraScriptsTxId

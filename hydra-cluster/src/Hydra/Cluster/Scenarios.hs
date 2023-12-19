@@ -59,13 +59,13 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (..), networkId, startChainFrom)
+import Hydra.Options (networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -123,11 +123,11 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
-      <&> \config -> (config :: ChainConfig){networkId}
+      <&> setNetworkId networkId
 
   bobChainConfig <-
     chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
-      <&> \config -> (config :: ChainConfig){networkId}
+      <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
@@ -153,15 +153,15 @@ testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = 
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
-      <&> \config -> (config :: ChainConfig){networkId}
+      <&> setNetworkId networkId
 
   aliceChainConfigWithoutBob <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-      <&> \config -> (config :: ChainConfig){networkId}
+      <&> setNetworkId networkId
 
   bobChainConfig <-
     chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
-      <&> \config -> (config :: ChainConfig){networkId}
+      <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
       aliceStartsWithoutKnowingBob =
@@ -200,7 +200,7 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
       -- we delibelately do not start from a chain point here to highlight the
       -- need for persistence
-      <&> \config -> config{networkId, startChainFrom = Nothing}
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Nothing})
 
   let hydraTracer = contramap FromHydraNode tracer
   headId1 <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
@@ -235,7 +235,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     let contestationPeriod = UnsafeContestationPeriod 100
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-        <&> \config -> config{networkId, startChainFrom = Just tip}
+        <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
@@ -287,7 +287,7 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
     let contestationPeriod = UnsafeContestationPeriod 100
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-        <&> \config -> config{networkId, startChainFrom = Just tip}
+        <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
 
     (walletVk, walletSk) <- generate genKeyPair
     let keyPath = workDir <> "/wallet.sk"
@@ -472,7 +472,7 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   let oneWeek = UnsafeContestationPeriod (60 * 60 * 24 * 7)
   aliceChainConfig <-
     chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] oneWeek
-      <&> \config -> config{networkId, startChainFrom = Just tip}
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head

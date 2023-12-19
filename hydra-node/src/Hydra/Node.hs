@@ -52,7 +52,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), RunOptions (..), defaultContestationPeriod)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
 
@@ -77,18 +77,19 @@ initEnvironment options = do
   -- --cardano-verification-key options and deriving 'OnChainId's from it. We should be able to call out to the various chain layer
   getParticipants =
     case chainConfig of
-      OfflineChainConfig{} -> pure []
-      DirectChainConfig
-        { cardanoVerificationKeys
-        , cardanoSigningKey
-        } -> do
+      Offline{} -> pure []
+      Direct
+        DirectChainConfig
+          { cardanoVerificationKeys
+          , cardanoSigningKey
+          } -> do
           ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
           otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
-    OfflineChainConfig{} -> defaultContestationPeriod
-    DirectChainConfig{contestationPeriod = cp} -> cp
+    Offline{} -> defaultContestationPeriod
+    Direct DirectChainConfig{contestationPeriod = cp} -> cp
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

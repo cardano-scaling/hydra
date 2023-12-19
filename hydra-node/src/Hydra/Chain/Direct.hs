@@ -85,7 +85,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (..))
+import Hydra.Options (DirectChainConfig (..))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -104,7 +104,7 @@ import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  ChainConfig ->
+  DirectChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   IO ChainContext
@@ -128,7 +128,7 @@ loadChainContext config party = do
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
-  ChainConfig ->
+  DirectChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
@@ -155,7 +155,7 @@ mkTinyWallet tracer config = do
 
 withDirectChain ::
   Tracer IO DirectChainLog ->
-  ChainConfig ->
+  DirectChainConfig ->
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.

@@ -82,7 +82,7 @@ import Hydra.Cluster.Scenarios (
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
@@ -139,10 +139,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         pure $ a <> b
       Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
       let offlineConfig =
-            OfflineChainConfig
-              { initialUTxOFile = tmpDir </> "utxo.json"
-              , ledgerGenesisFile = Nothing
-              }
+            Offline
+              OfflineChainConfig
+                { initialUTxOFile = tmpDir </> "utxo.json"
+                , ledgerGenesisFile = Nothing
+                }
 
       let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
 
@@ -316,10 +317,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             -- not resynchronize from chain
             removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
-            let aliceChainConfig' =
-                  aliceChainConfig
-                    { startChainFrom = Just tip
-                    }
+            let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
             withHydraNode hydraTracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
               headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
@@ -336,7 +334,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
             tip <- queryTip networkId nodeSocket
-            let startFromTip x = x{startChainFrom = Just tip}
+            let startFromTip = modifyConfig $ \x -> x{startChainFrom = Just tip}
             let contestationPeriod = UnsafeContestationPeriod 10
             aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob] contestationPeriod <&> startFromTip
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice] contestationPeriod <&> startFromTip
@@ -490,17 +488,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir "logs-to-logfile" $ \dir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket, networkId} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             refuelIfNeeded tracer node Alice 100_000_000
             let contestationPeriod = UnsafeContestationPeriod 2
-            aliceChainConfig <-
-              chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
-                -- we delibelately do not start from a chain point here to highlight the
-                -- need for persistence
-                <&> \config -> config{networkId, startChainFrom = Nothing}
-
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
 

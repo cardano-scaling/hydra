@@ -29,7 +29,7 @@ import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Logging (Tracer)
-import Hydra.Options (ChainConfig (OfflineChainConfig, initialUTxOFile, ledgerGenesisFile), defaultContestationPeriod)
+import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -50,7 +50,7 @@ loadGlobalsFromFile ledgerGenesisFile = do
 
 withOfflineChain ::
   Tracer IO DirectChainLog ->
-  ChainConfig ->
+  OfflineChainConfig ->
   Ledger.Globals ->
   Party ->
   -- | Last known chain state as loaded from persistence.

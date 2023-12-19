@@ -15,9 +15,11 @@ import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
   Command (..),
+  DirectChainConfig (..),
   GenerateKeyPair (GenerateKeyPair),
   InvalidOptions (..),
   LedgerConfig (..),
+  OfflineChainConfig (..),
   ParserResult (..),
   PublishOptions (..),
   RunOptions (..),
@@ -46,12 +48,12 @@ spec = parallel $
 
     it ("validateRunOptions: using more than " <> show maximumNumberOfParties <> " parties should error out") $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (+ 2) (+ 1)
-          chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Direct defaultDirectChainConfig{cardanoVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left MaximumNumberOfPartiesExceeded
     it "validateRunOptions: loaded cardano keys needs to match with the hydra keys length" $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (subtract 2) (subtract 1)
-          chainCfg = (chainConfig defaultRunOptions){cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Direct defaultDirectChainConfig{cardanoVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left CardanoAndHydraKeysMissmatch
 
@@ -128,25 +130,28 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { networkId = Testnet (NetworkMagic 0)
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { networkId = Testnet (NetworkMagic 0)
+                    }
             }
       ["--testnet-magic", "-1"] -- Word32 overflow expected
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { networkId = Testnet (NetworkMagic 4294967295)
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { networkId = Testnet (NetworkMagic 4294967295)
+                    }
             }
       ["--testnet-magic", "123"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { networkId = Testnet (NetworkMagic 123)
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { networkId = Testnet (NetworkMagic 123)
+                    }
             }
 
     it "parses --mainnet option" $ do
@@ -154,9 +159,10 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { networkId = Mainnet
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { networkId = Mainnet
+                    }
             }
 
     it "parses --contestation-period option as a number of seconds" $ do
@@ -169,17 +175,19 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { contestationPeriod = UnsafeContestationPeriod 1
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { contestationPeriod = UnsafeContestationPeriod 1
+                    }
             }
       ["--contestation-period", "300s"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { contestationPeriod = UnsafeContestationPeriod 300
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { contestationPeriod = UnsafeContestationPeriod 300
+                    }
             }
 
     it "parses --mainnet flag" $ do
@@ -187,9 +195,10 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { networkId = Mainnet
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { networkId = Mainnet
+                    }
             }
 
     it "parses --node-socket as a filepath" $
@@ -197,9 +206,10 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { nodeSocket = "foo.sock"
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { nodeSocket = "foo.sock"
+                    }
             }
 
     it "parses --cardano-signing-key option as a filepath" $
@@ -207,9 +217,10 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { cardanoSigningKey = "./alice-cardano.sk"
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { cardanoSigningKey = "./alice-cardano.sk"
+                    }
             }
 
     it "parses --cardano-verification-key option as a filepath" $
@@ -217,9 +228,10 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { cardanoVerificationKeys = ["./alice-cardano.vk"]
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { cardanoVerificationKeys = ["./alice-cardano.vk"]
+                    }
             }
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
@@ -237,26 +249,27 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
-                defaultDirectChainConfig
-                  { startChainFrom =
-                      Just $
-                        ChainPoint 1000 $
-                          fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                  }
+                Direct
+                  defaultDirectChainConfig
+                    { startChainFrom =
+                        Just $
+                          ChainPoint 1000 $
+                            fromString "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    }
             }
 
     it "parses --start-chain-from 0 as starting from genesis" $
       ["--start-chain-from", "0"]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
+            { chainConfig = Direct defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
     prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
       ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = defaultDirectChainConfig{hydraScriptsTxId = txId}
+            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = txId}
             }
 
     it "switches to offline chain when using --initial-utxo" $
@@ -265,8 +278,7 @@ spec = parallel $
         ]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig =
-                defaultOfflineChainConfig{initialUTxOFile = "some-file"}
+            { chainConfig = Offline defaultOfflineChainConfig{initialUTxOFile = "some-file"}
             }
 
     describe "publish-scripts sub-command" $ do
@@ -329,7 +341,7 @@ spec = parallel $
     describe "offline sub-command" $ do
       it "does parse with defaults" $
         ["offline"]
-          `shouldParse` Run defaultRunOptions{chainConfig = defaultOfflineChainConfig}
+          `shouldParse` Run defaultRunOptions{chainConfig = Offline defaultOfflineChainConfig}
 
       it "does parse --ledger-genesis" $
         mconcat
@@ -339,9 +351,8 @@ spec = parallel $
           `shouldParse` Run
             defaultRunOptions
               { chainConfig =
-                  defaultOfflineChainConfig
-                    { ledgerGenesisFile = Just "some-file"
-                    }
+                  Offline
+                    defaultOfflineChainConfig{ledgerGenesisFile = Just "some-file"}
               }
 
       it "does parse --initial-utxo" $
@@ -352,7 +363,8 @@ spec = parallel $
           `shouldParse` Run
             defaultRunOptions
               { chainConfig =
-                  defaultOfflineChainConfig{initialUTxOFile = "some-file"}
+                  Offline
+                    defaultOfflineChainConfig{initialUTxOFile = "some-file"}
               }
 
     describe "gen-hydra-keys sub-command" $ do
