@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Options (
@@ -97,7 +98,7 @@ commandParser =
     command
       "offline"
       ( info
-          (Run <$> runOptionsParser) -- FIXME
+          (Run <$> offlineModeParser)
           (progDesc "Run the node in offline mode.")
       )
 
@@ -234,6 +235,7 @@ defaultRunOptions =
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
 
+-- | Parser for running the cardano-node with all its 'RunOptions'.
 runOptionsParser :: Parser RunOptions
 runOptionsParser =
   RunOptions
@@ -249,8 +251,20 @@ runOptionsParser =
     <*> many hydraVerificationKeyFileParser
     <*> hydraScriptsTxIdParser
     <*> persistenceDirParser
-    <*> chainConfigParser
+    <*> (directChainConfigParser <|> offlineChainConfigParser)
     <*> ledgerConfigParser
+
+-- | Alternative parser to 'runOptionsParser' for running the cardano-node in
+-- offline mode.
+offlineModeParser :: Parser RunOptions
+offlineModeParser = do
+  -- NOTE: We must parse the offline options first as the 'runOptionsParser'
+  -- would also "consume" those options
+  chainConfig <- offlineChainConfigParser
+  -- NOTE: We can re-use the runOptionsParser only as it never fails because it
+  -- has defaults for all options.
+  options <- runOptionsParser
+  pure options{chainConfig}
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -357,8 +371,36 @@ instance Arbitrary ChainConfig where
         , contestationPeriod
         }
 
-chainConfigParser :: Parser ChainConfig
-chainConfigParser =
+offlineChainConfigParser :: Parser ChainConfig
+offlineChainConfigParser =
+  OfflineChainConfig
+    <$> initialUTxOFileParser
+    <*> ledgerGenesisFileParser
+
+initialUTxOFileParser :: Parser FilePath
+initialUTxOFileParser =
+  option
+    str
+    ( long "initial-utxo"
+        <> metavar "FILE"
+        <> value "utxo.json"
+        <> showDefault
+        <> help "File containing initial UTxO for the L2 chain in offline mode."
+    )
+
+ledgerGenesisFileParser :: Parser (Maybe FilePath)
+ledgerGenesisFileParser =
+  option
+    (optional str)
+    ( long "ledger-genesis"
+        <> metavar "FILE"
+        <> value Nothing
+        <> showDefault
+        <> help "File containing ledger genesis parameters for the simulated L1 in onffline mode."
+    )
+
+directChainConfigParser :: Parser ChainConfig
+directChainConfigParser =
   DirectChainConfig
     <$> networkIdParser
     <*> nodeSocketParser

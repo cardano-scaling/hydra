@@ -259,10 +259,15 @@ spec = parallel $
             { hydraScriptsTxId = txId
             }
 
-    roundtripAndGoldenSpecs (Proxy @RunOptions)
-
-    prop "roundtrip parsing & printing" $
-      forAll arbitrary canRoundtripRunOptionsAndPrettyPrinting
+    it "switches to offline chain when using --initial-utxo" $
+      mconcat
+        [ ["--initial-utxo", "some-file"]
+        ]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                defaultOfflineChainConfig{initialUTxOFile = "some-file"}
+            }
 
     describe "publish-scripts sub-command" $ do
       xit "does not parse without any options" $
@@ -360,6 +365,11 @@ spec = parallel $
 
       it "should parse gen-hydra-keys without the output-file flag using default file name" $
         ["gen-hydra-key"] `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "hydra-key"}
+
+    roundtripAndGoldenSpecs (Proxy @RunOptions)
+
+    prop "roundtrip parsing & printing" $
+      forAll arbitrary canRoundtripRunOptionsAndPrettyPrinting
 
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 canRoundtripRunOptionsAndPrettyPrinting opts =
