@@ -30,6 +30,7 @@ changes.
 - Hydra.Options split into Hydra.Options.Common, Hydra.Options.Offline,
   Hydra.Options.Online, re-exported from Hydra.Options.
 
+- Report error on unsupported era.
 
 ## [0.14.0] - 2023-12-04
 
