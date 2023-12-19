@@ -17,7 +17,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (loadGlobalsFromFile)
+import Hydra.Chain.Offline (loadGlobalsFromFile, withOfflineChain)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -68,68 +68,6 @@ instance Exception ConfigurationException where
     ConfigurationException err ->
       "Incorrect protocol parameters configuration provided: " <> show err
 
--- TODO
--- runOffline :: RunOfflineOptions -> IO ()
--- runOffline opts = do
---   either (throwIO . InvalidOptionException) pure $ OfflineOptions.validateRunOfflineOptions opts
---   let RunOfflineOptions{verbosity, monitoringPort, persistenceDir, offlineConfig} = opts
---   env@Environment{party, otherParties, signingKey, contestationPeriod} <- initEnvironmentOffline opts
-
---   withTracer verbosity $ \tracer' ->
---     withMonitoring monitoringPort tracer' $ \tracer -> do
---       traceWith tracer (NodeOfflineOptions opts)
---       eq@EventQueue{putEvent} <- createEventQueue
---       let RunOfflineOptions{ledgerConfig} = opts
---       protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
---       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
---         Left err -> throwIO (ConfigurationException err)
---         Right bpparams -> pure bpparams
-
---       globals <- loadGlobalsFromGenesis (ledgerGenesisFile offlineConfig)
-
---       withCardanoLedger pparams globals $ \ledger -> do
---         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
---         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
-
---         checkHeadState (contramap Node tracer) env hs
---         nodeState <- createNodeState hs
---         -- Chain
---         let withChain cont =
---               let headId = UnsafeHeadId "HeadId"
---                in withOfflineChain (contramap DirectChain tracer) offlineConfig globals headId party contestationPeriod chainStateHistory (putEvent . OnChainEvent) cont
---         withChain $ \chain -> do
---           -- API
---           let RunOfflineOptions{host, port} = opts
---               peers = []
---               nodeId = NodeId "offline"
---               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
---               RunOfflineOptions{apiHost, apiPort} = opts
---           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
---           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
---             -- Network
---             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
---             withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
---               -- Main loop
---               runHydraNode (contramap Node tracer) $
---                 HydraNode
---                   { eq
---                   , hn
---                   , nodeState
---                   , oc = chain
---                   , server
---                   , ledger
---                   , env
---                   , persistence
---                   }
---  where
---   connectionMessages Server{sendOutput} = \case
---     Connected nodeid -> sendOutput $ PeerConnected nodeid
---     Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-
---   withCardanoLedger protocolParams globals action =
---     let ledgerEnv = newLedgerEnv protocolParams
---      in action (Ledger.cardanoLedger globals ledgerEnv)
-
 run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
@@ -144,10 +82,7 @@ run opts = do
       pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
         Left err -> throwIO (ConfigurationException err)
         Right bpparams -> pure bpparams
-
       globals <- getGlobalsForChain chainConfig
-      let DirectChainConfig{networkId, nodeSocket, hydraScriptsTxId} = chainConfig
-
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
@@ -155,11 +90,8 @@ run opts = do
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
-        let withChain cont = do
-              ctx <- loadChainContext chainConfig party hydraScriptsTxId
-              wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
-              withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet chainStateHistory (putEvent . OnChainEvent) cont
-        withChain $ \chain -> do
+        withChain <- prepareChainComponent tracer env globals chainConfig
+        withChain chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
@@ -189,6 +121,16 @@ run opts = do
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)
+
+  prepareChainComponent tracer Environment{party} globals chainConfig =
+    case chainConfig of
+      OfflineChainConfig{} ->
+        -- TODO: rename DirectChain to just "chain"
+        pure $ withOfflineChain (contramap DirectChain tracer) chainConfig globals party
+      DirectChainConfig{} -> do
+        ctx <- loadChainContext chainConfig party
+        wallet <- mkTinyWallet (contramap DirectChain tracer) chainConfig
+        pure $ withDirectChain (contramap DirectChain tracer) chainConfig ctx wallet
 
 getGlobalsForChain :: ChainConfig -> IO Shelley.Globals
 getGlobalsForChain = \case

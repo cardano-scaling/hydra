@@ -25,12 +25,11 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.HeadId (HeadId)
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Logging (Tracer)
-import Hydra.Options (ChainConfig (OfflineChainConfig, initialUTxOFile, ledgerGenesisFile))
+import Hydra.Options (ChainConfig (OfflineChainConfig, initialUTxOFile, ledgerGenesisFile), defaultContestationPeriod)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -53,13 +52,13 @@ withOfflineChain ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   Ledger.Globals ->
-  HeadId ->
   Party ->
-  ContestationPeriod ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} ownHeadId party contestationPeriod chainStateHistory callback action = do
+withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
+  let ownHeadId = UnsafeHeadId "offline" -- TODO: remove usages of this
+  let contestationPeriod = defaultContestationPeriod -- TODO: remove usages of this
   initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
   initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
 

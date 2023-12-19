@@ -63,12 +63,7 @@ initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
-  -- NOTE: This is a cardano-specific initialization step of loading
-  -- --cardano-verification-key options and deriving 'OnChainId's from it.
-
-  ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-  otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
-  let participants = verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+  participants <- getParticipants
   pure $
     Environment
       { party = deriveParty sk
@@ -78,43 +73,31 @@ initEnvironment options = do
       , contestationPeriod
       }
  where
+  -- XXX: This is mostly a cardano-specific initialization step of loading
+  -- --cardano-verification-key options and deriving 'OnChainId's from it. We should be able to call out to the various chain layer
+  getParticipants =
+    case chainConfig of
+      OfflineChainConfig{} -> pure []
+      DirectChainConfig
+        { cardanoVerificationKeys
+        , cardanoSigningKey
+        } -> do
+          ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+          otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+
+  contestationPeriod = case chainConfig of
+    OfflineChainConfig{} -> defaultContestationPeriod
+    DirectChainConfig{contestationPeriod = cp} -> cp
+
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
 
   RunOptions
     { hydraSigningKey
     , hydraVerificationKeys
-    , chainConfig =
-      DirectChainConfig
-        { contestationPeriod
-        , cardanoVerificationKeys
-        , cardanoSigningKey
-        }
+    , chainConfig
     } = options
-
--- TODO
--- initEnvironmentOffline :: RunOfflineOptions -> IO Environment
--- initEnvironmentOffline options = do
---   sk <- readFileTextEnvelopeThrow (AsSigningKey AsHydraKey) hydraSigningKey
---   otherParties <- mapM loadParty hydraVerificationKeys
-
---   let participants = []
---   pure $
---     Environment
---       { party = deriveParty sk
---       , signingKey = sk
---       , otherParties
---       , participants
---       , contestationPeriod = defaultContestationPeriod
---       }
---  where
---   loadParty p =
---     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p
-
---   RunOfflineOptions
---     { hydraSigningKey
---     , hydraVerificationKeys
---     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
 -- takes 'Environment' because it is derived from 'RunOptions' via
