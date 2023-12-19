@@ -66,7 +66,7 @@ jobs:
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: test-results
+        name: test-results-${{ matrix.package }}
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
@@ -87,7 +87,8 @@ jobs:
     - name: 📥 Download test results
       uses: actions/download-artifact@v4
       with:
-        name: test-results
+       pattern: test-results-*
+       merge-multiple: true
 
     - name: ✏ Publish test results to PR
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -170,7 +171,7 @@ jobs:
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: benchmarks
+        name: benchmarks-${{matrix.package}}-${{matrix.bench}}
         path: benchmarks
 
   publish-benchmark-results:
@@ -183,8 +184,9 @@ jobs:
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v4
       with:
-        name: benchmarks
         path: artifact
+        pattern: benchmarks-*
+        merge-multiple: true
 
     - name: ⚙ Prepare comment body
       id: comment-body
@@ -272,8 +274,9 @@ jobs:
     - name: 📥 Download benchmark results
       uses: actions/download-artifact@v4
       with:
-        name: benchmarks
         path: docs/benchmarks
+        pattern: benchmarks-*
+        merge-multiple: true
 
     - name: 📥 Download haddock documentation
       uses: actions/download-artifact@v4
@@ -284,7 +287,8 @@ jobs:
     - name: 📥 Download test results
       uses: actions/download-artifact@v4
       with:
-        name: test-results
+        pattern: test-results-*
+        merge-multiple: true
         path: docs/benchmarks/tests
 
     - name: 📥 Download specification PDF
