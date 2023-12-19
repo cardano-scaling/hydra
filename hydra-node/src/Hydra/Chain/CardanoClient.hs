@@ -29,7 +29,11 @@ instance Eq QueryException where
     (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
     _ -> False
 
-instance Exception QueryException
+instance Exception QueryException where
+  displayException = \case
+    QueryAcquireException failure -> show failure
+    QueryEraMismatchException _ -> "Connected to node in not supported era. Make sure to upgrade hydra-node."
+    QueryProtocolParamsConversionException err -> show err
 
 -- * CardanoClient handle
 
