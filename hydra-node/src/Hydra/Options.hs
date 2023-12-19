@@ -480,6 +480,7 @@ nodeIdParser =
     ( long "node-id"
         <> short 'n'
         <> metavar "NODE-ID"
+        <> value "hydra-node-1"
         <> help
           "The Hydra node identifier used on the Hydra network. It is \
           \important to have a unique identifier in order to be able to \
