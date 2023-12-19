@@ -261,8 +261,8 @@ offlineModeParser = do
   -- NOTE: We must parse the offline options first as the 'runOptionsParser'
   -- would also "consume" those options
   chainConfig <- offlineChainConfigParser
-  -- NOTE: We can re-use the runOptionsParser only as it never fails because it
-  -- has defaults for all options.
+  -- NOTE: We can re-use the runOptionsParser only as it never fails
+  -- because it has defaults for all options.
   options <- runOptionsParser
   pure options{chainConfig}
 
@@ -294,7 +294,7 @@ defaultLedgerConfig =
 
 instance Arbitrary LedgerConfig where
   arbitrary = do
-    cardanoLedgerProtocolParametersFile <- genFilePath ".json"
+    cardanoLedgerProtocolParametersFile <- genFilePath "json"
     pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile}
 
 ledgerConfigParser :: Parser LedgerConfig
@@ -354,22 +354,33 @@ defaultDirectChainConfig =
     }
 
 instance Arbitrary ChainConfig where
-  arbitrary = do
-    networkId <- Testnet . NetworkMagic <$> arbitrary
-    nodeSocket <- File <$> genFilePath "socket"
-    cardanoSigningKey <- genFilePath ".sk"
-    cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
-    startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-    contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
-    pure $
-      DirectChainConfig
-        { networkId
-        , nodeSocket
-        , cardanoSigningKey
-        , cardanoVerificationKeys
-        , startChainFrom
-        , contestationPeriod
-        }
+  arbitrary = oneof [genDirectChainConfig, genOfflineChainConfig]
+   where
+    genDirectChainConfig = do
+      networkId <- Testnet . NetworkMagic <$> arbitrary
+      nodeSocket <- File <$> genFilePath "socket"
+      cardanoSigningKey <- genFilePath "sk"
+      cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
+      startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
+      contestationPeriod <- arbitrary `suchThat` (> UnsafeContestationPeriod 0)
+      pure
+        DirectChainConfig
+          { networkId
+          , nodeSocket
+          , cardanoSigningKey
+          , cardanoVerificationKeys
+          , startChainFrom
+          , contestationPeriod
+          }
+
+    genOfflineChainConfig = do
+      ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "json"]
+      initialUTxOFile <- genFilePath "json"
+      pure
+        OfflineChainConfig
+          { initialUTxOFile
+          , ledgerGenesisFile
+          }
 
 offlineChainConfigParser :: Parser ChainConfig
 offlineChainConfigParser =
@@ -774,7 +785,7 @@ toArgs
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
       <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
       <> ["--persistence-dir", persistenceDir]
-      <> argsChainConfig
+      <> argsChainConfig chainConfig
       <> argsLedgerConfig
    where
     (NodeId nId) = nodeId
@@ -794,13 +805,29 @@ toArgs
       Nothing ->
         []
 
-    argsChainConfig =
-      toArgNetworkId networkId
-        <> ["--node-socket", unFile nodeSocket]
-        <> ["--cardano-signing-key", cardanoSigningKey]
-        <> ["--contestation-period", show contestationPeriod]
-        <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
-        <> toArgStartChainFrom startChainFrom
+    argsChainConfig = \case
+      OfflineChainConfig
+        { initialUTxOFile
+        , ledgerGenesisFile
+        } ->
+          ["--initial-utxo", initialUTxOFile]
+            <> case ledgerGenesisFile of
+              Just fp -> ["--ledger-genesis", fp]
+              Nothing -> []
+      DirectChainConfig
+        { networkId
+        , nodeSocket
+        , cardanoSigningKey
+        , cardanoVerificationKeys
+        , startChainFrom
+        , contestationPeriod
+        } ->
+          toArgNetworkId networkId
+            <> ["--node-socket", unFile nodeSocket]
+            <> ["--cardano-signing-key", cardanoSigningKey]
+            <> ["--contestation-period", show contestationPeriod]
+            <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
+            <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
@@ -808,15 +835,6 @@ toArgs
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
-
-    DirectChainConfig
-      { networkId
-      , nodeSocket
-      , cardanoSigningKey
-      , cardanoVerificationKeys
-      , startChainFrom
-      , contestationPeriod
-      } = chainConfig
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
