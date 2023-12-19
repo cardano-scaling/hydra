@@ -259,7 +259,7 @@ data ChainClientException
 
 instance Exception ChainClientException where
   displayException = \case
-    EraNotSupportedException -> "Please upgrade hydra-node."
+    EraNotSupportedException -> "Received blocks in not supported era. Please upgrade your hydra-node."
 
 -- | The block type used in the node-to-client protocols.
 type BlockType = BlockInMode CardanoMode

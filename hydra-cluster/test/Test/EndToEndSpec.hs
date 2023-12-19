@@ -526,7 +526,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               delayEpoch tmpDir args 1
 
               waitForProcess ph `shouldReturn` ExitFailure 1
-              hGetContents err >>= (`shouldContain` "upgrade hydra-node")
+              hGetContents err >>= (`shouldContain` "Received blocks in not supported era.")
 
       it "does report on unsupported era on startup" $ \tracer -> do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
@@ -540,8 +540,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \_out err ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
-              -- TODO: keep the matched string to a minimum
-              hGetContents err >>= (`shouldContain` "Connected to node in not supported era. Make sure to upgrade hydra-node.")
+              hGetContents err >>= (`shouldContain` "Connected to cardano-node in not supported era.")
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
