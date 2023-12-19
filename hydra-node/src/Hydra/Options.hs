@@ -736,11 +736,15 @@ data InvalidOptions
 --  - Check that number of loaded hydra keys match with the number of loaded cardano keys
 --      (by comparing lengths of the two lists)
 validateRunOptions :: RunOptions -> Either InvalidOptions ()
-validateRunOptions RunOptions{hydraVerificationKeys, chainConfig}
-  | numberOfOtherParties + 1 > maximumNumberOfParties = Left MaximumNumberOfPartiesExceeded
-  | length (cardanoVerificationKeys chainConfig) /= length hydraVerificationKeys =
-      Left CardanoAndHydraKeysMissmatch
-  | otherwise = Right ()
+validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
+  case chainConfig of
+    OfflineChainConfig{} -> Right ()
+    DirectChainConfig{cardanoVerificationKeys}
+      | numberOfOtherParties + 1 > maximumNumberOfParties ->
+          Left MaximumNumberOfPartiesExceeded
+      | length cardanoVerificationKeys /= length hydraVerificationKeys ->
+          Left CardanoAndHydraKeysMissmatch
+      | otherwise -> Right ()
  where
   -- let's take the higher number of loaded cardano/hydra keys
   numberOfOtherParties =
