@@ -39,7 +39,6 @@ import Hydra.Cardano.Api (
   NetworkId,
   SocketPath,
   Tx,
-  TxId,
   TxInMode (..),
   TxValidationErrorInMode,
   chainTipToChainPoint,
@@ -108,10 +107,8 @@ loadChainContext ::
   ChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
-  -- | Transaction id at which to look for Hydra scripts.
-  TxId ->
   IO ChainContext
-loadChainContext config party hydraScriptsTxId = do
+loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   pure $
@@ -125,6 +122,7 @@ loadChainContext config party hydraScriptsTxId = do
   DirectChainConfig
     { networkId
     , nodeSocket
+    , hydraScriptsTxId
     , cardanoSigningKey
     } = config
 
