@@ -2056,31 +2056,5 @@ components:
             blockHash:
               type: string
 
-    ChainConfig:
-      type: object
-      description: |
-        Configuration for the cardano side of things in the hydra-node config
-      required:
-        - networkId
-        - nodeSocket
-        - cardanoSigningKey
-        - cardanoVerificationKeys
-      properties:
-        networkId:
-          $ref: "api.yaml#/components/schemas/NetworkMagic"
-        nodeSocket:
-          type: string
-        cardanoSigningKey:
-          type: string
-        cardanoVerificationKeys:
-          type: array
-          items:
-            type: string
-        startChainFrom:
-          oneOf:
-            - type: "null"
-            - type: object
-              $ref: "api.yaml#/components/schemas/ChainPoint"
-
     # NOTE: We don't want anyone to depend on this!
     ChainState: {}
