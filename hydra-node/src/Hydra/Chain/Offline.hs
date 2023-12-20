@@ -15,18 +15,18 @@ import Hydra.Cardano.Api (ShelleyGenesis (..), StandardCrypto, Tx)
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
-  ChainEvent (Tick),
+  ChainEvent (..),
   ChainStateHistory,
+  HeadParameters (..),
+  OnChainTx (..),
   PostTxError (..),
   chainSlot,
   chainTime,
+  initHistory,
  )
-import Hydra.Chain.Direct.Handlers (
-  DirectChainLog (),
-  newLocalChainState,
- )
-import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
-import Hydra.HeadId (HeadId (..))
+import Hydra.Chain.Direct.Handlers (DirectChainLog)
+import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Logging (Tracer)
@@ -35,6 +35,14 @@ import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Consensus.Util.Time (nominalDelay)
+
+-- | Hard-coded 'HeadId' for all offline head instances.
+offlineHeadId :: HeadId
+offlineHeadId = UnsafeHeadId "offline"
+
+-- | Hard-coded 'HeadSeed' for all offline head instances.
+offlineHeadSeed :: HeadSeed
+offlineHeadSeed = UnsafeHeadSeed "offline"
 
 loadGlobalsFromFile :: Maybe FilePath -> IO Ledger.Globals
 loadGlobalsFromFile ledgerGenesisFile = do
@@ -58,10 +66,8 @@ withOfflineChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
-  let ownHeadId = UnsafeHeadId "offline" -- TODO: remove usages of this
-  let contestationPeriod = defaultContestationPeriod -- TODO: remove usages of this
   initialUTxO <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
-  initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
+  initializeOfflineHead chainStateHistory initialUTxO party callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
@@ -138,3 +144,46 @@ withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} g
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , postTx = const $ pure ()
       }
+
+initializeOfflineHead ::
+  ChainStateHistory Tx ->
+  UTxOType Tx ->
+  Party ->
+  (ChainEvent Tx -> IO ()) ->
+  IO ()
+initializeOfflineHead chainStateHistory initialUTxO ownParty callback = do
+  let emptyChainStateHistory = initHistory initialChainState
+
+  -- if we don't have a chainStateHistory to restore from disk from, start a new one
+  when (chainStateHistory == emptyChainStateHistory) $ do
+    callback $
+      Observation
+        { newChainState = initialChainState
+        , observedTx =
+            OnInitTx
+              { headId = offlineHeadId
+              , headSeed = offlineHeadSeed
+              , headParameters =
+                  HeadParameters
+                    { parties = [ownParty]
+                    , -- NOTE: This is irrelevant in offline mode.
+                      contestationPeriod = defaultContestationPeriod
+                    }
+              , participants = []
+              }
+        }
+    callback $
+      Observation
+        { newChainState = initialChainState
+        , observedTx =
+            OnCommitTx
+              { party = ownParty
+              , committed = initialUTxO
+              , headId = offlineHeadId
+              }
+        }
+    callback $
+      Observation
+        { newChainState = initialChainState
+        , observedTx = OnCollectComTx{headId = offlineHeadId}
+        }
