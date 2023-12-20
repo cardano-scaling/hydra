@@ -24,6 +24,7 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _Double, _JSON)
 import Data.ByteString qualified as BS
+import Data.List ((!!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -35,17 +36,20 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SlotNo (..),
+  ToUTxOContext (toUTxOContext),
   TxId,
   TxIn (..),
   VerificationKey,
   isVkTxOut,
   lovelaceToValue,
+  mkTxIn,
   mkVkAddress,
   serialiseAddress,
   signTx,
   unEpochNo,
   pattern TxOut,
   txOutValue,
+  txOuts',
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -147,14 +151,30 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 { initialUTxOFile = tmpDir </> "utxo.json"
                 , ledgerGenesisFile = Nothing
                 }
-      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] $ \node -> do
+
+      -- Start a hydra-node in offline mode and submit a transaction from alice to bob
+      aliceToBob <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] $ \node -> do
         let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
-        let Right tx =
+        let Right aliceToBob =
               mkSimpleTx
                 (aliceSeedTxIn, aliceSeedTxOut)
                 (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
                 aliceCardanoSk
-        send node $ input "NewTx" ["transaction" .= tx]
+        send node $ input "NewTx" ["transaction" .= aliceToBob]
+        waitMatch 10 node $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        pure aliceToBob
+
+      -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
+      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] $ \node -> do
+        let
+          bobTxOut = toUTxOContext $ txOuts' aliceToBob !! 0
+          Right bobToAlice =
+            mkSimpleTx
+              (mkTxIn aliceToBob 0, bobTxOut)
+              (mkVkAddress testNetworkId bobCardanoVk, txOutValue bobTxOut)
+              aliceCardanoSk
+        send node $ input "NewTx" ["transaction" .= bobToAlice]
         waitMatch 10 node $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
