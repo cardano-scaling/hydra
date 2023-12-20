@@ -613,7 +613,7 @@ onOpenNetworkReqDec ::
 onOpenNetworkReqDec openState decommitTx =
   requireNoDecommitInFlight openState decommitTx $
     let decommitUTxO = utxoFromTx decommitTx
-     in StateChanged (DecommitRecorded decommitUTxO)
+     in StateChanged (DecommitRecorded decommitTx)
           <> Effects
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
             , ClientEffect $ ServerOutput.DecommitApproved headId decommitUTxO
@@ -998,7 +998,7 @@ aggregate st = \case
                   , localTxs = mempty
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
-                  , utxoToDecommit = Nothing
+                  , decommitTx = Nothing
                   }
             , chainState
             , headId
@@ -1041,7 +1041,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  DecommitRecorded utxo ->
+  DecommitRecorded decommitTx ->
     case st of
       Open
         os@OpenState
@@ -1050,7 +1050,7 @@ aggregate st = \case
           Open
             os
               { coordinatedHeadState =
-                  coordinatedHeadState{utxoToDecommit = Just utxo}
+                  coordinatedHeadState{decommitTx = Just decommitTx}
               }
       _otherState -> st
   HeadIsReadyToFanout ->
@@ -1123,17 +1123,17 @@ requireNoDecommitInFlight ::
   Outcome tx ->
   Outcome tx
 requireNoDecommitInFlight st decommitTx cont =
-  case mExistingDecommitUTxO of
-    Just existingDecommitUTxO ->
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
       Effects
         [ ClientEffect
             ServerOutput.DecommitIgnored
               { headId
-              , utxoToDecommit = existingDecommitUTxO
+              , decommitTx = existingDecommitTx
               , reason = "DecommitTxInFlight"
               }
         ]
         <> Error (RequireFailed $ DecommitTxInFlight{decommitTx})
     Nothing -> cont
  where
-  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{utxoToDecommit = mExistingDecommitUTxO}} = st
+  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{decommitTx = mExistingDecommitTx}} = st

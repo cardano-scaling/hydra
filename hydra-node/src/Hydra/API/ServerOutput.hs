@@ -100,9 +100,9 @@ data ServerOutput tx
       , participants :: [OnChainId]
       }
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  -- FIXME: we don't need a reason here since we only ignore decommit in flight,
-  -- maybe DecommitAlreadyInFlight
-  | DecommitIgnored {headId :: HeadId, utxoToDecommit :: UTxOType tx, reason :: String}
+  | -- FIXME: we don't need a reason here since we only ignore decommit in flight,
+    -- maybe DecommitAlreadyInFlight
+    DecommitIgnored {headId :: HeadId, decommitTx :: tx, reason :: String}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   deriving stock (Generic)
 

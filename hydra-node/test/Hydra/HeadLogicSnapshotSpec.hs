@@ -58,7 +58,7 @@ spec = do
             , localTxs = mempty
             , confirmedSnapshot = InitialSnapshot testHeadId initUTxO
             , seenSnapshot = NoSeenSnapshot
-            , utxoToDecommit = Nothing
+            , decommitTx = Nothing
             }
     let sendReqSn =
           isJust
@@ -200,7 +200,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , localTxs = []
         , confirmedSnapshot = sn
         , seenSnapshot
-        , utxoToDecommit = Nothing
+        , decommitTx = Nothing
         }
     outcome = update aliceEnv simpleLedger (inOpenState' [alice] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
     Snapshot{number = confirmedSn} = getSnapshot sn

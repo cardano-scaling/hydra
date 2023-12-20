@@ -90,7 +90,7 @@ spec =
               , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
-              , utxoToDecommit = Nothing
+              , decommitTx = Nothing
               }
 
       it "reports if a requested tx is expired" $ do
@@ -172,27 +172,26 @@ spec =
                   [ ClientEffect
                       DecommitIgnored
                         { headId
-                        , utxoToDecommit
+                        , decommitTx = decommitTx''
                         , reason
                         }
                     ]
               , right =
                 Error (RequireFailed DecommitTxInFlight{decommitTx})
               } ->
-                decommitTx == decommitTx'
+                decommitTx == decommitTx''
                   && headId == testHeadId
-                  && utxoToDecommit == utxoRef 1
                   && reason == "DecommitTxInFlight"
             _ -> False
 
-        it "updates utxoToDecommit on valid ReqDec" $ do
+        it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
           let reqDec = ReqDec decommitTx'
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
               s0 = inOpenState threeParties ledger
 
           s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Nothing
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
             _ -> False
 
           s1 <- runEvents bobEnv ledger s0 $ do
@@ -200,7 +199,7 @@ spec =
             getState
 
           s1 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Just (utxoRef 1)
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
           -- running the 'ReqDec' again should not alter the recorded state
@@ -209,7 +208,7 @@ spec =
             getState
 
           s2 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{utxoToDecommit}}) -> utxoToDecommit == Just (utxoRef 1)
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
       describe "Tracks Transaction Ids" $ do
@@ -587,7 +586,7 @@ spec =
                         , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
-                        , utxoToDecommit = Nothing
+                        , decommitTx = Nothing
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
@@ -741,7 +740,7 @@ inOpenState parties Ledger{initUTxO} =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
-      , utxoToDecommit = Nothing
+      , decommitTx = Nothing
       }
  where
   u0 = initUTxO
