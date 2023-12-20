@@ -438,7 +438,7 @@ ledgerGenesisFileParser =
         <> metavar "FILE"
         <> value Nothing
         <> showDefault
-        <> help "File containing ledger genesis parameters for the simulated L1 in onffline mode."
+        <> help "File containing shelley genesis parameters for the simulated L1 in offline mode."
     )
 
 directChainConfigParser :: Parser DirectChainConfig

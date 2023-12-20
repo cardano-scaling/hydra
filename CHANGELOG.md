@@ -26,12 +26,13 @@ changes.
 
 - Report error on unsupported era.
 
-- New top-level offline mode command, `offline`
-  - Initializes ledger via `--initial-utxo` parameter, and does not connect to a
-    cardano-node.
-
-- Hydra.Options split into Hydra.Options.Common, Hydra.Options.Offline,
-  Hydra.Options.Online, re-exported from Hydra.Options.
+- New `offline` sub-command for `hydra-node`:
+  - Initializes a head with given `--initial-utxo` parameter, and does not
+    connect to the Cardano network.
+  - Transactions submitted on the L2 are validated as usual, where the offline
+    chain simulates time passing in slots.
+  - The `--ledger-genesis` option allows to give a shelley genesis file to
+    configure start time and slot length of the simulated chain time.
 
 - The `hydra-node` now also has a default `--node-id` (`"hydra-node-1"`) to
   simplify configuration.
