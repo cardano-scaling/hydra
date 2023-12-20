@@ -390,7 +390,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
         -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
         let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
         -- Spec: require U̅ ◦ txω /= ⊥ combined with Ū_active ← Ū \ Uω and Uω ← outputs(txω)
-        requireApplicableDecommitTx $ \activeUTxO ->
+        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
           -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
           requireApplyTxs activeUTxO requestedTxs $ \u -> do
             -- NOTE: confSn == seenSn == sn here
@@ -400,7 +400,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
                     , number = confSn + 1
                     , utxo = u
                     , confirmed = requestedTxIds
-                    , utxoToDecommit = mempty -- TODO: use outputs of tx_ω
+                    , utxoToDecommit = mUtxoToDecommit
                     }
             -- Spec: σᵢ
             let snapshotSignature = sign signingKey nextSnapshot
@@ -438,7 +438,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
-      Nothing -> cont confirmedUTxO
+      Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
         case canApply ledger currentSlot confirmedUTxO decommitTx of
           Invalid err ->
@@ -446,7 +446,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
           Valid -> do
             let utxoToDecommit = utxoFromTx decommitTx
             let activeUTxO = confirmedUTxO `withoutUTxO` utxoToDecommit
-            cont activeUTxO
+            cont (activeUTxO, Just utxoToDecommit)
 
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
   -- are part of the localTxs. The snapshot can contain less transactions than the ones

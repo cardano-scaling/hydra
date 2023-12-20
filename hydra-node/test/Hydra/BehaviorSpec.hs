@@ -401,7 +401,8 @@ spec = parallel $ do
 
                 waitUntilMatch [n1] $
                   \case
-                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} -> 42 `member` utxoToDecommit
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                      maybe False (42 `member`) utxoToDecommit
                     _ -> False
 
                 waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])

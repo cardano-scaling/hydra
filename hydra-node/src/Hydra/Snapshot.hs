@@ -33,8 +33,7 @@ data Snapshot tx = Snapshot
   , utxo :: UTxOType tx
   , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
-  -- FIXME: we need to record what we want to decommit here also
-  , utxoToDecommit :: UTxOType tx
+  , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Ûω
   }
   deriving stock (Generic)
@@ -75,11 +74,14 @@ instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapsh
 -- | Binary representation of snapshot signatures
 -- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{number, headId, utxo} =
+  getSignableRepresentation Snapshot{number, headId, utxo, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
         <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
+        -- TODO: is serializing separately fine or we should get the diff
+        -- between two utxos and sign that? In the spec we have added new field
+        <> maybe mempty (serialise . (toData . toBuiltin . hashUTxO @tx)) utxoToDecommit -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
