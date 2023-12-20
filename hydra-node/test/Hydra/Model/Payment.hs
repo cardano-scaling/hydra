@@ -9,6 +9,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Data.List qualified as List
+import Data.Set ((\\))
+import Data.Set qualified as Set
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair)
@@ -23,7 +25,6 @@ instance Show CardanoSigningKey where
   show CardanoSigningKey{signingKey} =
     show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
 
--- NOTE: We need this orphan instance in order to lookup keys in lists.
 instance Eq CardanoSigningKey where
   CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
 
@@ -89,6 +90,11 @@ instance IsTx Payment where
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
   utxoFromTx Payment{to, value} = [(to, value)]
+  withoutUTxO a b =
+    let as = bimap id valueToList <$> a
+        bs = bimap id valueToList <$> b
+        result = Set.toList $ Set.fromList as \\ Set.fromList bs
+     in bimap id valueFromList <$> result
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
