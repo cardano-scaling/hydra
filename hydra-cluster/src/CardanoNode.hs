@@ -4,12 +4,12 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens (ix, (^?), (^?!))
+import Control.Lens ((^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as Aeson.KeyMap
-import Data.Aeson.Lens (key, _Number, _Object)
+import Data.Aeson.Lens (key, _Number, _Value)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
@@ -372,7 +372,7 @@ refreshSystemStart stateDirectory args = do
   config <-
     unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
       <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
-      . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+        . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)
@@ -425,7 +425,7 @@ addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
 addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 getField :: ToJSON a => Aeson.Key -> a -> Aeson.Value
-getField k v = fromMaybe Aeson.Null $ toJSON v ^? (_Object . ix k)
+getField k v = fromMaybe Aeson.Null $ toJSON v ^? key k . _Value
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.
