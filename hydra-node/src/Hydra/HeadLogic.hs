@@ -95,7 +95,6 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
-import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 defaultTTL :: TTL
@@ -308,9 +307,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
               -- spec. Do we really need to store that we have
               -- requested a snapshot? If yes, should update spec.
               <> StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
-              -- FIXME: should not be always nothing if there is a decommit tx
-              -- in the state
-              <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs') Nothing)]
+              <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs') decommitTx)]
           else StateChanged (TransactionAppliedToLocalUTxO{tx, newLocalUTxO})
       )
         <> Effects [ClientEffect $ ServerOutput.TxValid headId tx]
@@ -338,7 +335,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -442,7 +439,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
       Just decommitTx ->
         case canApply ledger currentSlot confirmedUTxO decommitTx of
           Invalid err ->
-            Error $ RequireFailed $ undefined err
+            Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
           Valid -> do
             let utxoToDecommit = utxoFromTx decommitTx
             let activeUTxO = confirmedUTxO `withoutUTxO` utxoToDecommit
@@ -572,9 +569,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
-          -- FIXME: should not be always nothing if there is a decommit tx
-          -- in the state
-          <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) Nothing)]
+          <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
   nextSn = sn + 1
@@ -587,7 +582,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, localTxs} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx} = coordinatedHeadState
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
