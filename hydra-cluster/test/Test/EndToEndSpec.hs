@@ -38,14 +38,17 @@ import Hydra.Cardano.Api (
   TxId,
   TxIn (..),
   VerificationKey,
+  isVkTxOut,
   lovelaceToValue,
   mkVkAddress,
   serialiseAddress,
   signTx,
   unEpochNo,
   pattern TxOut,
+  txOutValue,
   pattern TxValidityLowerBound,
  )
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -133,29 +136,25 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
-      initialUtxo <- generate $ do
+      initialUTxO <- generate $ do
         a <- genUTxOFor aliceCardanoVk
         b <- genUTxOFor bobCardanoVk
         pure $ a <> b
-      Aeson.encodeFile (tmpDir </> "utxo.json") initialUtxo
+      Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
       let offlineConfig =
             Offline
               OfflineChainConfig
                 { initialUTxOFile = tmpDir </> "utxo.json"
                 , ledgerGenesisFile = Nothing
                 }
-
-      let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (\(TxOut addr _ _ _) -> addr == mkVkAddress networkId aliceCardanoVk) initialUtxo
-
       withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] $ \node -> do
+        let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
         let Right tx =
               mkSimpleTx
                 (aliceSeedTxIn, aliceSeedTxOut)
-                (mkVkAddress networkId bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
                 aliceCardanoSk
-
         send node $ input "NewTx" ["transaction" .= tx]
-
         waitMatch 10 node $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 

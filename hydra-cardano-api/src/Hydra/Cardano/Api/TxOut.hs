@@ -104,6 +104,24 @@ findTxOutByScript utxo script =
     _ ->
       False
 
+-- | Predicate to find or filter 'TxOut' owned by a key. This
+-- is better than comparing the full address as it does not require a network
+-- discriminator.
+isVkTxOut ::
+  forall ctx era.
+  VerificationKey PaymentKey ->
+  TxOut ctx era ->
+  Bool
+isVkTxOut vk txOut =
+  case address of
+    (AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ (Ledger.KeyHashObj kh) _)) ->
+      keyHash == kh
+    _ -> False
+ where
+  (PaymentKeyHash keyHash) = verificationKeyHash vk
+
+  (TxOut address _ _ _) = txOut
+
 -- | Predicate to find or filter 'TxOut' which are governed by some script. This
 -- is better than comparing the full address as it does not require a network
 -- discriminator.
