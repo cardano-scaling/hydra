@@ -4,12 +4,12 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens ((^?!))
+import Control.Lens (ix, (^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson ((.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as Aeson.KeyMap
-import Data.Aeson.Lens (key, _Number)
+import Data.Aeson.Lens (key, _Number, _Object)
 import Data.Fixed (Centi)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
@@ -425,12 +425,7 @@ addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
 addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 getField :: ToJSON a => Aeson.Key -> a -> Aeson.Value
-getField k v =
-  let o = toJSON v
-      keyMap = case o of
-        Aeson.Object km -> km
-        _ -> error "Not an Object"
-   in fromMaybe Aeson.Null (Aeson.KeyMap.lookup k keyMap)
+getField k v = fromMaybe Aeson.Null $ toJSON v ^? (_Object . ix k)
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.
