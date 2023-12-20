@@ -47,7 +47,6 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
               , participants = []
               }
         }
-
     callback $
       Observation
         { newChainState = initialChainState
@@ -57,4 +56,9 @@ initializeStateIfOffline chainStateHistory initialUTxO ownHeadId ownParty contes
               , committed = initialUTxO
               , headId = ownHeadId
               }
+        }
+    callback $
+      Observation
+        { newChainState = initialChainState
+        , observedTx = OnCollectComTx{headId = ownHeadId}
         }

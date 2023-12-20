@@ -13,9 +13,11 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativ
 import Cardano.Slotting.Time qualified as Slotting
 import Hydra.Cardano.Api (ShelleyGenesis (..), StandardCrypto, Tx)
 import Hydra.Chain (
+  Chain (..),
   ChainComponent,
   ChainEvent (Tick),
   ChainStateHistory,
+  PostTxError (..),
   chainSlot,
   chainTime,
  )
@@ -23,7 +25,6 @@ import Hydra.Chain.Direct.Handlers (
   DirectChainLog (),
   newLocalChainState,
  )
-import Hydra.Chain.Offline.Handlers (mkFakeL1Chain)
 import Hydra.Chain.Offline.Persistence (initializeStateIfOffline)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
@@ -59,11 +60,8 @@ withOfflineChain ::
 withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
   let ownHeadId = UnsafeHeadId "offline" -- TODO: remove usages of this
   let contestationPeriod = defaultContestationPeriod -- TODO: remove usages of this
-  initialUTxO :: UTxOType Tx <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
+  initialUTxO <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
   initializeStateIfOffline chainStateHistory initialUTxO ownHeadId party contestationPeriod callback
-
-  localChainState <- newLocalChainState chainStateHistory
-  let chainHandle = mkFakeL1Chain contestationPeriod localChainState tracer ownHeadId callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
@@ -133,3 +131,10 @@ withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} g
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
+ where
+  chainHandle =
+    Chain
+      { submitTx = const $ pure ()
+      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
+      , postTx = const $ pure ()
+      }
