@@ -26,7 +26,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
-import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
+import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Party (Party)
@@ -63,8 +63,7 @@ withOfflineChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withOfflineChain OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
-  initialUTxO <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
-  initializeOfflineHead chainStateHistory initialUTxO party callback
+  initializeOfflineHead chainStateHistory initialUTxOFile party callback
 
   -- L2 ledger normally has fixed epoch info based on slot length from protocol params
   -- we're getting it from gen params here, it should match, but this might motivate generating shelleygenesis based on protocol params
@@ -144,15 +143,17 @@ withOfflineChain OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@
 
 initializeOfflineHead ::
   ChainStateHistory Tx ->
-  UTxOType Tx ->
+  FilePath ->
   Party ->
   (ChainEvent Tx -> IO ()) ->
   IO ()
-initializeOfflineHead chainStateHistory initialUTxO ownParty callback = do
+initializeOfflineHead chainStateHistory initialUTxOFile ownParty callback = do
   let emptyChainStateHistory = initHistory initialChainState
 
   -- if we don't have a chainStateHistory to restore from disk from, start a new one
   when (chainStateHistory == emptyChainStateHistory) $ do
+    initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
+
     callback $
       Observation
         { newChainState = initialChainState
