@@ -587,12 +587,10 @@ onOpenNetworkReqDec openState decommitTx =
     let decommitUTxO = utxoFromTx decommitTx
      in StateChanged (DecommitRecorded decommitUTxO)
           <> Effects
-            -- REVIEW: Do we need to emit TransactionAppliedToLocalUTxO here?
-            -- Perhaps we do want to alter 'localUTxO' the same way we do for
-            -- 'ReqTx'?
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            -- FIXME: add decommitTx to ReqSn as a new field
-            , NetworkEffect (ReqSn nextSn (txId <$> localTxs))
+            , ClientEffect $ ServerOutput.DecommitApproved headId decommitUTxO
+            , -- FIXME: add decommitTx to ReqSn as a new field
+              NetworkEffect (ReqSn nextSn (txId <$> localTxs))
             ]
  where
   Snapshot{number} = getSnapshot confirmedSnapshot
@@ -779,12 +777,12 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent _ _ (ReqDec{decommitTx})) ->
     onOpenNetworkReqDec openState decommitTx
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-      -- TODO: Spec: require U̅ ◦ decTx /= ⊥
-      requireValidDecommitTx $ \utxoToDecommit ->
-           Effects
-            [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-            , NetworkEffect ReqDec{decommitTx}
-            ]
+    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
+    requireValidDecommitTx $ \utxoToDecommit ->
+      Effects
+        [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
+        , NetworkEffect ReqDec{decommitTx}
+        ]
    where
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥
     requireValidDecommitTx cont =
@@ -1018,11 +1016,11 @@ aggregate st = \case
         os@OpenState
           { coordinatedHeadState
           } ->
-              Open
-                os
-                  { coordinatedHeadState =
-                      coordinatedHeadState{utxoToDecommit = Just utxo}
-                  }
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState{utxoToDecommit = Just utxo}
+              }
       _otherState -> st
   HeadIsReadyToFanout ->
     case st of

@@ -33,6 +33,7 @@ data Snapshot tx = Snapshot
   , utxo :: UTxOType tx
   , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
+  -- FIXME: we need to record what we want to decommit here also
   }
   deriving stock (Generic)
 

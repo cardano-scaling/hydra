@@ -395,7 +395,7 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
                 let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n1 (Decommit decommitTx)
+                send n2 (Decommit decommitTx)
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
 
@@ -403,15 +403,14 @@ spec = parallel $ do
                 -- let sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 -- TODO; should add decommit tx to SnapshotConfirmed
                 -- waitUntil [n1] $ SnapshotConfimed snapshot sigs
-                waitUntil [n1] $ DecommitApproved testHeadId (utxoRefs [42])
+                waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])
 
                 send n1 GetUTxO
 
                 waitUntilMatch [n1] $
                   \case
-                   GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 1 utxo)
-                   _ -> False
-
+                    GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 1 utxo)
+                    _ -> False
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do

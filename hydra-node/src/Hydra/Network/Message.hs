@@ -19,6 +19,7 @@ data Connectivity
 
 data Message tx
   = ReqTx {transaction :: tx}
+  -- FIXME: add decomit tx here
   | ReqSn {snapshotNumber :: SnapshotNumber, transactionIds :: [TxIdType tx]}
   | -- NOTE: We remove the party from the ackSn but, it would make sense to put it
     -- back as the signed snapshot is tied to the party and we should not
