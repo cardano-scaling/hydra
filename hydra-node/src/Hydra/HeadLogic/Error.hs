@@ -40,6 +40,7 @@ data RequirementFailure tx
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | DecommitTxInvalid {decommitTx :: tx, error :: ValidationError}
   | DecommitTxInFlight {decommitTx :: tx}
+  | DecommitDoesNotApply {decommitTx :: tx, error :: ValidationError}
   deriving stock (Generic)
 
 deriving stock instance (Eq tx, Eq (TxIdType tx)) => Eq (RequirementFailure tx)
