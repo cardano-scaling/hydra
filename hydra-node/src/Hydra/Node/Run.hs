@@ -1,11 +1,7 @@
-{-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-
 module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Cardano.Ledger.Shelley.API qualified as Shelley
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
@@ -25,6 +21,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
+  Globals,
   newGlobals,
   newLedgerEnv,
   protocolParametersFromJson,
@@ -133,7 +130,7 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
-getGlobalsForChain :: ChainConfig -> IO Shelley.Globals
+getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGlobalsFromFile ledgerGenesisFile
