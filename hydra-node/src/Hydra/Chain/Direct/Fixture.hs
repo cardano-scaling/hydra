@@ -6,6 +6,7 @@ module Hydra.Chain.Direct.Fixture (
   module Hydra.Chain.Direct.Fixture,
   pparams,
   systemStart,
+  slotLength,
   epochInfo,
 ) where
 
@@ -32,7 +33,7 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, systemStart)
+import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
 
 -- * Cardano tx utilities
 

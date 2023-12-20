@@ -118,8 +118,9 @@ import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotNoFromUTCTime)
+import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Json ()
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
@@ -1088,7 +1089,7 @@ genFanoutTx numParties numOutputs = do
   utxo <- genUTxOAdaOnlyOfSize numOutputs
   (_, toFanout, stClosed@ClosedState{seedTxIn}) <- genStClosed ctx utxo
   cctx <- pickChainContext ctx
-  let deadlineSlotNo = slotNoFromUTCTime (getContestationDeadline stClosed)
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
       spendableUTxO = getKnownUTxO stClosed
   pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout deadlineSlotNo)
 

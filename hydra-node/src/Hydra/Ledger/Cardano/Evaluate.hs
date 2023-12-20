@@ -17,7 +17,7 @@ import Cardano.Ledger.Alonzo.Language (BinaryPlutus (..), Language (PlutusV2), P
 import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
 import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
-import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (PlutusWithContext), slotToPOSIXTime)
+import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (PlutusWithContext))
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Binary (getVersion)
@@ -26,7 +26,7 @@ import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
-import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength (getSlotLength), SystemStart (SystemStart), mkSlotLength, toRelativeTime)
+import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
 import Control.Arrow (left)
 import Control.Lens ((.~))
 import Control.Lens.Getter
@@ -63,7 +63,7 @@ import Hydra.Cardano.Api (
   toLedgerUTxO,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
@@ -336,7 +336,7 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 genPointInTime :: Gen (SlotNo, UTCTime)
 genPointInTime = do
   slot <- SlotNo <$> arbitrary
-  let time = slotNoToUTCTime slot
+  let time = slotNoToUTCTime systemStart slotLength slot
   pure (slot, time)
 
 -- | Parameter here is the contestation period (cp) so we need to generate
@@ -348,36 +348,20 @@ genValidityBoundsFromContestationPeriod (UnsafeContestationPeriod cpSeconds) = d
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
   let end = start + fromIntegral cpSeconds
   endSlot <- SlotNo <$> chooseWord64 (start, end)
-  let time = slotNoToUTCTime endSlot
+  let time = slotNoToUTCTime systemStart slotLength endSlot
   pure (startSlot, (endSlot, time))
 
 genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do
-  let SlotNo slotDeadline = slotNoFromUTCTime deadline
+  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
   slot <- SlotNo <$> choose (0, slotDeadline)
-  pure (slot, slotNoToUTCTime slot)
+  pure (slot, slotNoToUTCTime systemStart slotLength slot)
 
 genPointInTimeAfter :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeAfter deadline = do
-  let SlotNo slotDeadline = slotNoFromUTCTime deadline
+  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
   slot <- SlotNo <$> choose (slotDeadline, maxBound)
-  pure (slot, slotNoToUTCTime slot)
-
--- | Using hard-coded systemStart and slotLength, do not use in production!
-slotNoFromUTCTime :: UTCTime -> SlotNo
-slotNoFromUTCTime utcTime =
-  SlotNo $ truncate (relativeTime / getSlotLength slotLength)
- where
-  (RelativeTime relativeTime) =
-    toRelativeTime systemStart utcTime
-
--- | Using hard-coded defaults above. Fails for slots past epoch boundaries.
-slotNoToUTCTime :: HasCallStack => SlotNo -> UTCTime
-slotNoToUTCTime =
-  either error posixToUTCTime
-    . slotToPOSIXTime
-      epochInfo
-      systemStart
+  pure (slot, slotNoToUTCTime systemStart slotLength slot)
 
 -- ** Plutus cost model fixtures
 
