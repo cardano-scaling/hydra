@@ -564,6 +564,43 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
+      it "support new era" $ \tracer -> do
+        withClusterTempDir "support-new-era" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+
+          forkIntoConwayInEpoch tmpDir args 10
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              let lovelaceBalanceValue = 100_000_000
+              -- Funds to be used as fuel by Hydra protocol transactions
+              (aliceCardanoVk, _) <- keysFor Alice
+              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+              -- Get some UTXOs to commit to a head
+              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+
+              let hydraTracer = contramap FromHydraNode tracer
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+                waitForNodesConnected hydraTracer 20 [n1]
+                send n1 $ input "Init" []
+                headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+
+                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+                waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+
+                delayEpoch tmpDir args node 10
+
+                send n1 $ input "Close" []
+                waitMatch 3 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  snapshotNumber <- v ^? key "snapshotNumber"
+                  guard $ snapshotNumber == Aeson.Number 0
+
 -- | Wait until given number of epoch. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
 waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
