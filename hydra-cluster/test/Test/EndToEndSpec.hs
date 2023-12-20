@@ -487,7 +487,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             chainConfig <- chainConfigFor Alice dir nodeSocket [] (UnsafeContestationPeriod 1)
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \stdOut _ _processHandle -> do
+            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
@@ -519,7 +519,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \out err ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \out err ph -> do
               -- Assert nominal startup
               waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
@@ -538,7 +538,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             delayEpoch tmpDir args 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing Nothing $ \_out err ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
               hGetContents err >>= (`shouldContain` "Connected to cardano-node in not supported era.")
 
@@ -547,14 +547,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 delayEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
 delayEpoch stateDirectory args epochs = do
   shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
-  let slotLength :: Double =
-        case fromJSON (shellyGenesisFile & getField "slotLength") of
-          Aeson.Error _ -> error "Field slotLength not found"
-          Aeson.Success d -> d
-      epochLength =
-        case fromJSON (shellyGenesisFile & getField "epochLength") of
-          Aeson.Error _ -> error "Field epochLength not found"
-          Aeson.Success d -> d
+  let slotLength :: Double = shellyGenesisFile & getField "slotLength"
+      epochLength = shellyGenesisFile & getField "epochLength"
   threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()

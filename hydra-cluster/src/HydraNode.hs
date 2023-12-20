@@ -366,7 +366,7 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) Nothing $ do
+    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
       \_ _ processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
@@ -388,11 +388,9 @@ withHydraNode' ::
   TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
-  -- | If given use this as std err.
-  Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut mGivenStdErr action = do
+withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
@@ -425,10 +423,10 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = maybe CreatePipe UseHandle mGivenStdErr
+            , std_err = CreatePipe
             }
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
-      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr <|> mGivenStdErr) of
+      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
         (Just out, Just err) -> action out err processHandle
         (Nothing, _) -> error "Should not happen™"
         (_, Nothing) -> error "Should not happen™"
