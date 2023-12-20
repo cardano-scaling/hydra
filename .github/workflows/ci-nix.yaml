@@ -64,9 +64,9 @@ jobs:
         nix develop .#tests.${{ matrix.package }} --build
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: test-results
+        name: test-results-${{ matrix.package }}
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
@@ -74,7 +74,7 @@ jobs:
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: hydra-cluster-e2e-test-logs
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
@@ -87,7 +87,8 @@ jobs:
     - name: 📥 Download test results
       uses: actions/download-artifact@v4
       with:
-        name: test-results
+       pattern: test-results-*
+       merge-multiple: true
 
     - name: ✏ Publish test results to PR
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -121,7 +122,7 @@ jobs:
         cp -aL result/* haddocks/
 
     - name: 💾 Upload haddock artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: haddocks
         path: haddocks
@@ -168,9 +169,9 @@ jobs:
         nix develop .#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: benchmarks
+        name: benchmarks-${{matrix.package}}-${{matrix.bench}}
         path: benchmarks
 
   publish-benchmark-results:
@@ -183,8 +184,9 @@ jobs:
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v4
       with:
-        name: benchmarks
         path: artifact
+        pattern: benchmarks-*
+        merge-multiple: true
 
     - name: ⚙ Prepare comment body
       id: comment-body
@@ -237,7 +239,7 @@ jobs:
         nix build .#spec && cp result/*.pdf spec/
 
     - name: 💾 Upload specification
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: hydra-spec
         path: |
@@ -272,8 +274,9 @@ jobs:
     - name: 📥 Download benchmark results
       uses: actions/download-artifact@v4
       with:
-        name: benchmarks
         path: docs/benchmarks
+        pattern: benchmarks-*
+        merge-multiple: true
 
     - name: 📥 Download haddock documentation
       uses: actions/download-artifact@v4
@@ -284,7 +287,8 @@ jobs:
     - name: 📥 Download test results
       uses: actions/download-artifact@v4
       with:
-        name: test-results
+        pattern: test-results-*
+        merge-multiple: true
         path: docs/benchmarks/tests
 
     - name: 📥 Download specification PDF
