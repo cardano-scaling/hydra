@@ -114,7 +114,7 @@ spec =
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            snapshot1 = Snapshot testHeadId 1 mempty []
+            snapshot1 = Snapshot testHeadId 1 mempty [] mempty
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
           step reqSn
@@ -789,7 +789,10 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot ::
+  Monoid (UTxOType tx) =>
+  HeadState tx ->
+  Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
@@ -846,8 +849,16 @@ hasNoEffectSatisfying outcome predicate = do
       "Found unwanted effect in: " <> show effects
 
 testSnapshot ::
+  Monoid (UTxOType tx) =>
   SnapshotNumber ->
   UTxOType tx ->
   [TxIdType tx] ->
   Snapshot tx
-testSnapshot = Snapshot testHeadId
+testSnapshot number utxo confirmed =
+  Snapshot
+    { headId = testHeadId
+    , number
+    , utxo
+    , confirmed
+    , utxoToDecommit = mempty
+    }

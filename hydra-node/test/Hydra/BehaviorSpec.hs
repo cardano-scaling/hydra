@@ -241,7 +241,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 42)
                 waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-                let snapshot = Snapshot testHeadId 1 (utxoRefs [1, 2, 42]) [42]
+                let snapshot = Snapshot testHeadId 1 (utxoRefs [1, 2, 42]) [42] mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -406,7 +406,6 @@ spec = parallel $ do
                 waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])
 
                 send n1 GetUTxO
-
                 waitUntilMatch [n1] $
                   \case
                     GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 1 utxo)
@@ -738,7 +737,7 @@ createMockNetwork node nodes =
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
 -- all heads will have the same 'headId' and 'headSeed'.
-toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx :: Monoid (UTxOType tx) => UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx{participants, headParameters} ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}

@@ -34,6 +34,8 @@ data Snapshot tx = Snapshot
   , confirmed :: [TxIdType tx]
   -- ^ The set of transactions that lead to 'utxo'
   -- FIXME: we need to record what we want to decommit here also
+  , utxoToDecommit :: UTxOType tx
+  -- ^ UTxO to be decommitted. Spec: Ûω
   }
   deriving stock (Generic)
 
@@ -41,12 +43,13 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
     object
       [ "headId" .= headId
       , "snapshotNumber" .= number
       , "utxo" .= utxo
       , "confirmedTransactions" .= confirmed
+      , "utxoToDecommit" .= utxoToDecommit
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -56,15 +59,17 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "snapshotNumber")
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
+      <*> (obj .: "utxoToDecommit")
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, number, utxo, confirmed} =
-    [ Snapshot headId number utxo' confirmed'
+  shrink Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
+    [ Snapshot headId number utxo' confirmed' utxoToDecommit'
     | utxo' <- shrink utxo
     , confirmed' <- shrink confirmed
+    , utxoToDecommit' <- shrink utxoToDecommit
     ]
 
 -- | Binary representation of snapshot signatures
@@ -77,11 +82,21 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, number, utxo, confirmed} =
-    toCBOR headId <> toCBOR number <> toCBOR utxo <> toCBOR confirmed
+  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
+    toCBOR headId
+      <> toCBOR number
+      <> toCBOR utxo
+      <> toCBOR confirmed
+      <> toCBOR utxoToDecommit
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
-  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR =
+    Snapshot
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
 
 -- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
@@ -103,7 +118,7 @@ data ConfirmedSnapshot tx
 -- happens.
 
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
-getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: Monoid (UTxOType tx) => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     Snapshot
@@ -111,6 +126,7 @@ getSnapshot = \case
       , number = 0
       , utxo = initialUTxO
       , confirmed = []
+      , utxoToDecommit = mempty
       }
   ConfirmedSnapshot{snapshot} -> snapshot
 
@@ -158,7 +174,8 @@ genConfirmedSnapshot headId minSn utxo sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, number, utxo, confirmed = []}
+    -- TODO: check whether we are fine with this not producing any decommitting utxo ever
+    let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit = mempty}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

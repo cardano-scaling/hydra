@@ -387,7 +387,14 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
         -- Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
         requireApplyTxs requestedTxs $ \u -> do
           -- NOTE: confSn == seenSn == sn here
-          let nextSnapshot = Snapshot headId (confSn + 1) u requestedTxIds
+          let nextSnapshot =
+                Snapshot
+                  { headId
+                  , number = confSn + 1
+                  , utxo = u
+                  , confirmed = requestedTxIds
+                  , utxoToDecommit = mempty -- TODO: use outputs of tx_ω
+                  }
           -- Spec: σᵢ
           let snapshotSignature = sign signingKey nextSnapshot
           (Effects [NetworkEffect $ AckSn snapshotSignature sn] <>) $
@@ -626,6 +633,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  Monoid (UTxOType tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -665,6 +673,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   SnapshotNumber ->
   Outcome tx
@@ -688,6 +697,7 @@ onClosedChainContestTx closedState snapshotNumber
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -707,6 +717,7 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
