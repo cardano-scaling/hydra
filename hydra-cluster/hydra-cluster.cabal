@@ -157,6 +157,7 @@ test-suite tests
     Test.Hydra.Cluster.FaucetSpec
     Test.Ledger.Cardano.ConfigurationSpec
     Test.LogFilterSpec
+    Test.OfflineChainSpec
 
   build-depends:
     , aeson
