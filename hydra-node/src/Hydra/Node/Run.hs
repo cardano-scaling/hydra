@@ -123,8 +123,7 @@ run opts = do
 
   prepareChainComponent tracer Environment{party} globals = \case
     Offline cfg ->
-      -- TODO: rename DirectChain to just "chain"
-      pure $ withOfflineChain (contramap DirectChain tracer) cfg globals party
+      pure $ withOfflineChain cfg globals party
     Direct cfg -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg

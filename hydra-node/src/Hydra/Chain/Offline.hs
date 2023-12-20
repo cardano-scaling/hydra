@@ -24,12 +24,10 @@ import Hydra.Chain (
   chainTime,
   initHistory,
  )
-import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (UTxOType))
 import Hydra.Ledger.Cardano.Configuration (newGlobals, readJsonFileThrow)
-import Hydra.Logging (Tracer)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
@@ -58,14 +56,13 @@ loadGlobalsFromFile ledgerGenesisFile = do
   newGlobals $ fromShelleyGenesis shelleyGenesis
 
 withOfflineChain ::
-  Tracer IO DirectChainLog ->
   OfflineChainConfig ->
   Ledger.Globals ->
   Party ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain tracer OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
+withOfflineChain OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} globals@Ledger.Globals{systemStart} party chainStateHistory callback action = do
   initialUTxO <- readJsonFileThrow (parseJSON @(UTxOType Tx)) initialUTxOFile
   initializeOfflineHead chainStateHistory initialUTxO party callback
 
