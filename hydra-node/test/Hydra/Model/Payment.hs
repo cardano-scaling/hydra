@@ -27,6 +27,11 @@ instance Show CardanoSigningKey where
 instance Eq CardanoSigningKey where
   CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
 
+instance Ord CardanoSigningKey where
+  CardanoSigningKey a <= CardanoSigningKey b = hashOf a <= hashOf b
+   where
+    hashOf = verificationKeyHash . getVerificationKey
+
 instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"
 
