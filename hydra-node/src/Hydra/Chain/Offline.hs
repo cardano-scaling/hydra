@@ -4,9 +4,8 @@ import Hydra.Prelude
 
 import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.GenesisParameters (fromShelleyGenesis)
-import Cardano.Ledger.Slot (SlotNo (SlotNo), unSlotNo)
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength, toRelativeTime)
-import Cardano.Slotting.Time qualified as Slotting
+import Cardano.Ledger.Slot (unSlotNo)
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Hydra.Cardano.Api (GenesisParameters (..), ShelleyEra, ShelleyGenesis (..), StandardCrypto, Tx)
 import Hydra.Chain (
@@ -25,10 +24,9 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Party (Party)
-import Ouroboros.Consensus.HardFork.History (interpretQuery, mkInterpreter, neverForksSummary, slotToWallclock, wallclockToSlot)
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
 -- | Hard-coded 'HeadId' for all offline head instances.
 offlineHeadId :: HeadId
@@ -118,11 +116,11 @@ initializeOfflineHead chainStateHistory initialUTxOFile ownParty callback = do
 
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 tickForever genesis callback = do
-  initialSlot <- either throwIO pure =<< fmap slotFromUTCTime getCurrentTime
+  initialSlot <- slotNoFromUTCTime systemStart slotLength <$> getCurrentTime
   traverse_ nextTick [initialSlot ..]
  where
   nextTick upcomingSlot = do
-    timeToSleepUntil <- either throwIO pure $ slotToUTCTime upcomingSlot
+    let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
     callback $
@@ -130,30 +128,11 @@ tickForever genesis callback = do
         { chainTime = timeToSleepUntil
         , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
         }
-
-  slotFromUTCTime :: HasCallStack => UTCTime -> Either Consensus.PastHorizonException SlotNo
-  slotFromUTCTime utcTime = do
-    let relativeTime = toRelativeTime systemStart utcTime
-    case interpretQuery interpreter (wallclockToSlot relativeTime) of
-      Left pastHorizonEx ->
-        Left pastHorizonEx
-      Right (SlotNo slotNoWord64, _timeSpentInSlot, _timeLeftInSlot) ->
-        Right $ fromIntegral slotNoWord64
-
-  slotToUTCTime :: HasCallStack => SlotNo -> Either Consensus.PastHorizonException UTCTime
-  slotToUTCTime slotNo =
-    case interpretQuery interpreter (slotToWallclock slotNo) of
-      Left pastHorizonEx -> Left pastHorizonEx
-      Right (relativeTime, _slotLength) -> pure $ Slotting.fromRelativeTime systemStart relativeTime
-
-  interpreter = mkInterpreter $ neverForksSummary protocolParamEpochLength slotLength
-
   systemStart = SystemStart protocolParamSystemStart
 
   slotLength = mkSlotLength protocolParamSlotLength
 
   GenesisParameters
     { protocolParamSlotLength
-    , protocolParamEpochLength
     , protocolParamSystemStart
     } = genesis
