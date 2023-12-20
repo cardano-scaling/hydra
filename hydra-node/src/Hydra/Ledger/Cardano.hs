@@ -116,6 +116,8 @@ instance IsTx Tx where
 
   utxoFromTx = Api.utxoFromTx
 
+  withoutUTxO = UTxO.difference
+
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
 

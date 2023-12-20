@@ -53,6 +53,7 @@ instance IsTx SimpleTx where
   balance = Set.size
   hashUTxO = toStrict . foldMap (serialise . unSimpleTxIn)
   utxoFromTx = txOutputs
+  withoutUTxO = Set.difference
 
 instance Arbitrary SimpleTx where
   shrink = genericShrink

@@ -90,6 +90,7 @@ import Hydra.Ledger (
   canApply,
   txId,
   utxoFromTx,
+  withoutUTxO,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.OnChainId (OnChainId)
@@ -444,7 +445,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
             Error $ RequireFailed $ undefined err
           Valid -> do
             let utxoToDecommit = utxoFromTx decommitTx
-            let activeUTxO = Prelude.error "TODO: confirmedUTxO \\ utxoToDecommit on abstract utxo" $ utxoToDecommit
+            let activeUTxO = confirmedUTxO `withoutUTxO` utxoToDecommit
             cont activeUTxO
 
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
