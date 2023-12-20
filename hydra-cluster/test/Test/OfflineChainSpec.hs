@@ -12,7 +12,7 @@ import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (UTxO)
 import Hydra.Chain (ChainCallback, ChainEvent (..), initHistory)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (loadGlobalsFromFile, withOfflineChain)
+import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (OfflineChainConfig (..))
@@ -29,12 +29,10 @@ spec = do
               , ledgerGenesisFile = Nothing
               }
       -- XXX: this is weird
-      globals <- loadGlobalsFromFile Nothing
-      -- XXX: this is weird
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain offlineConfig globals alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain offlineConfig alice chainStateHistory callback $ \_chain -> do
         -- Expect to see a tick of slot 1 within 2 seconds
         waitMatch waitNext 2 $ \case
           Tick{chainSlot} -> chainSlot > 0
@@ -51,12 +49,10 @@ spec = do
               , ledgerGenesisFile = Just $ tmpDir </> "genesis.json"
               }
       -- XXX: this is weird
-      globals <- loadGlobalsFromFile Nothing
-      -- XXX: this is weird
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain offlineConfig globals alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain offlineConfig alice chainStateHistory callback $ \_chain -> do
         -- Should not start at 0
         waitMatch waitNext 1 $ \case
           Tick{chainSlot} -> chainSlot > 1000

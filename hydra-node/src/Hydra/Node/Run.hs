@@ -13,7 +13,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (loadGlobalsFromFile, withOfflineChain)
+import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -89,7 +89,7 @@ run opts = do
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
-        withChain <- prepareChainComponent tracer env globals chainConfig
+        withChain <- prepareChainComponent tracer env chainConfig
         withChain chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
@@ -121,9 +121,9 @@ run opts = do
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)
 
-  prepareChainComponent tracer Environment{party} globals = \case
+  prepareChainComponent tracer Environment{party} = \case
     Offline cfg ->
-      pure $ withOfflineChain cfg globals party
+      pure $ withOfflineChain cfg party
     Direct cfg -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
@@ -132,7 +132,8 @@ run opts = do
 getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
-    loadGlobalsFromFile ledgerGenesisFile
+    loadGenesisFile ledgerGenesisFile
+      >>= newGlobals
   Direct DirectChainConfig{networkId, nodeSocket} ->
     queryGenesisParameters networkId nodeSocket QueryTip
       >>= newGlobals
