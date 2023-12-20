@@ -61,7 +61,7 @@ spec = parallel $ do
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn 1 [1] Nothing, AckSn signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -70,7 +70,7 @@ spec = parallel $ do
           sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
           events =
             eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
+              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}}
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
                  , NetworkEvent{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
                  , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
@@ -80,7 +80,7 @@ spec = parallel $ do
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
-      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
+      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1] Nothing, AckSn (sign bobSk sn2) 2]
 
   it "processes out-of-order AckSn" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -90,7 +90,7 @@ spec = parallel $ do
           events =
             eventsToOpenHead
               <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
+                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Nothing}}
                  ]
       node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
       (node', getNetworkMessages) <- recordNetwork node
@@ -122,7 +122,7 @@ spec = parallel $ do
               eventsToOpenHead
                 <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
                    , NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
-                   , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
+                   , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing}}
                    ]
         node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
         (node', getNetworkMessages) <- recordNetwork node
@@ -146,7 +146,7 @@ spec = parallel $ do
         runToCompletion tracer node
 
         getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
-
+  -- FIXME: this should be in a HeadLogicSpec
   it "Emits ReqSn on valid RecDec" $
     failAfter 1 $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -155,14 +155,14 @@ spec = parallel $ do
                 <> [ NetworkEvent
                       { ttl = defaultTTL
                       , party = bob
-                      , message = ReqDec{decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
+                      , message = ReqDec{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
                       }
                    ]
 
         node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
         (node', getNetworkMessages) <- recordNetwork node
         runToCompletion tracer node'
-        getNetworkMessages `shouldReturn` [ReqSn{snapshotNumber = 1, transactionIds = [1]}]
+        getNetworkMessages `shouldReturn` [ReqSn{snapshotNumber = 1, transactionIds = [1], decommitTx = Nothing}]
 
   describe "Configuration mismatch" $ do
     let defaultEnv =

@@ -304,7 +304,9 @@ onOpenNetworkReqTx env ledger st ttl tx =
               -- spec. Do we really need to store that we have
               -- requested a snapshot? If yes, should update spec.
               <> StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs'))]
+              -- FIXME: should not be always nothing if there is a decommit tx
+              -- in the state
+              <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs') Nothing)]
           else StateChanged (TransactionAppliedToLocalUTxO{tx, newLocalUTxO})
       )
         <> Effects [ClientEffect $ ServerOutput.TxValid headId tx]
@@ -553,7 +555,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs))]
+          -- FIXME: should not be always nothing if there is a decommit tx
+          -- in the state
+          <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) Nothing)]
       else outcome
 
   nextSn = sn + 1
@@ -596,8 +600,7 @@ onOpenNetworkReqDec openState decommitTx =
           <> Effects
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
             , ClientEffect $ ServerOutput.DecommitApproved headId decommitUTxO
-            , -- FIXME: add decommitTx to ReqSn as a new field
-              NetworkEffect (ReqSn nextSn (txId <$> localTxs))
+            , NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))
             ]
  where
   Snapshot{number} = getSnapshot confirmedSnapshot
@@ -768,7 +771,7 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkEvent ttl _ (ReqTx tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkEvent _ otherParty (ReqSn sn txIds)) ->
+  (Open openState, NetworkEvent _ otherParty (ReqSn sn txIds decommitTx)) ->
     -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txIds
   (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
@@ -785,14 +788,14 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open openState, NetworkEvent _ _ (ReqDec{decommitTx})) ->
-    onOpenNetworkReqDec openState decommitTx
+  (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
+    onOpenNetworkReqDec openState transaction
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥
     requireValidDecommitTx $ \utxoToDecommit ->
       Effects
         [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-        , NetworkEffect ReqDec{decommitTx}
+        , NetworkEffect ReqDec{transaction = decommitTx}
         ]
    where
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥

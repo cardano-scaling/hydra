@@ -113,7 +113,8 @@ spec =
           `hasWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        -- TODO: perhaps use smart constructor for ReqSn to reduce the noise
+        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot1 = Snapshot testHeadId 1 mempty [] mempty
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
@@ -132,8 +133,8 @@ spec =
 
       describe "Decommit" $ do
         it "observes DecommitRequested and ReqDec in an Open state" $
-          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
-              reqDec = ReqDec decommitTx'
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              reqDec = ReqDec decommitTx
               event = NetworkEvent defaultTTL alice reqDec
               st = inOpenState threeParties ledger
               outcome = update bobEnv ledger st event
@@ -141,7 +142,7 @@ spec =
                 `hasEffectSatisfying` \case
                   ClientEffect DecommitRequested{headId, utxoToDecommit} ->
                     headId == testHeadId && utxoToDecommit == utxoRef 1
-                  NetworkEffect ReqDec{decommitTx} -> decommitTx == decommitTx'
+                  NetworkEffect ReqDec{transaction} -> transaction == decommitTx
                   _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
@@ -227,7 +228,7 @@ spec =
         it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties ledger
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1] Nothing
 
           s1 <- runEvents bobEnv ledger s0 $ do
             step $ NetworkEvent defaultTTL alice $ ReqTx t1
@@ -241,7 +242,7 @@ spec =
         it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1] Nothing
               snapshot1 = testSnapshot 1 (utxoRefs [1]) [1]
               ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
@@ -261,7 +262,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot = testSnapshot 1 mempty []
             snapshot' = testSnapshot 2 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
@@ -279,7 +280,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
@@ -295,7 +296,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
@@ -314,7 +315,7 @@ spec =
             _ -> False
 
       it "rejects last AckSn if already received signature from this party" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
             snapshot1 = testSnapshot 1 mempty []
             ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
@@ -331,7 +332,7 @@ spec =
       it "waits if we receive a snapshot with transaction not applicable on previous snapshot" $ do
         let reqTx42 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
             reqTx1 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            event = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+            event = NetworkEvent defaultTTL alice $ ReqSn 1 [1] Nothing
             s0 = inOpenState threeParties ledger
 
         s2 <- runEvents bobEnv ledger s0 $ do
@@ -344,7 +345,7 @@ spec =
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties ledger
-            reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+            reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1] Nothing
         update bobEnv ledger s0 reqSn
           `shouldBe` Wait (WaitOnTxs [1])
 
@@ -358,13 +359,13 @@ spec =
       -- snapshot collection.
 
       it "rejects if we receive a too far future snapshot" $ do
-        let event = NetworkEvent defaultTTL bob $ ReqSn 2 []
+        let event = NetworkEvent defaultTTL bob $ ReqSn 2 [] Nothing
             st = inOpenState threeParties ledger
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
-        let reqSn1 = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            reqSn2 = NetworkEvent defaultTTL bob $ ReqSn 2 []
+        let reqSn1 = NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing
+            reqSn2 = NetworkEvent defaultTTL bob $ ReqSn 2 [] Nothing
         st <-
           runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
             step reqSn1
@@ -375,14 +376,14 @@ spec =
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
             snapshot = testSnapshot 1 mempty []
-            event = NetworkEvent defaultTTL leader $ ReqSn (number snapshot) []
+            event = NetworkEvent defaultTTL leader $ ReqSn (number snapshot) [] Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties ledger
             ack = AckSn sig (number snapshot)
         update bobEnv ledger st event `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
-        let event = NetworkEvent defaultTTL notTheLeader $ ReqSn 1 []
+        let event = NetworkEvent defaultTTL notTheLeader $ ReqSn 1 [] Nothing
             notTheLeader = bob
             st = inOpenState threeParties ledger
         update bobEnv ledger st event `shouldSatisfy` \case
@@ -390,7 +391,7 @@ spec =
           _ -> False
 
       it "rejects too-old snapshots" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
+        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
@@ -399,7 +400,7 @@ spec =
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
+        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
@@ -411,7 +412,7 @@ spec =
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 3 []
+        let event = NetworkEvent defaultTTL theLeader $ ReqSn 3 [] Nothing
             theLeader = carol
             st = inOpenState threeParties ledger
         update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
@@ -420,9 +421,9 @@ spec =
         let theLeader = alice
             nextSN = 1
             firstReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 42)
-            firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [42]
+            firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [42] Nothing
             secondReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 51)
-            secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51]
+            secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51] Nothing
 
         s3 <- runEvents bobEnv ledger (inOpenState threeParties ledger) $ do
           step firstReqTx
@@ -597,7 +598,7 @@ spec =
         st <-
           run $
             runEvents bobEnv ledger st0 $ do
-              step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+              step (NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing)
               getState
 
         assert $ case st of

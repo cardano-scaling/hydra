@@ -399,10 +399,11 @@ spec = parallel $ do
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
 
-                -- let snapshot = Snapshot testHeadId 1 (utxoRefs [2]) [42]
-                -- let sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                -- TODO; should add decommit tx to SnapshotConfirmed
-                -- waitUntil [n1] $ SnapshotConfimed snapshot sigs
+                waitUntilMatch [n1] $
+                  \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} -> 42 `member` utxoToDecommit
+                    _ -> False
+
                 waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])
 
                 send n1 GetUTxO

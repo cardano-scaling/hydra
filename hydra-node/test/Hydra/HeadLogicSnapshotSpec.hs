@@ -82,7 +82,7 @@ spec = do
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
         collectEffects outcome
-          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx])]
+          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx] Nothing)]
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -122,7 +122,7 @@ spec = do
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
-          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing)
           step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -133,7 +133,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
-          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           getState
@@ -146,7 +146,7 @@ spec = do
           notLeaderEnv = envFor carolSk
 
         let initiateSigningASnapshot actor =
-              step (NetworkEvent defaultTTL actor $ ReqSn 1 [])
+              step (NetworkEvent defaultTTL actor $ ReqSn 1 [] Nothing)
             newTxBeforeSnapshotAcknowledged =
               step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
 
@@ -162,7 +162,7 @@ spec = do
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
-          step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+          step (NetworkEvent defaultTTL alice $ ReqSn 1 [] Nothing)
           step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -207,7 +207,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
     nextSn = confirmedSn + 1
   pure $
     ( collectEffects outcome
-        `shouldContain` [NetworkEffect (ReqSn nextSn [txId tx])]
+        `shouldContain` [NetworkEffect (ReqSn nextSn [txId tx] Nothing)]
     )
       & counterexample (show outcome)
 
