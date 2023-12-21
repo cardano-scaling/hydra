@@ -254,11 +254,11 @@ forkIntoConwayInEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
 forkIntoConwayInEpoch stateDirectory args n = do
   config <-
     unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
-      <&> atKey "TestConwayHardForkAtEpoch" ?~ toJSON n
+      <&> atKey "TestConwayHardForkAtEpoch"
+      ?~ toJSON n
   Aeson.encodeFile
     (stateDirectory </> nodeConfigFile args)
     config
-  return ()
 
 withCardanoNode ::
   Tracer IO NodeLog ->
@@ -361,18 +361,20 @@ refreshSystemStart stateDirectory args = do
   let startTime = round @_ @Int $ utcTimeToPOSIXSeconds systemStart
   byronGenesis <-
     unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeByronGenesisFile args)
-      <&> atKey "startTime" ?~ toJSON startTime
+      <&> atKey "startTime"
+      ?~ toJSON startTime
 
   let systemStartUTC =
         posixSecondsToUTCTime . fromRational . toRational $ startTime
   shelleyGenesis <-
     unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeShelleyGenesisFile args)
-      <&> atKey "systemStart" ?~ toJSON systemStartUTC
+      <&> atKey "systemStart"
+      ?~ toJSON systemStartUTC
 
   config <-
     unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
       <&> (atKey "ByronGenesisFile" ?~ toJSON (Text.pack $ nodeByronGenesisFile args))
-        . (atKey "ShelleyGenesisFile" ?~ String (Text.pack $ nodeShelleyGenesisFile args))
+      . (atKey "ShelleyGenesisFile" ?~ String (Text.pack $ nodeShelleyGenesisFile args))
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)

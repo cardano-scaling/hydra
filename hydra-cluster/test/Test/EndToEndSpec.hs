@@ -84,12 +84,10 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
-import Hydra.Party (deriveParty)
 import HydraNode (
   HydraClient (..),
   getMetrics,
@@ -526,7 +524,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               delayEpoch tmpDir args 1
 
               waitForProcess ph `shouldReturn` ExitFailure 1
-              hGetContents err >>= (`shouldContain` "Received blocks in unsupported era.")
+              errorOutputs <- hGetContents err
+              errorOutputs `shouldContain` "Received blocks in unsupported era"
+              errorOutputs `shouldContain` "upgrade your hydra-node"
 
       it "does report on unsupported era on startup" $ \tracer -> do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
@@ -540,7 +540,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
-              hGetContents err >>= (`shouldContain` "Connected to cardano-node in unsupported era.")
+              errorOutputs <- hGetContents err
+              errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
+              errorOutputs `shouldContain` "upgrade your hydra-node"
 
 -- | Wait for given number of epochs. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
@@ -581,12 +583,10 @@ waitForLog delay nodeOutput failureMessage predicate = do
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  let aliceTimedSk = generateSigningKey "alice-timed"
-  let aliceTimed = deriveParty aliceTimedSk
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceTimedSk [] [1] hydraScriptsTxId $ \n1 -> do
+  withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
     waitForNodesConnected hydraTracer 20 [n1]
     let lovelaceBalanceValue = 100_000_000
 
@@ -595,7 +595,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
-        headIsInitializingWith (Set.fromList [aliceTimed])
+        headIsInitializingWith (Set.fromList [alice])
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair

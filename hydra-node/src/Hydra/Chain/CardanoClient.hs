@@ -11,7 +11,7 @@ import Hydra.Cardano.Api hiding (Block)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Data.Set qualified as Set
-import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
 
 data QueryException
@@ -32,7 +32,15 @@ instance Eq QueryException where
 instance Exception QueryException where
   displayException = \case
     QueryAcquireException failure -> show failure
-    QueryEraMismatchException _ -> "Connected to cardano-node in unsupported era. Please upgrade your hydra-node."
+    QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
+      toString $
+        unwords
+          [ "Connected to cardano-node in unsupported era"
+          , otherEraName
+          , ". Please upgrade your hydra-node to era"
+          , ledgerEraName
+          , "."
+          ]
     QueryProtocolParamsConversionException err -> show err
 
 -- * CardanoClient handle
