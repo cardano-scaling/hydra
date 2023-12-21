@@ -4,11 +4,11 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens ((?~), (^?), (^?!))
+import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (Value (String), fromJSON, (.=))
+import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey, key, _Number, _Value)
+import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Fixed (Centi)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
@@ -421,14 +421,6 @@ data NodeLog
 --
 -- Helpers
 --
-
-getField :: (ToJSON a, FromJSON b) => Aeson.Key -> a -> b
-getField fieldKey value =
-  case fromJSON (findField fieldKey value) of
-    Aeson.Error _ -> error $ "Field " <> show fieldKey <> " not found"
-    Aeson.Success d -> d
- where
-  findField k v = fromMaybe Aeson.Null $ toJSON v ^? key k . _Value
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.

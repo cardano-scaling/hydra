@@ -12,7 +12,6 @@ import CardanoNode (
   CardanoNodeArgs (..),
   RunningNode (..),
   forkIntoConwayInEpoch,
-  getField,
   setupCardanoDevnet,
   unsafeDecodeJsonFile,
   withCardanoNode,
@@ -23,7 +22,7 @@ import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON)
+import Data.Aeson.Lens (key, values, _Double, _JSON)
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -549,9 +548,22 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 delayEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
 delayEpoch stateDirectory args epochs = do
   shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
-  let slotLength :: Double = shellyGenesisFile & getField "slotLength"
-      epochLength = shellyGenesisFile & getField "epochLength"
+  let slotLength =
+        fromMaybe (error "Field epochLength not found") $
+          shellyGenesisFile ^? key "slotLength" . _Double
+      epochLength =
+        fromMaybe (error "Field epochLength not found") $
+          shellyGenesisFile ^? key "epochLength" . _Double
   threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
+
+-- getValueFromKey :: Value -> Text -> Double
+-- getValueFromKey jsonValue k =
+--   let result = jsonValue ^. keyLens
+--   in case result of
+--     Number n -> realToFrac n
+--     _ -> error "Key not found or value is not a Double"
+--   where
+--     keyLens = key k . _Double
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
