@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
 --
@@ -585,9 +586,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
              in if decommitUTxOFromState == utxoToDecommit'
                   then
                     outcome
-                      <> Effects [ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}]
-                  else -- OnChainEffect{postChainTx = DecrementTx{participants, utxoToDecommit'}}
-                    outcome
+                      <> Effects
+                        [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+                        , OnChainEffect{postChainTx = DecrementTx{headId, decrementTx = decommitTx'}}
+                        ]
+                  else outcome
 
   nextSn = sn + 1
 
