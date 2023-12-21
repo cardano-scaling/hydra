@@ -1048,6 +1048,18 @@ aggregate st = \case
                   coordinatedHeadState{decommitTx = Just decommitTx}
               }
       _otherState -> st
+  DecommitFinalised ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState{decommitTx = Nothing}
+              }
+      _otherState -> st
   HeadIsReadyToFanout ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
@@ -1095,6 +1107,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
+    DecommitFinalised -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
