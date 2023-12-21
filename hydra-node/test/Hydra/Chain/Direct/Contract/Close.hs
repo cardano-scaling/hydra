@@ -148,6 +148,7 @@ healthySnapshot =
     , number = healthyCloseSnapshotNumber
     , utxo = healthyCloseUTxO
     , confirmed = []
+    , utxoToDecommit = Nothing
     }
 
 healthyCloseUTxO :: UTxO

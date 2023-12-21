@@ -62,6 +62,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
+  DecrementObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   InitObservation (..),
@@ -324,6 +325,8 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
+  Decrement DecrementObservation{headId} ->
+    pure OnDecrementTx{headId}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx

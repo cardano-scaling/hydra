@@ -642,6 +642,7 @@ data HeadObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
+  | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
@@ -655,6 +656,7 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
@@ -872,6 +874,19 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
+
+data DecrementObservation = DecrementObservation
+  { threadOutput :: OpenThreadOutput
+  , headId :: HeadId
+  , utxoHash :: UTxOHash
+  }
+  deriving stock (Show, Eq)
+
+observeDecrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe DecrementObservation
+observeDecrementTx utxo tx = error "Not implemented"
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput

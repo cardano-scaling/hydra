@@ -106,6 +106,7 @@ healthyContestSnapshot =
     , number = healthyContestSnapshotNumber
     , utxo = healthyContestUTxO
     , confirmed = []
+    , utxoToDecommit = Nothing
     }
 
 healthyContestSnapshotNumber :: SnapshotNumber
