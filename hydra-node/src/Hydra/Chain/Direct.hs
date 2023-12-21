@@ -9,6 +9,8 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Cardano.Api.Block (Block (ShelleyBlock))
+import Cardano.Binary (decodeFullDecoder, serialize)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Slotting.EpochInfo (hoistEpochInfo)
@@ -32,11 +34,12 @@ import Hydra.Cardano.Api (
   ConsensusModeParams (..),
   EpochSlots (..),
   EraHistory (EraHistory),
-  EraInMode (BabbageEraInCardanoMode),
+  EraInMode (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  ShelleyBasedEra (..),
   SocketPath,
   Tx,
   TxInMode (..),
@@ -88,6 +91,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import Ouroboros.Consensus.Shelley.Ledger (decodeShelleyBlock, encodeShelleyBlock)
+import Ouroboros.Network.Block (unwrapCBORinCBOR, wrapCBORinCBOR)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -303,6 +308,22 @@ chainSyncClient handler wallet startingPoint =
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode _ (Block header txs) BabbageEraInCardanoMode -> do
+              -- Update the tiny wallet
+              update wallet header txs
+              -- Observe Hydra transactions
+              onRollForward handler header txs
+              pure clientStIdle
+            BlockInMode _ block ConwayEraInCardanoMode -> do
+              -- TODO: uses cardano-api:internal
+              let (ShelleyBlock ShelleyBasedEraConway conwayBlock) = block
+              -- XXX: We should not be needing to wrap / unwrap in addition. We
+              -- just found those functions to satisfy the types.
+              let serializedBlock = serialize $ wrapCBORinCBOR encodeShelleyBlock conwayBlock
+              let babbageBlock =
+                    case decodeFullDecoder "ShelleyBlock Babbage" (unwrapCBORinCBOR decodeShelleyBlock) serializedBlock of
+                      Left e -> error $ show e
+                      Right b -> b
+              let (Block header txs) = ShelleyBlock ShelleyBasedEraBabbage babbageBlock
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
