@@ -4,13 +4,13 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens ((^?), (^?!))
+import Control.Lens ((?~), (^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (fromJSON, (.=))
+import Data.Aeson (Value (String), fromJSON, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap qualified as Aeson.KeyMap
-import Data.Aeson.Lens (key, _Number, _Value)
+import Data.Aeson.Lens (atKey, key, _Number, _Value)
 import Data.Fixed (Centi)
+import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cardano.Api qualified as Api
@@ -253,8 +253,8 @@ setupCardanoDevnet stateDirectory = do
 forkIntoConwayInEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
 forkIntoConwayInEpoch stateDirectory args n = do
   config <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
-      <&> addField "TestConwayHardForkAtEpoch" n
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
+      <&> atKey "TestConwayHardForkAtEpoch" ?~ toJSON n
   Aeson.encodeFile
     (stateDirectory </> nodeConfigFile args)
     config
@@ -360,19 +360,19 @@ refreshSystemStart stateDirectory args = do
   systemStart <- initSystemStart
   let startTime = round @_ @Int $ utcTimeToPOSIXSeconds systemStart
   byronGenesis <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeByronGenesisFile args)
-      <&> addField "startTime" startTime
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeByronGenesisFile args)
+      <&> atKey "startTime" ?~ toJSON startTime
 
   let systemStartUTC =
         posixSecondsToUTCTime . fromRational . toRational $ startTime
   shelleyGenesis <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
-      <&> addField "systemStart" systemStartUTC
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeShelleyGenesisFile args)
+      <&> atKey "systemStart" ?~ toJSON systemStartUTC
 
   config <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
-      <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
-      . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
+      <&> (atKey "ByronGenesisFile" ?~ toJSON (Text.pack $ nodeByronGenesisFile args))
+        . (atKey "ShelleyGenesisFile" ?~ String (Text.pack $ nodeShelleyGenesisFile args))
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)
@@ -420,9 +420,6 @@ data NodeLog
 --
 -- Helpers
 --
-
-addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
-addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 getField :: (ToJSON a, FromJSON b) => Aeson.Key -> a -> b
 getField fieldKey value =
