@@ -38,8 +38,7 @@ instance Exception QueryException where
           [ "Connected to cardano-node in unsupported era"
           , otherEraName
           , ". Please upgrade your hydra-node to era"
-          , ledgerEraName
-          , "."
+          , ledgerEraName <> "."
           ]
     QueryProtocolParamsConversionException err -> show err
 

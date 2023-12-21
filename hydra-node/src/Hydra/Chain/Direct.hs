@@ -25,6 +25,7 @@ import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
+  CardanoEra (BabbageEra),
   CardanoMode,
   ChainPoint,
   ChainTip,
@@ -249,17 +250,26 @@ instance Exception ConnectException
 newtype IntersectionNotFoundException = IntersectionNotFound
   { requestedPoint :: ChainPoint
   }
-  deriving stock (Show)
+  deriving newtype (Show)
 
 instance Exception IntersectionNotFoundException
 
-data ChainClientException
-  = EraNotSupportedException
+data ChainClientException = EraNotSupportedException
+  { otherEraName :: Text
+  , ledgerEraName :: Text
+  }
   deriving stock (Show)
 
 instance Exception ChainClientException where
   displayException = \case
-    EraNotSupportedException -> "Received blocks in unsupported era Babbage. Please upgrade your hydra-node to era Conway."
+    EraNotSupportedException{otherEraName, ledgerEraName} ->
+      toString $
+        unwords
+          [ "Received blocks in unsupported era"
+          , otherEraName
+          , ". Please upgrade your hydra-node to era"
+          , ledgerEraName <> "."
+          ]
 
 -- | The block type used in the node-to-client protocols.
 type BlockType = BlockInMode CardanoMode
@@ -305,7 +315,7 @@ chainSyncClient handler wallet startingPoint =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            _ -> throwIO EraNotSupportedException
+            (BlockInMode era _ _) -> throwIO $ EraNotSupportedException{otherEraName = show era, ledgerEraName = show BabbageEra}
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
           reset wallet
