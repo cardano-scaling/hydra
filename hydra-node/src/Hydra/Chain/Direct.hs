@@ -266,8 +266,8 @@ instance Exception ChainClientException where
       toString $
         unwords
           [ "Received blocks in unsupported era"
-          , otherEraName
-          , ". Please upgrade your hydra-node to era"
+          , otherEraName <> "."
+          , "Please upgrade your hydra-node to era"
           , ledgerEraName <> "."
           ]
 

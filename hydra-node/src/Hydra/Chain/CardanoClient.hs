@@ -36,8 +36,8 @@ instance Exception QueryException where
       toString $
         unwords
           [ "Connected to cardano-node in unsupported era"
-          , otherEraName
-          , ". Please upgrade your hydra-node to era"
+          , otherEraName <> "."
+          , "Please upgrade your hydra-node to era"
           , ledgerEraName <> "."
           ]
     QueryProtocolParamsConversionException err -> show err
