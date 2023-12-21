@@ -248,8 +248,7 @@ setupCardanoDevnet stateDirectory = do
       mkTopology peers
 
 -- | Modify the cardano-node configuration to fork into conway at given era
--- number. See 'config/devnet/genesis-shelley.json' for the epoch length (in
--- slots).
+-- number.
 forkIntoConwayInEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
 forkIntoConwayInEpoch stateDirectory args n = do
   config <-
