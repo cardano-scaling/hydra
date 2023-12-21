@@ -177,6 +177,7 @@ data ChainTransition
   | Abort
   | Commit
   | Collect
+  | Decrement
   | Close
   | Contest
   | Fanout

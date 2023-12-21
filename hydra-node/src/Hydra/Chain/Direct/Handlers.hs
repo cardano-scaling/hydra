@@ -372,6 +372,9 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
+    DecrementTx{decrementTx} ->
+      -- TODO: at least check if valid head
+      pure decrementTx
     CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
