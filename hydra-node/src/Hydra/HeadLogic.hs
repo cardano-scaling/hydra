@@ -521,6 +521,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             Effects [ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig]
               <> StateChanged SnapshotConfirmed{snapshot, signatures = multisig}
               & maybeEmitSnapshot
+              & maybeEmitDecommitApproved snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -572,6 +573,20 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
+  maybeEmitDecommitApproved Snapshot{utxoToDecommit} outcome =
+    case utxoToDecommit of
+      Nothing -> outcome
+      Just utxoToDecommit' ->
+        case decommitTx of
+          Nothing -> outcome
+          Just decommitTx' ->
+            -- Snapshotted utxo should match what we have in the local state.
+            let decommitUTxOFromState = utxoFromTx decommitTx'
+             in if decommitUTxOFromState == utxoToDecommit'
+                  then
+                    outcome
+                      <> Effects [ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}]
+                  else outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
@@ -611,7 +626,6 @@ onOpenNetworkReqDec openState decommitTx =
      in StateChanged (DecommitRecorded decommitTx)
           <> Effects
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            , ClientEffect $ ServerOutput.DecommitApproved headId decommitUTxO
             , NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))
             ]
  where
