@@ -170,10 +170,9 @@ spec =
               { left =
                 Effects
                   [ ClientEffect
-                      DecommitIgnored
+                      DecommitAlreadyInFlight
                         { headId
                         , decommitTx = decommitTx''
-                        , reason
                         }
                     ]
               , right =
@@ -181,7 +180,6 @@ spec =
               } ->
                 decommitTx == decommitTx''
                   && headId == testHeadId
-                  && reason == "DecommitTxInFlight"
             _ -> False
 
         it "updates decommitTx on valid ReqDec" $ do

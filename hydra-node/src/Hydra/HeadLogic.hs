@@ -1122,10 +1122,9 @@ requireNoDecommitInFlight st decommitTx cont =
     Just existingDecommitTx ->
       Effects
         [ ClientEffect
-            ServerOutput.DecommitIgnored
+            ServerOutput.DecommitAlreadyInFlight
               { headId
               , decommitTx = existingDecommitTx
-              , reason = "DecommitTxInFlight"
               }
         ]
         <> Error (RequireFailed $ DecommitTxInFlight{decommitTx})

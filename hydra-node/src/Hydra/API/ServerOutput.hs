@@ -100,9 +100,7 @@ data ServerOutput tx
       , participants :: [OnChainId]
       }
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | -- FIXME: we don't need a reason here since we only ignore decommit in flight,
-    -- maybe DecommitAlreadyInFlight
-    DecommitIgnored {headId :: HeadId, decommitTx :: tx, reason :: String}
+  | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   deriving stock (Generic)
 
@@ -160,7 +158,8 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
-    DecommitIgnored headId u reason -> DecommitIgnored <$> shrink headId <*> shrink u <*> shrink reason
+    DecommitAlreadyInFlight headId u -> DecommitAlreadyInFlight <$> shrink headId <*> shrink u
+    DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -232,7 +231,8 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
-    DecommitIgnored{} -> encodedResponse
+    DecommitAlreadyInFlight{} -> encodedResponse
+    DecommitApproved{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
