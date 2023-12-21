@@ -586,9 +586,16 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
              in if decommitUTxOFromState == utxoToDecommit'
                   then
                     outcome
+                      <> StateChanged DecommitSigned
                       <> Effects
                         [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
-                        , OnChainEffect{postChainTx = DecrementTx{headId, decrementTx = decommitTx'}}
+                        , OnChainEffect
+                            { postChainTx =
+                                DecrementTx
+                                  { headId
+                                  , decrementUTxO = utxoToDecommit'
+                                  }
+                            }
                         ]
                   else outcome
 
@@ -1067,6 +1074,18 @@ aggregate st = \case
                   coordinatedHeadState{decommitTx = Just decommitTx}
               }
       _otherState -> st
+  DecommitSigned ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState
+          } ->
+          Open
+            os
+              { coordinatedHeadState =
+                  coordinatedHeadState{decommitTx = Nothing}
+              }
+      _otherState -> st
   HeadIsReadyToFanout ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
@@ -1114,6 +1133,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
+    DecommitSigned -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
