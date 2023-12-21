@@ -101,7 +101,9 @@ data ServerOutput tx
       }
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
-  | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | -- | Issued once all parties have signed the 'Snapshot' containing the
+    -- decommit 'UTxO'.
+    DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
