@@ -50,6 +50,7 @@ import Hydra.Chain.Direct.State (
   collect,
   commit',
   contest,
+  decrement,
   fanout,
   getKnownUTxO,
   initialize,
@@ -375,9 +376,10 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
-    DecrementTx{decrementTx} ->
-      -- TODO: at least check if valid head
-      pure decrementTx
+    DecrementTx{headId, decrementUTxO} ->
+      case decrement headId decrementUTxO spendableUTxO of
+        Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
+        Right decrementTx' -> pure decrementTx'
     CloseTx{headId, headParameters, confirmedSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters

@@ -66,7 +66,7 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
-  | DecrementTx {headId :: HeadId, decrementTx :: tx}
+  | DecrementTx {headId :: HeadId, decrementUTxO :: UTxOType tx}
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
@@ -83,7 +83,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    DecrementTx{headId, decrementTx} -> DecrementTx <$> shrink headId <*> shrink decrementTx
+    DecrementTx{headId, decrementUTxO} -> DecrementTx <$> shrink headId <*> shrink decrementUTxO
     CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline
@@ -104,7 +104,7 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
-  | OnDecrementTx {headId :: HeadId, decrementTx :: tx}
+  | OnDecrementTx {headId :: HeadId, decrementUTxO :: UTxOType tx}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -163,6 +163,7 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructDecrementTx
   | FailedToConstructFanoutTx
   deriving stock (Generic)
 

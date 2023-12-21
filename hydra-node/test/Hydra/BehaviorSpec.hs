@@ -747,8 +747,8 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  DecrementTx{headId, decrementTx} ->
-    OnDecrementTx{headId, decrementTx}
+  DecrementTx{headId, decrementUTxO} ->
+    OnDecrementTx{headId, decrementUTxO}
   CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId

@@ -487,6 +487,15 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
+decrement ::
+  HeadId ->
+  -- | UTxO to be decommitted
+  UTxO ->
+  -- | Spendable UTxO containing head, initial and commit outputs
+  UTxO ->
+  Either CollectTxError Tx
+decrement headId decrementUTxO = undefined
+
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.
 --  - 'SlotNo' parameter will be used as the 'Tx' lower bound.
