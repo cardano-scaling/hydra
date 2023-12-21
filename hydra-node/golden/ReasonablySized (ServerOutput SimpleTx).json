@@ -11,11 +11,12 @@
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -4
+                    2
                 ],
                 "headId": "07010004070806000607000803080802",
                 "snapshotNumber": 6,
-                "utxo": []
+                "utxo": [],
+                "utxoToDecommit": null
             },
             "tag": "SnapshotConfirmed"
         },
@@ -114,9 +115,9 @@
             "headId": "05070406040607040504050407050807",
             "signatures": {
                 "multiSignature": [
-                    "ef58876c73acebef995e18201c861af07b98bb11b589e668258cab3b7dd62a4a5e0056e9f74228485dff57ac3771b1cd6734d2d02af4e360ee36ed1c7f7a6b0d",
+                    "25a547b291ba6d98e0c5330abd4a3e928093f03f05242bddb9113dbf5fd8640e53fd6ff95924b868d613cd0314f074a3d9038e32f664803f177195f784815e05",
                     "7d59a614c438c24a85d7c9dcadc16e7495f65fea541b1570d73ce3c34710f8184371dc4e2a75442939f787cc33169fadc5db0dfe3496621cc57000a328be750f",
-                    "15dc0d80b6a53f6e38bdf7a4afb9dce1822f90d837051644dd167f1e039fe14792690106678ece189e307eb76b0a7a5349591ec73071a883e45a4af7306f470a"
+                    "c7c8d635dec6cfc2429f0fae859c598018169f836c6539d81d4433b631a03793102dae602514938bc60c8500747dfd905430ea3eeb90830cd5d41ae94746780f"
                 ]
             },
             "snapshot": {
@@ -129,7 +130,8 @@
                     -2,
                     3,
                     6
-                ]
+                ],
+                "utxoToDecommit": null
             },
             "tag": "SnapshotConfirmed"
         },
@@ -157,48 +159,13 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "46df91723734e1c197f949d05af01340a282eb2aadccdf768777abb6fbffa28e158b64007146c82b219d05c848c0031e98c33ef817c75737bf34cf3437272509"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "00070302050807040402060503020001",
-                        "snapshotNumber": 2,
-                        "utxo": [
-                            0,
-                            2
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "02000508010500000401030602030205",
-                "headParameters": {
-                    "contestationPeriod": 43200,
-                    "parties": [
-                        {
-                            "vkey": "9392e07df55a057858c4e22cd10058b28def0dc759033504423538946f511aba"
-                        },
-                        {
-                            "vkey": "407ffb0e8f6e215169b92878a1ad555428a6f0fce6c0f245d7b09a1dc05e9434"
-                        },
-                        {
-                            "vkey": "eefe5346c59a86d4b463d608e5c3a4a7f6efe7c224bfe49b606c1f6c37cedca5"
-                        },
-                        {
-                            "vkey": "95688d94bee9d25a14fe747e8715fbb2a2e9839ee7fc3fe9cc81abc65a483d65"
-                        },
-                        {
-                            "vkey": "becac748bf466ac677df43cf7034c37edcf34cc9c272f52750af72ac71704987"
-                        },
-                        {
-                            "vkey": "ca2aefbc019b0f5dbc8610c5bfaced935e91e99da6b59a48c3ee500ccf702440"
-                        }
-                    ]
-                },
-                "tag": "ContestTx"
+                "contestationDeadline": "1864-05-04T17:10:06.178939870529Z",
+                "headSeed": "05010007040703070804020507050402",
+                "tag": "FanoutTx",
+                "utxo": [
+                    -5,
+                    1
+                ]
             },
             "postTxError": {
                 "tag": "FailedToConstructCloseTx"
@@ -250,14 +217,11 @@
         },
         {
             "headId": "01080400010604070306080003080400",
-            "party": {
-                "vkey": "22a8a045e5ff4aede2f3331c600ca1067f5e7ac5d45362ddfa30e53b944b8d87"
-            },
-            "tag": "Committed",
-            "utxo": [
+            "tag": "DecommitRequested",
+            "utxoToDecommit": [
+                -5,
                 -4,
-                -3,
-                2
+                -2
             ]
         },
         {
@@ -339,17 +303,17 @@
             "tag": "PeerConnected"
         },
         {
-            "headStatus": "Idle",
-            "hydraNodeVersion": "􁲛 ",
-            "me": {
-                "vkey": "b2eedd0297180233762ee10a125c7f0d7809818cade1a74240693e0e76d1548b"
+            "decommitTx": {
+                "id": 3,
+                "inputs": [],
+                "outputs": [
+                    0,
+                    1,
+                    4
+                ]
             },
-            "snapshotUtxo": [
-                -5,
-                -2,
-                5
-            ],
-            "tag": "Greetings"
+            "headId": "04010402070000000506050507040803",
+            "tag": "DecommitAlreadyInFlight"
         },
         {
             "postChainTx": {
@@ -370,7 +334,8 @@
                             2,
                             3,
                             6
-                        ]
+                        ],
+                        "utxoToDecommit": null
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -379,7 +344,7 @@
                     "contestationPeriod": 2592000,
                     "parties": []
                 },
-                "tag": "ContestTx"
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "mainnetLimitLovelace": 11,
@@ -454,21 +419,29 @@
             "headId": "02050507080302000503070006050604",
             "signatures": {
                 "multiSignature": [
-                    "df440ba6978047da3abae44bdb0b137290ce16b95a71a37f676eb2357c2fca582ede5c0f1155ef7e057e4f7636357d21cbdf3625a9ba15f5fb5d107efb0c6608",
-                    "dda320ba6d9ef50106bfc0cabf7879c62b72da9b9b9a5711c20883afcf5e9fb3eb11201fc8e40977b891d80d057df09c113668a710b7840a1ad4d17c97c06b00",
-                    "189f8b8701f9dea4a912ce60dcaf23f850f646d7df03571b44351f89940b22a92e28572158cf4fbe2ac962f542596e9c6de8d39074bfdfd02d1985b5d7fb4104"
+                    "ef4e2fa79abfe69533f92a514917745ef099dcf2c03ed08a50add75067ccb7a3ba5ed63f8066b8b146006366147741b77454438c70c67501a158ed80be85ef0c",
+                    "500a625008671cafcc39aef7fb4bd420129d00e026fccfaf692feeecce82fa96a2396cb8c6a271274db38cad5b17cc2b420c3ad0ef81857154275495d108b909",
+                    "15494719542d70c05a668daca342c0eaf919f1b0a6df004d681d0b2ee77f5f86855c306092431397adb11628defb30912e2703ae66a9df501244b15c77f7fb00"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    2,
-                    -4,
+                    4,
                     -3,
-                    2
+                    -2,
+                    0,
+                    -3
                 ],
                 "headId": "00040602010507020707080705010308",
                 "snapshotNumber": 4,
-                "utxo": []
+                "utxo": [],
+                "utxoToDecommit": [
+                    -6,
+                    -1,
+                    2,
+                    3,
+                    5
+                ]
             },
             "tag": "SnapshotConfirmed"
         },
@@ -479,17 +452,21 @@
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    2,
-                    -5,
+                    -6,
                     1,
-                    3,
-                    1
+                    -2,
+                    -1
                 ],
                 "headId": "03080707040001000606000608050202",
                 "snapshotNumber": 0,
                 "utxo": [
                     -2,
                     3
+                ],
+                "utxoToDecommit": [
+                    -1,
+                    5,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -565,45 +542,15 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "ba110501456d082c1918a37224cbfff1dada678078742f386b6bc3f5b7f04c100bb9710cdd1ce45637ce20ee177f86c66fb4c93244934df92b191d51cac3ee08"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "03070507060603010102010801020802",
-                        "snapshotNumber": 1,
-                        "utxo": [
-                            -6,
-                            0
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "08020308020702080503060806040504",
-                "headParameters": {
-                    "contestationPeriod": 43200,
-                    "parties": [
-                        {
-                            "vkey": "6f0da4f3f4b3f217a59de8950cbc548be034d9ca7369f49e8c06e9ea195c854c"
-                        },
-                        {
-                            "vkey": "06311f50a33172fe7d4547bc398517463981044e1accca07f9aef6ba0085c029"
-                        },
-                        {
-                            "vkey": "b705daaa5aa45f6c823808e0336d62fa19045b89e465274374fa65aa5107ab6a"
-                        },
-                        {
-                            "vkey": "fa3d5103cfc148b2a13dcf733dba427df63f321f9fc9213dfc41de6c9ad18317"
-                        },
-                        {
-                            "vkey": "b08210e90d800a64dd3e638c25bdf695c296c6b58b3d4bb67a325744c90da11b"
-                        }
-                    ]
-                },
-                "tag": "ContestTx"
+                "contestationDeadline": "1864-05-04T18:17:40.598265482185Z",
+                "headSeed": "03040206040304060505080106030004",
+                "tag": "FanoutTx",
+                "utxo": [
+                    -6,
+                    -4,
+                    -3,
+                    -2
+                ]
             },
             "postTxError": {
                 "tag": "NoFuelUTXOFound"
@@ -645,21 +592,17 @@
         },
         {
             "clientInput": {
-                "tag": "Fanout"
+                "tag": "Contest"
             },
             "tag": "CommandFailed"
         },
         {
             "headId": "08060403060503040408020005040703",
-            "parties": [
-                {
-                    "vkey": "cb350dd70c692f6c5814174e46a08ba5dac793a465ac984fc74496cab10e2320"
-                },
-                {
-                    "vkey": "cae48d7b15d4efc71778ab23f8854bfdf7c9fc4e0e35d0ef5898e7801792b64c"
-                }
-            ],
-            "tag": "HeadIsInitializing"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -4,
+                4
+            ]
         },
         {
             "headId": "04060008010702000001020201000408",
@@ -686,40 +629,10 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "d0df2aea87c675f269806c7633ef3947958c00401a17b8c6489a1f6cb3accce1ef6e5f2060e75d83c66ece6c7e4bd97f1fe66d73efe0b42a630246e967e01209",
-                            "861c4fff3a06ba5f984bb08f129063de7a55494923149669513f427071da2b0e7dc622c5c517ab5df831ed91bd5ba9560cc23f52fb7cd33fbc045a9ea97c9e05",
-                            "b3b120405a1e763bf6df9106ddaac3cbf3b3112f5a2a4395bc1ee1adca888a5ed089a0eae05af1cb789104beb1eae8cc8e380c2fc5bf1bd657c495e627ebe90d"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "03050208020507070102080304050004",
-                        "snapshotNumber": 1,
-                        "utxo": [
-                            1
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "08040500020501000401030801030007",
-                "headParameters": {
-                    "contestationPeriod": 24825,
-                    "parties": [
-                        {
-                            "vkey": "dd09d69492fb1e3a215adf3f0ff693b4412da0019f36d12cb397625dae493541"
-                        },
-                        {
-                            "vkey": "3ba8377fb3a68dd35dbe3697c3d1218be037f30c2bab46cdf2ab2fcbd922f5a7"
-                        },
-                        {
-                            "vkey": "3b697d45bf4c6f4b3b744113daedd5aad7c9eb455c4cc50cc0e8bb7dd447e453"
-                        }
-                    ]
-                },
-                "tag": "CloseTx"
+                "contestationDeadline": "1864-05-10T09:25:41.516819096694Z",
+                "headSeed": "00010207050707020602050800040001",
+                "tag": "FanoutTx",
+                "utxo": []
             },
             "postTxError": {
                 "tag": "NotEnoughFuel"
@@ -765,28 +678,19 @@
             ]
         },
         {
+            "decommitTx": {
+                "id": -3,
+                "inputs": [
+                    -4,
+                    -3
+                ],
+                "outputs": [
+                    -3,
+                    3
+                ]
+            },
             "headId": "01020106040803070406040508000701",
-            "parties": [
-                {
-                    "vkey": "397c51148ec9e865adc27f59a309878a0c66343e42bbe124266ddb7d3f884712"
-                },
-                {
-                    "vkey": "534dbcc39886d235389c1d8f659ecd3ca8cb73d40416e0be4463b1916c0dc8a8"
-                },
-                {
-                    "vkey": "aa519bdf1530dac1723c2bf46bfbd3f9eccef7add83bccb22794f49eb67cc9c0"
-                },
-                {
-                    "vkey": "19d82a303e9f7f5635d82325884926c411fc760d786a6f8a44ebb608b11a3776"
-                },
-                {
-                    "vkey": "1c3d10755320faa9ca5854f5e2a55b5f92a33ae3620aa5387fa99d7640fc06f8"
-                },
-                {
-                    "vkey": "2bc18e74156bb625474e19418ba61ff4f9ebe329efeda3e3147b930b9896e870"
-                }
-            ],
-            "tag": "HeadIsInitializing"
+            "tag": "DecommitAlreadyInFlight"
         },
         {
             "headId": "02040306010705010801000701030700",
@@ -798,17 +702,14 @@
             "signatures": {
                 "multiSignature": [
                     "b03127116568d4f5464b672f858adf1d8f7761f2c1e2e1c108ebad1670efe5ee65b6f1bbf32bd45c4dce2e1963dd3bfa995a576195f9e731a8260a957f61d007",
-                    "db3b758988de308ee91d739f6a9cfdc8a584078cd416a4169fadc1e0f67922bda6ec6db0d4a79f21f505094d18c240a6ad8c99327866c805d006d381d8961209",
-                    "9368252284b4b6ef7279be4561d3d18a25ade1c1f8f7eb8015478151f0991a8a99dd704ddbb65be330fd943e7da7cdd907fd7f6ec7cf8cbdc8fef593575c3606",
+                    "5e919d84d1ecf93638b9709cb76056d7277bf778fa6337da0ad0c4a65e29d3ed9f1b565a6f58e6db535ff09a7c50843fbc7818b12d3b30ae7445bf4a1c0b4508",
+                    "8d6d84eed60e20bec30bda5f9c6e85258e85a334824897782a4cb3fdbba6a18c32be5a6cad6576b57332f93f6a9ce0bde48711f9efb459a1ed03f72d857c8a0f",
                     "7558d289f1d848cd59ad8f5591c950616fa2e120547facb180c4df7ad9c629e75939cb6597d966f968dda0b42ec0aecf24edf7a11ed8f6224f548aceaa774c0c"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    6,
-                    -6,
-                    2,
-                    -1
+                    1
                 ],
                 "headId": "03030702050000070102060806050503",
                 "snapshotNumber": 2,
@@ -819,6 +720,11 @@
                     1,
                     2,
                     4
+                ],
+                "utxoToDecommit": [
+                    -6,
+                    3,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -880,49 +786,15 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "35f09a68e35248e3fd003bf17cd8a30d470463249b31315d5db220ad8172e1040ae77bde2cf9512f36b1420222682e2c5bee054f95a00083b8ba4760cdbc5800",
-                            "b016e4f456dc682991e8e96b20146a143128d3e959a93e4f0b451b56e19b37d44c3019a74074d3d308a1c60e93757934565f783a112aad0ace64d4efa59fee0f",
-                            "4cb68c8252f6409cee8efeb7d878b7c78856f77cee760c96005037ea7d8c49692b3b27cb12f04daeb5db292dff60b1241959f1f71b83524bf79cc6aa96d56d01",
-                            "23a4f8bea946692c00db99932b09886a2099497091fe00136a660352926a77faaf2d42cbaf42f988711cb62b669b02ace662b707ba0d1ac4787594a5e65db500",
-                            "737ecd0e12c18e750fd5b529a8c5166dbc6b017b4ce25d4387f77eec551ddf190e1243a5ad15622ad22ea9a6d3609897084805d097eb2ed34afa1c5732127609"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "08080305080304070204020203050303",
-                        "snapshotNumber": 1,
-                        "utxo": [
-                            2,
-                            3
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "01030604040204080608060807030206",
-                "headParameters": {
-                    "contestationPeriod": 86400,
-                    "parties": [
-                        {
-                            "vkey": "e0da9c6e8a8be840bb5b085279b8429d19bee91d96fd794d24061a028af7ad23"
-                        },
-                        {
-                            "vkey": "f6986a3eca9f0f1af1dae46a8957a38a4314445f91cb8790d9f338d68eb02dd5"
-                        },
-                        {
-                            "vkey": "4276f6770b6db36a2008167a8bbb5e97c8ff8afe52c442a642c7c97c5d3467f9"
-                        },
-                        {
-                            "vkey": "585231f93a5c02d0b68aafc13cdca3cee26d16d73c5fcc4bdbbecc87b7680e3e"
-                        },
-                        {
-                            "vkey": "5f4f599b3321f21ba674d39f96eb73f46548b19ac11ae207c845de439de1c159"
-                        }
-                    ]
-                },
-                "tag": "ContestTx"
+                "contestationDeadline": "1864-05-07T03:34:48.153934657082Z",
+                "headSeed": "04050506060302080805000506010804",
+                "tag": "FanoutTx",
+                "utxo": [
+                    -6,
+                    -5,
+                    -3,
+                    5
+                ]
             },
             "postTxError": {
                 "mainnetLimitLovelace": 53,
@@ -1113,8 +985,16 @@
             }
         },
         {
-            "peer": "p",
-            "tag": "PeerDisconnected"
+            "headId": "05050707020800040306060700030507",
+            "tag": "DecommitRequested",
+            "utxoToDecommit": [
+                -5,
+                -4,
+                -1,
+                4,
+                5,
+                6
+            ]
         },
         {
             "postChainTx": {
@@ -1147,17 +1027,27 @@
             "headId": "03080805010604080403070606070502",
             "signatures": {
                 "multiSignature": [
-                    "772ff0779f24268199084f9086c12fba1b6688550d457562dcfe6c11f107d484483aa338af35db5ec0f8518f7db16b3573277b7144200ee26f03c68a6d82000e"
+                    "967d5de03cde8e807f5993ed83641b3eca72bc5465c51855cee7dac160c60423ca33e4d64bbd992b8a77b878957b6c73e88c1349e664d8e24f5ec0aba70fc40c"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [],
+                "confirmedTransactions": [
+                    0,
+                    1
+                ],
                 "headId": "07080500000408070600030400030504",
                 "snapshotNumber": 2,
                 "utxo": [
                     -6,
                     -1,
                     1
+                ],
+                "utxoToDecommit": [
+                    -6,
+                    -4,
+                    -2,
+                    4,
+                    6
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -1176,18 +1066,33 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "decommitTx": {
+                    "id": 3,
+                    "inputs": [
+                        -5,
+                        5
+                    ],
+                    "outputs": [
+                        -4,
+                        -3,
+                        -2,
+                        -1,
+                        5
+                    ]
+                },
+                "tag": "Decommit"
             },
             "tag": "CommandFailed"
         },
         {
-            "peer": "bnzfpf",
-            "tag": "PeerConnected"
+            "headId": "02040502070800040106060203020407",
+            "tag": "DecommitRequested",
+            "utxoToDecommit": []
         },
         {
             "headId": "00010406050503030100060004010400",
-            "tag": "HeadIsFinalized",
-            "utxo": []
+            "tag": "DecommitApproved",
+            "utxoToDecommit": []
         },
         {
             "headId": "05070304020004060603030808010605",
@@ -1200,23 +1105,12 @@
             ]
         },
         {
-            "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [
-                        -3,
-                        -1,
-                        3,
-                        4,
-                        5
-                    ],
-                    "outputs": [
-                        6
-                    ]
-                }
-            },
-            "tag": "CommandFailed"
+            "headId": "03030101050402020602000302030807",
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -4,
+                5
+            ]
         },
         {
             "contestationDeadline": "1864-05-07T22:51:38.390925325424Z",
@@ -1230,34 +1124,34 @@
             "tag": "HeadIsContested"
         },
         {
-            "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [],
-                    "outputs": [
-                        -2
-                    ]
-                }
-            },
-            "tag": "CommandFailed"
+            "headId": "08010108020603040404020800060600",
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -3,
+                -2,
+                0,
+                3,
+                5
+            ]
         },
         {
             "headId": "06030303010707080205080502060606",
             "signatures": {
                 "multiSignature": [
-                    "ff3fdaf4ddf50b01e9899f569f42d34f2fcd03d82215e7343a6608cf3a76a7053c94fe84fe2e296bed0e1e16e621eced16ce48c37c488f689513529a4bcf0201",
-                    "b494b858889fb7250641be85b72840afd259eb76126ba07a6e3b141d44a986736bf63a0920b47603f2babd7ca7b9115b7a005fb15b7256a4bdda9c31c09e3f00",
-                    "dcdebaaa80c8ba6dacaecab90c1e7b1223ec5b2513e16d9e073a1513ae38999f48773548f79d9cec9cb584a625c18e74e7240655a21bc06b3846ab6b1a74fe09",
-                    "7251bff5d59b4d2147c0b8f3455b985382915fa7b676b8776368cefd32105d65dfeb39e3bdefcf5202c17e983b2d01c68ca7cc5ec3027e2ea9854c22fa79fc04"
+                    "44f95de6b7ab761628e07d15a16be144b0870690100589e4f17ed50003b47e7fe5dafe9518cd4bc1b91ee997ef00d62caf8e85bc5a5344699689e8b8a00c6b01",
+                    "af86e09d4b9b5a6d0ab1c44caf5ad3268e49caad9f89700886cba6078e68dd046aaefed17a9b432a91a914d6480ea136bcea81bbfabe6ee4ff0a361178379903",
+                    "6196310b9e640686e11ba72acb2ad63650137f24218896ce0f4a19ef2f20d564c6226ee82f58dec6715bc2ff20ebe042a049b8dd053b458cd556b6000a31ec02",
+                    "4b481f9ac82d840e40b68f3d5e0811a212b9cc66095a63fcc1c67f6d1fe75861cb54e92fca5001451dddcc62488f84133ce0af9a62c566373057113097b85606"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    5,
-                    -1,
-                    2,
-                    5
+                    -5,
+                    -5,
+                    -6,
+                    -4,
+                    -4,
+                    6
                 ],
                 "headId": "06080804030002060203070603000307",
                 "snapshotNumber": 2,
@@ -1268,7 +1162,8 @@
                     -1,
                     1,
                     4
-                ]
+                ],
+                "utxoToDecommit": null
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1325,8 +1220,8 @@
         },
         {
             "headId": "01050104060204060302050306000203",
-            "tag": "HeadIsAborted",
-            "utxo": [
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
                 -6,
                 -3,
                 3,
@@ -1351,8 +1246,13 @@
             "tag": "HeadIsContested"
         },
         {
-            "peer": "sbpaa",
-            "tag": "PeerConnected"
+            "headId": "06070303010500010106010607000001",
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -5,
+                -4,
+                -2
+            ]
         },
         {
             "headId": "06020700040601050203010504020203",
@@ -1409,9 +1309,21 @@
             "tag": "HeadIsClosed"
         },
         {
+            "decommitTx": {
+                "id": 3,
+                "inputs": [
+                    -6,
+                    -5,
+                    -2,
+                    2,
+                    5
+                ],
+                "outputs": [
+                    3
+                ]
+            },
             "headId": "01080704020203080403000601030207",
-            "snapshotNumber": 0,
-            "tag": "HeadIsContested"
+            "tag": "DecommitAlreadyInFlight"
         },
         {
             "headStatus": "Final",
@@ -1445,31 +1357,10 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "158f1f88ad0b9bb5d7e416134cf72f5d15a73ed81926001ce57420765428eb920d25d22dae86fb793e54cbdfe7343d4cd6275ab3e76e82db83be53026b7cf005",
-                            "442ba1415381cc121e92767f73f5cefc02c8e3024fde51fe23a151e8a138a9863cd331cdf7d68ab2ca274df1a14fda72fa4ebf89707bda6e0a4eedcc90aa220d"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "04060007030407060305010008080506",
-                        "snapshotNumber": 6,
-                        "utxo": [
-                            1,
-                            4,
-                            5
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "00060508000804060500000404010207",
-                "headParameters": {
-                    "contestationPeriod": 2592000,
-                    "parties": []
-                },
-                "tag": "CloseTx"
+                "contestationDeadline": "1864-05-07T02:24:49.064672464481Z",
+                "headSeed": "01080802070402040004080201050105",
+                "tag": "FanoutTx",
+                "utxo": []
             },
             "postTxError": {
                 "knownUTxO": [
@@ -1677,23 +1568,29 @@
             "headId": "01070700080807080002040102010002",
             "signatures": {
                 "multiSignature": [
-                    "059cdf98cc67b2fab3ef963f1a3658c57fb71fa1a606b0a751cfcfcfadfc22efc54389e7f5b3e7675a6861662582b45f7f323371a1bbae82c8073c95ed376e00",
-                    "70175d73245add5ff2526d55b77b625c3bcbac06caf2add7ea4a87e0cffa803990203948114c4f264024eabbfbd23d4321f0310fd900ec3dbe7e286d6e1cdb0b",
-                    "fb296aff29ed7fa73194954cee2318b50656f5a0ef89c5c6c6f5f3702794f651af4af04901a022f3ce7cceb901cca22e6703fc3d2561eae8d368abd2957dc807",
-                    "a03bac2667fabd96611e4d32731ed06fdeb3e54486719be4d7f83e3587815f34b1d465c7eb356dffe0387abc78c3a48b26f7066d14147df39d0cf48ead685b0d",
-                    "f7a3329ab9685b402f04ffc57eec74cba8cdeeba85f8b55eeef41e93976a448f7393187ff3040d313251327a6ead1730ae88b3286990c09c655ad5101d5ab806",
-                    "42345216065314c6a321a6bfb931a26945a8880a81334aee979e7132e90fc3a2f99d85e4d14f25b57a0227dacc9442ae81aeddba5da53d9e3564a4523a32fd04"
+                    "dfcf9a56fcd931b637243be35877933c21cbb559a8075bdf65dd4619fc644ae8592a4820239eee34c1f73f5d7073a23b2cc7c8468b048680221c94b681e8260f",
+                    "e4ac51e485e2b060357f71c804fd58df6c67dac735404aa877982ce8f842bb888ed68651524a2fd5dad4367a1a7a1b267434a43a3af548e11d657122da035901",
+                    "4bf6ff35efa417d4da129eb475bc10110e7dcfc10ee0cbfcd8b6fff5390f34c9558da898dab387b8120a06f7b33aca2dda92816babfac804cedf5aa4b363290c",
+                    "78cf4cc9a90ee403bb8a6844459302943d7c03297d9d2528cabff95e634e9ce6a2491016f703fe4f18b4d1172633155d0beae1f1bb30b1ae27be96bb546a0702",
+                    "9bab1c80d6cd400cda5abd66d25e0169737873ebe2c9d7478fff9f73e9a228115c4511f9ac5f4e7269a6db0d3507ac0bc61c32d1cf6c344f4b4455b3cb18550a",
+                    "6c817e48480fa7aa4f3cbbf15226e8f8109ae9668bb06f5216eeca100007d04727ceeff1e4de10ca171d362192a94bce4fa67d84b4e2a24287b17f1f6af79104"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    6,
-                    -4
+                    4,
+                    5,
+                    3,
+                    -4,
+                    -1
                 ],
                 "headId": "00020305040002060508010303060505",
                 "snapshotNumber": 2,
                 "utxo": [
                     4
+                ],
+                "utxoToDecommit": [
+                    -2
                 ]
             },
             "tag": "SnapshotConfirmed"
@@ -1719,8 +1616,10 @@
         },
         {
             "headId": "02070706060007040608030304080807",
-            "snapshotNumber": 3,
-            "tag": "HeadIsContested"
+            "tag": "DecommitRequested",
+            "utxoToDecommit": [
+                6
+            ]
         },
         {
             "headId": "08020603070302020303080300060601",
@@ -1838,13 +1737,41 @@
             "tag": "PostTxOnChainFailed"
         },
         {
+            "decommitTx": {
+                "id": 2,
+                "inputs": [
+                    -5,
+                    0,
+                    1,
+                    2
+                ],
+                "outputs": [
+                    -3,
+                    -2,
+                    0,
+                    5
+                ]
+            },
             "headId": "07030003080806080001030108010205",
-            "snapshotNumber": 4,
-            "tag": "HeadIsContested"
+            "tag": "DecommitAlreadyInFlight"
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "decommitTx": {
+                    "id": -3,
+                    "inputs": [
+                        -4,
+                        -3,
+                        -1,
+                        0,
+                        1
+                    ],
+                    "outputs": [
+                        -2,
+                        0
+                    ]
+                },
+                "tag": "Decommit"
             },
             "tag": "CommandFailed"
         },
@@ -1892,18 +1819,16 @@
             ]
         },
         {
-            "headId": "00010303010505070604040601010208",
-            "party": {
-                "vkey": "8e59ee72401c76f5a48e96ff9535d94b5d60993d9d5a0d55bb20470e4c8e2474"
+            "decommitTx": {
+                "id": -2,
+                "inputs": [
+                    -6,
+                    1
+                ],
+                "outputs": []
             },
-            "tag": "Committed",
-            "utxo": [
-                -6,
-                -5,
-                -2,
-                1,
-                3
-            ]
+            "headId": "00010303010505070604040601010208",
+            "tag": "DecommitAlreadyInFlight"
         },
         {
             "headId": "05020702040004040300060002030508",
@@ -1950,8 +1875,8 @@
         },
         {
             "headId": "03040608030804020503010803000308",
-            "tag": "HeadIsFinalized",
-            "utxo": [
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
                 -6,
                 -4,
                 1,
@@ -2018,30 +1943,12 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "headId": "02010808080804050207070801000502",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -6,
-                "inputs": [
-                    -6,
-                    -1,
-                    2,
-                    6
-                ],
-                "outputs": [
-                    -5,
-                    -2,
-                    2
-                ]
-            },
-            "utxo": [
-                -2,
-                3,
-                4
-            ],
-            "validationError": {
-                "reason": "|*D𓄍"
-            }
+            "headId": "06030301070205040003020807070803",
+            "tag": "DecommitRequested",
+            "utxoToDecommit": [
+                -4,
+                -1
+            ]
         },
         {
             "headId": "01080501000504080807080605060304",
@@ -2074,34 +1981,24 @@
         },
         {
             "headId": "03080207070201050804020006040802",
-            "signatures": {
-                "multiSignature": [
-                    "8d7239021db4034751b4106adfabab51cbc91a02d89520fd952fb5f1741560797b1960dd99564baeab4d66426fcec0e4178214e661971663b5e25da322f2be02",
-                    "f4eb84fe959aee8d4cae48ae763e4dd5854980b2ca31617594b71be2f26d33a99c43bd3b34eae84b4320be0183561a67a89b728b455c803f785a5f6641d4b405",
-                    "4935cf4c570ea8eb6d2c67b37577a675c852e92a4e2bcf039fa1c9bbe68e716126723a313b98ee610dd36b3c9149872b34b870ba86d1dc9756679c22ef847c0b",
-                    "da7afcc3389d8113a8e64feb92fcf2c3a18de499af8507802d7cab1796da73953e1d8b45516e3ab4cfb712b3bce62943b07755cc2a615983fe87aa928fd5f50e",
-                    "456fe1240dcf3ccb5593bf2d3f5a8d38e6603ee3efe300fd29e2e0280d34232898ba3df0f6109a989860b4650462da9d47400188454e7932bcf47e080e35cd06",
-                    "ab5d75586ed7207f52f3879f387381bd1f827b1ab9a20d6ffc950707681042158816902359fe737082c477d55dcf21ba3acd615ac2b4a0b106556f7f2ac2a902"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    1,
-                    -3,
-                    5,
-                    6,
-                    -4,
-                    -6
-                ],
-                "headId": "04010502070203010606000001020403",
-                "snapshotNumber": 0,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                1,
+                4,
+                5
+            ]
         },
         {
-            "peer": "cvsne",
-            "tag": "PeerConnected"
+            "headId": "04050700080704010206030002060006",
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -6,
+                -4,
+                -3,
+                -2,
+                0,
+                3
+            ]
         },
         {
             "headId": "00010006060303040706050201060408",
@@ -2139,7 +2036,8 @@
                         "confirmedTransactions": [],
                         "headId": "04050703060803050004010606030101",
                         "snapshotNumber": 3,
-                        "utxo": []
+                        "utxo": [],
+                        "utxoToDecommit": null
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -2148,7 +2046,7 @@
                     "contestationPeriod": 604800,
                     "parties": []
                 },
-                "tag": "ContestTx"
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "headSeed": "01070404000602050405000400060600",
@@ -2270,14 +2168,43 @@
         },
         {
             "postChainTx": {
-                "contestationDeadline": "1864-05-03T06:09:32.530111185842Z",
-                "headSeed": "08070605060406040205060404040508",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -5,
-                    -3,
-                    4
-                ]
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "072091a50ffbf94972bfddae45c2f74f2c78d13bc5fce9d2fbd5486b668882a75641055cad9ab44198679482f3ef81d151b6b6706bacdcf52fa3d352fe250104"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "headId": "03030002050707050401000207080304",
+                        "snapshotNumber": 6,
+                        "utxo": [],
+                        "utxoToDecommit": null
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "headId": "03010401040007050608020301050702",
+                "headParameters": {
+                    "contestationPeriod": 31536000,
+                    "parties": [
+                        {
+                            "vkey": "ff7e60a27e121513b06f2a5faa42f35015f593a488df3e2c9bd7ffb1076eb680"
+                        },
+                        {
+                            "vkey": "b04bf64144f09dfc5a0bfa731ec8e434696aa72bb488396046d35070a67e347f"
+                        },
+                        {
+                            "vkey": "a4e513acaa259d7baa8f106b4b35d9043f22c9349716d1934a1dac2f7960f45f"
+                        },
+                        {
+                            "vkey": "a2c21f90ca611e88a4f69dcc4a2652727af44dda0e147bbb17f5b5adbf8a9ecf"
+                        },
+                        {
+                            "vkey": "ac40aa53f2488a50dc19a66a8ff204cc3d90a6df69460bd6e3ff283d49088e03"
+                        }
+                    ]
+                },
+                "tag": "ContestTx"
             },
             "postTxError": {
                 "failureReason": "v",

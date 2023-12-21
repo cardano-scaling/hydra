@@ -2,63 +2,32 @@
     "samples": [
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "7acc594b607e17c7d275b512d2feab0865849f7f2842593a7398f409914a0e91372b3dd8db3ca62c45d1a468330451af82b46873ca98930ff2863faed279da0c",
-                            "63c7f2e54353aacf0e90876be875f68def0c38bf8c3937e0c34560ba035ad9455f630f3a58574c3ab941b44c9ef031e2aeed4ba07f843e5e3d5290f2fd1f0906",
-                            "417c10ea2b723c01e7a0f04a487d8e6484e25d376a05386cff5fa461fe154a128daff256e468dc89e69d0581fd4c5af875eb3cbe0ada2c54ef1cabcc204bf407",
-                            "2756453295179e357d5a533bfd56cbf1bacda088715fea72d3af7566a2b4f24f0878f4d54798e7e15d3d4d94871a5d2fd64c6a0db5e2c6fce275a4401cedc606",
-                            "062e353f2db34f825925f034859a8ee51d1add6311944fef339de85a35fb27d866f4e5aefc4e87a248e0d14f0a5714f5991b97cb86c3886fe893f7e7f91cb00e"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "d47ef17a7ccc05bf82f0625c1d931a0e",
-                        "snapshotNumber": 27,
-                        "utxo": [
-                            2,
-                            12
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "c59608c612d55a0c882abaa18a1c250e",
-                "headParameters": {
-                    "contestationPeriod": 75488,
-                    "parties": [
-                        {
-                            "vkey": "ba2b316673c386efb932066ceafeb187b3c055d8092ed46cc296b56588fb480b"
-                        }
+                "decrementTx": {
+                    "id": -20,
+                    "inputs": [
+                        -27,
+                        -22,
+                        -21,
+                        -7,
+                        17
+                    ],
+                    "outputs": [
+                        2,
+                        12
                     ]
                 },
-                "tag": "CloseTx"
+                "headId": "c59608c612d55a0c882abaa18a1c250e",
+                "tag": "DecrementTx"
             },
             "postTxError": {
-                "knownUTxO": [
-                    -27,
-                    -23,
-                    -17,
-                    -16,
-                    -13,
-                    -9,
-                    -3,
-                    2,
-                    5,
-                    10,
-                    11,
-                    16,
-                    17,
-                    21,
-                    27
-                ],
-                "tag": "CannotFindOwnInitial"
+                "headId": "74f2ed384a0f753f8706e0a04103feb9",
+                "tag": "InvalidHeadId"
             },
             "tag": "PostTxError"
         },
         {
             "message": {
-                "tag": "ReqTx",
+                "tag": "ReqDec",
                 "transaction": {
                     "id": -2,
                     "inputs": [
@@ -160,11 +129,63 @@
         },
         {
             "message": {
+                "decommitTx": {
+                    "id": 9,
+                    "inputs": [
+                        -23,
+                        -21,
+                        -19,
+                        -17,
+                        -14,
+                        -13,
+                        -7,
+                        0,
+                        2,
+                        4,
+                        5,
+                        16,
+                        17,
+                        19,
+                        24,
+                        26,
+                        30
+                    ],
+                    "outputs": [
+                        -27,
+                        -17,
+                        -16,
+                        -14,
+                        -11,
+                        -9,
+                        -3,
+                        -1,
+                        7,
+                        22,
+                        24,
+                        26,
+                        28
+                    ]
+                },
                 "snapshotNumber": 3,
                 "tag": "ReqSn",
                 "transactionIds": [
-                    22,
-                    -13
+                    0,
+                    4,
+                    16,
+                    26,
+                    -19,
+                    -1,
+                    11,
+                    0,
+                    10,
+                    -6,
+                    19,
+                    -2,
+                    -20,
+                    12,
+                    7,
+                    8,
+                    14
                 ]
             },
             "party": {
@@ -175,9 +196,18 @@
         },
         {
             "message": {
-                "signed": "a27f8582e9c12e66b02b24b029716d5a4ab32da11c899b1aba99650c7a972318b031e8a57df63f22d38561da7dbb23e9c8504ecb11bee34877b01a02372aa20b",
-                "snapshotNumber": 0,
-                "tag": "AckSn"
+                "tag": "ReqDec",
+                "transaction": {
+                    "id": 10,
+                    "inputs": [],
+                    "outputs": [
+                        -30,
+                        -26,
+                        3,
+                        10,
+                        20
+                    ]
+                }
             },
             "party": {
                 "vkey": "3a31af3b199ce0f7d1efda02534708c9cb969d018b5b09e16584c1b40f41ec47"
