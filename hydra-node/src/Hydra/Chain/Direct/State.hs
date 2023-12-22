@@ -94,6 +94,7 @@ import Hydra.Chain.Direct.Tx (
   collectComTx,
   commitTx,
   contestTx,
+  decrementTx,
   fanoutTx,
   headIdToPolicyId,
   initTx,
@@ -487,14 +488,30 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
+data DecrementTxError
+  = InvalidHeadIdInDecrement {headId :: HeadId}
+  | CannotFindHeadOutputInDecrement
+  deriving stock (Show)
+
 decrement ::
+  ChainContext ->
   HeadId ->
+  HeadParameters ->
   -- | UTxO to be decommitted
   UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  Either CollectTxError Tx
-decrement _headId _decrementUTxO = undefined
+  Either DecrementTxError Tx
+decrement ctx headId headParameters decrementUTxO spendableUTxO = do
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
+  let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
+  headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
+  pure $
+    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO
+ where
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.

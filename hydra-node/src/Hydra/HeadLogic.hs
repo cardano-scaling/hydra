@@ -522,7 +522,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             Effects [ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig]
               <> StateChanged SnapshotConfirmed{snapshot, signatures = multisig}
               & maybeEmitSnapshot
-              & maybeEmitDecommitApproved snapshot
+              & maybeEmitDecrementTx snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -574,7 +574,10 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
-  maybeEmitDecommitApproved Snapshot{utxoToDecommit} outcome =
+  maybeEmitDecrementTx Snapshot{utxoToDecommit} outcome =
+    -- TODO: dry a bit? Also we probably want dedicated errors for when utxo to
+    -- decommit is present in the snapshot but  decommitTx is not present in the
+    -- state?
     case utxoToDecommit of
       Nothing -> outcome
       Just utxoToDecommit' ->
@@ -594,6 +597,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                 DecrementTx
                                   { headId
                                   , decrementUTxO = utxoToDecommit'
+                                  , headParameters = parameters
                                   }
                             }
                         ]

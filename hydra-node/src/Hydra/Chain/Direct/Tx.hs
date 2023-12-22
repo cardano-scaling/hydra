@@ -314,6 +314,24 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
+decrementTx ::
+  NetworkId ->
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
+  -- | Head identifier
+  HeadId ->
+  -- | Parameters of the head to collect .
+  HeadParameters ->
+  -- | Everything needed to spend the Head state-machine output.
+  (TxIn, TxOut CtxUTxO) ->
+  -- | UTxO to be decommitted.
+  UTxO ->
+  Tx
+decrementTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) utxoToDecrement =
+  undefined
+
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
 -- contains relevant chain state like the 'openUtxoHash'.
