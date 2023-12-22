@@ -367,7 +367,7 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId action = do
   withLogFile logFilePath $ \logFileHandle -> do
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId (Just logFileHandle) $ do
-      \_ processHandle -> do
+      \_ _ processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
           (withConnectionToNode tracer hydraNodeId action)
@@ -388,7 +388,7 @@ withHydraNode' ::
   TxId ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> ProcessHandle -> IO a) ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds hydraScriptsTxId mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -423,13 +423,13 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds h
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = Inherit
+            , std_err = CreatePipe
             }
-    withCreateProcess p $ \_stdin mCreatedHandle mErr processHandle ->
-      case (mCreatedHandle, mGivenStdOut, mErr) of
-        (Just out, _, _) -> action out processHandle
-        (Nothing, Just out, _) -> action out processHandle
-        (_, _, _) -> error "Should not happen™"
+    withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
+      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
+        (Just out, Just err) -> action out err processHandle
+        (Nothing, _) -> error "Should not happen™"
+        (_, Nothing) -> error "Should not happen™"
  where
   peers =
     [ Host

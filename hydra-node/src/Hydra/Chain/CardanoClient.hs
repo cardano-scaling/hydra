@@ -11,8 +11,9 @@ import Hydra.Cardano.Api hiding (Block)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import Data.Set qualified as Set
-import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
+import Text.Printf (printf)
 
 data QueryException
   = QueryAcquireException AcquiringFailure
@@ -29,7 +30,12 @@ instance Eq QueryException where
     (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
     _ -> False
 
-instance Exception QueryException
+instance Exception QueryException where
+  displayException = \case
+    QueryAcquireException failure -> show failure
+    QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
+      printf "Connected to cardano-node in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
+    QueryProtocolParamsConversionException err -> show err
 
 -- * CardanoClient handle
 
@@ -216,6 +222,24 @@ querySystemStart networkId socket queryPoint =
 queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO (EraHistory CardanoMode)
 queryEraHistory networkId socket queryPoint =
   runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
+
+-- | Query the current epoch number.
+--
+-- Throws at least 'QueryException' if query fails.
+queryEpochNo ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  IO EpochNo
+queryEpochNo networkId socket queryPoint = do
+  let query =
+        QueryInEra
+          BabbageEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraBabbage
+              QueryEpoch
+          )
+  runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Query the protocol parameters at given point.
 --

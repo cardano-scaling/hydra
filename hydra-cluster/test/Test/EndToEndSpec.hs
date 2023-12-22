@@ -1,6 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Test.EndToEndSpec where
 
@@ -8,17 +7,26 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoClient (QueryPoint (..), queryEpochNo, queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
+import CardanoNode (
+  CardanoNodeArgs (..),
+  RunningNode (..),
+  forkIntoConwayInEpoch,
+  setupCardanoDevnet,
+  unsafeDecodeJsonFile,
+  withCardanoNode,
+  withCardanoNodeDevnet,
+ )
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
 import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON)
+import Data.Aeson.Lens (key, values, _Double, _JSON)
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
@@ -34,6 +42,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
+  unEpochNo,
   pattern TxOut,
   pattern TxValidityLowerBound,
  )
@@ -54,6 +63,8 @@ import Hydra.Cluster.Fixture (
   carol,
   carolSk,
   carolVk,
+  cperiod,
+  defaultNetworkId,
  )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
@@ -73,12 +84,10 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (generateSigningKey)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
-import Hydra.Party (deriveParty)
 import HydraNode (
   HydraClient (..),
   getMetrics,
@@ -96,9 +105,14 @@ import HydraNode (
   withOfflineHydraNode,
  )
 import System.Directory (removeDirectoryRecursive)
+import System.Exit (ExitCode (ExitFailure))
 import System.FilePath ((</>))
-import System.IO (hGetLine)
+import System.IO (
+  hGetContents,
+  hGetLine,
+ )
 import System.IO.Error (isEOFError)
+import System.Process (waitForProcess)
 import Test.QuickCheck (generate)
 import Prelude qualified
 
@@ -116,7 +130,7 @@ withClusterTempDir name =
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
-    withTempDir ("offline-mode-e2e") $ \tmpDir -> do
+    withTempDir "offline-mode-e2e" $ \tmpDir -> do
       let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
@@ -471,7 +485,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             chainConfig <- chainConfigFor Alice dir nodeSocket [] (UnsafeContestationPeriod 1)
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _processHandle -> do
+            withHydraNode' chainConfig dir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
@@ -494,6 +508,58 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
+
+    describe "forking eras" $ do
+      it "does report on unsupported era" $ \tracer -> do
+        withClusterTempDir "unsupported-era" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+          forkIntoConwayInEpoch tmpDir args 1
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \out err ph -> do
+                -- Assert nominal startup
+                waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+
+                waitUntilEpoch tmpDir args node 1
+
+                waitForProcess ph `shouldReturn` ExitFailure 1
+                errorOutputs <- hGetContents err
+                errorOutputs `shouldContain` "Received blocks in unsupported era"
+                errorOutputs `shouldContain` "upgrade your hydra-node"
+
+      it "does report on unsupported era on startup" $ \tracer -> do
+        withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+          forkIntoConwayInEpoch tmpDir args 1
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+
+              waitUntilEpoch tmpDir args node 2
+
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
+                waitForProcess ph `shouldReturn` ExitFailure 1
+                errorOutputs <- hGetContents err
+                errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
+                errorOutputs `shouldContain` "upgrade your hydra-node"
+
+-- | Wait until given number of epoch. This uses the epoch and slot lengths from
+-- the 'ShelleyGenesisFile' of the node args passed in.
+waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
+waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo = do
+  fromEpochNo :: Natural <- fromIntegral . unEpochNo <$> queryEpochNo networkId nodeSocket QueryTip
+  toEpochNo `shouldSatisfy` (> fromEpochNo)
+  shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
+  let slotLength =
+        fromMaybe (error "Field epochLength not found") $
+          shellyGenesisFile ^? key "slotLength" . _Double
+      epochLength =
+        fromMaybe (error "Field epochLength not found") $
+          shellyGenesisFile ^? key "epochLength" . _Double
+  threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
@@ -525,8 +591,6 @@ waitForLog delay nodeOutput failureMessage predicate = do
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  let aliceSk = generateSigningKey "alice-timed"
-  let alice = deriveParty aliceSk
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer

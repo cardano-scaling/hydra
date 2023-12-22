@@ -72,16 +72,15 @@ data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
   | InvalidOptionException InvalidOptions
   deriving stock (Show)
-  deriving anyclass (Exception)
 
-explain :: ConfigurationException -> String
-explain = \case
-  InvalidOptionException MaximumNumberOfPartiesExceeded ->
-    "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
-  InvalidOptionException CardanoAndHydraKeysMissmatch ->
-    "Number of loaded cardano and hydra keys needs to match"
-  ConfigurationException err ->
-    "Incorrect protocol parameters configuration provided: " <> show err
+instance Exception ConfigurationException where
+  displayException = \case
+    InvalidOptionException MaximumNumberOfPartiesExceeded ->
+      "Maximum number of parties is currently set to: " <> show maximumNumberOfParties
+    InvalidOptionException CardanoAndHydraKeysMissmatch ->
+      "Number of loaded cardano and hydra keys needs to match"
+    ConfigurationException err ->
+      "Incorrect protocol parameters configuration provided: " <> show err
 
 runOffline :: RunOfflineOptions -> IO ()
 runOffline opts = do
@@ -218,13 +217,10 @@ loadGlobalsFromGenesis ledgerGenesisFile = do
 
   let genesisParameters = fromShelleyGenesis <$> shelleyGenesis
 
-  globals <-
-    maybe
-      (pure $ defaultGlobals{Ledger.systemStart = systemStart})
-      newGlobals
-      genesisParameters
-
-  pure globals
+  maybe
+    (pure $ defaultGlobals{Ledger.systemStart = systemStart})
+    newGlobals
+    genesisParameters
 
 -- | Taken from Cardano.Api.GenesisParameters, a private module in cardano-api
 fromShelleyGenesis :: Shelley.ShelleyGenesis Ledger.StandardCrypto -> GenesisParameters Shelley.ShelleyEra

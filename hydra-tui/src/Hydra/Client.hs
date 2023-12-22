@@ -98,8 +98,8 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
   externalCommit' sk payload =
     runReq defaultHttpConfig request
       <&> responseBody
-      >>= \DraftCommitTxResponse{commitTx} ->
-        submitTransaction cardanoNetworkId cardanoNodeSocket $ signTx sk commitTx
+        >>= \DraftCommitTxResponse{commitTx} ->
+          submitTransaction cardanoNetworkId cardanoNodeSocket $ signTx sk commitTx
    where
     request =
       Req.req

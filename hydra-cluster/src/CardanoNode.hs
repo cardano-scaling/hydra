@@ -4,13 +4,13 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens ((^?!))
+import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson ((.=))
+import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap qualified as Aeson.KeyMap
-import Data.Aeson.Lens (key, _Number)
+import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Fixed (Centi)
+import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cardano.Api qualified as Api
@@ -77,7 +77,7 @@ defaultCardanoNodeArgs :: CardanoNodeArgs
 defaultCardanoNodeArgs =
   CardanoNodeArgs
     { nodeSocket = "node.socket"
-    , nodeConfigFile = "configuration.json"
+    , nodeConfigFile = "cardano-node.json"
     , nodeByronGenesisFile = "genesis-byron.json"
     , nodeShelleyGenesisFile = "genesis-shelley.json"
     , nodeAlonzoGenesisFile = "genesis-alonzo.json"
@@ -117,63 +117,13 @@ withCardanoNodeDevnet ::
   (RunningNode -> IO a) ->
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
-  createDirectoryIfMissing True stateDirectory
-  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
-    mapM
-      copyDevnetCredential
-      [ "byron-delegation.cert"
-      , "byron-delegate.key"
-      , "vrf.skey"
-      , "kes.skey"
-      , "opcert.cert"
-      ]
-  let args =
-        defaultCardanoNodeArgs
-          { nodeDlgCertFile = Just dlgCert
-          , nodeSignKeyFile = Just signKey
-          , nodeVrfKeyFile = Just vrfKey
-          , nodeKesKeyFile = Just kesKey
-          , nodeOpCertFile = Just opCert
-          }
-  copyDevnetFiles args
-  refreshSystemStart stateDirectory args
-  writeTopology [] args
-
+  args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer networkId stateDirectory args $ \rn -> do
     traceWith tracer MsgNodeIsReady
     action rn
  where
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
-
-  copyDevnetCredential file = do
-    let destination = stateDirectory </> file
-    unlessM (doesFileExist destination) $
-      readConfigFile ("devnet" </> file)
-        >>= writeFileBS destination
-    setFileMode destination ownerReadMode
-    pure file
-
-  copyDevnetFiles args = do
-    readConfigFile ("devnet" </> "cardano-node.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeConfigFile args)
-    readConfigFile ("devnet" </> "genesis-byron.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeByronGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-shelley.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeShelleyGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-alonzo.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeAlonzoGenesisFile args)
-    readConfigFile ("devnet" </> "genesis-conway.json")
-      >>= writeFileBS
-        (stateDirectory </> nodeConwayGenesisFile args)
-
-  writeTopology peers args =
-    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
-      mkTopology peers
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -205,7 +155,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   readNetworkId = do
     shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readFileBS (workDir </> "shelley-genesis.json")
     if shelleyGenesis ^?! key "networkId" == "Mainnet"
-      then pure $ Api.Mainnet
+      then pure Api.Mainnet
       else do
         let magic = shelleyGenesis ^?! key "networkMagic" . _Number
         pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
@@ -240,6 +190,73 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
 
   fetchConfigFile path =
     parseRequestThrow path >>= httpBS <&> getResponseBody
+
+-- | Setup the cardano-node to run a local devnet producing blocks. This copies
+-- the appropriate files and prepares 'CardanoNodeArgs' for 'withCardanoNode'.
+setupCardanoDevnet :: FilePath -> IO CardanoNodeArgs
+setupCardanoDevnet stateDirectory = do
+  createDirectoryIfMissing True stateDirectory
+  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
+    mapM
+      copyDevnetCredential
+      [ "byron-delegation.cert"
+      , "byron-delegate.key"
+      , "vrf.skey"
+      , "kes.skey"
+      , "opcert.cert"
+      ]
+  let args =
+        defaultCardanoNodeArgs
+          { nodeDlgCertFile = Just dlgCert
+          , nodeSignKeyFile = Just signKey
+          , nodeVrfKeyFile = Just vrfKey
+          , nodeKesKeyFile = Just kesKey
+          , nodeOpCertFile = Just opCert
+          }
+  copyDevnetFiles args
+  refreshSystemStart stateDirectory args
+  writeTopology [] args
+  pure args
+ where
+  copyDevnetCredential file = do
+    let destination = stateDirectory </> file
+    unlessM (doesFileExist destination) $
+      readConfigFile ("devnet" </> file)
+        >>= writeFileBS destination
+    setFileMode destination ownerReadMode
+    pure file
+
+  copyDevnetFiles args = do
+    readConfigFile ("devnet" </> "cardano-node.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConfigFile args)
+    readConfigFile ("devnet" </> "genesis-byron.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeByronGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-shelley.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeShelleyGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-alonzo.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeAlonzoGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-conway.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeConwayGenesisFile args)
+
+  writeTopology peers args =
+    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
+      mkTopology peers
+
+-- | Modify the cardano-node configuration to fork into conway at given era
+-- number.
+forkIntoConwayInEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
+forkIntoConwayInEpoch stateDirectory args n = do
+  config <-
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
+      <&> atKey "TestConwayHardForkAtEpoch" ?~ toJSON n
+  Aeson.encodeFile
+    (stateDirectory </> nodeConfigFile args)
+    config
 
 withCardanoNode ::
   Tracer IO NodeLog ->
@@ -341,19 +358,19 @@ refreshSystemStart stateDirectory args = do
   systemStart <- initSystemStart
   let startTime = round @_ @Int $ utcTimeToPOSIXSeconds systemStart
   byronGenesis <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeByronGenesisFile args)
-      <&> addField "startTime" startTime
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeByronGenesisFile args)
+      <&> atKey "startTime" ?~ toJSON startTime
 
   let systemStartUTC =
         posixSecondsToUTCTime . fromRational . toRational $ startTime
   shelleyGenesis <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
-      <&> addField "systemStart" systemStartUTC
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeShelleyGenesisFile args)
+      <&> atKey "systemStart" ?~ toJSON systemStartUTC
 
   config <-
-    unsafeDecodeJsonFile (stateDirectory </> nodeConfigFile args)
-      <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
-      <&> addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
+      <&> (atKey "ByronGenesisFile" ?~ toJSON (Text.pack $ nodeByronGenesisFile args))
+        . (atKey "ShelleyGenesisFile" ?~ String (Text.pack $ nodeShelleyGenesisFile args))
 
   Aeson.encodeFile
     (stateDirectory </> nodeByronGenesisFile args)
@@ -401,9 +418,6 @@ data NodeLog
 --
 -- Helpers
 --
-
-addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
-addField k v = withObject (Aeson.KeyMap.insert k (toJSON v))
 
 -- | Do something with an a JSON object. Fails if the given JSON value isn't an
 -- object.
