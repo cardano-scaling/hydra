@@ -376,8 +376,8 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
-    DecrementTx{headId, headParameters, decrementUTxO} ->
-      case decrement ctx headId headParameters decrementUTxO spendableUTxO of
+    DecrementTx{headId, headParameters, decrementUTxO, snapshotUTxO} ->
+      case decrement ctx headId headParameters decrementUTxO spendableUTxO snapshotUTxO of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
         Right decrementTx' -> pure decrementTx'
     CloseTx{headId, headParameters, confirmedSnapshot} -> do

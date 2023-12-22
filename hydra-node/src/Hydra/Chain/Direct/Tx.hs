@@ -328,9 +328,56 @@ decrementTx ::
   (TxIn, TxOut CtxUTxO) ->
   -- | UTxO to be decommitted.
   UTxO ->
+  -- | Snapshotted 'UTxO'
+  UTxO ->
   Tx
-decrementTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) utxoToDecrement =
-  undefined
+decrementTx networkId scriptRegistry vk headId headParameters (headInput, headOutput) utxoToDecrement snapshotUTxO =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
+      & addOutputs [headOutput', decrementOutput]
+      & addExtraRequiredSigners [verificationKeyHash vk]
+ where
+  -- TODO: add Decrement redeemer
+  headRedeemer = undefined -- toScriptData Head.Decrement
+  utxoHash = toBuiltin $ hashUTxO @Tx snapshotUTxO
+
+  HeadParameters{parties, contestationPeriod} = headParameters
+
+  decrementOutput =
+    TxOut
+      ownAddress
+      (foldMap (txOutValue . snd) (UTxO.pairs utxoToDecrement))
+      TxOutDatumNone
+      ReferenceScriptNone
+
+  ownAddress = mkVkAddress networkId vk
+
+  headOutput' =
+    TxOut
+      (mkScriptAddress @PlutusScriptV2 networkId headScript)
+      (txOutValue headOutput)
+      headDatumAfter
+      ReferenceScriptNone
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  headScriptRef = fst (headReference scriptRegistry)
+
+  headWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
+  headDatumAfter =
+    mkTxOutDatumInline
+      Head.Open
+        { Head.parties = partyToChain <$> parties
+        , utxoHash
+        , contestationPeriod = toChain contestationPeriod
+        , headId = headIdToCurrencySymbol headId
+        }
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also

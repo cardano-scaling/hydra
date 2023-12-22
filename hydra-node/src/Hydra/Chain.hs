@@ -66,7 +66,7 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
-  | DecrementTx {headId :: HeadId, headParameters :: HeadParameters, decrementUTxO :: UTxOType tx}
+  | DecrementTx {headId :: HeadId, headParameters :: HeadParameters, decrementUTxO :: UTxOType tx, snapshotUTxO :: UTxOType tx}
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
@@ -83,7 +83,8 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    DecrementTx{headId, headParameters, decrementUTxO} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementUTxO
+    DecrementTx{headId, headParameters, decrementUTxO, snapshotUTxO} ->
+      DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementUTxO <*> shrink snapshotUTxO
     CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline

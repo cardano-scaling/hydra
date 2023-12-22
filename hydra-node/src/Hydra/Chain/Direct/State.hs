@@ -501,13 +501,15 @@ decrement ::
   UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
+  -- | Snapshotted UTxO
+  UTxO ->
   Either DecrementTxError Tx
-decrement ctx headId headParameters decrementUTxO spendableUTxO = do
+decrement ctx headId headParameters decrementUTxO spendableUTxO snapshotUTxO = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   pure $
-    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO
+    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshotUTxO
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 

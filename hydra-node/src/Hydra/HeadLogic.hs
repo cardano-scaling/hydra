@@ -522,7 +522,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             Effects [ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig]
               <> StateChanged SnapshotConfirmed{snapshot, signatures = multisig}
               & maybeEmitSnapshot
-              & maybeEmitDecrementTx snapshot
+              & maybeEmitDecrementTx snapshot multisig
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -567,21 +567,22 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             InvalidMultisignature{multisig = show multisig, vkeys}
 
   maybeEmitSnapshot outcome =
-    if isLeader parameters party nextSn && not (null localTxs)
+    if partyIsLeader
       then
         outcome
           <> StateChanged SnapshotRequestDecided{snapshotNumber = nextSn}
           <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
-  maybeEmitDecrementTx Snapshot{utxoToDecommit} outcome =
-    -- TODO: dry a bit? Also we probably want dedicated errors for when utxo to
-    -- decommit is present in the snapshot but  decommitTx is not present in the
-    -- state?
+  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
+    -- TODO: dry a bit?
     case utxoToDecommit of
       Nothing -> outcome
       Just utxoToDecommit' ->
         case decommitTx of
+          -- We probably want dedicated errors for when utxo to
+          -- decommit is present in the snapshot but decommitTx is not present in the
+          -- state?
           Nothing -> outcome
           Just decommitTx' ->
             -- Snapshotted utxo should match what we have in the local state.
@@ -598,14 +599,17 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                   { headId
                                   , decrementUTxO = utxoToDecommit'
                                   , headParameters = parameters
+                                  , snapshot
+                                  , signatures
                                   }
                             }
                         ]
                   else outcome
-
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
+
+  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
 
   OpenState
     { parameters = parameters@HeadParameters{parties}
