@@ -13,6 +13,7 @@ import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
+import qualified Data.ByteString as BS
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
@@ -202,7 +203,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
       let sk = generateSigningKey seed
           offChainSig = sign sk snapshot
@@ -210,7 +211,9 @@ prop_verifyOffChainSignatures =
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
           utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
+          decommitUtxoHash = maybe (toBuiltin BS.empty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
+          combinedUTxOHash = utxoHash <> decommitUtxoHash
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber combinedUTxOHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
