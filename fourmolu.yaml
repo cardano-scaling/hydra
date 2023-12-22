@@ -12,3 +12,4 @@ fixities:
   - infixr 1 &
   - infixl 3 <|>
   - infixr 3 &&
+  - infixl 1 <&>

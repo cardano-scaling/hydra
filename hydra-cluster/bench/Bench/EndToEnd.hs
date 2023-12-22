@@ -257,7 +257,7 @@ commitUTxO node clients Dataset{clientDatasets} =
   doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
     requestCommitTx client initialUTxO
       <&> signTx externalSigningKey
-      >>= submitTx node
+        >>= submitTx node
     pure initialUTxO
 
 processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)
