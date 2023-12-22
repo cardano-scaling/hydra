@@ -23,7 +23,7 @@ import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, ioeGetErrorType)
 import System.Process (readProcessWithExitCode)
 import Test.Hydra.Prelude (failure, withTempDir)
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, resize, vectorOf)
+import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
@@ -108,7 +108,7 @@ prop_specIsComplete ::
   SpecificationSelector ->
   Property
 prop_specIsComplete specFileName typeSpecificationSelector =
-  forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
+  forAllShrink (vectorOf 1000 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $ do
       withJsonSpecifications $ \tmpDir -> do
         let specFile = tmpDir </> specFileName

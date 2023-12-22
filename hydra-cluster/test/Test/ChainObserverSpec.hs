@@ -39,8 +39,8 @@ spec = do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \hydraNode -> do
+            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 

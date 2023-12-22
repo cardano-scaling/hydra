@@ -48,7 +48,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceHeadId,
   replacePolicyIdWith,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId)
 import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ClosedState (..), HasKnownUTxO (getKnownUTxO), HydraContext (..), InitialState (..), OpenState (..), abort, closedThreadOutput, commit, ctxHeadParameters, ctxParticipants, ctxParties, genChainStateWithTx, genCloseTx, genCollectComTx, genCommitFor, genCommits, genCommits', genContestTx, genFanoutTx, genHydraContext, genInitTx, genStInitial, getContestationDeadline, getKnownUTxO, initialize, observeClose, observeCollect, observeCommit, pickChainContext, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeFanout, unsafeObserveInitAndCommits)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
@@ -82,7 +82,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   genValidityBoundsFromContestationPeriod,
   maxTxSize,
  )
-import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.Test.Examples qualified as Plutus
@@ -424,7 +424,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     _ -> fail "not observed close"
   -- Fanout
   let fanoutUTxO = getKnownUTxO stClosed
-  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO (Fixture.slotNoFromUTCTime deadline)
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO (slotNoFromUTCTime systemStart slotLength deadline)
 
   -- Properties
   let collectFails =

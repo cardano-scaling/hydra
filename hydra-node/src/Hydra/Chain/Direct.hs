@@ -39,7 +39,6 @@ import Hydra.Cardano.Api (
   NetworkId,
   SocketPath,
   Tx,
-  TxId,
   TxInMode (..),
   TxValidationErrorInMode,
   chainTipToChainPoint,
@@ -86,7 +85,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (..))
+import Hydra.Options (DirectChainConfig (..))
 import Hydra.Party (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -105,13 +104,11 @@ import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  ChainConfig ->
+  DirectChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
-  -- | Transaction id at which to look for Hydra scripts.
-  TxId ->
   IO ChainContext
-loadChainContext config party hydraScriptsTxId = do
+loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   pure $
@@ -125,12 +122,13 @@ loadChainContext config party hydraScriptsTxId = do
   DirectChainConfig
     { networkId
     , nodeSocket
+    , hydraScriptsTxId
     , cardanoSigningKey
     } = config
 
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
-  ChainConfig ->
+  DirectChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
@@ -157,7 +155,7 @@ mkTinyWallet tracer config = do
 
 withDirectChain ::
   Tracer IO DirectChainLog ->
-  ChainConfig ->
+  DirectChainConfig ->
   ChainContext ->
   TinyWallet IO ->
   -- | Chain state loaded from persistence.

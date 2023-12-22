@@ -27,7 +27,6 @@ import Hydra.Ledger.Cardano (
   genUTxOFor,
   genValue,
  )
-import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
@@ -100,10 +99,6 @@ spec =
       describe "genValue" $
         it "produces realistic values" $
           forAll genValue propRealisticValue
-
-    describe "Evaluate helpers" $
-      prop "slotNoFromUTCTime . slotNoToUTCTime === id" $ \slot ->
-        slotNoFromUTCTime (slotNoToUTCTime slot) === slot
 
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =

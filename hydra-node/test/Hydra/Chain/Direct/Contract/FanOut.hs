@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import Hydra.Contract.Error (toErrorCode)
@@ -23,7 +23,7 @@ import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   genValue,
  )
-import Hydra.Ledger.Cardano.Evaluate (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Party (Party, partyToChain, vkey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -75,7 +75,7 @@ healthySlotNo = arbitrary `generateWith` 42
 
 healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
-  slotNoToUTCTime $ healthySlotNo - 1
+  slotNoToUTCTime systemStart slotLength $ healthySlotNo - 1
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
@@ -121,7 +121,7 @@ genFanoutMutation (tx, _utxo) =
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
-        lb <- genSlotBefore $ slotNoFromUTCTime healthyContestationDeadline
+        lb <- genSlotBefore $ slotNoFromUTCTime systemStart slotLength healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
     , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
         (token, _) <- elements burntTokens

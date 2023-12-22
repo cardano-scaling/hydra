@@ -115,23 +115,6 @@ properties:
             description: >-
               Configuration needed to run the hydra node
 
-      - title: NodeOfflineOptions
-        description: >-
-          Hydra node in offline mode parsed command line arguments
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - runOfflineOptions
-        properties:
-          tag:
-            type: string
-            enum: ["NodeOfflineOptions"]
-          runOfflineOptions:
-            "$ref": "logs.yaml#/definitions/RunOfflineOptions"
-            description: >-
-              Configuration needed to run the hydra node in offline mode
-
       - title: Authentication
         description: >-
           Hydra node detected a difference between the signer and the sender
@@ -2133,7 +2116,6 @@ definitions:
       - apiPort
       - hydraSigningKey
       - hydraVerificationKeys
-      - hydraScriptsTxId
       - persistenceDir
       - chainConfig
       - ledgerConfig
@@ -2177,76 +2159,59 @@ definitions:
         type: array
         items:
           type: string
-      hydraScriptsTxId:
-        $ref: "api.yaml#/components/schemas/TxId"
       persistenceDir:
         type: string
       chainConfig:
-        $ref: "api.yaml#/components/schemas/ChainConfig"
+        $ref: "logs.yaml#/definitions/ChainConfig"
       ledgerConfig:
         type: object
         properties:
           cardanoLedgerProtocolParametersFile:
             type: string
 
-  RunOfflineOptions:
+  ChainConfig:
     type: object
-    required:
-      - verbosity
-      - host
-      - port
-      - apiHost
-      - apiPort
-      - monitoringPort
-      - hydraSigningKey
-      - hydraVerificationKeys
-      - persistenceDir
-      - ledgerConfig
-      - offlineConfig
-    properties:
-      verbosity:
-        oneOf:
-          - title: Quiet
-            properties:
-              tag:
-                type: string
-                enum: ["Quiet"]
-          - title: Verbose
-            properties:
-              tag:
-                type: string
-                enum: ["Verbose"]
-              contents:
-                type: string
-      host:
-        type: object
-        $ref: "logs.yaml#/definitions/IP"
-      port:
-        type: integer
-      apiHost:
-        $ref: "logs.yaml#/definitions/IP"
-      apiPort:
-        type: integer
-      monitoringPort:
-        oneOf:
-          - type: "null"
-          - type: integer
-      hydraSigningKey:
-        type: string
-      hydraVerificationKeys:
-        type: array
-        items:
-          type: string
-      persistenceDir:
-        type: string
-      ledgerConfig:
-        type: object
+    description: |
+      Configuration for the chain layer as included in RunOptions
+    oneOf:
+      - title: DirectChainConfig
+        required:
+          - tag
+          - networkId
+          - nodeSocket
+          - hydraScriptsTxId
+          - cardanoSigningKey
+          - cardanoVerificationKeys
         properties:
-          cardanoLedgerProtocolParametersFile:
+          tag:
             type: string
-      offlineConfig:
-        type: object
+            enum: ["DirectChainConfig"]
+          networkId:
+            $ref: "api.yaml#/components/schemas/NetworkMagic"
+          nodeSocket:
+            type: string
+          hydraScriptsTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
+          cardanoSigningKey:
+            type: string
+          cardanoVerificationKeys:
+            type: array
+            items:
+              type: string
+          startChainFrom:
+            oneOf:
+              - type: "null"
+              - type: object
+                $ref: "api.yaml#/components/schemas/ChainPoint"
+      - title: OfflineChainConfig
+        required:
+          - tag
+          - initialUTxOFile
+          - ledgerGenesisFile
         properties:
+          tag:
+            type: string
+            enum: ["OfflineChainConfig"]
           initialUTxOFile:
             type: string
           ledgerGenesisFile:

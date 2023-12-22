@@ -25,7 +25,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceSnapshotNumber,
   replaceUtxoHash,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
@@ -41,7 +41,7 @@ import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (slotNoToUTCTime)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -73,7 +73,7 @@ healthyContestTx =
       healthyContesterVerificationKey
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
-      (healthySlotNo, slotNoToUTCTime healthySlotNo)
+      (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
       (mkHeadId testPolicyId)
       healthyContestationPeriod
@@ -139,7 +139,7 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   addUTCTime
     (fromInteger healthyContestationPeriodSeconds)
-    (slotNoToUTCTime healthySlotNo)
+    (slotNoToUTCTime systemStart slotLength healthySlotNo)
 
 healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
 healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
@@ -388,4 +388,4 @@ genContestMutation (tx, _utxo) =
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   slotOverContestationDeadline slotNo =
-    slotNoToUTCTime slotNo > healthyContestationDeadline
+    slotNoToUTCTime systemStart slotLength slotNo > healthyContestationDeadline

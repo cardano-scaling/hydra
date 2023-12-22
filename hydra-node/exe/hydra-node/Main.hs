@@ -10,14 +10,13 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Node.Run (run, runOffline)
+import Hydra.Node.Run (run)
 import Hydra.Options (
-  Command (GenHydraKey, Publish, Run, RunOffline),
+  Command (GenHydraKey, Publish, Run),
   PublishOptions (..),
   RunOptions (..),
   parseHydraCommand,
  )
-import Hydra.Options.Online qualified as OnlineOptions
 import Hydra.Utils (genHydraKeys)
 
 main :: IO ()
@@ -26,8 +25,6 @@ main = do
   case command of
     Run options ->
       run (identifyNode options) `catch` \(SomeException e) -> die $ displayException e
-    RunOffline options ->
-      runOffline options `catch` \(SomeException e) -> die $ displayException e
     Publish options ->
       publish options
     GenHydraKey outputFile ->
@@ -40,5 +37,5 @@ main = do
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
 
 identifyNode :: RunOptions -> RunOptions
-identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{OnlineOptions.verbosity = Verbose $ "HydraNode-" <> show nodeId}
+identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt

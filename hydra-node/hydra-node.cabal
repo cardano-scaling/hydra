@@ -65,8 +65,6 @@ library
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
-    Hydra.Chain.Offline.Handlers
-    Hydra.Chain.Offline.Persistence
     Hydra.ContestationPeriod
     Hydra.Crypto
     Hydra.HeadId
@@ -82,6 +80,7 @@ library
     Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Json
+    Hydra.Ledger.Cardano.Time
     Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
@@ -102,9 +101,6 @@ library
     Hydra.Node.Run
     Hydra.OnChainId
     Hydra.Options
-    Hydra.Options.Common
-    Hydra.Options.Offline
-    Hydra.Options.Online
     Hydra.Party
     Hydra.Persistence
     Hydra.Snapshot
@@ -117,6 +113,7 @@ library
     , base16-bytestring
     , bech32
     , bytestring
+    , cardano-api:internal
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
@@ -278,6 +275,7 @@ test-suite tests
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
+    Hydra.Ledger.Cardano.TimeSpec
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
     Hydra.Logging.MonitoringSpec
