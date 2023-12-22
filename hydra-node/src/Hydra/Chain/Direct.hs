@@ -101,6 +101,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
+import Text.Printf (printf)
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
@@ -262,14 +263,8 @@ data ChainClientException = EraNotSupportedException
 
 instance Exception ChainClientException where
   displayException = \case
-    EraNotSupportedException{otherEraName, ledgerEraName} ->
-      toString $
-        unwords
-          [ "Received blocks in unsupported era"
-          , otherEraName <> "."
-          , "Please upgrade your hydra-node to era"
-          , ledgerEraName <> "."
-          ]
+    EraNotSupportedException{ledgerEraName, otherEraName} ->
+      printf "Received blocks in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
 
 -- | The block type used in the node-to-client protocols.
 type BlockType = BlockInMode CardanoMode
@@ -315,7 +310,7 @@ chainSyncClient handler wallet startingPoint =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            (BlockInMode era _ _) -> throwIO $ EraNotSupportedException{otherEraName = show era, ledgerEraName = show BabbageEra}
+            (BlockInMode era _ _) -> throwIO $ EraNotSupportedException{ledgerEraName = show era, otherEraName = show BabbageEra}
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
           reset wallet

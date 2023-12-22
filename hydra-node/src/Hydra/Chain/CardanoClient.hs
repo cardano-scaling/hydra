@@ -13,6 +13,7 @@ import Cardano.Ledger.Core (PParams)
 import Data.Set qualified as Set
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
+import Text.Printf (printf)
 
 data QueryException
   = QueryAcquireException AcquiringFailure
@@ -33,13 +34,7 @@ instance Exception QueryException where
   displayException = \case
     QueryAcquireException failure -> show failure
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
-      toString $
-        unwords
-          [ "Connected to cardano-node in unsupported era"
-          , otherEraName <> "."
-          , "Please upgrade your hydra-node to era"
-          , ledgerEraName <> "."
-          ]
+      printf "Connected to cardano-node in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
     QueryProtocolParamsConversionException err -> show err
 
 -- * CardanoClient handle
