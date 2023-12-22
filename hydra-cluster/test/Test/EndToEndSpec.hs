@@ -46,10 +46,9 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
-  unEpochNo,
-  pattern TxOut,
   txOutValue,
   txOuts',
+  unEpochNo,
   pattern TxValidityLowerBound,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -137,7 +136,6 @@ spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
     withTempDir "offline-mode-e2e" $ \tmpDir -> do
-      let networkId = Testnet (NetworkMagic 42) -- from defaultChainConfig
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
       initialUTxO <- generate $ do
@@ -501,7 +499,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] (UnsafeContestationPeriod 1)
-            withHydraNode' chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _processHandle -> do
+            withHydraNode' chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
@@ -528,8 +526,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
             \node@RunningNode{nodeSocket} -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \out err ph -> do
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \out err ph -> do
                 -- Assert nominal startup
                 waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
@@ -547,11 +545,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
             \node@RunningNode{nodeSocket} -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
               waitUntilEpoch tmpDir args node 2
 
-              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \_out err ph -> do
                 waitForProcess ph `shouldReturn` ExitFailure 1
                 errorOutputs <- hGetContents err
                 errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
