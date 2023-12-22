@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (..), queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
+import CardanoClient (QueryPoint (..), queryEpochNo, queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
 import CardanoNode (
   CardanoNodeArgs (..),
   RunningNode (..),
@@ -42,6 +42,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   serialiseAddress,
   signTx,
+  unEpochNo,
   pattern TxOut,
   pattern TxValidityLowerBound,
  )
@@ -513,40 +514,44 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \out err ph -> do
-              -- Assert nominal startup
-              waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \out err ph -> do
+                -- Assert nominal startup
+                waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
-              delayEpoch tmpDir args 1
+                waitUntilEpoch tmpDir args node 1
 
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents err
-              errorOutputs `shouldContain` "Received blocks in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
+                waitForProcess ph `shouldReturn` ExitFailure 1
+                errorOutputs <- hGetContents err
+                errorOutputs `shouldContain` "Received blocks in unsupported era"
+                errorOutputs `shouldContain` "upgrade your hydra-node"
 
       it "does report on unsupported era on startup" $ \tracer -> do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $ \node@RunningNode{nodeSocket} -> do
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
 
-            delayEpoch tmpDir args 2
+              waitUntilEpoch tmpDir args node 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents err
-              errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
+              withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId Nothing $ \_out err ph -> do
+                waitForProcess ph `shouldReturn` ExitFailure 1
+                errorOutputs <- hGetContents err
+                errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
+                errorOutputs `shouldContain` "upgrade your hydra-node"
 
--- | Wait for given number of epochs. This uses the epoch and slot lengths from
+-- | Wait until given number of epoch. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
-delayEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
-delayEpoch stateDirectory args epochs = do
+waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
+waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo = do
+  fromEpochNo :: Natural <- fromIntegral . unEpochNo <$> queryEpochNo networkId nodeSocket QueryTip
+  toEpochNo `shouldSatisfy` (> fromEpochNo)
   shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
   let slotLength =
         fromMaybe (error "Field epochLength not found") $
@@ -554,7 +559,7 @@ delayEpoch stateDirectory args epochs = do
       epochLength =
         fromMaybe (error "Field epochLength not found") $
           shellyGenesisFile ^? key "epochLength" . _Double
-  threadDelay . realToFrac $ fromIntegral epochs * epochLength * slotLength
+  threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
 
 -- getValueFromKey :: Value -> Text -> Double
 -- getValueFromKey jsonValue k =

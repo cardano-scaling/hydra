@@ -228,6 +228,24 @@ queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO (EraHistory Carda
 queryEraHistory networkId socket queryPoint =
   runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
 
+-- | Query the current epoch number.
+--
+-- Throws at least 'QueryException' if query fails.
+queryEpochNo ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  IO EpochNo
+queryEpochNo networkId socket queryPoint = do
+  let query =
+        QueryInEra
+          BabbageEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraBabbage
+              QueryEpoch
+          )
+  runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
