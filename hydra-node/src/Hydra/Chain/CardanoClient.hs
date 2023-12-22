@@ -269,24 +269,16 @@ queryProtocolParameters networkId socket queryPoint = do
 -- | Query 'GenesisParameters' at a given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> CardanoEra era -> IO (GenesisParameters ShelleyEra)
-queryGenesisParameters networkId socket queryPoint era =
-  -- REVIEW: check out `cardanoEra`
-  case toEraInMode era CardanoMode of
-    Nothing -> error "TODO"
-    Just eraInMode -> do
-      mShellyBaseEra <- requireShelleyBasedEra era
-      case mShellyBaseEra of
-        Nothing -> error "TODO-2"
-        Just shellyBaseEra ->
-          let query =
-                QueryInEra
-                  eraInMode
-                  ( QueryInShelleyBasedEra
-                      shellyBaseEra
-                      QueryGenesisParameters
-                  )
-           in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+queryGenesisParameters ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  CardanoEra era ->
+  IO (GenesisParameters ShelleyEra)
+queryGenesisParameters networkId socket queryPoint era = do
+  mkQueryInEra era QueryGenesisParameters
+    >>= runQuery networkId socket queryPoint
+    >>= throwOnEraMismatch
 
 -- | Query UTxO for all given addresses at given point.
 --
@@ -358,6 +350,28 @@ queryStakePools networkId socket queryPoint =
               QueryStakePools
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+
+-- | Construct a 'QueryInMode' from a 'CardanoEra' which is only known at
+-- run-time.
+--
+-- Throws a 'QueryException' if passed era is not in 'CardanoMode' or a
+-- 'ShelleyBasedEra'.
+mkQueryInEra ::
+  MonadThrow m =>
+  CardanoEra era ->
+  QueryInShelleyBasedEra era a ->
+  m (QueryInMode CardanoMode (Either EraMismatch a))
+mkQueryInEra era query =
+  case toEraInMode era CardanoMode of
+    Nothing -> error "TODO throw an exception: era not in cardano mode"
+    Just eraInMode -> do
+      mShellyBaseEra <- requireShelleyBasedEra era
+      case mShellyBaseEra of
+        Nothing -> error "TODO: throw an exception: not a shelley based era"
+        Just sbe ->
+          pure $
+            QueryInEra eraInMode $
+              QueryInShelleyBasedEra sbe query
 
 -- | Throws at least 'QueryException' if query fails.
 runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
