@@ -115,7 +115,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (HydraKey)
+import Hydra.Crypto (HydraKey, MultiSignature)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
@@ -501,15 +501,16 @@ decrement ::
   UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  -- | Snapshotted UTxO
-  UTxO ->
+  -- | Confirmed Snapshot
+  Snapshot Tx ->
+  MultiSignature (Snapshot Tx) ->
   Either DecrementTxError Tx
-decrement ctx headId headParameters decrementUTxO spendableUTxO snapshotUTxO = do
+decrement ctx headId headParameters decrementUTxO spendableUTxO snapshot signatures = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   pure $
-    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshotUTxO
+    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 

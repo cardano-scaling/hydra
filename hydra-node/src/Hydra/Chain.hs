@@ -27,11 +27,12 @@ import Hydra.Cardano.Api (
   Witness,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
 import Test.QuickCheck (scale, suchThat)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -66,7 +67,13 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
-  | DecrementTx {headId :: HeadId, headParameters :: HeadParameters, decrementUTxO :: UTxOType tx, snapshotUTxO :: UTxOType tx}
+  | DecrementTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , decrementUTxO :: UTxOType tx
+      , snapshot :: Snapshot tx
+      , signatures :: MultiSignature (Snapshot tx)
+      }
   | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
@@ -83,8 +90,8 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    DecrementTx{headId, headParameters, decrementUTxO, snapshotUTxO} ->
-      DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementUTxO <*> shrink snapshotUTxO
+    DecrementTx{headId, headParameters, decrementUTxO, snapshot, signatures} ->
+      DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementUTxO <*> shrink snapshot <*> shrink signatures
     CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline

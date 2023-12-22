@@ -48,6 +48,9 @@ PlutusTx.unstableMakeIsData ''State
 
 data Input
   = CollectCom
+  | Decrement
+      { signature :: [Signature]
+      }
   | Close
       { signature :: [Signature]
       }
