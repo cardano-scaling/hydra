@@ -561,15 +561,6 @@ waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo 
           shellyGenesisFile ^? key "epochLength" . _Double
   threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
 
--- getValueFromKey :: Value -> Text -> Double
--- getValueFromKey jsonValue k =
---   let result = jsonValue ^. keyLens
---   in case result of
---     Number n -> realToFrac n
---     _ -> error "Key not found or value is not a Double"
---   where
---     keyLens = key k . _Double
-
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
   seenLogs <- newTVarIO []
