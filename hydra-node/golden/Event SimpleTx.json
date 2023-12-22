@@ -2,21 +2,112 @@
     "samples": [
         {
             "postChainTx": {
-                "decrementTx": {
-                    "id": -20,
-                    "inputs": [
-                        -27,
-                        -22,
-                        -21,
-                        -7,
-                        17
-                    ],
-                    "outputs": [
-                        2,
-                        12
+                "decrementUTxO": [
+                    -19,
+                    -14,
+                    -11,
+                    2,
+                    3,
+                    5
+                ],
+                "headId": "1148bdacb56300cecafb60e5984c5a20",
+                "headParameters": {
+                    "contestationPeriod": 2592000,
+                    "parties": [
+                        {
+                            "vkey": "c603cc9b56a321e46766221ae109bc1cd8839f334d5655dabe7a0f7e55026a8a"
+                        },
+                        {
+                            "vkey": "8ab6dda3fbd92fc8d1677f567caed812fd23937a18b23b6504255b0a0e7f3eb8"
+                        },
+                        {
+                            "vkey": "684c8a8d7a9d164b29b3901a47e03783af9084eb9da7c07facf128e64a959cce"
+                        },
+                        {
+                            "vkey": "81ef4064815428c717712fcf9583dd5b300eddfc498c4f570f111ae4c8446409"
+                        },
+                        {
+                            "vkey": "5a8f22f40ca50360fc5fd028e9e3f090013444b18f33af10074dc0b0134ac8bf"
+                        },
+                        {
+                            "vkey": "1ffc2054caee194c0ebf8cf45fdd2708faf36262fcd0e327460b08a1eb7f69c0"
+                        },
+                        {
+                            "vkey": "f1b218cc0b349f781143fe32c99958c6670e192351d6fa0513557e23017bcdfa"
+                        },
+                        {
+                            "vkey": "1b1237262a995479d792dfa45404819eff03ee40b3c81487d868b4d2e28654e9"
+                        }
                     ]
                 },
-                "headId": "c59608c612d55a0c882abaa18a1c250e",
+                "signatures": {
+                    "multiSignature": [
+                        "54da8991f3f25014dbfbe024eb794de94c7a9bffac35320a2a77e5e1ac8b12c98b29bd2d7be5a956e53dfa14c9c85da96ae1ae4bd3e7009d814276f818539a08",
+                        "58630d7269a97ea56caf83bee24479061c35ba0e7758589b0994022312e4ac9734aed82fd3ba1775a7674a2596177ab2100a53e011749600a664fdfebbbc7507"
+                    ]
+                },
+                "snapshot": {
+                    "confirmedTransactions": [
+                        -4,
+                        -4,
+                        21,
+                        -22,
+                        2,
+                        -29,
+                        -12,
+                        -30,
+                        2,
+                        2,
+                        8,
+                        17,
+                        13,
+                        -3,
+                        -24,
+                        -16,
+                        27,
+                        17,
+                        -13,
+                        -5,
+                        3,
+                        -12,
+                        -9,
+                        -23,
+                        -13,
+                        10,
+                        -7,
+                        20,
+                        7,
+                        25
+                    ],
+                    "headId": "ba3c08087b972d58690b371d067fce2d",
+                    "snapshotNumber": 4,
+                    "utxo": [
+                        -23,
+                        -20,
+                        -19,
+                        -10,
+                        -5,
+                        4,
+                        6,
+                        18
+                    ],
+                    "utxoToDecommit": [
+                        -20,
+                        -17,
+                        -15,
+                        -11,
+                        -10,
+                        -7,
+                        1,
+                        2,
+                        6,
+                        10,
+                        11,
+                        14,
+                        15,
+                        30
+                    ]
+                },
                 "tag": "DecrementTx"
             },
             "postTxError": {

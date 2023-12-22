@@ -10389,171 +10389,711 @@
         },
         {
             "postChainTx": {
-                "decrementTx": {
-                    "body": {
-                        "certificates": [
-                            "8a03581c092ed6086d1971e8a3cb8c35475893dbcba689c10ec16c534dbbcdb5582061118d67dd3a09897ac30b6516626cd10e92765416b4d5ba84e5dae1dfc1666c1a0006ddcd1a000ef0acd81e821b00002b9887ead9e91b00005af3107a4000581df041dfc12c02058e730c5b96c5c3d8c691b1fda801d63c406a89ad5c9884581c9c31a580d2e8b57939fd0e8a7608f4a6551b3c0a5999d8ecb61ce340581cb3f5a6548b05a92791b6e1453d2ebb410426b3e6280c354f4de8e311581cbecf1fd6f20a0be081cab38730406c8cfce19d5f32ed2da1fbcd73a6581cd3285c1dbe01d2121c6987c9199c0e7bf894e220263580edf31871f38082783568747470733a2f2f7752436f4f4839576735424b59364559477a6d41536c7455627173526448333774774c7873513870732e636f6d45fe097ad075"
-                        ],
-                        "collateral": [
-                            "36a69c55dbed3acf755dd02a5fd4a81e7a4034297e869e932b978f93022ec121#14",
-                            "57ab226119e62d9d63be2369b86f0e3797945c371b1d62ea5c6f653ebc170147#3",
-                            "cbf5f0cfaabe71961eb5c3b73c1fab5fb9ba7cb8e280ee1ffbecf34a6a81631c#2",
-                            "e1fee7754ea115afbca9b7f162c7aeaa4a55dd50a797509ba9095398970aa856#9",
-                            "feabd691b6e160ed44058f39fc8a485377c5524f151b9bddd753423915571d90#12"
-                        ],
-                        "fees": 947538,
-                        "inputs": [],
-                        "mint": {
-                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
-                                "761d5bc711643b8874a5cd590ce2b5f1": 8410885242468240922
-                            }
+                "decrementUTxO": {
+                    "0101020007010704040501050403000804040204080802000007000604020506#64": {
+                        "address": "addr1yyzmk8utykh3tqsyvm09zppn378zwgn3hrpj2vvhnwdmxnfmgphhrenefmxhvfde7map00zzq9z5vs2j3zuc4xx63xsqy5nkz4",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82018582040c8204088201808200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a82018282040a820400",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
                         },
-                        "networkId": "Mainnet",
-                        "outputs": [
-                            {
-                                "address": "addr_test12pfj9ndg45ht9pvy5ex8x0cf9uet4y9m2v2qsq0ea9qjmmgxqczqzzgl99",
-                                "datum": null,
-                                "inlineDatum": {
-                                    "int": 4
-                                },
-                                "inlineDatumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
-                                "referenceScript": null,
-                                "value": {
-                                    "7c334b3ace6634fcfc24d517f086a4f89ac7abbf9ff58d017c197644": {
-                                        "38": 4226835281252590106
-                                    },
-                                    "lovelace": 5503626672622051351
-                                }
+                        "value": {
+                            "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                "30": 7808328137050289597
                             },
-                            {
-                                "address": "addr_test1qppjvxtyyhdmda2t2nrzuq4d5hv8k4spy2svnl2lpcefzhj4llgc37q90066xz40cs6h0pj543xqv8pgptardj6ezehqj8pk3a",
-                                "datum": null,
-                                "datumhash": "72a8c870cd4e724526319606ca48ec13b2a51bb79175f0f80d2672d6ebaa9985",
-                                "inlineDatum": null,
-                                "referenceScript": null,
-                                "value": {
-                                    "b29d7d295e2d4d4b1411dbd9c9cecd0e1d9991264343cea5258fb0cb": {
-                                        "df37b71683efd65fc37950db063f": 575100375685642613
-                                    },
-                                    "lovelace": 4537324571598386639
-                                }
-                            },
-                            {
-                                "address": "addr1yyx9f66qzj25ctgmjdu4qudszd67ejp9gwfqmzt5ca6r887fzjpxckkavmrnf6y2rfx3t2g4arrqhld9nvmyqv4afcpsq576rx",
-                                "datum": null,
-                                "datumhash": "6c110db1fb2d11d73f53034f9d222607c6ed7535a8f9adfea3e7cf00a3fd4330",
-                                "inlineDatum": null,
-                                "referenceScript": {
-                                    "script": {
-                                        "cborHex": "46450100002601",
-                                        "description": "",
-                                        "type": "PlutusScriptV1"
-                                    },
-                                    "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
-                                },
-                                "value": {
-                                    "3e0849748e89e1eb3a7e6fdbd5ba28fdf435ad49578351a8d3417b5f": {
-                                        "2bb5db27b0b701168907d989a90e1a4d41272e02bbaa171cd4546b0fcb": 3671572894637748311
-                                    },
-                                    "lovelace": 6793910306755355017
-                                }
-                            },
-                            {
-                                "address": "addr_test1vzkpqv8k79ajwn75ug9y0wgjpgqg6nsxv39yeuwc9y9tqpgdnwael",
-                                "datum": null,
-                                "datumhash": "31acb786f547dd2ef067c6527144455d0f280a3d51a3eb52cc20fc7e70432122",
-                                "inlineDatum": null,
-                                "referenceScript": {
-                                    "script": {
-                                        "cborHex": "4746010000220011",
-                                        "description": "",
-                                        "type": "PlutusScriptV2"
-                                    },
-                                    "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
-                                },
-                                "value": {
-                                    "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
-                                        "e2fa017a08ea2fc9427e8b844b3075671101a6a34ef9ca6e6338617b9ae711": 3319208602960745809
-                                    },
-                                    "lovelace": 1972186301104115399
-                                }
-                            },
-                            {
-                                "address": "addr1g9wx73gwj87kxu0fdfs0jxg02hdw0kxrxp0ym9tkffh4u6crqgqsecayu0",
-                                "datum": null,
-                                "inlineDatum": {
-                                    "bytes": "6089aac2"
-                                },
-                                "inlineDatumhash": "9da2f7ddee5cfaa8598c3b9686cac657bd00f4be9b871b9d75324454c3ae1118",
-                                "referenceScript": {
-                                    "script": {
-                                        "cborHex": "8201848201848201838200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e820408830301848200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8201818200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f54830300838200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56820405820409",
-                                        "description": "",
-                                        "type": "SimpleScript"
-                                    },
-                                    "scriptLanguage": "SimpleScriptLanguage"
-                                },
-                                "value": {
-                                    "a2b2c9d00dcee339e3d135492d2b8601d35e8b886aa114bd4ce66991": {
-                                        "35": 5856264106666404409
-                                    },
-                                    "lovelace": 3487793301023348044
-                                }
-                            }
-                        ],
-                        "referenceInputs": [
-                            "28333d833c17d245c4e1871c785ee0ef7eb4212703ea2044903744ad470657a3#11",
-                            "31d8479c327d3ab9e3c99e784805e1887cc758cd760534d090ada5df0a007b7f#16",
-                            "3e513a8b9325b1f1f60cd5823ae007b28c9c259592ebcc4ea43f6e199750e936#13",
-                            "4e1b529b64298ba717ce4c80f6f442f4f56fa4f6d0d661fbeac28fc84560f3f5#1"
-                        ],
-                        "requiredSignatures": [
-                            "4bf1301bc78ca13d553672a96fecc93dc6036a7339871ac78bd8bfbd"
-                        ],
-                        "scriptIntegrityHash": "cba0f5eca46fe347ac8ef4df522cffa6ff21a72c679a87ac671d630809ea3516",
-                        "validity": {
-                            "notAfter": 13,
-                            "notBefore": null
-                        },
-                        "withdrawals": {
-                            "e00cbcde593110c6cf37aa0d25820c5123f8d3f446e34d5fc79b1326b9": 579977,
-                            "e12c28c6b0dbbda59a8d9148f018a2f341f10ab221fc750dc33481d01d": 949684,
-                            "e151f2c24a03bcdd9fe13b748b513558fb12840938a8ad70a12ec983e3": 262736,
-                            "e1be4f3daac53c74f0636947229d961e93b6305cee7d7bec3b0e1ae681": 870458,
-                            "f0fca10b8308e7fe8cf573c0f23215059722f7c29a228c37d8d2252efd": 673618
+                            "lovelace": 4010692396401029183
                         }
                     },
-                    "id": "3d2c4b6356cc4b138c30b19fd7d9fbafd216c26bccc97c225b8aee1149925e28",
-                    "isValid": true,
-                    "witnesses": {
-                        "bootstrap": [
-                            "845820a63ff968745bf92212b87ba1ab8983c79addcb689f3629eb86f4caa9b8943e9358403d0de4045769537900504b2d6a7151fa3d77544c4d70876b8469eff5ecc54db40e0a9d975dfe930c37ed5884833eff29a9549d32933b0f26cd3037b442558b9045b3515feb4240",
-                            "84582097e051f5b1ea2d88280bbb69db4cd0f622dcd028a46a0de67e583b6c34f6f7da5840e208f7186760195a605a2266e4b7851aa100824b2d304421b9c8cc167fed33a0b77faff50a5ceed2a813ac5cc37f64a8d2f492882f769fa2e023becca072f24944ea4f9fd9448c4a1afe",
-                            "84582066048598ffeb8973b922adefe9cbea55fe1bc87c780d12f25db18bb4029ce1b05840507866f3b7ae69b15a68c229476987a84eceaf3cfa6d8909a2457534cd4c6186bdfc94bc4ec2fd22d369fa0ac12b63b250b9cd65e0a57c17ecf2e13f39ce91db4043fdc0e7",
-                            "84582070c8cfa9fdfcf54d32b34490dc6eccc1d65fd64e1e8dab845a9f15fc7115ffcd58400cfdd8dc821e5d5aa9562b7e3ea1dbc76b0d643fd66459ec352612e2c12e6748f4b6d7239ba3febc06ae21caa223708e62ff3083159175a68bb3eb79d898efe2454c553fbd3443ca85a6",
-                            "8458208a25f49d96bd641e298967e9c22db4f32932c411acfc6c1a18305d0e0a48ad56584017fd4ba76fc660b0620ef520a9eff62b004f66aeaeeedba83f75a49349edb7342cb9c7bafb949693ed491fb7f2889a8f0cb069cd4c712e8fdeab3894afaf6e9f416041b2"
-                        ],
-                        "datums": {
-                            "9b50b759650fc96c9b00cec0d56b20b76fe36cfec20c375eac91a37a300e6143": "9fd87d9fd8799f42b85302ff804042da17ffd87e9fd87b9f44226152beffd87c9f0442833c4044abf9e3b741b0ffffff",
-                            "e44afb38a53ebbec02c51b56b925a635529fff3d4bfa5523854a674117bd4241": "423e98"
+                    "0107060407000404070008040305020305020608000102010805010107020504#87": {
+                        "address": "EqGAuA8vHnNrs4mst3ZTXR8yethMX4bj8Mj3mMksN6MQZfF433hBhtY6oCBwkzko99AK8JwUp4o2WN8e4rPE5mvvtSMH12K3BSzvjz2pLR6cjFAQynePo6j",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "46450100002601",
+                                "description": "",
+                                "type": "PlutusScriptV1"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
                         },
-                        "keys": [
-                            "82582024fe017f9ea18dbd4778c4b59b42a130c4a0121ad554b249fb759cfa304092705840ff3175174148cdf0a513801778ea8cc9807afca5fdd5f5e27a0191fd2a175072977570e939de0332f1a5574969b98413fc21d7f6f98903d6ca0e11d5c5a7b1d5",
-                            "8258206e663563a3ced4286824e0c2164abc3fa9f97200d60291fde40898af097b704258401cc1b1e3d1811c11f42eda2bdf34350c0ee75e809fa224df5432a089cb052dbdb8fa5ebdbb922003b4bb5cfd88117382eb1894cff26fe3373b4360a7c9302d5b",
-                            "825820c1691a3d1cd4f6f88be52d705394a562a421acb72bbcfa3256b37a53db98765f584005e8e6b18473460ac498be2a3d7dfce28cb9d65c7377483497c956dad5570e1ab848d498b42c60918601c23ae1a4848a978781798b145709ebac8a2ef352ecf4",
-                            "82582004a88792f2fc5688f410cebb22ca97c07a7b61d2daa3f24700dce8283705d41e58402d10c4a1b5f8fd5cfaf01ce457222ac4467402022d8b76afbf89d9e559076ed32e04a8bb231868614277d163b96869fdc4bdfd4cf4d12e338501bbebc18c2741",
-                            "825820ec26c2f58d87bd03c2057939cd6ba43bd97936719b41e0078ea1cbb9860524fd584044477c910f4cc0da4ab593654cceaacee56498c9b27d5f7ac820381d23bbcb0a7ba4476c3d28b1a964fd72f9349a56538df0f5ef241f7e69af666154e2c5b1d6",
-                            "8258206be2ec14d1e136d230a82d13a4458a95f20f15c8f4d9c30fea79da1baf9a856058409b1b421877390e1655bbf5543dda722627375f0a96760a4a5f61bd2b55e07f74b7cd0d2da0cd8d1630d3e14f642d55eb71023969cc4b631d34cfd6630c8f86a3"
-                        ],
-                        "redeemers": "8484000a21821b6e9f15b2a575ea811b48bd24c698b52dde840101d87b9fa4418f411aa341d141a5242004409f42178202202002ff438adb4c9f2140210100ffd8799f4257872400ffa0d87a9fd87c9f004253144294ab439fd1eaffa4004115411504002001029f4408fdbe8d01ffff9fd87e9f05402040ff9f4460fc13552021ff80ff9f9f20210501411aff4439d3c6059f0243ff109fff21ffff821b55085ebe356dbdbd1b433e56b9b9873e958402069f9f9f00202303ff80ff9f009f40449ff99ce524ff9f03444f783f412024ffffff821b5ee7a33ff8f4ac201b5d7511a89c3215318403099fa19f4390415c0141c743a82ad342cd09ff4365aa9fff821b4c56a255d95f55f81b130eb601e1f91d6f",
-                        "scripts": {
-                            "4509cdddad21412c22c9164e10bc6071340ba235562f1575a35ded4d": "820146450100002601",
-                            "6ea9233748e2871a1585f39019c66ec3c74df47bd60295a2fc5a5434": "82008303058582040a8200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b78200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e82018282040b82040f",
-                            "a45d3dfb8f96e7aa7e6c0ce6b3caf2533b4ba54d475bd005a59409b1": "82008200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b082541"
+                        "value": {
+                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                "38": 3354163912118627127
+                            },
+                            "lovelace": 4026477357880501833
+                        }
+                    },
+                    "0205070704020600040806080607000605020107080303060208070208010108#97": {
+                        "address": "2RhQhCGqYPDndQSgVK48VNJc8fb7GJT3VKqgZ4UEMq4xqNxBm15cWJtxTB9x5WuEu82ULU9tUUysr8gva1K1ns14qJ5v2Zboitf56w138Aa34E",
+                        "datum": null,
+                        "datumhash": "cdfc0dedf81b155496af8a1f7adcb8dec48e9672a27a89b9562b613c35f22374",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                "de64ad4ff5c09a5bd4bdbd0ac8a8b7ded7c9f08793db1dd5b610f9e5": 5984021075693851182
+                            },
+                            "lovelace": 8715582831892522433
+                        }
+                    },
+                    "0305080205010007030008030800040404010002060607000406000001030801#18": {
+                        "address": "addr_test12q5du5xc0z4tjl9xaw23x03da6a5rruvgg2przqespptkfcgqyrqa09nv5",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": "0d"
+                        },
+                        "inlineDatumhash": "35749f87e46433b10ca5e0ee9391465271e44d565d518f724d2ffd9cfa7825af",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "46450100002601",
+                                "description": "",
+                                "type": "PlutusScriptV1"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                        },
+                        "value": {
+                            "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                "165cf38dc45868438300b5f8f7b3a28e850a8d57": 7362861832130345269
+                            },
+                            "lovelace": 4051721262948188474
+                        }
+                    },
+                    "0506000700050402010400040302060507000706050408050608070308010807#2": {
+                        "address": "addr1yxepedv8zevlmt6pxnvu94e9apma0632n64gf82uzx6eptecu4gltxlwa9x6cvrzhgy92ms5pwmdgcc4fnrw4grnxx3s0y436k",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 5,
+                            "fields": [
+                                {
+                                    "list": [
+                                        {
+                                            "bytes": "e78a"
+                                        },
+                                        {
+                                            "int": -3
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": "9779004b"
+                                                },
+                                                {
+                                                    "int": -5
+                                                },
+                                                {
+                                                    "int": 4
+                                                },
+                                                {
+                                                    "int": -4
+                                                },
+                                                {
+                                                    "int": 1
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "inlineDatumhash": "6f8c772941c33b76bc855b34ce2773d92e90b372b77d24600927c7f490b595bd",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "4746010000220011",
+                                "description": "",
+                                "type": "PlutusScriptV2"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                        },
+                        "value": {
+                            "f41d11f9a645a3b052bb267781593846f2849dff3fdb389ae8945c25": {
+                                "c4110f4bfdb7eceae357b81e60752217e03842a103f19f5371204d47ed": 345640184739185080
+                            },
+                            "lovelace": 333133519543336181
+                        }
+                    },
+                    "0603000802020201000303050305080801000203010008000105020208070100#45": {
+                        "address": "EqGAuA8vHnNtsqtEWnC9dxTGZCb1DF1cqETZ3AZhYFCGxae13kLPDqnT6qseeu76H54Bt2cNFKiWPRA4nnQfEn5EvNphH2GteVMDVcQA56FKErF4YVJTZpD",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": "ae2b"
+                        },
+                        "inlineDatumhash": "43736eda23c1569ceda2981e80f6e081f51f06ba1868ec83f85adc6f543f3d5a",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "83030181830301818200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                "39": 6434746671207044848
+                            },
+                            "lovelace": 4682880543099876730
                         }
                     }
                 },
-                "headId": "07080307020704080601020708010704",
+                "headId": "07070708050202000201050708050708",
+                "headParameters": {
+                    "contestationPeriod": 43200,
+                    "parties": [
+                        {
+                            "vkey": "0006906476f8c5f0949876a7c7ef801e2700f5a3876f59bdb09fbc5bbabeea42"
+                        },
+                        {
+                            "vkey": "21d63c97f595a1b829f3c1696bf69dcd9cf7ec01a52bef9419aca1f54f0cabf3"
+                        },
+                        {
+                            "vkey": "8714b47178d8317d17ff73f94ab75479f8a7bf64d105f6aa0f950d7777b3699c"
+                        }
+                    ]
+                },
+                "signatures": {
+                    "multiSignature": [
+                        "c9cb025d676ad960c77dfbd71fd9aeafcf872869a4724b20bc4bbaf2c1330fee843647d6a2d131a0bbf41ad2d2c32f3b50d3d0e9687a6eab51a6e861c301220f",
+                        "9494d72cb1a9a17059c250366524310605243000395f00dee61e1ab7959eed2d19b9475fa521b25195d77d900333cbb09e501bc67ad4ace0ba077f3ed3d95b0b"
+                    ]
+                },
+                "snapshot": {
+                    "confirmedTransactions": [
+                        "0502010404000607040201040701060505080103000608020201020706010607",
+                        "0803060004000802070503040108000504040402060507050100000307000507",
+                        "0206050704030008010303030706040206000205050507070104050508040306",
+                        "0300040104080003000503000806050802080407010002030107000801070200"
+                    ],
+                    "headId": "05070005030503000602020501080507",
+                    "snapshotNumber": 4,
+                    "utxo": {
+                        "0403070100000503030103080004060701030106010802070705040102080701#29": {
+                            "address": "addr1z85dtrtcnf8qm740jrqyvma8xqml5z8he9e683pvku5r2fu45fvu2g4jegu8ejuy8kzf4nsstpnjqq7ealjxfnz3lyyqvnpshl",
+                            "datum": null,
+                            "inlineDatum": {
+                                "map": []
+                            },
+                            "inlineDatumhash": "d36a2619a672494604e11bb447cbcf5231e9f2ba25c2169177edc941bd50ad6c",
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "46450100002601",
+                                    "description": "",
+                                    "type": "PlutusScriptV1"
+                                },
+                                "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                            },
+                            "value": {
+                                "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                    "d35ebd0177d9e1b95737c644380d0a1dc9005fe1dc91fccc72522135db53": 6963979612394327724
+                                },
+                                "lovelace": 6953346084041165960
+                            }
+                        },
+                        "0806030703000806030100030302050103040403060500070306020506060002#31": {
+                            "address": "addr1vx5vlswxrg8c9gdsxuvw87mmhdqv22jejskgs4pn4ahcpdgqz4t42",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "8201838204018202828202848200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2830304858200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581ca646474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a8200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b8820508",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                    "aa357116fa3514a5d0ae0119a5f438cd8dadff3d3d4d28b2b97b43": 251171287803650332
+                                },
+                                "lovelace": 3108825632928201043
+                            }
+                        }
+                    },
+                    "utxoToDecommit": {
+                        "0008030202000506010100060705050805050307050704000203000705070602#47": {
+                            "address": "addr1wygtc0pf7mhtjp25lx5q4g5usmzr948wwfj59d0rkx47l7cqg74lf",
+                            "datum": null,
+                            "inlineDatum": {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "list": [
+                                                            {
+                                                                "int": 3
+                                                            },
+                                                            {
+                                                                "int": 5
+                                                            },
+                                                            {
+                                                                "int": 1
+                                                            }
+                                                        ]
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "int": 0
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": 4
+                                                    },
+                                                    "v": {
+                                                        "map": [
+                                                            {
+                                                                "k": {
+                                                                    "bytes": "d2ea"
+                                                                },
+                                                                "v": {
+                                                                    "int": 1
+                                                                }
+                                                            },
+                                                            {
+                                                                "k": {
+                                                                    "bytes": "669f16"
+                                                                },
+                                                                "v": {
+                                                                    "bytes": "71d67443"
+                                                                }
+                                                            },
+                                                            {
+                                                                "k": {
+                                                                    "bytes": "b0cc6310"
+                                                                },
+                                                                "v": {
+                                                                    "bytes": "03"
+                                                                }
+                                                            },
+                                                            {
+                                                                "k": {
+                                                                    "int": 1
+                                                                },
+                                                                "v": {
+                                                                    "bytes": "d295ec"
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "constructor": 3,
+                                                        "fields": [
+                                                            {
+                                                                "bytes": "605863"
+                                                            },
+                                                            {
+                                                                "bytes": "b1ba0d"
+                                                            },
+                                                            {
+                                                                "int": 2
+                                                            }
+                                                        ]
+                                                    },
+                                                    "v": {
+                                                        "int": 3
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -5
+                                                    },
+                                                    "v": {
+                                                        "int": -4
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "40"
+                                                    },
+                                                    "v": {
+                                                        "map": []
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "constructor": 5,
+                                                        "fields": [
+                                                            {
+                                                                "bytes": "0d0f67"
+                                                            },
+                                                            {
+                                                                "int": -2
+                                                            },
+                                                            {
+                                                                "int": -5
+                                                            },
+                                                            {
+                                                                "bytes": "3859"
+                                                            }
+                                                        ]
+                                                    },
+                                                    "v": {
+                                                        "constructor": 2,
+                                                        "fields": [
+                                                            {
+                                                                "int": 3
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "list": []
+                                                    },
+                                                    "v": {
+                                                        "constructor": 5,
+                                                        "fields": [
+                                                            {
+                                                                "int": -3
+                                                            },
+                                                            {
+                                                                "bytes": "c6ea96"
+                                                            },
+                                                            {
+                                                                "int": 5
+                                                            },
+                                                            {
+                                                                "bytes": "a4"
+                                                            }
+                                                        ]
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "list": [
+                                                            {
+                                                                "int": -5
+                                                            },
+                                                            {
+                                                                "int": -1
+                                                            },
+                                                            {
+                                                                "bytes": "82e7cd"
+                                                            },
+                                                            {
+                                                                "int": -1
+                                                            },
+                                                            {
+                                                                "bytes": "d4"
+                                                            }
+                                                        ]
+                                                    },
+                                                    "v": {
+                                                        "constructor": 4,
+                                                        "fields": [
+                                                            {
+                                                                "int": 4
+                                                            },
+                                                            {
+                                                                "bytes": "73c895"
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": [
+                                                {
+                                                    "map": [
+                                                        {
+                                                            "k": {
+                                                                "bytes": "c779"
+                                                            },
+                                                            "v": {
+                                                                "bytes": "68895d"
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "bytes": "0f50"
+                                                            },
+                                                            "v": {
+                                                                "bytes": ""
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "map": [
+                                                        {
+                                                            "k": {
+                                                                "int": 3
+                                                            },
+                                                            "v": {
+                                                                "int": 1
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "int": -2
+                                                            },
+                                                            "v": {
+                                                                "bytes": ""
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "bytes": "a9a8dd8e"
+                                                            },
+                                                            "v": {
+                                                                "int": -3
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "bytes": "367f"
+                                                },
+                                                {
+                                                    "constructor": 2,
+                                                    "fields": []
+                                                },
+                                                {
+                                                    "list": [
+                                                        {
+                                                            "bytes": "bd"
+                                                        },
+                                                        {
+                                                            "int": -3
+                                                        },
+                                                        {
+                                                            "bytes": "6b37342e"
+                                                        },
+                                                        {
+                                                            "int": 4
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "bytes": "14dd7e"
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": []
+                                        },
+                                        "v": {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "constructor": 2,
+                                                    "fields": [
+                                                        {
+                                                            "int": -3
+                                                        },
+                                                        {
+                                                            "int": 2
+                                                        },
+                                                        {
+                                                            "bytes": "1bd7"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "map": [
+                                                        {
+                                                            "k": {
+                                                                "bytes": "36"
+                                                            },
+                                                            "v": {
+                                                                "int": -4
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "bytes": ""
+                                                            },
+                                                            "v": {
+                                                                "bytes": "73324d35"
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "int": 1
+                                                            },
+                                                            "v": {
+                                                                "bytes": "8f"
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "bytes": "1a510fe8"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            "inlineDatumhash": "3a3203b617646fbc1f33f7072b9f93d80d601db9e3f07aea550eb9b8a955dbf7",
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "8200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                    "38": 5225842354418151349
+                                },
+                                "lovelace": 6106013737113865187
+                            }
+                        },
+                        "0108060807060100010600030005080005020608040703070200060103040506#62": {
+                            "address": "addr_test1xzsjx9ffvlwkmc5xhdqlgl4kalq0tne7824fugln8f8d3g4t9raftf8ze4jeeylqxq9hyfplxnvf8jaylm8ccj03802qchmws5",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "8202828200581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b08254182040b",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                    "4d481266aaad2d8cb7a2789e343742": 4894377580329243834
+                                },
+                                "lovelace": 6560421579199937669
+                            }
+                        },
+                        "0202020201040201080100020208060403040805050101020707020002050802#44": {
+                            "address": "addr1z949dd25dk28aszqvxpg7w4f3dp8vmtu2t0nuutfc3v9etvqps3gn0vywjkc2u9jqz6ft039gykgd4muxlv09fyvgh3qtyq4lm",
+                            "datum": null,
+                            "inlineDatum": {
+                                "constructor": 0,
+                                "fields": [
+                                    {
+                                        "bytes": "7a713b"
+                                    },
+                                    {
+                                        "bytes": "1d"
+                                    },
+                                    {
+                                        "bytes": ""
+                                    },
+                                    {
+                                        "list": [
+                                            {
+                                                "int": 2
+                                            },
+                                            {
+                                                "int": 4
+                                            },
+                                            {
+                                                "list": [
+                                                    {
+                                                        "int": -4
+                                                    },
+                                                    {
+                                                        "bytes": "69094eff"
+                                                    },
+                                                    {
+                                                        "bytes": "064d82"
+                                                    },
+                                                    {
+                                                        "bytes": "57e31eaf"
+                                                    },
+                                                    {
+                                                        "bytes": "cf"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "bytes": "6b57a1"
+                                    }
+                                ]
+                            },
+                            "inlineDatumhash": "f7be7fc48a3e54486c74ff6f401c29f4a387806b058d0d609c314b237529486c",
+                            "referenceScript": null,
+                            "value": {
+                                "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                                    "088a3d003bfbdf43a475764ac7fafd574ff23aac9b7e953c02007f1a7e477cec": 849921148708184634
+                                },
+                                "lovelace": 1177769255654023364
+                            }
+                        },
+                        "0304020701030801000406060107050007030805070003020807080604010001#43": {
+                            "address": "EqGAuA8vHnNgymeY7ZWzTdYxh8b7qfdVqB3r5YN66nRteEsjy8Ly47ww677kLidN1ywt9Apm5B7ikz6Nd7BRZTR75b6kesgc9Kp5xCgRnQZLHKDdgjCcwug",
+                            "datum": null,
+                            "datumhash": "7e1634fd5e4bd4ca3add1703f72c19fc1941989ceabb78b73944946d6fcb3cfe",
+                            "inlineDatum": null,
+                            "referenceScript": null,
+                            "value": {
+                                "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                    "5fd8277c94af263446158e74a6ac08944dd89fc5b9ce3a29dbd437": 5456789645574440534
+                                },
+                                "lovelace": 2088652443911270178
+                            }
+                        },
+                        "0601050404070500050508070603050503000403040308060203010407020506#17": {
+                            "address": "addr_test1zpnt0lnavzfhu043hdr2s3k9p5dy6e2y84le39ph4jj6vgraj3f5q29n2juamag4x3c3ckv3g7vgxgvnc6wt9vqfj6cs632krh",
+                            "datum": null,
+                            "datumhash": "7e0bae1249ffb060160ab823db4c4854973cec509944b619d2c24cab203e9215",
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "46450100002601",
+                                    "description": "",
+                                    "type": "PlutusScriptV1"
+                                },
+                                "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                            },
+                            "value": {
+                                "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                    "ec267b9d43b296d34f9beadd61eaae598fe4": 7937311272321845729
+                                },
+                                "lovelace": 7164874017562192930
+                            }
+                        },
+                        "0706080302050803080503040003000704070501010207040701020806000107#64": {
+                            "address": "addr_test1xzrg7sq2q7vfmm634kamfharp83m4ynevn6xu87yuj6ckdhqhl8x53gu0qzjc8u9yfrjwep8synuxllpsvqts6cgwc7sd87pkc",
+                            "datum": null,
+                            "datumhash": "a8e9d1b45b51af4acc393b35e453eedc3971b9ebe069b962c15406c553627ad9",
+                            "inlineDatum": null,
+                            "referenceScript": null,
+                            "value": {
+                                "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                    "39": 3132505635589943882
+                                },
+                                "lovelace": 914323872988298091
+                            }
+                        }
+                    }
+                },
                 "tag": "DecrementTx"
             },
             "postTxError": {
@@ -18509,74 +19049,225 @@
         },
         {
             "postChainTx": {
-                "decrementTx": {
-                    "auxiliaryData": "d90103a200a1082401838205108303008082040b",
-                    "body": {
-                        "auxiliaryDataHash": "8340ac13cb9ef79e09b8e533c3bc90e4316d3d0d3f3964e108c13249b930c3ec",
-                        "certificates": [
-                            "8a03581c8208dbeea1a1bef1367c1fdcb5bf37056ce02c671795da0d0303d6da5820e1c69f23a06349405789ee15f2cbfdd9019b2b7b6a9a480b69f8df2e3fd7437c1a00040eb01a00070a5cd81e82191f53194e20581de13da947339ed79cb57aa37752ee4bcfe21def56b7fe018082e80373cc86581c2e76709b1f0a7bdf3f7840ded50c9e13939457e82ad0bd3f26686cd8581c30311e013647807778786f1d5011e37262a552dceaaa33ce9be5689a581c4c8eeb657ef966afc2df737313bd6bb653317fdce3b1e4b9ae3dbc45581c51d9df6d376af68af8042a0c62e26cbdf7868e14537a0e829bdcbe42581cca4f8abaca17709323d4a22c3c939e2ebb86f7bb9b317dea074c3b2f581cf299653460f2c6cc204cc0e990e51fb4b7584e1cfb813cf77aa4104381830105781f4e565750626f7968576377336b6c6146705a577451646f6c47572d2e636f6d82781f68747470733a2f2f4b2e5a72594345694833646e664c6b6c32762d2e636f6d44ebb4cc05",
-                            "820682001a0005cac9",
-                            "820682011a00079555",
-                            "82008201581c48e0da2841de69d8e3578be9d72fb8de3bea2d81a4b239888bf754d8"
-                        ],
-                        "collateral": [
-                            "856276fe6603ee71f373e36b652dc6267bc7826bebcccd4df7e052732af22d96#9",
-                            "d01dbf2f2b7d4a5bf14a79d3543403d30f7d878896bc986f24405a1ccd7d49c0#10"
-                        ],
-                        "fees": 964453,
-                        "inputs": [
-                            "ec5b6431d076950e322d2ccc0f956c907769c88d8bacbd5b2b1e863a7731f470#4"
-                        ],
-                        "mint": {
-                            "5eff621165fe361fc62af5d88ed666a5a153bf251fac0511623d58b0": {
-                                "32": 938929555079818332
-                            }
+                "decrementUTxO": {
+                    "0205030002080001060801030303010203080204080303000100080502060302#10": {
+                        "address": "addr1z9zyjsy3ps9ajpjp0swwdmzkfv3araay5y53s7qqsw8e2qhkem45m02qpuxwdkv6alcuv6neqqkwvmqd3ssch46emwgsh29c6w",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "820404",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
                         },
-                        "networkId": "Testnet",
-                        "outputs": [],
-                        "referenceInputs": [
-                            "6e509411e01f2efe5de0949f6e895f71572faa3f207c11333abb0c95148675ca#0",
-                            "cee405629440ae7c8058a743b2d4d8d95bcacee818fc8606407b771f0be92787#1",
-                            "db71ef0277cf8846920dcae8562f70d0ed01cba1799e90027df35f9ee6453e41#5"
-                        ],
-                        "requiredSignatures": [
-                            "36fea4d32bfc998d178fc518a9b6bc8c49ee23d4d5c121e3f87ed0f7",
-                            "7313888772ec9b9fb15ff3f2e65cdc9912fb8b7d3d6682e44204478d",
-                            "7e299d428b5e863c0064e23974e1b3f13d051d0d95172cf5110b9ea1",
-                            "8b418d4bebeb5a52b1cd17e3c5a508ed7e09ad879fe7f1935667cba1",
-                            "c9f10d9780a4bb9ba2ca34b85c6b800c41b39dee3a561946b3e24600"
-                        ],
-                        "scriptIntegrityHash": "dda54879f8dd8ebb29f49cf99dc174dec9569bdcc60b489ac84a2e06537a0d8e",
-                        "withdrawals": {
-                            "f035b14c86d9722a066c3cda2fece0ff990e323cd7f43518620a884855": 432008,
-                            "f17405b83fdded9041b9947307bda94890cfa40eb18ae3f7c457d19f57": 552392
+                        "value": {
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "e5d2ef7cc86696dcdc7a56d9ac14": 6732491928975462516
+                            },
+                            "lovelace": 331832482824995730
                         }
                     },
-                    "id": "fb3add35925856eb5003e92af76d92afd3405542e3737db84b9abc48a737fef6",
-                    "isValid": true,
-                    "witnesses": {
-                        "bootstrap": [
-                            "845820eb54cb152deacb9eb06538dc10beb35e6bda6164689d308184299004d4c863bb58404cdcfebd5d062541d195c827bdadd79c9c4ed08f7ebaffd5c8e041e46bd0e87964ab3917458ea92720345e20c061334a9c11e759baed75daafa60da372b039d2424c1a411b",
-                            "845820c234c324bad79a7f11223c8a314283291cd972e63125fa4aebe2df49ad7ded6f5840026cde5d800d3db1916c2d90b3129bd685ff3e0e2ea2e26b507dc60249df2aab699d4e9b503f4d00f05ba6838eeab85d963dec68c954dd81e6fa89071dd13aba4177418d",
-                            "845820c7055ff6abf9659e15857c8e597ad4c8c754c5bed956231636f9b726185fb6c3584088dc0574fa2f5a3f330a5d787416bc0fd230f89fb6f700e9c673ff59432120857b573a550dacd2bc457fc9ee776951cd3de76afee320c6afa278ef9a1a768fb4442ae6a2f54118",
-                            "845820e864b6aaf325365257bb6cdee10d1d8a4a17e18a211589d5831b7c93fc71ab3e5840a2af391fc953824119ca27bf4a678dcb0d0352a67cb64850807c9cc480233193f1bbb30503ef070c294b01f004c243e508ac1023fd370df7bd095de2775820e14156429b4f",
-                            "845820c0e2565a63fadd9dec847435592f33e17ea02ecafc2b51fb429a1ffbe92f0b8858403a43538081091be577cd248598f2b5a44c88d73e3c85425a1df796c84ef4111d6d1fea6c2f442cfdefaf67b32cecd71a32f46ada15edd407699f16aae87b6bfe45367a264d4944d951a039",
-                            "845820114936d2b5358557b81d5a16840f6f47e918567decf85b8c9b82b3c57264375f58407600a36fbd1e03fe467609ce5ab71b2839a83eb5d03c104c6b40030d9bf62b6e07682a51d9c133e93ef1dbf0f346812f26996f428a6010d51bdfd6c9510f94aa43a7606240"
-                        ],
-                        "datums": {
-                            "34847565bc99f3482fb9a4f754eb542aadb9d38b821060d6ffd0afd5fb6d1439": "42e463",
-                            "39436c5147a6cfe408b41dbb0441757fd510fa6839392a3db8061237ba26e571": "d87d9f9f41639f23ff42929f431b6b44ffd87e8024ff",
-                            "60e2c0d5114ae43e3cd2472ecd519963366b4c17cba3c986e3cc6910799eae4e": "4236ce",
-                            "96c890c0364cccbe42a32dd795ccf754422f7c475ebf2d0f02ed1ff76037568e": "4107",
-                            "b7df9d9fe8053aefb9ee8585e4b1697873e6a09ac57c8d0c42584d012524248a": "44bbd32f48"
+                    "0706070107060801000204050603050500010208010305000301000706060705#88": {
+                        "address": "addr1xxvk8x485pfk680el2yvpcu9d9dqdu6hyfm3dvsh9qgtwwa2xydprhq5cyjp87nxx0vpmzj3vnwagu3nham9v0m5qyqq5jks0a",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 4,
+                            "fields": [
+                                {
+                                    "int": 5
+                                },
+                                {
+                                    "bytes": "f9f4"
+                                }
+                            ]
                         },
-                        "keys": [
-                            "825820087479f7eb21736b468f220541e08a7d3a499171759026c9c06f496efa5c8c4b5840cffe25d1f36ebce421c47e3f3d6c3da8913f516f901cadc7b7f9ed571199a7eb5d753556f15f32c4df2c08de7a1c0489e89e5a1e0df9311d707c06cb02fb21c1"
-                        ],
-                        "redeemers": "8484010821821b3b1fb4eb6d6b8ee51b190c5455e0796e74840200d87a9f22d87d9f2440ffff821b56659f2cf04bf3671b12620d826a7e015084020802821b66cb9a5a37c287261b37ebc52abc5c65de840305d87c9fa5d87d8001408040009f2001232040ffd87a80d87a9f230040ffa243d26b6b4209a20303ff821b70c06223f489eb0b1b6b97daa58cb4a28c"
+                        "inlineDatumhash": "644459765643ed5420cf3961e86ede0f2eae788108429f5ac1f7712257e6196a",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82028382018582040d8200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e782040a830300828200581cb5ae663aaea8e500157bdf4baafd6f5ba0ce5759f7cd4101fc132f548200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c2830300818200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581c65fc709a5e019b8aba76f6977c1c8770e4b36fa76f434efc588747b7820406",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "dee708fd97f2db09047d2723cb9e8c0d4eee7d80ece8250e0d3e0b02": {
+                                "32": 612002793093185943
+                            },
+                            "lovelace": 3776660330119434132
+                        }
+                    },
+                    "0808010006020407060306080806040106040508060000040104060700070000#62": {
+                        "address": "addr1q9lq643ap6m5h9wgyz82c04p2hmu9pgx2804wfvkglpd5656xcv39mcgcw25wns6cr38nzm8uqjps40yy8ay9p6x37vq7v39fm",
+                        "datum": null,
+                        "datumhash": "16c54e5bb83e26f86a9b1f0b15c713b8843a6b8bb8f614fdb52357b7ebb87dcf",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "37": 526549324230516973
+                            },
+                            "lovelace": 5798543736381956863
+                        }
                     }
                 },
-                "headId": "02070004070002030602020303030103",
+                "headId": "07010100060007080403010507050504",
+                "headParameters": {
+                    "contestationPeriod": 604800,
+                    "parties": []
+                },
+                "signatures": {
+                    "multiSignature": [
+                        "210d482e6cb1b053f221aa2312cece6097885a20ed4e28762a798ef8a871ce4d0ac88d85b06e83a64495ef911b897a235261e4620e071bec27470726ae537209"
+                    ]
+                },
+                "snapshot": {
+                    "confirmedTransactions": [],
+                    "headId": "05020408080801030200010301050307",
+                    "snapshotNumber": 4,
+                    "utxo": {
+                        "0300070807060302010702030704010104050305000305050006060508030403#82": {
+                            "address": "addr1g9mres5zqydaxvheg2t9gh50puea5qa6phfc0tc6cntej7gpqcqs6rpc54",
+                            "datum": null,
+                            "datumhash": "d4e9c5fc278740bb8ffcdae8ffde7dc2ce330c1dc8ca39e3f0706deb26049fe7",
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "820180",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "92e735c38a4827d7f6d485a5d3cafe647a46939fe95ab0af52be0bec": {
+                                    "99d56b00cebbd89e45ad": 6567300961555034311
+                                },
+                                "lovelace": 9086553852877300246
+                            }
+                        },
+                        "0304080405000507080107040601040703070007030602030802010106030405#7": {
+                            "address": "addr129uwezefq30z9eq4nhracrw3vjvhl5gpyn59fatt07hg3sc9qcps58vrxx",
+                            "datum": null,
+                            "datumhash": "c776e8b40910bb4f8ac0723a3dce35d5810ecafb2065402483c09b960b10cff9",
+                            "inlineDatum": null,
+                            "referenceScript": null,
+                            "value": {
+                                "772fbddec9151016843881a0525a78d68b3f814bc51ee7f4d3d12cac": {
+                                    "e034c3ccc1ae8794059ac1": 9185076827144587176
+                                },
+                                "lovelace": 7166931130826144879
+                            }
+                        },
+                        "0401030300020406080801020001030507040807020200030007080701060604#81": {
+                            "address": "addr_test1xpydp6y66hg2jmmt8kde986h8gv655gwrv0kysz7pk7fxtxl3dfpv6vxfw294jlsq09putf6h0xlc4rlj69nmwm8dxkshza9l2",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "830301828200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e7820408",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "bb7e0154515c1dae67e0bc6b141bf1f3ee69e65d2c548e8fed607d1a": {
+                                    "3e10f3f1162597": 7258546187173608658
+                                },
+                                "lovelace": 8598712932072700583
+                            }
+                        },
+                        "0606040104020605030505070100010803030706080803050300080706080807#71": {
+                            "address": "addr_test1ypx043c545jkpzvkzpynam9e9hsg4y33twzh3g9zfpjxk4autdgyycvn2grlf47qgzrxl3vm0gs26jq95k7qcxr2wc6qpd4s4y",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "820181820400",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "a5b6067877bd202be18e64a1b05d5651269ce92272c0140233082b4c": {
+                                    "32": 4123427298803934107
+                                },
+                                "lovelace": 937660282405120757
+                            }
+                        }
+                    },
+                    "utxoToDecommit": {
+                        "0000000108070007020306050402000800080001060608000204050101040604#39": {
+                            "address": "addr1yy42hpd8cutf3q35mmgrru47wptf2x07m25dyepal6jfsc4w7e3yh05ddvhc2gsueu9lsd9sk6ltm2pcgpmq39htym3q7vr694",
+                            "datum": null,
+                            "inlineDatum": {
+                                "bytes": "f8deaed4"
+                            },
+                            "inlineDatumhash": "d5acd9dfb87d9eae0080ac995c1a3dc4e29830c38bac5d49231712eff110a6c4",
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "82028282040482040a",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                    "34": 6286022699872930348
+                                },
+                                "lovelace": 4946402297582556384
+                            }
+                        },
+                        "0402020105060408010606070405050004020203030403070108050601060708#39": {
+                            "address": "addr1z9m7j6yrzfn6scvrgfrvdgvqfrt8qysdsxkuu5rvadfwpfkmmywek0xlyceffv940uhpl2ra3tsuyh75jqm6r02w2m0q6ewyaq",
+                            "datum": null,
+                            "datumhash": "088e264b70ba8f3e527ee762550ac5d2049dcd46c6a3694f5d29942fd09a4f11",
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "46450100002601",
+                                    "description": "",
+                                    "type": "PlutusScriptV2"
+                                },
+                                "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                            },
+                            "value": {
+                                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                    "5f": 8320502499080121538
+                                },
+                                "lovelace": 5717846386670339417
+                            }
+                        },
+                        "0706010008030806080604080701040301080208010107000805020607040408#11": {
+                            "address": "addr_test1wqwuuj0cpl3xa92wkv2rw7cweuw2fzfctw4ymg9ekyggkwgghyj7a",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "referenceScript": {
+                                "script": {
+                                    "cborHex": "82028582018582040483030080830301818200581c58e1b65718531b42494610c506cef10ff031fa817a8ff75c0ab180e78202818200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c283030080830302838200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e82040f830300838200581cbd039f956f4b302f3ab6fc7c4bac3350a540f44af81a8492194dd2c28200581c4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a568200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8205028201858202838200581c76e607db2a31c9a2c32761d2431a186a550cc321f79cd8d6a82b29b88200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e58200581cb16b56f5ec064be6ac3cab6035efae86b366cc3dc4a0d571603d70e582040b8204048201828200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e8200581c3542acb3a64d80c29302260d62c3b87a742ad14abf855ebc6733081e82050f82050d",
+                                    "description": "",
+                                    "type": "SimpleScript"
+                                },
+                                "scriptLanguage": "SimpleScriptLanguage"
+                            },
+                            "value": {
+                                "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                    "078291747c56dcae76e97189838d9816": 5305812005710289200
+                                },
+                                "lovelace": 802503961044124086
+                            }
+                        }
+                    }
+                },
                 "tag": "DecrementTx"
             },
             "postTxError": {
