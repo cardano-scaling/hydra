@@ -5,10 +5,12 @@ import Hydra.Prelude hiding (fromList)
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
+  AnyCardanoEra (..),
+  GenesisParameters (..),
   ProtocolParametersConversionError,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
+import Hydra.Chain.CardanoClient (QueryPoint (..), queryCurrentEra, queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -77,7 +79,10 @@ run opts = do
       let RunOptions{chainConfig, ledgerConfig} = opts
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
-      globals <- getGlobalsForChain chainConfig
+      let DirectChainConfig{networkId, nodeSocket} = chainConfig
+
+      (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+      globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip era
 
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"

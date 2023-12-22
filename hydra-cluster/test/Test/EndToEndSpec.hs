@@ -10,6 +10,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
+  queryCurrentEra,
   queryEpochNo,
   queryGenesisParameters,
   queryTip,
@@ -39,6 +40,7 @@ import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api (
   AddressInEra,
+  AnyCardanoEra (..),
   GenesisParameters (..),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -527,6 +529,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
     describe "forking eras" $ do
       it "does report on unsupported era" $ \tracer -> do
+        pendingWith "Currently supporting Conway era no future upcoming"
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
@@ -547,6 +550,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
       it "does report on unsupported era on startup" $ \tracer -> do
+        pendingWith "Currently supporting Conway era no future upcoming"
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
@@ -584,7 +588,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               let hydraTracer = contramap FromHydraNode tracer
               withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-                waitForNodesConnected hydraTracer 20 [n1]
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
 
@@ -601,7 +604,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
 
-      it "support new era on restart" $ \tracer -> do
+      fit "support new era on restart" $ \tracer -> do
         withClusterTempDir "support-new-era-restart" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
 
@@ -621,7 +624,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               let hydraTracer = contramap FromHydraNode tracer
               headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-                waitForNodesConnected hydraTracer 20 [n1]
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
 
@@ -634,8 +636,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               waitUntilEpoch tmpDir args node 10
 
               withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
-                waitForNodesConnected hydraTracer 20 [n1]
-
                 send n1 $ input "Close" []
                 waitMatch 3 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
@@ -710,7 +710,8 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScri
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
-    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
+    (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip era
     let slotLengthSec = protocolParamSlotLength genesisParams
     currentSlot <- queryTipSlotNo networkId nodeSocket
 

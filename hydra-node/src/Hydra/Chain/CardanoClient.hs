@@ -223,6 +223,13 @@ queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO (EraHistory Carda
 queryEraHistory networkId socket queryPoint =
   runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
 
+-- | Query current era at given point.
+--
+-- Throws at least 'QueryException' if query fails.
+queryCurrentEra :: NetworkId -> SocketPath -> QueryPoint -> IO AnyCardanoEra
+queryCurrentEra networkId socket queryPoint =
+  runQuery networkId socket queryPoint $ QueryCurrentEra CardanoModeIsMultiEra
+
 -- | Query the current epoch number.
 --
 -- Throws at least 'QueryException' if query fails.
@@ -262,16 +269,24 @@ queryProtocolParameters networkId socket queryPoint = do
 -- | Query 'GenesisParameters' at a given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisParameters ShelleyEra)
-queryGenesisParameters networkId socket queryPoint =
-  let query =
-        QueryInEra
-          BabbageEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              QueryGenesisParameters
-          )
-   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> CardanoEra era -> IO (GenesisParameters ShelleyEra)
+queryGenesisParameters networkId socket queryPoint era =
+  -- REVIEW: check out `cardanoEra`
+  case toEraInMode era CardanoMode of
+    Nothing -> error "TODO"
+    Just eraInMode -> do
+      mShellyBaseEra <- requireShelleyBasedEra era
+      case mShellyBaseEra of
+        Nothing -> error "TODO-2"
+        Just shellyBaseEra ->
+          let query =
+                QueryInEra
+                  eraInMode
+                  ( QueryInShelleyBasedEra
+                      shellyBaseEra
+                      QueryGenesisParameters
+                  )
+           in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
 
 -- | Query UTxO for all given addresses at given point.
 --
