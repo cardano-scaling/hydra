@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
+import Cardano.Ledger.Core (PParams ())
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
@@ -30,6 +31,7 @@ import Hydra.Ledger.Cardano (
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
+import Test.QuickCheck.Property (expectFailure)
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
@@ -52,6 +54,12 @@ spec =
               \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
+
+    -- FIXME: this is expected to fail because of a bug in cardano-ledger
+    -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) . Once a fix
+    -- is upstream SB will remove the failure expectation.
+    describe "PParams" $
+      prop "Same PParams before/after JSON encoding" (expectFailure roundtripPParams)
 
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @Tx)
@@ -105,6 +113,16 @@ shouldParseJSONAs bs =
   case Aeson.eitherDecode bs of
     Left err -> failure err
     Right (_ :: a) -> pure ()
+
+roundtripPParams :: PParams LedgerEra -> Property
+roundtripPParams pparams =
+  case Aeson.decode (Aeson.encode pparams) of
+    Nothing ->
+      property False
+    Just decodedPparams ->
+      (pparams === decodedPparams)
+        & counterexample ("after:  " <> show decodedPparams)
+        & counterexample ("before: " <> show pparams)
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =

@@ -95,6 +95,13 @@ function publishReferenceScripts() {
     --cardano-signing-key devnet/credentials/faucet.sk
 }
 
+function queryPParams() {
+  echo >&2 "Query Protocol parameters"
+  docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --out-file /dev/stdout \
+  | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > protocol-parameters.json
+  echo >&2 "Saved in protocol-parameters.json"
+}
+
 echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
 seedFaucet "alice" 30000000 # 30 Ada to the node
 seedFaucet "bob" 30000000 # 30 Ada to the node
@@ -103,6 +110,7 @@ echo >&2 "Distributing funds to alice, bob and carol..."
 seedFaucet "alice-funds" 100000000 # 100 Ada to commit
 seedFaucet "bob-funds" 50000000 # 50 Ada to commit
 seedFaucet "carol-funds" 25000000 # 25 Ada to commit
+queryPParams
 echo "HYDRA_SCRIPTS_TX_ID=$(publishReferenceScripts)" > .env
 echo >&2 "Environment variable stored in '.env'"
 echo >&2 -e "\n\t$(cat .env)\n"

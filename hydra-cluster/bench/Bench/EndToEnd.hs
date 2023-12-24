@@ -87,12 +87,12 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket, pparams} -> do
             putTextLn "Seeding network"
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId pparams contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
 
@@ -408,12 +408,12 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
     snapshot <- v ^? key "snapshot"
     SnapshotConfirmed
       <$> snapshot
-      ^? key "confirmedTransactions"
-        . _Array
-        . to toList
-        <*> snapshot
-      ^? key "snapshotNumber"
-        . _Number
+        ^? key "confirmedTransactions"
+          . _Array
+          . to toList
+      <*> snapshot
+        ^? key "snapshotNumber"
+          . _Number
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

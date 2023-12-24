@@ -7,15 +7,16 @@ module Hydra.Ledger.Cardano.Configuration (
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Ledger.Shelley.API.Types qualified as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Data.Aeson qualified as Json
 import Data.Aeson.Types qualified as Json
+import Hydra.Ledger.Cardano.Json ()
 
 -- * Helpers
 
@@ -79,8 +80,8 @@ newGlobals genesisParameters = do
 
 -- * LedgerEnv
 
-protocolParametersFromJson :: Json.Value -> Json.Parser ProtocolParameters
-protocolParametersFromJson = parseJSON
+pparamsFromJson :: Json.Value -> Json.Parser (PParams LedgerEra)
+pparamsFromJson = parseJSON
 
 -- | Create a new ledger env from given protocol parameters.
 newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra

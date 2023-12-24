@@ -6,8 +6,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Text (unpack)
-import Hydra.Cardano.Api (LedgerEra, ShelleyBasedEra (..), UTxO, prettyPrintJSON, toLedgerPParams, utxoFromTx)
-import Hydra.Chain.Direct.Fixture (defaultGlobals)
+import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultPParams)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
@@ -22,8 +22,6 @@ import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
   newLedgerEnv,
-  protocolParametersFromJson,
-  readJsonFileThrow,
  )
 import Test.QuickCheck (
   Positive (Positive),
@@ -43,9 +41,7 @@ prop_keepsUTxOConstant =
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
-      protocolParameters <- readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"
-      let pparams = either (error . show) id (toLedgerPParams ShelleyBasedEraBabbage protocolParameters)
-      let ledgerEnv = newLedgerEnv pparams
+      let ledgerEnv = newLedgerEnv defaultPParams
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $

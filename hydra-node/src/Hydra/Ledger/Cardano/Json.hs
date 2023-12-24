@@ -18,6 +18,8 @@ import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (outputsTxBodyL)
+import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
+import Cardano.Ledger.Babbage.PParams qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), isSJust)
@@ -66,6 +68,57 @@ import Data.Aeson.Types (
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+
+-- XXX: Maybe use babbagePParamsHKDPairs?
+instance FromJSON (Ledger.BabbagePParams Identity era) where
+  parseJSON =
+    Aeson.withObject "PParams" $ \obj ->
+      BabbagePParams
+        <$> obj
+          .: "minFeeA"
+        <*> obj
+          .: "minFeeB"
+        <*> obj
+          .: "maxBlockBodySize"
+        <*> obj
+          .: "maxTxSize"
+        <*> obj
+          .: "maxBlockHeaderSize"
+        <*> obj
+          .: "keyDeposit"
+        <*> obj
+          .: "poolDeposit"
+        <*> obj
+          .: "eMax"
+        <*> obj
+          .: "nOpt"
+        <*> obj
+          .: "a0"
+        <*> obj
+          .: "rho"
+        <*> obj
+          .: "tau"
+        <*> obj
+          .: "protocolVersion"
+        <*> obj
+          .: "minPoolCost"
+          .!= mempty
+        <*> obj
+          .: "coinsPerUTxOByte"
+        <*> obj
+          .: "costmdls"
+        <*> obj
+          .: "prices"
+        <*> obj
+          .: "maxTxExUnits"
+        <*> obj
+          .: "maxBlockExUnits"
+        <*> obj
+          .: "maxValSize"
+        <*> obj
+          .: "collateralPercentage"
+        <*> obj
+          .: "maxCollateralInputs"
 
 --
 -- Addr

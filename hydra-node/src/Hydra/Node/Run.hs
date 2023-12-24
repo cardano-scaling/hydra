@@ -6,8 +6,6 @@ import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
-  ShelleyBasedEra (..),
-  toLedgerPParams,
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -24,7 +22,7 @@ import Hydra.Ledger.Cardano.Configuration (
   Globals,
   newGlobals,
   newLedgerEnv,
-  protocolParametersFromJson,
+  pparamsFromJson,
   readJsonFileThrow,
  )
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
@@ -77,11 +75,10 @@ run opts = do
       traceWith tracer (NodeOptions opts)
       eq@EventQueue{putEvent} <- createEventQueue
       let RunOptions{chainConfig, ledgerConfig} = opts
-      protocolParams <- readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-      pparams <- case toLedgerPParams ShelleyBasedEraBabbage protocolParams of
-        Left err -> throwIO (ConfigurationException err)
-        Right bpparams -> pure bpparams
+      pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+
       globals <- getGlobalsForChain chainConfig
+
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
