@@ -5,12 +5,10 @@ module Hydra.Cluster.Fixture where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Core (PParams)
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Cardano.Api qualified as Api
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
-import Hydra.Ledger.Cardano.Configuration (pparamsFromJson, readJsonFileThrow)
 import Hydra.Party (Party, deriveParty)
 
 alice, bob, carol :: Party
@@ -38,9 +36,6 @@ cperiod = UnsafeContestationPeriod 10
 -- - pull the network id from the genesis configuration
 defaultNetworkId :: NetworkId
 defaultNetworkId = Api.Testnet (Api.NetworkMagic 42)
-
-loadDefaultPParams :: IO (PParams Api.LedgerEra)
-loadDefaultPParams = readJsonFileThrow pparamsFromJson "./config/pparams.json"
 
 -- NOTE: This is hard-coded and needs to correspond to the initial funds set in
 -- the genesis-shelley.json file.

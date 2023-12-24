@@ -31,7 +31,6 @@ data-files:
   config/devnet/kes.skey
   config/devnet/opcert.cert
   config/devnet/vrf.skey
-  config/pparams.json
 
 source-repository head
   type:     git

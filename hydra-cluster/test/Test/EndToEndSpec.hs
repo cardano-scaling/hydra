@@ -51,7 +51,7 @@ import Hydra.Cardano.Api (
   unEpochNo,
   pattern TxValidityLowerBound,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -71,7 +71,6 @@ import Hydra.Cluster.Fixture (
   carolVk,
   cperiod,
   defaultNetworkId,
-  loadDefaultPParams,
  )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
@@ -93,7 +92,6 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
-import Hydra.Ledger.Cardano.Configuration (pparamsFromJson, readJsonFileThrow)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import HydraNode (
@@ -151,9 +149,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 { initialUTxOFile = tmpDir </> "utxo.json"
                 , ledgerGenesisFile = Nothing
                 }
-      pparams <- loadDefaultPParams
       -- Start a hydra-node in offline mode and submit a transaction from alice to bob
-      aliceToBob <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] pparams $ \node -> do
+      aliceToBob <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] defaultPParams $ \node -> do
         let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
         let Right aliceToBob =
               mkSimpleTx
@@ -166,7 +163,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         pure aliceToBob
 
       -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] pparams $ \node -> do
+      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] defaultPParams $ \node -> do
         let
           bobTxOut = toUTxOContext $ txOuts' aliceToBob !! 0
           Right bobToAlice =
@@ -526,7 +523,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \nodeSocket -> do
-            pparams <- loadDefaultPParams
+            let pparams = defaultPParams
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -546,7 +543,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \nodeSocket -> do
-            pparams <- loadDefaultPParams
+            let pparams = defaultPParams
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
