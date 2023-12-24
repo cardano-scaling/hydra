@@ -4,8 +4,8 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Control.Lens ((?~), (^?!))
 import Cardano.Ledger.Core (PParams)
+import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -121,7 +121,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer networkId stateDirectory args $ \rn -> do
+  withCardanoNode tracer stateDirectory args $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     let rn =

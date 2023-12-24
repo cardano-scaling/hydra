@@ -6,10 +6,6 @@ import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
-  ShelleyBasedEra (..),
-  toLedgerPParams,
-  StandardCrypto,
-  SystemStart (..),
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -80,8 +76,6 @@ run opts = do
       eq@EventQueue{putEvent} <- createEventQueue
       let RunOptions{chainConfig, ledgerConfig} = opts
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-
-      let DirectChainConfig{networkId, nodeSocket} = chainConfig
 
       globals <- getGlobalsForChain chainConfig
 

@@ -56,7 +56,7 @@ spec =
         shouldParseJSONAs @UTxO bs
 
     -- FIXME: this is expected to fail because of a bug in cardano-ledger
-    -- (https://github.com/IntersectMBO/cardano-ledger/issues/3948) . Once a fix
+    -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) . Once a fix
     -- is upstream SB will remove the failure expectation.
     describe "PParams" $
       prop "Same PParams before/after JSON encoding" (expectFailure roundtripPParams)

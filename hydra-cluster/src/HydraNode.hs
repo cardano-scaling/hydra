@@ -22,7 +22,6 @@ import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
-import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
@@ -306,7 +305,7 @@ withHydraNode' ::
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
   withSystemTempDirectory "hydra-node" $ \dir -> do
-    let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+    let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
     writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
@@ -350,7 +349,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
     toStrict $
       ( Aeson.encode (toJSON pparams)
           -- FIXME: this is a hack because cardano-ledger has a bug
-          -- (https://github.com/IntersectMBO/cardano-ledger/issues/3948) in the
+          -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) in the
           -- BabbagePParams ToJSON instance where 'protocolVersion' is missing.
           & atKey "protocolVersion" ?~ toJSON bppProtocolVersion
           & atKey "minFeeA" ?~ toJSON (Number 0)
@@ -360,8 +359,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
           & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
           & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
       )
-
-  -- \| jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > protocol-parameters.json
 
   peers =
     [ Host
