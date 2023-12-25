@@ -73,6 +73,7 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
+    (Open{}, Decrement{}) -> checkDecrement
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
@@ -225,6 +226,10 @@ commitDatum input = do
       commits
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
+
+checkDecrement :: Bool
+checkDecrement = True
+{-# INLINEABLE checkDecrement #-}
 
 -- | The close validator must verify that:
 --

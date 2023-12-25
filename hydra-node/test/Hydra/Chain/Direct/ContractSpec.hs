@@ -11,9 +11,9 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
+import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
-import qualified Data.ByteString as BS
 import Hydra.Cardano.Api (
   UTxO,
   toLedgerTxOut,
@@ -25,6 +25,7 @@ import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutat
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
+import Hydra.Chain.Direct.Contract.Decrement (healthyDecrementTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionEvaluates)
@@ -113,6 +114,9 @@ spec = parallel $ do
       propTransactionEvaluates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
+  describe "Decrement" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyDecrementTx
   describe "Close" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseTx
