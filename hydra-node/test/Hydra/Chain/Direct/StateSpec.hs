@@ -58,7 +58,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
-  DecrementObservation(..),
+  DecrementObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   NotAnInitReason (..),

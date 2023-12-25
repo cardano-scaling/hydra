@@ -34,6 +34,7 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
@@ -50,7 +51,6 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
-import qualified Hydra.Cardano.Api.UTxO as Api
 
 -- * Ledger
 
