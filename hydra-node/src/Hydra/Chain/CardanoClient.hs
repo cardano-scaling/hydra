@@ -6,7 +6,7 @@ module Hydra.Chain.CardanoClient where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block)
+import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
@@ -169,13 +169,13 @@ awaitTransaction ::
   SocketPath ->
   -- | The transaction to watch / await
   Tx ->
+  CardanoEra era ->
   IO UTxO
-awaitTransaction networkId socket tx =
-  go
+awaitTransaction networkId socket tx era = go
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
+    utxo <- queryUTxOByTxIn networkId socket QueryTip ins era
     if null utxo
       then go
       else pure utxo
@@ -299,16 +299,13 @@ queryUTxO networkId socket queryPoint addresses =
 -- | Query UTxO for given tx inputs at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> IO UTxO
-queryUTxOByTxIn networkId socket queryPoint inputs =
-  let query =
-        QueryInEra
-          BabbageEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
-          )
-   in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
+queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> CardanoEra era -> IO UTxO
+queryUTxOByTxIn networkId socket queryPoint inputs era =
+  UTxO.fromApi
+    <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
+            >>= runQuery networkId socket queryPoint
+            >>= throwOnEraMismatch
+        )
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.
