@@ -6,7 +6,6 @@ import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (
   AnyCardanoEra (..),
-  GenesisParameters (..),
   ProtocolParametersConversionError,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -79,10 +78,7 @@ run opts = do
       let RunOptions{chainConfig, ledgerConfig} = opts
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
-      let DirectChainConfig{networkId, nodeSocket} = chainConfig
-
-      (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
-      globals <- newGlobals =<< queryGenesisParameters networkId nodeSocket QueryTip era
+      globals <- getGlobalsForChain chainConfig
 
       withCardanoLedger pparams globals $ \ledger -> do
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
@@ -136,9 +132,10 @@ getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} ->
-    queryGenesisParameters networkId nodeSocket QueryTip
-      >>= newGlobals
+  Direct DirectChainConfig{networkId, nodeSocket} -> do
+    (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    params <- queryGenesisParameters networkId nodeSocket QueryTip era
+    newGlobals params
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
