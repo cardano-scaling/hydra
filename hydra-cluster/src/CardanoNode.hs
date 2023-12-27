@@ -300,6 +300,9 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
   waitForNode = do
     let nodeSocketPath = File socketPath
     waitForSocket nodeSocketPath
+    -- we wait for synchronization since otherwise we will receive a query
+    -- exception when trying to obtain pparams and the era is not the one we
+    -- expect.
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
     traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
     action nodeSocketPath
