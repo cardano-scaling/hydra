@@ -24,32 +24,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
-import Hydra.Cardano.Api (
-  Block (..),
-  BlockInMode (..),
-  CardanoEra (BabbageEra),
-  CardanoMode,
-  ChainPoint,
-  ChainTip,
-  ConsensusModeParams (..),
-  EpochSlots (..),
-  EraHistory (EraHistory),
-  EraInMode (..),
-  LocalChainSyncClient (..),
-  LocalNodeClientProtocols (..),
-  LocalNodeConnectInfo (..),
-  NetworkId,
-  ShelleyBasedEra (..),
-  SocketPath,
-  Tx,
-  TxInMode (..),
-  TxValidationErrorInMode,
-  chainTipToChainPoint,
-  connectToLocalNode,
-  getTxBody,
-  getTxId,
-  toLedgerUTxO,
- )
+import Hydra.Cardano.Api (AnyCardanoEra (..), Block (..), BlockInMode (..), CardanoEra (BabbageEra), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams (..), EpochSlots (..), EraHistory (EraHistory), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, ShelleyBasedEra (..), SocketPath, Tx, TxInMode (..), TxValidationErrorInMode, chainTipToChainPoint, connectToLocalNode, getTxBody, getTxId, toLedgerUTxO)
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
@@ -58,6 +33,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
+  queryCurrentEra,
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
@@ -115,7 +91,8 @@ loadChainContext ::
   IO ChainContext
 loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+  (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId era
   pure $
     ChainContext
       { networkId

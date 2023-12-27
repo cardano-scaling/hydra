@@ -10,6 +10,8 @@ module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api qualified
+import Cardano.Api.Shelley (ReferenceScript (..))
+import Data.Bifunctor (second)
 import Data.Coerce (coerce)
 import Data.List qualified as List
 import Data.Map (Map)
@@ -84,8 +86,35 @@ min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 
 -- * Type Conversions
 
-fromApi :: Cardano.Api.UTxO Era -> UTxO
-fromApi = coerce
+fromApi :: Cardano.Api.UTxO era -> UTxO
+fromApi (Cardano.Api.UTxO conwayUTxO) =
+  let conwayPairs = Map.toList conwayUTxO
+      babbagePairs = second downgradeOutput <$> conwayPairs
+   in fromPairs babbagePairs
+ where
+  downgradeOutput :: TxOut CtxUTxO era -> TxOut CtxUTxO Era
+  downgradeOutput (TxOut conwayAddress conwayValue conwayDatum conwayRefScript) =
+    TxOut
+      (downgradeAddress conwayAddress)
+      (downgradeValue conwayValue)
+      (downgradeDatum conwayDatum)
+      (downgradeRefScript conwayRefScript)
+
+  downgradeAddress :: AddressInEra era -> AddressInEra Era
+  downgradeAddress (AddressInEra _ conwayAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny conwayAddress)
+
+  downgradeValue :: TxOutValue era -> TxOutValue Era
+  downgradeValue (TxOutAdaOnly _ conwayLovelace) = lovelaceToTxOutValue BabbageEra conwayLovelace
+  downgradeValue (TxOutValue _ value) = TxOutValue MaryEraOnwardsBabbage value
+
+  downgradeDatum :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
+  downgradeDatum TxOutDatumNone = TxOutDatumNone
+  downgradeDatum (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
+  downgradeDatum (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
+
+  downgradeRefScript :: ReferenceScript era -> ReferenceScript Era
+  downgradeRefScript ReferenceScriptNone = ReferenceScriptNone
+  downgradeRefScript (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
 
 toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

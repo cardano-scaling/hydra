@@ -4,44 +4,16 @@ module Hydra.Chain.Direct.ScriptRegistry where
 
 import Hydra.Prelude
 
+import Cardano.Api.Eras.Core (CardanoEra)
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  Key (..),
-  NetworkId,
-  PaymentKey,
-  ScriptHash,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  SigningKey,
-  SocketPath,
-  TxId,
-  TxIn (..),
-  TxIx (..),
-  TxOut,
-  WitCtx (..),
-  examplePlutusScriptAlwaysFails,
-  getTxId,
-  hashScriptInAnyLang,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
-  mkScriptAddress,
-  mkScriptRef,
-  mkTxOutAutoBalance,
-  mkVkAddress,
-  selectLovelace,
-  throwErrorAsException,
-  txOutReferenceScript,
-  txOutValue,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
-  pattern TxOutDatumNone,
- )
+import Hydra.Cardano.Api (AnyCardanoEra (..), CtxUTxO, Key (..), NetworkId, PaymentKey, ScriptHash, ShelleyWitnessSigningKey (WitnessPaymentKey), SigningKey, SocketPath, TxId, TxIn (..), TxIx (..), TxOut, WitCtx (..), examplePlutusScriptAlwaysFails, getTxId, hashScriptInAnyLang, makeShelleyKeyWitness, makeSignedTransaction, mkScriptAddress, mkScriptRef, mkTxOutAutoBalance, mkVkAddress, selectLovelace, throwErrorAsException, txOutReferenceScript, txOutValue, pattern ReferenceScript, pattern ReferenceScriptNone, pattern TxOutDatumNone)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
   awaitTransaction,
   buildTransaction,
+  queryCurrentEra,
   queryProtocolParameters,
   queryUTxOByTxIn,
   queryUTxOFor,
@@ -160,9 +132,10 @@ queryScriptRegistry ::
   NetworkId ->
   SocketPath ->
   TxId ->
+  CardanoEra era ->
   m ScriptRegistry
-queryScriptRegistry networkId socketPath txId = do
-  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
+queryScriptRegistry networkId socketPath txId era = do
+  utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates era
   case newScriptRegistry utxo of
     Left e -> throwIO e
     Right sr -> pure sr
@@ -178,6 +151,7 @@ publishHydraScripts ::
   SigningKey PaymentKey ->
   IO TxId
 publishHydraScripts networkId socketPath sk = do
+  (AnyCardanoEra era) <- queryCurrentEra networkId socketPath QueryTip
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
@@ -203,7 +177,7 @@ publishHydraScripts networkId socketPath sk = do
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
         submitTransaction networkId socketPath tx
-        void $ awaitTransaction networkId socketPath tx
+        void $ awaitTransaction networkId socketPath tx era
         return $ getTxId body
  where
   vk = getVerificationKey sk

@@ -11,6 +11,7 @@ import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildAddress,
+  queryCurrentEra,
   queryTip,
   queryUTxO,
   submitTx,
@@ -20,6 +21,7 @@ import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Hydra.Cardano.Api (
+  AnyCardanoEra (..),
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey),
@@ -367,7 +369,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             )
             ""
         let hydraScriptsTxId = fromString hydraScriptsTxIdStr
-        failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
+        (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+        failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId era
 
   it "can only contest once" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do

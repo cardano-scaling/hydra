@@ -1,6 +1,6 @@
 module Hydra.Cluster.Faucet where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (queryCurrentEra)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
@@ -13,6 +13,7 @@ import CardanoClient (
   awaitTransaction,
   buildAddress,
   buildTransaction,
+  queryCurrentEra,
   queryUTxO,
   queryUTxOFor,
   sign,
@@ -122,7 +123,8 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
     let returnBalance = allLovelace - fee
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx
-    void $ awaitTransaction networkId nodeSocket tx
+    (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    void $ awaitTransaction networkId nodeSocket tx era
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
  where
   buildTxBody utxo faucetAddress lovelace otherTokens =
@@ -156,7 +158,8 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
         submitTransaction networkId nodeSocket tx
-        newUtxo <- awaitTransaction networkId nodeSocket tx
+        (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+        newUtxo <- awaitTransaction networkId nodeSocket tx era
         case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
           Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
           Just u -> pure u
