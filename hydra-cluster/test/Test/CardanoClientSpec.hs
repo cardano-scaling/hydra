@@ -3,8 +3,8 @@ module Test.CardanoClientSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (QueryPoint (..), queryGenesisParameters)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoClient (QueryPoint (..), RunningNode (..), queryGenesisParameters)
+import CardanoNode (withCardanoNodeDevnet)
 import Data.Aeson ((.:))
 import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..))

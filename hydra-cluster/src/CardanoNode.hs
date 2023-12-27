@@ -4,13 +4,12 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Core (PParams)
+import CardanoClient (NodeLog (..), RunningNode (..), waitForFullySynchronized)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
-import Data.Fixed (Centi)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
@@ -39,12 +38,6 @@ type Port = Int
 
 newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
-
-data RunningNode = RunningNode
-  { nodeSocket :: SocketPath
-  , networkId :: NetworkId
-  , pparams :: PParams Api.LedgerEra
-  }
 
 -- | Configuration parameters for a single node devnet
 data DevnetConfig = DevnetConfig
@@ -121,7 +114,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args $ \nodeSocket -> do
+  withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     let rn =
@@ -147,7 +140,7 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
-  withCardanoNode tracer workDir args $ \nodeSocket -> do
+  withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     let rn =
@@ -279,9 +272,10 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->
   CardanoNodeArgs ->
+  NetworkId ->
   (SocketPath -> IO a) ->
   IO a
-withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
+withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   traceWith tr $ MsgNodeStarting{stateDirectory}
   withLogFile logFilePath $ \out -> do
@@ -306,6 +300,7 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} action = do
   waitForNode = do
     let nodeSocketPath = File socketPath
     waitForSocket nodeSocketPath
+    _ <- waitForFullySynchronized tr networkId nodeSocketPath
     traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
     action nodeSocketPath
 
@@ -415,21 +410,6 @@ data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving stock (Show)
 
 instance Exception ProcessHasExited
-
--- Logging
-
-data NodeLog
-  = MsgNodeCmdSpec Text
-  | MsgCLI [Text]
-  | MsgCLIStatus Text Text
-  | MsgCLIRetry Text
-  | MsgCLIRetryResult Text Int
-  | MsgNodeStarting {stateDirectory :: FilePath}
-  | MsgSocketIsReady FilePath
-  | MsgSynchronizing {percentDone :: Centi}
-  | MsgNodeIsReady
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 --
 -- Helpers

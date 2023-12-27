@@ -8,6 +8,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams)
 import CardanoClient (
   QueryPoint (QueryTip),
+  RunningNode (..),
   SubmitTransactionException,
   awaitTransaction,
   buildAddress,
@@ -18,7 +19,6 @@ import CardanoClient (
   submitTransaction,
   waitForPayment,
  )
-import CardanoNode (RunningNode (..))
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)

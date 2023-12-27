@@ -15,9 +15,11 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
-import CardanoNode (NodeLog (..), RunningNode (..))
+import Data.Fixed (Centi)
 import Data.Map qualified as Map
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Logging (Tracer, traceWith)
 
@@ -164,13 +166,35 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
         TxOutDatumNone
         ReferenceScriptNone
 
+data RunningNode = RunningNode
+  { nodeSocket :: SocketPath
+  , networkId :: NetworkId
+  , pparams :: PParams Api.LedgerEra
+  }
+
+-- Logging
+
+data NodeLog
+  = MsgNodeCmdSpec Text
+  | MsgCLI [Text]
+  | MsgCLIStatus Text Text
+  | MsgCLIRetry Text
+  | MsgCLIRetryResult Text Int
+  | MsgNodeStarting {stateDirectory :: FilePath}
+  | MsgSocketIsReady FilePath
+  | MsgSynchronizing {percentDone :: Centi}
+  | MsgNodeIsReady
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Wait until the node is fully caught up with the network. This can take a
 -- while!
 waitForFullySynchronized ::
   Tracer IO NodeLog ->
-  RunningNode ->
+  NetworkId ->
+  SocketPath ->
   IO ()
-waitForFullySynchronized tracer RunningNode{nodeSocket, networkId} = do
+waitForFullySynchronized tracer networkId nodeSocket = do
   systemStart <- querySystemStart networkId nodeSocket QueryTip
   check systemStart
  where

@@ -7,7 +7,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
+import CardanoClient (NodeLog, RunningNode (..))
+import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
 import Graphics.Vty (

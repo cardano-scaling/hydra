@@ -3,7 +3,8 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoClient (RunningNode (..))
+import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
 import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
