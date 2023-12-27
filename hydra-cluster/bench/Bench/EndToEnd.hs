@@ -6,8 +6,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), makeQuantiles)
-import CardanoClient (awaitTransaction, submitTransaction, submitTx)
-import CardanoNode (RunningNode (..), withCardanoNodeDevnet)
+import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
+import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,

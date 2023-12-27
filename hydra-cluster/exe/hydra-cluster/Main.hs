@@ -2,7 +2,6 @@ module Main where
 
 import Hydra.Prelude
 
-import CardanoClient (waitForFullySynchronized)
 import CardanoNode (withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
@@ -25,7 +24,6 @@ run options =
       case knownNetwork of
         Just network ->
           withCardanoNodeOnKnownNetwork fromCardanoNode workDir network $ \node -> do
-            waitForFullySynchronized fromCardanoNode node
             publishOrReuseHydraScripts tracer node
               >>= singlePartyHeadFullLifeCycle tracer workDir node
         Nothing ->

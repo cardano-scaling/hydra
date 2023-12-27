@@ -8,13 +8,14 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
+  NodeLog,
   QueryPoint (QueryTip),
+  RunningNode (..),
   buildTransaction,
   queryTip,
   queryUTxOFor,
   submitTx,
  )
-import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))

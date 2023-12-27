@@ -4,12 +4,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (
-  RunningNode (..),
   getCardanoNodeVersion,
   withCardanoNodeDevnet,
  )
 
-import CardanoClient (queryTipSlotNo)
+import CardanoClient (RunningNode (..), queryTipSlotNo)
 import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
 import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesFileExist)

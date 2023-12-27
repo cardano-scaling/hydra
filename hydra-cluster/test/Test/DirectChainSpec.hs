@@ -7,14 +7,16 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO' (UTxO, toMap))
 import CardanoClient (
+  NodeLog,
   QueryPoint (QueryTip),
+  RunningNode (..),
   buildAddress,
   queryTip,
   queryUTxO,
   submitTx,
   waitForUTxO,
  )
-import CardanoNode (NodeLog, RunningNode (..), withCardanoNodeDevnet)
+import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Hydra.Cardano.Api (

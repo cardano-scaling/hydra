@@ -7,10 +7,18 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (..), queryEpochNo, queryGenesisParameters, queryTip, queryTipSlotNo, submitTx, waitForUTxO)
+import CardanoClient (
+  QueryPoint (..),
+  RunningNode (..),
+  queryEpochNo,
+  queryGenesisParameters,
+  queryTip,
+  queryTipSlotNo,
+  submitTx,
+  waitForUTxO,
+ )
 import CardanoNode (
   CardanoNodeArgs (..),
-  RunningNode (..),
   forkIntoConwayInEpoch,
   setupCardanoDevnet,
   unsafeDecodeJsonFile,
@@ -522,7 +530,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \nodeSocket -> do
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
             let pparams = defaultPParams
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -542,7 +550,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \nodeSocket -> do
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
             let pparams = defaultPParams
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
