@@ -573,9 +573,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
-            \node@RunningNode{nodeSocket} -> do
-              let lovelaceBalanceValue = 100_000_000
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
+            \nodeSocket -> do
+              let pparams = defaultPParams
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
               seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
@@ -584,10 +586,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
 
@@ -604,14 +606,16 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
 
-      fit "support new era on restart" $ \tracer -> do
+      it "support new era on restart" $ \tracer -> do
         withClusterTempDir "support-new-era-restart" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) defaultNetworkId tmpDir args $
-            \node@RunningNode{nodeSocket} -> do
-              let lovelaceBalanceValue = 100_000_000
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
+            \nodeSocket -> do
+              let pparams = defaultPParams
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
               seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
@@ -620,10 +624,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket [] cperiod
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
               let hydraTracer = contramap FromHydraNode tracer
-              headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+              headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
                 send n1 $ input "Init" []
                 headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
 
@@ -635,7 +639,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               waitUntilEpoch tmpDir args node 10
 
-              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
                 send n1 $ input "Close" []
                 waitMatch 3 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
