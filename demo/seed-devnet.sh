@@ -97,8 +97,14 @@ function publishReferenceScripts() {
 
 function queryPParams() {
   echo >&2 "Query Protocol parameters"
-  docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --out-file /dev/stdout \
-  | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > protocol-parameters.json
+  if [ "$( docker container inspect -f '{{.State.Running}}' demo-cardano-node-1 )" == "true" ];
+   then
+     docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket --out-file /dev/stdout \
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+   else
+     cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket  --out-file /dev/stdout \
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+  fi
   echo >&2 "Saved in protocol-parameters.json"
 }
 
