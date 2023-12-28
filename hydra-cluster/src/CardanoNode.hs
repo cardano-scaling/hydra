@@ -12,9 +12,9 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (AnyCardanoEra (..), AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryCurrentEra, queryProtocolParameters)
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
@@ -116,12 +116,14 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    cardanoEra@(AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     let rn =
           RunningNode
             { nodeSocket
             , networkId
             , pparams
+            , cardanoEra
             }
     action rn
  where
@@ -135,19 +137,21 @@ withCardanoNodeOnKnownNetwork ::
   FilePath ->
   -- | A well-known Cardano network to connect to.
   KnownNetwork ->
-  (RunningNode -> IO ()) ->
-  IO ()
+  (RunningNode -> IO a) ->
+  IO a
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
   withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    cardanoEra@(AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     let rn =
           RunningNode
             { nodeSocket
             , networkId
             , pparams
+            , cardanoEra
             }
     action rn
  where

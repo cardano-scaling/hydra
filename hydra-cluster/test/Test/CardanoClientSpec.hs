@@ -23,7 +23,7 @@ spec =
           -- systemStart to some current time making it the perfect target to
           -- test against.
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
-            (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             GenesisParameters{protocolParamSystemStart = queriedSystemStart} <-
               queryGenesisParameters networkId nodeSocket QueryTip era
 

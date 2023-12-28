@@ -38,29 +38,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
-import Hydra.Cardano.Api (
-  AddressInEra,
-  AnyCardanoEra (..),
-  GenesisParameters (..),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  SlotNo (..),
-  ToUTxOContext (toUTxOContext),
-  TxId,
-  TxIn (..),
-  VerificationKey,
-  isVkTxOut,
-  lovelaceToValue,
-  mkTxIn,
-  mkVkAddress,
-  serialiseAddress,
-  signTx,
-  txOutValue,
-  txOuts',
-  unEpochNo,
-  pattern TxValidityLowerBound,
- )
+import Hydra.Cardano.Api hiding (Value, cardanoEra, queryCurrentEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
@@ -534,8 +512,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
+            cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
             let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out mStdErr ph -> do
@@ -555,8 +534,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
+            cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
             let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
@@ -575,8 +555,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
             \nodeSocket -> do
+              cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
               let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
                   lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
@@ -613,8 +594,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
             \nodeSocket -> do
+              cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
               let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
                   lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
@@ -690,7 +672,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
           <> logs
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScriptsTxId = do
+timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams, cardanoEra = AnyCardanoEra era} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
@@ -714,7 +696,6 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScri
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
-    (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
     genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip era
     let slotLengthSec = protocolParamSlotLength genesisParams
     currentSlot <- queryTipSlotNo networkId nodeSocket

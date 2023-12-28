@@ -24,7 +24,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
-import Hydra.Cardano.Api (AnyCardanoEra (..), Block (..), BlockInMode (..), CardanoEra (BabbageEra), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams (..), EpochSlots (..), EraHistory (EraHistory), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, ShelleyBasedEra (..), SocketPath, Tx, TxInMode (..), TxValidationErrorInMode, chainTipToChainPoint, connectToLocalNode, getTxBody, getTxId, toLedgerUTxO)
+import Hydra.Cardano.Api (Block (..), BlockInMode (..), CardanoEra (BabbageEra), CardanoMode, ChainPoint, ChainTip, ConsensusModeParams (..), EpochSlots (..), EraHistory (EraHistory), EraInMode (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId, ShelleyBasedEra (..), SocketPath, Tx, TxInMode (..), TxValidationErrorInMode, chainTipToChainPoint, connectToLocalNode, getTxBody, getTxId, toLedgerUTxO)
 import Hydra.Chain (
   ChainComponent,
   ChainStateHistory,
@@ -33,7 +33,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
-  queryCurrentEra,
   queryEraHistory,
   queryProtocolParameters,
   querySystemStart,
@@ -88,10 +87,10 @@ loadChainContext ::
   DirectChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
+  CardanoEra era ->
   IO ChainContext
-loadChainContext config party = do
+loadChainContext config party era = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
   scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId era
   pure $
     ChainContext
@@ -111,8 +110,9 @@ loadChainContext config party = do
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
   DirectChainConfig ->
+  CardanoEra era ->
   IO (TinyWallet IO)
-mkTinyWallet tracer config = do
+mkTinyWallet tracer config era = do
   keyPair <- readKeyPair cardanoSigningKey
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo
  where
@@ -124,8 +124,8 @@ mkTinyWallet tracer config = do
     point <- case queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address] era
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}

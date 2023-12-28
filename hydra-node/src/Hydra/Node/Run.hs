@@ -122,9 +122,10 @@ run opts = do
   prepareChainComponent tracer Environment{party} = \case
     Offline cfg ->
       pure $ withOfflineChain cfg party
-    Direct cfg -> do
-      ctx <- loadChainContext cfg party
-      wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
+    Direct cfg@DirectChainConfig{networkId, nodeSocket} -> do
+      AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      ctx <- loadChainContext cfg party era
+      wallet <- mkTinyWallet (contramap DirectChain tracer) cfg era
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 
 getGlobalsForChain :: ChainConfig -> IO Globals
@@ -133,7 +134,7 @@ getGlobalsForChain = \case
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
   Direct DirectChainConfig{networkId, nodeSocket} -> do
-    (AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
     params <- queryGenesisParameters networkId nodeSocket QueryTip era
     newGlobals params
 
