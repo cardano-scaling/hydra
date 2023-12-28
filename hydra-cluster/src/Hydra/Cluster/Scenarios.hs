@@ -32,29 +32,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
-import Hydra.Cardano.Api (
-  File (File),
-  Lovelace (..),
-  PlutusScriptV2,
-  Tx,
-  TxId,
-  UTxO,
-  fromPlutusScript,
-  lovelaceToValue,
-  makeSignedTransaction,
-  mkScriptAddress,
-  mkTxOutDatumHash,
-  mkTxOutDatumInline,
-  mkVkAddress,
-  selectLovelace,
-  signTx,
-  toLedgerTx,
-  toScriptData,
-  writeFileTextEnvelope,
-  pattern ReferenceScriptNone,
-  pattern TxOut,
-  pattern TxOutDatumNone,
- )
+import Hydra.Cardano.Api (AnyCardanoEra (..), File (File), Lovelace (..), PlutusScriptV2, Tx, TxId, UTxO, fromPlutusScript, lovelaceToValue, makeSignedTransaction, mkScriptAddress, mkTxOutDatumHash, mkTxOutDatumInline, mkVkAddress, selectLovelace, signTx, toLedgerTx, toScriptData, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -500,7 +478,7 @@ canSubmitTransactionThroughAPI ::
   RunningNode ->
   TxId ->
   IO ()
-canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
+canSubmitTransactionThroughAPI tracer workDir node@RunningNode{cardanoEra = AnyCardanoEra era} hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
@@ -521,7 +499,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
+      buildTransaction networkId nodeSocket era bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body

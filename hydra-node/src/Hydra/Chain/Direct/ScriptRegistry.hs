@@ -151,8 +151,8 @@ publishHydraScripts ::
   SigningKey PaymentKey ->
   IO TxId
 publishHydraScripts networkId socketPath sk = do
-  (AnyCardanoEra era) <- queryCurrentEra networkId socketPath QueryTip
-  pparams <- queryProtocolParameters networkId socketPath QueryTip
+  AnyCardanoEra era <- queryCurrentEra networkId socketPath QueryTip
+  pparams <- queryProtocolParameters networkId socketPath QueryTip era
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
@@ -167,6 +167,7 @@ publishHydraScripts networkId socketPath sk = do
   buildTransaction
     networkId
     socketPath
+    era
     changeAddress
     someUTxO
     []
@@ -177,7 +178,7 @@ publishHydraScripts networkId socketPath sk = do
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
         submitTransaction networkId socketPath tx
-        void $ awaitTransaction networkId socketPath tx era
+        void $ awaitTransaction networkId socketPath era tx
         return $ getTxId body
  where
   vk = getVerificationKey sk

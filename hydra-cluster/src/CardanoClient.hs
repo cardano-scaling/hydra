@@ -11,7 +11,7 @@ module CardanoClient (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block)
+import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -89,12 +89,13 @@ waitForPayment ::
   SocketPath ->
   Lovelace ->
   Address ShelleyAddr ->
+  CardanoEra era ->
   IO UTxO
-waitForPayment networkId socket amount addr =
+waitForPayment networkId socket amount addr era =
   go
  where
   go = do
-    utxo <- queryUTxO networkId socket QueryTip [addr]
+    utxo <- queryUTxO networkId socket QueryTip [addr] era
     let expectedPayment = selectPayment utxo
     if expectedPayment /= mempty
       then pure $ UTxO expectedPayment
@@ -108,11 +109,12 @@ waitForUTxO ::
   SocketPath ->
   UTxO ->
   IO ()
-waitForUTxO networkId nodeSocket utxo =
-  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
+waitForUTxO networkId nodeSocket utxo = do
+  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+  forM_ (snd <$> UTxO.pairs utxo) (forEachUTxO era)
  where
-  forEachUTxO :: TxOut CtxUTxO -> IO ()
-  forEachUTxO = \case
+  forEachUTxO :: CardanoEra era -> TxOut CtxUTxO -> IO ()
+  forEachUTxO era = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayment
@@ -120,6 +122,7 @@ waitForUTxO networkId nodeSocket utxo =
           nodeSocket
           (selectLovelace value)
           addr
+          era
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 

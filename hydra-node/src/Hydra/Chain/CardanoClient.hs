@@ -9,8 +9,10 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
+import Cardano.Ledger.Core (PParams (..))
+import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
+import Hydra.Ledger.Cardano.Json ()
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
 import Text.Printf (printf)
@@ -49,7 +51,9 @@ data CardanoClient = CardanoClient
 mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
 mkCardanoClient networkId nodeSocket =
   CardanoClient
-    { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
+    { queryUTxOByAddress = \addresses -> do
+        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+        queryUTxO networkId nodeSocket QueryTip addresses era
     , networkId
     }
 
@@ -65,6 +69,8 @@ buildTransaction ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
+  -- | Era running for cardano-node
+  CardanoEra era ->
   -- | Change address to send
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
@@ -74,8 +80,8 @@ buildTransaction ::
   -- | Outputs to create.
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
-buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  pparams <- queryProtocolParameters networkId socket QueryTip
+buildTransaction networkId socket era changeAddress utxoToSpend collateral outs = do
+  pparams <- queryProtocolParameters networkId socket QueryTip era
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -167,11 +173,12 @@ awaitTransaction ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
+  -- | Current running era
+  CardanoEra era ->
   -- | The transaction to watch / await
   Tx ->
-  CardanoEra era ->
   IO UTxO
-awaitTransaction networkId socket tx era = go
+awaitTransaction networkId socket era tx = go
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
@@ -255,16 +262,20 @@ queryProtocolParameters ::
   NetworkId ->
   SocketPath ->
   QueryPoint ->
+  CardanoEra era ->
   IO (PParams LedgerEra)
-queryProtocolParameters networkId socket queryPoint = do
-  let query =
-        QueryInEra
-          BabbageEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              QueryProtocolParameters
-          )
-  runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+queryProtocolParameters networkId socket queryPoint era =
+  toBabbage
+    <$> ( mkQueryInEra era QueryProtocolParameters
+            >>= runQuery networkId socket queryPoint
+            >>= throwOnEraMismatch
+        )
+ where
+  toBabbage :: PParams (ShelleyLedgerEra era) -> PParams LedgerEra
+  toBabbage pparams =
+    case eitherDecode' (undefined pparams) :: Either String (PParams LedgerEra) of
+      Left e -> error ("TODO: " <> show e)
+      Right ok -> ok
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -283,18 +294,13 @@ queryGenesisParameters networkId socket queryPoint era = do
 -- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
-queryUTxO networkId socket queryPoint addresses =
-  let query =
-        QueryInEra
-          BabbageEraInCardanoMode
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              ( QueryUTxO
-                  (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
-              )
-          )
-   in UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
+queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> CardanoEra era -> IO UTxO
+queryUTxO networkId socket queryPoint addresses era =
+  UTxO.fromApi
+    <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses)))
+            >>= runQuery networkId socket queryPoint
+            >>= throwOnEraMismatch
+        )
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -329,8 +335,9 @@ queryUTxOWhole networkId socket queryPoint = do
 queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
 queryUTxOFor networkId nodeSocket queryPoint vk =
   case mkVkAddress networkId vk of
-    ShelleyAddressInEra addr ->
-      queryUTxO networkId nodeSocket queryPoint [addr]
+    ShelleyAddressInEra addr -> do
+      AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      queryUTxO networkId nodeSocket queryPoint [addr] era
     ByronAddressInEra{} ->
       fail "impossible: mkVkAddress returned Byron address."
 
