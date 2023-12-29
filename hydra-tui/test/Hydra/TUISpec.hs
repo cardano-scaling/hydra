@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoClient (NodeLog, RunningNode (..))
+import CardanoClient (NodeLog, QueryPoint (QueryTip), RunningNode (..), queryCurrentEra)
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Data.ByteString qualified as BS
@@ -28,7 +28,7 @@ import Graphics.Vty (
   termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
-import Hydra.Cardano.Api (Key (getVerificationKey), Lovelace)
+import Hydra.Cardano.Api (AnyCardanoEra (..), Key (getVerificationKey), Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -153,6 +153,7 @@ setupNodeAndTUI' lovelace action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId, pparams} -> do
+        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
@@ -164,10 +165,10 @@ setupNodeAndTUI' lovelace action =
 
         let externalVKey = getVerificationKey externalSKey
         -- Some ADA to commit
-        seedFromFaucet_ node externalVKey 42_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node era externalVKey 42_000_000 (contramap FromFaucet tracer)
 
         withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] pparams $ \HydraClient{hydraNodeId} -> do
-          seedFromFaucet_ node aliceCardanoVk lovelace (contramap FromFaucet tracer)
+          seedFromFaucet_ node era aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
