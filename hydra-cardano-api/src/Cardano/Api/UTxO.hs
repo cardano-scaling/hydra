@@ -89,32 +89,32 @@ min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 fromApi :: Cardano.Api.UTxO era -> UTxO
 fromApi (Cardano.Api.UTxO conwayUTxO) =
   let conwayPairs = Map.toList conwayUTxO
-      babbagePairs = second downgradeOutput <$> conwayPairs
+      babbagePairs = second coerceOutputToEra <$> conwayPairs
    in fromPairs babbagePairs
  where
-  downgradeOutput :: TxOut CtxUTxO era -> TxOut CtxUTxO Era
-  downgradeOutput (TxOut conwayAddress conwayValue conwayDatum conwayRefScript) =
+  coerceOutputToEra :: TxOut CtxUTxO era -> TxOut CtxUTxO Era
+  coerceOutputToEra (TxOut conwayAddress conwayValue conwayDatum conwayRefScript) =
     TxOut
-      (downgradeAddress conwayAddress)
-      (downgradeValue conwayValue)
-      (downgradeDatum conwayDatum)
-      (downgradeRefScript conwayRefScript)
+      (coerceAddressToEra conwayAddress)
+      (coerceValueToEra conwayValue)
+      (coerceDatumToEra conwayDatum)
+      (coerceRefScriptToEra conwayRefScript)
 
-  downgradeAddress :: AddressInEra era -> AddressInEra Era
-  downgradeAddress (AddressInEra _ conwayAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny conwayAddress)
+  coerceAddressToEra :: AddressInEra era -> AddressInEra Era
+  coerceAddressToEra (AddressInEra _ conwayAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny conwayAddress)
 
-  downgradeValue :: TxOutValue era -> TxOutValue Era
-  downgradeValue (TxOutAdaOnly _ conwayLovelace) = lovelaceToTxOutValue BabbageEra conwayLovelace
-  downgradeValue (TxOutValue _ value) = TxOutValue MaryEraOnwardsBabbage value
+  coerceValueToEra :: TxOutValue era -> TxOutValue Era
+  coerceValueToEra (TxOutAdaOnly _ conwayLovelace) = lovelaceToTxOutValue BabbageEra conwayLovelace
+  coerceValueToEra (TxOutValue _ value) = TxOutValue MaryEraOnwardsBabbage value
 
-  downgradeDatum :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
-  downgradeDatum TxOutDatumNone = TxOutDatumNone
-  downgradeDatum (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
-  downgradeDatum (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
+  coerceDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
+  coerceDatumToEra TxOutDatumNone = TxOutDatumNone
+  coerceDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
+  coerceDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
 
-  downgradeRefScript :: ReferenceScript era -> ReferenceScript Era
-  downgradeRefScript ReferenceScriptNone = ReferenceScriptNone
-  downgradeRefScript (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
+  coerceRefScriptToEra :: ReferenceScript era -> ReferenceScript Era
+  coerceRefScriptToEra ReferenceScriptNone = ReferenceScriptNone
+  coerceRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
 
 toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

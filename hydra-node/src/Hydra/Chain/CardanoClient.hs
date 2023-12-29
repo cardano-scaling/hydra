@@ -264,13 +264,13 @@ queryProtocolParameters ::
   CardanoEra era ->
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint era =
-  coerceForEra
+  coercePParamsToLedgerEra
     <$> ( mkQueryInEra era QueryProtocolParameters
             >>= runQuery networkId socket queryPoint
             >>= throwOnEraMismatch
         )
  where
-  coerceForEra pparams =
+  coercePParamsToLedgerEra pparams =
     case era of
       ByronEra -> error "TODO: Byron era not supported"
       ShelleyEra ->
