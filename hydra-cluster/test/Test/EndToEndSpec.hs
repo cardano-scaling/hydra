@@ -220,7 +220,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         failAfter 60 $
           withClusterTempDir "three-init-close-immediately" $ \tmpDir -> do
             let clusterIx = 0
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket, pparams} -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket, pparams} -> do
+              AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
               bobKeys@(bobCardanoVk, _) <- generate genKeyPair
               carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -238,9 +239,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 waitForNodesConnected hydraTracer 20 [n1, n2, n3]
 
                 -- Funds to be used as fuel by Hydra protocol transactions
-                seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ node era bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ node era carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 send n1 $ input "Init" []
                 headId <-
@@ -249,11 +250,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
-                committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByBob <- seedFromFaucet node era bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
                 requestCommitTx n3 mempty >>= submitTx node
@@ -301,6 +302,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir "replay-chain-events" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId, pparams} -> do
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = UnsafeContestationPeriod 10
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -308,7 +310,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
             (tip, aliceHeadId) <- withHydraNode hydraTracer aliceChainConfig tmp nodeId aliceSk [] [1] pparams $ \n1 -> do
-              seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- queryTip networkId nodeSocket
               send n1 $ input "Init" []
               headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
@@ -329,13 +331,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withClusterTempDir "contest-after-restart" $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId, pparams} -> do
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
-            seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-            seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+            seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+            seedFromFaucet_ node era bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
             tip <- queryTip networkId nodeSocket
             let startFromTip = modifyConfig $ \x -> x{startChainFrom = Just tip}
@@ -360,7 +363,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
                 requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
                 (bobExternalVk, _bobExternalSk) <- generate genKeyPair
@@ -426,7 +429,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir "two-heads-cant-abort" $ \tmpDir -> do
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket, pparams} -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket, pparams} -> do
+              AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               let contestationPeriod = UnsafeContestationPeriod 10
@@ -437,8 +441,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds pparams $ \n1 ->
                 withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds pparams $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
-                  seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                  seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                  seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                  seedFromFaucet_ node era bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
                   headIdAliceOnly <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -461,7 +465,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withClusterTempDir "prometheus-metrics" $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket, pparams} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket, pparams} -> do
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
@@ -473,7 +478,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds pparams $ \n2 ->
                   withHydraNode hydraTracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds pparams $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
-                    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                    seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 [n1, n2, n3]
                     send n1 $ input "Init" []
                     void $ waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
@@ -492,10 +497,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir "logs-to-logfile" $ \dir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket, pparams} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{networkId, nodeSocket, pparams} -> do
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            refuelIfNeeded tracer node Alice 100_000_000
+            refuelIfNeeded tracer node era Alice 100_000_000
             let contestationPeriod = UnsafeContestationPeriod 2
             aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] pparams $ \n1 -> do
@@ -512,9 +518,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
-            cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
             let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
+            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out mStdErr ph -> do
@@ -534,9 +539,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
-            cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
             let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
+            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
@@ -553,18 +557,18 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
             \nodeSocket -> do
-              cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
+              AnyCardanoEra era <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
               let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
                   lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
-              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+              seedFromFaucet_ node era aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
               -- Get some UTXOs to commit to a head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+              committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -592,18 +596,18 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
             \nodeSocket -> do
-              cardanoEra <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
+              AnyCardanoEra era <- queryCurrentEra defaultNetworkId nodeSocket QueryTip
               let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams, cardanoEra}
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
                   lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
-              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+              seedFromFaucet_ node era aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
               -- Get some UTXOs to commit to a head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+              committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -672,7 +676,8 @@ waitForLog delay nodeOutput failureMessage predicate = do
           <> logs
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
-timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams, cardanoEra = AnyCardanoEra era} hydraScriptsTxId = do
+timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScriptsTxId = do
+  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
@@ -682,7 +687,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams, cardanoEr
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+    seedFromFaucet_ node era aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
@@ -690,7 +695,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams, cardanoEr
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
@@ -737,6 +742,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams, cardanoEr
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket, networkId, pparams} = do
+  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -752,9 +758,9 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     waitForNodesConnected hydraTracer 20 [n1, n2, n3]
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ node era bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ node era carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send n1 $ input "Init" []
     headId <-
@@ -763,11 +769,11 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet node era aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
-    committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
+    committedUTxOByBob <- seedFromFaucet node era bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
     requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
     requestCommitTx n3 mempty >>= submitTx node
