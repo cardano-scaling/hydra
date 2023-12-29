@@ -18,6 +18,8 @@ import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (outputsTxBodyL)
+import Cardano.Ledger.Api qualified as Ledger
+import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
 import Cardano.Ledger.Babbage.PParams qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
@@ -35,10 +37,7 @@ import Cardano.Ledger.Binary (
  )
 import Cardano.Ledger.Binary.Decoding (Annotator)
 import Cardano.Ledger.Block (txid)
-import Cardano.Ledger.Core (eraProtVerLow)
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Crypto qualified as Ledger
-import Cardano.Ledger.Keys qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.SafeHash qualified as Ledger
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -98,8 +97,7 @@ instance FromJSON (Ledger.BabbagePParams Identity era) where
           .: "rho"
         <*> obj
           .: "tau"
-        <*> obj
-          .: "protocolVersion"
+        <*> (obj .:? "protocolVersion" .!= Ledger.ProtVer (eraProtVerLow @Ledger.Babbage) 0)
         <*> obj
           .: "minPoolCost"
           .!= mempty
