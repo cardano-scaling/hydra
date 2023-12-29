@@ -4,7 +4,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (
-  getCardanoCliVersion,
   getCardanoNodeVersion,
   withCardanoNodeDevnet,
  )
@@ -21,9 +20,6 @@ spec = do
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
     getCardanoNodeVersion >>= (`shouldContain` "8.7.2")
-
-  it "has expected cardano-cli version available" $
-    getCardanoCliVersion >>= (`shouldContain` "8.17.0.0")
 
   -- NOTE: We hard-code the expected networkId here to detect any change to the
   -- genesis-shelley.json

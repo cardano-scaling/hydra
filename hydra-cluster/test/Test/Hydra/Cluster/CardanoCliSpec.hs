@@ -17,7 +17,7 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Prelude (toString)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
-import System.Process (proc, readCreateProcessWithExitCode)
+import System.Process (proc, readCreateProcessWithExitCode, readProcess)
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -36,6 +36,9 @@ spec =
             Nothing -> False
             Just something -> something == "Witnessed Tx BabbageEra"
 
+    it "has expected cardano-cli version available" $
+      readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "8.17.0.0")
+
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query PParams using cardano-node and check JSON roundtrip" $ \tracer ->
         withTempDir "queryProtocolParameters" $ \tmpDir ->
@@ -47,15 +50,16 @@ spec =
       it "queried ProtocolParameters is compatible with our Json instance" $ \tracer ->
         withTempDir "cardano-cli-pparams" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId, pparams} -> do
-            let magic =
-                  case networkId of
-                    Testnet networkId' -> unNetworkMagic networkId'
-                    _ -> error "Should only run on Testnet"
-            (exitCode, output, _errors) <- readCreateProcessWithExitCode (cardanoCliQueryPParams (toString $ unFile nodeSocket) magic) ""
-            exitCode `shouldBe` ExitSuccess
-            case eitherDecode' (pack output) :: Either String (PParams LedgerEra) of
-              Left e -> expectationFailure e
-              Right parsedPParams -> parsedPParams `shouldBe` pparams
+            case networkId of
+              Testnet networkId' -> do
+                (exitCode, output, _errors) <-
+                  readCreateProcessWithExitCode
+                    (cardanoCliQueryPParams (toString $ unFile nodeSocket) (show $ unNetworkMagic networkId')) ""
+                exitCode `shouldBe` ExitSuccess
+                case eitherDecode' (pack output) :: Either String (PParams LedgerEra) of
+                  Left e -> expectationFailure e
+                  Right parsedPParams -> parsedPParams `shouldBe` pparams
+              _ -> expectationFailure "Should only run on Testnet"
  where
   cardanoCliSign txFile =
     proc
@@ -80,7 +84,7 @@ spec =
       , "--socket-path"
       , nodeSocket
       , "--testnet-magic"
-      , show magic
+      , magic
       , "--out-file"
       , "/dev/stdout"
       ]

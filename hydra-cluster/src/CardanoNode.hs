@@ -113,10 +113,6 @@ getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =
   readProcess "cardano-node" ["--version"] ""
 
-getCardanoCliVersion :: IO String
-getCardanoCliVersion =
-  readProcess "cardano-cli" ["--version"] ""
-
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive
 -- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
