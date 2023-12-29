@@ -12,6 +12,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Core (PParams (..))
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Hydra.Ledger.Cardano.Json ()
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
@@ -21,6 +22,10 @@ data QueryException
   = QueryAcquireException AcquiringFailure
   | QueryEraMismatchException EraMismatch
   | QueryProtocolParamsConversionException ProtocolParametersConversionError
+  | QueryProtocolParamsEraNotSupported Text
+  | QueryProtocolParamsEncodingFailureOnEra Text Text
+  | QueryEraNotInCardanoModeFailure Text
+  | QueryNotShelleyBasedEraException Text
   deriving stock (Show)
 
 instance Eq QueryException where
@@ -30,6 +35,10 @@ instance Eq QueryException where
       (AFPointNotOnChain, AFPointNotOnChain) -> True
       _ -> False
     (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
+    (QueryProtocolParamsEraNotSupported ens1, QueryProtocolParamsEraNotSupported ens2) -> ens1 == ens2
+    (QueryProtocolParamsEncodingFailureOnEra e1 f1, QueryProtocolParamsEncodingFailureOnEra e2 f2) -> e1 == e2 && f1 == f2
+    (QueryEraNotInCardanoModeFailure e1, QueryEraNotInCardanoModeFailure e2) -> e1 == e2
+    (QueryNotShelleyBasedEraException e1, QueryNotShelleyBasedEraException e2) -> e1 == e2
     _ -> False
 
 instance Exception QueryException where
@@ -38,6 +47,13 @@ instance Exception QueryException where
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
       printf "Connected to cardano-node in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
     QueryProtocolParamsConversionException err -> show err
+    QueryProtocolParamsEraNotSupported unsupportedEraName -> show unsupportedEraName
+    QueryProtocolParamsEncodingFailureOnEra eraName encodingFailure ->
+      printf "Error while querying protocol params using era %s: %s." eraName encodingFailure
+    QueryEraNotInCardanoModeFailure eraName ->
+      printf "Error while querying using era %s not in cardano mode." eraName
+    QueryNotShelleyBasedEraException eraName ->
+      printf "Error while querying using era %s not in shelley based era." eraName
 
 -- * CardanoClient handle
 
@@ -265,35 +281,25 @@ queryProtocolParameters ::
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint era =
   coercePParamsToLedgerEra
-    <$> ( mkQueryInEra era QueryProtocolParameters
+    =<< ( mkQueryInEra era QueryProtocolParameters
             >>= runQuery networkId socket queryPoint
             >>= throwOnEraMismatch
         )
  where
+  encodeToEra eraToEncode pparams =
+    case eitherDecode' (encode pparams) of
+      Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (show eraToEncode) (Text.pack e)
+      Right (ok :: PParams LedgerEra) -> pure ok
+
   coercePParamsToLedgerEra pparams =
     case era of
-      ByronEra -> error "TODO: Byron era not supported"
-      ShelleyEra ->
-        case eitherDecode' (encode pparams) of
-          Left e -> error ("TODO: " <> show e)
-          Right (ok :: PParams LedgerEra) -> ok
-      AllegraEra ->
-        case eitherDecode' (encode pparams) of
-          Left e -> error ("TODO: " <> show e)
-          Right (ok :: PParams LedgerEra) -> ok
-      MaryEra ->
-        case eitherDecode' (encode pparams) of
-          Left e -> error ("TODO: " <> show e)
-          Right (ok :: PParams LedgerEra) -> ok
-      AlonzoEra ->
-        case eitherDecode' (encode pparams) of
-          Left e -> error ("TODO: " <> show e)
-          Right (ok :: PParams LedgerEra) -> ok
-      BabbageEra -> pparams
-      ConwayEra ->
-        case eitherDecode' (encode pparams) of
-          Left e -> error ("TODO: " <> show e)
-          Right (ok :: PParams LedgerEra) -> ok
+      ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (show ByronEra)
+      ShelleyEra -> encodeToEra ShelleyEra pparams
+      AllegraEra -> encodeToEra AllegraEra pparams
+      MaryEra -> encodeToEra MaryEra pparams
+      AlonzoEra -> encodeToEra AlonzoEra pparams
+      BabbageEra -> pure pparams
+      ConwayEra -> encodeToEra ConwayEra pparams
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -385,11 +391,11 @@ mkQueryInEra ::
   m (QueryInMode CardanoMode (Either EraMismatch a))
 mkQueryInEra era query =
   case toEraInMode era CardanoMode of
-    Nothing -> error "TODO throw an exception: era not in cardano mode"
+    Nothing -> throwIO $ QueryEraNotInCardanoModeFailure (show era)
     Just eraInMode -> do
-      mShellyBaseEra <- requireShelleyBasedEra era
-      case mShellyBaseEra of
-        Nothing -> error "TODO: throw an exception: not a shelley based era"
+      mShelleyBaseEra <- requireShelleyBasedEra era
+      case mShelleyBaseEra of
+        Nothing -> throwIO $ QueryNotShelleyBasedEraException (show era)
         Just sbe ->
           pure $
             QueryInEra eraInMode $

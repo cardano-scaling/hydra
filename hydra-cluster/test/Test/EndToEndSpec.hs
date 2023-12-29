@@ -593,13 +593,13 @@ waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
 waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo = do
   fromEpochNo :: Natural <- fromIntegral . unEpochNo <$> queryEpochNo networkId nodeSocket QueryTip
   toEpochNo `shouldSatisfy` (> fromEpochNo)
-  shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
+  shelleyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
   let slotLength =
         fromMaybe (error "Field epochLength not found") $
-          shellyGenesisFile ^? key "slotLength" . _Double
+          shelleyGenesisFile ^? key "slotLength" . _Double
       epochLength =
         fromMaybe (error "Field epochLength not found") $
-          shellyGenesisFile ^? key "epochLength" . _Double
+          shelleyGenesisFile ^? key "epochLength" . _Double
   threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
