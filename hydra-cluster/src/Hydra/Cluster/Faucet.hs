@@ -64,7 +64,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} era receivingVerification
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node era lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
-    buildTransaction networkId nodeSocket era changeAddress faucetUTxO [] [theOutput] >>= \case
+    buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         submitTransaction networkId nodeSocket (sign faucetSk body)
@@ -122,7 +122,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} era sender = 
     let otherTokens = filterValue (/= AdaAssetId) utxoValue
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
-    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000 era
+    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
     let returnBalance = allLovelace - fee
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx
@@ -131,7 +131,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} era sender = 
  where
   buildTxBody utxo faucetAddress lovelace otherTokens =
     let theOutput = TxOut faucetAddress (lovelaceToValue lovelace <> negateValue otherTokens) TxOutDatumNone ReferenceScriptNone
-     in buildTransaction networkId nodeSocket era faucetAddress utxo [] [theOutput] >>= \case
+     in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
           Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
           Right body -> pure body
 
@@ -151,7 +151,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
   buildTransaction
     networkId
     nodeSocket
-    era
     (changeAddress faucetVk)
     utxo
     collateralTxIns
@@ -189,11 +188,10 @@ calculateTxFee ::
   UTxO ->
   AddressInEra ->
   Lovelace ->
-  CardanoEra era ->
   IO Lovelace
-calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace era =
+calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
   let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
-   in buildTransaction networkId nodeSocket era addr utxo [] [theOutput] >>= \case
+   in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
         Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
         Right body -> pure $ txFee' (sign secretKey body)
 

@@ -167,7 +167,6 @@ publishHydraScripts networkId socketPath sk = do
   buildTransaction
     networkId
     socketPath
-    era
     changeAddress
     someUTxO
     []
