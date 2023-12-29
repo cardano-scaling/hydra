@@ -3,10 +3,10 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (RunningNode (..))
+import CardanoClient (RunningNode (..), queryCurrentEra)
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
-import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
+import Hydra.Cardano.Api (AnyCardanoEra (..), AssetId (AdaAssetId), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -23,23 +23,25 @@ spec = do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir ->
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
+              AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
               replicateConcurrently_ 10 $ do
                 vk <- generate genVerificationKey
-                seedFromFaucet_ node vk 1_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ node era vk 1_000_000 (contramap FromFaucet tracer)
 
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet work together" $ do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         withTempDir "end-to-end-cardano-node" $ \tmpDir ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
+            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             let faucetTracer = contramap FromFaucet tracer
             actor <- generate $ elements [Alice, Bob, Carol]
             (vk, _) <- keysFor actor
             (faucetVk, _) <- keysFor Faucet
             initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-            seeded <- seedFromFaucet node vk 100_000_000 faucetTracer
-            returnFundsToFaucet faucetTracer node actor
+            seeded <- seedFromFaucet node era vk 100_000_000 faucetTracer
+            returnFundsToFaucet faucetTracer node era actor
             remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
             finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
             foldMap txOutValue remaining `shouldBe` mempty

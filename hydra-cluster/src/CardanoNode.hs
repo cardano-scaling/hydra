@@ -116,14 +116,13 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    cardanoEra@(AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     let rn =
           RunningNode
             { nodeSocket
             , networkId
             , pparams
-            , cardanoEra
             }
     action rn
  where
@@ -144,14 +143,13 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
   withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    cardanoEra@(AnyCardanoEra era) <- queryCurrentEra networkId nodeSocket QueryTip
+    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     let rn =
           RunningNode
             { nodeSocket
             , networkId
             , pparams
-            , cardanoEra
             }
     action rn
  where

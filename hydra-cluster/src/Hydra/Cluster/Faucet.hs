@@ -49,19 +49,20 @@ data FaucetLog
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
   RunningNode ->
+  CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet node@RunningNode{networkId, nodeSocket, cardanoEra = AnyCardanoEra era} receivingVerificationKey lovelace tracer = do
+seedFromFaucet node@RunningNode{networkId, nodeSocket} era receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
   retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress era
  where
   submitSeedTx faucetVk faucetSk = do
-    faucetUTxO <- findFaucetUTxO node lovelace
+    faucetUTxO <- findFaucetUTxO node era lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket era changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
@@ -77,8 +78,8 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket, cardanoEra = AnyCardanoEr
       TxOutDatumNone
       ReferenceScriptNone
 
-findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
-findFaucetUTxO RunningNode{networkId, nodeSocket, cardanoEra = AnyCardanoEra era} lovelace = do
+findFaucetUTxO :: RunningNode -> CardanoEra era -> Lovelace -> IO UTxO
+findFaucetUTxO RunningNode{networkId, nodeSocket} era lovelace = do
   (faucetVk, _) <- keysFor Faucet
   faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId] era
   let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
@@ -90,22 +91,24 @@ findFaucetUTxO RunningNode{networkId, nodeSocket, cardanoEra = AnyCardanoEra era
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
   RunningNode ->
+  CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
   IO ()
-seedFromFaucet_ node vk ll tracer =
-  void $ seedFromFaucet node vk ll tracer
+seedFromFaucet_ node era vk ll tracer =
+  void $ seedFromFaucet node era vk ll tracer
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
   Tracer IO FaucetLog ->
   RunningNode ->
+  CardanoEra era ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket, cardanoEra = AnyCardanoEra era} sender = do
+returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} era sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
 
@@ -144,7 +147,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
   (faucetVk, faucetSk) <- keysFor Faucet
   -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
   -- any present utxo
-  utxo <- findFaucetUTxO node 0
+  utxo <- findFaucetUTxO node era 0
   buildTransaction
     networkId
     nodeSocket
