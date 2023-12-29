@@ -69,8 +69,6 @@ buildTransaction ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
-  -- | Era running for cardano-node
-  CardanoEra era ->
   -- | Change address to send
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
@@ -80,7 +78,8 @@ buildTransaction ::
   -- | Outputs to create.
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
-buildTransaction networkId socket era changeAddress utxoToSpend collateral outs = do
+buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
+  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
   pparams <- queryProtocolParameters networkId socket QueryTip era
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip

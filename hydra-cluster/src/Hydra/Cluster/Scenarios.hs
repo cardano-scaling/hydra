@@ -509,7 +509,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId = do
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      buildTransaction networkId nodeSocket era bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
+      buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
