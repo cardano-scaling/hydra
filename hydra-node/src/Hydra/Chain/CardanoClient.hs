@@ -265,17 +265,36 @@ queryProtocolParameters ::
   CardanoEra era ->
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint era =
-  toBabbage
+  coerceForEra
     <$> ( mkQueryInEra era QueryProtocolParameters
             >>= runQuery networkId socket queryPoint
             >>= throwOnEraMismatch
         )
  where
-  toBabbage :: PParams (ShelleyLedgerEra era) -> PParams LedgerEra
-  toBabbage pparams =
-    case eitherDecode' (undefined pparams) :: Either String (PParams LedgerEra) of
-      Left e -> error ("TODO: " <> show e)
-      Right ok -> ok
+  coerceForEra pparams =
+    case era of
+      ByronEra -> error "TODO: Byron era not supported"
+      ShelleyEra ->
+        case eitherDecode' (encode pparams) of
+          Left e -> error ("TODO: " <> show e)
+          Right (ok :: PParams LedgerEra) -> ok
+      AllegraEra ->
+        case eitherDecode' (encode pparams) of
+          Left e -> error ("TODO: " <> show e)
+          Right (ok :: PParams LedgerEra) -> ok
+      MaryEra ->
+        case eitherDecode' (encode pparams) of
+          Left e -> error ("TODO: " <> show e)
+          Right (ok :: PParams LedgerEra) -> ok
+      AlonzoEra ->
+        case eitherDecode' (encode pparams) of
+          Left e -> error ("TODO: " <> show e)
+          Right (ok :: PParams LedgerEra) -> ok
+      BabbageEra -> pparams
+      ConwayEra ->
+        case eitherDecode' (encode pparams) of
+          Left e -> error ("TODO: " <> show e)
+          Right (ok :: PParams LedgerEra) -> ok
 
 -- | Query 'GenesisParameters' at a given point.
 --
