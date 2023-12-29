@@ -36,7 +36,6 @@ import Data.ByteString qualified as BS
 import Data.List ((!!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryCurrentEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
@@ -98,14 +97,9 @@ import HydraNode (
   withHydraNode',
  )
 import System.Directory (removeDirectoryRecursive)
-import System.Exit (ExitCode (ExitFailure))
 import System.FilePath ((</>))
-import System.IO (
-  hGetContents,
-  hGetLine,
- )
+import System.IO (hGetLine)
 import System.IO.Error (isEOFError)
-import System.Process (waitForProcess)
 import Test.QuickCheck (generate)
 import Prelude qualified
 
@@ -512,46 +506,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             BS.length logfile `shouldSatisfy` (> 0)
 
     describe "forking eras" $ do
-      it "does report on unsupported era" $ \tracer -> do
-        pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir "unsupported-era" $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
-            let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out err ph -> do
-              -- Assert nominal startup
-              waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
-
-              waitUntilEpoch tmpDir args node 1
-
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents err
-              errorOutputs `shouldContain` "Received blocks in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
-
-      it "does report on unsupported era on startup" $ \tracer -> do
-        pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
-            let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-
-            waitUntilEpoch tmpDir args node 2
-
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out err ph -> do
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents err
-              errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
-
       it "support new era" $ \tracer -> do
         withClusterTempDir "support-new-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
