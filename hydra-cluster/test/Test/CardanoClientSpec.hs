@@ -34,7 +34,7 @@ spec =
 
             queriedSystemStart `shouldBe` expectedSystemStart
 
-    it "query ProtocolParameters and check JSON roundtrip" $ \tracer ->
+    it "query PParams using cardano-node and check JSON roundtrip" $ \tracer ->
       failAfter 60 $
         withClusterTempDir "queryProtocolParameters" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{pparams} -> do
