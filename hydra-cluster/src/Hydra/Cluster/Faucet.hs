@@ -49,6 +49,7 @@ data FaucetLog
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
   RunningNode ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
@@ -91,6 +92,7 @@ findFaucetUTxO RunningNode{networkId, nodeSocket} era lovelace = do
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
   RunningNode ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
@@ -105,6 +107,7 @@ seedFromFaucet_ node era vk ll tracer =
 returnFundsToFaucet ::
   Tracer IO FaucetLog ->
   RunningNode ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   Actor ->
   IO ()

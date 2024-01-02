@@ -160,9 +160,12 @@ registryUTxO scriptRegistry =
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
   (MonadIO m, MonadThrow m) =>
+  -- | Current network discriminant
   NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   TxId ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   m ScriptRegistry
 queryScriptRegistry networkId socketPath txId era = do

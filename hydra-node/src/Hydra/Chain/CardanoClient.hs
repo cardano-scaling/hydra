@@ -188,7 +188,7 @@ awaitTransaction ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
-  -- | Current running era
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   -- | The transaction to watch / await
   Tx ->
@@ -274,9 +274,12 @@ queryEpochNo networkId socket queryPoint = do
 --
 -- Throws at least 'QueryException' if query fails.
 queryProtocolParameters ::
+  -- | Current network discriminant
   NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint era =
@@ -305,9 +308,12 @@ queryProtocolParameters networkId socket queryPoint era =
 --
 -- Throws at least 'QueryException' if query fails.
 queryGenesisParameters ::
+  -- | Current network discriminant
   NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   IO (GenesisParameters ShelleyEra)
 queryGenesisParameters networkId socket queryPoint era = do
@@ -329,7 +335,15 @@ queryUTxO networkId socket queryPoint addresses era =
 -- | Query UTxO for given tx inputs at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> CardanoEra era -> IO UTxO
+queryUTxOByTxIn ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  QueryPoint ->
+  [TxIn] ->
+  CardanoEra era ->
+  IO UTxO
 queryUTxOByTxIn networkId socket queryPoint inputs era =
   UTxO.fromApi
     <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
@@ -341,7 +355,13 @@ queryUTxOByTxIn networkId socket queryPoint inputs era =
 -- should obviously not be used in production code.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOWhole :: NetworkId -> SocketPath -> QueryPoint -> IO UTxO
+queryUTxOWhole ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  QueryPoint ->
+  IO UTxO
 queryUTxOWhole networkId socket queryPoint = do
   UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
  where
@@ -368,7 +388,12 @@ queryUTxOFor networkId nodeSocket queryPoint vk =
 -- | Query the current set of registered stake pools.
 --
 -- Throws at least 'QueryException' if query fails.
-queryStakePools :: NetworkId -> SocketPath -> QueryPoint -> IO (Set PoolId)
+queryStakePools ::
+  -- | Filepath to the cardano-node's domain socket
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  IO (Set PoolId)
 queryStakePools networkId socket queryPoint =
   let query =
         QueryInEra
@@ -386,6 +411,7 @@ queryStakePools networkId socket queryPoint =
 -- 'ShelleyBasedEra'.
 mkQueryInEra ::
   MonadThrow m =>
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   QueryInShelleyBasedEra era a ->
   m (QueryInMode CardanoMode (Either EraMismatch a))

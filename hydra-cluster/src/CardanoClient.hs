@@ -89,6 +89,7 @@ waitForPayment ::
   SocketPath ->
   Lovelace ->
   Address ShelleyAddr ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   IO UTxO
 waitForPayment networkId socket amount addr era =
