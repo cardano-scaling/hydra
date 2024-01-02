@@ -69,8 +69,7 @@ mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
 mkCardanoClient networkId nodeSocket =
   CardanoClient
     { queryUTxOByAddress = \addresses -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-        queryUTxO networkId nodeSocket QueryTip addresses era
+        queryUTxO networkId nodeSocket QueryTip addresses
     , networkId
     }
 
@@ -324,13 +323,12 @@ queryGenesisParameters networkId socket queryPoint era = do
 -- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> CardanoEra era -> IO UTxO
-queryUTxO networkId socket queryPoint addresses era =
-  UTxO.fromApi
-    <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses)))
-            >>= runQuery networkId socket queryPoint
-            >>= throwOnEraMismatch
-        )
+queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
+queryUTxO networkId socket queryPoint addresses =
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    eraUTxO <- queryInEraExpr era $ QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
+    pure $ UTxO.fromApi eraUTxO
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -380,8 +378,7 @@ queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey Payment
 queryUTxOFor networkId nodeSocket queryPoint vk =
   case mkVkAddress networkId vk of
     ShelleyAddressInEra addr -> do
-      AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-      queryUTxO networkId nodeSocket queryPoint [addr] era
+      queryUTxO networkId nodeSocket queryPoint [addr]
     ByronAddressInEra{} ->
       fail "impossible: mkVkAddress returned Byron address."
 
@@ -404,6 +401,25 @@ queryStakePools networkId socket queryPoint =
               QueryStakePools
           )
    in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+
+-- * Helpers
+
+-- | Monadic query expression to get current era.
+queryCurrentEraExpr :: LocalStateQueryExpr b p (QueryInMode CardanoMode) r IO AnyCardanoEra
+queryCurrentEraExpr =
+  queryExpr (QueryCurrentEra CardanoModeIsMultiEra) >>= liftIO . throwOnUnsupportedNtcVersion
+
+-- | Monadic query expression for a 'QueryInShelleyBasedEra'.
+queryInEraExpr ::
+  -- | The current running era we can use to query the node
+  CardanoEra era ->
+  QueryInShelleyBasedEra era a ->
+  LocalStateQueryExpr b p (QueryInMode CardanoMode) r IO a
+queryInEraExpr era query =
+  liftIO (mkQueryInEra era query)
+    >>= queryExpr
+    >>= (liftIO . throwOnUnsupportedNtcVersion)
+    >>= (liftIO . throwOnEraMismatch)
 
 -- | Construct a 'QueryInMode' from a 'CardanoEra' which is only known at
 -- run-time.
@@ -440,12 +456,33 @@ runQuery networkId socket point query =
       QueryTip -> Nothing
       QueryAt cp -> Just cp
 
--- * Helpers
+-- | Throws at least 'QueryException' if query fails.
+runQueryExpr ::
+  NetworkId ->
+  SocketPath ->
+  QueryPoint ->
+  LocalStateQueryExpr (BlockInMode CardanoMode) ChainPoint (QueryInMode CardanoMode) () IO a ->
+  IO a
+runQueryExpr networkId socket point query =
+  executeLocalStateQueryExpr (localNodeConnectInfo networkId socket) maybePoint query >>= \case
+    Left err -> throwIO $ QueryAcquireException err
+    Right result -> pure result
+ where
+  maybePoint =
+    case point of
+      QueryTip -> Nothing
+      QueryAt cp -> Just cp
 
 throwOnEraMismatch :: MonadThrow m => Either EraMismatch a -> m a
 throwOnEraMismatch res =
   case res of
     Left eraMismatch -> throwIO $ QueryEraMismatchException eraMismatch
+    Right result -> pure result
+
+throwOnUnsupportedNtcVersion :: MonadThrow m => Either UnsupportedNtcVersionError a -> m a
+throwOnUnsupportedNtcVersion res =
+  case res of
+    Left unsupportedNtcVersion -> error $ show unsupportedNtcVersion -- TODO
     Right result -> pure result
 
 localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo CardanoMode

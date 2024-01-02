@@ -150,7 +150,7 @@ mkTinyWallet tracer config era = do
     point <- case queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
-    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address] era
+    walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
     pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
     systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
