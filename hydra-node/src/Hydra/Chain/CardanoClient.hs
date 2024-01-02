@@ -47,7 +47,8 @@ instance Exception QueryException where
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
       printf "Connected to cardano-node in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
     QueryProtocolParamsConversionException err -> show err
-    QueryProtocolParamsEraNotSupported unsupportedEraName -> show unsupportedEraName
+    QueryProtocolParamsEraNotSupported unsupportedEraName ->
+      printf "Error while querying protocol params using era %s." unsupportedEraName
     QueryProtocolParamsEncodingFailureOnEra eraName encodingFailure ->
       printf "Error while querying protocol params using era %s: %s." eraName encodingFailure
     QueryEraNotInCardanoModeFailure eraName ->
@@ -283,11 +284,10 @@ queryProtocolParameters ::
   CardanoEra era ->
   IO (PParams LedgerEra)
 queryProtocolParameters networkId socket queryPoint era =
-  coercePParamsToLedgerEra
-    =<< ( mkQueryInEra era QueryProtocolParameters
-            >>= runQuery networkId socket queryPoint
-            >>= throwOnEraMismatch
-        )
+  mkQueryInEra era QueryProtocolParameters
+    >>= runQuery networkId socket queryPoint
+    >>= throwOnEraMismatch
+    >>= coercePParamsToLedgerEra
  where
   encodeToEra eraToEncode pparams =
     case eitherDecode' (encode pparams) of
@@ -389,8 +389,9 @@ queryUTxOFor networkId nodeSocket queryPoint vk =
 --
 -- Throws at least 'QueryException' if query fails.
 queryStakePools ::
-  -- | Filepath to the cardano-node's domain socket
+  -- | Current network discriminant
   NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
   IO (Set PoolId)
