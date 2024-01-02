@@ -34,6 +34,7 @@ import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
+import System.Info (os)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -41,7 +42,7 @@ import System.Process (
   proc,
   withCreateProcess,
  )
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 data HydraClient = HydraClient
@@ -304,6 +305,11 @@ withHydraNode' ::
   (Handle -> Maybe Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
+  case os of
+    -- XXX: this is to not bind to port 5000 on darwin systems,
+    -- as it might already be in use on recent macOS devices.
+    "darwin" -> hydraNodeId `shouldNotBe` 0
+    _ -> pure ()
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
     writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)

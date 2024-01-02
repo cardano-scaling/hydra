@@ -32,7 +32,7 @@ import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _Double, _JSON)
 import Data.ByteString qualified as BS
-import Data.List ((!!))
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -158,7 +158,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 , ledgerGenesisFile = Nothing
                 }
       -- Start a hydra-node in offline mode and submit a transaction from alice to bob
-      aliceToBob <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] defaultPParams $ \node -> do
+      aliceToBob <- withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [1] defaultPParams $ \node -> do
         let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
         let Right aliceToBob =
               mkSimpleTx
@@ -171,9 +171,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         pure aliceToBob
 
       -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 0 aliceSk [] [1] defaultPParams $ \node -> do
+      withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [1] defaultPParams $ \node -> do
         let
-          bobTxOut = toUTxOContext $ txOuts' aliceToBob !! 0
+          bobTxOut = toUTxOContext $ List.head (txOuts' aliceToBob)
           Right bobToAlice =
             mkSimpleTx
               (mkTxIn aliceToBob 0, bobTxOut)
