@@ -91,16 +91,14 @@ waitForPayment ::
   Address ShelleyAddr ->
   IO UTxO
 waitForPayment networkId socket amount addr = do
-  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
-  go era
+  go
  where
-  go :: CardanoEra era -> IO (UTxO' (TxOut CtxUTxO))
-  go era = do
-    utxo <- queryUTxO networkId socket QueryTip [addr] era
+  go = do
+    utxo <- queryUTxO networkId socket QueryTip [addr]
     let expectedPayment = selectPayment utxo
     if expectedPayment /= mempty
       then pure $ UTxO expectedPayment
-      else threadDelay 1 >> go era
+      else threadDelay 1 >> go
 
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . selectLovelace . txOutValue) utxo

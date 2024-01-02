@@ -56,14 +56,12 @@ seedFromFaucet ::
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
-  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk era
+  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  submitSeedTx :: VerificationKey PaymentKey -> SigningKey PaymentKey -> CardanoEra era -> IO ()
-  submitSeedTx faucetVk faucetSk era = do
-    faucetUTxO <- findFaucetUTxO node era lovelace
+  submitSeedTx faucetVk faucetSk = do
+    faucetUTxO <- findFaucetUTxO node lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
@@ -79,10 +77,10 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
       TxOutDatumNone
       ReferenceScriptNone
 
-findFaucetUTxO :: RunningNode -> CardanoEra era -> Lovelace -> IO UTxO
-findFaucetUTxO RunningNode{networkId, nodeSocket} era lovelace = do
+findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
+findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
   (faucetVk, _) <- keysFor Faucet
-  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId] era
+  faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
   let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
   when (null foundUTxO) $
     throwIO $
@@ -147,7 +145,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
   (faucetVk, faucetSk) <- keysFor Faucet
   -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
   -- any present utxo
-  utxo <- findFaucetUTxO node era 0
+  utxo <- findFaucetUTxO node 0
   buildTransaction
     networkId
     nodeSocket

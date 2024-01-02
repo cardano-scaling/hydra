@@ -161,7 +161,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
                 -- Expect that Alice got her committed value back to her
                 -- external address
-                utxo <- queryUTxO networkId nodeSocket QueryTip [aliceExternalAddress] era
+                utxo <- queryUTxO networkId nodeSocket QueryTip [aliceExternalAddress]
                 let aliceValues = txOutValue <$> toList utxo
                 aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
