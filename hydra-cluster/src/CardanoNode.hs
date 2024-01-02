@@ -27,7 +27,7 @@ import System.FilePath (takeDirectory, (</>))
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
-  StdStream (UseHandle),
+  StdStream (CreatePipe, UseHandle),
   proc,
   readProcess,
   withCreateProcess,
@@ -279,15 +279,14 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
-    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $
-      \_stdin _stdout _stderr processHandle ->
-        ( race
-            (checkProcessHasNotDied "cardano-node" processHandle)
-            waitForNode
-            >>= \case
-              Left{} -> error "should never been reached"
-              Right a -> pure a
-        )
+    withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
+      \_stdin _stdout mError processHandle -> do
+        let errorHandle = fromMaybe (error "Should not happen™") mError
+            runningNonde = checkProcessHasNotDied "cardano-node" processHandle errorHandle
+        ( race runningNonde waitForNode >>= \case
+            Left{} -> error "should never been reached"
+            Right a -> pure a
+          )
           `finally` cleanupSocketFile
  where
   process = cardanoNodeProcess (Just stateDirectory) args

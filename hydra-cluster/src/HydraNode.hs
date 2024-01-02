@@ -281,9 +281,9 @@ withHydraNode ::
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams action = do
   withLogFile logFilePath $ \logFileHandle -> do
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams (Just logFileHandle) $ do
-      \_ _ processHandle -> do
+      \_ err processHandle -> do
         race
-          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle err)
           (withConnectionToNode tracer hydraNodeId action)
           <&> either absurd id
  where
