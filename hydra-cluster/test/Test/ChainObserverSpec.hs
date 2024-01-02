@@ -9,7 +9,7 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (NodeLog, QueryPoint (QueryTip), RunningNode (..), queryCurrentEra, submitTx)
+import CardanoClient (NodeLog, RunningNode (..), submitTx)
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
@@ -18,7 +18,7 @@ import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
 import Data.Text qualified as T
-import Hydra.Cardano.Api (AnyCardanoEra (..), NetworkId (..), NetworkMagic (..), unFile)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -34,16 +34,15 @@ spec = do
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
         withTempDir "hydra-chain-observer" $ \tmpDir -> do
           -- Start a cardano devnet
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{networkId, nodeSocket, pparams} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket, pparams} -> do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
-            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] pparams $ \hydraNode -> do
               withChainObserver cardanoNode $ \observer -> do
-                seedFromFaucet_ cardanoNode era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
 

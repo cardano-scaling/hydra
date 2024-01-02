@@ -89,18 +89,18 @@ waitForPayment ::
   SocketPath ->
   Lovelace ->
   Address ShelleyAddr ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   IO UTxO
-waitForPayment networkId socket amount addr era =
-  go
+waitForPayment networkId socket amount addr = do
+  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
+  go era
  where
-  go = do
+  go :: CardanoEra era -> IO (UTxO' (TxOut CtxUTxO))
+  go era = do
     utxo <- queryUTxO networkId socket QueryTip [addr] era
     let expectedPayment = selectPayment utxo
     if expectedPayment /= mempty
       then pure $ UTxO expectedPayment
-      else threadDelay 1 >> go
+      else threadDelay 1 >> go era
 
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . selectLovelace . txOutValue) utxo
@@ -111,11 +111,9 @@ waitForUTxO ::
   UTxO ->
   IO ()
 waitForUTxO networkId nodeSocket utxo = do
-  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-  forM_ (snd <$> UTxO.pairs utxo) (forEachUTxO era)
+  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
  where
-  forEachUTxO :: CardanoEra era -> TxOut CtxUTxO -> IO ()
-  forEachUTxO era = \case
+  forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayment
@@ -123,7 +121,6 @@ waitForUTxO networkId nodeSocket utxo = do
           nodeSocket
           (selectLovelace value)
           addr
-          era
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 

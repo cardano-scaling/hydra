@@ -124,7 +124,7 @@ run opts = do
       pure $ withOfflineChain cfg party
     Direct cfg@DirectChainConfig{networkId, nodeSocket} -> do
       AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-      ctx <- loadChainContext cfg party era
+      ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg era
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
 

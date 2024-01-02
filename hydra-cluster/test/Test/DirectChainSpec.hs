@@ -95,7 +95,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
         AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
@@ -124,7 +124,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx} -> do
@@ -137,7 +137,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 -- Mimic "external commit" by using different keys for Alice.
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
 
-                aliceUTxO <- seedFromFaucet node era aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
+                aliceUTxO <- seedFromFaucet node aliceExternalVk aliceCommitment (contramap FromFaucet tracer)
 
                 participants <- loadParticipants [Alice, Bob, Carol]
                 let headParameters = HeadParameters cperiod [alice, bob, carol]
@@ -172,14 +172,14 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
 
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
             -- Bob setup
             (bobCardanoVk, _) <- keysFor Bob
-            seedFromFaucet_ node era bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+            seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [] cperiod
 
             withDirectChainTest nullTracer bobChainConfig bob era $
@@ -208,11 +208,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx} -> do
-            aliceUTxO <- seedFromFaucet node era aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
@@ -226,7 +226,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 _ -> False
 
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            newAliceUTxO <- seedFromFaucet node era aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             externalCommit node aliceChain aliceExternalSk headId newAliceUTxO
             aliceChain `observesInTime` OnCommitTx headId alice newAliceUTxO
@@ -238,7 +238,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx} -> do
@@ -259,13 +259,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet node era aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -321,7 +321,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         participants <- loadParticipants [Alice]
@@ -346,7 +346,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
         AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
         let headerHash = fromString (replicate 64 '0')
@@ -363,7 +363,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \RunningNode{nodeSocket, networkId} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         readConfigFile ("credentials" </> "faucet.sk") >>= writeFileBS (tmp </> "faucet.sk")
         hydraScriptsTxIdStr <-
           readCreateProcess
@@ -379,7 +378,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             )
             ""
         let hydraScriptsTxId = fromString hydraScriptsTxIdStr
-        failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId era
+        failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -388,12 +387,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ node era aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
           \aliceChain@DirectChainTest{postTx} -> do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet node era aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
@@ -480,7 +479,7 @@ withDirectChainTest tracer config party era action = do
   directConfig <- case config of
     Direct cfg -> pure cfg
     otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
-  ctx <- loadChainContext directConfig party era
+  ctx <- loadChainContext directConfig party
   eventMVar <- newEmptyTMVarIO
 
   let callback event = atomically $ putTMVar eventMVar event

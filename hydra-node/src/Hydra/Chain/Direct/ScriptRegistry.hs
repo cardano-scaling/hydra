@@ -4,7 +4,6 @@ module Hydra.Chain.Direct.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.Eras.Core (CardanoEra)
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
@@ -159,16 +158,14 @@ registryUTxO scriptRegistry =
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m) =>
   -- | Current network discriminant
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   TxId ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
-  m ScriptRegistry
-queryScriptRegistry networkId socketPath txId era = do
+  IO ScriptRegistry
+queryScriptRegistry networkId socketPath txId = do
+  AnyCardanoEra era <- queryCurrentEra networkId socketPath QueryTip
   utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates era
   case newScriptRegistry utxo of
     Left e -> throwIO e

@@ -49,20 +49,20 @@ data FaucetLog
 -- redeeming funds available to the well-known faucet.
 seedFromFaucet ::
   RunningNode ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet node@RunningNode{networkId, nodeSocket} era receivingVerificationKey lovelace tracer = do
+seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
+  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-  waitForPayment networkId nodeSocket lovelace receivingAddress era
+  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk era
+  waitForPayment networkId nodeSocket lovelace receivingAddress
  where
-  submitSeedTx faucetVk faucetSk = do
+  submitSeedTx :: VerificationKey PaymentKey -> SigningKey PaymentKey -> CardanoEra era -> IO ()
+  submitSeedTx faucetVk faucetSk era = do
     faucetUTxO <- findFaucetUTxO node era lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
@@ -92,26 +92,22 @@ findFaucetUTxO RunningNode{networkId, nodeSocket} era lovelace = do
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
   RunningNode ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
   Tracer IO FaucetLog ->
   IO ()
-seedFromFaucet_ node era vk ll tracer =
-  void $ seedFromFaucet node era vk ll tracer
+seedFromFaucet_ node vk ll tracer =
+  void $ seedFromFaucet node vk ll tracer
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
   Tracer IO FaucetLog ->
   RunningNode ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} era sender = do
+returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
 
@@ -129,6 +125,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} era sender = 
     let returnBalance = allLovelace - fee
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx
+    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
     void $ awaitTransaction networkId nodeSocket era tx
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
  where

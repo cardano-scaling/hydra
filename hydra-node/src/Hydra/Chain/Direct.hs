@@ -113,11 +113,10 @@ loadChainContext ::
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
-  CardanoEra era ->
   IO ChainContext
-loadChainContext config party era = do
+loadChainContext config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId era
+  scriptRegistry <- queryScriptRegistry networkId nodeSocket hydraScriptsTxId
   pure $
     ChainContext
       { networkId

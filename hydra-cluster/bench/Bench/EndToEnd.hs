@@ -247,7 +247,7 @@ seedNetwork node@RunningNode{nodeSocket, networkId} era Dataset{fundingTransacti
 
   fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
-    seedFromFaucet node era vk 100_000_000 tracer
+    seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.

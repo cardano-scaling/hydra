@@ -86,25 +86,26 @@ min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 
 -- * Type Conversions
 
+-- | Transforms a UTxO containing tx outs from any era into Babbage era.
 fromApi :: Cardano.Api.UTxO era -> UTxO
-fromApi (Cardano.Api.UTxO conwayUTxO) =
-  let conwayPairs = Map.toList conwayUTxO
-      babbagePairs = second coerceOutputToEra <$> conwayPairs
+fromApi (Cardano.Api.UTxO eraUTxO) =
+  let eraPairs = Map.toList eraUTxO
+      babbagePairs = second coerceOutputToEra <$> eraPairs
    in fromPairs babbagePairs
  where
   coerceOutputToEra :: TxOut CtxUTxO era -> TxOut CtxUTxO Era
-  coerceOutputToEra (TxOut conwayAddress conwayValue conwayDatum conwayRefScript) =
+  coerceOutputToEra (TxOut eraAddress eraValue eraDatum eraRefScript) =
     TxOut
-      (coerceAddressToEra conwayAddress)
-      (coerceValueToEra conwayValue)
-      (coerceDatumToEra conwayDatum)
-      (coerceRefScriptToEra conwayRefScript)
+      (coerceAddressToEra eraAddress)
+      (coerceValueToEra eraValue)
+      (coerceDatumToEra eraDatum)
+      (coerceRefScriptToEra eraRefScript)
 
   coerceAddressToEra :: AddressInEra era -> AddressInEra Era
-  coerceAddressToEra (AddressInEra _ conwayAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny conwayAddress)
+  coerceAddressToEra (AddressInEra _ eraAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny eraAddress)
 
   coerceValueToEra :: TxOutValue era -> TxOutValue Era
-  coerceValueToEra (TxOutAdaOnly _ conwayLovelace) = lovelaceToTxOutValue BabbageEra conwayLovelace
+  coerceValueToEra (TxOutAdaOnly _ eraLovelace) = lovelaceToTxOutValue BabbageEra eraLovelace
   coerceValueToEra (TxOutValue _ value) = TxOutValue MaryEraOnwardsBabbage value
 
   coerceDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
