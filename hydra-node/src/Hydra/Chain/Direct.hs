@@ -112,6 +112,7 @@ loadChainContext ::
   DirectChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   IO ChainContext
 loadChainContext config party era = do
@@ -135,6 +136,7 @@ loadChainContext config party era = do
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
   DirectChainConfig ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   IO (TinyWallet IO)
 mkTinyWallet tracer config era = do

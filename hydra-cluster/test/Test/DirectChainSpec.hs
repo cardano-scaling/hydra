@@ -472,6 +472,7 @@ withDirectChainTest ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   Party ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   (DirectChainTest Tx IO -> IO a) ->
   IO a

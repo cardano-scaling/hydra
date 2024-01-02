@@ -642,6 +642,7 @@ initWithWrongKeys workDir tracer node@RunningNode{networkId, nodeSocket, pparams
 refuelIfNeeded ::
   Tracer IO EndToEndLog ->
   RunningNode ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   Actor ->
   Lovelace ->
@@ -661,6 +662,7 @@ refuelIfNeeded tracer node era actor amount = do
 returnFundsToFaucet ::
   Tracer IO EndToEndLog ->
   RunningNode ->
+  -- | The current running era we can use to query the node
   CardanoEra era ->
   Actor ->
   IO ()
