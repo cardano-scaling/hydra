@@ -34,6 +34,7 @@ import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
+import System.Info (os)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -41,7 +42,7 @@ import System.Process (
   proc,
   withCreateProcess,
  )
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withLogFile)
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 data HydraClient = HydraClient
@@ -283,7 +284,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams (Just logFileHandle) $ do
       \_ err processHandle -> do
         race
-          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle err)
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
           (withConnectionToNode tracer hydraNodeId action)
           <&> either absurd id
  where
@@ -301,9 +302,11 @@ withHydraNode' ::
   PParams LedgerEra ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> Maybe Handle -> ProcessHandle -> IO a) ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
+  -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
+  when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
     writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
@@ -339,13 +342,16 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
             }
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
-      case mCreatedStdOut <|> mGivenStdOut of
-        Just out -> action out mCreatedStdErr processHandle
-        Nothing -> error "Should not happen™"
+      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
+        (Just out, Just err) -> action out err processHandle
+        (Nothing, _) -> error "Should not happen™"
+        (_, Nothing) -> error "Should not happen™"
  where
+  port = fromIntegral $ 5_000 + hydraNodeId
+
   -- NOTE: We want to have zeroed fees in the Head.
   writeZeroedPParams (PParams BabbagePParams{bppProtocolVersion}) =
-    toStrict $
+    toStrict
       ( Aeson.encode (toJSON pparams)
           -- FIXME: this is a hack because cardano-ledger has a bug
           -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) in the
