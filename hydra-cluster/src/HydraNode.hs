@@ -22,6 +22,7 @@ import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
+import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
@@ -310,7 +311,9 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     case chainConfig of
-      Offline _ -> undefined -- TODO: should write default ProtocolParameters to cardanoLedgerProtocolParametersFile
+      Offline _ ->
+        readConfigFile "protocol-parameters.json"
+          >>= writeFileBS cardanoLedgerProtocolParametersFile
       Direct DirectChainConfig{nodeSocket, networkId} -> do
         -- NOTE: This implicitly tests of cardano-cli with hydra-node
         protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
