@@ -145,12 +145,13 @@ checkProcessHasNotDied name processHandle mStdErr =
   waitForProcess processHandle >>= \case
     ExitSuccess -> failure "Process has stopped"
     ExitFailure exit -> do
-      errorOutput <- maybe (pure "Should not happen™") hGetContents mStdErr
-      failure . toString $
-        unlines
-          [ "Process " <> show name <> " exited with failure code: " <> show exit
-          , "Process stderr: " <> errorOutput
-          ]
+      let failureMsg = "Process " <> show name <> " exited with failure code: " <> show exit
+      errorMsg <- case mStdErr of
+        Nothing -> pure [failureMsg]
+        Just stdErr -> do
+          errorOutput <- hGetContents stdErr
+          pure [failureMsg, "Process stderr: " <> errorOutput]
+      failure . toString $ unlines errorMsg
 
 -- | Like 'coverTable', but construct the weight requirements generically from
 -- the provided label.
