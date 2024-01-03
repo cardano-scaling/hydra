@@ -305,11 +305,8 @@ withHydraNode' ::
   (Handle -> Maybe Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
-  case os of
-    -- XXX: this is to not bind to port 5000 on darwin systems,
-    -- as it might already be in use on recent macOS devices.
-    "darwin" -> hydraNodeId `shouldNotBe` 0
-    _ -> pure ()
+  -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
+  when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
     writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
@@ -349,9 +346,11 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
         Just out -> action out mCreatedStdErr processHandle
         Nothing -> error "Should not happen™"
  where
+  port = fromIntegral $ 5_000 + hydraNodeId
+
   -- NOTE: We want to have zeroed fees in the Head.
   writeZeroedPParams (PParams BabbagePParams{bppProtocolVersion}) =
-    toStrict $
+    toStrict
       ( Aeson.encode (toJSON pparams)
           -- FIXME: this is a hack because cardano-ledger has a bug
           -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) in the

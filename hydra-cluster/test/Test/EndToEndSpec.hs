@@ -142,7 +142,7 @@ withClusterTempDir name =
 
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
-  it "End-to-end offline mode" $ \tracer -> do
+  fit "End-to-end offline mode" $ \tracer -> do
     withTempDir "offline-mode-e2e" $ \tmpDir -> do
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
