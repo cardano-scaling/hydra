@@ -281,8 +281,7 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
       \_stdin _stdout mError processHandle -> do
-        let errorHandle = fromMaybe (error "Should not happen™") mError
-            runningNonde = checkProcessHasNotDied "cardano-node" processHandle errorHandle
+        let runningNonde = checkProcessHasNotDied "cardano-node" processHandle mError
         ( race runningNonde waitForNode >>= \case
             Left{} -> error "should never been reached"
             Right a -> pure a

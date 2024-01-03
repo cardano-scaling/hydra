@@ -134,17 +134,18 @@ combinedHspecFormatter suiteName config = do
 --
 -- @@
 -- withCreateProcess p $
---   \_stdin _stdout stderr processHandle -> do
+--   \_stdin _stdout mStdErr processHandle -> do
 --       race_
---         (checkProcessHasNotDied "my-process" processHandle stderr)
+--         (checkProcessHasNotDied "my-process" processHandle mStdErr)
 --         doStuff
 -- @@
-checkProcessHasNotDied :: Text -> ProcessHandle -> Handle -> IO Void
-checkProcessHasNotDied name processHandle err =
+-- Note: make sure you do not use an Inherit handle for stderr, as it will NOT work.
+checkProcessHasNotDied :: Text -> ProcessHandle -> Maybe Handle -> IO Void
+checkProcessHasNotDied name processHandle mStdErr =
   waitForProcess processHandle >>= \case
     ExitSuccess -> failure "Process has stopped"
     ExitFailure exit -> do
-      errorOutput <- hGetContents err
+      errorOutput <- maybe (pure "Should not happen™") hGetContents mStdErr
       failure . toString $
         unlines
           [ "Process " <> show name <> " exited with failure code: " <> show exit
