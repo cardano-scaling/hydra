@@ -242,13 +242,6 @@ queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO (EraHistory Carda
 queryEraHistory networkId socket queryPoint =
   runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
 
--- | Query current era at given point.
---
--- Throws at least 'QueryException' if query fails.
-queryCurrentEra :: NetworkId -> SocketPath -> QueryPoint -> IO AnyCardanoEra
-queryCurrentEra networkId socket queryPoint =
-  runQuery networkId socket queryPoint $ QueryCurrentEra CardanoModeIsMultiEra
-
 -- | Query the current epoch number.
 --
 -- Throws at least 'QueryException' if query fails.
@@ -277,12 +270,11 @@ queryProtocolParameters ::
   SocketPath ->
   QueryPoint ->
   IO (PParams LedgerEra)
-queryProtocolParameters networkId socket queryPoint = do
-  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
-  mkQueryInEra era QueryProtocolParameters
-    >>= runQuery networkId socket queryPoint
-    >>= throwOnEraMismatch
-    >>= coercePParamsToLedgerEra era
+queryProtocolParameters networkId socket queryPoint =
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    eraPParams <- queryInEraExpr era QueryProtocolParameters
+    liftIO $ coercePParamsToLedgerEra era eraPParams
  where
   encodeToEra eraToEncode pparams =
     case eitherDecode' (encode pparams) of
@@ -309,13 +301,11 @@ queryGenesisParameters ::
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   IO (GenesisParameters ShelleyEra)
-queryGenesisParameters networkId socket queryPoint era = do
-  mkQueryInEra era QueryGenesisParameters
-    >>= runQuery networkId socket queryPoint
-    >>= throwOnEraMismatch
+queryGenesisParameters networkId socket queryPoint =
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    queryInEraExpr era QueryGenesisParameters
 
 -- | Query UTxO for all given addresses at given point.
 --
@@ -338,13 +328,11 @@ queryUTxOByTxIn ::
   QueryPoint ->
   [TxIn] ->
   IO UTxO
-queryUTxOByTxIn networkId socket queryPoint inputs = do
-  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
-  UTxO.fromApi
-    <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
-            >>= runQuery networkId socket queryPoint
-            >>= throwOnEraMismatch
-        )
+queryUTxOByTxIn networkId socket queryPoint inputs =
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    eraUTxO <- queryInEraExpr era $ QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))
+    pure $ UTxO.fromApi eraUTxO
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.

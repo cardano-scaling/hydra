@@ -10,7 +10,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
-  queryCurrentEra,
   queryEpochNo,
   queryGenesisParameters,
   queryTip,
@@ -38,7 +37,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
-import Hydra.Cardano.Api hiding (Value, cardanoEra, queryCurrentEra, queryGenesisParameters)
+import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
@@ -669,7 +668,6 @@ waitForLog delay nodeOutput failureMessage predicate = do
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScriptsTxId = do
-  AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
@@ -693,7 +691,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket, pparams} hydraScri
     waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
     -- Acquire a current point in time
-    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip era
+    genesisParams <- queryGenesisParameters networkId nodeSocket QueryTip
     let slotLengthSec = protocolParamSlotLength genesisParams
     currentSlot <- queryTipSlotNo networkId nodeSocket
 
