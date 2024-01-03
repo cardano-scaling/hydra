@@ -80,7 +80,6 @@ library
     , async
     , base                                         >=4.7     && <5
     , bytestring
-    , cardano-ledger-babbage
     , cardano-ledger-core
     , cardano-slotting
     , containers

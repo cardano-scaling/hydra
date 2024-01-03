@@ -308,15 +308,18 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
-    -- NOTE: This implicitly tests of cardano-cli with hydra-node
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
-    protocolParameters <- cliQueryProtocolParameters
-    Aeson.encodeFile cardanoLedgerProtocolParametersFile $
-      protocolParameters
-        & atKey "txFeeFixed" ?~ toJSON (Number 0)
-        & atKey "txFeePerByte" ?~ toJSON (Number 0)
-        & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-        & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+    case chainConfig of
+      Offline _ -> undefined
+      Direct DirectChainConfig{nodeSocket, networkId} -> do
+        -- NOTE: This implicitly tests of cardano-cli with hydra-node
+        protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+        Aeson.encodeFile cardanoLedgerProtocolParametersFile $
+          protocolParameters
+            & atKey "txFeeFixed" ?~ toJSON (Number 0)
+            & atKey "txFeePerByte" ?~ toJSON (Number 0)
+            & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+            & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey

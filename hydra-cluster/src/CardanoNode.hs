@@ -427,8 +427,8 @@ instance Exception ProcessHasExited
 -- functions in Hydra.Chain.CardanoClient and Hydra.Cluster.CardanoClient,
 -- sometimes we deliberately want to use the cardano-cli to ensure
 -- compatibility.
-cliQueryProtocolParameters :: RunningNode -> IO Value
-cliQueryProtocolParameters RunningNode{nodeSocket, networkId} = do
+cliQueryProtocolParameters :: SocketPath -> NetworkId -> IO Value
+cliQueryProtocolParameters nodeSocket networkId = do
   out <- readCreateProcess cmd ""
   unsafeDecodeJson $ fromString out
  where
