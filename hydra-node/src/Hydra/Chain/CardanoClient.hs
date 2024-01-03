@@ -187,16 +187,14 @@ awaitTransaction ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   -- | The transaction to watch / await
   Tx ->
   IO UTxO
-awaitTransaction networkId socket era tx = go
+awaitTransaction networkId socket tx = go
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUTxOByTxIn networkId socket QueryTip ins era
+    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
     if null utxo
       then go
       else pure utxo
@@ -339,9 +337,9 @@ queryUTxOByTxIn ::
   SocketPath ->
   QueryPoint ->
   [TxIn] ->
-  CardanoEra era ->
   IO UTxO
-queryUTxOByTxIn networkId socket queryPoint inputs era =
+queryUTxOByTxIn networkId socket queryPoint inputs = do
+  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
   UTxO.fromApi
     <$> ( mkQueryInEra era (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
             >>= runQuery networkId socket queryPoint

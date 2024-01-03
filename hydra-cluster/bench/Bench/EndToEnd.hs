@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), makeQuantiles)
-import CardanoClient (QueryPoint (QueryTip), RunningNode (..), awaitTransaction, queryCurrentEra, submitTransaction, submitTx)
+import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (AnyCardanoEra (..), CardanoEra, Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (
@@ -87,11 +87,10 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{networkId, nodeSocket, pparams} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket, pparams} -> do
             putTextLn "Seeding network"
             let hydraTracer = contramap FromHydraNode tracer
-            AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-            hydraScriptsTxId <- seedNetwork node era dataset (contramap FromFaucet tracer)
+            hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId pparams contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
@@ -235,15 +234,15 @@ movingAverage confirmations =
 -- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
 -- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
 -- transaction is returned.
-seedNetwork :: RunningNode -> CardanoEra era -> Dataset -> Tracer IO FaucetLog -> IO TxId
-seedNetwork node@RunningNode{nodeSocket, networkId} era Dataset{fundingTransaction, clientDatasets} tracer = do
+seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
+seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
   publishHydraScriptsAs node Faucet
  where
   fundClients = do
     submitTransaction networkId nodeSocket fundingTransaction
-    void $ awaitTransaction networkId nodeSocket era fundingTransaction
+    void $ awaitTransaction networkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
