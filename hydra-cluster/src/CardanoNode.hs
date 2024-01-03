@@ -12,9 +12,19 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AnyCardanoEra (..), AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (
+  AsType (AsPaymentKey),
+  File (..),
+  NetworkId,
+  PaymentKey,
+  SigningKey,
+  SocketPath,
+  VerificationKey,
+  generateSigningKey,
+  getVerificationKey,
+ )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryCurrentEra, queryProtocolParameters)
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
@@ -116,8 +126,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     let rn =
           RunningNode
             { nodeSocket
@@ -143,8 +152,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   networkId <- readNetworkId
   withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
     traceWith tracer MsgNodeIsReady
-    AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     let rn =
           RunningNode
             { nodeSocket

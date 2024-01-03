@@ -11,7 +11,6 @@ import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildAddress,
-  queryCurrentEra,
   queryTip,
   queryUTxO,
   submitTx,
@@ -21,8 +20,6 @@ import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Hydra.Cardano.Api (
-  AnyCardanoEra (..),
-  CardanoEra,
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey),
@@ -92,17 +89,16 @@ spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $ \aliceChain@DirectChainTest{postTx} -> do
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \aliceChain@DirectChainTest{postTx} -> do
           -- Bob setup
           bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice, Carol] cperiod
-          withDirectChainTest nullTracer bobChainConfig bob era $ \bobChain@DirectChainTest{} -> do
+          withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@DirectChainTest{} -> do
             -- Scenario
             participants <- loadParticipants [Alice, Bob, Carol]
             let headParameters = HeadParameters cperiod [alice, bob, carol]
@@ -120,17 +116,16 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can init and abort a 2-parties head after one party has committed" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob, Carol] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Bob setup
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice, Carol] cperiod
-            withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bob era $
+            withDirectChainTest (contramap (FromDirectChain "bob") tracer) bobChainConfig bob $
               \bobChain@DirectChainTest{} -> do
                 -- Scenario
                 let aliceCommitment = 66_000_000
@@ -167,22 +162,21 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "cannot abort a non-participating head" $ \tracer ->
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
 
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx = alicePostTx} -> do
             -- Bob setup
             (bobCardanoVk, _) <- keysFor Bob
             seedFromFaucet_ node bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [] cperiod
 
-            withDirectChainTest nullTracer bobChainConfig bob era $
+            withDirectChainTest nullTracer bobChainConfig bob $
               \bobChain@DirectChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 aliceParticipants <- loadParticipants [Carol, Alice]
@@ -203,14 +197,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can commit" $ \tracer ->
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
 
@@ -233,14 +226,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can commit empty UTxO" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
@@ -255,13 +247,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -318,7 +309,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -327,7 +317,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         participants <- loadParticipants [Alice]
         let headParameters = HeadParameters cperiod [alice]
         -- Scenario
-        tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             tip <- queryTip networkId nodeSocket
             postTx $ InitTx{participants, headParameters}
@@ -337,14 +327,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
         -- REVIEW: It's a bit weird now that we would use the original chain
         -- state here. Does this test even make sense with persistence?
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig' alice $
           \aliceChain@DirectChainTest{} ->
             void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     withTempDir "direct-chain" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -354,7 +343,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         aliceChainConfig <-
           chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
             <&> modifyConfig (\cfg -> cfg{startChainFrom = Just fakeTip})
-        let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $ \_ ->
+        let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \_ ->
               threadDelay 5 >> fail "should not execute main action but did?"
 
         action `shouldThrow` \case
@@ -382,14 +371,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can only contest once" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{networkId, nodeSocket} -> do
-        AnyCardanoEra era <- queryCurrentEra networkId nodeSocket QueryTip
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
-        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice era $
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
@@ -471,11 +459,9 @@ withDirectChainTest ::
   Tracer IO DirectChainLog ->
   ChainConfig ->
   Party ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   (DirectChainTest Tx IO -> IO a) ->
   IO a
-withDirectChainTest tracer config party era action = do
+withDirectChainTest tracer config party action = do
   directConfig <- case config of
     Direct cfg -> pure cfg
     otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
@@ -484,7 +470,7 @@ withDirectChainTest tracer config party era action = do
 
   let callback event = atomically $ putTMVar eventMVar event
 
-  wallet <- mkTinyWallet tracer directConfig era
+  wallet <- mkTinyWallet tracer directConfig
 
   withDirectChain tracer directConfig ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
     action

@@ -183,7 +183,7 @@ publishHydraScripts ::
   IO TxId
 publishHydraScripts networkId socketPath sk = do
   AnyCardanoEra era <- queryCurrentEra networkId socketPath QueryTip
-  pparams <- queryProtocolParameters networkId socketPath QueryTip era
+  pparams <- queryProtocolParameters networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams

@@ -135,10 +135,8 @@ loadChainContext config party = do
 mkTinyWallet ::
   Tracer IO DirectChainLog ->
   DirectChainConfig ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   IO (TinyWallet IO)
-mkTinyWallet tracer config era = do
+mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo
  where
@@ -151,7 +149,7 @@ mkTinyWallet tracer config era = do
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip era
+    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
     systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}

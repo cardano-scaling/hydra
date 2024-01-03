@@ -95,8 +95,7 @@ buildTransaction ::
   [TxOut CtxTx] ->
   IO (Either TxBodyErrorAutoBalance TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
-  pparams <- queryProtocolParameters networkId socket QueryTip era
+  pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -279,21 +278,21 @@ queryProtocolParameters ::
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
   IO (PParams LedgerEra)
-queryProtocolParameters networkId socket queryPoint era =
+queryProtocolParameters networkId socket queryPoint = do
+  AnyCardanoEra era <- queryCurrentEra networkId socket QueryTip
   mkQueryInEra era QueryProtocolParameters
     >>= runQuery networkId socket queryPoint
     >>= throwOnEraMismatch
-    >>= coercePParamsToLedgerEra
+    >>= coercePParamsToLedgerEra era
  where
   encodeToEra eraToEncode pparams =
     case eitherDecode' (encode pparams) of
       Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (show eraToEncode) (Text.pack e)
       Right (ok :: PParams LedgerEra) -> pure ok
 
-  coercePParamsToLedgerEra pparams =
+  coercePParamsToLedgerEra :: CardanoEra era -> PParams (ShelleyLedgerEra era) -> IO (PParams LedgerEra)
+  coercePParamsToLedgerEra era pparams =
     case era of
       ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (show ByronEra)
       ShelleyEra -> encodeToEra ShelleyEra pparams
