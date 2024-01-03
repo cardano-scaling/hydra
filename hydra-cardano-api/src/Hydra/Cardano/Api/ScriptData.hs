@@ -4,10 +4,9 @@ module Hydra.Cardano.Api.ScriptData where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.Byron (TxBody (..))
-import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Era qualified as Ledger
+import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)
@@ -55,7 +54,6 @@ lookupScriptData ::
   Tx era ->
   TxOut CtxUTxO era ->
   Maybe HashableScriptData
-lookupScriptData (Tx ByronTxBody{} _) _ = Nothing
 lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _) =
   case datum of
     TxOutDatumNone ->

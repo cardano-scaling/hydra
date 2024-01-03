@@ -7,13 +7,12 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
-  CardanoMode,
+  CardanoEra (..),
   ChainPoint,
   ChainSyncClient,
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
-  EraInMode (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
@@ -90,9 +89,9 @@ data ChainObserverLog
   deriving anyclass (ToJSON)
 
 type BlockType :: Type
-type BlockType = BlockInMode CardanoMode
+type BlockType = BlockInMode
 
-connectInfo :: SocketPath -> NetworkId -> LocalNodeConnectInfo CardanoMode
+connectInfo :: SocketPath -> NetworkId -> LocalNodeConnectInfo
 connectInfo nodeSocket networkId =
   LocalNodeConnectInfo
     { -- REVIEW: This was 432000 before, but all usages in the
@@ -159,7 +158,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
     ClientStNext
       { recvMsgRollForward = \blockInMode tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode _ (Block _header txs) BabbageEraInCardanoMode -> do
+            BlockInMode BabbageEra (Block _header txs) -> do
               let point = chainTipToChainPoint tip
               let receivedTxIds = getTxId . getTxBody <$> txs
               traceWith tracer RollForward{point, receivedTxIds}

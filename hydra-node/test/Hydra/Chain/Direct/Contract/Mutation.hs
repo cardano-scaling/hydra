@@ -132,7 +132,6 @@ import Hydra.Cardano.Api
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (outputsTxBodyL)
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
@@ -140,6 +139,7 @@ import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
+import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
 import Control.Lens ((^.))
 import Data.Map qualified as Map

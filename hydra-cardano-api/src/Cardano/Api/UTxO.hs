@@ -87,35 +87,35 @@ min = UTxO . uncurry Map.singleton . Map.findMin . toMap
 -- * Type Conversions
 
 -- | Transforms a UTxO containing tx outs from any era into Babbage era.
-fromApi :: Cardano.Api.UTxO era -> UTxO
-fromApi (Cardano.Api.UTxO eraUTxO) =
+fromApi :: forall era. ShelleyBasedEra era -> Cardano.Api.UTxO era -> UTxO
+fromApi sbe (Cardano.Api.UTxO eraUTxO) =
   let eraPairs = Map.toList eraUTxO
-      babbagePairs = second coerceOutputToEra <$> eraPairs
+      babbagePairs = second (coerceOutputToEra sbe) <$> eraPairs
    in fromPairs babbagePairs
- where
-  coerceOutputToEra :: TxOut CtxUTxO era -> TxOut CtxUTxO Era
-  coerceOutputToEra (TxOut eraAddress eraValue eraDatum eraRefScript) =
-    TxOut
-      (coerceAddressToEra eraAddress)
-      (coerceValueToEra eraValue)
-      (coerceDatumToEra eraDatum)
-      (coerceRefScriptToEra eraRefScript)
 
-  coerceAddressToEra :: AddressInEra era -> AddressInEra Era
-  coerceAddressToEra (AddressInEra _ eraAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny eraAddress)
+coerceOutputToEra :: forall era. ShelleyBasedEra era -> TxOut CtxUTxO era -> TxOut CtxUTxO Era
+coerceOutputToEra sbe (TxOut eraAddress eraValue eraDatum eraRefScript) =
+  TxOut
+    (coerceAddressToEra eraAddress)
+    (coerceValueToEra sbe eraValue)
+    (coerceDatumToEra eraDatum)
+    (coerceRefScriptToEra eraRefScript)
 
-  coerceValueToEra :: TxOutValue era -> TxOutValue Era
-  coerceValueToEra (TxOutAdaOnly _ eraLovelace) = lovelaceToTxOutValue BabbageEra eraLovelace
-  coerceValueToEra (TxOutValue _ value) = TxOutValue MaryEraOnwardsBabbage value
+coerceAddressToEra :: AddressInEra era -> AddressInEra Era
+coerceAddressToEra (AddressInEra _ eraAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny eraAddress)
 
-  coerceDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
-  coerceDatumToEra TxOutDatumNone = TxOutDatumNone
-  coerceDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
-  coerceDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
+coerceValueToEra :: forall era. ShelleyBasedEra era -> TxOutValue era -> TxOutValue Era
+coerceValueToEra _ (TxOutValueByron eraLovelace) = lovelaceToTxOutValue shelleyBasedEra eraLovelace
+coerceValueToEra sbe (TxOutValueShelleyBased _ value) = TxOutValueShelleyBased ShelleyBasedEraBabbage (toLedgerValue MaryEraOnwardsBabbage $ fromLedgerValue sbe value)
 
-  coerceRefScriptToEra :: ReferenceScript era -> ReferenceScript Era
-  coerceRefScriptToEra ReferenceScriptNone = ReferenceScriptNone
-  coerceRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
+coerceDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
+coerceDatumToEra TxOutDatumNone = TxOutDatumNone
+coerceDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
+coerceDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
+
+coerceRefScriptToEra :: ReferenceScript era -> ReferenceScript Era
+coerceRefScriptToEra ReferenceScriptNone = ReferenceScriptNone
+coerceRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
 
 toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

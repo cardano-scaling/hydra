@@ -1,14 +1,13 @@
 module Hydra.Cardano.Api.Value where
 
-import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.Prelude hiding (toLedgerValue)
 
-import Cardano.Api.Ledger (PParams)
-import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
+import Cardano.Api.Ledger (Coin (..), PParams)
+import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Core (getMinCoinTxOut)
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
-import Hydra.Cardano.Api.MaryEraOnwards (maryEraOnwards)
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)
 import PlutusLedgerApi.V2 (adaSymbol, adaToken, fromBuiltin, unTokenName)
@@ -30,9 +29,9 @@ minUTxOValue pparams (TxOut addr val dat ref) =
   out' =
     TxOut
       addr
-      ( TxOutValue
-          (maryEraOnwards @Era)
-          (txOutValueToValue val <> defaultHighEnoughValue)
+      ( TxOutValueShelleyBased
+          (shelleyBasedEra @Era)
+          (toLedgerValue (txOutValueToValue val <> defaultHighEnoughValue))
       )
       dat
       ref
@@ -74,7 +73,7 @@ fromLedgerValue =
 -- will construct a 'Value' with no 'AdaAssetId' entry in it.
 fromLedgerMultiAsset :: Ledger.MultiAsset StandardCrypto -> Value
 fromLedgerMultiAsset =
-  fromMaryValue . Ledger.MaryValue 0
+  fromMaryValue . Ledger.MaryValue (Coin 0)
 
 -- | Convert a cardano-api 'Value' into a cardano-ledger 'Value'.
 toLedgerValue :: Value -> Ledger.MaryValue StandardCrypto

@@ -4,7 +4,7 @@ module Hydra.Cardano.Api.PolicyId where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
+import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Hashes qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Hydra.Cardano.Api.ScriptHash ()

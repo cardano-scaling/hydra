@@ -19,7 +19,6 @@ toLedgerValidityInterval (lowerBound, upperBound) =
           TxValidityLowerBound _ s -> SJust s
     , Ledger.invalidHereafter =
         case upperBound of
-          TxValidityNoUpperBound _ -> SNothing
           TxValidityUpperBound _ s -> maybeToStrictMaybe s
     }
 fromLedgerValidityInterval ::

@@ -45,14 +45,10 @@ utxoProducedByTx tx =
   TxBody body = getTxBody tx
 
 -- | Get explicit fees allocated to a transaction.
---
--- NOTE: this function is partial and throws if given a Byron transaction for
--- which fees are necessarily implicit.
-txFee' :: HasCallStack => Tx era -> Lovelace
+txFee' :: Tx era -> Lovelace
 txFee' (getTxBody -> TxBody body) =
   case txFee body of
     TxFeeExplicit _ y -> y
-    TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
 
 -- * Type Conversions
 

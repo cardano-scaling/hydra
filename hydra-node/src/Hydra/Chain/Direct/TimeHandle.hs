@@ -10,7 +10,6 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRel
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  CardanoMode,
   EraHistory (EraHistory),
   NetworkId,
   SocketPath,
@@ -41,7 +40,7 @@ data TimeHandle = TimeHandle
 
 data TimeHandleParams = TimeHandleParams
   { systemStart :: SystemStart
-  , eraHistory :: EraHistory CardanoMode
+  , eraHistory :: EraHistory
   , horizonSlot :: SlotNo
   , currentSlot :: SlotNo
   }
@@ -77,7 +76,7 @@ mkTimeHandle ::
   HasCallStack =>
   SlotNo ->
   SystemStart ->
-  EraHistory CardanoMode ->
+  EraHistory ->
   TimeHandle
 mkTimeHandle currentSlotNo systemStart eraHistory = do
   TimeHandle
@@ -101,7 +100,7 @@ mkTimeHandle currentSlotNo systemStart eraHistory = do
       Left pastHorizonEx -> Left $ show pastHorizonEx
       Right (slotNo, _timeSpentInSlot, _timeLeftInSlot) -> pure slotNo
 
-  (EraHistory _ interpreter) = eraHistory
+  (EraHistory interpreter) = eraHistory
 
 -- | Query node for system start and era history before constructing a
 -- 'TimeHandle' using the slot at the tip of the network.

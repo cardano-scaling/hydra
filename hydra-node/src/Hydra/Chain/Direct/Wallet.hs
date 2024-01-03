@@ -10,9 +10,9 @@ import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.Alonzo.Plutus.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
-import Cardano.Ledger.Alonzo.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
 import Cardano.Ledger.Api (TransactionScriptFailure, ensureMinCoinTxOut, evalTxExUnits, outputsTxBodyL, ppMaxTxExUnitsL, ppPricesL)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
