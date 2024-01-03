@@ -40,6 +40,8 @@ changes.
 - **BREAKING** Changes the `NodeOptions` log output because of internal
   restructuring of chain layer configuration.
 
+- Adapt cardano client and the chain-sync client to survive after the fork to Conway era.
+
 ## [0.14.0] - 2023-12-04
 
 - **BREAKING** Multiple changes to the Hydra Head protocol on-chain:

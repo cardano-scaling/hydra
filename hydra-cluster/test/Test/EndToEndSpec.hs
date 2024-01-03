@@ -37,28 +37,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
-import Hydra.Cardano.Api (
-  AddressInEra,
-  GenesisParameters (..),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  SlotNo (..),
-  ToUTxOContext (toUTxOContext),
-  TxId,
-  TxIn (..),
-  VerificationKey,
-  isVkTxOut,
-  lovelaceToValue,
-  mkTxIn,
-  mkVkAddress,
-  serialiseAddress,
-  signTx,
-  txOutValue,
-  txOuts',
-  unEpochNo,
-  pattern TxValidityLowerBound,
- )
+import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
@@ -527,6 +506,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
     describe "forking eras" $ do
       it "does report on unsupported era" $ \tracer -> do
+        pendingWith "Currently supporting Conway era no future upcoming"
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
@@ -535,18 +515,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out mStdErr ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out stdErr ph -> do
               -- Assert nominal startup
               waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
               waitUntilEpoch tmpDir args node 1
 
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents mStdErr
+              errorOutputs <- hGetContents stdErr
               errorOutputs `shouldContain` "Received blocks in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
       it "does report on unsupported era on startup" $ \tracer -> do
+        pendingWith "Currently supporting Conway era no future upcoming"
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
@@ -558,11 +539,90 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             waitUntilEpoch tmpDir args node 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out mStdErr ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out stdErr ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents mStdErr
+              errorOutputs <- hGetContents stdErr
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
+
+      it "support new era" $ \tracer -> do
+        withClusterTempDir "support-new-era" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+
+          forkIntoConwayInEpoch tmpDir args 10
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
+            \nodeSocket -> do
+              let pparams = defaultPParams
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  lovelaceBalanceValue = 100_000_000
+              -- Funds to be used as fuel by Hydra protocol transactions
+              (aliceCardanoVk, _) <- keysFor Alice
+              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+              -- Get some UTXOs to commit to a head
+              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+
+              let hydraTracer = contramap FromHydraNode tracer
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
+                send n1 $ input "Init" []
+                headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+
+                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+                waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+
+                waitUntilEpoch tmpDir args node 10
+
+                send n1 $ input "Close" []
+                waitMatch 3 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  snapshotNumber <- v ^? key "snapshotNumber"
+                  guard $ snapshotNumber == Aeson.Number 0
+
+      it "support new era on restart" $ \tracer -> do
+        withClusterTempDir "support-new-era-restart" $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+
+          forkIntoConwayInEpoch tmpDir args 10
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
+            \nodeSocket -> do
+              let pparams = defaultPParams
+                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
+                  lovelaceBalanceValue = 100_000_000
+              -- Funds to be used as fuel by Hydra protocol transactions
+              (aliceCardanoVk, _) <- keysFor Alice
+              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+              -- Get some UTXOs to commit to a head
+              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
+
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+
+              let hydraTracer = contramap FromHydraNode tracer
+              headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
+                send n1 $ input "Init" []
+                headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+
+                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
+
+                waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+
+                pure headId
+
+              waitUntilEpoch tmpDir args node 10
+
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] pparams $ \n1 -> do
+                send n1 $ input "Close" []
+                waitMatch 3 n1 $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsClosed"
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  snapshotNumber <- v ^? key "snapshotNumber"
+                  guard $ snapshotNumber == Aeson.Number 0
 
 -- | Wait until given number of epoch. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
@@ -570,13 +630,13 @@ waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
 waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo = do
   fromEpochNo :: Natural <- fromIntegral . unEpochNo <$> queryEpochNo networkId nodeSocket QueryTip
   toEpochNo `shouldSatisfy` (> fromEpochNo)
-  shellyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
+  shelleyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
   let slotLength =
         fromMaybe (error "Field epochLength not found") $
-          shellyGenesisFile ^? key "slotLength" . _Double
+          shelleyGenesisFile ^? key "slotLength" . _Double
       epochLength =
         fromMaybe (error "Field epochLength not found") $
-          shellyGenesisFile ^? key "epochLength" . _Double
+          shelleyGenesisFile ^? key "epochLength" . _Double
   threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()

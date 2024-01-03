@@ -12,7 +12,17 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Cardano.Api (AsType (AsPaymentKey), File (..), NetworkId, PaymentKey, SigningKey, SocketPath, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Cardano.Api (
+  AsType (AsPaymentKey),
+  File (..),
+  NetworkId,
+  PaymentKey,
+  SigningKey,
+  SocketPath,
+  VerificationKey,
+  generateSigningKey,
+  getVerificationKey,
+ )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
 import Hydra.Cluster.Fixture (
@@ -135,8 +145,8 @@ withCardanoNodeOnKnownNetwork ::
   FilePath ->
   -- | A well-known Cardano network to connect to.
   KnownNetwork ->
-  (RunningNode -> IO ()) ->
-  IO ()
+  (RunningNode -> IO a) ->
+  IO a
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
