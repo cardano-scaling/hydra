@@ -24,6 +24,7 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Data.Ratio ((%))
+import Data.Text.IO (hGetContents)
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
 import GHC.IO.Exception (IOErrorType (..), IOException (..))
@@ -133,16 +134,24 @@ combinedHspecFormatter suiteName config = do
 --
 -- @@
 -- withCreateProcess p $
---   \_stdin _stdout _stderr processHandle -> do
+--   \_stdin _stdout mStdErr processHandle -> do
 --       race_
---         (checkProcessHasNotDied "my-process" processHandle)
+--         (checkProcessHasNotDied "my-process" processHandle mStdErr)
 --         doStuff
 -- @@
-checkProcessHasNotDied :: Text -> ProcessHandle -> IO Void
-checkProcessHasNotDied name processHandle =
+-- Note: make sure you do not use an Inherit handle for stderr, as it will NOT work.
+checkProcessHasNotDied :: Text -> ProcessHandle -> Maybe Handle -> IO Void
+checkProcessHasNotDied name processHandle mStdErr =
   waitForProcess processHandle >>= \case
-    ExitSuccess -> failure "Process has died"
-    ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
+    ExitSuccess -> failure "Process has stopped"
+    ExitFailure exit -> do
+      mErrorOutput <- traverse hGetContents mStdErr
+      let mErrorMsg = ("Process stderr: " <>) <$> mErrorOutput
+      failure . toString $
+        unlines
+          ( "Process " <> show name <> " exited with failure code: " <> show exit
+              : maybeToList mErrorMsg
+          )
 
 -- | Like 'coverTable', but construct the weight requirements generically from
 -- the provided label.
