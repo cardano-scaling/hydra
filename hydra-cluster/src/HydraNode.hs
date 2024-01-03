@@ -284,7 +284,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams (Just logFileHandle) $ do
       \_ err processHandle -> do
         race
-          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle err)
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
           (withConnectionToNode tracer hydraNodeId action)
           <&> either absurd id
  where
@@ -302,7 +302,7 @@ withHydraNode' ::
   PParams LedgerEra ->
   -- | If given use this as std out.
   Maybe Handle ->
-  (Handle -> Maybe Handle -> ProcessHandle -> IO a) ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
 withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
@@ -342,9 +342,10 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
             }
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
-      case mCreatedStdOut <|> mGivenStdOut of
-        Just out -> action out mCreatedStdErr processHandle
-        Nothing -> error "Should not happen™"
+      case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
+        (Just out, Just err) -> action out err processHandle
+        (Nothing, _) -> error "Should not happen™"
+        (_, Nothing) -> error "Should not happen™"
  where
   port = fromIntegral $ 5_000 + hydraNodeId
 

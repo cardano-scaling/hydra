@@ -542,7 +542,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               waitUntilEpoch tmpDir args node 1
 
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- maybe (pure "Should not happen™") hGetContents mStdErr
+              errorOutputs <- hGetContents mStdErr
               errorOutputs `shouldContain` "Received blocks in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
@@ -560,7 +560,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out mStdErr ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- maybe (pure "Should not happen™") hGetContents mStdErr
+              errorOutputs <- hGetContents mStdErr
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
