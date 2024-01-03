@@ -156,7 +156,8 @@ registryUTxO scriptRegistry =
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  -- | Current network discriminant
+  -- | cardano-node's network identifier.
+  -- A combination of network discriminant + magic number.
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->

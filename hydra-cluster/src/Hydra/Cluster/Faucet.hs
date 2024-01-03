@@ -1,6 +1,6 @@
 module Hydra.Cluster.Faucet where
 
-import Hydra.Cardano.Api hiding (cardanoEra, queryCurrentEra)
+import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 

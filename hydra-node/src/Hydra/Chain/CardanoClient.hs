@@ -68,8 +68,7 @@ data CardanoClient = CardanoClient
 mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
 mkCardanoClient networkId nodeSocket =
   CardanoClient
-    { queryUTxOByAddress = \addresses -> do
-        queryUTxO networkId nodeSocket QueryTip addresses
+    { queryUTxOByAddress = queryUTxO networkId nodeSocket QueryTip
     , networkId
     }
 
@@ -190,7 +189,8 @@ awaitTransaction ::
   -- | The transaction to watch / await
   Tx ->
   IO UTxO
-awaitTransaction networkId socket tx = go
+awaitTransaction networkId socket tx =
+  go
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
@@ -374,7 +374,7 @@ queryUTxOWhole networkId socket queryPoint = do
 queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
 queryUTxOFor networkId nodeSocket queryPoint vk =
   case mkVkAddress networkId vk of
-    ShelleyAddressInEra addr -> do
+    ShelleyAddressInEra addr ->
       queryUTxO networkId nodeSocket queryPoint [addr]
     ByronAddressInEra{} ->
       fail "impossible: mkVkAddress returned Byron address."

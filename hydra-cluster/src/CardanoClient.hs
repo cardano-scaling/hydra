@@ -11,7 +11,7 @@ module CardanoClient (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
+import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -90,7 +90,7 @@ waitForPayment ::
   Lovelace ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayment networkId socket amount addr = do
+waitForPayment networkId socket amount addr =
   go
  where
   go = do
@@ -108,9 +108,10 @@ waitForUTxO ::
   SocketPath ->
   UTxO ->
   IO ()
-waitForUTxO networkId nodeSocket utxo = do
+waitForUTxO networkId nodeSocket utxo =
   forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
  where
+  forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $

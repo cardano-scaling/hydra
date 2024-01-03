@@ -23,7 +23,7 @@ spec = do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir ->
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
               replicateConcurrently_ 10 $ do
                 vk <- generate genVerificationKey
                 seedFromFaucet_ node vk 1_000_000 (contramap FromFaucet tracer)

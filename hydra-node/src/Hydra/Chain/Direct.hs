@@ -316,6 +316,8 @@ chainSyncClient handler wallet startingPoint =
               pure clientStIdle
             BlockInMode _ block ConwayEraInCardanoMode -> do
               -- TODO: uses cardano-api:internal
+              -- NOTE: we should remove this dependency once we have ShelleyBlock available
+              -- on the normal cardano-api library.
               let (ShelleyBlock ShelleyBasedEraConway conwayBlock) = block
               -- XXX: We should not be needing to wrap / unwrap in addition. We
               -- just found those functions to satisfy the types.
