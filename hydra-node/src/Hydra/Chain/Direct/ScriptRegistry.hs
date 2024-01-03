@@ -156,13 +156,14 @@ registryUTxO scriptRegistry =
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
+  (MonadIO m, MonadThrow m) =>
   -- | cardano-node's network identifier.
   -- A combination of network discriminant + magic number.
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   TxId ->
-  IO ScriptRegistry
+  m ScriptRegistry
 queryScriptRegistry networkId socketPath txId = do
   utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
   case newScriptRegistry utxo of

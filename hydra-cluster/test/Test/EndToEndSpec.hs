@@ -515,14 +515,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out mStdErr ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \out stdErr ph -> do
               -- Assert nominal startup
               waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
               waitUntilEpoch tmpDir args node 1
 
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- maybe (pure "Should not happen™") hGetContents mStdErr
+              errorOutputs <- hGetContents stdErr
               errorOutputs `shouldContain` "Received blocks in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
@@ -539,9 +539,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             waitUntilEpoch tmpDir args node 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out mStdErr ph -> do
+            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] pparams Nothing $ \_out stdErr ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- maybe (pure "Should not happen™") hGetContents mStdErr
+              errorOutputs <- hGetContents stdErr
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 

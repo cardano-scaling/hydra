@@ -4,7 +4,9 @@ import Hydra.Prelude hiding (fromList)
 
 import Hydra.API.Server (Server (..), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.Cardano.Api (ProtocolParametersConversionError)
+import Hydra.Cardano.Api (
+  ProtocolParametersConversionError,
+ )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
@@ -129,9 +131,9 @@ getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} -> do
-    params <- queryGenesisParameters networkId nodeSocket QueryTip
-    newGlobals params
+  Direct DirectChainConfig{networkId, nodeSocket} ->
+    queryGenesisParameters networkId nodeSocket QueryTip
+      >>= newGlobals
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
