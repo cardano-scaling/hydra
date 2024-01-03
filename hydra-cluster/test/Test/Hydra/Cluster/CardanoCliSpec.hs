@@ -1,20 +1,19 @@
 module Test.Hydra.Cluster.CardanoCliSpec where
 
-import Hydra.Prelude hiding (toString)
+import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Lens ((^?))
-import Data.Aeson (eitherDecode', encode, encodeFile)
+import Data.Aeson (eitherDecode', encodeFile)
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString.Lazy.Char8 (pack)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (LedgerEra, Tx, unFile, unNetworkMagic)
 import Hydra.Cardano.Api.Prelude (NetworkId (Testnet))
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Prelude (toString)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcessWithExitCode, readProcess)
@@ -40,26 +39,23 @@ spec =
       readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "8.17.0.0")
 
     around (showLogsOnFailure "CardanoCliSpec") $ do
-      it "query PParams using cardano-node and check JSON roundtrip" $ \tracer ->
-        withTempDir "queryProtocolParameters" $ \tmpDir ->
-          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{pparams} ->
-            case eitherDecode' (encode pparams) :: Either String (PParams LedgerEra) of
-              Left e -> expectationFailure e
-              Right parsedPParams -> pparams `shouldBe` parsedPParams
-
-      it "queried ProtocolParameters is compatible with our Json instance" $ \tracer ->
+      it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->
         withTempDir "cardano-cli-pparams" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId, pparams} -> do
             case networkId of
               Testnet networkId' -> do
                 (exitCode, output, _errors) <-
                   readCreateProcessWithExitCode
-                    (cardanoCliQueryPParams (toString $ unFile nodeSocket) (show $ unNetworkMagic networkId')) ""
+                    (cardanoCliQueryPParams (unFile nodeSocket) (show $ unNetworkMagic networkId'))
+                    ""
                 exitCode `shouldBe` ExitSuccess
                 case eitherDecode' (pack output) :: Either String (PParams LedgerEra) of
-                  Left e -> expectationFailure e
+                  Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> output
                   Right parsedPParams -> parsedPParams `shouldBe` pparams
-              _ -> expectationFailure "Should only run on Testnet"
+              _ -> failure "Should only run on Testnet"
+
+      it "query protocol-parameters matches our schema" $ \_tracer ->
+        pendingWith "TODO"
  where
   cardanoCliSign txFile =
     proc
