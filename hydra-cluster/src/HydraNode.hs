@@ -310,7 +310,7 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
   withSystemTempDirectory "hydra-node" $ \dir -> do
     let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
     case chainConfig of
-      Offline _ -> undefined
+      Offline _ -> undefined -- TODO: should write default ProtocolParameters to cardanoLedgerProtocolParametersFile
       Direct DirectChainConfig{nodeSocket, networkId} -> do
         -- NOTE: This implicitly tests of cardano-cli with hydra-node
         protocolParameters <- cliQueryProtocolParameters nodeSocket networkId

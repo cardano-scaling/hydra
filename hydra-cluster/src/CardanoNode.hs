@@ -16,6 +16,7 @@ import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
   NetworkId,
+  NetworkMagic (..),
   PaymentKey,
   SigningKey,
   SocketPath,
@@ -441,7 +442,7 @@ cliQueryProtocolParameters nodeSocket networkId = do
       ]
         <> case networkId of
           Api.Mainnet -> ["--mainnet"]
-          Api.Testnet magic -> ["--testnet-magic", show magic]
+          Api.Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
         <> [ "--out-file"
            , "/dev/stdout"
            ]
