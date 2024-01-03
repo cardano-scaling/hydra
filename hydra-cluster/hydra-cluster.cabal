@@ -161,9 +161,8 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base                 >=4.7 && <5
+    , base               >=4.7 && <5
     , bytestring
-    , cardano-ledger-core
     , containers
     , directory
     , filepath
