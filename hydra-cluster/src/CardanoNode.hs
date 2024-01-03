@@ -39,6 +39,7 @@ import System.Process (
   CreateProcess (..),
   StdStream (CreatePipe, UseHandle),
   proc,
+  readCreateProcess,
   readProcess,
   withCreateProcess,
  )
@@ -421,6 +422,29 @@ data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving stock (Show)
 
 instance Exception ProcessHasExited
+
+-- | Cardano-cli wrapper to query protocol parameters. While we have also client
+-- functions in Hydra.Chain.CardanoClient and Hydra.Cluster.CardanoClient,
+-- sometimes we deliberately want to use the cardano-cli to ensure
+-- compatibility.
+cliQueryProtocolParameters :: RunningNode -> IO Value
+cliQueryProtocolParameters RunningNode{nodeSocket, networkId} = do
+  out <- readCreateProcess cmd ""
+  unsafeDecodeJson $ fromString out
+ where
+  cmd =
+    proc "cardano-cli" $
+      [ "query"
+      , "protocol-parameters"
+      , "--socket-path"
+      , unFile nodeSocket
+      ]
+        <> case networkId of
+          Api.Mainnet -> ["--mainnet"]
+          Api.Testnet magic -> ["--testnet-magic", show magic]
+        <> [ "--out-file"
+           , "/dev/stdout"
+           ]
 
 --
 -- Helpers

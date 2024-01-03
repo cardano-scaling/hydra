@@ -6,8 +6,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
 import Cardano.Ledger.Core (PParams (..))
+import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
@@ -308,17 +308,21 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
-    let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
-    writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
+    -- NOTE: This implicitly tests of cardano-cli with hydra-node
+    let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+    protocolParameters <- cliQueryProtocolParameters
+    Aeson.encodeFile cardanoLedgerProtocolParametersFile $
+      protocolParameters
+        & atKey "txFeeFixed" ?~ toJSON (Number 0)
+        & atKey "txFeePerByte" ?~ toJSON (Number 0)
+        & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+        & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
     hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
       let filepath = dir </> (show i <> ".vk")
       filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
-    let ledgerConfig =
-          CardanoLedgerConfig
-            { cardanoLedgerProtocolParametersFile
-            }
     let p =
           ( hydraNodeProcess $
               RunOptions
@@ -334,7 +338,10 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
                 , hydraVerificationKeys
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
                 , chainConfig
-                , ledgerConfig
+                , ledgerConfig =
+                    CardanoLedgerConfig
+                      { cardanoLedgerProtocolParametersFile
+                      }
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
@@ -348,22 +355,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
         (_, Nothing) -> error "Should not happen™"
  where
   port = fromIntegral $ 5_000 + hydraNodeId
-
-  -- NOTE: We want to have zeroed fees in the Head.
-  writeZeroedPParams (PParams BabbagePParams{bppProtocolVersion}) =
-    toStrict
-      ( Aeson.encode (toJSON pparams)
-          -- FIXME: this is a hack because cardano-ledger has a bug
-          -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) in the
-          -- BabbagePParams ToJSON instance where 'protocolVersion' is missing.
-          & atKey "protocolVersion" ?~ toJSON bppProtocolVersion
-          & atKey "minFeeA" ?~ toJSON (Number 0)
-          & atKey "minFeeB" ?~ toJSON (Number 0)
-          & atKey "txFeeFixed" ?~ toJSON (Number 0)
-          & atKey "txFeePerByte" ?~ toJSON (Number 0)
-          & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-          & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
-      )
 
   peers =
     [ Host
