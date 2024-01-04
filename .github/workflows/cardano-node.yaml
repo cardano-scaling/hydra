@@ -1,0 +1,42 @@
+# XXX: Temporary workflow to produce static ELF binaries for cardan-node 8.7.2
+# Remove again when upstream releases them again.
+name: Cardano-node
+
+on:
+  workflow_dispatch:
+    version:
+      description: "Cardano node version to build (git ref)"
+      required: true
+      default: "8.7.2"
+
+jobs:
+  build-executables-linux:
+    name: "Build x86_64-linux static executables"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout cardano-node ${{inputs.version}}
+      uses: actions/checkout@v4
+      with:
+        repository: IntersectMBO/cardano-node
+        ref: ${{inputs.version}}
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v23
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Build cardano-node static executables
+      run: |
+        mkdir -p out/
+        nix build .#hydraJobs.x86_64-linux.musl.cardano-node
+        cp result/bin/* out/
+        nix build .#hydraJobs.x86_64-linux.musl.cardano-cli
+        cp result/bin/* out/
+
+    - name: 💾 Upload matching cardano-node executables
+      uses: actions/upload-artifact@v4
+      with:
+        name: cardano-node-x86_64-linux # automatically zips
+        path: out/*
