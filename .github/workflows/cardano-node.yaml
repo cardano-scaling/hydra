@@ -4,21 +4,17 @@ name: Cardano-node
 
 on:
   workflow_dispatch:
-    version:
-      description: "Cardano node version to build (git ref)"
-      required: true
-      default: "8.7.2"
 
 jobs:
   build-executables-linux:
     name: "Build x86_64-linux static executables"
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout cardano-node ${{inputs.version}}
+    - name: 📥 Checkout cardano-node 8.7.2
       uses: actions/checkout@v4
       with:
         repository: IntersectMBO/cardano-node
-        ref: ${{inputs.version}}
+        ref: 8.7.2
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
