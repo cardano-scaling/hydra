@@ -171,7 +171,6 @@ data RunningNode = RunningNode
   , networkId :: NetworkId
   , blockTime :: DiffTime
   -- ^ Expected time between blocks (varies a lot on testnets)
-  , pparams :: PParams Api.LedgerEra
   }
 
 -- Logging

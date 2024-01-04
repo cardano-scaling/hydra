@@ -332,7 +332,7 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
           reedemer = 1 :: Integer
           datum = 2 :: Integer
           scriptInfo = ScriptInfo (toScriptData reedemer) Nothing script
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress (mkTxOutDatumInline datum)
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node scriptAddress (mkTxOutDatumInline datum)
 
       -- Commit the script output using known witness
       let clientPayload =
@@ -363,7 +363,7 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
  where
-  RunningNode{networkId, nodeSocket, pparams, blockTime} = node
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
@@ -390,7 +390,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
           reedemer = 1 :: Integer
           datum = 2 :: Integer
           scriptInfo = ScriptInfo (toScriptData reedemer) (Just $ toScriptData datum) script
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node pparams scriptAddress (mkTxOutDatumHash datum)
+      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node scriptAddress (mkTxOutDatumHash datum)
 
       -- Commit the script output using known witness
       let clientPayload =
@@ -422,7 +422,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
  where
-  RunningNode{networkId, nodeSocket, pparams, blockTime} = node
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 singlePartyCannotCommitExternallyWalletUtxo ::
   Tracer IO EndToEndLog ->
