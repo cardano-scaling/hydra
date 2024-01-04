@@ -232,37 +232,35 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
-    let contestationPeriod = UnsafeContestationPeriod 100
+    let contestationPeriod = UnsafeContestationPeriod $ 5 * truncate blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
       -- Commit nothing for now
       requestCommitTx n1 mempty >>= submitTx node
-      waitFor hydraTracer 600 [n1] $
+      waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       -- Close head
       send n1 $ input "Close" []
-      deadline <- waitMatch 600 n1 $ \v -> do
+      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "contestationDeadline" . _JSON
-      -- Expect to see ReadyToFanout within 600 seconds after deadline.
-      -- XXX: We still would like to have a network-specific time here
       remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
-      waitFor hydraTracer (remainingTime + 60) [n1] $
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
         output "ReadyToFanout" ["headId" .= headId]
       send n1 $ input "Fanout" []
-      waitFor hydraTracer 600 [n1] $
+      waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsFinalized" ["utxo" .= object mempty, "headId" .= headId]
     traceRemainingFunds Alice
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  RunningNode{networkId, nodeSocket} = node
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
@@ -300,15 +298,15 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
       -- Commit nothing for now
       requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
-      waitFor hydraTracer 600 [n1] $
+      waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
       callback n1
  where
-  RunningNode{networkId, nodeSocket} = node
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Exercise committing a script utxo that uses inline datums.
 singlePartyCommitsExternalScriptWithInlineDatum ::
@@ -325,7 +323,7 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Prepare a script output on the network
       -- FIXME: spending validators have 3 arguments? does this succeed still? is it not run?
@@ -359,13 +357,13 @@ singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScripts
       let DraftCommitTxResponse{commitTx} = responseBody res
       submitTx node commitTx
 
-      lockedUTxO <- waitMatch 60 n1 $ \v -> do
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "tag" == Just "HeadIsOpen"
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
  where
-  RunningNode{networkId, nodeSocket, pparams} = node
+  RunningNode{networkId, nodeSocket, pparams, blockTime} = node
 
 -- | Single hydra-node where the commit is done from an external UTxO owned by a
 -- script which requires providing script, datum and redeemer instead of
@@ -384,7 +382,7 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
-      headId <- waitMatch 600 n1 $ headIsInitializingWith (Set.fromList [alice])
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- Prepare a script output on the network
       let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
@@ -418,13 +416,13 @@ singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
       let DraftCommitTxResponse{commitTx} = responseBody res
       submitTx node commitTx
 
-      lockedUTxO <- waitMatch 60 n1 $ \v -> do
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "tag" == Just "HeadIsOpen"
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
  where
-  RunningNode{networkId, nodeSocket, pparams} = node
+  RunningNode{networkId, nodeSocket, pparams, blockTime} = node
 
 singlePartyCannotCommitExternallyWalletUtxo ::
   Tracer IO EndToEndLog ->
@@ -440,7 +438,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
-      _headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+      _headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
       -- these keys should mimic external wallet keys needed to sign the commit tx
 
@@ -452,7 +450,7 @@ singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId
       -- Request to build a draft commit tx from hydra-node
       requestCommitTx n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
  where
-  RunningNode{nodeSocket} = node
+  RunningNode{nodeSocket, blockTime} = node
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that
@@ -475,19 +473,19 @@ canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    headId <- waitMatch 60 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
     -- Commit nothing for now
     requestCommitTx n1 mempty >>= submitTx node
-    waitFor hydraTracer 60 [n1] $
+    waitFor hydraTracer (10 * blockTime) [n1] $
       output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
     -- Close head
     send n1 $ input "Close" []
     void $
-      waitMatch 60 n1 $ \v -> do
+      waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
   traceRemainingFunds Alice
  where
-  RunningNode{networkId, nodeSocket} = node
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor

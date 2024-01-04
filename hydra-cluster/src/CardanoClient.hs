@@ -169,6 +169,8 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
 data RunningNode = RunningNode
   { nodeSocket :: SocketPath
   , networkId :: NetworkId
+  , blockTime :: DiffTime
+  -- ^ Expected time between blocks (varies a lot on testnets)
   , pparams :: PParams Api.LedgerEra
   }
 
