@@ -36,3 +36,34 @@ jobs:
       with:
         name: cardano-node-x86_64-linux # automatically zips
         path: out/*
+
+  build-executables-macos:
+    name: "Build aarch64-darwin dynamic executables"
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+    - name: 📥 Checkout cardano-node 8.7.2
+      uses: actions/checkout@v4
+      with:
+        repository: IntersectMBO/cardano-node
+        ref: 8.7.2
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v23
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Build executables
+      run: |
+        mkdir -p out
+        nix build .#cardano-node
+        cp result/bin/* out/
+        nix build .#cardano-cli
+        cp result/bin/* out/
+
+    - name: 💾 Upload executables
+      uses: actions/upload-artifact@v4
+      with:
+        name: cardano-node-aarch64-darwin # automatically zips
+        path: out/*
