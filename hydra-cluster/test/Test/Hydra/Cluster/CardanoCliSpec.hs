@@ -8,10 +8,12 @@ import CardanoNode (withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson (eitherDecode', encodeFile)
 import Data.Aeson.Lens (key, _String)
+import Data.Aeson.Types (parseEither)
 import Data.ByteString.Lazy.Char8 (pack)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
-import Hydra.Cardano.Api (ProtocolParameters, Tx, unFile, unNetworkMagic)
+import Hydra.Cardano.Api (Tx, unFile, unNetworkMagic)
 import Hydra.Cardano.Api.Prelude (NetworkId (Testnet))
+import Hydra.Ledger.Cardano.Configuration (pparamsFromJson)
 import Hydra.Logging (showLogsOnFailure)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
@@ -48,9 +50,13 @@ spec =
                     (cardanoCliQueryPParams (unFile nodeSocket) (show $ unNetworkMagic networkId'))
                     ""
                 exitCode `shouldBe` ExitSuccess
-                case eitherDecode' (pack output) :: Either String ProtocolParameters of
-                  Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> output
-                  Right _ -> pure ()
+                either
+                  (\e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> output)
+                  pure
+                  $ void
+                  $ do
+                    x <- eitherDecode' (pack output)
+                    parseEither pparamsFromJson x
               _ -> failure "Should only run on Testnet"
 
       it "query protocol-parameters matches our schema" $ \_tracer ->
