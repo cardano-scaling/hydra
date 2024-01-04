@@ -201,7 +201,7 @@ data HydraNodeLog
   | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
   | EndWaiting {nodeId :: Int}
-  | HydraNodeCommandSpec { cmd :: Text }
+  | HydraNodeCommandSpec {cmd :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, ToObject)
 

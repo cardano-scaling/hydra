@@ -298,14 +298,15 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
     traceWith tr MsgNodeIsReady
 
-    GenesisParameters{protocolParamSlotLength} <- queryGenesisParameters networkId nodeSocketPath QueryTip
+    GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <- queryGenesisParameters networkId nodeSocketPath QueryTip
 
     action
       RunningNode
         { nodeSocket = nodeSocketPath
         , networkId
-        , -- TODO: Infer blockTime properly
-          blockTime = 0.1
+        , blockTime =
+            fromRational $
+              protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
         }
 
   cleanupSocketFile =
