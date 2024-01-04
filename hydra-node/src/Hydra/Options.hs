@@ -750,7 +750,7 @@ contestationPeriodParser =
     auto >>= \dt -> do
       let s = nominalDiffTimeToSeconds dt
       if s <= 0
-        then fail "negative contestation period"
+        then fail $ "contestation period <= 0: " <> show s
         else pure $ UnsafeContestationPeriod $ truncate s
 
 data InvalidOptions
