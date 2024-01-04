@@ -25,7 +25,6 @@ import Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
@@ -126,17 +125,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
-    traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-    let rn =
-          RunningNode
-            { nodeSocket
-            , networkId
-            , pparams
-            , blockTime = 0.1
-            }
-    action rn
+  withCardanoNode tracer stateDirectory args networkId action
  where
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
@@ -153,17 +142,7 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
-  withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
-    traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-    let rn =
-          RunningNode
-            { nodeSocket
-            , networkId
-            , pparams
-            , blockTime = 20
-            }
-    action rn
+  withCardanoNode tracer workDir args networkId action
  where
   args =
     defaultCardanoNodeArgs
@@ -287,7 +266,7 @@ withCardanoNode ::
   FilePath ->
   CardanoNodeArgs ->
   NetworkId ->
-  (SocketPath -> IO a) ->
+  (RunningNode -> IO a) ->
   IO a
 withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
@@ -307,8 +286,11 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
 
   socketPath = stateDirectory </> nodeSocket
 
+  -- TODO: Infer blockTime properly
+
   waitForNode = do
     let nodeSocketPath = File socketPath
+        runningNode = RunningNode { nodeSocket = nodeSocketPath, networkId, blockTime = 0.1 }
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
@@ -316,7 +298,8 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     -- exception when trying to obtain pparams and the era is not the one we
     -- expect.
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
-    action nodeSocketPath
+    traceWith tr MsgNodeIsReady
+    action runningNode
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $

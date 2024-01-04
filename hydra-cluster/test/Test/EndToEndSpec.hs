@@ -38,7 +38,7 @@ import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
-import Hydra.Chain.Direct.Fixture (defaultPParams, testNetworkId)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -511,10 +511,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
-            let pparams = defaultPParams
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode' hydraTracer chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \out stdErr ph -> do
@@ -533,10 +531,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
-            let pparams = defaultPParams
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
-            let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
@@ -554,10 +550,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
-            \nodeSocket -> do
-              let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
-                  lovelaceBalanceValue = 100_000_000
+            \node@RunningNode{nodeSocket} -> do
+              let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
               seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
@@ -592,10 +586,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
-            \nodeSocket -> do
-              let pparams = defaultPParams
-                  node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
-                  lovelaceBalanceValue = 100_000_000
+            \node@RunningNode{nodeSocket} -> do
+              let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
               seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
