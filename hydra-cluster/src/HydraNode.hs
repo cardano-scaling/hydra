@@ -201,6 +201,7 @@ data HydraNodeLog
   | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
   | EndWaiting {nodeId :: Int}
+  | HydraNodeCommandSpec { cmd :: Text }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, ToObject)
 
@@ -278,7 +279,7 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
+    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
@@ -290,6 +291,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
 withHydraNode' ::
+  Tracer IO HydraNodeLog ->
   ChainConfig ->
   FilePath ->
   Int ->
@@ -300,7 +302,7 @@ withHydraNode' ::
   Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
+withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -348,6 +350,8 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds m
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
             , std_err = CreatePipe
             }
+
+    traceWith tracer $ HydraNodeCommandSpec $ show $ cmdspec p
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of

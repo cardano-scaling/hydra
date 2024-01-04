@@ -483,9 +483,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "logs its command line arguments" $ \tracer -> do
         withClusterTempDir "logs-options" $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] (UnsafeContestationPeriod 1)
-            withHydraNode' chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
+            withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
@@ -511,11 +512,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
+            let hydraTracer = contramap FromHydraNode tracer
             let pparams = defaultPParams
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \out stdErr ph -> do
+            withHydraNode' hydraTracer chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \out stdErr ph -> do
               -- Assert nominal startup
               waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
 
@@ -533,13 +535,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \nodeSocket -> do
             let pparams = defaultPParams
+            let hydraTracer = contramap FromHydraNode tracer
             let node = RunningNode{nodeSocket, networkId = defaultNetworkId, pparams}
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
 
             waitUntilEpoch tmpDir args node 2
 
-            withHydraNode' chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \_out stdErr ph -> do
+            withHydraNode' hydraTracer chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \_out stdErr ph -> do
               waitForProcess ph `shouldReturn` ExitFailure 1
               errorOutputs <- hGetContents stdErr
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"

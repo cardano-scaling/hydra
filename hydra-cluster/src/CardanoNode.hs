@@ -134,6 +134,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
             { nodeSocket
             , networkId
             , pparams
+            , blockTime = 0.1
             }
     action rn
  where
@@ -160,6 +161,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
             { nodeSocket
             , networkId
             , pparams
+            , blockTime = 20
             }
     action rn
  where
