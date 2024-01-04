@@ -4,7 +4,7 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import CardanoClient (NodeLog (..), RunningNode (..), waitForFullySynchronized)
+import CardanoClient (NodeLog (..), QueryPoint (QueryTip), RunningNode (..), queryGenesisParameters, waitForFullySynchronized)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
@@ -15,6 +15,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
+  GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
   PaymentKey,
@@ -286,11 +287,8 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
 
   socketPath = stateDirectory </> nodeSocket
 
-  -- TODO: Infer blockTime properly
-
   waitForNode = do
     let nodeSocketPath = File socketPath
-        runningNode = RunningNode { nodeSocket = nodeSocketPath, networkId, blockTime = 0.1 }
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
@@ -299,7 +297,16 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     -- expect.
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
     traceWith tr MsgNodeIsReady
-    action runningNode
+
+    GenesisParameters{protocolParamSlotLength} <- queryGenesisParameters networkId nodeSocketPath QueryTip
+
+    action
+      RunningNode
+        { nodeSocket = nodeSocketPath
+        , networkId
+        , -- TODO: Infer blockTime properly
+          blockTime = 0.1
+        }
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
