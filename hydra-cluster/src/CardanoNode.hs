@@ -294,13 +294,12 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
-      \_stdin _stdout mError processHandle -> do
-        let runningNonde = checkProcessHasNotDied "cardano-node" processHandle mError
-        ( race runningNonde waitForNode >>= \case
-            Left{} -> error "should never been reached"
-            Right a -> pure a
-          )
-          `finally` cleanupSocketFile
+      \_stdin _stdout mError processHandle ->
+        (`finally` cleanupSocketFile) $
+          race (checkProcessHasNotDied "cardano-node" processHandle mError) waitForNode
+            >>= \case
+              Left{} -> error "should never been reached"
+              Right a -> pure a
  where
   process = cardanoNodeProcess (Just stateDirectory) args
 
