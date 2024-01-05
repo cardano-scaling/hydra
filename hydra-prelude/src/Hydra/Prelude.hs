@@ -34,6 +34,7 @@ module Hydra.Prelude (
   Except,
   decodeBase16,
   (?>),
+  withFile,
 ) where
 
 import Cardano.Binary (
@@ -44,6 +45,7 @@ import Control.Concurrent.Class.MonadSTM.TBQueue (TBQueue)
 import Control.Concurrent.Class.MonadSTM.TMVar (TMVar)
 import Control.Concurrent.Class.MonadSTM.TQueue (TQueue)
 import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
+import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (
   MonadAsync (concurrently, concurrently_, race, race_, withAsync),
  )
@@ -134,6 +136,7 @@ import Relude hiding (
   tryReadTMVar,
   tryTakeMVar,
   tryTakeTMVar,
+  withFile,
   writeTVar,
  )
 import Relude.Extra.Map (
@@ -142,6 +145,7 @@ import Relude.Extra.Map (
   elems,
   keys,
  )
+import System.IO qualified
 import Test.QuickCheck (
   Arbitrary (..),
   Gen,
@@ -235,3 +239,13 @@ infixl 4 ?>
   case m of
     Nothing -> Left e
     Just a -> Right a
+
+-- | Like 'withFile' from 'base', but without annotating errors originating from
+-- enclosed action.
+--
+-- XXX: This should be fixed upstream in 'base'.
+withFile :: FilePath -> IOMode -> (Handle -> IO a) -> IO a
+withFile fp mode action =
+  System.IO.withFile fp mode (try . action) >>= \case
+    Left (e :: IOException) -> throwIO e
+    Right x -> pure x
