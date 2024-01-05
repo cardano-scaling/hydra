@@ -427,29 +427,31 @@ instance Exception ProcessHasExited
 -- compatibility.
 cliQueryProtocolParameters :: SocketPath -> NetworkId -> IO Value
 cliQueryProtocolParameters nodeSocket networkId = do
-  out <- readCreateProcess cmd "" `catch` processNotFound
+  out <- readProcess cmd args "" `catch` processNotFound
   unsafeDecodeJson $ fromString out
  where
   processNotFound e
     | isDoesNotExistError e =
         -- NOTE: This actually sets ioe_description, which is not overridden by
-        -- 'withFile' and hence we still get hint on what's wrong.
-        throwIO $ ioeSetErrorString e "cardano-cli"
+        -- 'withFile' (https://gitlab.haskell.org/ghc/ghc/-/issues/20886) and
+        -- hence we still get hint on what's wrong.
+        throwIO $ ioeSetErrorString e cmd
     | otherwise = throwIO e
 
-  cmd =
-    proc "cardano-cli" $
-      [ "query"
-      , "protocol-parameters"
-      , "--socket-path"
-      , unFile nodeSocket
-      ]
-        <> case networkId of
-          Api.Mainnet -> ["--mainnet"]
-          Api.Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
-        <> [ "--out-file"
-           , "/dev/stdout"
-           ]
+  cmd = "cardano-cli"
+
+  args =
+    [ "query"
+    , "protocol-parameters"
+    , "--socket-path"
+    , unFile nodeSocket
+    ]
+      <> case networkId of
+        Api.Mainnet -> ["--mainnet"]
+        Api.Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
+      <> [ "--out-file"
+         , "/dev/stdout"
+         ]
 
 --
 -- Helpers
