@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Main where
 
@@ -18,7 +19,7 @@ import Hydra.Cardano.Api (
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
-import Hydra.Generator (Dataset, generateConstantUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
 import Options.Applicative (
   execParser,
  )
@@ -64,7 +65,7 @@ main =
 
   run outputDirectory timeoutSeconds startingNodeId targets = do
     results <- forM targets $ \(dataset, dir) -> do
-      putStrLn $ "Test logs available in: " <> (dir </> "test.log")
+      putTextLn $ "Replaying dataset " <> show dataset.title
       withArgs [] $ do
         -- XXX: Wait between each bench run to give the OS time to cleanup resources??
         threadDelay 10
