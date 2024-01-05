@@ -15,11 +15,9 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
 import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
 import Data.Fixed (Centi)
 import Data.Map qualified as Map
-import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Logging (Tracer, traceWith)
 
@@ -176,13 +174,13 @@ data RunningNode = RunningNode
 -- Logging
 
 data NodeLog
-  = MsgNodeCmdSpec Text
+  = MsgNodeCmdSpec {cmd :: Text}
   | MsgCLI [Text]
   | MsgCLIStatus Text Text
   | MsgCLIRetry Text
   | MsgCLIRetryResult Text Int
   | MsgNodeStarting {stateDirectory :: FilePath}
-  | MsgSocketIsReady FilePath
+  | MsgSocketIsReady SocketPath
   | MsgSynchronizing {percentDone :: Centi}
   | MsgNodeIsReady
   deriving stock (Eq, Show, Generic)

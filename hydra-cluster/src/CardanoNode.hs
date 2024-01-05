@@ -291,23 +291,27 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     let nodeSocketPath = File socketPath
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
-    traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
-    -- we wait for synchronization since otherwise we will receive a query
+    traceWith tr $ MsgSocketIsReady nodeSocketPath
+    -- Wait for synchronization since otherwise we will receive a query
     -- exception when trying to obtain pparams and the era is not the one we
     -- expect.
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
     traceWith tr MsgNodeIsReady
-
-    GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <- queryGenesisParameters networkId nodeSocketPath QueryTip
-
+    blockTime <- calculateBlockTime <$> queryGenesisParameters networkId nodeSocketPath QueryTip
     action
       RunningNode
         { nodeSocket = nodeSocketPath
         , networkId
-        , blockTime =
-            fromRational $
-              protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
+        , blockTime
         }
+
+  calculateBlockTime
+    GenesisParameters
+      { protocolParamActiveSlotsCoefficient
+      , protocolParamSlotLength
+      } =
+      fromRational $
+        protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $

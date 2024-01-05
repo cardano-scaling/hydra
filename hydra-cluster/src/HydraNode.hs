@@ -196,12 +196,12 @@ getMetrics HydraClient{hydraNodeId} = do
       (Req.port $ 6_000 + hydraNodeId)
 
 data HydraNodeLog
-  = NodeStarted {nodeId :: Int}
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
   | SentMessage {nodeId :: Int, message :: Aeson.Value}
   | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
   | EndWaiting {nodeId :: Int}
-  | HydraNodeCommandSpec {cmd :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, ToObject)
 
