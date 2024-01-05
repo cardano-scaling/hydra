@@ -77,7 +77,8 @@ data Event = Event
   deriving anyclass (ToJSON)
 
 bench :: Int -> DiffTime -> FilePath -> Dataset -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} =
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} = do
+  putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
