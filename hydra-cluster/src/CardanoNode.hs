@@ -35,13 +35,11 @@ import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory, (</>))
-import System.IO.Error (ioeSetErrorString, isDoesNotExistError)
 import System.Posix (ownerReadMode, setFileMode)
 import System.Process (
   CreateProcess (..),
   StdStream (CreatePipe, UseHandle),
   proc,
-  readCreateProcess,
   readProcess,
   withCreateProcess,
  )
@@ -427,17 +425,9 @@ instance Exception ProcessHasExited
 -- compatibility.
 cliQueryProtocolParameters :: SocketPath -> NetworkId -> IO Value
 cliQueryProtocolParameters nodeSocket networkId = do
-  out <- readProcess cmd args "" `catch` processNotFound
+  out <- readProcess cmd args ""
   unsafeDecodeJson $ fromString out
  where
-  processNotFound e
-    | isDoesNotExistError e =
-        -- NOTE: This actually sets ioe_description, which is not overridden by
-        -- 'withFile' (https://gitlab.haskell.org/ghc/ghc/-/issues/20886) and
-        -- hence we still get hint on what's wrong.
-        throwIO $ ioeSetErrorString e cmd
-    | otherwise = throwIO e
-
   cmd = "cardano-cli"
 
   args =
