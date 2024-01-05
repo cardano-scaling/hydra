@@ -92,6 +92,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
+            putStrLn $ "Starting hydra cluster in " <> workDir
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
@@ -238,14 +239,17 @@ seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
 seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
+  putTextLn "Publishing hydra scripts"
   publishHydraScriptsAs node Faucet
  where
   fundClients = do
+    putTextLn "Fund scenario from faucet"
     submitTransaction networkId nodeSocket fundingTransaction
     void $ awaitTransaction networkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
+    putTextLn $ "Seed client " <> show vk
     seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the

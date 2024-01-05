@@ -11,7 +11,6 @@ import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Cardano.Binary (decodeFull, serialize)
 import Data.Aeson (eitherDecodeFileStrict')
-import Data.ByteString (hPut)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (
@@ -121,8 +120,9 @@ benchmarkSucceeded outputDirectory summaries = do
   dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
   writeReport outputDir = do
+    let reportPath = outputDir </> "end-to-end-benchmarks.md"
+    putStrLn $ "Writing report to: " <> reportPath
     now <- getCurrentTime
     let report = markdownReport now summaries
     createDirectoryIfMissing True outputDir
-    withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
-      hPut hdl $ encodeUtf8 $ unlines report
+    writeFileBS reportPath . encodeUtf8 $ unlines report
