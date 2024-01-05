@@ -157,6 +157,8 @@ test-suite tests
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
     Test.Hydra.Cluster.MithrilSpec
+    Test.HydraExplorerSpec
+    Test.LogFilterSpec
     Test.OfflineChainSpec
 
   build-depends:
