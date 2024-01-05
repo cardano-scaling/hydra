@@ -1,6 +1,7 @@
 module Hydra.Explorer where
 
+import Hydra.ChainObserver qualified
 import Hydra.Prelude
 
 main :: IO ()
-main = pure ()
+main = Hydra.ChainObserver.main
