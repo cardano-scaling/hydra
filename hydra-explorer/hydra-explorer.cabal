@@ -1,7 +1,7 @@
 cabal-version: 2.2
-name:          hydra-chain-observer
+name:          hydra-explorer
 version:       0.15.0
-synopsis:      Hydra Chain Observer
+synopsis:      Hydra Explorer
 author:        IOG
 copyright:     2023 IOG
 license:       Apache-2.0
@@ -11,47 +11,26 @@ license-files:
 
 source-repository head
   type:     git
-  location: https://github.com/input-output-hk/hydra
+  location: https://github.com/input-output-hk/hydra/hydra-explorer/
 
 common project-config
   default-language:   GHC2021
   default-extensions:
     NoImplicitPrelude
-    BangPatterns
-    BinaryLiterals
-    ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
     DeriveDataTypeable
-    DeriveFoldable
-    DeriveFunctor
-    DeriveGeneric
-    DeriveTraversable
     DerivingStrategies
-    EmptyDataDecls
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
+    DuplicateRecordFields
     FunctionalDependencies
     GADTs
-    GeneralizedNewtypeDeriving
-    InstanceSigs
-    KindSignatures
     LambdaCase
-    MultiParamTypeClasses
     MultiWayIf
-    NamedFieldPuns
-    NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
-    PatternGuards
-    RankNTypes
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
+    PatternSynonyms
     TypeFamilies
-    TypeSynonymInstances
     ViewPatterns
 
   ghc-options:
@@ -64,23 +43,19 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
-    , hydra-cardano-api
+    , hydra-chain-observer
     , hydra-node
-    , hydra-plutus
     , hydra-prelude
     , optparse-applicative
-    , ouroboros-network-protocols
 
-  exposed-modules:
-    Hydra.ChainObserver
-    Hydra.ChainObserver.Options
+  exposed-modules: Hydra.Explorer
 
-executable hydra-chain-observer
+executable hydra-explorer
   import:         project-config
   hs-source-dirs: exe
   main-is:        Main.hs
   build-depends:
-    , hydra-chain-observer
+    , hydra-explorer
     , hydra-prelude
 
 test-suite tests
@@ -91,14 +66,11 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , hspec
-    , hydra-chain-observer
+    , hydra-explorer
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
     , QuickCheck
 
-  other-modules:
-    Hydra.ChainObserverSpec
-    Spec
-
+  other-modules:      Spec
   build-tool-depends: hspec-discover:hspec-discover
