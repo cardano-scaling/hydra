@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Arrow (left)
-import Control.Exception (IOException)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
@@ -23,17 +22,13 @@ import System.Directory (listDirectory)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcessWithExitCode)
 import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
--- | A schema validation error (like
--- Data.OpenApi.Schema.Validation.ValidationError interface).
-type ValidationError = String
-
--- | Validate a specific JSON value against a given JSON schema.
+-- | Validate a specific JSON value against a given JSON schema and throws an
+-- HUnitFailure exception if validation did not pass.
 --
 -- The path to the schema must be a fully qualified path to .json schema file.
 -- Use 'withJsonSpecifications' to convert hydra-specific yaml schemas into
@@ -53,55 +48,35 @@ type ValidationError = String
 -- which selects the JSON schema for "Address" types in a bigger specification,
 -- say an asyncapi description.
 validateJSON ::
+  HasCallStack =>
   -- | Path to the JSON file holding the schema.
   FilePath ->
   -- | Selector into the JSON file pointing to the schema to be validated.
-  SpecificationSelector ->
+  SchemaSelector ->
   Value ->
-  Maybe ValidationError
+  IO ()
 validateJSON schemaFilePath selector value =
-  -- NOTE: Use unsafePerformIO to create a pure API for testing API responses
-  -- around actually calling an external program to verify the schema. This is
-  -- fine, because the call is referentially transparent and any given
-  -- invocation of schema file, selector and value will always yield the same
-  -- result and can be shared.
-  unsafePerformIO
-    . handle anyIOExceptions
-    -- NOTE: We exit out of the do block deliberately using exceptions to retain
-    -- the temp directory for debugging (see 'withTempDir')
-    . handle convertFailure
-    . withTempDir "validateJSON"
-    $ \tmpDir -> do
-      ensureSystemRequirements
-      let jsonInput = tmpDir </> "jsonInput"
-      let jsonSchema = tmpDir </> "jsonSchema"
-      Aeson.eitherDecodeFileStrict schemaFilePath >>= \case
-        Left err -> fail $ "Failed to decode JSON schema " <> show schemaFilePath <> ": " <> err
-        Right schemaValue -> do
-          let jsonSpecSchema =
-                schemaValue ^? selector
-                  <&> addField "$id" ("file://" <> tmpDir <> "/")
-          writeFileLBS jsonInput (Aeson.encode value)
-          writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
-      (exitCode, out, err) <-
-        readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] ""
-      when (exitCode /= ExitSuccess) $
-        failure $
-          "exit code: "
-            <> show exitCode
-            <> "\n"
-            <> "stderr: "
-            <> err
-            <> "\n"
-            <> "stdout: "
-            <> out
-      pure Nothing
- where
-  anyIOExceptions :: IOException -> IO (Maybe ValidationError)
-  anyIOExceptions e = pure . Just $ "IOException: " <> show e
-
-  convertFailure :: SomeException -> IO (Maybe ValidationError)
-  convertFailure = pure . Just . displayException
+  withTempDir "validateJSON" $ \tmpDir -> do
+    ensureSystemRequirements
+    let jsonInput = tmpDir </> "jsonInput"
+    let jsonSchema = tmpDir </> "jsonSchema"
+    Aeson.eitherDecodeFileStrict schemaFilePath >>= \case
+      Left err -> fail $ "Failed to decode JSON schema " <> show schemaFilePath <> ": " <> err
+      Right schemaValue -> do
+        let jsonSpecSchema =
+              schemaValue ^? selector
+                <&> addField "$id" ("file://" <> tmpDir <> "/")
+        writeFileLBS jsonInput (Aeson.encode value)
+        writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
+    (exitCode, out, err) <-
+      readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] ""
+    when (exitCode /= ExitSuccess) $
+      failure . toString $
+        unlines
+          [ "check-jsonschema failed on " <> toText jsonInput <> " with schema " <> toText jsonSchema
+          , toText out
+          , toText err
+          ]
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
@@ -112,7 +87,7 @@ prop_validateJSONSchema ::
   -- | Path to the JSON file holding the schema.
   FilePath ->
   -- | Selector into the JSON file pointing to the schema to be validated.
-  SpecificationSelector ->
+  SchemaSelector ->
   Property
 prop_validateJSONSchema specFileName selector =
   forAllShrink (resize 10 arbitrary) shrink $ \(samples :: [a]) ->
@@ -173,9 +148,9 @@ prop_specIsComplete ::
   forall a.
   (Arbitrary a, Show a) =>
   String ->
-  SpecificationSelector ->
+  SchemaSelector ->
   Property
-prop_specIsComplete specFileName typeSpecificationSelector =
+prop_specIsComplete specFileName selector =
   forAllShrink (vectorOf 1000 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $ do
       withJsonSpecifications $ \tmpDir -> do
@@ -200,7 +175,7 @@ prop_specIsComplete specFileName typeSpecificationSelector =
 
   classify :: FilePath -> Maybe Aeson.Value -> [a] -> Map Text Integer
   classify _ (Just specs) =
-    let ks = specs ^.. typeSpecificationSelector . key "oneOf" . _Array . traverse . key "title" . _String
+    let ks = specs ^.. selector . key "oneOf" . _Array . traverse . key "title" . _String
 
         knownKeys = Map.fromList $ zip ks (repeat @Integer 0)
 
@@ -213,7 +188,7 @@ prop_specIsComplete specFileName typeSpecificationSelector =
 -- | An alias for a traversal selecting some part of a 'Value'
 -- This alleviates the need for users of this module to import explicitly the types
 -- from aeson and lens.
-type SpecificationSelector = Traversal' Aeson.Value Aeson.Value
+type SchemaSelector = Traversal' Aeson.Value Aeson.Value
 
 -- | Prepare the environment (temp directory) with the JSON specifications. We
 -- maintain a YAML version of a JSON-schema, for it is more convenient to write.

@@ -10,25 +10,27 @@ module Test.Hydra.Prelude (
   genericCoverTable,
   forAll2,
   pickBlind,
-
-  -- * HSpec re-exports
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
   withTempDir,
   withLogFile,
   checkProcessHasNotDied,
+  exceptionContaining,
+  withClearedPATH,
 ) where
 
 import Hydra.Prelude
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
+import Data.List (isInfixOf)
 import Data.Ratio ((%))
 import Data.Text.IO (hGetContents)
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
 import GHC.IO.Exception (IOErrorType (..), IOException (..))
 import System.Directory (createDirectoryIfMissing, removePathForcibly)
+import System.Environment (getEnv, setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -225,3 +227,23 @@ pickBlind gen = MkPropertyM $ \k -> do
   a <- gen
   mp <- k a
   pure (forAllBlind (return a) . const <$> mp)
+
+-- | Selector for use with 'shouldThrow' to select exceptions containing some
+-- string. Use with TypeApplications, e.g.
+--
+-- @@
+-- exceptionContaining @IOException "foo"
+-- @@
+exceptionContaining :: Exception e => String -> Selector e
+exceptionContaining msg e =
+  msg `isInfixOf` displayException e
+
+-- | Clear PATH environment variable while executing given action.
+withClearedPATH :: IO () -> IO ()
+withClearedPATH act =
+  bracket capture (setEnv "PATH") (const act)
+ where
+  capture = do
+    env <- getEnv "PATH"
+    setEnv "PATH" ""
+    pure env
