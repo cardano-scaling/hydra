@@ -208,7 +208,9 @@ To perform a release of next `<version>`:
    push the branches `master`, `release` and the `<version>` tag.
 5. Create a github release page containing
    * The released changes (formatted) and giving credit where credit is due
-   * Attach static binaries to the release (or link the CI artifact)
+   * Built hydra (and cardano-node) binaries to the release using naming scheme:
+     `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux` or
+     `aarch64-darwin` (the same for `cardano-node` instead of `hydra`)
    * The just published `hydra-scripts-tx-id` from step 1
 
 [smoke-test]: https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml
