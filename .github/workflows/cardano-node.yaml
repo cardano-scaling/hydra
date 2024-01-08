@@ -1,5 +1,6 @@
-# XXX: Temporary workflow to produce static ELF binaries for cardan-node 8.7.2
-# Remove again when upstream releases them again.
+# Produce distributable binaries for cardano-node 8.7.2
+#
+# XXX: Remove again when upstream releases them (again).
 name: Cardano-node
 
 on:
@@ -44,8 +45,9 @@ jobs:
     - name: 📥 Checkout cardano-node 8.7.2
       uses: actions/checkout@v4
       with:
-        repository: IntersectMBO/cardano-node
-        ref: 8.7.2
+        # 8.7.2-fork which provides a macos flake output
+        repository: ch1bo/cardano-node
+        ref: 170817f5ba3f7838ffd9bd181bc30504906a6506
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v23
@@ -57,10 +59,9 @@ jobs:
     - name: ❄ Build executables
       run: |
         mkdir -p out
-        nix build .#cardano-node
-        cp result/bin/* out/
-        nix build .#cardano-cli
-        cp result/bin/* out/
+        nix build .#hydraJobs.aarch64-darwin.native.cardano-node-macos
+        tar -C out -xzvf result/cardano-node-*-macos.tar.gz cardano-node cardano-cli '*.dylib'
+        # NOTE: github strips permissions so setting chmod +x here does not help
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v4
