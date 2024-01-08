@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Main where
 
@@ -10,7 +11,6 @@ import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Cardano.Binary (decodeFull, serialize)
 import Data.Aeson (eitherDecodeFileStrict')
-import Data.ByteString (hPut)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (
@@ -18,35 +18,35 @@ import Hydra.Cardano.Api (
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
-import Hydra.Generator (Dataset, generateConstantUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
 import Options.Applicative (
   execParser,
  )
-import System.Directory (createDirectory, createDirectoryIfMissing, doesDirectoryExist)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, takeFileName, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 main :: IO ()
 main =
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{workDirectory = Just benchDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
-      existsDir <- doesDirectoryExist benchDir
+    StandaloneOptions{workDirectory = Just workDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
+      -- XXX: This option is a bit weird as it allows to re-run a test by
+      -- providing --work-directory, which is now redundant of the dataset
+      -- sub-command.
+      existsDir <- doesDirectoryExist workDir
       if existsDir
-        then replay outputDirectory timeoutSeconds startingNodeId benchDir
-        else createDirectory benchDir >> play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir
+        then replay outputDirectory timeoutSeconds startingNodeId workDir
+        else play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     StandaloneOptions{workDirectory = Nothing, outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
-      tmpDir <- createSystemTempDirectory "bench"
-      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId tmpDir
+      workDir <- createSystemTempDirectory "bench"
+      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
-      benchDir <- createSystemTempDirectory "bench"
-      datasets <- mapM loadDataset datasetFiles
-      let targets = zip datasets $ (benchDir </>) . show <$> [1 .. length datasets]
-      forM_ (snd <$> targets) (createDirectoryIfMissing True)
-      run outputDirectory timeoutSeconds startingNodeId targets
+      run outputDirectory timeoutSeconds startingNodeId datasetFiles
  where
-  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId benchDir = do
+  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
+    putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
       eitherDecodeFileStrict' ("config" </> "devnet" </> "genesis-shelley.json") >>= \case
@@ -54,25 +54,28 @@ main =
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
-    saveDataset (benchDir </> "dataset.cbor") dataset
-    run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
+    let datasetPath = workDir </> "dataset.cbor"
+    saveDataset datasetPath dataset
+    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    dataset <- loadDataset $ benchDir </> "dataset.cbor"
-    putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run outputDirectory timeoutSeconds startingNodeId [(dataset, benchDir)]
+    let datasetPath = benchDir </> "dataset.cbor"
+    putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
+    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
 
-  run outputDirectory timeoutSeconds startingNodeId targets = do
-    results <- forM targets $ \(dataset, dir) -> do
-      putStrLn $ "Test logs available in: " <> (dir </> "test.log")
-      withArgs [] $ do
-        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-        threadDelay 10
-        try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
-          Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-          Right summary@Summary{numberOfInvalidTxs}
-            | numberOfInvalidTxs == 0 -> pure $ Right summary
-            | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+  run outputDirectory timeoutSeconds startingNodeId datasetFiles = do
+    results <- forM datasetFiles $ \datasetPath -> do
+      putTextLn $ "Running benchmark with dataset " <> show datasetPath
+      dataset <- loadDataset datasetPath
+      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir ->
+        withArgs [] $ do
+          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+          threadDelay 10
+          try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
+            Left exc -> pure $ Left (dataset, dir, TestFailed exc)
+            Right summary@Summary{numberOfInvalidTxs}
+              | numberOfInvalidTxs == 0 -> pure $ Right summary
+              | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> benchmarkSucceeded outputDirectory summaries
@@ -86,6 +89,7 @@ main =
   saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset f dataset = do
     putStrLn $ "Writing dataset to: " <> f
+    createDirectoryIfMissing True $ takeDirectory f
     writeFileBS f $ Base16.encode $ LBS.toStrict $ serialize dataset
 
 data BenchmarkFailed
@@ -116,8 +120,9 @@ benchmarkSucceeded outputDirectory summaries = do
   dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
   writeReport outputDir = do
+    let reportPath = outputDir </> "end-to-end-benchmarks.md"
+    putStrLn $ "Writing report to: " <> reportPath
     now <- getCurrentTime
     let report = markdownReport now summaries
     createDirectoryIfMissing True outputDir
-    withFile (outputDir </> "end-to-end-benchmarks.md") WriteMode $ \hdl -> do
-      hPut hdl $ encodeUtf8 $ unlines report
+    writeFileBS reportPath . encodeUtf8 $ unlines report

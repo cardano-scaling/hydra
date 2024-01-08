@@ -31,6 +31,7 @@ data-files:
   config/devnet/kes.skey
   config/devnet/opcert.cert
   config/devnet/vrf.skey
+  config/protocol-parameters.json
 
 source-repository head
   type:     git
@@ -80,8 +81,6 @@ library
     , async
     , base                                         >=4.7     && <5
     , bytestring
-    , cardano-ledger-babbage
-    , cardano-ledger-core
     , cardano-slotting
     , containers
     , contra-tracer

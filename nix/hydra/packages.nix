@@ -163,6 +163,7 @@ rec {
           nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
           hydra-node
           cardano-node.packages.${system}.cardano-node
+          cardano-node.packages.${system}.cardano-cli
         ];
     };
     plutus-merkle-tree = pkgs.mkShellNoCC {

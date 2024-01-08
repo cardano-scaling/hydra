@@ -4,7 +4,7 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import CardanoClient (NodeLog (..), RunningNode (..), waitForFullySynchronized)
+import CardanoClient (NodeLog (..), QueryPoint (QueryTip), RunningNode (..), queryGenesisParameters, waitForFullySynchronized)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
@@ -15,7 +15,9 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
+  GenesisParameters (..),
   NetworkId,
+  NetworkMagic (..),
   PaymentKey,
   SigningKey,
   SocketPath,
@@ -24,7 +26,6 @@ import Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip), queryProtocolParameters)
 import Hydra.Cluster.Fixture (
   KnownNetwork (Mainnet, Preproduction, Preview),
   defaultNetworkId,
@@ -124,16 +125,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args networkId $ \nodeSocket -> do
-    traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-    let rn =
-          RunningNode
-            { nodeSocket
-            , networkId
-            , pparams
-            }
-    action rn
+  withCardanoNode tracer stateDirectory args networkId action
  where
   -- NOTE: This needs to match what's in config/genesis-shelley.json
   networkId = defaultNetworkId
@@ -150,16 +142,7 @@ withCardanoNodeOnKnownNetwork ::
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
   networkId <- readNetworkId
-  withCardanoNode tracer workDir args networkId $ \nodeSocket -> do
-    traceWith tracer MsgNodeIsReady
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-    let rn =
-          RunningNode
-            { nodeSocket
-            , networkId
-            , pparams
-            }
-    action rn
+  withCardanoNode tracer workDir args networkId action
  where
   args =
     defaultCardanoNodeArgs
@@ -283,20 +266,19 @@ withCardanoNode ::
   FilePath ->
   CardanoNodeArgs ->
   NetworkId ->
-  (SocketPath -> IO a) ->
+  (RunningNode -> IO a) ->
   IO a
 withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
-      \_stdin _stdout mError processHandle -> do
-        let runningNonde = checkProcessHasNotDied "cardano-node" processHandle mError
-        ( race runningNonde waitForNode >>= \case
-            Left{} -> error "should never been reached"
-            Right a -> pure a
-          )
-          `finally` cleanupSocketFile
+      \_stdin _stdout mError processHandle ->
+        (`finally` cleanupSocketFile) $
+          race (checkProcessHasNotDied "cardano-node" processHandle mError) waitForNode
+            >>= \case
+              Left{} -> error "should never been reached"
+              Right a -> pure a
  where
   process = cardanoNodeProcess (Just stateDirectory) args
 
@@ -308,12 +290,27 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     let nodeSocketPath = File socketPath
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
-    traceWith tr $ MsgSocketIsReady $ unFile nodeSocketPath
-    -- we wait for synchronization since otherwise we will receive a query
+    traceWith tr $ MsgSocketIsReady nodeSocketPath
+    -- Wait for synchronization since otherwise we will receive a query
     -- exception when trying to obtain pparams and the era is not the one we
     -- expect.
     _ <- waitForFullySynchronized tr networkId nodeSocketPath
-    action nodeSocketPath
+    traceWith tr MsgNodeIsReady
+    blockTime <- calculateBlockTime <$> queryGenesisParameters networkId nodeSocketPath QueryTip
+    action
+      RunningNode
+        { nodeSocket = nodeSocketPath
+        , networkId
+        , blockTime
+        }
+
+  calculateBlockTime
+    GenesisParameters
+      { protocolParamActiveSlotsCoefficient
+      , protocolParamSlotLength
+      } =
+      fromRational $
+        protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
@@ -421,6 +418,30 @@ data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving stock (Show)
 
 instance Exception ProcessHasExited
+
+-- | Cardano-cli wrapper to query protocol parameters. While we have also client
+-- functions in Hydra.Chain.CardanoClient and Hydra.Cluster.CardanoClient,
+-- sometimes we deliberately want to use the cardano-cli to ensure
+-- compatibility.
+cliQueryProtocolParameters :: SocketPath -> NetworkId -> IO Value
+cliQueryProtocolParameters nodeSocket networkId = do
+  out <- readProcess cmd args ""
+  unsafeDecodeJson $ fromString out
+ where
+  cmd = "cardano-cli"
+
+  args =
+    [ "query"
+    , "protocol-parameters"
+    , "--socket-path"
+    , unFile nodeSocket
+    ]
+      <> case networkId of
+        Api.Mainnet -> ["--mainnet"]
+        Api.Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
+      <> [ "--out-file"
+         , "/dev/stdout"
+         ]
 
 --
 -- Helpers

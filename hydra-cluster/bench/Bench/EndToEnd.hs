@@ -77,7 +77,8 @@ data Event = Event
   deriving anyclass (ToJSON)
 
 bench :: Int -> DiffTime -> FilePath -> Dataset -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} =
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} = do
+  putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
@@ -87,12 +88,13 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket, pparams} -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId pparams contestationPeriod $ \(leader :| followers) -> do
+            putStrLn $ "Starting hydra cluster in " <> workDir
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
 
@@ -238,14 +240,17 @@ seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
 seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ clientDatasets fuelWith100Ada
+  putTextLn "Publishing hydra scripts"
   publishHydraScriptsAs node Faucet
  where
   fundClients = do
+    putTextLn "Fund scenario from faucet"
     submitTransaction networkId nodeSocket fundingTransaction
     void $ awaitTransaction networkId nodeSocket fundingTransaction
 
   fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
     let vk = getVerificationKey signingKey
+    putTextLn $ "Seed client " <> show vk
     seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the

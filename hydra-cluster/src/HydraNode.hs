@@ -6,8 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
 import Cardano.BM.Tracing (ToObject)
-import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
-import Cardano.Ledger.Core (PParams (..))
+import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
@@ -22,6 +21,7 @@ import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
+import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
 import Hydra.Ledger.Cardano ()
@@ -196,7 +196,8 @@ getMetrics HydraClient{hydraNodeId} = do
       (Req.port $ 6_000 + hydraNodeId)
 
 data HydraNodeLog
-  = NodeStarted {nodeId :: Int}
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
   | SentMessage {nodeId :: Int, message :: Aeson.Value}
   | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
@@ -219,11 +220,10 @@ withHydraCluster ::
   [SigningKey HydraKey] ->
   -- | Transaction id at which Hydra scripts should have been published.
   TxId ->
-  PParams LedgerEra ->
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId pparams contestationPeriod action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -263,7 +263,6 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         hydraSigningKey
         hydraVerificationKeys
         allNodeIds
-        pparams
         (\c -> startNodes (c : clients) rest)
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
@@ -276,12 +275,11 @@ withHydraNode ::
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
-  PParams LedgerEra ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams (Just logFileHandle) $ do
+    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
@@ -293,32 +291,41 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
 withHydraNode' ::
+  Tracer IO HydraNodeLog ->
   ChainConfig ->
   FilePath ->
   Int ->
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
-  PParams LedgerEra ->
   -- | If given use this as std out.
   Maybe Handle ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds pparams mGivenStdOut action = do
+withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
-    let cardanoLedgerProtocolParametersFile = dir </> "pparams.json"
-    writeFileBS cardanoLedgerProtocolParametersFile (writeZeroedPParams pparams)
+    let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+    case chainConfig of
+      Offline _ ->
+        readConfigFile "protocol-parameters.json"
+          >>= writeFileBS cardanoLedgerProtocolParametersFile
+      Direct DirectChainConfig{nodeSocket, networkId} -> do
+        -- NOTE: This implicitly tests of cardano-cli with hydra-node
+        protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+        Aeson.encodeFile cardanoLedgerProtocolParametersFile $
+          protocolParameters
+            & atKey "txFeeFixed" ?~ toJSON (Number 0)
+            & atKey "txFeePerByte" ?~ toJSON (Number 0)
+            & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+            & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
     hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
       let filepath = dir </> (show i <> ".vk")
       filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
-    let ledgerConfig =
-          CardanoLedgerConfig
-            { cardanoLedgerProtocolParametersFile
-            }
     let p =
           ( hydraNodeProcess $
               RunOptions
@@ -334,12 +341,17 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
                 , hydraVerificationKeys
                 , persistenceDir = workDir </> "state-" <> show hydraNodeId
                 , chainConfig
-                , ledgerConfig
+                , ledgerConfig =
+                    CardanoLedgerConfig
+                      { cardanoLedgerProtocolParametersFile
+                      }
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
             , std_err = CreatePipe
             }
+
+    traceWith tracer $ HydraNodeCommandSpec $ show $ cmdspec p
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
@@ -348,22 +360,6 @@ withHydraNode' chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds p
         (_, Nothing) -> error "Should not happen™"
  where
   port = fromIntegral $ 5_000 + hydraNodeId
-
-  -- NOTE: We want to have zeroed fees in the Head.
-  writeZeroedPParams (PParams BabbagePParams{bppProtocolVersion}) =
-    toStrict
-      ( Aeson.encode (toJSON pparams)
-          -- FIXME: this is a hack because cardano-ledger has a bug
-          -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) in the
-          -- BabbagePParams ToJSON instance where 'protocolVersion' is missing.
-          & atKey "protocolVersion" ?~ toJSON bppProtocolVersion
-          & atKey "minFeeA" ?~ toJSON (Number 0)
-          & atKey "minFeeB" ?~ toJSON (Number 0)
-          & atKey "txFeeFixed" ?~ toJSON (Number 0)
-          & atKey "txFeePerByte" ?~ toJSON (Number 0)
-          & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-          & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
-      )
 
   peers =
     [ Host

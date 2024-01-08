@@ -17,7 +17,7 @@ import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (outputsTxBodyL)
+import Cardano.Ledger.Api (Babbage, outputsTxBodyL)
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Api.Era (eraProtVerLow)
 import Cardano.Ledger.Babbage.PParams (BabbagePParams (..))
@@ -97,7 +97,9 @@ instance FromJSON (Ledger.BabbagePParams Identity era) where
           .: "rho"
         <*> obj
           .: "tau"
-        <*> (obj .:? "protocolVersion" .!= Ledger.ProtVer (eraProtVerLow @Ledger.Babbage) 0)
+        -- NOTE: 'protocolVersion' here is set to optional until the upstream
+        -- bug fix is released. Relevant PR https://github.com/IntersectMBO/cardano-ledger/pull/3953
+        <*> (obj .:? "protocolVersion" .!= Ledger.ProtVer (eraProtVerLow @Babbage) 0)
         <*> obj
           .: "minPoolCost"
           .!= mempty

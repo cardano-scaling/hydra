@@ -80,8 +80,14 @@ newGlobals genesisParameters = do
 
 -- * LedgerEnv
 
+-- | Decode protocol parameters using the 'ProtocolParameters' instance as this
+-- is used by cardano-cli and matches the schema. TODO: define the schema
 pparamsFromJson :: Json.Value -> Json.Parser (PParams LedgerEra)
-pparamsFromJson = parseJSON
+pparamsFromJson v = do
+  x <- parseJSON v
+  case toLedgerPParams (shelleyBasedEra @Era) x of
+    Left e -> fail $ show e
+    Right z -> pure z
 
 -- | Create a new ledger env from given protocol parameters.
 newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra

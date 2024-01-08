@@ -5,7 +5,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
@@ -23,6 +22,7 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
+import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
@@ -134,15 +134,22 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
   RunningNode ->
-  PParams LedgerEra ->
   AddressInEra ->
   TxOutDatum CtxTx ->
   IO (TxIn, TxOut CtxUTxO)
-createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress datum = do
+createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = do
   (faucetVk, faucetSk) <- keysFor Faucet
   -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
   -- any present utxo
   utxo <- findFaucetUTxO node 0
+  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+  let output =
+        mkTxOutAutoBalance
+          pparams
+          atAddress
+          mempty
+          datum
+          ReferenceScriptNone
   buildTransaction
     networkId
     nodeSocket
@@ -162,14 +169,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} pparams atAddress 
           Just u -> pure u
  where
   collateralTxIns = mempty
-
-  output =
-    mkTxOutAutoBalance
-      pparams
-      atAddress
-      mempty
-      datum
-      ReferenceScriptNone
 
   changeAddress = mkVkAddress networkId
 
