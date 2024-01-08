@@ -275,6 +275,7 @@ test-suite tests
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchema
+    Hydra.JSONSchemaSpec
     Hydra.Ledger.Cardano.TimeSpec
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
@@ -354,6 +355,7 @@ test-suite tests
     , typed-protocols-examples                                          >=0.1.0.0
     , vector
     , versions
+    , wai-extra
     , websockets
     , yaml
 

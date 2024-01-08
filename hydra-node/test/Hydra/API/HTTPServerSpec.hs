@@ -11,7 +11,6 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, Submit
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (nullTracer)
@@ -97,7 +96,7 @@ apiServerSpec = do
                     decode actualBody
                       >>= validateJSON
                         (schemaDir </> "api.json")
-                        (key "components" . key "messages" . key "ProtocolParameters")
+                        (key "components" . key "messages" . key "ProtocolParameters" . key "payload")
                 }
 
         it "responds given parameters" $

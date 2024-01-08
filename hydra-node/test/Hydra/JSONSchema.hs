@@ -1,10 +1,14 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
+-- | Test utilities to work with JSON schemas.
 module Hydra.JSONSchema where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Control.Arrow (left)
+import Control.Exception (IOException)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
@@ -12,17 +16,15 @@ import Data.Aeson.Lens (key, _Array, _String)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Text (pack)
-import Data.Text qualified as Text
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import Data.Yaml qualified as Yaml
-import GHC.IO.Exception (IOErrorType (OtherError))
 import Paths_hydra_node qualified as Pkg
 import System.Directory (listDirectory)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
-import System.IO.Error (IOError, ioeGetErrorType)
+import System.IO.Error (IOError, isDoesNotExistError)
+import System.IO.Unsafe (unsafePerformIO)
 import System.Process (readProcessWithExitCode)
-import Test.Hydra.Prelude (failure, withTempDir)
 import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
@@ -57,7 +59,49 @@ validateJSON ::
   SpecificationSelector ->
   Value ->
   Maybe ValidationError
-validateJSON schemaFilePath selector value = Just "not implemented"
+validateJSON schemaFilePath selector value =
+  -- NOTE: Use unsafePerformIO to create a pure API for testing API responses
+  -- around actually calling an external program to verify the schema. This is
+  -- fine, because the call is referentially transparent and any given
+  -- invocation of schema file, selector and value will always yield the same
+  -- result and can be shared.
+  unsafePerformIO
+    . handle anyIOExceptions
+    -- NOTE: We exit out of the do block deliberately using exceptions to retain
+    -- the temp directory for debugging (see 'withTempDir')
+    . handle convertFailure
+    . withTempDir "validateJSON"
+    $ \tmpDir -> do
+      ensureSystemRequirements
+      let jsonInput = tmpDir </> "jsonInput"
+      let jsonSchema = tmpDir </> "jsonSchema"
+      Aeson.eitherDecodeFileStrict schemaFilePath >>= \case
+        Left err -> fail $ "Failed to decode JSON schema " <> show schemaFilePath <> ": " <> err
+        Right schemaValue -> do
+          let jsonSpecSchema =
+                schemaValue ^? selector
+                  <&> addField "$id" ("file://" <> tmpDir <> "/")
+          writeFileLBS jsonInput (Aeson.encode value)
+          writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
+      (exitCode, out, err) <-
+        readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] ""
+      when (exitCode /= ExitSuccess) $
+        failure $
+          "exit code: "
+            <> show exitCode
+            <> "\n"
+            <> "stderr: "
+            <> err
+            <> "\n"
+            <> "stdout: "
+            <> out
+      pure Nothing
+ where
+  anyIOExceptions :: IOException -> IO (Maybe ValidationError)
+  anyIOExceptions e = pure . Just $ "IOException: " <> show e
+
+  convertFailure :: SomeException -> IO (Maybe ValidationError)
+  convertFailure = pure . Just . displayException
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
@@ -201,16 +245,16 @@ addField k v = withObject (at k ?~ toJSON v)
     Aeson.Object m -> Aeson.Object (fn m)
     x -> x
 
--- | Make sure that the required `check-jsonschema` tool is available on the system.
--- Mark a test as pending when not available.
+-- | Check that the required `check-jsonschema` tool is available on the system.
+-- Raises an IOException (user error via 'fail') if not found or wrong version.
 ensureSystemRequirements :: IO ()
 ensureSystemRequirements =
   getToolVersion >>= \case
     Right semVer ->
       unless (semVer >= SemVer 0 21 0 Nothing Nothing) $
-        failure . Text.unpack $
+        fail . toString $
           "check-jsonschema version " <> prettySemVer semVer <> " found but >= 0.21.0 needed"
-    Left errorMsg -> failure errorMsg
+    Left errorMsg -> fail errorMsg
  where
   getToolVersion :: IO (Either String SemVer)
   getToolVersion = do
@@ -219,7 +263,7 @@ ensureSystemRequirements =
         Right (exitCode, out, _) ->
           pure (List.last (List.words out) <$ if exitCode == ExitSuccess then pure () else Left "")
         Left (err :: IOError)
-          | ioeGetErrorType err == OtherError ->
+          | isDoesNotExistError err ->
               pure (Left "Make sure check-jsonschema is installed and in $PATH")
         Left err -> pure (Left $ show err)
     pure $ do
