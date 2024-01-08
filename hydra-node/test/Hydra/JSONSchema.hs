@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Control.Arrow (left)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
-import Data.Aeson ((.=))
+import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
 import Data.List qualified as List
@@ -27,7 +27,19 @@ import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
--- | Validate an 'Arbitrary' value against a JSON schema.
+-- | A schema validation error (like
+-- Data.OpenApi.Schema.Validation.ValidationError interface).
+type ValidationError = String
+
+-- | Validate a specific JSON value against a given JSON schema.
+--
+-- The path to the schema must be a fully qualified path to .json schema file.
+-- Use 'withJsonSpecifications' to convert hydra-specific yaml schemas into
+-- proper json schemas, for example:
+--
+-- @@
+-- withJsonSpecifications $ \dir -> validateJSON (dir </> "api.json") id Null
+-- @@
 --
 -- The second argument is a lens that says which part of the JSON file to use to
 -- do the validation, for example:
@@ -38,11 +50,23 @@ import Prelude qualified
 --
 -- which selects the JSON schema for "Address" types in a bigger specification,
 -- say an asyncapi description.
+validateJSON ::
+  -- | Path to the JSON file holding the schema.
+  FilePath ->
+  -- | Selector into the JSON file pointing to the schema to be validated.
+  SpecificationSelector ->
+  Value ->
+  Maybe ValidationError
+validateJSON schemaFilePath selector value = Just "not implemented"
+
+-- | Validate an 'Arbitrary' value against a JSON schema.
+--
+-- See 'validateJSON' for how to provide a selector.
 prop_validateJSONSchema ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
   -- | Path to the JSON file holding the schema.
-  String ->
+  FilePath ->
   -- | Selector into the JSON file pointing to the schema to be validated.
   SpecificationSelector ->
   Property
