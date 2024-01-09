@@ -849,9 +849,7 @@ components:
     ProtocolParameters:
       title: ProtocolParameters
       payload:
-        type: object
-        additionalProperties: false
-        $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolParameters"
+        $ref: "api.yaml#/components/schemas/ProtocolParameters"
 
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
@@ -1055,6 +1053,129 @@ components:
             "hostname": "10.0.0.10",
             "port": 5001
         }
+
+    # NOTE: We are not using the cardanonical/cardano.json#ProtocolParameters as
+    # we need to be compatible with what the cardano-cli provides us
+    ProtocolParameters:
+      description: |
+        Cardano protocol parameters as provided by the cardano-cli and accepted
+        by the hydra-node on the command line.
+      type: object
+      # Allow additional parameters to not be too strict about retired values
+      # like minUTxOValue
+      additionalProperties: true
+      required:
+        - protocolVersion
+        - maxBlockHeaderSize
+        - maxBlockBodySize
+        - maxTxSize
+        - txFeeFixed
+        - txFeePerByte
+        - stakeAddressDeposit
+        - stakePoolDeposit
+        - minPoolCost
+        - poolRetireMaxEpoch
+        - stakePoolTargetNum
+        - poolPledgeInfluence
+        - monetaryExpansion
+        - treasuryCut
+        - costModels # Alonzo onwards
+        - executionUnitPrices # Alonzo onwards
+        - maxTxExecutionUnits # Alonzo onwards
+        - maxBlockExecutionUnits # Alonzo onwards
+        - maxValueSize # Alonzo onwards
+        - collateralPercentage # Alonzo onwards
+        - maxCollateralInputs # Alonzo onwards
+        - utxoCostPerByte # Babbage onwards
+      properties:
+        protocolVersion:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolVersion"
+        maxBlockBodySize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        maxBlockHeaderSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        maxTxSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        txFeeFixed:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+        txFeePerByte:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/UInt64"
+        stakeAddressDeposit:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+        stakePoolDeposit:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+        minPoolCost:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+        poolRetireMaxEpoch:
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/UInt64"
+        stakePoolTargetNum:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        poolPledgeInfluence:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          type: number
+        monetaryExpansion:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          type: number
+        treasuryCut:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          type: number
+        costModels:
+          type: object
+          # XXX: Different key naming scheme than in cardanonical
+          propertyNames:
+            title: Language
+            type: string
+            enum:
+              - "PlutusV1"
+              - "PlutusV2"
+              - "PlutusV3"
+          additionalProperties:
+            "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/CostModel"
+        executionUnitPrices:
+          # XXX: Object fields different in cardanonical and using Ratio
+          priceMemory:
+            type: number
+          priceSteps:
+            type: number
+        maxTxExecutionUnits:
+          # XXX: Object fields different in cardanonical
+          properties:
+            # XXX: UInt64 in cardanonical, but Rational in cardano-api
+            memory:
+              type: number
+            cpu:
+              type: number
+        maxBlockExecutionUnits:
+          # XXX: Object fields different in cardanonical
+          properties:
+            # XXX: UInt64 in cardanonical, but Rational in cardano-api
+            memory:
+              type: number
+            cpu:
+              type: number
+        maxValueSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        collateralPercentage:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        maxCollateralInputs:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        utxoCostPerByte:
+          # XXX: Coefficient in cardanonical is UInt64, but should be lovelace
+          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
 
     NodeId:
       type: string
@@ -1901,7 +2022,7 @@ components:
       type: object
       propertyNames:
         pattern: "^[0-9a-f]{64}#[0-9]+$"
-      items:
+      items: # REVIEW: does this work? use additionalProperties here?
         $ref: "api.yaml#/components/schemas/TxOut"
       example:
         {

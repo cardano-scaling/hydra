@@ -77,9 +77,9 @@ validateJSON schemaFilePath selector value = do
     when (exitCode /= ExitSuccess) $
       failure . toString $
         unlines
-          [ "check-jsonschema failed on " <> toText jsonInput <> " with schema " <> toText jsonSchema
-          , toText out
-          , toText err
+          [ "check-jsonschema failed on " <> toText jsonInput <> " with schema " <> toText jsonSchema <> " on input:"
+          , decodeUtf8 $ encodePretty value
+          , toText err <> toText out
           ]
  where
   copySchemasTo dir = do
@@ -121,6 +121,7 @@ prop_validateJSONSchema specFileName selector =
             writeFileLBS jsonInput (Aeson.encode samples)
             writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
         monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
+        -- TODO: should be able to re-use validateJSON here
         (exitCode, out, err) <- run $ do
           readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] mempty
         monitor $ counterexample out
