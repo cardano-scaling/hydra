@@ -9,7 +9,7 @@ import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
-import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
+import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra, toLedgerTx)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
@@ -102,7 +102,7 @@ apiServerSpec = do
         it "responds given parameters" $
           get "/protocol-parameters"
             `shouldRespondWith` 200
-              { matchBody = matchJSON defaultPParams
+              { matchBody = matchJSON $ fromLedgerPParams shelleyBasedEra defaultPParams
               }
  where
   webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId

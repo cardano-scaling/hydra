@@ -168,7 +168,8 @@ httpApp tracer directChain pparams getInitializingHeadId request respond = do
         >>= handleDraftCommitUtxo directChain getInitializingHeadId
         >>= respond
     ("GET", ["protocol-parameters"]) ->
-      respond $ responseLBS status200 [] (Aeson.encode $ fromLedgerPParams shelleyBasedEra pparams)
+      respond . responseLBS status200 [] . Aeson.encode $
+        fromLedgerPParams shelleyBasedEra pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
         >>= handleSubmitUserTx directChain
