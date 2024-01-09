@@ -23,7 +23,7 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
 import System.Process (readProcessWithExitCode)
-import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf)
+import Test.QuickCheck (Property, counterexample, forAllShrink, mapSize, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
@@ -100,32 +100,26 @@ prop_validateJSONSchema ::
   SchemaSelector ->
   Property
 prop_validateJSONSchema specFileName selector =
-  forAllShrink (resize 10 arbitrary) shrink $ \(samples :: [a]) ->
-    monadicIO $ do
-      withJsonSpecifications $ \tmpDir -> do
-        run ensureSystemRequirements
-        let jsonInput = tmpDir </> "jsonInput"
-        let jsonSchema = tmpDir </> "jsonSchema"
-        let specJsonFile = tmpDir </> specFileName
-        mSpecs <- run $ Aeson.decodeFileStrict specJsonFile
-        case mSpecs of
-          Nothing -> error "Failed to decode specFile to JSON"
-          Just specs -> run $ do
-            let jsonSpecSchema =
+  -- NOTE: Avoid slow execution (due to external program) by testing the
+  -- property once with size 100 instead of 100 times with growing sizes.
+  withMaxSuccess 1 . mapSize (const 100) $
+    forAllShrink arbitrary shrink $ \(samples :: [a]) ->
+      monadicIO $ do
+        withJsonSpecifications $ \tmpDir -> do
+          run ensureSystemRequirements
+          let jsonSchema = tmpDir </> "jsonSchema"
+          run $
+            Aeson.decodeFileStrict (tmpDir </> specFileName) >>= \case
+              Nothing -> error "Failed to decode specFile to JSON"
+              Just specs -> do
+                Aeson.encodeFile jsonSchema $
                   Aeson.object
                     [ "$id" .= ("file://" <> tmpDir <> "/")
                     , "type" .= Aeson.String "array"
                     , "items" .= (specs ^? selector)
                     ]
-            writeFileLBS jsonInput (Aeson.encode samples)
-            writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
-        monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
-        -- TODO: should be able to re-use validateJSON here
-        (exitCode, out, err) <- run $ do
-          readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] mempty
-        monitor $ counterexample out
-        monitor $ counterexample err
-        assert (exitCode == ExitSuccess)
+          monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
+          run $ validateJSON jsonSchema id (toJSON samples)
 
 -- | Check specification is complete wr.t. to generated data
 -- This second sub-property ensures that any key found in the

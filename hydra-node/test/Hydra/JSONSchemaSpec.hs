@@ -7,11 +7,12 @@ import Test.Hydra.Prelude
 import Control.Exception (IOException)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Lens (key)
-import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
+import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import System.FilePath ((</>))
+import Test.QuickCheck.Instances.Time ()
 
 spec :: Spec
-spec =
+spec = do
   describe "validateJSON withJsonSpecifications" $ do
     it "works using identity selector and Null input" $
       withJsonSpecifications $ \dir ->
@@ -49,3 +50,9 @@ spec =
           -- NOTE: MultiSignature has a local ref into api.yaml for Signature
           (key "components" . key "schemas" . key "MultiSignature")
           (object ["multiSignature" .= [String "bar"]])
+
+  describe "prop_validateJSONSchema" $
+    it "works with api.yaml and UTCTime" $
+      prop_validateJSONSchema @UTCTime
+        "api.yaml"
+        (key "components" . key "schemas" . key "UTCTime")
