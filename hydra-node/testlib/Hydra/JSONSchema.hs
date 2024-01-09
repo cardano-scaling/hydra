@@ -77,8 +77,7 @@ validateJSON schemaFilePath selector value = do
     when (exitCode /= ExitSuccess) $
       failure . toString $
         unlines
-          [ "check-jsonschema failed on " <> toText jsonInput <> " with schema " <> toText jsonSchema <> " on input:"
-          , decodeUtf8 $ encodePretty value
+          [ "check-jsonschema failed on " <> toText jsonInput <> " with schema " <> toText jsonSchema
           , toText err <> toText out
           ]
  where

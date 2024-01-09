@@ -160,7 +160,7 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base               >=4.7 && <5
+    , base                              >=4.7 && <5
     , bytestring
     , containers
     , directory
@@ -168,7 +168,7 @@ test-suite tests
     , hspec
     , hydra-cardano-api
     , hydra-cluster
-    , hydra-node
+    , hydra-node:{hydra-node, testlib}
     , hydra-prelude
     , hydra-test-utils
     , io-classes

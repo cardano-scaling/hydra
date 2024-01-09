@@ -11,6 +11,7 @@ import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (Tx)
+import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano.Configuration (pparamsFromJson)
 import Hydra.Logging (showLogsOnFailure)
 import System.Exit (ExitCode (..))
@@ -46,8 +47,14 @@ spec =
               Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> show protocolParameters
               Right _ -> pure ()
 
-      it "query protocol-parameters matches our schema" $ \_tracer ->
-        pendingWith "TODO"
+      it "query protocol-parameters matches our schema" $ \tracer ->
+        withJsonSpecifications $ \tmpDir ->
+          withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
+            pparamsValue <- cliQueryProtocolParameters nodeSocket (networkId)
+            validateJSON
+              (tmpDir </> "api.json")
+              (key "components" . key "schemas" . key "ProtocolParameters")
+              pparamsValue
  where
   cardanoCliSign txFile =
     proc
