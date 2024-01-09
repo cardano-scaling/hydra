@@ -18,9 +18,9 @@ import Data.Text (pack)
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import Data.Yaml qualified as Yaml
 import Paths_hydra_node qualified as Pkg
-import System.Directory (listDirectory)
+import System.Directory (copyFile, listDirectory)
 import System.Exit (ExitCode (..))
-import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
+import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
 import System.Process (readProcessWithExitCode)
 import Test.QuickCheck (Property, counterexample, forAllShrink, resize, vectorOf)
@@ -55,19 +55,23 @@ validateJSON ::
   SchemaSelector ->
   Value ->
   IO ()
-validateJSON schemaFilePath selector value =
+validateJSON schemaFilePath selector value = do
+  ensureSystemRequirements
   withTempDir "validateJSON" $ \tmpDir -> do
-    ensureSystemRequirements
-    let jsonInput = tmpDir </> "jsonInput"
-    let jsonSchema = tmpDir </> "jsonSchema"
+    copySchemasTo tmpDir
+    -- Write input file
+    let jsonInput = tmpDir </> "input.json"
+    writeFileLBS jsonInput (Aeson.encode value)
+    -- Write (sub-)schema to use
+    let jsonSchema = tmpDir </> "schema.json"
     Aeson.eitherDecodeFileStrict schemaFilePath >>= \case
       Left err -> fail $ "Failed to decode JSON schema " <> show schemaFilePath <> ": " <> err
       Right schemaValue -> do
         let jsonSpecSchema =
               schemaValue ^? selector
                 <&> addField "$id" ("file://" <> tmpDir <> "/")
-        writeFileLBS jsonInput (Aeson.encode value)
         writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
+    -- Validate using external program
     (exitCode, out, err) <-
       readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] ""
     when (exitCode /= ExitSuccess) $
@@ -77,6 +81,13 @@ validateJSON schemaFilePath selector value =
           , toText out
           , toText err
           ]
+ where
+  copySchemasTo dir = do
+    let sourceDir = takeDirectory schemaFilePath
+    files <- listDirectory sourceDir
+    let schemaFiles = filter (\fp -> takeExtension fp `elem` [".json", ".yaml"]) files
+    forM_ schemaFiles $ \fp ->
+      copyFile (sourceDir </> fp) (dir </> takeFileName fp)
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --

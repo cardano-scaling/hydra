@@ -41,3 +41,11 @@ spec =
           (object ["foo" .= String "bar"])
           `shouldThrow` exceptionContaining @HUnitFailure
             "{'foo': 'bar'} is not of type 'string'"
+
+    it "resolves refs" $
+      withJsonSpecifications $ \dir ->
+        validateJSON
+          (dir </> "api.json")
+          -- NOTE: MultiSignature has a local ref into api.yaml for Signature
+          (key "components" . key "schemas" . key "MultiSignature")
+          (object ["multiSignature" .= [String "bar"]])
