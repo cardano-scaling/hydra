@@ -111,18 +111,15 @@ library
     , aeson
     , base
     , base16-bytestring
-    , bech32
     , bytestring
     , cardano-api:internal
     , cardano-binary
     , cardano-crypto-class
-    , cardano-ledger-allegra
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-binary
     , cardano-ledger-core
-    , cardano-ledger-mary
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
