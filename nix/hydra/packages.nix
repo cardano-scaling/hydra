@@ -135,6 +135,7 @@ rec {
           cardano-node.packages.${system}.cardano-node
           cardano-node.packages.${system}.cardano-cli
           hydra-chain-observer
+          pkgs.check-jsonschema
         ];
     };
     hydra-tui = pkgs.mkShellNoCC {

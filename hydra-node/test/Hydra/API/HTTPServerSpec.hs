@@ -4,17 +4,18 @@ import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
-import Data.Aeson (Result (Error, Success), Value (String), encode, fromJSON)
+import Data.Aeson (Result (Error, Success), Value (String), eitherDecode, encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
-import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
+import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra, toLedgerTx)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Chain.Direct.State ()
-import Hydra.JSONSchema (prop_validateJSONSchema)
+import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (nullTracer)
+import System.FilePath ((</>))
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
 import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
@@ -87,17 +88,48 @@ apiServerSpec :: Spec
 apiServerSpec = do
   with (return webServer) $ do
     describe "API should respond correctly" $
-      it "GET /protocol-parameters works" $
-        get "/protocol-parameters"
-          `shouldRespondWith` 200
-            { matchBody =
-                MatchBody
-                  ( \_ actualBody ->
-                      if actualBody /= encode defaultPParams
-                        then Just "Request body missmatch"
-                        else Nothing
-                  )
-            }
+      describe "GET /protocol-parameters" $ do
+        it "matches schema" $
+          withJsonSpecifications $ \schemaDir -> do
+            get "/protocol-parameters"
+              `shouldRespondWith` 200
+                { matchBody =
+                    matchValidJSON
+                      (schemaDir </> "api.json")
+                      (key "components" . key "messages" . key "ProtocolParameters" . key "payload")
+                }
+
+        it "responds given parameters" $
+          get "/protocol-parameters"
+            `shouldRespondWith` 200
+              { matchBody = matchJSON $ fromLedgerPParams shelleyBasedEra defaultPParams
+              }
  where
   webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId
   getHeadId = pure Nothing
+
+-- * Helpers
+
+-- | Create a 'ResponseMatcher' or 'MatchBody' from a JSON serializable value
+-- (using their 'IsString' instances).
+matchJSON :: (IsString s, ToJSON a) => a -> s
+matchJSON = fromString . decodeUtf8 . encode
+
+-- | Create a 'MatchBody' that validates the returned JSON response against a
+-- schema. NOTE: This raises impure exceptions, so only use it in this test
+-- suite.
+matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
+matchValidJSON schemaFile selector =
+  MatchBody $ \_headers body ->
+    case eitherDecode body of
+      Left err -> Just $ "failed to decode body: " <> err
+      Right value -> validateJSONPure value
+ where
+  -- NOTE: Uses unsafePerformIO to create a pure API although we are actually
+  -- calling an external program to verify the schema. This is fine, because the
+  -- call is referentially transparent and any given invocation of schema file,
+  -- selector and value will always yield the same result and can be shared.
+  validateJSONPure value =
+    unsafePerformIO $ do
+      validateJSON schemaFile selector value
+      pure Nothing
