@@ -89,7 +89,7 @@ rec {
 
   hydra-chain-observer-static =
     musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
-  
+
   hydra-explorer =
     nativePkgs.hydra-explorer.components.exes.hydra-explorer;
 

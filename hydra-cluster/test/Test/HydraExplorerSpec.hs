@@ -6,7 +6,7 @@
 -- also 'hydra-node' on a devnet and assert correct observation.
 module Test.HydraExplorerSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import CardanoClient (NodeLog, RunningNode (..), submitTx)
@@ -22,8 +22,12 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.HeadId (HeadId (..))
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import Network.HTTP.Client qualified as HTTPClient
+import Network.HTTP.Client.TLS qualified as HTTPClient
+import Network.HTTP.Types.Status (status200)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 
@@ -69,6 +73,42 @@ spec = do
                 send hydraNode $ input "Fanout" []
 
                 headExplorerSees explorer "HeadFanoutTx" headId
+
+  it "can query for all hydra heads observed" $
+    failAfter 60 $
+      showLogsOnFailure "HydraExplorerSpec" $ \tracer -> do
+        withTempDir "hydra-explorer-get-heads" $ \tmpDir -> do
+          -- Start a cardano devnet
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
+            -- Prepare a hydra-node
+            let hydraTracer = contramap FromHydraNode tracer
+            hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
+            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
+              withHydraExplorer cardanoNode $ \explorer -> do
+                seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+                send hydraNode $ input "Init" []
+
+                headId <- waitMatch 5 hydraNode $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
+                  v ^? key "headId" . _String
+
+                headExplorerSees explorer "HeadInitTx" headId
+
+                manager <- HTTPClient.newTlsManager
+                let url = "https://127.0.0.1:9000/heads?page=0"
+                request <-
+                  HTTPClient.parseRequest url <&> \request ->
+                    request
+                      { HTTPClient.method = "GET"
+                      , HTTPClient.requestHeaders = [("Accept", "application/json")]
+                      }
+                response <- HTTPClient.httpLbs request manager
+                HTTPClient.responseStatus response `shouldBe` status200
+                let maybeOpenHeads = decode $ HTTPClient.responseBody response :: Maybe [HeadId]
+                maybeOpenHeads `shouldBe` Just [UnsafeHeadId $ encodeUtf8 headId]
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
 headExplorerSees explorer txType headId =
