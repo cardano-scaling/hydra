@@ -1732,10 +1732,10 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - contestationPeriod
-          - parties
           - headId
           - headSeed
+          - headParameters
+          - participants
         description: >-
           The initial transaction of the Head, announcing various parameters and
           the parties, has been posted on-chain.
@@ -1743,19 +1743,16 @@ definitions:
           tag:
             type: string
             enum: ["OnInitTx"]
-          contestationPeriod:
-            type: number
-            description: >-
-              The length of the contestaion period, in seconds, represented as a
-              decimal number.
-          parties:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/Party"
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           headSeed:
             $ref: "api.yaml#/components/schemas/HeadSeed"
+          headParameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          participants:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/OnChainId"
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -1806,12 +1803,15 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
           - snapshotNumber
           - contestationDeadline
         properties:
           tag:
             type: string
             enum: ["OnCloseTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
             type: integer
             minimum: 0
@@ -1822,11 +1822,14 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
           - snapshotNumber
         properties:
           tag:
             type: string
             enum: ["OnContestTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
           snapshotNumber:
             type: integer
             minimum: 0
@@ -1835,10 +1838,13 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - headId
         properties:
           tag:
             type: string
             enum: ["OnFanoutTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
 
   Effect:
     description: >-
