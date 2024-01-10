@@ -58,3 +58,4 @@ jobs:
       with:
         name: hydra-cluster-logs
         path: ${state_dir}/logs/**/*
+        if-no-files-found: ignore
