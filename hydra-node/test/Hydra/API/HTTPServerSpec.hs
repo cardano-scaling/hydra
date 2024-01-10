@@ -18,7 +18,7 @@ import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
-import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
+import Test.QuickCheck.Property (counterexample, forAll, property)
 
 spec :: Spec
 spec = do
@@ -29,38 +29,30 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
 
     prop "Validate /commit publish api schema" $
-      property $
-        withMaxSuccess 1 $
-          prop_validateJSONSchema @DraftCommitTxRequest "api.json" $
-            key "components" . key "messages" . key "DraftCommitTxRequest" . key "payload"
+      prop_validateJSONSchema @DraftCommitTxRequest "api.json" $
+        key "components" . key "messages" . key "DraftCommitTxRequest" . key "payload"
 
     prop "Validate /commit subscribe api schema" $
-      property $
-        withMaxSuccess 1 $
-          prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
-            key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
+      prop_validateJSONSchema @DraftCommitTxResponse "api.json" $
+        key "components" . key "messages" . key "DraftCommitTxResponse" . key "payload"
 
     prop "Validate /cardano-transaction publish api schema" $
-      property $
-        withMaxSuccess 1 $
-          prop_validateJSONSchema @(SubmitTxRequest Tx) "api.json" $
-            key "channels"
-              . key "/cardano-transaction"
-              . key "publish"
-              . key "message"
-              . key "payload"
+      prop_validateJSONSchema @(SubmitTxRequest Tx) "api.json" $
+        key "channels"
+          . key "/cardano-transaction"
+          . key "publish"
+          . key "message"
+          . key "payload"
 
     prop "Validate /cardano-transaction subscribe api schema" $
-      property $
-        withMaxSuccess 1 $
-          prop_validateJSONSchema @TransactionSubmitted "api.json" $
-            key "channels"
-              . key "/cardano-transaction"
-              . key "subscribe"
-              . key "message"
-              . key "oneOf"
-              . nth 0
-              . key "payload"
+      prop_validateJSONSchema @TransactionSubmitted "api.json" $
+        key "channels"
+          . key "/cardano-transaction"
+          . key "subscribe"
+          . key "message"
+          . key "oneOf"
+          . nth 0
+          . key "payload"
 
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do

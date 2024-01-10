@@ -23,7 +23,7 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
 import System.Process (readProcessWithExitCode)
-import Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf)
+import Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
@@ -90,37 +90,39 @@ validateJSON schemaFilePath selector value = do
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
--- NOTE: This property generates 100 values of 'a' each to reduce the number of
--- calls to the external schema validation (which is slow). Use with a limited
--- `maxSuccess` value to not make this not too slow overall.
+-- NOTE: This property runs with a fixed `maxSuccess` of 1, but generates 100
+-- values of 'a' to reduce the number of calls to the external schema validation
+-- (which is slow).
 --
 -- See 'validateJSON' for how to provide a selector.
 prop_validateJSONSchema ::
   forall a.
-  (ToJSON a, Arbitrary a, Show a) =>
+  (HasCallStack, ToJSON a, Arbitrary a, Show a) =>
   -- | Path to the JSON file holding the schema.
   FilePath ->
   -- | Selector into the JSON file pointing to the schema to be validated.
   SchemaSelector ->
   Property
 prop_validateJSONSchema specFileName selector =
-  forAllShrink (vectorOf 100 arbitrary) shrink $ \(samples :: [a]) ->
-    monadicIO $ do
-      withJsonSpecifications $ \tmpDir -> do
-        run ensureSystemRequirements
-        let jsonSchema = tmpDir </> "jsonSchema"
-        run $
-          Aeson.decodeFileStrict (tmpDir </> specFileName) >>= \case
-            Nothing -> error "Failed to decode specFile to JSON"
-            Just specs -> do
-              Aeson.encodeFile jsonSchema $
-                Aeson.object
-                  [ "$id" .= ("file://" <> tmpDir <> "/")
-                  , "type" .= Aeson.String "array"
-                  , "items" .= (specs ^? selector)
-                  ]
-        monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
-        run $ validateJSON jsonSchema id (toJSON samples)
+  withMaxSuccess 1 $
+    -- NOTE: Shrinking will produce smaller lists again
+    forAllShrink (vectorOf 1000 arbitrary) shrink $ \(samples :: [a]) ->
+      monadicIO $ do
+        withJsonSpecifications $ \tmpDir -> do
+          run ensureSystemRequirements
+          let jsonSchema = tmpDir </> "jsonSchema"
+          run $
+            Aeson.decodeFileStrict (tmpDir </> specFileName) >>= \case
+              Nothing -> error "Failed to decode specFile to JSON"
+              Just specs -> do
+                Aeson.encodeFile jsonSchema $
+                  Aeson.object
+                    [ "$id" .= ("file://" <> tmpDir <> "/")
+                    , "type" .= Aeson.String "array"
+                    , "items" .= (specs ^? selector)
+                    ]
+          monitor $ counterexample (decodeUtf8 . Aeson.encode $ samples)
+          run $ validateJSON jsonSchema id (toJSON samples)
 
 -- | Check specification is complete wr.t. to generated data
 -- This second sub-property ensures that any key found in the
