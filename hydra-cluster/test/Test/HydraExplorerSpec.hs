@@ -98,7 +98,7 @@ spec = do
                 headExplorerSees explorer "HeadInitTx" headId
 
                 manager <- HTTPClient.newTlsManager
-                let url = "https://127.0.0.1:9000/heads?page=0"
+                let url = "http://127.0.0.1:9090/heads?page=1"
                 request <-
                   HTTPClient.parseRequest url <&> \request ->
                     request
@@ -107,6 +107,7 @@ spec = do
                       }
                 response <- HTTPClient.httpLbs request manager
                 HTTPClient.responseStatus response `shouldBe` status200
+                print (HTTPClient.responseBody response)
                 let maybeOpenHeads = decode $ HTTPClient.responseBody response :: Maybe [HeadId]
                 maybeOpenHeads `shouldBe` Just [UnsafeHeadId $ encodeUtf8 headId]
 

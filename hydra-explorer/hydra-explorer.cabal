@@ -43,10 +43,17 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
+    , aeson
+    , base
+    , bytestring
+    , containers
+    , http-types
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
     , optparse-applicative
+    , wai
+    , warp
 
   exposed-modules: Hydra.Explorer
 
