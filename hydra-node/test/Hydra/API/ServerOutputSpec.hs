@@ -12,6 +12,8 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenSpecsWithSettings,
  )
+import Hydra.JSONSchema (prop_validateJSONSchema)
+import Data.Aeson.Lens (key)
 
 spec :: Spec
 spec = parallel $ do
@@ -22,6 +24,9 @@ spec = parallel $ do
   roundtripAndGoldenSpecsWithSettings
     settings
     (Proxy @(ReasonablySized (ServerOutput Tx)))
+
+  prop "matches JSON schema" $ prop_validateJSONSchema @(TimedServerOutput Tx) "api.json" $
+    key "channels" . key "/" . key "subscribe" . key "message"
 
   -- NOTE: The golden file produced by this is also used by the
   -- 'validate:outputs' target in ./docs/package.json.

@@ -396,14 +396,14 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transaction" . key "id" . to fromJSON >>= \case
+      ^? key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success txid -> pure $ TxValid txid
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "transaction" . key "id" . to fromJSON >>= \case
+      ^? key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success tx ->
           TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String

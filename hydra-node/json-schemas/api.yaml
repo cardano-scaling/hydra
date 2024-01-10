@@ -591,6 +591,7 @@ components:
           - tag
           - headId
           - transaction
+          - txId
           - seq
           - timestamp
         properties:
@@ -603,6 +604,8 @@ components:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
               - $ref: "api.yaml#/components/schemas/Transaction"
+          txId:
+            $ref: "api.yaml#/components/schemas/TxId"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
@@ -623,6 +626,7 @@ components:
         - headId
         - utxo
         - transaction
+        - txId
         - validationError
         - seq
         - timestamp
@@ -638,6 +642,8 @@ components:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
               - $ref: "api.yaml#/components/schemas/Transaction"
+          txId:
+            $ref: "api.yaml#/components/schemas/TxId"
           validationError:
             type: object
             properties:
