@@ -203,11 +203,8 @@ jobs:
       id: comment-body
       run: |
         # Drop first 5 header lines and demote headlines one level
-        body="$(cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::')"
-        body="${body//'%'/'%25'}"
-        body="${body//$'\n'/'%0A'}"
-        body="${body//$'\r'/'%0D'}"
-        echo "body=$body" >> "$GITHUB_OUTPUT"
+        cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
+
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v2
       id: find-comment
@@ -222,7 +219,7 @@ jobs:
         comment-id: ${{ steps.find-comment.outputs.comment-id }}
         edit-mode: replace
         issue-number: ${{ github.event.pull_request.number }}
-        body: ${{ steps.comment-body.outputs.body }}
+        body-file: comment-body.md
         reactions: rocket
 
   build-specification:
