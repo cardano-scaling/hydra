@@ -162,7 +162,7 @@ channels:
           Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
         payload:
           oneOf:
-              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
               - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
       bindings:
         http:
@@ -241,7 +241,7 @@ components:
             enum: ["NewTx"]
           transaction:
             oneOf:
-              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
               - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
 
     Close:
@@ -602,7 +602,7 @@ components:
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
@@ -637,7 +637,7 @@ components:
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "api.yaml#/components/schemas/RawTransaction"
+              - $ref: "api.yaml#/components/schemas/Transaction"
           validationError:
             type: object
             properties:
@@ -1344,7 +1344,7 @@ components:
               type: string
               enum: ["InternalWalletError"]
             tx:
-              $ref: "api.yaml#/components/schemas/RawTransaction"
+              $ref: "api.yaml#/components/schemas/Transaction"
               description: |
                 A representation of the faulty transaction
             reason:
@@ -1639,8 +1639,8 @@ components:
       type: integer
       minimum: 0
 
-    RawTransaction:
-      title: RawTransaction
+    Transaction:
+      title: Transaction
       description: |
         A CBOR-serialised signed Cardano transaction, encoded in base16.
       type: string
@@ -1700,7 +1700,15 @@ components:
         description:
           type: string
         cborHex:
-          $ref: "api.yaml#/components/schemas/RawTransaction"
+          $ref: "api.yaml#/components/schemas/Transaction"
+
+    TxId:
+      type: string
+      description: |
+        A Cardano transaction identifier. This is the hex-encoded hash of the
+        transaction's body.
+      pattern: "^[0-9a-f]{64}"
+      example: "8df1616d4337ede40bbad2914f12977815234b83951bcce3bfcd735aed3f63e4"
 
     TxIn:
       type: string

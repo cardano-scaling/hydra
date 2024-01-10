@@ -69,7 +69,7 @@ spec =
       prop "JSON encoding of Tx according to schema" $
         withMaxSuccess 5 $
           prop_validateJSONSchema @Tx "api.json" $
-            key "components" . key "schemas" . key "RawTransaction"
+            key "components" . key "schemas" . key "Transaction"
 
     describe "applyTransactions" $ do
       prop "works with valid transaction" appliesValidTransaction
