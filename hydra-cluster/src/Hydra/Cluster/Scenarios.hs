@@ -60,7 +60,7 @@ import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, s
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromDiffTime)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
@@ -232,7 +232,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
-    let contestationPeriod = UnsafeContestationPeriod $ max 1 . truncate $ 10 * blockTime
+    contestationPeriod <- fromDiffTime $ 10 * blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
