@@ -164,7 +164,6 @@ channels:
           oneOf:
               - $ref: "api.yaml#/components/schemas/RawTransaction"
               - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
-              - $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: response
@@ -244,7 +243,6 @@ components:
             oneOf:
               - $ref: "api.yaml#/components/schemas/RawTransaction"
               - $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
-              - $ref: "api.yaml#/components/schemas/Transaction"
 
     Close:
       title: Close
@@ -604,7 +602,6 @@ components:
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
               - $ref: "api.yaml#/components/schemas/RawTransaction"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
@@ -640,7 +637,6 @@ components:
           transaction:
             description: Choose between output formats using the `tx-output` query parameter.
             oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
               - $ref: "api.yaml#/components/schemas/RawTransaction"
           validationError:
             type: object
@@ -1348,7 +1344,7 @@ components:
               type: string
               enum: ["InternalWalletError"]
             tx:
-              $ref: "api.yaml#/components/schemas/Transaction"
+              $ref: "api.yaml#/components/schemas/RawTransaction"
               description: |
                 A representation of the faulty transaction
             reason:
@@ -1705,188 +1701,6 @@ components:
           type: string
         cborHex:
           $ref: "api.yaml#/components/schemas/RawTransaction"
-
-    Transaction:
-      type: object
-      required:
-        - id
-        - isValid
-        - body
-      additionalProperties: false
-      properties:
-        id:
-          $ref: "api.yaml#/components/schemas/TxId"
-        isValid:
-            type: boolean
-        body:
-          $ref: "api.yaml#/components/schemas/TxBody"
-        witnesses:
-          type: object
-          additionalProperties: false
-          properties:
-            keys:
-              type: array
-              items:
-                $ref: "api.yaml#/components/schemas/Cbor"
-            scripts:
-              type: object
-              patternProperties:
-                "[0-9a-f]+":
-                  $ref: "api.yaml#/components/schemas/Cbor"
-            redeemers:
-              $ref: "api.yaml#/components/schemas/Cbor"
-            datums:
-              type: object
-              patternProperties:
-                "[0-9a-f]+":
-                  $ref: "api.yaml#/components/schemas/Cbor"
-            bootstrap:
-              type: array
-              items:
-                $ref: "api.yaml#/components/schemas/Cbor"
-        auxiliaryData:
-          $ref: "api.yaml#/components/schemas/Cbor"
-      example:
-        {
-            "id": "7ca4e30387ec4ba0e95604fdab6e867fc3d740220386e1a63d142c71e8eac4ce",
-            "isValid": true,
-            "auxiliaryData": "d90103a100a30181a40401622c7166f098a89d2a7e006023600a600c66e4a99d7f6b08",
-            "body": {
-                "inputs": [
-                    "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314#116",
-                    "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1#149"
-                ],
-                "outputs": [
-                    {
-                        "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
-                        "datumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
-                        "value": {
-                            "lovelace": 12,
-                            "4acf2773917c7b547c576a7ff110d2ba5733c1f1ca9cdc659aea3a56": {
-                                "91c670": 7
-                            }
-                        }
-                    }
-                ],
-                "fees": 0
-            },
-            "witnesses": {
-                "redeemers": "84840000...e83fccf5",
-                "keys": [
-                    "8258...01ad847b",
-                    "8258...7944fe3e"
-                ],
-                "scripts": {
-                    "1be26e9d1710022443c8043b259f7b375ec8732191f3845a6aea28e5": "8200820181820519c355",
-                },
-                "datums": {
-                    "ae85d245a3d00bfde01f59f3c4fe0b4bfae1cb37e9cf91929eadcea4985711de": "20",
-                }
-            }
-        }
-
-    TxBody:
-      type: object
-      required:
-        - inputs
-        - outputs
-      additionalProperties: false
-      properties:
-        inputs:
-          type: array
-          description: >-
-            A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
-          items:
-            $ref: "api.yaml#/components/schemas/TxIn"
-        referenceInputs:
-          type: array
-          description: >-
-            A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
-          items:
-            $ref: "api.yaml#/components/schemas/TxIn"
-        collateral:
-          type: array
-          description: >-
-            A list of collateral inputs for this transaction.
-          items:
-            $ref: "api.yaml#/components/schemas/TxIn"
-        totalCollateral:
-          oneOf:
-            - type: integer
-              minimum: 0
-            - type: "null"
-        collateralReturn:
-          $ref: "api.yaml#/components/schemas/TxOut"
-        outputs:
-          type: array
-          description: >-
-            A list of outputs. Ordering is important here because a TxOut is referenced by its
-            position in the inputs of subsequent transactions.
-          items:
-            $ref: "api.yaml#/components/schemas/TxOut"
-        certificates:
-          type: array
-          description: >-
-            An array of certificates, encoded as hexadecimal representation of CBOR serialisation.
-          items:
-            $ref: "api.yaml#/components/schemas/Cbor"
-        withdrawals:
-            $ref: "api.yaml#/components/schemas/Withdrawals"
-        fees:
-          type: integer
-          minimum: 0
-          description: >-
-            Fees paid for this transaction, in lovelace.
-        validity:
-          type: object
-          description: >-
-            Validity interval of this transaction. Both bounds can be omitted in which case the transaction
-            has unlimited validity. Each bound is a slot number.
-          properties:
-            notBefore:
-              oneOf:
-                - type: integer
-                - type: "null"
-            notAfter:
-              oneOf:
-                - type: integer
-                - type: "null"
-        auxiliaryDataHash:
-          type: string
-          contentEncoding: base16
-          description: >-
-            Hex-encoding of the hash of auxiliary data section of the transactions.
-          example: "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
-        mint:
-          description: >-
-            Values minted by this transaction
-          $ref: "api.yaml#/components/schemas/Value"
-        networkId:
-            type: string
-            enum:
-              - Mainnet
-              - Testnet
-        scriptIntegrityHash:
-          type: string
-          contentEncoding: base16
-          description: >-
-            Hex-encoding of the hash of script data section of the transaction.
-          example: "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
-        requiredSignatures:
-          type: array
-          items:
-            type: string
-            contentEncoding: base16
-            description: >-
-              Hex-encoding of the hash of verification keys identifying extra expected signers.
-
-    TxId:
-      type: string
-      description: |
-        A Cardano transaction identifier. This is the hex-encoded hash of the
-        transaction's body.
-      pattern: "^[0-9a-f]{64}"
-      example: "8df1616d4337ede40bbad2914f12977815234b83951bcce3bfcd735aed3f63e4"
 
     TxIn:
       type: string
