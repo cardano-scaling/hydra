@@ -307,177 +307,49 @@ components:
       description: |
         A friendly welcome message which tells a client something about the node. Currently used for knowing what Party the server embodies. This message produced whenever the hydra-node starts and clients should take consequence of seeing this. For example, we can assume no peers connected when we see 'Greetings'.
       payload:
-        type: object
-        required:
-          - tag
-          - me
-          - headStatus
-          - seq
-          - timestamp
-          - hydraNodeVersion
-        properties:
-          tag:
-            type: string
-            enum: ["Greetings"]
-          me:
-            $ref: "api.yaml#/components/schemas/Party"
-          headStatus:
-            $ref: "api.yaml#/components/schemas/HeadStatus"
-          snapshotUtxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
-          hydraNodeVersion:
-            $ref: "api.yaml#/components/schemas/HydraNodeVersion"
+        $ref: "api.yaml#/components/schemas/Greetings"
 
     PeerConnected:
       title: PeerConnected
       description: |
         A peer is now connected to the head network.
       payload:
-        type: object
-        required:
-          - tag
-          - peer
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["PeerConnected"]
-          peer:
-            $ref: "api.yaml#/components/schemas/NodeId"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/PeerConnected"
 
     PeerDisconnected:
       title: PeerDisconnected
       description: |
         A peer has disconnected from the head network.
       payload:
-        type: object
-        required:
-          - tag
-          - peer
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["PeerDisconnected"]
-          peer:
-            $ref: "api.yaml#/components/schemas/NodeId"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/PeerDisconnected"
 
     HeadIsInitializing:
       title: HeadIsInitializing
       description: |
         A `Init` transaction has been observed on-chain, with the given HeadId
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - parties
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsInitializing"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          parties:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/Party"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsInitializing"
 
     Committed:
       title: Committed
       description: |
         A `Commit` from a head participant has been observed on-chain.
       payload:
-        type: object
-        required:
-          - tag
-          - party
-          - utxo
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["Committed"]
-          party:
-            $ref: "api.yaml#/components/schemas/Party"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/Committed"
 
     HeadIsOpen:
       title: HeadIsOpen
       description: |
         All parties have committed, and a successful `CollectCom` transaction was observed on-chain. The head is now open; transactions can flow.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - utxo
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsOpen"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsOpen"
 
     HeadIsClosed:
       title: HeadIsClosed
       description: |
         A `Close` transaction has been observed on-chain, the head is now closed and the contestation phase begins.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - snapshotNumber
-          - contestationDeadline
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsClosed"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          snapshotNumber:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          contestationDeadline:
-            $ref: "api.yaml#/components/schemas/UTCTime"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsClosed"
 
     HeadIsContested:
       title: HeadIsContested
@@ -486,25 +358,7 @@ components:
         state has been successfully contested and given snapshot number is now
         the latest accepted snapshot.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - snapshotNumber
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsContested"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          snapshotNumber:
-            $ref: "api.yaml#/components/schemas/SnapshotNumber"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsContested"
 
     ReadyToFanout:
       title: ReadyToFanout
@@ -512,72 +366,21 @@ components:
         The contestation period has passed and the head can now be finalized by
         a fanout transaction.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["ReadyToFanout"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/ReadyToFanout"
 
     HeadIsAborted:
       title: HeadIsAborted
       description: |
         One of the participant did `Abort` the head before all commits were done or collected.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - utxo
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsAborted"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsAborted"
 
     HeadIsFinalized:
       title: HeadIsFinalized
       description: |
         The head was already closed and the contestation period is now over.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - utxo
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["HeadIsFinalized"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/HeadIsFinalized"
 
     TxValid:
       title: TxValid
@@ -586,30 +389,7 @@ components:
         its own transactions and it may still happen that this transaction is
         not included in a snapshot.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - transaction
-          - txId
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["TxValid"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          transaction:
-            description: Choose between output formats using the `tx-output` query parameter.
-            oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
-          txId:
-            $ref: "api.yaml#/components/schemas/TxId"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/TxValid"
 
     TxInvalid:
       title: TxInvalid
@@ -620,169 +400,54 @@ components:
         in-between. The included validation error should give an indication why
         it was not applicable to the given UTxO (the local, seen ledger state).
       payload:
-        type: object
-        required:
-        - tag
-        - headId
-        - utxo
-        - transaction
-        - txId
-        - validationError
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["TxInvalid"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          transaction:
-            description: Choose between output formats using the `tx-output` query parameter.
-            oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
-          txId:
-            $ref: "api.yaml#/components/schemas/TxId"
-          validationError:
-            type: object
-            properties:
-              reason:
-                type: string
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/TxInvalid"
 
     SnapshotConfirmed:
       title: SnapshotConfirmed
       description: |
         The given snapshot has been multi-signed by all head participants and is now confirmed.
       payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - snapshot
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["SnapshotConfirmed"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          snapshot:
-            $ref: "api.yaml#/components/schemas/Snapshot"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
 
     GetUTxOResponse:
       title: GetUTxOResponse
       description: |
         Emitted as a result of a `GetUTxO` to reflect the current UTxO of the underlying node.
       payload:
-        type: object
-        required:
-        - tag
-        - headId
-        - utxo
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["GetUTxOResponse"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/GetUTxOResponse"
 
     InvalidInput:
       title: InvalidInput
       description: |
         Emitted by the server when it has failed to parse some client input. It returns the malformed input as well as some hint about what went wrong.
       payload:
-        type: object
-        required:
-        - tag
-        - reason
-        - input
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["InvalidInput"]
-          reason:
-            type: string
-          input:
-            type: string
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/InvalidInput"
 
     PostTxOnChainFailed:
       title: PostTxOnChainFailed
       description: |
         Something wrong happened when trying to post a transaction on-chain. Provides information about what kind of transaction was tentatively posted, and the reason for failure.
       payload:
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - postChainTx
-        - postTxError
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["PostTxOnChainFailed"]
-          postChainTx:
-            $ref: "api.yaml#/components/schemas/PostChainTx"
-          postTxError:
-            $ref: "api.yaml#/components/schemas/PostTxError"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
 
     CommandFailed:
       title: CommandFailed
       description: |
         Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
       payload:
-        type: object
-        required:
-        - tag
-        - clientInput
-        - seq
-        - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["CommandFailed"]
-          clientInput:
-            oneOf:
-              - $ref: "api.yaml#/components/messages/Init/payload"
-              - $ref: "api.yaml#/components/messages/Abort/payload"
-              - $ref: "api.yaml#/components/messages/NewTx/payload"
-              - $ref: "api.yaml#/components/messages/GetUTxO/payload"
-              - $ref: "api.yaml#/components/messages/Close/payload"
-              - $ref: "api.yaml#/components/messages/Contest/payload"
-              - $ref: "api.yaml#/components/messages/Fanout/payload"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+        $ref: "api.yaml#/components/schemas/CommandFailed"
+
+    IgnoredHeadInitializing:
+      title: IgnoredHeadInitializing
+      description: |
+        A `Init` transaction has been observed on-chain, with the given HeadId
+        and the given participant identifiers (commonly public key hashes), but
+        we are not part of it. It could denote a misconfiguration, or simply
+        some other group of parties opening a head.
+      payload:
+        $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+
+    # END OF SERVER OUTPUT MESSAGES
 
     DraftCommitTxRequest:
       title: DraftCommitTxRequest
@@ -853,47 +518,6 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
 
-    IgnoredHeadInitializing:
-      title: IgnoredHeadInitializing
-      description: |
-        A `Init` transaction has been observed on-chain, with the given HeadId
-        and the given participant identifiers (commonly public key hashes), but
-        we are not part of it. It could denote a misconfiguration, or simply
-        some other group of parties opening a head.
-      payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - contestationPeriod
-          - parties
-          - participants
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["IgnoredHeadInitializing"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          contestationPeriod:
-            $ref: "api.yaml#/components/schemas/ContestationPeriod"
-          parties:
-            type: array
-            items:
-              $ref: "api.yaml#/components/schemas/Party"
-          participants:
-            type: array
-            items:
-              type: string
-              contentEncoding: base16
-              description: |
-                A hex-encoded string identifying a participant on-chain (usually a hash of a key)
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
-
   ########
   #
   # Schemas
@@ -901,6 +525,465 @@ components:
   #######
 
   schemas:
+    ServerOutput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/Greetings"
+        - $ref: "api.yaml#/components/schemas/PeerConnected"
+        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
+        - $ref: "api.yaml#/components/schemas/Committed"
+        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
+        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
+        - $ref: "api.yaml#/components/schemas/HeadIsContested"
+        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
+        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
+        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
+        - $ref: "api.yaml#/components/schemas/TxValid"
+        - $ref: "api.yaml#/components/schemas/TxInvalid"
+        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
+        - $ref: "api.yaml#/components/schemas/GetUTxOResponse"
+        - $ref: "api.yaml#/components/schemas/InvalidInput"
+        - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
+        - $ref: "api.yaml#/components/schemas/CommandFailed"
+        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+
+    Greetings:
+      type: object
+      required:
+        - tag
+        - me
+        - headStatus
+        - seq
+        - timestamp
+        - hydraNodeVersion
+      properties:
+        tag:
+          type: string
+          enum: ["Greetings"]
+        me:
+          $ref: "api.yaml#/components/schemas/Party"
+        headStatus:
+          $ref: "api.yaml#/components/schemas/HeadStatus"
+        snapshotUtxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        hydraNodeVersion:
+          $ref: "api.yaml#/components/schemas/HydraNodeVersion"
+
+    PeerConnected:
+      type: object
+      required:
+        - tag
+        - peer
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PeerConnected"]
+        peer:
+          $ref: "api.yaml#/components/schemas/NodeId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PeerDisconnected:
+      type: object
+      required:
+        - tag
+        - peer
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PeerDisconnected"]
+        peer:
+          $ref: "api.yaml#/components/schemas/NodeId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsInitializing:
+      type: object
+      required:
+        - tag
+        - headId
+        - parties
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsInitializing"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        parties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    Committed:
+      type: object
+      required:
+        - tag
+        - party
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["Committed"]
+        party:
+          $ref: "api.yaml#/components/schemas/Party"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsOpen:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsOpen"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsClosed:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - contestationDeadline
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsClosed"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsContested:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsContested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    ReadyToFanout:
+      type: object
+      required:
+        - tag
+        - headId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["ReadyToFanout"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsAborted:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsAborted"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsFinalized:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TxValid:
+      type: object
+      required:
+        - tag
+        - headId
+        - transaction
+        - txId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TxValid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        transaction:
+          description: Choose between output formats using the `tx-output` query parameter.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Transaction"
+        txId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TxInvalid:
+      type: object
+      required:
+      - tag
+      - headId
+      - utxo
+      - transaction
+      - txId
+      - validationError
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TxInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        transaction:
+          description: Choose between output formats using the `tx-output` query parameter.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Transaction"
+        txId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        validationError:
+          type: object
+          properties:
+            reason:
+              type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotConfirmed:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshot
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotConfirmed"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    GetUTxOResponse:
+      type: object
+      required:
+      - tag
+      - headId
+      - utxo
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["GetUTxOResponse"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    InvalidInput:
+      type: object
+      required:
+      - tag
+      - reason
+      - input
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["InvalidInput"]
+        reason:
+          type: string
+        input:
+          type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PostTxOnChainFailed:
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - postChainTx
+      - postTxError
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PostTxOnChainFailed"]
+        postChainTx:
+          $ref: "api.yaml#/components/schemas/PostChainTx"
+        postTxError:
+          $ref: "api.yaml#/components/schemas/PostTxError"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommandFailed:
+      type: object
+      required:
+      - tag
+      - clientInput
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommandFailed"]
+        clientInput:
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    IgnoredHeadInitializing:
+      type: object
+      required:
+        - tag
+        - headId
+        - contestationPeriod
+        - parties
+        - participants
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["IgnoredHeadInitializing"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        contestationPeriod:
+          $ref: "api.yaml#/components/schemas/ContestationPeriod"
+        parties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        participants:
+          type: array
+          items:
+            type: string
+            contentEncoding: base16
+            description: |
+              A hex-encoded string identifying a participant on-chain (usually a hash of a key)
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    # END OF SERVER OUTPUT SCHEMAS
+
     Address:
       type: string
       description: |
@@ -1886,6 +1969,8 @@ components:
                 }
             }
         }
+
+    # END OF SERVER OUTPUT SCHEMAS
 
     ScriptInfo:
       description: |
