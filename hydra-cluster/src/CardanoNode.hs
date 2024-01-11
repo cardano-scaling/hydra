@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, querySystemStart, queryTipSlotNo)
-import Control.Lens ((?~), (^?), (^?!))
+import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -28,10 +28,7 @@ import Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Cluster.Fixture (
-  KnownNetwork (Mainnet, Preproduction, Preview),
-  defaultNetworkId,
- )
+import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Util (readConfigFile)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
@@ -139,10 +136,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args networkId action
- where
-  -- NOTE: This needs to match what's in config/genesis-shelley.json
-  networkId = defaultNetworkId
+  withCardanoNode tracer stateDirectory args action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -155,8 +149,7 @@ withCardanoNodeOnKnownNetwork ::
   IO a
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
-  networkId <- readNetworkId
-  withCardanoNode tracer workDir args networkId action
+  withCardanoNode tracer workDir args action
  where
   args =
     defaultCardanoNodeArgs
@@ -167,15 +160,6 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeAlonzoGenesisFile = "alonzo-genesis.json"
       , nodeConwayGenesisFile = "conway-genesis.json"
       }
-
-  -- Read 'NetworkId' from shelley genesis
-  readNetworkId = do
-    shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readFileBS (workDir </> "shelley-genesis.json")
-    if shelleyGenesis ^?! key "networkId" == "Mainnet"
-      then pure Api.Mainnet
-      else do
-        let magic = shelleyGenesis ^?! key "networkMagic" . _Number
-        pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
   -- Copy/download configuration files for a known network
   copyKnownNetworkFiles =
@@ -279,10 +263,9 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->
   CardanoNodeArgs ->
-  NetworkId ->
   (RunningNode -> IO a) ->
   IO a
-withCardanoNode tr stateDirectory args networkId action = do
+withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
@@ -307,21 +290,29 @@ withCardanoNode tr stateDirectory args networkId action = do
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
-    blockTime <- readBlockTime $ stateDirectory </> nodeShelleyGenesisFile
+    shelleyGenesis :: Aeson.Value <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile
     action
       RunningNode
         { nodeSocket = nodeSocketPath
-        , networkId
-        , blockTime
+        , networkId = getShelleyGenesisNetworkId shelleyGenesis
+        , blockTime = getShelleyGenesisBlockTime shelleyGenesis
         }
 
+  readShelleyGenesisJSON = readFileBS >=> unsafeDecodeJson
+
+  -- Read 'NetworkId' from shelley genesis JSON file
+  getShelleyGenesisNetworkId json = do
+    if json ^?! key "networkId" == "Mainnet"
+      then Api.Mainnet
+      else do
+        let magic = json ^?! key "networkMagic" . _Number
+        Api.Testnet (Api.NetworkMagic $ truncate magic)
+
   -- Read expected time between blocks from shelley genesis
-  readBlockTime fp = do
-    shelleyGenesis <- readFileBS fp
-    maybe (fail $ "failed to decode " <> fp) pure $ do
-      slotLength <- shelleyGenesis ^? key "slotLength" . _Number
-      activeSlotsCoeff <- shelleyGenesis ^? key "activeSlotsCoeff" . _Number
-      pure . realToFrac $ slotLength / activeSlotsCoeff
+  getShelleyGenesisBlockTime json = do
+    let slotLength = json ^?! key "slotLength" . _Number
+    let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
+    realToFrac $ slotLength / activeSlotsCoeff
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
@@ -333,7 +324,7 @@ waitForFullySynchronized ::
   Tracer IO NodeLog ->
   RunningNode ->
   IO ()
-waitForFullySynchronized tracer RunningNode{networkId, nodeSocket} = do
+waitForFullySynchronized tracer RunningNode{networkId, nodeSocket, blockTime} = do
   systemStart <- querySystemStart networkId nodeSocket QueryTip
   check systemStart
  where
@@ -345,7 +336,7 @@ waitForFullySynchronized tracer RunningNode{networkId, nodeSocket} = do
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
     traceWith tracer $ MsgSynchronizing{percentDone}
-    if timeDifference < 20 -- TODO: derive from known network and block times
+    if timeDifference < blockTime
       then pure ()
       else threadDelay 3 >> check systemStart
 

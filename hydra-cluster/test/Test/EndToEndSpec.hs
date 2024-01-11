@@ -57,7 +57,6 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
   cperiod,
-  defaultNetworkId,
  )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
@@ -511,7 +510,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -531,7 +530,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $ \node@RunningNode{nodeSocket} -> do
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -549,7 +548,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
             \node@RunningNode{nodeSocket} -> do
               let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
@@ -585,7 +584,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args defaultNetworkId $
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
             \node@RunningNode{nodeSocket} -> do
               let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
