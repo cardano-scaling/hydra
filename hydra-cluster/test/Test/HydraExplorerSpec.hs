@@ -29,7 +29,7 @@ import Network.HTTP.Client qualified as HTTPClient
 import Network.HTTP.Client.TLS qualified as HTTPClient
 import Network.HTTP.Types.Status (status200)
 import System.IO.Error (isEOFError, isIllegalOperation)
-import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
+import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
 
 spec :: Spec
 spec = do
@@ -207,11 +207,12 @@ withHydraExplorer cardanoNode action =
   -- failure output. Print the exception here to have some debuggability at
   -- least.
   handle (\(e :: IOException) -> print e >> throwIO e) $
-    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
-      action
-        HydraExplorerHandle
-          { awaitNext = awaitNext out
-          }
+    withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
+      \_in (Just out) err processHandle ->
+        race
+          (checkProcessHasNotDied "hydra-explorer" processHandle err)
+          (action HydraExplorerHandle{awaitNext = awaitNext out})
+          <&> either absurd id
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do
