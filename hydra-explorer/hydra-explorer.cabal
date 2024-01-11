@@ -48,9 +48,11 @@ library
     , bytestring
     , containers
     , http-types
+    , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
+    , io-classes
     , optparse-applicative
     , wai
     , warp

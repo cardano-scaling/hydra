@@ -52,8 +52,13 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStNext (..),
  )
 
-main :: IO ()
-main = do
+type ObserverHandler = ChainPoint -> [(TxId, HeadObservation)] -> IO ()
+
+defaultObserverHandler :: ObserverHandler
+defaultObserverHandler = const . const $ pure ()
+
+main :: ObserverHandler -> IO ()
+main observerHandler = do
   Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}

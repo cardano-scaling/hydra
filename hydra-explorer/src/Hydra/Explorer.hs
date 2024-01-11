@@ -3,9 +3,13 @@ module Hydra.Explorer where
 import Hydra.ChainObserver qualified
 import Hydra.Prelude
 
+import Control.Concurrent.Class.MonadSTM (atomically, modifyTVar', newTVarIO)
 import Data.ByteString.Char8 (unpack)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
+import Hydra.Cardano.Api (ChainPoint, TxId)
+import Hydra.Chain.Direct.Tx (HeadObservation)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Network (PortNumber)
 import Network.HTTP.Types (parseQuery, status200)
@@ -24,13 +28,21 @@ import Network.Wai (
 import Network.Wai.Handler.Warp qualified as Warp
 import Prelude (read)
 
+type ExplorerState = Map ChainPoint [(TxId, HeadObservation)]
+
+observerHandler :: TVar IO ExplorerState -> ChainPoint -> [(TxId, HeadObservation)] -> IO ()
+observerHandler explorerState point observations =
+  atomically $
+    modifyTVar' explorerState (Map.insert point observations)
+
 main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
+    explorerState <- newTVarIO (mempty :: ExplorerState)
     race
-      Hydra.ChainObserver.main
+      (Hydra.ChainObserver.main (observerHandler explorerState))
       ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
-          *> Warp.runSettings (settings tracer) (httpApp tracer)
+          *> Warp.runSettings (settings tracer) (httpApp tracer explorerState)
       )
       >>= \case
         Left{} -> error "Something went wrong"
@@ -49,8 +61,8 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
-httpApp :: Tracer IO APIServerLog -> Application
-httpApp tracer req send = do
+httpApp :: Tracer IO APIServerLog -> TVar IO ExplorerState -> Application
+httpApp tracer explorerState req send = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod req
@@ -62,7 +74,7 @@ httpApp tracer req send = do
     ("GET", ["heads"]) -> do
       let queryParams = parseQuery $ rawQueryString req
           pageParam = join $ List.lookup "page" queryParams
-          page :: Int = maybe 0 (read . unpack) pageParam
+          page :: Int = maybe 0 (Prelude.read . unpack) pageParam
       send $
         responseLBS status200 corsHeaders $
           "OK. Handling /heads route with pagination. Page: " <> show page
