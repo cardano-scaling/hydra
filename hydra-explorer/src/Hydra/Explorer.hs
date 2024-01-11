@@ -3,8 +3,7 @@ module Hydra.Explorer where
 import Hydra.ChainObserver qualified
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (atomically, modifyTVar', newTVarIO)
-import Data.ByteString.Char8 (unpack)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
@@ -12,7 +11,7 @@ import Hydra.Cardano.Api (ChainPoint, TxId)
 import Hydra.Chain.Direct.Tx (HeadObservation)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Network (PortNumber)
-import Network.HTTP.Types (parseQuery, status200)
+import Network.HTTP.Types (status200)
 import Network.HTTP.Types.Header (HeaderName)
 import Network.HTTP.Types.Status (status404, status500)
 import Network.Wai (
@@ -20,13 +19,11 @@ import Network.Wai (
   Response,
   pathInfo,
   rawPathInfo,
-  rawQueryString,
   requestMethod,
   responseFile,
   responseLBS,
  )
 import Network.Wai.Handler.Warp qualified as Warp
-import Prelude (read)
 
 type ExplorerState = Map ChainPoint [(TxId, HeadObservation)]
 
@@ -71,13 +68,7 @@ httpApp tracer explorerState req send = do
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
     ("GET", []) -> send $ handleFile "index.html"
-    ("GET", ["heads"]) -> do
-      let queryParams = parseQuery $ rawQueryString req
-          pageParam = join $ List.lookup "page" queryParams
-          page :: Int = maybe 0 (Prelude.read . unpack) pageParam
-      send $
-        responseLBS status200 corsHeaders $
-          "OK. Handling /heads route with pagination. Page: " <> show page
+    ("GET", ["heads"]) -> send $ responseLBS status200 corsHeaders "OK"
     -- FIXME: do proper file serving, this is dangerous
     ("GET", path) -> send $ handleFile $ toString $ mconcat $ List.intersperse "/" ("." : path)
     (_, _) -> send handleNotFound

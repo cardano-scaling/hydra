@@ -98,7 +98,7 @@ spec = do
                 headExplorerSees explorer "HeadInitTx" headId
 
                 manager <- HTTPClient.newTlsManager
-                let url = "http://127.0.0.1:9090/heads?page=1"
+                let url = "http://127.0.0.1:9090/heads"
                 request <-
                   HTTPClient.parseRequest url <&> \request ->
                     request
