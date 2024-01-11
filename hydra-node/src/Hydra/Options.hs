@@ -35,7 +35,7 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromDiffTime)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
@@ -732,7 +732,7 @@ defaultContestationPeriod = UnsafeContestationPeriod 60
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
-    (parseNatural <|> parseNominalDiffTime)
+    (parseNatural <|> parseViaDiffTime)
     ( long "contestation-period"
         <> metavar "SECONDS"
         <> value defaultContestationPeriod
@@ -746,12 +746,7 @@ contestationPeriodParser =
  where
   parseNatural = UnsafeContestationPeriod <$> auto
 
-  parseNominalDiffTime =
-    auto >>= \dt -> do
-      let s = nominalDiffTimeToSeconds dt
-      if s <= 0
-        then fail $ "contestation period <= 0: " <> show s
-        else pure $ UnsafeContestationPeriod $ truncate s
+  parseViaDiffTime = auto >>= fromDiffTime
 
 data InvalidOptions
   = MaximumNumberOfPartiesExceeded

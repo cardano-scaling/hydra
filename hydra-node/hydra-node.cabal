@@ -292,6 +292,7 @@ test-suite tests
     Hydra.Chain.Direct.TimeHandleSpec
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
+    Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSnapshotSpec

@@ -2,6 +2,7 @@ module Hydra.ContestationPeriod where
 
 import Hydra.Prelude hiding (Show, show)
 
+import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -35,6 +36,16 @@ instance Arbitrary ContestationPeriod where
     oneWeek = oneDay * 7
     oneMonth = oneDay * 30
     oneYear = oneDay * 365
+
+-- | Create a 'ContestationPeriod' from a 'DiffTime'. This will fail if a
+-- negative DiffTime is provided and truncates to 1s if values < 1s are given.
+fromDiffTime :: MonadFail m => DiffTime -> m ContestationPeriod
+fromDiffTime dt =
+  if seconds > 0
+    then pure . UnsafeContestationPeriod $ truncate seconds
+    else fail $ "fromDiffTime: contestation period <= 0: " <> show dt
+ where
+  seconds :: Pico = realToFrac dt
 
 -- | Convert an off-chain contestation period to its on-chain representation.
 toChain :: ContestationPeriod -> OnChain.ContestationPeriod
