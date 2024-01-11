@@ -42,7 +42,7 @@ instance Arbitrary ContestationPeriod where
 fromDiffTime :: MonadFail m => DiffTime -> m ContestationPeriod
 fromDiffTime dt =
   if seconds > 0
-    then pure . UnsafeContestationPeriod . max 1 $ truncate seconds
+    then pure . UnsafeContestationPeriod $ ceiling seconds
     else fail $ "fromDiffTime: contestation period <= 0: " <> show dt
  where
   seconds :: Pico = realToFrac dt
