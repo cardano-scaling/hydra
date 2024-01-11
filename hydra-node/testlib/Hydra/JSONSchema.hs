@@ -23,7 +23,7 @@ import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
 import System.Process (readProcessWithExitCode)
-import Test.QuickCheck (Property, counterexample, forAllShrink, mapSize, vectorOf, withMaxSuccess)
+import Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import Prelude qualified
 
@@ -73,7 +73,7 @@ validateJSON schemaFilePath selector value = do
         writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
     -- Validate using external program
     (exitCode, out, err) <-
-      readProcessWithExitCode "check-jsonschema" ["--schemafile", jsonSchema, jsonInput] ""
+      readProcessWithExitCode "check-jsonschema" ["-v", "--schemafile", jsonSchema, jsonInput] ""
     when (exitCode /= ExitSuccess) $
       failure . toString $
         unlines
@@ -90,20 +90,23 @@ validateJSON schemaFilePath selector value = do
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
+-- NOTE: This property runs with a fixed `maxSuccess` of 1, but generates 100
+-- values of 'a' to reduce the number of calls to the external schema validation
+-- (which is slow).
+--
 -- See 'validateJSON' for how to provide a selector.
 prop_validateJSONSchema ::
   forall a.
-  (ToJSON a, Arbitrary a, Show a) =>
+  (HasCallStack, ToJSON a, Arbitrary a, Show a) =>
   -- | Path to the JSON file holding the schema.
   FilePath ->
   -- | Selector into the JSON file pointing to the schema to be validated.
   SchemaSelector ->
   Property
 prop_validateJSONSchema specFileName selector =
-  -- NOTE: Avoid slow execution (due to external program) by testing the
-  -- property once with size 100 instead of 100 times with growing sizes.
-  withMaxSuccess 1 . mapSize (const 100) $
-    forAllShrink arbitrary shrink $ \(samples :: [a]) ->
+  withMaxSuccess 1 $
+    -- NOTE: Shrinking will produce smaller lists again
+    forAllShrink (vectorOf 1000 arbitrary) shrink $ \(samples :: [a]) ->
       monadicIO $ do
         withJsonSpecifications $ \tmpDir -> do
           run ensureSystemRequirements

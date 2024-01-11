@@ -20,12 +20,8 @@ spec = do
 
     captured `shouldContain` "{\"foo\":42}"
 
-  -- NOTE: We limit the number of successes because those tests are rather
-  -- slow and the underlying `Property` already generate large samples.
-  modifyMaxSuccess (const 5) $
-    prop "Validates logs.yaml schema" $
-      prop_validateJSONSchema @(Envelope (HydraLog Tx ())) "logs.json" id
+  prop "Validates logs.yaml schema" $
+    prop_validateJSONSchema @(Envelope (HydraLog Tx ())) "logs.json" id
 
-  modifyMaxSuccess (const 10) $
-    prop "Schema covers all defined log entries" $
-      prop_specIsComplete @(HydraLog Tx ()) "logs.json" (key "properties" . key "message")
+  prop "Schema covers all defined log entries" $
+    prop_specIsComplete @(HydraLog Tx ()) "logs.json" (key "properties" . key "message")

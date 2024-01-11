@@ -1555,7 +1555,7 @@ components:
             tag:
               type: string
               enum: ["InvalidHeadId"]
-            headSeed:
+            headId:
               $ref: "api.yaml#/components/schemas/HeadId"
         - title: FailedToConstructAbortTx
           description: |
