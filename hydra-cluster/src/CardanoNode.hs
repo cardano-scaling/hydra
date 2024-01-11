@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, querySystemStart, queryTipSlotNo)
-import Control.Lens ((?~), (^?!))
+import Control.Lens ((?~), (^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -17,7 +17,6 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
-  GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
   PaymentKey,
@@ -283,7 +282,7 @@ withCardanoNode ::
   NetworkId ->
   (RunningNode -> IO a) ->
   IO a
-withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId action = do
+withCardanoNode tr stateDirectory args networkId action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
@@ -295,6 +294,8 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
               Left{} -> error "should never been reached"
               Right a -> pure a
  where
+  CardanoNodeArgs{nodeSocket, nodeShelleyGenesisFile} = args
+
   process = cardanoNodeProcess (Just stateDirectory) args
 
   logFilePath = stateDirectory </> "logs" </> "cardano-node.log"
@@ -306,20 +307,21 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
+    blockTime <- readBlockTime $ stateDirectory </> nodeShelleyGenesisFile
     action
       RunningNode
         { nodeSocket = nodeSocketPath
         , networkId
-        , blockTime = 0.1
+        , blockTime
         }
 
-  calculateBlockTime
-    GenesisParameters
-      { protocolParamActiveSlotsCoefficient
-      , protocolParamSlotLength
-      } =
-      fromRational $
-        protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
+  -- Read expected time between blocks from shelley genesis
+  readBlockTime fp = do
+    shelleyGenesis <- readFileBS fp
+    maybe (fail $ "failed to decode " <> fp) pure $ do
+      slotLength <- shelleyGenesis ^? key "slotLength" . _Number
+      activeSlotsCoeff <- shelleyGenesis ^? key "activeSlotsCoeff" . _Number
+      pure . realToFrac $ slotLength / activeSlotsCoeff
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
