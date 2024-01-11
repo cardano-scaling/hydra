@@ -4,12 +4,14 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import CardanoClient (NodeLog (..), QueryPoint (QueryTip), RunningNode (..), queryGenesisParameters, waitForFullySynchronized)
+import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
+import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, querySystemStart, queryTipSlotNo)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
+import Data.Fixed (Centi)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
@@ -23,6 +25,7 @@ import Hydra.Cardano.Api (
   SocketPath,
   VerificationKey,
   generateSigningKey,
+  getProgress,
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
@@ -44,6 +47,18 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
+
+data NodeLog
+  = MsgNodeCmdSpec {cmd :: Text}
+  | MsgCLI [Text]
+  | MsgCLIStatus Text Text
+  | MsgCLIRetry Text
+  | MsgCLIRetryResult Text Int
+  | MsgNodeStarting {stateDirectory :: FilePath}
+  | MsgSocketIsReady SocketPath
+  | MsgSynchronizing {percentDone :: Centi}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 type Port = Int
 
@@ -291,17 +306,11 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
-    -- Wait for synchronization since otherwise we will receive a query
-    -- exception when trying to obtain pparams and the era is not the one we
-    -- expect.
-    _ <- waitForFullySynchronized tr networkId nodeSocketPath
-    traceWith tr MsgNodeIsReady
-    blockTime <- calculateBlockTime <$> queryGenesisParameters networkId nodeSocketPath QueryTip
     action
       RunningNode
         { nodeSocket = nodeSocketPath
         , networkId
-        , blockTime
+        , blockTime = 0.1
         }
 
   calculateBlockTime
@@ -315,6 +324,28 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
       removeFile socketPath
+
+-- | Wait until the node is fully caught up with the network. This can take a
+-- while!
+waitForFullySynchronized ::
+  Tracer IO NodeLog ->
+  RunningNode ->
+  IO ()
+waitForFullySynchronized tracer RunningNode{networkId, nodeSocket} = do
+  systemStart <- querySystemStart networkId nodeSocket QueryTip
+  check systemStart
+ where
+  check systemStart = do
+    targetTime <- toRelativeTime systemStart <$> getCurrentTime
+    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
+    tipSlotNo <- queryTipSlotNo networkId nodeSocket
+    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
+    let timeDifference = diffRelativeTime targetTime tipTime
+    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
+    traceWith tracer $ MsgSynchronizing{percentDone}
+    if timeDifference < 20 -- TODO: derive from known network and block times
+      then pure ()
+      else threadDelay 3 >> check systemStart
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: SocketPath -> IO ()

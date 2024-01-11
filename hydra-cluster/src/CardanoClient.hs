@@ -15,11 +15,8 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Slotting.Time (RelativeTime (getRelativeTime), diffRelativeTime, toRelativeTime)
-import Data.Fixed (Centi)
 import Data.Map qualified as Map
 import Hydra.Chain.CardanoClient qualified as CardanoClient
-import Hydra.Logging (Tracer, traceWith)
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 
@@ -170,41 +167,3 @@ data RunningNode = RunningNode
   , blockTime :: DiffTime
   -- ^ Expected time between blocks (varies a lot on testnets)
   }
-
--- Logging
-
-data NodeLog
-  = MsgNodeCmdSpec {cmd :: Text}
-  | MsgCLI [Text]
-  | MsgCLIStatus Text Text
-  | MsgCLIRetry Text
-  | MsgCLIRetryResult Text Int
-  | MsgNodeStarting {stateDirectory :: FilePath}
-  | MsgSocketIsReady SocketPath
-  | MsgSynchronizing {percentDone :: Centi}
-  | MsgNodeIsReady
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
--- | Wait until the node is fully caught up with the network. This can take a
--- while!
-waitForFullySynchronized ::
-  Tracer IO NodeLog ->
-  NetworkId ->
-  SocketPath ->
-  IO ()
-waitForFullySynchronized tracer networkId nodeSocket = do
-  systemStart <- querySystemStart networkId nodeSocket QueryTip
-  check systemStart
- where
-  check systemStart = do
-    targetTime <- toRelativeTime systemStart <$> getCurrentTime
-    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
-    tipSlotNo <- queryTipSlotNo networkId nodeSocket
-    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
-    let timeDifference = diffRelativeTime targetTime tipTime
-    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
-    traceWith tracer $ MsgSynchronizing{percentDone}
-    if timeDifference < 20 -- TODO: derive from known network and block times
-      then pure ()
-      else threadDelay 3 >> check systemStart

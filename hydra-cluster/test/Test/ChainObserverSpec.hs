@@ -9,8 +9,8 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoClient (NodeLog, RunningNode (..), submitTx)
-import CardanoNode (withCardanoNodeDevnet)
+import CardanoClient (RunningNode (..), submitTx)
+import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Lens ((^?))
