@@ -118,18 +118,16 @@ spec = do
               pure headId
 
             withHydraExplorer cardanoNode $ \explorer -> do
-              headExplorerSees explorer "HeadIsInitializing" aliceHeadId
-              headExplorerSees explorer "HeadIsClosed" aliceHeadId
-              headExplorerSees explorer "HeadIsInitializing" bobHeadId
-              headExplorerSees explorer "HeadIsClosed" aliceHeadId
+              headExplorerSees explorer "HeadInitTx" aliceHeadId
+              headExplorerSees explorer "HeadCloseTx" aliceHeadId
+              headExplorerSees explorer "HeadInitTx" bobHeadId
+              headExplorerSees explorer "HeadCloseTx" aliceHeadId
 
   it "can query for all hydra heads observed" $
     failAfter 60 $
       showLogsOnFailure "HydraExplorerSpec" $ \tracer -> do
         withTempDir "hydra-explorer-get-heads" $ \tmpDir -> do
-          -- Start a cardano devnet
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
-            -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
