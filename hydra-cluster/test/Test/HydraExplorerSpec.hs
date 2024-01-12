@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
 import CardanoClient (NodeLog, RunningNode (..), submitTx)
-import CardanoNode (withCardanoNodeDevnet)
+import CardanoNode (unsafeDecodeJson, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Lens ((^?))
@@ -22,7 +22,6 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.HeadId (HeadId (..))
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import Network.HTTP.Client qualified as HTTPClient
@@ -132,8 +131,8 @@ spec = do
                 response <- HTTPClient.httpLbs request manager
                 HTTPClient.responseStatus response `shouldBe` status200
                 print (HTTPClient.responseBody response)
-                let maybeOpenHeads = decode $ HTTPClient.responseBody response :: Maybe [HeadId]
-                maybeOpenHeads `shouldBe` Just [UnsafeHeadId $ encodeUtf8 headId]
+                allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
+                allHeads `shouldBe` [headId]
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
 headExplorerSees explorer txType headId =
