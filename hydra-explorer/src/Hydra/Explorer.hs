@@ -3,14 +3,18 @@ module Hydra.Explorer where
 import Hydra.ChainObserver qualified
 import Hydra.Prelude
 
+-- XXX: Depending on hydra-node will be problematic to support versions
+import Hydra.HeadId (HeadId)
+import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
+import Hydra.Network (PortNumber)
+
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
+import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Cardano.Api (ChainPoint, TxId)
 import Hydra.Chain.Direct.Tx (HeadObservation)
-import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
-import Hydra.Network (PortNumber)
 import Network.HTTP.Types (status200)
 import Network.HTTP.Types.Header (HeaderName)
 import Network.HTTP.Types.Status (status404, status500)
@@ -37,12 +41,13 @@ main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
     explorerState <- newTVarIO (mempty :: ExplorerState)
+    getHeadIds <- getHeadIdsReadModel explorerState
     args <- getArgs
     race
       -- FIXME: this is going to be problematic on mainnet.
       (withArgs (args <> ["--start-chain-from", "0"]) $ Hydra.ChainObserver.main (observerHandler explorerState))
       ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
-          *> Warp.runSettings (settings tracer) (httpApp tracer explorerState)
+          *> Warp.runSettings (settings tracer) (httpApp tracer getHeadIds)
       )
       >>= \case
         Left{} -> error "Something went wrong"
@@ -61,8 +66,15 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
-httpApp :: Tracer IO APIServerLog -> TVar IO ExplorerState -> Application
-httpApp tracer explorerState req send = do
+  getHeadIdsReadModel :: TVar IO ExplorerState -> IO GetHeadIds
+  getHeadIdsReadModel tv = atomically $ do
+    currentState <- readTVar tv
+    pure $ pure []
+
+type GetHeadIds = IO [HeadId]
+
+httpApp :: Tracer IO APIServerLog -> GetHeadIds -> Application
+httpApp tracer getHeadIds req send = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod req
@@ -71,10 +83,18 @@ httpApp tracer explorerState req send = do
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
     ("GET", []) -> send $ handleFile "index.html"
-    ("GET", ["heads"]) -> send $ responseLBS status200 corsHeaders "[]"
+    ("GET", ["heads"]) -> handleGetHeads getHeadIds req send
     -- FIXME: do proper file serving, this is dangerous
     ("GET", path) -> send $ handleFile $ toString $ mconcat $ List.intersperse "/" ("." : path)
     (_, _) -> send handleNotFound
+
+handleGetHeads ::
+  -- | Read model of all known head ids
+  GetHeadIds ->
+  Application
+handleGetHeads getHeadIds _req send = do
+  headIds <- getHeadIds
+  send . responseLBS status200 corsHeaders $ Aeson.encode headIds
 
 handleError :: Response
 handleError =
