@@ -53,12 +53,12 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStNext (..),
  )
 
-type ObserverHandler = ChainPoint -> [(TxId, HeadObservation)] -> IO ()
+type ObserverHandler m = [HeadObservation] -> m ()
 
-defaultObserverHandler :: ObserverHandler
-defaultObserverHandler = const . const $ pure ()
+defaultObserverHandler :: Applicative m => ObserverHandler m
+defaultObserverHandler = const $ pure ()
 
-main :: ObserverHandler -> IO ()
+main :: ObserverHandler IO -> IO ()
 main observerHandler = do
   Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
@@ -70,7 +70,7 @@ main observerHandler = do
     traceWith tracer StartObservingFrom{chainPoint}
     connectToLocalNode
       (connectInfo nodeSocket networkId)
-      (clientProtocols tracer networkId chainPoint)
+      (clientProtocols tracer networkId chainPoint observerHandler)
 
 type ChainObserverLog :: Type
 data ChainObserverLog
@@ -107,10 +107,11 @@ clientProtocols ::
   Tracer IO ChainObserverLog ->
   NetworkId ->
   ChainPoint ->
+  ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId startingPoint =
+clientProtocols tracer networkId startingPoint observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
@@ -134,8 +135,9 @@ chainSyncClient ::
   Tracer m ChainObserverLog ->
   NetworkId ->
   ChainPoint ->
+  ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId startingPoint =
+chainSyncClient tracer networkId startingPoint observerHandler =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect [startingPoint] clientStIntersect
@@ -159,9 +161,12 @@ chainSyncClient tracer networkId startingPoint =
           case blockInMode of
             BlockInMode _ (Block _header txs) BabbageEraInCardanoMode -> do
               let point = chainTipToChainPoint tip
-              traceWith tracer RollForward{point, receivedTxIds = getTxId . getTxBody <$> txs}
-              let (utxo', logs) = observeAll networkId utxo txs
-              forM_ logs (traceWith tracer)
+              let receivedTxIds = getTxId . getTxBody <$> txs
+              traceWith tracer RollForward{point, receivedTxIds}
+              let (utxo', observations) = observeAll networkId utxo txs
+              -- FIXME we should be exposing OnChainTx instead of working around NoHeadTx.
+              forM_ observations (maybe (pure ()) (traceWith tracer) . logObservation)
+              observerHandler observations
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
@@ -169,25 +174,30 @@ chainSyncClient tracer networkId startingPoint =
           pure $ clientStIdle utxo
       }
 
-observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe ChainObserverLog)
+  logObservation :: HeadObservation -> Maybe ChainObserverLog
+  logObservation = \case
+    NoHeadTx -> Nothing
+    Init InitObservation{headId} -> pure $ HeadInitTx{headId}
+    Commit CommitObservation{headId} -> pure $ HeadCommitTx{headId}
+    CollectCom CollectComObservation{headId} -> pure $ HeadCollectComTx{headId}
+    Close CloseObservation{headId} -> pure $ HeadCloseTx{headId}
+    Fanout FanoutObservation{headId} -> pure $ HeadFanoutTx{headId}
+    Abort AbortObservation{headId} -> pure $ HeadAbortTx{headId}
+    Contest ContestObservation{headId} -> pure $ HeadContestTx{headId}
+
+observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =
   let utxo' = adjustUTxO tx utxo
    in case observeHeadTx networkId utxo tx of
         NoHeadTx -> (utxo, Nothing)
-        Init InitObservation{headId} -> (utxo', pure $ HeadInitTx{headId})
-        Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
-        CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
-        Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
-        Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})
-        Abort AbortObservation{headId} -> (utxo', pure $ HeadAbortTx{headId})
-        Contest ContestObservation{headId} -> (utxo', pure $ HeadContestTx{headId})
+        observation -> (utxo', pure observation)
 
-observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [ChainObserverLog])
+observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [HeadObservation])
 observeAll networkId utxo txs =
   second reverse $ foldr go (utxo, []) txs
  where
-  go :: Tx -> (UTxO, [ChainObserverLog]) -> (UTxO, [ChainObserverLog])
-  go tx (utxo'', logs) =
+  go :: Tx -> (UTxO, [HeadObservation]) -> (UTxO, [HeadObservation])
+  go tx (utxo'', observations) =
     case observeTx networkId utxo'' tx of
-      (utxo', Nothing) -> (utxo', logs)
-      (utxo', Just logEntry) -> (utxo', logEntry : logs)
+      (utxo', Nothing) -> (utxo', observations)
+      (utxo', Just observation) -> (utxo', observation : observations)
