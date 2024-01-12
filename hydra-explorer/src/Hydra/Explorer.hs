@@ -31,7 +31,7 @@ import System.Environment (withArgs)
 type ExplorerState = [HeadObservation]
 
 observerHandler :: TVar IO ExplorerState -> ExplorerState -> IO ()
-observerHandler explorerState observations =
+observerHandler explorerState observations = do
   atomically $
     modifyTVar' explorerState (<> observations)
 
@@ -39,7 +39,7 @@ main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
     explorerState <- newTVarIO (mempty :: ExplorerState)
-    getHeadIds <- getHeadIdsReadModel explorerState
+    let getHeadIds = readModelGetHeadIds explorerState
     args <- getArgs
     race
       -- FIXME: this is going to be problematic on mainnet.
@@ -64,23 +64,22 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
-  getHeadIdsReadModel :: TVar IO ExplorerState -> IO GetHeadIds
-  getHeadIdsReadModel tv = atomically $ do
+  readModelGetHeadIds :: TVar IO ExplorerState -> GetHeadIds
+  readModelGetHeadIds tv = atomically $ do
     currentState <- readTVar tv
-    let headIds =
-          mapMaybe
-            ( \case
-                NoHeadTx -> Nothing
-                Init InitObservation{headId} -> Just headId
-                Abort AbortObservation{headId} -> Just headId
-                Commit CommitObservation{headId} -> Just headId
-                CollectCom CollectComObservation{headId} -> Just headId
-                Close CloseObservation{headId} -> Just headId
-                Contest ContestObservation{headId} -> Just headId
-                Fanout FanoutObservation{headId} -> Just headId
-            )
-            currentState
-    pure $ pure headIds
+    pure $
+      mapMaybe
+        ( \case
+            NoHeadTx -> Nothing
+            Init InitObservation{headId} -> Just headId
+            Abort AbortObservation{headId} -> Just headId
+            Commit CommitObservation{headId} -> Just headId
+            CollectCom CollectComObservation{headId} -> Just headId
+            Close CloseObservation{headId} -> Just headId
+            Contest ContestObservation{headId} -> Just headId
+            Fanout FanoutObservation{headId} -> Just headId
+        )
+        currentState
 
 type GetHeadIds = IO [HeadId]
 

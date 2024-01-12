@@ -130,7 +130,6 @@ spec = do
                       }
                 response <- HTTPClient.httpLbs request manager
                 HTTPClient.responseStatus response `shouldBe` status200
-                print (HTTPClient.responseBody response)
                 allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
                 allHeads `shouldBe` [headId]
 
