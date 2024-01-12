@@ -112,10 +112,6 @@ data ChainObserverLog
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
 withChainObserver :: RunningNode -> (ChainObserverHandle -> IO ()) -> IO ()
 withChainObserver cardanoNode action =
-  -- XXX: If this throws an IOException, 'withFile' invocations around mislead
-  -- to the file path opened (e.g. the cardano-node log file) in the test
-  -- failure output. Print the exception here to have some debuggability at
-  -- least.
   handle (\(e :: IOException) -> print e >> throwIO e) $
     withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
       action

@@ -79,43 +79,31 @@ spec = do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
+
+            let initAndCloseHead hydraNode = do
+                  send hydraNode $ input "Init" []
+
+                  headId <- waitMatch 5 hydraNode $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsInitializing"
+                    v ^? key "headId" . _String
+
+                  requestCommitTx hydraNode mempty >>= submitTx cardanoNode
+                  waitFor hydraTracer 5 [hydraNode] $
+                    output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+                  send hydraNode $ input "Close" []
+
+                  pure headId
+
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
-              send hydraNode $ input "Init" []
-
-              headId <- waitMatch 5 hydraNode $ \v -> do
-                guard $ v ^? key "tag" == Just "HeadIsInitializing"
-                v ^? key "headId" . _String
-
-              requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-              waitFor hydraTracer 5 [hydraNode] $
-                output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-
-              send hydraNode $ input "Close" []
-
-              pure headId
+            aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] initAndCloseHead
 
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+            seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] $ \hydraNode -> do
-              seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
-              send hydraNode $ input "Init" []
-
-              headId <- waitMatch 5 hydraNode $ \v -> do
-                guard $ v ^? key "tag" == Just "HeadIsInitializing"
-                v ^? key "headId" . _String
-
-              requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-              waitFor hydraTracer 5 [hydraNode] $
-                output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-
-              send hydraNode $ input "Close" []
-
-              pure headId
+            bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initAndCloseHead
 
             withHydraExplorer cardanoNode $ \explorer -> do
               headExplorerSees explorer "HeadInitTx" aliceHeadId
@@ -200,10 +188,6 @@ data HydraExplorerLog
 -- | Starts a 'hydra-explorer' on some Cardano network.
 withHydraExplorer :: RunningNode -> (HydraExplorerHandle -> IO ()) -> IO ()
 withHydraExplorer cardanoNode action =
-  -- XXX: If this throws an IOException, 'withFile' invocations around mislead
-  -- to the file path opened (e.g. the cardano-node log file) in the test
-  -- failure output. Print the exception here to have some debuggability at
-  -- least.
   handle (\(e :: IOException) -> print e >> throwIO e) $
     withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
       \_in (Just out) err processHandle ->
