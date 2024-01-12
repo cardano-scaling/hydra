@@ -24,6 +24,7 @@ import Network.Wai (
   responseLBS,
  )
 import Network.Wai.Handler.Warp qualified as Warp
+import System.Environment (withArgs)
 
 type ExplorerState = Map ChainPoint [(TxId, HeadObservation)]
 
@@ -36,8 +37,10 @@ main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
     explorerState <- newTVarIO (mempty :: ExplorerState)
+    args <- getArgs
     race
-      (Hydra.ChainObserver.main (observerHandler explorerState))
+      -- FIXME: this is going to be problematic on mainnet.
+      (withArgs (args <> ["--start-chain-from", "0"]) $ Hydra.ChainObserver.main (observerHandler explorerState))
       ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
           *> Warp.runSettings (settings tracer) (httpApp tracer explorerState)
       )

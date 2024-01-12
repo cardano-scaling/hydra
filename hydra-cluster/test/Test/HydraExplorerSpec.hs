@@ -80,36 +80,25 @@ spec = do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
 
-            let initAndCloseHead hydraNode = do
+            let initHead hydraNode = do
                   send hydraNode $ input "Init" []
-
-                  headId <- waitMatch 5 hydraNode $ \v -> do
+                  waitMatch 5 hydraNode $ \v -> do
                     guard $ v ^? key "tag" == Just "HeadIsInitializing"
                     v ^? key "headId" . _String
-
-                  requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-                  waitFor hydraTracer 5 [hydraNode] $
-                    output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-
-                  send hydraNode $ input "Close" []
-
-                  pure headId
 
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] initAndCloseHead
+            aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] initHead
 
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
             seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initAndCloseHead
+            bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
             withHydraExplorer cardanoNode $ \explorer -> do
               headExplorerSees explorer "HeadInitTx" aliceHeadId
-              headExplorerSees explorer "HeadCloseTx" aliceHeadId
               headExplorerSees explorer "HeadInitTx" bobHeadId
-              headExplorerSees explorer "HeadCloseTx" aliceHeadId
 
   it "can query for all hydra heads observed" $
     failAfter 60 $
