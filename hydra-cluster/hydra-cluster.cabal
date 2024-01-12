@@ -190,6 +190,7 @@ test-suite tests
   build-tool-depends:
     , hspec-discover:hspec-discover
     , hydra-chain-observer:hydra-chain-observer
+    , hydra-explorer:hydra-explorer
     , hydra-node:hydra-node
 
   ghc-options:        -threaded -rtsopts
