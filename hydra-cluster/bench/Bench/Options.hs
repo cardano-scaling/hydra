@@ -31,14 +31,14 @@ data Options
       { workDirectory :: Maybe FilePath
       , outputDirectory :: Maybe FilePath
       , scalingFactor :: Int
-      , timeoutSeconds :: DiffTime
+      , timeoutSeconds :: NominalDiffTime
       , clusterSize :: Word64
       , startingNodeId :: Int
       }
   | DatasetOptions
       { datasetFiles :: [FilePath]
       , outputDirectory :: Maybe FilePath
-      , timeoutSeconds :: DiffTime
+      , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       }
 
@@ -119,7 +119,7 @@ scalingFactorParser =
         <> help "The scaling factor to apply to transactions generator (default: 100)"
     )
 
-timeoutParser :: Parser DiffTime
+timeoutParser :: Parser NominalDiffTime
 timeoutParser =
   option
     auto

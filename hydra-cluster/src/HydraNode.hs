@@ -74,14 +74,14 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> Aeson.Value -> IO ()
+waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time for an API server output to match the given predicate.
-waitMatch :: HasCallStack => DiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
   seenMsgs <- newTVarIO []
-  timeout delay (go seenMsgs) >>= \case
+  timeout (realToFrac delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
@@ -106,7 +106,7 @@ waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do
 -- | Wait up to some `delay` for some JSON `Value` to match given function.
 --
 -- This is a generalisation of `waitMatch` to multiple nodes.
-waitForAllMatch :: (Eq a, Show a, HasCallStack) => DiffTime -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
+waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO a
 waitForAllMatch delay nodes match = do
   when (null nodes) $
     failure "no clients to wait for"
@@ -122,13 +122,12 @@ waitForAllMatch delay nodes match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
+waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
-    -- The chain is slow...
-    result <- timeout delay $ tryNext client msgs expected
+    result <- timeout (realToFrac delay) $ tryNext client msgs expected
     case result of
       Just x -> pure x
       Nothing -> do
@@ -393,13 +392,13 @@ withConnectionToNode tracer hydraNodeId action = do
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> DiffTime -> [HydraClient] -> IO ()
-waitForNodesConnected tracer timeOut clients =
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> IO ()
+waitForNodesConnected tracer delay clients =
   mapM_ waitForNodeConnected clients
  where
   allNodeIds = hydraNodeId <$> clients
   waitForNodeConnected n@HydraClient{hydraNodeId} =
-    waitForAll tracer timeOut [n] $
+    waitForAll tracer delay [n] $
       fmap
         ( \nodeId ->
             object

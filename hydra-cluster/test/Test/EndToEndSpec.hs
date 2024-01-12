@@ -269,7 +269,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   v ^? key "contestationDeadline" . _JSON
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
-                remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+                remainingTime <- diffUTCTime deadline <$> getCurrentTime
                 waitFor hydraTracer (remainingTime + 3) [n1] $
                   output "ReadyToFanout" ["headId" .= headId]
 
@@ -831,7 +831,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       v ^? key "contestationDeadline" . _JSON
 
     -- Expect to see ReadyToFanout within 3 seconds after deadline
-    remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+    remainingTime <- diffUTCTime deadline <$> getCurrentTime
     waitFor hydraTracer (remainingTime + 3) [n1] $
       output "ReadyToFanout" ["headId" .= headId]
 

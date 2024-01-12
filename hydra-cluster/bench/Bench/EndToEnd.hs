@@ -76,7 +76,7 @@ data Event = Event
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
-bench :: Int -> DiffTime -> FilePath -> Dataset -> IO Summary
+bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO Summary
 bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
@@ -122,7 +122,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
                 v ^? key "contestationDeadline" . _JSON
 
               -- Expect to see ReadyToFanout within 3 seconds after deadline
-              remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+              remainingTime <- diffUTCTime deadline <$> getCurrentTime
               waitFor hydraTracer (remainingTime + 3) [leader] $
                 output "ReadyToFanout" ["headId" .= headId]
 

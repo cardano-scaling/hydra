@@ -721,10 +721,10 @@ testContestationPeriod = UnsafeContestationPeriod 3600
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
   TestHydraClient tx m ->
-  DiffTime ->
+  NominalDiffTime ->
   m ()
 nothingHappensFor node secs =
-  timeout secs (waitForNext node) >>= (`shouldBe` Nothing)
+  timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
 
 withHydraNode ::
   forall s a.
