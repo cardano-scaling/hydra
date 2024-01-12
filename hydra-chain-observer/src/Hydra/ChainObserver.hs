@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   SocketPath,
   Tx,
   UTxO,
+  chainTipToChainPoint,
   connectToLocalNode,
   getTxBody,
   getTxId,
@@ -84,7 +85,7 @@ data ChainObserverLog
   | HeadAbortTx {headId :: HeadId}
   | HeadContestTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
-  | RollForward {receivedTxIds :: [TxId]}
+  | RollForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -148,16 +149,17 @@ chainSyncClient tracer networkId startingPoint =
           ChainSyncClient $ throwIO (IntersectionNotFound startingPoint)
       }
 
-  clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint tip m ()
+  clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint ChainTip m ()
   clientStIdle utxo = SendMsgRequestNext (clientStNext utxo) (pure $ clientStNext utxo)
 
-  clientStNext :: UTxO -> ClientStNext BlockType ChainPoint tip m ()
+  clientStNext :: UTxO -> ClientStNext BlockType ChainPoint ChainTip m ()
   clientStNext utxo =
     ClientStNext
-      { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
+      { recvMsgRollForward = \blockInMode tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode _ (Block _header txs) BabbageEraInCardanoMode -> do
-              traceWith tracer RollForward{receivedTxIds = getTxId . getTxBody <$> txs}
+              let point = chainTipToChainPoint tip
+              traceWith tracer RollForward{point, receivedTxIds = getTxId . getTxBody <$> txs}
               let (utxo', logs) = observeAll networkId utxo txs
               forM_ logs (traceWith tracer)
               pure $ clientStIdle utxo'
