@@ -73,7 +73,7 @@ import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
+import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), Var, VarContext)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
@@ -144,7 +144,7 @@ type Uncommitted = Map.Map Party (UTxOType Payment)
 
 data OffChainState = OffChainState
   { confirmedUTxO :: UTxOType Payment
-  , seenTransactions :: [Payment]
+  , seenTransactions :: Map (Var Payment) Payment
   }
   deriving stock (Eq, Show)
 
@@ -171,9 +171,9 @@ instance StateModel WorldState where
     Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
-    NewTx :: Party -> Payment -> Action WorldState ()
+    NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
-    ObserveConfirmedTx :: Payment -> Action WorldState ()
+    ObserveConfirmedTx :: Var Payment -> Action WorldState ()
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     StopTheWorld :: Action WorldState ()
@@ -222,8 +222,8 @@ instance StateModel WorldState where
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
-    True
+  precondition WorldState{hydraState = Open{offChainState = OffChainState{seenTransactions}}} (ObserveConfirmedTx tx) =
+    isJust $ Map.lookup tx seenTransactions
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition _ StopTheWorld =
@@ -231,7 +231,7 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraParties, hydraState} a _ =
+  nextState s@WorldState{hydraParties, hydraState} a ref =
     case a of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         WorldState{hydraParties = seedKeys, hydraState = idleState}
@@ -273,7 +273,7 @@ instance StateModel WorldState where
                     , offChainState =
                         OffChainState
                           { confirmedUTxO = mconcat (Map.elems commits')
-                          , seenTransactions = []
+                          , seenTransactions = mempty
                           }
                     }
                 else
@@ -303,7 +303,7 @@ instance StateModel WorldState where
               , offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
-                    , seenTransactions = tx : seenTransactions
+                    , seenTransactions = Map.insert ref tx seenTransactions
                     }
               }
           _ -> error "unexpected state"
@@ -471,7 +471,7 @@ instance
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-  perform st action _ = do
+  perform st action ctx = do
     case action of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         seedWorld seedKeys seedContestationPeriod toCommit
@@ -485,7 +485,8 @@ instance
         performAbort party
       Wait delay ->
         lift $ threadDelay delay
-      ObserveConfirmedTx tx -> do
+      ObserveConfirmedTx var -> do
+        let tx = ctx var
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
@@ -607,7 +608,7 @@ performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
   Party ->
   Payment ->
-  RunMonad m ()
+  RunMonad m Payment
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
@@ -627,12 +628,13 @@ performNewTx party tx = do
           (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
 
   party `sendsInput` Input.NewTx realTx
-  lift $
+  lift $ do
     waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
+    pure tx
 
 -- | Wait for the head to be open by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
