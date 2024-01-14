@@ -494,7 +494,7 @@ decrement ::
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   Either CollectTxError Tx
-decrement headId decrementUTxO = undefined
+decrement _headId _decrementUTxO = undefined
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.

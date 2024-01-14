@@ -273,6 +273,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 1
                     , utxo = someUTxO
                     , confirmed = []
+                    , utxoToDecommit = Nothing
                     }
 
             postTx . CloseTx headId headParameters $
@@ -407,6 +408,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 1
                     , utxo = someUTxO
                     , confirmed = []
+                    , utxoToDecommit = Nothing
                     }
             postTx . ContestTx headId headParameters $
               ConfirmedSnapshot
@@ -422,6 +424,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 2
                     , utxo = someUTxO
                     , confirmed = []
+                    , utxoToDecommit = Nothing
                     }
             let contestAgain =
                   postTx . ContestTx headId headParameters $

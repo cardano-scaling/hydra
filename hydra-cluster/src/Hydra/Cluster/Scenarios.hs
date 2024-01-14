@@ -69,7 +69,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (networkId, startChainFrom)
+import Hydra.Options (ChainConfig (Direct), DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -634,9 +634,13 @@ canDecommit tracer workDir node hydraScriptsTxId =
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
     aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket [] contestationPeriod
-        <&> \config -> config{networkId, startChainFrom = Just tip}
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] hydraScriptsTxId $ \n1 -> do
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> \config ->
+          case config of
+            Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
+            _ -> error "Should not be in offline mode"
+
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])

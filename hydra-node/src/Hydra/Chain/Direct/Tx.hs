@@ -886,7 +886,7 @@ observeDecrementTx ::
   UTxO ->
   Tx ->
   Maybe DecrementObservation
-observeDecrementTx utxo tx = error "Not implemented"
+observeDecrementTx _utxo _tx = error "Not implemented"
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput
