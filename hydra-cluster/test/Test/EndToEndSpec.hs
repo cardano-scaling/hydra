@@ -58,8 +58,23 @@ import Hydra.Cluster.Fixture (
   carolVk,
   cperiod,
  )
-import Hydra.Cluster.Scenarios (EndToEndLog (..),
-  canCloseWithLongContestationPeriod, canDecommit, canSubmitTransactionThroughAPI, headIsInitializingWith, initWithWrongKeys, refuelIfNeeded, restartedNodeCanAbort, restartedNodeCanObserveCommitTx, singlePartyCannotCommitExternallyWalletUtxo, singlePartyCommitsExternalScriptWithInlineDatum, singlePartyCommitsFromExternalScript, singlePartyHeadFullLifeCycle, testPreventResumeReconfiguredPeer, threeNodesNoErrorsOnOpen)
+import Hydra.Cluster.Scenarios (
+  EndToEndLog (..),
+  canCloseWithLongContestationPeriod,
+  canDecommit,
+  canSubmitTransactionThroughAPI,
+  headIsInitializingWith,
+  initWithWrongKeys,
+  refuelIfNeeded,
+  restartedNodeCanAbort,
+  restartedNodeCanObserveCommitTx,
+  singlePartyCannotCommitExternallyWalletUtxo,
+  singlePartyCommitsExternalScriptWithInlineDatum,
+  singlePartyCommitsFromExternalScript,
+  singlePartyHeadFullLifeCycle,
+  testPreventResumeReconfiguredPeer,
+  threeNodesNoErrorsOnOpen,
+ )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
