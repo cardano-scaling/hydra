@@ -7,7 +7,6 @@ import Cardano.Binary (serialize')
 import Data.Aeson (Result (Error, Success), Value (String), eitherDecode, encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Base16 qualified as Base16
-import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra, toLedgerTx)
@@ -21,7 +20,6 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
 import Test.QuickCheck.Property (counterexample, forAll, property)
-import Test.QuickCheck.Property (counterexample, forAll, property, withMaxSuccess)
 
 spec :: Spec
 spec = do
