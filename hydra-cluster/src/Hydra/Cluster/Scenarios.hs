@@ -8,7 +8,6 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
-  NodeLog,
   QueryPoint (QueryTip),
   RunningNode (..),
   buildTransaction,
@@ -16,6 +15,7 @@ import CardanoClient (
   queryUTxOFor,
   submitTx,
  )
+import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^?))
 import Data.Aeson (Value, object, (.=))
@@ -60,7 +60,7 @@ import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, s
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromDiffTime)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance))
 import Hydra.Ledger.Cardano (genKeyPair)
@@ -232,7 +232,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
-    contestationPeriod <- fromDiffTime $ 10 * blockTime
+    contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
@@ -250,7 +250,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "contestationDeadline" . _JSON
-      remainingTime <- realToFrac . diffUTCTime deadline <$> getCurrentTime
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
       waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
         output "ReadyToFanout" ["headId" .= headId]
       send n1 $ input "Fanout" []

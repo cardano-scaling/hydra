@@ -37,15 +37,19 @@ instance Arbitrary ContestationPeriod where
     oneMonth = oneDay * 30
     oneYear = oneDay * 365
 
--- | Create a 'ContestationPeriod' from a 'DiffTime'. This will fail if a
--- negative DiffTime is provided and truncates to 1s if values < 1s are given.
-fromDiffTime :: MonadFail m => DiffTime -> m ContestationPeriod
-fromDiffTime dt =
+-- | Create a 'ContestationPeriod' from a 'NominalDiffTime'. This will fail if a
+-- negative NominalDiffTime is provided and truncates to 1s if values < 1s are given.
+fromNominalDiffTime :: MonadFail m => NominalDiffTime -> m ContestationPeriod
+fromNominalDiffTime dt =
   if seconds > 0
-    then pure . UnsafeContestationPeriod $ truncate seconds
-    else fail $ "fromDiffTime: contestation period <= 0: " <> show dt
+    then pure . UnsafeContestationPeriod $ ceiling seconds
+    else fail $ "fromNominalDiffTime: contestation period <= 0: " <> show dt
  where
   seconds :: Pico = realToFrac dt
+
+toNominalDiffTime :: ContestationPeriod -> NominalDiffTime
+toNominalDiffTime (UnsafeContestationPeriod s) =
+  secondsToNominalDiffTime $ fromIntegral s
 
 -- | Convert an off-chain contestation period to its on-chain representation.
 toChain :: ContestationPeriod -> OnChain.ContestationPeriod
@@ -61,7 +65,3 @@ fromChain cp =
   UnsafeContestationPeriod
     . truncate
     $ toInteger (OnChain.milliseconds cp) % 1000
-
-toNominalDiffTime :: ContestationPeriod -> NominalDiffTime
-toNominalDiffTime (UnsafeContestationPeriod s) =
-  secondsToNominalDiffTime $ fromIntegral s

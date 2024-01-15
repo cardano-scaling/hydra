@@ -90,10 +90,10 @@ failure msg =
   throwIO (HUnitFailure location $ Reason msg)
 
 -- | Fail some monadic action if it does not complete within given timeout.
--- A 'DiffTime' can be represented as a decimal number of seconds.
-failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => DiffTime -> m a -> m a
+-- A 'NominalDiffTime' can be represented as a decimal number of seconds.
+failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => NominalDiffTime -> m a -> m a
 failAfter seconds action =
-  timeout seconds action >>= \case
+  timeout (realToFrac seconds) action >>= \case
     Nothing -> failure $ "Test timed out after " <> show seconds
     Just a -> pure a
 

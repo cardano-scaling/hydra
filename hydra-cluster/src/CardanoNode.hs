@@ -4,18 +4,19 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import CardanoClient (NodeLog (..), QueryPoint (QueryTip), RunningNode (..), queryGenesisParameters, waitForFullySynchronized)
+import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
+import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, querySystemStart, queryTipSlotNo)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
+import Data.Fixed (Centi)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
-  GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
   PaymentKey,
@@ -23,13 +24,11 @@ import Hydra.Cardano.Api (
   SocketPath,
   VerificationKey,
   generateSigningKey,
+  getProgress,
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Cluster.Fixture (
-  KnownNetwork (Mainnet, Preproduction, Preview),
-  defaultNetworkId,
- )
+import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Util (readConfigFile)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
@@ -44,6 +43,18 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
+
+data NodeLog
+  = MsgNodeCmdSpec {cmd :: Text}
+  | MsgCLI [Text]
+  | MsgCLIStatus Text Text
+  | MsgCLIRetry Text
+  | MsgCLIRetryResult Text Int
+  | MsgNodeStarting {stateDirectory :: FilePath}
+  | MsgSocketIsReady SocketPath
+  | MsgSynchronizing {percentDone :: Centi}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 type Port = Int
 
@@ -125,10 +136,7 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args networkId action
- where
-  -- NOTE: This needs to match what's in config/genesis-shelley.json
-  networkId = defaultNetworkId
+  withCardanoNode tracer stateDirectory args action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -141,8 +149,7 @@ withCardanoNodeOnKnownNetwork ::
   IO a
 withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
   copyKnownNetworkFiles
-  networkId <- readNetworkId
-  withCardanoNode tracer workDir args networkId action
+  withCardanoNode tracer workDir args action
  where
   args =
     defaultCardanoNodeArgs
@@ -153,15 +160,6 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , nodeAlonzoGenesisFile = "alonzo-genesis.json"
       , nodeConwayGenesisFile = "conway-genesis.json"
       }
-
-  -- Read 'NetworkId' from shelley genesis
-  readNetworkId = do
-    shelleyGenesis :: Aeson.Value <- unsafeDecodeJson =<< readFileBS (workDir </> "shelley-genesis.json")
-    if shelleyGenesis ^?! key "networkId" == "Mainnet"
-      then pure Api.Mainnet
-      else do
-        let magic = shelleyGenesis ^?! key "networkMagic" . _Number
-        pure $ Api.Testnet (Api.NetworkMagic $ truncate magic)
 
   -- Copy/download configuration files for a known network
   copyKnownNetworkFiles =
@@ -265,10 +263,9 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->
   CardanoNodeArgs ->
-  NetworkId ->
   (RunningNode -> IO a) ->
   IO a
-withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId action = do
+withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
@@ -280,6 +277,8 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
               Left{} -> error "should never been reached"
               Right a -> pure a
  where
+  CardanoNodeArgs{nodeSocket, nodeShelleyGenesisFile} = args
+
   process = cardanoNodeProcess (Just stateDirectory) args
 
   logFilePath = stateDirectory </> "logs" </> "cardano-node.log"
@@ -291,30 +290,55 @@ withCardanoNode tr stateDirectory args@CardanoNodeArgs{nodeSocket} networkId act
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
-    -- Wait for synchronization since otherwise we will receive a query
-    -- exception when trying to obtain pparams and the era is not the one we
-    -- expect.
-    _ <- waitForFullySynchronized tr networkId nodeSocketPath
-    traceWith tr MsgNodeIsReady
-    blockTime <- calculateBlockTime <$> queryGenesisParameters networkId nodeSocketPath QueryTip
+    shelleyGenesis :: Aeson.Value <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile
     action
       RunningNode
         { nodeSocket = nodeSocketPath
-        , networkId
-        , blockTime
+        , networkId = getShelleyGenesisNetworkId shelleyGenesis
+        , blockTime = getShelleyGenesisBlockTime shelleyGenesis
         }
 
-  calculateBlockTime
-    GenesisParameters
-      { protocolParamActiveSlotsCoefficient
-      , protocolParamSlotLength
-      } =
-      fromRational $
-        protocolParamActiveSlotsCoefficient * toRational protocolParamSlotLength
+  readShelleyGenesisJSON = readFileBS >=> unsafeDecodeJson
+
+  -- Read 'NetworkId' from shelley genesis JSON file
+  getShelleyGenesisNetworkId json = do
+    if json ^?! key "networkId" == "Mainnet"
+      then Api.Mainnet
+      else do
+        let magic = json ^?! key "networkMagic" . _Number
+        Api.Testnet (Api.NetworkMagic $ truncate magic)
+
+  -- Read expected time between blocks from shelley genesis
+  getShelleyGenesisBlockTime json = do
+    let slotLength = json ^?! key "slotLength" . _Number
+    let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
+    realToFrac $ slotLength / activeSlotsCoeff
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
       removeFile socketPath
+
+-- | Wait until the node is fully caught up with the network. This can take a
+-- while!
+waitForFullySynchronized ::
+  Tracer IO NodeLog ->
+  RunningNode ->
+  IO ()
+waitForFullySynchronized tracer RunningNode{networkId, nodeSocket, blockTime} = do
+  systemStart <- querySystemStart networkId nodeSocket QueryTip
+  check systemStart
+ where
+  check systemStart = do
+    targetTime <- toRelativeTime systemStart <$> getCurrentTime
+    eraHistory <- queryEraHistory networkId nodeSocket QueryTip
+    tipSlotNo <- queryTipSlotNo networkId nodeSocket
+    (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
+    let timeDifference = diffRelativeTime targetTime tipTime
+    let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
+    traceWith tracer $ MsgSynchronizing{percentDone}
+    if timeDifference < blockTime
+      then pure ()
+      else threadDelay 3 >> check systemStart
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: SocketPath -> IO ()
