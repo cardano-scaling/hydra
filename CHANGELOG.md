@@ -11,41 +11,33 @@ changes.
 
 ## [0.15.0] - UNRELEASED
 
-- Tested against `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
+- Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
 
-- Hydra Direct Chain layer does not maintain state and does not make any logic
-  decisions. This is now completely responsibility of the HydraLogic layer.
-  Posting transactions from this layer is now free of any knowledge of L1 keys.
-  [1196](https://github.com/input-output-hk/hydra/pull/1196)
+- **BREAKING** Remove head state from `hydra-node` chain layer [1196](https://github.com/input-output-hk/hydra/pull/1196):
+  - Not maintain head state in the chain layer anymore and all decision making (whether it's "our" head) is now fully contained in the logic layer.
+  - This is a breaking change on the persisted `state` file, which now only stores so-called `spendableUTxO`. This raises a `PersistenceException` if an incompatible `state` file is loaded.
+  - Heads need to be closed before upgrade to this version, as wiping `state` in the `--persistence-dir` is needed.
+  - This also changes the `NodeOptions` log output because of internal restructuring of chain layer configuration.
+
+- New `offline` sub-command for `hydra-node` [#1118](https://github.com/input-output-hk/hydra/pull/1118), [#1222](https://github.com/input-output-hk/hydra/pull/1222):
+  - Initializes a head with given `--initial-utxo` parameter, and does not connect to the Cardano network.
+  - Transactions submitted on the L2 are validated as usual, where the offline chain simulates time passing in slots.
+  - The `--ledger-genesis` option allows to give a shelley genesis file to configure start time and slot length of the simulated chain time.
+
+- Prepare `hydra-node` for the upcoming `Conway` hard-fork [#1177](https://github.com/input-output-hk/hydra/issues/1177):
+  - Interactions with `cardano-node` are updated to work in both, `Babbage` and `Conway` era.
+  - Unsupported eras are reported as error when starting.
+
+- Add a default for `hydra-node --node-id` (`"hydra-node-1"`) to simplify configuration.
+
+- Fix `hydra-node` API reference & schema for `/protocol-parameters` [#1241](https://github.com/input-output-hk/hydra/pull/1241). This now matches the JSON returned by `cardano-cli query protocol-parameters`, expected at `hydra-node --ledger-protocol-parameters` and produced by the API endpoint.
+
+- The `hydra-cluster` binary can bootstrap `cardano-node`s running on public networks using `mithril-client`.
 
 - **BREAKING** Internal changes to `hydra-cardano-api`:
-  - Renamed `HasMultiAsset` type class to `IsMaryEraOnwards`. Use
-    `maryEraOnwards` to produce witnesses for features from mary onwards.
-  - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use
-    `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
-  - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use
-    `babbageEraOnwards` to produce witnesses for features from babbage onwards.
-
-- Report error on unsupported era.
-
-- New `offline` sub-command for `hydra-node`:
-  - Initializes a head with given `--initial-utxo` parameter, and does not
-    connect to the Cardano network.
-  - Transactions submitted on the L2 are validated as usual, where the offline
-    chain simulates time passing in slots.
-  - The `--ledger-genesis` option allows to give a shelley genesis file to
-    configure start time and slot length of the simulated chain time.
-
-- The `hydra-node` now also has a default `--node-id` (`"hydra-node-1"`) to
-  simplify configuration.
-
-- **BREAKING** Changes the `NodeOptions` log output because of internal
-  restructuring of chain layer configuration.
-
-- Adapt cardano client and the chain-sync client to survive after the fork to Conway era.
-
-- The `hydra-cluster` binary can bootstrap `cardano-node`s running on public
-  networks using `mithril-client`.
+  - Renamed `HasMultiAsset` type class to `IsMaryEraOnwards`. Use `maryEraOnwards` to produce witnesses for features from mary onwards.
+  - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
+  - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use `babbageEraOnwards` to produce witnesses for features from babbage onwards.
 
 ## [0.14.0] - 2023-12-04
 
