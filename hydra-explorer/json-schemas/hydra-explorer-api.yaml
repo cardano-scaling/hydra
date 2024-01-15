@@ -1,0 +1,97 @@
+openapi: 3.0.0
+info:
+  title: Head Explorer API
+  version: 1.0.0
+paths:
+  /heads:
+    get:
+      summary: Get a list of head states
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HeadState'
+  /heads/{headId}:
+    get:
+      summary: Get head by ID
+      parameters:
+        - in: path
+          name: headId
+          required: true
+          schema:
+            $ref: '#/components/schemas/HeadId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeadState'
+
+components:
+  schemas:
+    OnChainId:
+      type: string
+      description: |
+        A on-chain identifier for a Head participant, hex-encoded as 28 bytes string.
+      # "$ref": "cardano.json#/definitions/Digest<Blake2b, 224>"
+      # "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Digest<Blake2b, 224>"
+    Commit:
+      type: object
+      properties:
+        txIn:
+          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutputReference"
+        txOut:
+          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutput"
+    HeadMember:
+      type: object
+      properties:
+        party:
+          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/VerificationKey"
+        onChainId:
+          $ref: '#/components/schemas/OnChainId'
+          # "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Digest<Blake2b, 224>"
+        commits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Commit'
+    HeadStatus:
+      type: string
+      enum:
+        - Initializing
+        - Aborted
+        - Open
+        - Closed
+        - FanoutPossible
+        - Finalized
+    ContestationPeriod:
+      type: number
+      description: |
+        A contestation duration in seconds.
+      example: 60
+    HeadId:
+      type: string
+      description: |
+        A unique identifier for a Head, represented by a hex-encoded 16 bytes string.
+      # contentEncoding: base16
+      example:
+        "820082582089ff4f3ff4a6052ec9d073"
+    HeadState:
+      type: object
+      properties:
+        headId:
+          $ref: '#/components/schemas/HeadId'
+        seedTxIn:
+          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutputReference"
+        status:
+          $ref: '#/components/schemas/HeadStatus'
+        contestationPeriod:
+          $ref: '#/components/schemas/ContestationPeriod'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeadMember'
