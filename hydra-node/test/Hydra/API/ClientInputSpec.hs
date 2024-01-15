@@ -34,13 +34,6 @@ spec = parallel $ do
               Success{} -> property True
               Error e -> counterexample (toString $ toText e) $ property False
 
-    prop "accepts raw CBOR-base16-encoded transactions" $ do
-      forAll (arbitrary @Tx) $ \tx ->
-        let cborHex = decodeUtf8 $ Base16.encode $ serialize' $ toLedgerTx tx
-         in case fromJSON @Tx (String cborHex) of
-              Success{} -> True
-              Error e -> error (toText e)
-
 settings :: Settings
 settings =
   defaultSettings

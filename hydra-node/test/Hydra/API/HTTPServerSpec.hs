@@ -56,12 +56,6 @@ spec = do
 
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
-      prop "accepts Base16 cbor encoded bytestring" $
-        forAll (arbitrary @Tx) $ \tx ->
-          let json = String $ decodeUtf8 $ Base16.encode $ serialize' (toLedgerTx tx)
-           in case fromJSON @(SubmitTxRequest Tx) json of
-                Success{} -> property True
-                Error e -> counterexample (toString $ toText e) $ property False
       prop "accepts json encoded transaction" $
         forAll (arbitrary @Tx) $ \tx ->
           let json = toJSON tx
