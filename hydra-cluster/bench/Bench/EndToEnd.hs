@@ -329,7 +329,7 @@ newTx registry client tx = do
           , invalidAt = Nothing
           , confirmedAt = Nothing
           }
-  send client $ input "NewTx" ["transaction" .= serialiseToTextEnvelope Nothing tx]
+  send client $ input "NewTx" ["transaction" .= toJSON tx]
 
 data WaitResult
   = TxInvalid {transactionId :: TxId, reason :: Text}
@@ -396,14 +396,14 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "txId" . to fromJSON >>= \case
+      ^? key "transaction" . key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success txid -> pure $ TxValid txid
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "txId" . to fromJSON >>= \case
+      ^? key "transaction" . key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success tx ->
           TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
