@@ -4,26 +4,30 @@ import Data.ByteString.Char8 qualified as BSC
 import Hydra.Cardano.Api (AsType (AsTxId), TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Prelude
-import Options.Applicative (Parser, eitherReader, flag', help, long, metavar, strOption)
+import Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
 import Options.Applicative.Builder (option)
 
 data Options = Options
   { knownNetwork :: Maybe KnownNetwork
   , stateDirectory :: Maybe FilePath
   , publishHydraScripts :: PublishOrReuse
+  , useMithril :: UseMithril
   }
   deriving stock (Show)
 
 data PublishOrReuse = Publish | Reuse TxId
   deriving stock (Show)
 
--- TODO: Provide an option to use mithril aggregated snapshots to bootstrap the testnet
+data UseMithril = NotUseMithril | UseMithril
+  deriving stock (Show, Eq)
+
 parseOptions :: Parser Options
 parseOptions =
   Options
     <$> parseKnownNetwork
     <*> parseStateDirectory
     <*> parsePublishHydraScripts
+    <*> parseUseMithril
  where
   parseKnownNetwork =
     flag' (Just Preview) (long "preview" <> help "The preview testnet")
@@ -65,6 +69,17 @@ parseOptions =
         ( long "hydra-scripts-tx-id"
             <> metavar "TXID"
             <> help
-              "Use the hydra scripts already published in given transaction id.\
+              "Use the hydra scripts already published in given transaction id. \
               \See --publish-hydra-scripts or hydra-node publish-scripts"
         )
+
+  parseUseMithril =
+    flag
+      NotUseMithril
+      UseMithril
+      ( long "use-mithril"
+          <> help
+            "Use mithril-client to download and verify the latest network snapshot. \
+            \If not set, the cardano-node will synchronize the network given the current \
+            \cardano-node state in --state-directory."
+      )

@@ -5,7 +5,8 @@ import Hydra.Prelude
 import CardanoNode (waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), parseOptions)
+import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
+import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import HydraNode (HydraClient (..))
@@ -22,7 +23,10 @@ run options =
     let fromCardanoNode = contramap FromCardanoNode tracer
     withStateDirectory $ \workDir ->
       case knownNetwork of
-        Just network ->
+        Just network -> do
+          when (useMithril == UseMithril) $
+            -- TODO: fails if workDir/db already exists
+            downloadLatestSnapshotTo network workDir
           withCardanoNodeOnKnownNetwork fromCardanoNode workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
             publishOrReuseHydraScripts tracer node
@@ -33,7 +37,7 @@ run options =
             singlePartyOpenAHead tracer workDir node txId $ \HydraClient{} -> do
               forever (threadDelay 60) -- do nothing
  where
-  Options{knownNetwork, stateDirectory, publishHydraScripts} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril} = options
 
   withStateDirectory action = case stateDirectory of
     Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action

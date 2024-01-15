@@ -14,7 +14,7 @@ downloadLatestSnapshotTo network dir = do
   -- TODO: Use a tracer?
   putTextLn $ "Downloading latest snapshot of " <> show network <> " to " <> show dir
   genesisKey <- parseRequest (genesisKeyURLForNetwork network) >>= httpBS <&> getResponseBody
-  -- TODO: not inherit handles
+  -- TODO: not inherit handles?
   callProcess "mithril-client" $
     concat
       [ ["--aggregator-endpoint", aggregatorEndpointForNetwork network]
