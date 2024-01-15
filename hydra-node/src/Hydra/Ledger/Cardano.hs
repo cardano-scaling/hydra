@@ -12,8 +12,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
-import Data.Aeson (object, (.:), (.=))
-import Data.Aeson qualified as Aeson
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
@@ -30,7 +28,11 @@ import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
 import Control.Monad (foldM)
+import Data.Aeson (object, (.:), (.:?), (.=))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types (withObject)
 import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
@@ -52,9 +54,6 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
-import qualified Data.ByteString.Base16 as Base16
-import Data.Aeson.Types (withObject)
-import Data.Aeson ((.:?))
 
 -- * Ledger
 
@@ -130,20 +129,29 @@ instance FromCBOR Tx where
         (pure . fromLedgerTx)
 
 instance ToJSON Tx where
-  toJSON tx = object [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx) ]
+  toJSON tx =
+    object
+      [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+      , "txId" .= (txId tx)
+      ]
 
 instance FromJSON Tx where
-    parseJSON =
-      withObject "Tx" $ \o -> do
-        let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx    ))
-        hexText <- o .: "cborHex"
-        (o .:? "type") >>= \case
-          Nothing -> pure ()
-          Just x -> guard (envelopeType == x)
-        bytes <- decodeBase16 hexText
-        case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-          Left e -> fail $ show e
-          Right x -> pure x
+  parseJSON =
+    withObject "Tx" $ \o -> do
+      let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
+      hexText <- o .: "cborHex"
+      (o .:? "type") >>= \case
+        Nothing -> pure ()
+        Just x -> guard (envelopeType == x)
+      bytes <- decodeBase16 hexText
+
+      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+        Left e -> fail $ show e
+        Right tx -> (o .:? "txId") >>= \case
+          Nothing -> pure tx
+          Just txid' -> do
+            guard (txid' == (txId tx))
+            pure tx
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
