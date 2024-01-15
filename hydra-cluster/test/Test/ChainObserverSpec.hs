@@ -139,6 +139,8 @@ withChainObserver cardanoNode action =
     proc
       "hydra-chain-observer"
       $ ["--node-socket", unFile nodeSocket]
+        <> ["--host", "127.0.0.1"]
+        <> ["--port", "8888"]
         <> case networkId of
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
