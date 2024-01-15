@@ -63,4 +63,4 @@ data KnownNetwork
   = Preview
   | Preproduction
   | Mainnet
-  deriving stock (Show)
+  deriving stock (Show, Eq, Enum, Bounded)
