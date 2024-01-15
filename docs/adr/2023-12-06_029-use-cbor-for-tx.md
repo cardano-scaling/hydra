@@ -3,7 +3,7 @@ slug: 30
 title: |
   30. Use CBOR in external representation of Cardano transactions
 authors: [abailly]
-tags: []
+tags: [Proposed]
 ---
 
 ## Status
@@ -12,7 +12,7 @@ Proposed
 
 ## Context
 
-* The [Hydra.Ledger.Cardano](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano.hs#L127] module provides `ToJSON/FromJSON` instances for [Alonzo.Tx](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L361)
+* The [Hydra.Ledger.Cardano](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano.hs#L127) module provides `ToJSON/FromJSON` instances for `Tx` and [AlonzoTx](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L361)
   * We have specified this format as part of [Hydra API](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/json-schemas/api.yaml#L1473)
 * These instances appear in a few places as part of Hydra API:
   * In the [ServerOutput](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/ServerOutput.hs#L51) sent by the node to clients
@@ -36,14 +36,16 @@ Proposed
 * Drop support of "structured" JSON encoding of transactions in log messages, external APIs, and local storage of a node state
 * Require JSON encoding for transactions that consists in:
   * A `cborHex` string field containing the base16 CBOR-encoded transaction
-  * An optional `txId` string field containing the base16 encoding of the Blake2b256 hash of the transaction's bytes
+  * An optional `txId` string field containing the Cardano transaction id, i.e. the base16 encoded Blake2b256 hash of the transaction body bytes
   * When present, the `txId` MUST be consistent with the `cborHex`. This will be guaranteed for data produced by Hydra, but input data (eg. through a `NewTx` message) that does not respect this constraint will be rejected
 
 ## Consequences
 
-* By providing a `txId` field alongside the CBOR encoding, we still allow clients to observe the lifecycle of a transaction inside a Head as it gets validated and confirmed without requiring from them to be able to decode the CBOR body and compute the txId themselves
+* This is a breaking change and client applications must decode the full transaction CBOR before accessing any part of it
+  - Hydra clients like `hydraw`, `hydra-auction`, `hydra-pay`, `hydra-poll` and hydra-chess` need to be updated
+* By providing a `txId` field alongside the CBOR encoding, we still allow clients to observe the lifecycle of a transaction inside a Head as it gets validated and confirmed without requiring from them to be able to decode the CBOR body and compute the `txId` themselves
   * This is particularly important for monitoring which usually does not care about the details of transactions
 * We should point users to existing tools for decoding transactions' content in a human-readable format as this can be useful for troubleshooting:
-  * `cardano-cli transaction view --tx-file <path to tx enveloppe file>` is one example
+  * `cardano-cli transaction view --tx-file <path to tx envelope file>` is one example
 * We need to _version_ the data that's persisted and exchanged, e.g the Head state and network messages, in order to ensure nodes can either gracefully migrate stored data or detect explicitly versions inconsistency
 * We should use the [cardanonical](https://github.com/CardanoSolutions/cardanonical) schemas should the need arise to represent transaction in JSON again
