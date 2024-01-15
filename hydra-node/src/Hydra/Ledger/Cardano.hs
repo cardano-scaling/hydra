@@ -12,6 +12,8 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState)
 import Hydra.Ledger.Cardano.Builder
 
+import Data.Aeson (object, (.:), (.=))
+import Data.Aeson qualified as Aeson
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
@@ -50,6 +52,9 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
+import qualified Data.ByteString.Base16 as Base16
+import Data.Aeson.Types (withObject)
+import Data.Aeson ((.:?))
 
 -- * Ledger
 
@@ -125,10 +130,20 @@ instance FromCBOR Tx where
         (pure . fromLedgerTx)
 
 instance ToJSON Tx where
-  toJSON = toJSON . toLedgerTx
+  toJSON tx = object [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx) ]
 
 instance FromJSON Tx where
-  parseJSON = fmap fromLedgerTx . parseJSON
+    parseJSON =
+      withObject "Tx" $ \o -> do
+        let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx    ))
+        hexText <- o .: "cborHex"
+        (o .:? "type") >>= \case
+          Nothing -> pure ()
+          Just x -> guard (envelopeType == x)
+        bytes <- decodeBase16 hexText
+        case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+          Left e -> fail $ show e
+          Right x -> pure x
 
 instance Arbitrary Tx where
   -- TODO: shrinker!

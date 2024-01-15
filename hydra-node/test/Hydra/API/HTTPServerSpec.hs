@@ -64,7 +64,7 @@ spec = do
                 Error e -> counterexample (toString $ toText e) $ property False
       prop "accepts json encoded transaction" $
         forAll (arbitrary @Tx) $ \tx ->
-          let json = toJSON (toLedgerTx tx)
+          let json = toJSON tx
            in case fromJSON @(SubmitTxRequest Tx) json of
                 Success{} -> property True
                 Error e -> counterexample (toString $ toText e) $ property False

@@ -39,6 +39,8 @@ changes.
   - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
   - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use `babbageEraOnwards` to produce witnesses for features from babbage onwards.
 
+- **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
+
 ## [0.14.0] - 2023-12-04
 
 - **BREAKING** Multiple changes to the Hydra Head protocol on-chain:

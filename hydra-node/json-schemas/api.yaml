@@ -161,8 +161,7 @@ channels:
           Cardano transaction to be submitted to the L1 network.
           Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
         payload:
-          oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
+          $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: response
@@ -239,8 +238,7 @@ components:
             type: string
             enum: ["NewTx"]
           transaction:
-            oneOf:
-              - $ref: "api.yaml#/components/schemas/Transaction"
+            $ref: "api.yaml#/components/schemas/Transaction"
 
     Close:
       title: Close
