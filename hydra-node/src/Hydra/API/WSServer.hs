@@ -15,7 +15,6 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   HeadStatus,
-  OutputFormat (..),
   ServerOutput (Greetings, InvalidInput, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
@@ -110,15 +109,8 @@ wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pe
 
   mkServerOutputConfig qp =
     ServerOutputConfig
-      { txOutputFormat = decideOnTxDisplay qp
-      , utxoInSnapshot = decideOnUTxODisplay qp
+      { utxoInSnapshot = decideOnUTxODisplay qp
       }
-
-  decideOnTxDisplay qp =
-    let k = [queryKey|tx-output|]
-        v = [queryValue|cbor|]
-        queryP = QueryParam k v
-     in if queryP `elem` qp then OutputCBOR else OutputJSON
 
   decideOnUTxODisplay qp =
     let k = [queryKey|snapshot-utxo|]

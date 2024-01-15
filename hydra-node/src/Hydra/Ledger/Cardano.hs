@@ -147,11 +147,12 @@ instance FromJSON Tx where
 
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left e -> fail $ show e
-        Right tx -> (o .:? "txId") >>= \case
-          Nothing -> pure tx
-          Just txid' -> do
-            guard (txid' == (txId tx))
-            pure tx
+        Right tx ->
+          (o .:? "txId") >>= \case
+            Nothing -> pure tx
+            Just txid' -> do
+              guard (txid' == (txId tx))
+              pure tx
 
 instance Arbitrary Tx where
   -- TODO: shrinker!

@@ -153,19 +153,12 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
 
--- | Possible transaction formats in the api server output
-data OutputFormat
-  = OutputCBOR
-  | OutputJSON
-  deriving stock (Eq, Show)
-
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
 
 data ServerOutputConfig = ServerOutputConfig
-  { txOutputFormat :: OutputFormat
-  , utxoInSnapshot :: WithUTxO
+  { utxoInSnapshot :: WithUTxO
   }
   deriving stock (Eq, Show)
 
@@ -182,7 +175,7 @@ prepareServerOutput ::
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response =
+prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -199,21 +192,15 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
         Init -> encodedResponse
         Abort -> encodedResponse
         NewTx{Hydra.API.ClientInput.transaction = tx} ->
-          handleTxOutput
-            (key "transaction" .~ txToCbor tx)
-            encodedResponse
+          (key "transaction" .~ toJSON tx) encodedResponse
         GetUTxO -> encodedResponse
         Close -> encodedResponse
         Contest -> encodedResponse
         Fanout -> encodedResponse
     TxValid{Hydra.API.ServerOutput.transaction = tx} ->
-      handleTxOutput
-        (key "transaction" .~ txToCbor tx)
-        encodedResponse
+      (key "transaction" .~ toJSON tx) encodedResponse
     TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
-      handleTxOutput
-        (key "transaction" .~ txToCbor tx)
-        encodedResponse
+      (key "transaction" .~ toJSON tx) encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
@@ -227,15 +214,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
       WithUTxO -> bs
       WithoutUTxO -> bs & f
 
-  handleTxOutput f bs =
-    case txOutputFormat of
-      OutputJSON -> bs
-      OutputCBOR -> bs & f
-
   encodedResponse = encode response
-
-  txToCbor =
-    String . decodeUtf8 . Base16.encode . serialize'
 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus

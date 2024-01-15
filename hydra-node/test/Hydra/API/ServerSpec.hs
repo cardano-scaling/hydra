@@ -5,7 +5,6 @@ module Hydra.API.ServerSpec where
 import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
-import Cardano.Binary (serialize')
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
@@ -19,7 +18,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nonNull)
-import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
@@ -199,7 +197,7 @@ spec = describe "ServerSpec" $
                     Right timedOutputs' -> do
                       (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
 
-    it "outputs tx as cbor or json depending on the client" $
+    it "outputs tx as json with cbor in it" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port ->
           withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
@@ -236,11 +234,11 @@ spec = describe "ServerSpec" $
                   guard $ v ^? key "transaction" == Just expected
 
             -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
+            withClient port "/?history=no" $ \conn -> do
               sendOutput txValidMessage
 
               waitMatch 5 conn $ \v ->
-                guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
+                guardForValue v $ toJSON tx
 
               sendOutput snapShotConfirmedMessage
 
@@ -257,13 +255,6 @@ spec = describe "ServerSpec" $
                 let result =
                       Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
                  in guard $ result == Just expectedTxIds
-
-            -- spawn another client but this one wants to see txs in json format
-            withClient port "/?history=no" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v (toJSON tx)
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $

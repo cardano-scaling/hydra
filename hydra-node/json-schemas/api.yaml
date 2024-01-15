@@ -7,7 +7,7 @@ info:
 
     Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket/HTTP endpoints. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
     Therefore, once connected, clients receive a stream of outputs as they arrive. Clients get to decide (using query parameters) if they want to observe the history of outputs and the transaction format.
-    For example if client provides a path that looks like this `/?history=no&tx-output=cbor&snapshot-utxo=no` the server will not serve prior history of server outputs, the transaction fields in the json will be encoded as CBOR (base16 encoded), and the utxo field in the json will be omitted.
+    For example if client provides a path that looks like this `/?history=no&snapshot-utxo=no` the server will not serve prior history of server outputs, and the utxo field in the json will be omitted.
 
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
     See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
@@ -60,11 +60,6 @@ channels:
             schema:
               type: string
               enum: ["yes", "no"]
-          tx-output:
-            description: Specify weather the client wants see transactions encoded as cbor. Default is json.
-            schema:
-              type: string
-              enum: ["json", "cbor"]
           snapshot-utxo:
             description: Specify weather the client wants see the snapshot utxo. Default is yes.
             schema:
