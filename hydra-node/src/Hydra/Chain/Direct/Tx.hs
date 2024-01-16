@@ -968,7 +968,7 @@ observeContestTx utxo tx = do
 
 newtype FanoutObservation = FanoutObservation {headId :: HeadId}
   deriving stock (Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -990,7 +990,7 @@ observeFanoutTx utxo tx = do
 
 newtype AbortObservation = AbortObservation {headId :: HeadId}
   deriving stock (Eq, Show, Generic)
-  deriving newtype (ToJSON, FromJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
