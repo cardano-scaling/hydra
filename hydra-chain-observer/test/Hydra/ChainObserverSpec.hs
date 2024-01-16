@@ -6,7 +6,8 @@ import Test.Hydra.Prelude
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.ChainObserver (ChainObserverLog (..), observeAll, observeTx)
+import Hydra.Chain.Direct.Tx (HeadObservation (..))
+import Hydra.ChainObserver (observeAll, observeTx)
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
@@ -21,13 +22,13 @@ spec =
             counterexample (show transition) $
               let utxo = getKnownUTxO st
                in case snd $ observeTx testNetworkId utxo tx of
-                    Just (HeadInitTx{}) -> transition === Transition.Init
-                    Just (HeadCommitTx{}) -> transition === Transition.Commit
-                    Just (HeadCollectComTx{}) -> transition === Transition.Collect
-                    Just (HeadAbortTx{}) -> transition === Transition.Abort
-                    Just (HeadCloseTx{}) -> transition === Transition.Close
-                    Just (HeadContestTx{}) -> transition === Transition.Contest
-                    Just (HeadFanoutTx{}) -> transition === Transition.Fanout
+                    Just (Init{}) -> transition === Transition.Init
+                    Just (Abort{}) -> transition === Transition.Abort
+                    Just (Commit{}) -> transition === Transition.Commit
+                    Just (CollectCom{}) -> transition === Transition.Collect
+                    Just (Close{}) -> transition === Transition.Close
+                    Just (Contest{}) -> transition === Transition.Contest
+                    Just (Fanout{}) -> transition === Transition.Fanout
                     _ -> property False
 
     prop "Updates UTxO state given transaction part of Head lifecycle" $
