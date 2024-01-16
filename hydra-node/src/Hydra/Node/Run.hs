@@ -36,7 +36,7 @@ import Hydra.Node (
   createNodeState,
   initEnvironment,
   loadState,
-  runHydraNode,
+  runHydraNode, loadStateEventSource,
  )
 import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
@@ -49,7 +49,9 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental)
+import Hydra.Persistence (NewPersistenceIncremental (..), createPersistenceIncremental, eventPairFromPersistenceIncremental, createNewPersistenceIncremental)
+
+import qualified Data.List.NonEmpty as NE
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
@@ -80,8 +82,17 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
 
       withCardanoLedger pparams globals $ \ledger -> do
-        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
+        -- persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+        --TODO(Elaine): remove in favor of eventSource/Sink directly
+        -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
+
+        -- let -- (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
+        --     eventSinks = eventSink :| [] --FIXME(Elaine): load other event sinks
+        --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
+        let eventSinksSansSource = undefined
+        persistence@NewPersistenceIncremental{eventSource, eventSinks} <- createNewPersistenceIncremental $ persistenceDir <> "/state"
+
+        (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource (NE.toList eventSinks) initialChainState
 
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
