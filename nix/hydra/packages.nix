@@ -3,7 +3,7 @@
 { hydraProject # as defined in default.nix
 , system ? builtins.currentSystem
 , pkgs
-, cardano-node
+, inputs
 , gitRev ? "unknown"
 }:
 let
@@ -132,9 +132,10 @@ rec {
         [
           nativePkgs.hydra-cluster.components.tests.tests
           hydra-node
-          cardano-node.packages.${system}.cardano-node
-          cardano-node.packages.${system}.cardano-cli
           hydra-chain-observer
+          inputs.cardano-node.packages.${system}.cardano-node
+          inputs.cardano-node.packages.${system}.cardano-cli
+          inputs.mithril.packages.${system}.mithril-client-cli
           pkgs.check-jsonschema
         ];
     };
@@ -144,7 +145,7 @@ rec {
         [
           nativePkgs.hydra-tui.components.tests.tests
           hydra-node
-          cardano-node.packages.${system}.cardano-node
+          inputs.cardano-node.packages.${system}.cardano-node
         ];
     };
   };
@@ -163,8 +164,8 @@ rec {
         [
           nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
           hydra-node
-          cardano-node.packages.${system}.cardano-node
-          cardano-node.packages.${system}.cardano-cli
+          inputs.cardano-node.packages.${system}.cardano-node
+          inputs.cardano-node.packages.${system}.cardano-cli
         ];
     };
     plutus-merkle-tree = pkgs.mkShellNoCC {

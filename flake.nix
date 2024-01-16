@@ -9,6 +9,7 @@
       flake = false;
     };
     cardano-node.url = "github:input-output-hk/cardano-node/8.7.2";
+    mithril.url = "github:input-output-hk/mithril/2347.0";
   };
 
   outputs =
@@ -31,7 +32,7 @@
           inherit system nixpkgs;
         };
         hydraPackages = import ./nix/hydra/packages.nix {
-          inherit hydraProject system pkgs cardano-node;
+          inherit hydraProject system pkgs inputs;
           gitRev = self.rev or "dirty";
         };
         hydraImages = import ./nix/hydra/docker.nix {
@@ -52,12 +53,10 @@
           };
 
         devShells = (import ./nix/hydra/shell.nix {
-          inherit (inputs) cardano-node;
-          inherit hydraProject system;
+          inherit inputs hydraProject system;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
-            inherit (inputs) cardano-node;
-            inherit hydraProject system;
+            inherit inputs hydraProject system;
             withoutDevTools = true;
           }).default;
         };
