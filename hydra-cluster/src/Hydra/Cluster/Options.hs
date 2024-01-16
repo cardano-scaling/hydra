@@ -80,6 +80,7 @@ parseOptions =
       ( long "use-mithril"
           <> help
             "Use mithril-client to download and verify the latest network snapshot. \
+            \When setting this, ensure that there is no db/ in --state-directory. \
             \If not set, the cardano-node will synchronize the network given the current \
             \cardano-node state in --state-directory."
       )

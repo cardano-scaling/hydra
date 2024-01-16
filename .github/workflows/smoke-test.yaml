@@ -16,6 +16,11 @@ on:
         description: "TxId of already published scripts (leave empty to publish)"
         required: false
 
+      use-mithril:
+        description: "Bootstrap cardano-node using mithril (removes existing db/)"
+        required: false
+        type: boolean
+
 jobs:
   smoke-test:
     name: "Smoke test on ${{inputs.network}}"
@@ -34,7 +39,12 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
 
-    - name: 🚬 Cleanup hydra-node state
+    - name: 🧹 Delete cardano-node db (when using mithril)
+      if: ${{ inputs.use-mithril }}
+      run: |
+        rm -rf ${state_dir}/db
+
+    - name: 🧹 Cleanup hydra-node state
       run: |
         rm -rf ${state_dir}/state-*
 
@@ -47,10 +57,14 @@ jobs:
     - name: 🚬 Run hydra-cluster smoke test
       run: |
         if [ -n "${{inputs.hydra-scripts-tx-id}}" ]; then
-          nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}} --state-directory ${state_dir}"
+          HYDRA_SCRIPTS_ARG="--hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}}"
         else
-          nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --publish-hydra-scripts --state-directory ${state_dir}"
+          HYDRA_SCRIPTS_ARG="--publish-hydra-scripts"
         fi
+        if ${{inputs.use-mithril}}; then
+          USE_MITHRIL_ARG="--use-mithril"
+        fi
+        nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG}"
 
     - name: 💾 Upload logs
       if: always()

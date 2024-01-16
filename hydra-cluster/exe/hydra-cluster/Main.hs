@@ -25,7 +25,6 @@ run options =
       case knownNetwork of
         Just network -> do
           when (useMithril == UseMithril) $
-            -- TODO: fails if workDir/db already exists
             downloadLatestSnapshotTo network workDir
           withCardanoNodeOnKnownNetwork fromCardanoNode workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
