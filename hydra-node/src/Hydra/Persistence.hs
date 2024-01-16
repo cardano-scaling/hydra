@@ -4,7 +4,7 @@ module Hydra.Persistence where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar, MonadSTM (modifyTVar'))
 import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -49,11 +49,111 @@ createPersistence fp = do
                   Right a -> pure (Just a)
       }
 
+data EventSource e m = EventSource { getEvents' :: FromJSON e => m [e] }
+data EventSink e m = EventSink { putEvent' :: ToJSON e => e -> m () }
+--FIXME(Elaine): we have to figure out a better taxonomy/nomenclature for the events/statechange stuff
+-- the eventID here is not the same as the eventID in Queued, that one is more fickle and influenced by non state change events
+-- this one is only incremented when we have a new state change event
+
+--FIXME(Elaine): primary createPersistenceIncremental is in Run.hs, that's swapped now
+--  but replacing PersistenceIncremental outside of that, for network messages ex, seems like it should happen after, to not break too much at once
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , loadAll :: FromJSON a => m [a]
   }
+
+--FIXME(Elaine): rename this, just taking the name of PersistenceIncremental once thats fully removed might suffice
+data NewPersistenceIncremental a m = NewPersistenceIncremental
+  { eventSource :: EventSource a m
+  , eventSinks :: NonEmpty (EventSink a m)
+  , lastStateChangeId :: TVar m Word64 -- FIXME(Elaine): name change , persistence captures more than just this
+  }
+
+putEventToSinks :: (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> e -> m ()
+putEventToSinks sinks e = forM_ sinks (\sink -> putEvent' sink e)
+
+putEventsToSinks :: (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> [e] -> m ()
+putEventsToSinks sinks es = forM_ es (\e -> putEventToSinks sinks e)
+
+-- FIXME(Elaine): this needs to be the reverse, since we need to keep track of the eventID
+--FIXME(Elaine): neither this nor the opposite direction can handle re-submission properly without keeping track of the state separately in step/hydranode & 
+-- so this means removing the old persistence for the purpose of statechanged events is more urgent
+eventPairFromPersistenceIncremental :: PersistenceIncremental a m -> (EventSource a m, EventSink a m)
+eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
+  let eventSource = EventSource {getEvents' = loadAll}
+      eventSink = EventSink {putEvent' = append}
+   in (eventSource, eventSink)
+
+-- persistenceIncrementalFromEventPair :: (Monad m, ToJSON a, FromJSON a) => (EventSource a m, EventSink a m) -> PersistenceIncremental a m
+-- persistenceIncrementalFromEventPair (EventSource{getEvents'}, EventSink{putEvent'}) =
+--   let append = putEvent' 0
+--       loadAll = getEvents'
+--    in PersistenceIncremental{append, loadAll}
+
+createNewPersistenceIncremental ::
+  (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
+  FilePath ->
+  m (NewPersistenceIncremental a m)
+createNewPersistenceIncremental fp = do
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  authorizedThread <- newTVarIO Nothing
+  lastStateChangeId <- newTVarIO 0
+  -- FIXME(Elaine): eventid too general for this, at least not without writing the eventids to disk, but even then, hacky
+  -- we'll have a new ID for each statechanged event, 
+  -- i think this is probablyh fine and doesn't need fixing, but wanted to write it down first
+  -- the eventId here is a monotonically increasing integer, and it lets us keep track of how "far along" we are in the persistence
+  -- we can use this to skip resubmitting events
+  -- more complicated solutions would be possible, in particular, rolling hash / merkle chain might be more resilient to corruption
+  -- but given that persistence is already atomic and only needs to be consistent within a single node, it should suffice
+  nextId <- newTVarIO 0
+  let eventSource = EventSource
+        { getEvents' = do
+            tid <- myThreadId
+            atomically $ do
+              authTid <- readTVar authorizedThread
+              when (isJust authTid && authTid /= Just tid) $
+                throwSTM (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
+
+            liftIO (doesFileExist fp) >>= \case
+              False -> pure []
+              True -> do
+                bs <- readFileBS fp
+                -- NOTE: We require the whole file to be loadable. It might
+                -- happen that the data written by 'append' is only there
+                -- partially and then this will fail (which we accept now).
+                result <- case forM (C8.lines bs) Aeson.eitherDecodeStrict' of
+                  Left e -> throwIO $ PersistenceException e
+                  Right decoded -> pure decoded
+                -- set initial nextId (zero-indexed) based on how many state change events we have
+                atomically $ do
+                  writeTVar lastStateChangeId $ fromIntegral $ length result
+                  writeTVar nextId $ length result
+
+                pure result
+        }
+      eventSink = EventSink
+        { putEvent' = \a -> do
+            threadId <- myThreadId
+            isEventNew <- atomically $ do
+              let outgoingStateChangeId = undefined a -- FIXME(Elaine)
+              id <- readTVar nextId
+              writeTVar authorizedThread $ Just threadId
+              modifyTVar' nextId succ
+              pure $ outgoingStateChangeId `compare` id
+            let bytes = toStrict $ Aeson.encode a <> "\n"
+            case isEventNew of
+              -- event already persisted
+              LT -> pure ()
+              -- event is as new as expected
+              EQ -> liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
+              -- event is newer than expected, 
+              GT -> do
+                liftIO $ putStrLn "ELAINE: this shouldn't happen with my current understanding of stuff"
+                liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes) -- FIXME(Elaine): maybe error ? shouldnt really happen
+        }
+      eventSinks = eventSink :| []
+  pure NewPersistenceIncremental { eventSource, eventSinks, lastStateChangeId}
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 --

@@ -54,7 +54,7 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), PersistenceIncremental (..), putEventToSinks, putEventsToSinks)
 
 -- * Environment Handling
 
@@ -142,7 +142,12 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: PersistenceIncremental (StateChanged tx) m
+  , persistence :: NewPersistenceIncremental (StateChanged tx) m
+  -- , latestStateChangeId :: TVar m Word64
+  -- , eventSource :: EventSource (StateChanged tx) m
+  -- , eventSinks :: NonEmpty (EventSink (StateChanged tx) m)
+  -- FIXME(Elaine): bundle eventSource,Sinks, latestStateChangeId into a single type for convenience?
+  -- they should still definitely be separable too
   }
 
 data HydraNodeLog tx
@@ -192,10 +197,10 @@ stepHydraNode tracer node = do
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{events, effects} -> do
-      forM_ events append
+      forM_ events $ putEventToSinks eventSinks
       processEffects node tracer queuedId effects
     Wait{events} -> do
-      forM_ events append
+      forM_ events $ putEventToSinks eventSinks
       reenqueue waitDelay (decreaseTTL i)
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
@@ -209,9 +214,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  PersistenceIncremental{append} = persistence
-
-  HydraNode{persistence, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, persistence = NewPersistenceIncremental{eventSinks}} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -287,14 +290,35 @@ createNodeState initialState = do
 loadState ::
   (MonadThrow m, IsChainState tx) =>
   Tracer m (HydraNodeLog tx) ->
-  PersistenceIncremental (StateChanged tx) m ->
+  EventSource (StateChanged tx) m ->
   ChainStateType tx ->
   m (HeadState tx, ChainStateHistory tx)
-loadState tracer persistence defaultChainState = do
-  events <- loadAll persistence
+loadState tracer eventSource defaultChainState = do
+  events <- getEvents' eventSource
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   let headState = recoverState initialState events
       chainStateHistory = recoverChainStateHistory defaultChainState events
+  pure (headState, chainStateHistory)
+ where
+  initialState = Idle IdleState{chainState = defaultChainState}
+
+loadStateEventSource ::
+  (MonadThrow m, MonadIO m, IsChainState tx) =>
+  Tracer m (HydraNodeLog tx) ->
+  EventSource (StateChanged tx) m ->
+  [EventSink (StateChanged tx) m] ->
+  ChainStateType tx ->
+  m (HeadState tx, ChainStateHistory tx)
+loadStateEventSource tracer eventSource eventSinks defaultChainState = do
+  events <- getEvents' eventSource
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  let headState = recoverState initialState events
+      chainStateHistory = recoverChainStateHistory defaultChainState events
+  -- deliver to sinks per spec, deduplication is handled by the sinks
+  -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
+  case nonEmpty eventSinks of
+    Nothing -> putStrLn "ELAINE: deduplicate events for disk persistence so we can get rid of this kludge"
+    Just sinks' -> putEventsToSinks sinks' events
   pure (headState, chainStateHistory)
  where
   initialState = Idle IdleState{chainState = defaultChainState}
