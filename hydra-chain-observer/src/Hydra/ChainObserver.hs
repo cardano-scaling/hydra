@@ -4,9 +4,6 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
-import Control.Concurrent (forkFinally)
-import Control.Concurrent.Class.MonadSTM (modifyTVar')
-import Control.Exception ()
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
@@ -48,24 +45,6 @@ import Hydra.Contract qualified as Contract
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
-import Hydra.Network (Host (..))
-import Hydra.Node.EventQueue (EventQueue (..), Queued (..), createEventQueue)
-import Network.Socket (
-  AddrInfo (..),
-  SocketOption (..),
-  SocketType (..),
-  accept,
-  bind,
-  close,
-  defaultHints,
-  defaultProtocol,
-  getAddrInfo,
-  listen,
-  setSocketOption,
-  socket,
-  socketToHandle,
-  withSocketsDo,
- )
 import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -73,59 +52,15 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIntersect (..),
   ClientStNext (..),
  )
-import System.IO (hClose, hPrint)
 
 type ObserverHandler m = [HeadObservation] -> m ()
 
-type ObserverState = [HeadObservation]
+defaultObserverHandler :: Applicative m => ObserverHandler m
+defaultObserverHandler = const $ pure ()
 
-observerHandler :: TVar IO ObserverState -> ObserverState -> IO ()
-observerHandler observerState observations =
-  atomically $
-    modifyTVar' observerState (<> observations)
-
-runIPCServer :: Host -> EventQueue IO ObserverState -> IO ()
-runIPCServer Host{hostname, port} eq = withSocketsDo $ do
-  -- Create a TCP socket
-  bracket
-    openTCPListener
-    close
-    ( \sock -> do
-        putStrLn $ "Listening on port " ++ show port
-        forever $ do
-          -- Accept incoming connection
-          (conn, _) <- accept sock
-          -- Fork a new thread to handle the connection
-          forkFinally
-            (handleClient conn)
-            ( \_ -> close conn
-            )
-    )
- where
-  openTCPListener = do
-    is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
-    addr <- case is of
-      (inf : _) -> pure inf
-      _ -> die "getAdrrInfo failed"
-    sock <- socket (addrFamily addr) Stream defaultProtocol
-    setSocketOption sock ReuseAddr 1
-    bind sock (addrAddress addr)
-    listen sock 5
-    return sock
-
-  handleClient conn = do
-    hdl <- socketToHandle conn ReadWriteMode
-    hSetBuffering hdl LineBuffering
-    putStrLn "Client connected"
-    pushObservation hdl `finally` hClose hdl
-
-  pushObservation hdl = forever $ do
-    Queued{queuedEvent} <- nextEvent eq
-    hPrint hdl queuedEvent
-
-main :: IO ()
-main = do
-  Options{networkId, nodeSocket, host, port, startChainFrom} <- execParser hydraChainObserverOptions
+main :: ObserverHandler IO -> IO ()
+main observerHandler = do
+  Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
     traceWith tracer ConnectingToNode{nodeSocket, networkId}
@@ -133,18 +68,9 @@ main = do
       Nothing -> queryTip networkId nodeSocket
       Just x -> pure x
     traceWith tracer StartObservingFrom{chainPoint}
-    eq@EventQueue{putEvent} <- createEventQueue
-    race
-      ( runIPCServer Host{hostname = show host, port} eq
-          `catch` \(e :: SomeException) -> putStrLn $ "Exception: " ++ show e
-      )
-      ( connectToLocalNode
-          (connectInfo nodeSocket networkId)
-          (clientProtocols tracer networkId chainPoint putEvent)
-      )
-      >>= \case
-        Left{} -> error "Something went wrong: "
-        Right a -> pure a
+    connectToLocalNode
+      (connectInfo nodeSocket networkId)
+      (clientProtocols tracer networkId chainPoint observerHandler)
 
 type ChainObserverLog :: Type
 data ChainObserverLog
@@ -183,9 +109,9 @@ clientProtocols ::
   ChainPoint ->
   ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId startingPoint observerHandle =
+clientProtocols tracer networkId startingPoint observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint observerHandle
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
@@ -211,7 +137,7 @@ chainSyncClient ::
   ChainPoint ->
   ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId startingPoint observerHandle =
+chainSyncClient tracer networkId startingPoint observerHandler =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect [startingPoint] clientStIntersect
@@ -240,7 +166,7 @@ chainSyncClient tracer networkId startingPoint observerHandle =
               let (utxo', observations) = observeAll networkId utxo txs
               -- FIXME we should be exposing OnChainTx instead of working around NoHeadTx.
               forM_ observations (maybe (pure ()) (traceWith tracer) . logObservation)
-              observerHandle observations
+              observerHandler observations
               pure $ clientStIdle utxo'
             _ -> pure $ clientStIdle utxo
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

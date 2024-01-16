@@ -8,7 +8,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Network (PortNumber)
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
 import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
@@ -30,6 +30,11 @@ import System.Environment (withArgs)
 
 type ExplorerState = [HeadObservation]
 
+observerHandler :: TVar IO ExplorerState -> ExplorerState -> IO ()
+observerHandler explorerState observations = do
+  atomically $
+    modifyTVar' explorerState (<> observations)
+
 main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
@@ -38,14 +43,7 @@ main = do
     args <- getArgs
     race
       -- FIXME: this is going to be problematic on mainnet.
-      ( withArgs
-          ( args
-              <> ["--start-chain-from", "0"]
-              <> ["--host", "127.0.0.1"]
-              <> ["--port", "8888"]
-          )
-          Hydra.ChainObserver.main
-      )
+      (withArgs (args <> ["--start-chain-from", "0"]) $ Hydra.ChainObserver.main (observerHandler explorerState))
       ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
           *> Warp.runSettings (settings tracer) (httpApp tracer getHeadIds)
       )

@@ -16,7 +16,6 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
-    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
@@ -42,6 +41,7 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
+    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -64,13 +64,10 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
-    , base
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , io-classes
-    , network
     , optparse-applicative
     , ouroboros-network-protocols
 
