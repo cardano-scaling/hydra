@@ -25,7 +25,7 @@ run options =
       case knownNetwork of
         Just network -> do
           when (useMithril == UseMithril) $
-            downloadLatestSnapshotTo network workDir
+            downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
           withCardanoNodeOnKnownNetwork fromCardanoNode workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
             publishOrReuseHydraScripts tracer node

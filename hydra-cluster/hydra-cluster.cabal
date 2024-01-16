@@ -105,6 +105,7 @@ library
     , temporary
     , text
     , time
+    , typed-process
     , unix
     , websockets
 

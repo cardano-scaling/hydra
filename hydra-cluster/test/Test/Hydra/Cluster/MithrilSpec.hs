@@ -5,21 +5,21 @@ import Test.Hydra.Prelude
 
 import Hydra.Cluster.Fixture (KnownNetwork)
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
+import Hydra.Logging (showLogsOnFailure)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "downloadLatestSnapshotTo" $
-    -- TODO: generate test tree instead of folding into one case (timings etc.)
-    it "starts downloading db" $ do
-      forAllNetworks $ \network ->
+    forAllNetworks "starts downloading db" $ \network ->
+      showLogsOnFailure "MithrilSpec" $ \tracer ->
         withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
           let dbPath = tmpDir </> "db"
           doesDirectoryExist dbPath `shouldReturn` False
           race_
-            (downloadLatestSnapshotTo network tmpDir)
-            (failAfter 60 $ waitUntilDirContainsFiles dbPath)
+            (downloadLatestSnapshotTo tracer network tmpDir)
+            (failAfter 80 $ waitUntilDirContainsFiles dbPath)
 
 waitUntilDirContainsFiles :: FilePath -> IO ()
 waitUntilDirContainsFiles dir = do
@@ -32,5 +32,7 @@ waitUntilDirContainsFiles dir = do
         else pure ()
     else threadDelay 1 >> waitUntilDirContainsFiles dir
 
-forAllNetworks :: (KnownNetwork -> IO ()) -> IO ()
-forAllNetworks f = foldMap f (enumFromTo minBound maxBound)
+forAllNetworks :: String -> (KnownNetwork -> IO ()) -> Spec
+forAllNetworks msg action =
+  forM_ (enumFromTo minBound maxBound) $ \network ->
+    it (msg <> " (" <> show network <> ")") $ action network
