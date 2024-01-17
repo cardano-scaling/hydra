@@ -9,6 +9,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
+import System.IO.Error (isEOFError)
 import System.Process.Typed (createPipe, getStdout, proc, setStdout, withProcessWait_)
 
 data MithrilLog
@@ -37,11 +38,14 @@ downloadLatestSnapshotTo tracer network directory = do
   withProcessWait_ cmd traceStdout
  where
   traceStdout p =
-    forever $ do
+    ignoreEOFErrors . forever $ do
       bytes <- BS.hGetLine (getStdout p)
       case Aeson.eitherDecodeStrict bytes of
         Left err -> error $ "failed to decode: \n" <> show bytes <> "\nerror: " <> show err
         Right output -> traceWith tracer StdOut{output}
+
+  ignoreEOFErrors =
+    handleJust (guard . isEOFError) (const $ pure ())
 
   genesisKeyURLForNetwork = \case
     Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"

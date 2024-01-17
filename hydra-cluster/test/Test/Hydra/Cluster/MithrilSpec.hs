@@ -19,7 +19,9 @@ spec = parallel $ do
           doesDirectoryExist dbPath `shouldReturn` False
           race_
             (downloadLatestSnapshotTo tracer network tmpDir)
-            (failAfter 80 $ waitUntilDirContainsFiles dbPath)
+            -- XXX: The timeout here depends on the network (certificate chain
+            -- length) and the machine it runs on.
+            (failAfter 100 $ waitUntilDirContainsFiles dbPath)
 
 waitUntilDirContainsFiles :: FilePath -> IO ()
 waitUntilDirContainsFiles dir = do
