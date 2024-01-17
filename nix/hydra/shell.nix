@@ -6,7 +6,7 @@
   # Used in CI to have a smaller closure
   withoutDevTools ? false
 , hydraProject
-, cardano-node
+, inputs
 , system ? builtins.currentSystem
 }:
 let
@@ -49,7 +49,11 @@ let
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
     # For integration tests
-    cardano-node.packages.${system}.cardano-node
+    inputs.cardano-node.packages.${system}.cardano-node
+    # To interact with cardano-node and integration tests
+    inputs.cardano-node.packages.${system}.cardano-cli
+    # To interact with mithril and integration tests
+    inputs.mithril.packages.${system}.mithril-client-cli
   ];
 
   devInputs = if withoutDevTools then [ ] else [
@@ -66,8 +70,6 @@ let
     # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
     pkgs.nodejs
-    # To interact with cardano-node and testing out things
-    cardano-node.packages.${system}.cardano-cli
   ];
 
   haskellNixShell = hsPkgs.shellFor {
@@ -117,15 +119,17 @@ let
     STACK_IN_NIX_SHELL = "true";
   };
 
-  # A shell which does provide hydra-node and hydra-cluster executables.
+  # A shell which does provide hydra-node and hydra-cluster executables along
+  # with cardano-node, cardano-cli and mithril-client.
   exeShell = pkgs.mkShell {
     name = "hydra-node-exe-shell";
 
     buildInputs = [
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
-      cardano-node.packages.${system}.cardano-node
-      cardano-node.packages.${system}.cardano-cli
+      inputs.cardano-node.packages.${system}.cardano-node
+      inputs.cardano-node.packages.${system}.cardano-cli
+      inputs.mithril.packages.${system}.mithril-client-cli
     ];
   };
 
@@ -136,8 +140,8 @@ let
       hsPkgs.hydra-node.components.exes.hydra-node
       hsPkgs.hydra-tui.components.exes.hydra-tui
       run-tmux
-      cardano-node.packages.${system}.cardano-node
-      cardano-node.packages.${system}.cardano-cli
+      inputs.cardano-node.packages.${system}.cardano-node
+      inputs.cardano-node.packages.${system}.cardano-cli
     ];
   };
 

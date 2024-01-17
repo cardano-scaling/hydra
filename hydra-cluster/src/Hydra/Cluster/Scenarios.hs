@@ -59,6 +59,7 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
+import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.HeadId (HeadId)
@@ -104,6 +105,7 @@ data EndToEndLog
   = FromCardanoNode NodeLog
   | FromFaucet FaucetLog
   | FromHydraNode HydraNodeLog
+  | FromMithril MithrilLog
   | StartingFunds {actor :: String, utxo :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, utxo :: UTxO}
   | RemainingFunds {actor :: String, utxo :: UTxO}

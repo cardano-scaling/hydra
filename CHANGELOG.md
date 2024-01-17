@@ -42,6 +42,9 @@ changes.
 
 - Adapt cardano client and the chain-sync client to survive after the fork to Conway era.
 
+- The `hydra-cluster` binary can bootstrap `cardano-node`s running on public
+  networks using `mithril-client`.
+
 ## [0.14.0] - 2023-12-04
 
 - **BREAKING** Multiple changes to the Hydra Head protocol on-chain:
