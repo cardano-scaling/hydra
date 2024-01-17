@@ -340,7 +340,6 @@ decrementTx networkId scriptRegistry vk headId headParameters (headInput, headOu
       & addOutputs [headOutput', decrementOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
-  -- TODO: add Decrement redeemer
   headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -942,10 +941,9 @@ observeCollectComTx utxo tx = do
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
 
+-- TODO: we probbably want more information here next to headId
 data DecrementObservation = DecrementObservation
-  { threadOutput :: OpenThreadOutput
-  , headId :: HeadId
-  , utxoHash :: UTxOHash
+  { headId :: HeadId
   }
   deriving stock (Show, Eq)
 
@@ -953,7 +951,27 @@ observeDecrementTx ::
   UTxO ->
   Tx ->
   Maybe DecrementObservation
-observeDecrementTx _utxo _tx = error "Not implemented"
+observeDecrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+            (Head.Open{}, Head.Decrement{}) -> do
+              (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+              newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+              case fromScriptData newHeadDatum of
+                Just Head.Open{} ->
+                 pure
+                   DecrementObservation
+                     { headId
+                     }
+                _ -> Nothing
+            _ -> Nothing
+ where
+  headScript = fromPlutusScript Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput

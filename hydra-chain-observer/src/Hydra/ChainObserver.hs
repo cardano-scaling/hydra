@@ -51,6 +51,7 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIntersect (..),
   ClientStNext (..),
  )
+import Hydra.Chain.Direct.Tx (DecrementObservation(..))
 
 main :: IO ()
 main = do
@@ -74,6 +75,7 @@ data ChainObserverLog
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
   | HeadCollectComTx {headId :: HeadId}
+  | HeadDecrementTx {headId :: HeadId}
   | HeadCloseTx {headId :: HeadId}
   | HeadFanoutTx {headId :: HeadId}
   | HeadAbortTx {headId :: HeadId}
@@ -170,6 +172,7 @@ observeTx networkId utxo tx =
         Init InitObservation{headId} -> (utxo', pure $ HeadInitTx{headId})
         Commit CommitObservation{headId} -> (utxo', pure $ HeadCommitTx{headId})
         CollectCom CollectComObservation{headId} -> (utxo', pure $ HeadCollectComTx{headId})
+        Decrement DecrementObservation{headId} -> (utxo', pure $ HeadDecrementTx{headId})
         Close CloseObservation{headId} -> (utxo', pure $ HeadCloseTx{headId})
         Fanout FanoutObservation{headId} -> (utxo', pure $ HeadFanoutTx{headId})
         Abort AbortObservation{headId} -> (utxo', pure $ HeadAbortTx{headId})

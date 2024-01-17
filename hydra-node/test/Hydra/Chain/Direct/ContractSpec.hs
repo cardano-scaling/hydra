@@ -11,7 +11,6 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api (
@@ -38,7 +37,7 @@ import Hydra.Contract.Head (
  )
 import Hydra.Contract.Head qualified as OnChain
 import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
-import Hydra.Ledger (hashUTxO)
+import Hydra.Ledger (hashUTxO, withoutUTxO)
 import Hydra.Ledger qualified as OffChain
 import Hydra.Ledger.Cardano (
   Tx,
@@ -214,10 +213,8 @@ prop_verifyOffChainSignatures =
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-          decommitUtxoHash = maybe (toBuiltin BS.empty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
-          combinedUTxOHash = utxoHash <> decommitUtxoHash
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber combinedUTxOHash onChainParty onChainSig
+          utxoHash = toBuiltin $ hashUTxO @SimpleTx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
@@ -225,11 +222,11 @@ prop_verifyOffChainSignatures =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
+          utxoHash = toBuiltin $ hashUTxO @SimpleTx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)
        in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash signatures

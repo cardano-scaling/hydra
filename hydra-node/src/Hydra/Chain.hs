@@ -112,7 +112,7 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
-  | OnDecrementTx {headId :: HeadId, decrementUTxO :: UTxOType tx}
+  | OnDecrementTx {headId :: HeadId}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber

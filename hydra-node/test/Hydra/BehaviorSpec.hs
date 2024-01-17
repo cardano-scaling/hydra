@@ -406,11 +406,12 @@ spec = parallel $ do
                     _ -> False
 
                 waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])
+                waitUntil [n1, n2] $ DecommitFinalized testHeadId
 
                 send n1 GetUTxO
                 waitUntilMatch [n1] $
                   \case
-                    GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 1 utxo)
+                    GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
                     _ -> False
 
     it "can be finalized by all parties after contestation period" $
@@ -747,8 +748,8 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  DecrementTx{headId, decrementUTxO} ->
-    OnDecrementTx{headId, decrementUTxO}
+  DecrementTx{headId} ->
+    OnDecrementTx{headId}
   CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId

@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.=))
-import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Cardano.Api.Prelude (serialiseToRawBytes)
@@ -79,13 +78,7 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
     LBS.toStrict $
       serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
-        <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
-        -- TODO: is serializing separately fine or we should get the diff
-        -- between two utxos and sign that? In the spec we have added new field
-        <> maybe
-          (serialise (toData $ toBuiltin BS.empty))
-          (serialise . (toData . toBuiltin . hashUTxO @tx))
-          utxoToDecommit -- CBOR(B(bytestring)
+        <> serialise (toData $ toBuiltin $ hashUTxO @tx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)) -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =

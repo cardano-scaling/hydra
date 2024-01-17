@@ -604,7 +604,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                   }
                             }
                         ]
-                  else outcome
+                  else Hydra.Prelude.error "0000pssss" -- outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
@@ -823,6 +823,13 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
+  ( Open OpenState{headId = ourHeadId}
+    , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
+    )
+      | ourHeadId == headId ->
+          Effects [ClientEffect $ ServerOutput.DecommitFinalized{headId}]
+      | otherwise ->
+          Error NotOurHead{ourHeadId, otherHeadId = headId}
   ( Open openState@OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )

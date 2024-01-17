@@ -629,7 +629,7 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canDecommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
+    refuelIfNeeded tracer node Alice 55_000_000
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
@@ -652,16 +652,17 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
-
+      let walletAddress = mkVkAddress networkId walletVk
       decommitTx <-
         either (failure . show) pure $
           mkSimpleTx
             (List.head $ UTxO.pairs commitUTxO)
-            (mkVkAddress networkId walletVk, lovelaceToValue 2_000_000)
+            (walletAddress, lovelaceToValue 2_000_000)
             walletSk
 
       send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
-      -- NOTE: Alternative:
+      -- NOTE: We should also test the alternative way of decommitting using
+      -- http endpoint:
       --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
       --     <&> setRequestBodyJSON decommitTx
       --     >>= httpLbs
@@ -669,9 +670,11 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
       waitFor hydraTracer 10 [n1] $
-        output "DecommitApproved" []
+        output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitFinalized" ["headId" .= headId]
 
-      failAfter 10 $ waitForUTxO node decommitUTxO
+      failAfter 20 $ waitForUTxO node decommitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 

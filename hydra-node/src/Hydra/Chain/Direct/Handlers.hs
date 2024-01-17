@@ -327,8 +327,7 @@ convertObservation = \case
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
   Decrement DecrementObservation{headId} ->
-    -- FIXME: implement decrement observation
-    pure OnDecrementTx{headId, decrementUTxO = mempty}
+    pure OnDecrementTx{headId}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx

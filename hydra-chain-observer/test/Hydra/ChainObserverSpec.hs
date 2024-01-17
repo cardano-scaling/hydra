@@ -24,6 +24,7 @@ spec =
                     Just (HeadInitTx{}) -> transition === Transition.Init
                     Just (HeadCommitTx{}) -> transition === Transition.Commit
                     Just (HeadCollectComTx{}) -> transition === Transition.Collect
+                    Just (HeadDecrementTx{}) -> transition === Transition.Decrement
                     Just (HeadAbortTx{}) -> transition === Transition.Abort
                     Just (HeadCloseTx{}) -> transition === Transition.Close
                     Just (HeadContestTx{}) -> transition === Transition.Contest

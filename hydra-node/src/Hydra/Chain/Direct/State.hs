@@ -869,6 +869,7 @@ genChainStateWithTx =
     [ genInitWithState
     , genAbortWithState
     , genCommitWithState
+    , genDecrementWithState
     , genCollectWithState
     , genCloseWithState
     , genContestWithState
@@ -906,6 +907,11 @@ genChainStateWithTx =
   genCollectWithState = do
     (ctx, _, st, tx) <- genCollectComTx
     pure (ctx, Initial st, tx, Collect)
+
+  genDecrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genDecrementWithState = do
+    (ctx, st, tx) <- genDecrementTx maxGenParties
+    pure (ctx, Open st, tx, Decrement)
 
   genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genCloseWithState = do
@@ -1085,6 +1091,16 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
+genDecrementTx :: Int -> Gen (ChainContext, OpenState, Tx)
+genDecrementTx numParties = do
+  ctx <- genHydraContextFor numParties
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  cctx <- pickChainContext ctx
+  snapshot <- arbitrary
+  signatures <- arbitrary
+  let openUTxO = getKnownUTxO stOpen
+  pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) mempty openUTxO snapshot signatures)
+
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
@@ -1196,6 +1212,21 @@ unsafeAbort ::
   Tx
 unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
   either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
+
+unsafeDecrement ::
+  HasCallStack =>
+  ChainContext ->
+  HeadId ->
+  HeadParameters ->
+  -- | Spendable 'UTxO'
+  UTxO ->
+  -- | 'UTxO' to decommit.
+  UTxO ->
+  Snapshot Tx ->
+  MultiSignature (Snapshot Tx) ->
+  Tx
+unsafeDecrement ctx headId parameters spendableUTxO utxoToDecommit snapshot signatures =
+  either (error . show) id $ decrement ctx headId parameters spendableUTxO utxoToDecommit snapshot signatures
 
 unsafeClose ::
   HasCallStack =>

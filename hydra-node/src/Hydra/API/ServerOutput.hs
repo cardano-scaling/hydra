@@ -104,6 +104,7 @@ data ServerOutput tx
   | -- | Issued once all parties have signed the 'Snapshot' containing the
     -- decommit 'UTxO'.
     DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -162,6 +163,7 @@ instance
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
     DecommitAlreadyInFlight headId u -> DecommitAlreadyInFlight <$> shrink headId <*> shrink u
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
+    DecommitFinalized headId -> DecommitFinalized <$> shrink headId
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -235,6 +237,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     DecommitRequested{} -> encodedResponse
     DecommitAlreadyInFlight{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
+    DecommitFinalized{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
