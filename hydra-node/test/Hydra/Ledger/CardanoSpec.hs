@@ -58,7 +58,7 @@ spec =
       prop "Roundtrip JSON encoding" roundtripProtocolParameters
 
     describe "Tx" $ do
-      roundtripAndGoldenSpecs (Proxy @Tx)
+      roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
 
       prop "Same TxId before/after JSON encoding" roundtripTxId
 
