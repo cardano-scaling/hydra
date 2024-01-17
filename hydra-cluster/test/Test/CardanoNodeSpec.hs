@@ -22,7 +22,7 @@ spec = do
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
-    getCardanoNodeVersion >>= (`shouldContain` "8.7.2")
+    getCardanoNodeVersion >>= (`shouldContain` "8.7.3")
 
   it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $
     failAfter 5 $
