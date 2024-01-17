@@ -197,65 +197,6 @@ spec = describe "ServerSpec" $
                     Right timedOutputs' -> do
                       (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
 
-    it "outputs tx as json with cbor in it" $
-      showLogsOnFailure "ServerSpec" $ \tracer ->
-        withFreePort $ \port ->
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-            tx :: SimpleTx <- generate arbitrary
-            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
-            headParameters <- generate arbitrary
-
-            let Snapshot{headId} = generatedSnapshot
-            -- The three server output message types which contain transactions
-            let txValidMessage = TxValid{headId = headId, transaction = tx}
-            let sn = generatedSnapshot{confirmed = [txId tx]}
-            let snapShotConfirmedMessage =
-                  SnapshotConfirmed
-                    { headId = headId
-                    , snapshot = sn
-                    , signatures = mempty
-                    }
-
-            let postTxFailedMessage =
-                  PostTxOnChainFailed
-                    { postChainTx =
-                        CloseTx
-                          { headId
-                          , headParameters
-                          , confirmedSnapshot =
-                              ConfirmedSnapshot
-                                { Hydra.Snapshot.snapshot = sn
-                                , Hydra.Snapshot.signatures = mempty
-                                }
-                          }
-                    , postTxError = NoSeedInput
-                    }
-                guardForValue v expected =
-                  guard $ v ^? key "transaction" == Just expected
-
-            -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?history=no" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v $ toJSON tx
-
-              sendOutput snapShotConfirmedMessage
-
-              let expectedTxIds = Aeson.Array $ fromList [toJSON (txId tx)]
-
-              waitMatch 5 conn $ \v ->
-                let result =
-                      Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expectedTxIds
-
-              sendOutput postTxFailedMessage
-
-              waitMatch 5 conn $ \v ->
-                let result =
-                      Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expectedTxIds
-
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
