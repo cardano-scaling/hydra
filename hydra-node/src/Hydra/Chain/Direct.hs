@@ -27,7 +27,7 @@ import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   Block (..),
   BlockInMode (..),
-  CardanoEra (BabbageEra),
+  CardanoEra (..),
   CardanoMode,
   ChainPoint,
   ChainTip,
@@ -259,16 +259,23 @@ newtype IntersectionNotFoundException = IntersectionNotFound
 
 instance Exception IntersectionNotFoundException
 
-data ChainClientException = EraNotSupportedException
-  { otherEraName :: Text
-  , ledgerEraName :: Text
-  }
+data EraNotSupportedException
+  = EraNotSupportedAnymore {otherEraName :: Text}
+  | EraNotSupportedYet {otherEraName :: Text}
   deriving stock (Show)
 
-instance Exception ChainClientException where
+instance Exception EraNotSupportedException where
   displayException = \case
-    EraNotSupportedException{ledgerEraName, otherEraName} ->
-      printf "Received blocks in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
+    EraNotSupportedAnymore{otherEraName} ->
+      printf
+        "Received blocks of not anymore supported era (%s). \
+        \Please wait for your cardano-node to be fully synchronized."
+        otherEraName
+    EraNotSupportedYet{otherEraName} ->
+      printf
+        "Received blocks of not yet supported era (%s). \
+        \Please upgrade your hydra-node."
+        otherEraName
 
 -- | The block type used in the node-to-client protocols.
 type BlockType = BlockInMode CardanoMode
@@ -308,13 +315,7 @@ chainSyncClient handler wallet startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode _ (Block header txs) BabbageEraInCardanoMode -> do
-              -- Update the tiny wallet
-              update wallet header txs
-              -- Observe Hydra transactions
-              onRollForward handler header txs
-              pure clientStIdle
-            BlockInMode _ block ConwayEraInCardanoMode -> do
+            BlockInMode ConwayEra block _ -> do
               -- TODO: uses cardano-api:internal
               -- NOTE: we should remove this dependency once we have ShelleyBlock available
               -- on the normal cardano-api library.
@@ -332,7 +333,17 @@ chainSyncClient handler wallet startingPoint =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            (BlockInMode era _ _) -> throwIO $ EraNotSupportedException{ledgerEraName = show era, otherEraName = show BabbageEra}
+            BlockInMode BabbageEra (Block header txs) _ -> do
+              -- Update the tiny wallet
+              update wallet header txs
+              -- Observe Hydra transactions
+              onRollForward handler header txs
+              pure clientStIdle
+            BlockInMode era@AlonzoEra _ _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
+            BlockInMode era@AllegraEra _ _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
+            BlockInMode era@MaryEra _ _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
+            BlockInMode era@ShelleyEra _ _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
+            BlockInMode era@ByronEra _ _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           -- Re-initialize the tiny wallet
           reset wallet
