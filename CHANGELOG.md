@@ -11,6 +11,8 @@ changes.
 
 ## [0.15.0] - UNRELEASED
 
+- Tested against `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
+
 - Hydra Direct Chain layer does not maintain state and does not make any logic
   decisions. This is now completely responsibility of the HydraLogic layer.
   Posting transactions from this layer is now free of any knowledge of L1 keys.
