@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (

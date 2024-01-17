@@ -3,12 +3,10 @@
 
 module Hydra.API.ServerOutput where
 
-import Cardano.Binary (serialize')
 import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
-import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)

@@ -3,13 +3,11 @@ module Hydra.API.HTTPServerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import Cardano.Binary (serialize')
-import Data.Aeson (Result (Error, Success), Value (String), eitherDecode, encode, fromJSON)
+import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson.Lens (key, nth)
-import Data.ByteString.Base16 qualified as Base16
 import Hydra.API.HTTPServer (DraftCommitTxRequest, DraftCommitTxResponse, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
-import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra, toLedgerTx)
+import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)

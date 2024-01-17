@@ -17,7 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nonNull)
+import Data.Aeson.Lens (key)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
@@ -27,22 +27,18 @@ import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), w
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
-  PostChainTx (..),
-  PostTxError (NoSeedInput),
-  confirmedSnapshot,
   draftCommitTx,
   postTx,
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
+import Hydra.Snapshot (Snapshot (Snapshot, utxo))
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice, testHeadId)
