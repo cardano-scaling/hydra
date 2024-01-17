@@ -18,7 +18,7 @@
 module Hydra.Model where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label)
+import Hydra.Prelude hiding (Any, label, lookup)
 
 import Cardano.Api.UTxO (pairs)
 import Cardano.Api.UTxO qualified as UTxO
@@ -38,6 +38,7 @@ import Data.List qualified as List
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Data.Set qualified as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
@@ -142,10 +143,7 @@ isPendingCommitFrom _ _ = False
 
 type Uncommitted = Map.Map Party (UTxOType Payment)
 
-data OffChainState = OffChainState
-  { confirmedUTxO :: UTxOType Payment
-  , seenTransactions :: Map (Var Payment) Payment
-  }
+data OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
@@ -222,8 +220,8 @@ instance StateModel WorldState where
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{offChainState = OffChainState{seenTransactions}}} (ObserveConfirmedTx tx) =
-    isJust $ Map.lookup tx seenTransactions
+  precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+    True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition _ StopTheWorld =
@@ -231,7 +229,7 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraParties, hydraState} a ref =
+  nextState s@WorldState{hydraParties, hydraState} a _var =
     case a of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         WorldState{hydraParties = seedKeys, hydraState = idleState}
@@ -273,7 +271,6 @@ instance StateModel WorldState where
                     , offChainState =
                         OffChainState
                           { confirmedUTxO = mconcat (Map.elems commits')
-                          , seenTransactions = mempty
                           }
                     }
                 else
@@ -297,13 +294,12 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
-          Open{headParameters, offChainState = OffChainState{confirmedUTxO, seenTransactions}} ->
+          Open{headParameters, offChainState = OffChainState{confirmedUTxO}} ->
             Open
               { headParameters
               , offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
-                    , seenTransactions = Map.insert ref tx seenTransactions
                     }
               }
           _ -> error "unexpected state"
@@ -315,12 +311,10 @@ instance StateModel WorldState where
 instance HasVariables WorldState where
   getAllVariables _ = mempty
 
--- XXX: This is a bit annoying and non-obviously needed. It's coming from the
--- default implementation of HasVariables on the associated Action type. The
--- default implementation required 'Generic', which is not available if we use
--- GADTs for actions (as in the examples).
 instance HasVariables (Action WorldState a) where
-  getAllVariables _ = mempty
+  getAllVariables = \case
+    ObserveConfirmedTx tx -> Set.singleton (Some tx)
+    _other -> mempty
 
 deriving stock instance Show (Action WorldState a)
 deriving stock instance Eq (Action WorldState a)
@@ -471,7 +465,7 @@ instance
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-  perform st action ctx = do
+  perform st action lookup = do
     case action of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         seedWorld seedKeys seedContestationPeriod toCommit
@@ -486,7 +480,7 @@ instance
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
-        let tx = ctx var
+        let tx = lookup var
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
