@@ -187,16 +187,7 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     ReadyToFanout{} -> encodedResponse
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
-    CommandFailed{clientInput} ->
-      case clientInput of
-        Init -> encodedResponse
-        Abort -> encodedResponse
-        NewTx{Hydra.API.ClientInput.transaction = tx} ->
-          (key "transaction" .~ toJSON tx) encodedResponse
-        GetUTxO -> encodedResponse
-        Close -> encodedResponse
-        Contest -> encodedResponse
-        Fanout -> encodedResponse
+    CommandFailed{} -> encodedResponse
     TxValid{Hydra.API.ServerOutput.transaction = tx} ->
       (key "transaction" .~ toJSON tx) encodedResponse
     TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
