@@ -57,7 +57,9 @@ library
     , wai
     , warp
 
-  exposed-modules: Hydra.Explorer
+  exposed-modules:
+    Hydra.Explorer
+    Hydra.Explorer.ExplorerState
 
 executable hydra-explorer
   import:         project-config

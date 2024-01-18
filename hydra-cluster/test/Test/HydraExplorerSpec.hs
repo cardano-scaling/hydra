@@ -9,8 +9,8 @@ module Test.HydraExplorerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import CardanoClient (NodeLog, RunningNode (..), submitTx)
-import CardanoNode (unsafeDecodeJson, withCardanoNodeDevnet)
+import CardanoClient (RunningNode (..), submitTx)
+import CardanoNode (NodeLog, unsafeDecodeJson, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Lens ((^?))
@@ -22,6 +22,8 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Explorer.ExplorerState (HeadState (..), HeadStatus (..))
+import Hydra.HeadId (HeadId (..))
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import Network.HTTP.Client qualified as HTTPClient
@@ -114,11 +116,11 @@ spec = do
 
                 send hydraNode $ input "Init" []
 
-                headId <- waitMatch 5 hydraNode $ \v -> do
+                aliceHeadId <- waitMatch 5 hydraNode $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsInitializing"
                   v ^? key "headId" . _String
 
-                headExplorerSees explorer "HeadInitTx" headId
+                headExplorerSees explorer "HeadInitTx" aliceHeadId
 
                 manager <- HTTPClient.newTlsManager
                 let url = "http://127.0.0.1:9090/heads"
@@ -131,7 +133,10 @@ spec = do
                 response <- HTTPClient.httpLbs request manager
                 HTTPClient.responseStatus response `shouldBe` status200
                 allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
-                allHeads `shouldBe` [headId]
+                length allHeads `shouldBe` 1
+                let [HeadState{headId = (UnsafeHeadId idBS), status}] = allHeads
+                aliceHeadId `shouldBe` decodeUtf8 idBS
+                status `shouldBe` Initializing
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
 headExplorerSees explorer txType headId =

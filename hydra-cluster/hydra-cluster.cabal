@@ -175,6 +175,7 @@ test-suite tests
     , http-types
     , hydra-cardano-api
     , hydra-cluster
+    , hydra-explorer
     , hydra-node:{hydra-node, testlib}
     , hydra-prelude
     , hydra-test-utils
