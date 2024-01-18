@@ -337,22 +337,13 @@ decrementTx networkId scriptRegistry vk headId headParameters (headInput, headOu
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutput', decrementOutput]
+      & addOutputs (headOutput' : map toTxContext (toList utxoToDecrement))
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters
-
-  decrementOutput =
-    TxOut
-      ownAddress
-      (foldMap (txOutValue . snd) (UTxO.pairs utxoToDecrement))
-      TxOutDatumNone
-      ReferenceScriptNone
-
-  ownAddress = mkVkAddress networkId vk
 
   headOutput' =
     TxOut
