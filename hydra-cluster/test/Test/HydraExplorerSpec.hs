@@ -23,7 +23,6 @@ import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Explorer.ExplorerState (HeadState (..), HeadStatus (..))
-import Hydra.HeadId (HeadId (..))
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import Network.HTTP.Client qualified as HTTPClient
@@ -134,8 +133,8 @@ spec = do
                 HTTPClient.responseStatus response `shouldBe` status200
                 allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
                 length allHeads `shouldBe` 1
-                let [HeadState{headId = (UnsafeHeadId idBS), status}] = allHeads
-                aliceHeadId `shouldBe` decodeUtf8 idBS
+                let [HeadState{headId = idBS, status}] = allHeads
+                encode aliceHeadId `shouldBe` encode idBS
                 status `shouldBe` Initializing
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
