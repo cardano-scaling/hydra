@@ -76,7 +76,6 @@ channels:
       operationId: serverOutput
       message:
         oneOf:
-          - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -98,7 +97,7 @@ channels:
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
-          - $ref: "api.yaml#/components/messages/DecommitFinalized"
+          - $ref: "api.yaml#/components/messages/DecommitProcessed"
           - $ref: "api.yaml#/components/messages/DecommitAlreadyInFlight"
 
     publish:
@@ -289,7 +288,6 @@ components:
             type: string
             enum: ["Decommit"]
           decommitTx:
-            type: object
             $ref: "api.yaml#/components/schemas/Transaction"
     Close:
       title: Close
@@ -473,6 +471,56 @@ components:
           timestamp:
             $ref: "api.yaml#/components/schemas/UTCTime"
 
+    DecommitRequestReceived:
+      title: DecommitRequestReceived
+      description: |
+        `Decommit` request is received.
+      payload:
+        type: object
+        required:
+          - tag
+          - headId
+          - utxoToDecommit
+          - seq
+          - timestamp
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitRequestReceived"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          utxoToDecommit:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitTxInvalid:
+      title: DecommitTxInvalid
+      description: |
+        `Decommit` tx could not be applied to local ledger state.
+      payload:
+        type: object
+        required:
+          - tag
+          - headId
+          - decommitTx
+          - seq
+          - timestamp
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitRequestReceived"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          decommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+          timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
     DecommitRequested:
       title: DecommitRequested
       description: |
@@ -481,7 +529,6 @@ components:
         type: object
         required:
           - tag
-          - party
           - utxoToDecommit
           - seq
           - timestamp
@@ -523,8 +570,8 @@ components:
           timestamp:
             $ref: "api.yaml#/components/schemas/UTCTime"
 
-    DecommitFinalized:
-      title: DecommitFinalized
+    DecommitProcessed:
+      title: DecommitProcessed
       description: |
         Decommit roundtrips and is finalized.
       payload:
@@ -537,7 +584,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["DecommitFinalized"]
+            enum: ["DecommitProcessed"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           seq:
@@ -564,7 +611,7 @@ components:
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           decommitTx:
-            $ref: "api.yaml#/components/schemas/Tx"
+            $ref: "api.yaml#/components/schemas/Transaction"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:

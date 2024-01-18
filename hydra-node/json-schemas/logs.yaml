@@ -1306,14 +1306,14 @@ definitions:
             enum: ["DecommitRecorded"]
           tx:
             $ref: "api.yaml#/components/schemas/Transaction"
-      - title: "DecommitSigned"
+      - title: "DecommitProcessed"
         additionalProperties: false
         required:
           - tag
         properties:
           tag:
             type: string
-            enum: ["DecommitSigned"]
+            enum: ["DecommitProcessed"]
       - title: "PartySignedSnapshot"
         additionalProperties: false
         required:

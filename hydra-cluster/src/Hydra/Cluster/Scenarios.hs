@@ -672,7 +672,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
       waitFor hydraTracer 10 [n1] $
-        output "DecommitFinalized" ["headId" .= headId]
+        output "DecommitProcessed" ["headId" .= headId]
 
       failAfter 10 $ waitForUTxO node decommitUTxO
  where

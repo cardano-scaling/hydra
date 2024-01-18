@@ -99,12 +99,14 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
+  | DecommitRequestReceived {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitTxInvalid {headId :: HeadId, decommitTx :: tx}
   | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
   | -- | Issued once all parties have signed the 'Snapshot' containing the
     -- decommit 'UTxO'.
     DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId}
+  | DecommitProcessed {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -161,9 +163,12 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
+    DecommitRequestReceived headId u -> DecommitRequestReceived <$> shrink headId <*> shrink u
+    DecommitTxInvalid headId tx -> DecommitTxInvalid <$> shrink headId <*> shrink tx
     DecommitAlreadyInFlight headId u -> DecommitAlreadyInFlight <$> shrink headId <*> shrink u
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
-    DecommitFinalized headId -> DecommitFinalized <$> shrink headId
+    DecommitProcessed headId -> DecommitProcessed <$> shrink headId
+
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -235,9 +240,11 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
+    DecommitRequestReceived{} -> encodedResponse
     DecommitAlreadyInFlight{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
-    DecommitFinalized{} -> encodedResponse
+    DecommitProcessed{} -> encodedResponse
+    DecommitTxInvalid{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

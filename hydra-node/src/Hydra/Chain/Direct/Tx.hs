@@ -950,17 +950,17 @@ observeDecrementTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-            (Head.Open{}, Head.Decrement{}) -> do
-              (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
-              newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
-              case fromScriptData newHeadDatum of
-                Just Head.Open{} ->
-                 pure
-                   DecrementObservation
-                     { headId
-                     }
-                _ -> Nothing
-            _ -> Nothing
+    (Head.Open{}, Head.Decrement{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just Head.Open{} ->
+          pure
+            DecrementObservation
+              { headId
+              }
+        _ -> Nothing
+    _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
 

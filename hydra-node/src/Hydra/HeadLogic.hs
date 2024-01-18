@@ -590,7 +590,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
              in if decommitUTxOFromState == utxoToDecommit'
                   then
                     outcome
-                      <> StateChanged DecommitSigned
                       <> Effects
                         [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
                         , OnChainEffect
@@ -604,7 +603,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                                   }
                             }
                         ]
-                  else Hydra.Prelude.error "0000pssss" -- outcome
+                  else outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
@@ -624,17 +623,20 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 -- __Transition__: 'OpenState' → 'OpenState'
 --
 -- When node receives 'ReqDec' network message it should:
--- - Check there is no decommit in flight
--- - Alter it's state to record what is to be decommitted
--- - Issue a server output 'DecommitRequested' with the relevant utxo
--- - Issue a 'ReqSn' since all parties need to agree in order for decommit be
--- valid to be taken out of a Head.
+-- - Check there is no decommit in flight:
+--   - Alter it's state to record what is to be decommitted
+--   - Issue a server output 'DecommitRequested' with the relevant utxo
+--   - Issue a 'ReqSn' since all parties need to agree in order for decommit to
+--   be taken out of a Head.
 --
 -- We don't check here if decommit tx can be applied to the confirmed ledger
--- state since this should be done when the snapshot is to be acknowledged. This
--- way we are checking _later_ than we could but it will allow us to not discard
--- decommit UTxOs which are maybe part of the snapshot _in flight_ but we just
--- didn't see the `AckSn` for it yet.
+-- state since this is already done if our party is the decommit _initiator_
+-- (see usage of 'requireValidDecommitTx' when receiving 'Decommit' client
+-- input) and should be done when the snapshot is to be acknowledged.
+--
+-- This way we are checking _later_ than we could but it will allow us to not
+-- discard decommit tx which is maybe part of the snapshot _in flight_ but we
+-- just didn't see the `AckSn` for it yet.
 onOpenNetworkReqDec ::
   IsTx tx =>
   OpenState tx ->
@@ -827,7 +829,9 @@ update env ledger st ev = case (st, ev) of
     , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
     )
       | ourHeadId == headId ->
-          Effects [ClientEffect $ ServerOutput.DecommitFinalized{headId}]
+          Effects
+            [ClientEffect $ ServerOutput.DecommitProcessed{headId}]
+            <> StateChanged DecommitProcessed
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   ( Open openState@OpenState{headId = ourHeadId}
@@ -843,19 +847,24 @@ update env ledger st ev = case (st, ev) of
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
     onOpenNetworkReqDec openState transaction
-  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
-    requireValidDecommitTx $ \utxoToDecommit ->
-      Effects
-        [ ClientEffect ServerOutput.DecommitRequested{headId, utxoToDecommit}
-        , NetworkEffect ReqDec{transaction = decommitTx}
-        ]
+  (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
+    requireNoDecommitInFlight openState decommitTx $
+      -- TODO: Spec: require U̅ ◦ decTx /= ⊥
+      requireValidDecommitTx $ \utxoToDecommit ->
+        Effects
+          [ ClientEffect ServerOutput.DecommitRequestReceived{headId, utxoToDecommit}
+          , NetworkEffect ReqDec{transaction = decommitTx}
+          ]
    where
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥
     requireValidDecommitTx cont =
       case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
         Left (_, err) ->
-          Error $ RequireFailed $ DecommitTxInvalid{decommitTx, error = err}
+          Effects [ClientEffect ServerOutput.DecommitTxInvalid{headId, decommitTx}]
+            <> Error
+              ( RequireFailed $
+                  DecommitTxInvalid{decommitTx, error = err}
+              )
         Right _ -> cont $ utxoFromTx decommitTx
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
@@ -1077,7 +1086,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  DecommitRecorded decommitTx ->
+  DecommitRecorded newDecommitTx ->
     case st of
       Open
         os@OpenState
@@ -1086,10 +1095,10 @@ aggregate st = \case
           Open
             os
               { coordinatedHeadState =
-                  coordinatedHeadState{decommitTx = Just decommitTx}
+                  coordinatedHeadState{decommitTx = Just newDecommitTx}
               }
       _otherState -> st
-  DecommitSigned ->
+  DecommitProcessed ->
     case st of
       Open
         os@OpenState
@@ -1148,7 +1157,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
-    DecommitSigned -> history
+    DecommitProcessed -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
@@ -1165,7 +1174,8 @@ recoverState = foldl' aggregate
 
 -- Decommit helpers
 
--- TODO: require or wait?
+-- | Check if local state already contains a decommit tx and issue an error +
+-- 'DecommitAlreadyInFlight' output in this case.
 requireNoDecommitInFlight ::
   OpenState tx ->
   tx ->
