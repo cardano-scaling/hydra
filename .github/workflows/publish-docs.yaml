@@ -11,7 +11,7 @@ jobs:
   publishing:
     name: Publish Documentation
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
 
     - name: 📥 Checkout repository
@@ -22,43 +22,65 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
-    - name: 📥 Download released hydra-spec
-      uses: dawidd6/action-download-artifact@v3
+    - name: Get released workflow run id
+      id: released-workflow
+      uses: actions/github-script@v6
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: release
+        script: |
+          let res = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-nix.yaml',
+              branch: 'release',
+              status: 'success'
+          });
+          return res.data.workflow_runs[0].id;
+
+    - name: Get latest workflow run id
+      id: latest-workflow
+      uses: actions/github-script@v6
+      with:
+        script: |
+          let res = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-nix.yaml',
+              branch: 'master',
+              status: 'success'
+          });
+          return res.data.workflow_runs[0].id;
+
+    - name: 📥 Download released hydra-spec
+      uses: actions/download-artifact@v4
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.released-workflow.outputs.result}}
         name: hydra-spec
         path: docs/static
 
     - name: 📥 Download released benchmarks
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: release
-        name: benchmarks
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.released-workflow.outputs.result}}
+        pattern: benchmarks-*
+        merge-multiple: true
         path: docs/benchmarks
 
     - name: 📥 Download released test-results
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: release
-        name: test-results
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.released-workflow.outputs.result}}
+        pattern: test-results-*
+        merge-multiple: true
         path: docs/benchmarks/tests
 
     - name: 📥 Download released haddock documentation
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: release
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.released-workflow.outputs.result}}
         name: haddocks
         path: docs/static/haddock
 
@@ -86,42 +108,36 @@ jobs:
         sed -i 's|head-protocol|head-protocol/unstable|' docusaurus.config.js
 
     - name: 📥 Download latest hydra-spec
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: master
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.latest-workflow.outputs.result}}
         name: hydra-spec
         path: docs/static
 
     - name: 📥 Download latest benchmarks
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: master
-        name: benchmarks
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.latest-workflow.outputs.result}}
+        pattern: benchmarks-*
+        merge-multiple: true
         path: docs/benchmarks
 
     - name: 📥 Download latest test-results
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: master
-        name: test-results
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.latest-workflow.outputs.result}}
+        pattern: test-results-*
+        merge-multiple: true
         path: docs/benchmarks/tests
 
     - name: 📥 Download latest haddock documentation
-      uses: dawidd6/action-download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        repo: input-output-hk/hydra
-        workflow: ci-nix.yaml
-        workflow_conclusion: success
-        branch: master
+        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        run-id: ${{steps.latest-workflow.outputs.result}}
         name: haddocks
         path: docs/static/haddock
 
