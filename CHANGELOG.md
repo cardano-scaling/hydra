@@ -9,7 +9,7 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
-## [0.15.0] - UNRELEASED
+## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
 
