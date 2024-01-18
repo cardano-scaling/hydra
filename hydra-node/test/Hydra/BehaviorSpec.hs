@@ -414,6 +414,30 @@ spec = parallel $ do
                     GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
                     _ -> False
 
+      it "can only process one decommit at once" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+                let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                send n2 (Decommit{decommitTx = decommitTx1})
+                waitUntil [n2] $
+                  DecommitRequestReceived{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
+
+                let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
+                send n1 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n1] $
+                  DecommitAlreadyInFlight{headId = testHeadId, decommitTx = decommitTx1}
+
+                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId}
+
+                send n1 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, utxoToDecommit = utxoRefs [22]}
+                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId}
+
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
