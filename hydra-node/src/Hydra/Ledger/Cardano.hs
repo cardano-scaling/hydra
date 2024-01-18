@@ -131,12 +131,11 @@ instance FromCBOR Tx where
 instance ToJSON Tx where
   toJSON tx =
     let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
-    in
-    object
-      [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-      , "txId" .= (txId tx)
-      , "type" .= envelopeType
-      ]
+     in object
+          [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+          , "txId" .= (txId tx)
+          , "type" .= envelopeType
+          ]
 
 instance FromJSON Tx where
   parseJSON =
