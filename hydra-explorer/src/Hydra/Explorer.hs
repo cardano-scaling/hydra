@@ -8,11 +8,16 @@ import Hydra.HeadId (HeadId)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Network (PortNumber)
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), FanoutObservation (..), HeadObservation (..), InitObservation (..))
+import Hydra.Cardano.Api (TxIn, TxOut)
+import Hydra.Cardano.Api.Prelude (CtxUTxO)
+import Hydra.Chain.Direct.Tx (HeadObservation (..))
+import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.OnChainId (OnChainId)
+import Hydra.Party (Party)
 import Network.HTTP.Types (status200)
 import Network.HTTP.Types.Header (HeaderName)
 import Network.HTTP.Types.Status (status404, status500)
@@ -28,24 +33,63 @@ import Network.Wai (
 import Network.Wai.Handler.Warp qualified as Warp
 import System.Environment (withArgs)
 
-type ExplorerState = [HeadObservation]
+data PartyCommit = PartyCommit
+  { txIn :: TxIn
+  , txOut :: TxOut CtxUTxO
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
-observerHandler :: TVar IO ExplorerState -> ExplorerState -> IO ()
+data HeadMember = HeadMember
+  { party :: Party
+  , onChainId :: OnChainId
+  , commits :: [PartyCommit]
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+data HeadStatus
+  = Initializing
+  | Aborted
+  | Open
+  | Closed
+  | FanoutPossible
+  | Finalized
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+data HeadState = HeadState
+  { headId :: HeadId
+  , seedTxIn :: TxIn
+  , status :: HeadStatus
+  , contestationPeriod :: ContestationPeriod
+  , members :: [HeadMember]
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+type ExplorerState = [HeadState]
+
+aggregateHeadObservations :: [HeadObservation] -> ExplorerState -> ExplorerState
+aggregateHeadObservations = undefined
+
+observerHandler :: TVar IO ExplorerState -> [HeadObservation] -> IO ()
 observerHandler explorerState observations = do
   atomically $
-    modifyTVar' explorerState (<> observations)
+    modifyTVar' explorerState $
+      aggregateHeadObservations observations
 
 main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
     explorerState <- newTVarIO (mempty :: ExplorerState)
-    let getHeadIds = readModelGetHeadIds explorerState
+    let getHeads = readModelGetHeadIds explorerState
     args <- getArgs
     race
       -- FIXME: this is going to be problematic on mainnet.
       (withArgs (args <> ["--start-chain-from", "0"]) $ Hydra.ChainObserver.main (observerHandler explorerState))
       ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
-          *> Warp.runSettings (settings tracer) (httpApp tracer getHeadIds)
+          *> Warp.runSettings (settings tracer) (httpApp tracer getHeads)
       )
       >>= \case
         Left{} -> error "Something went wrong"
@@ -64,27 +108,13 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
-  readModelGetHeadIds :: TVar IO ExplorerState -> GetHeadIds
-  readModelGetHeadIds tv = atomically $ do
-    currentState <- readTVar tv
-    pure $
-      mapMaybe
-        ( \case
-            NoHeadTx -> Nothing
-            Init InitObservation{headId} -> Just headId
-            Abort AbortObservation{headId} -> Just headId
-            Commit CommitObservation{headId} -> Just headId
-            CollectCom CollectComObservation{headId} -> Just headId
-            Close CloseObservation{headId} -> Just headId
-            Contest ContestObservation{headId} -> Just headId
-            Fanout FanoutObservation{headId} -> Just headId
-        )
-        currentState
+  readModelGetHeadIds :: TVar IO ExplorerState -> GetHeads
+  readModelGetHeadIds = readTVarIO
 
-type GetHeadIds = IO [HeadId]
+type GetHeads = IO [HeadState]
 
-httpApp :: Tracer IO APIServerLog -> GetHeadIds -> Application
-httpApp tracer getHeadIds req send = do
+httpApp :: Tracer IO APIServerLog -> GetHeads -> Application
+httpApp tracer getHeads req send = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod req
@@ -93,17 +123,17 @@ httpApp tracer getHeadIds req send = do
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
     ("GET", []) -> send $ handleFile "index.html"
-    ("GET", ["heads"]) -> handleGetHeads getHeadIds req send
+    ("GET", ["heads"]) -> handleGetHeads getHeads req send
     -- FIXME: do proper file serving, this is dangerous
     ("GET", path) -> send $ handleFile $ toString $ mconcat $ List.intersperse "/" ("." : path)
     (_, _) -> send handleNotFound
 
 handleGetHeads ::
   -- | Read model of all known head ids
-  GetHeadIds ->
+  GetHeads ->
   Application
-handleGetHeads getHeadIds _req send = do
-  headIds <- getHeadIds
+handleGetHeads getHeads _req send = do
+  headIds <- getHeads
   send . responseLBS status200 corsHeaders $ Aeson.encode headIds
 
 handleError :: Response
