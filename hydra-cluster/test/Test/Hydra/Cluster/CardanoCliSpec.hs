@@ -23,7 +23,7 @@ spec :: Spec
 spec =
   describe "cardano-cli" $ do
     it "cardano-cli can accept a draft commit tx in text-envelope format" $
-      withTempDir "cardano-cli" $ \tmpDir -> do
+      withTempDir "hydra-cluster" $ \tmpDir -> do
         let txFile = tmpDir </> "tx.raw"
         draftCommitResponse <- DraftCommitTxResponse <$> generate (arbitrary :: Gen Tx)
         encodeFile txFile draftCommitResponse
@@ -40,7 +40,7 @@ spec =
 
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->
-        withTempDir "cardano-cli-pparams" $ \tmpDir -> do
+        withTempDir "hydra-cluster" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
             protocolParameters <- cliQueryProtocolParameters nodeSocket (networkId)
             case (parseEither pparamsFromJson protocolParameters) of

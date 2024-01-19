@@ -306,7 +306,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               waitForUTxO networkId nodeSocket someUTxO
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
-    withTempDir "direct-chain" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         (aliceCardanoVk, _) <- keysFor Alice
@@ -331,7 +331,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
   it "cannot restart head to an unknown point" $ \tracer -> do
-    withTempDir "direct-chain" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -349,7 +349,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           IntersectionNotFound{} -> True
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
-    withTempDir "direct-chain" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \RunningNode{nodeSocket, networkId} -> do
         readConfigFile ("credentials" </> "faucet.sk") >>= writeFileBS (tmp </> "faucet.sk")
         hydraScriptsTxIdStr <-
