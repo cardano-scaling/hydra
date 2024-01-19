@@ -90,7 +90,7 @@ handleGetHeads ::
   Application
 handleGetHeads getHeads _req send = do
   heads <- getHeads
-  send . responseLBS status200 corsHeaders $ Aeson.encode heads
+  send . responseLBS status200 (contentTypeHeader : corsHeaders) $ Aeson.encode heads
 
 handleError :: Response
 handleError =
@@ -109,3 +109,6 @@ corsHeaders =
   , ("Access-Control-Allow-Methods", "*")
   , ("Access-Control-Allow-Headers", "*")
   ]
+
+contentTypeHeader :: (HeaderName, ByteString)
+contentTypeHeader = ("Content-Type", "application/json")

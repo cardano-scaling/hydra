@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name:          hydra-explorer
 version:       0.15.0
 synopsis:      Hydra Explorer
@@ -76,12 +76,23 @@ test-suite tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
+    , aeson
+    , filepath
     , hspec
+    , hspec-wai
+    , http-types
     , hydra-explorer
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , insert-ordered-containers
+    , openapi3
     , QuickCheck
+    , wai-extra
+    , yaml
 
-  other-modules:      Spec
+  other-modules:
+    Hydra.Explorer.API.HTTPServerSpec
+    Spec
+
   build-tool-depends: hspec-discover:hspec-discover
