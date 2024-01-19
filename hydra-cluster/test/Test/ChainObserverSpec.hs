@@ -20,7 +20,7 @@ import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, unFile, utxoFromTx)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
@@ -42,15 +42,15 @@ spec = do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (aliceCardanoVk, _) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-                (walletVk, _walletSk) <- generate genKeyPair
+                (walletVk, walletSk) <- generate genKeyPair
 
-                commitUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 10_000_000 (contramap FromFaucet tracer)
+                commitUTxO <- seedFromFaucet cardanoNode walletVk 10_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
 
@@ -62,10 +62,10 @@ spec = do
 
                 commitTx <- requestCommitTx hydraNode commitUTxO
 
-                submitTx cardanoNode commitTx
+                pure (signTx walletSk commitTx) >>= submitTx cardanoNode
 
                 waitFor hydraTracer 5 [hydraNode] $
-                  output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+                  output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
                 chainObserverSees observer "HeadCommitTx" headId
                 chainObserverSees observer "HeadCollectComTx" headId
@@ -75,13 +75,16 @@ spec = do
                 decommitTx <-
                   either (failure . show) pure $
                     mkSimpleTx
-                      (List.head $ UTxO.pairs $ utxoFromTx commitTx)
+                      (List.head $ UTxO.pairs commitUTxO)
                       (walletAddress, lovelaceToValue 2_000_000)
-                      aliceCardanoSk
+                      walletSk
 
                 send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
 
                 chainObserverSees observer "HeadDecrementTx" headId
+
+                waitFor hydraTracer 50 [hydraNode] $
+                  output "DecommitProcessed" ["headId" .= headId]
 
                 send hydraNode $ input "Close" []
 
