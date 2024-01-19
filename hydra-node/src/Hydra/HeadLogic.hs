@@ -574,36 +574,27 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
-  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
-    -- TODO: dry a bit?
-    case utxoToDecommit of
-      Nothing -> outcome
-      Just utxoToDecommit' ->
-        case decommitTx of
-          -- We probably want dedicated errors for when utxo to
-          -- decommit is present in the snapshot but decommitTx is not present in the
-          -- state?
-          Nothing -> outcome
-          Just decommitTx' ->
-            -- Snapshotted utxo should match what we have in the local state.
-            let decommitUTxOFromState = utxoFromTx decommitTx'
-             in if decommitUTxOFromState == utxoToDecommit'
-                  then
-                    outcome
-                      <> Effects
-                        [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
-                        , OnChainEffect
-                            { postChainTx =
-                                DecrementTx
-                                  { headId
-                                  , decrementUTxO = utxoToDecommit'
-                                  , headParameters = parameters
-                                  , snapshot
-                                  , signatures
-                                  }
-                            }
-                        ]
-                  else outcome
+  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome
+    | isJust decommitTx
+    , (utxoFromTx <$> decommitTx) == utxoToDecommit =
+        case utxoToDecommit of
+          Just utxoToDecommit' ->
+            outcome
+              <> Effects
+                [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+                , OnChainEffect
+                    { postChainTx =
+                        DecrementTx
+                          { headId
+                          , decrementUTxO = utxoToDecommit'
+                          , headParameters = parameters
+                          , snapshot
+                          , signatures
+                          }
+                    }
+                ]
+          _ -> outcome
+    | otherwise = outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
@@ -1086,7 +1077,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  DecommitRecorded newDecommitTx ->
+  DecommitRecorded decommitTx ->
     case st of
       Open
         os@OpenState
@@ -1095,7 +1086,7 @@ aggregate st = \case
           Open
             os
               { coordinatedHeadState =
-                  coordinatedHeadState{decommitTx = Just newDecommitTx}
+                  coordinatedHeadState{decommitTx = Just decommitTx}
               }
       _otherState -> st
   DecommitProcessed ->

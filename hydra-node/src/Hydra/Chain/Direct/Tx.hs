@@ -314,6 +314,8 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
+-- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
+-- in the L2 ledger state and makes it available on L1.
 decrementTx ::
   NetworkId ->
   -- | Published Hydra scripts to reference.
@@ -322,11 +324,11 @@ decrementTx ::
   VerificationKey PaymentKey ->
   -- | Head identifier
   HeadId ->
-  -- | Parameters of the head to collect .
+  -- | Parameters of the head.
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
-  -- | UTxO to be decommitted.
+  -- | Decrement UTxO.
   UTxO ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
@@ -932,7 +934,6 @@ observeCollectComTx utxo tx = do
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
 
--- TODO: we probbably want more information here next to headId
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
   }

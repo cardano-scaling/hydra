@@ -103,9 +103,7 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitTxInvalid {headId :: HeadId, decommitTx :: tx}
   | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
-  | -- | Issued once all parties have signed the 'Snapshot' containing the
-    -- decommit 'UTxO'.
-    DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
+  | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitProcessed {headId :: HeadId}
   deriving stock (Generic)
 

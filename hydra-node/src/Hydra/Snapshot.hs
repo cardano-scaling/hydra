@@ -78,6 +78,8 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
     LBS.toStrict $
       serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
+        -- TODO: In the spec we have added new field but here we sign the diff
+        -- between two utxos.
         <> serialise (toData $ toBuiltin $ hashUTxO @tx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)) -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
