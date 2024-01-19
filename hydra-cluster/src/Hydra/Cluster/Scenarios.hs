@@ -99,10 +99,11 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import Test.QuickCheck (generate)
+import Test.QuickCheck (generate, oneof)
 
 data EndToEndLog
   = FromCardanoNode NodeLog
@@ -629,7 +630,7 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canDecommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 55_000_000
+    refuelIfNeeded tracer node Alice 30_000_000
     -- Start hydra-node on chain tip
     tip <- queryTip networkId nodeSocket
     let contestationPeriod = UnsafeContestationPeriod 100
@@ -639,7 +640,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
           case config of
             Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
             _ -> error "Should not be in offline mode"
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1@HydraClient{hydraNodeId} -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -652,20 +653,27 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
-      let walletAddress = mkVkAddress networkId walletVk
+
       decommitTx <-
         either (failure . show) pure $
           mkSimpleTx
             (List.head $ UTxO.pairs commitUTxO)
-            (walletAddress, lovelaceToValue 2_000_000)
+            (mkVkAddress networkId walletVk, lovelaceToValue 2_000_000)
             walletSk
 
-      send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
-      -- NOTE: We should also test the alternative way of decommitting using
-      -- http endpoint:
-      --   parseUrlThrow ("POST http://localhost:" <> show (4000 + hydraNodeId) <> "/decommit")
-      --     <&> setRequestBodyJSON decommitTx
-      --     >>= httpLbs
+      let decommitClientInput = send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
+
+      let callDecommitHttpEndpoint =
+            void $
+              L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+                <&> setRequestBodyJSON decommitTx
+                  >>= httpLbs
+
+      issueRequestDecommit <-
+        generate $ oneof [pure decommitClientInput, pure callDecommitHttpEndpoint]
+
+      issueRequestDecommit
+
       let decommitUTxO = utxoFromTx decommitTx
       waitFor hydraTracer 10 [n1] $
         output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
