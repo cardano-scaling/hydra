@@ -150,6 +150,7 @@ import Test.QuickCheck.DynamicLogic (
   forAllNonVariableQ,
   forAllQ,
   getModelStateDL,
+  whereQ,
   withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
@@ -159,6 +160,7 @@ import Test.QuickCheck.StateModel (
   Actions,
   Annotated (..),
   Step ((:=)),
+  precondition,
   runActions,
   stateAfter,
   pattern Actions,
@@ -220,12 +222,14 @@ conflictFreeLiveness = do
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{}} -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
-      action_ $ Model.NewTx party payment
-      eventually (ObserveConfirmedTx payment)
+      tx <- action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx tx)
     _ -> pure ()
   action_ Model.StopTheWorld
  where
-  nonConflictingTx st = withGenQ (genPayment st) (const [])
+  nonConflictingTx st =
+    withGenQ (genPayment st) (const [])
+      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
   eventually a = action_ (Wait 10) >> action_ a
 

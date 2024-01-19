@@ -89,7 +89,10 @@ applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
 
 genAdaValue :: Gen Value
-genAdaValue = lovelaceToValue . fromInteger <$> choose (1, 10000000000)
+genAdaValue = lovelaceToValue . fromInteger <$> choose (minimumUTxOAda, 10000000000)
+ where
+  -- NOTE: this should probably be retrieved from some authoritative source?
+  minimumUTxOAda = 1000000
 
 -- * Orphans
 instance Arbitrary Value where

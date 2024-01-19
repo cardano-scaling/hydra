@@ -18,7 +18,7 @@
 module Hydra.Model where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label)
+import Hydra.Prelude hiding (Any, label, lookup)
 
 import Cardano.Api.UTxO (pairs)
 import Cardano.Api.UTxO qualified as UTxO
@@ -38,6 +38,7 @@ import Data.List qualified as List
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Data.Set qualified as Set
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
@@ -73,7 +74,7 @@ import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
 import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), VarContext)
+import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), Var, VarContext)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
@@ -142,10 +143,7 @@ isPendingCommitFrom _ _ = False
 
 type Uncommitted = Map.Map Party (UTxOType Payment)
 
-data OffChainState = OffChainState
-  { confirmedUTxO :: UTxOType Payment
-  , seenTransactions :: [Payment]
-  }
+data OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
@@ -171,9 +169,9 @@ instance StateModel WorldState where
     Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
-    NewTx :: Party -> Payment -> Action WorldState ()
+    NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
-    ObserveConfirmedTx :: Payment -> Action WorldState ()
+    ObserveConfirmedTx :: Var Payment -> Action WorldState ()
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     StopTheWorld :: Action WorldState ()
@@ -231,7 +229,7 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraParties, hydraState} a _ =
+  nextState s@WorldState{hydraParties, hydraState} a _var =
     case a of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         WorldState{hydraParties = seedKeys, hydraState = idleState}
@@ -273,7 +271,6 @@ instance StateModel WorldState where
                     , offChainState =
                         OffChainState
                           { confirmedUTxO = mconcat (Map.elems commits')
-                          , seenTransactions = []
                           }
                     }
                 else
@@ -297,13 +294,12 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
-          Open{headParameters, offChainState = OffChainState{confirmedUTxO, seenTransactions}} ->
+          Open{headParameters, offChainState = OffChainState{confirmedUTxO}} ->
             Open
               { headParameters
               , offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
-                    , seenTransactions = tx : seenTransactions
                     }
               }
           _ -> error "unexpected state"
@@ -315,12 +311,10 @@ instance StateModel WorldState where
 instance HasVariables WorldState where
   getAllVariables _ = mempty
 
--- XXX: This is a bit annoying and non-obviously needed. It's coming from the
--- default implementation of HasVariables on the associated Action type. The
--- default implementation required 'Generic', which is not available if we use
--- GADTs for actions (as in the examples).
 instance HasVariables (Action WorldState a) where
-  getAllVariables _ = mempty
+  getAllVariables = \case
+    ObserveConfirmedTx tx -> Set.singleton (Some tx)
+    _other -> mempty
 
 deriving stock instance Show (Action WorldState a)
 deriving stock instance Eq (Action WorldState a)
@@ -471,7 +465,7 @@ instance
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
 
-  perform st action _ = do
+  perform st action lookup = do
     case action of
       Seed{seedKeys, seedContestationPeriod, toCommit} ->
         seedWorld seedKeys seedContestationPeriod toCommit
@@ -485,7 +479,8 @@ instance
         performAbort party
       Wait delay ->
         lift $ threadDelay delay
-      ObserveConfirmedTx tx -> do
+      ObserveConfirmedTx var -> do
+        let tx = lookup var
         nodes <- Map.toList <$> gets nodes
         forM_ nodes $ \(_, node) -> do
           lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
@@ -607,7 +602,7 @@ performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
   Party ->
   Payment ->
-  RunMonad m ()
+  RunMonad m Payment
 performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
@@ -627,12 +622,13 @@ performNewTx party tx = do
           (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
 
   party `sendsInput` Input.NewTx realTx
-  lift $
+  lift $ do
     waitUntilMatch [thisNode] $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
+    pure tx
 
 -- | Wait for the head to be open by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
