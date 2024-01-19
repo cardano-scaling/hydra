@@ -17,7 +17,7 @@ import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
+import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions, txId)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
@@ -61,6 +61,8 @@ spec =
       roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
 
       prop "Same TxId before/after JSON encoding" roundtripTxId
+
+      prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
 
       prop "Roundtrip to and from Ledger" roundtripLedger
 
@@ -120,6 +122,16 @@ roundtripTxId tx@(Tx body _) =
       property False
     Just tx'@(Tx body' _) ->
       (tx === tx' .&&. getTxId body === getTxId body')
+        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
+        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
+
+roundtripTxId' :: Tx -> Property
+roundtripTxId' tx@(Tx body _) =
+  case Aeson.decode (Aeson.encode tx) of
+    Nothing ->
+      property False
+    Just tx'@(Tx body' _) ->
+      (txId tx === getTxId body' .&&. txId tx' == getTxId body)
         & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
         & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
 
