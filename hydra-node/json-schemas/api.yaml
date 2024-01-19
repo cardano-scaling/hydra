@@ -95,10 +95,12 @@ channels:
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
+          - $ref: "api.yaml#/components/messages/DecommitTxInvalid"
+          - $ref: "api.yaml#/components/messages/DecommitAlreadyInFlight"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
+          - $ref: "api.yaml#/components/messages/DecommitRequestReceived"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
           - $ref: "api.yaml#/components/messages/DecommitProcessed"
-          - $ref: "api.yaml#/components/messages/DecommitAlreadyInFlight"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -149,7 +151,7 @@ channels:
       - localhost-http
     publish:
       description: Draft a decommit transaction, which needs to be signed by the requester and later on validated against the local ledger.
-      operationId: draftDecommitTx
+      operationId: decommitRequest
       message:
         $ref: "api.yaml#/components/messages/DecommitRequest"
       bindings:
@@ -158,11 +160,18 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
     subscribe:
-      operationId: draftCommitTxResponse
+      operationId: decommitResponse
       description: |
         Possible responses of this endpoint are:
           * 200 OK with empty body
           * 400 BadRequest on parsing errors with string as body
+      message:
+        $ref: "api.yaml#/components/messages/DecommitResponse"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
 
   /protocol-parameters:
     servers:
@@ -275,7 +284,7 @@ components:
     Decommit:
       title: Decommit
       description: |
-        Request a decommit by providing a decommit tx. Upon reaching consensus, this
+        Request to decommit a UTxO from a Head by providing a decommit tx. Upon reaching consensus, this
         will eventually result in corresponding transaction outputs becoming
         available on the layer 1.
       payload:
@@ -288,6 +297,7 @@ components:
             type: string
             enum: ["Decommit"]
           decommitTx:
+            type: object
             $ref: "api.yaml#/components/schemas/Transaction"
     Close:
       title: Close
@@ -511,7 +521,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["DecommitRequestReceived"]
+            enum: ["DecommitTxInvalid"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           decommitTx:
@@ -553,7 +563,6 @@ components:
         type: object
         required:
           - tag
-          - party
           - utxoToDecommit
           - seq
           - timestamp
@@ -963,6 +972,7 @@ components:
               - $ref: "api.yaml#/components/messages/Init/payload"
               - $ref: "api.yaml#/components/messages/Abort/payload"
               - $ref: "api.yaml#/components/messages/NewTx/payload"
+              - $ref: "api.yaml#/components/messages/Decommit/payload"
               - $ref: "api.yaml#/components/messages/GetUTxO/payload"
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
@@ -1035,6 +1045,18 @@ components:
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
+
+    DecommitRequest:
+      title: DecommitRequest
+      description: |
+        Provide decommit transaction that needs to be applicable to the Hydra's local ledger state. Specified transaction outputs will be
+        available on layer 1 after decommit is successfully processed.
+      payload:
+        $ref: "api.yaml#/components/schemas/Transaction"
+    DecommitResponse:
+      title: DecommitResponse
+      payload:
+        type: string
 
     ProtocolParameters:
       title: ProtocolParameters
