@@ -816,6 +816,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             , "snapshotNumber" .= int expectedSnapshotNumber
             , "utxo" .= newUTxO
             , "confirmedTransactions" .= [txId tx]
+            , "utxoToDecommit" .= Null
             ]
         expectedSnapshotNumber = 1
 
