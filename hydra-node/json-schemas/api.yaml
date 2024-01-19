@@ -474,7 +474,7 @@ components:
     DecommitRequestReceived:
       title: DecommitRequestReceived
       description: |
-        `Decommit` request is received.
+        Request to decommit some UTxO from the local ledger state is received.
       payload:
         type: object
         required:
@@ -499,7 +499,7 @@ components:
     DecommitTxInvalid:
       title: DecommitTxInvalid
       description: |
-        `Decommit` tx could not be applied to local ledger state.
+        Decommit tx could not be applied to local ledger state.
       payload:
         type: object
         required:
@@ -524,7 +524,7 @@ components:
     DecommitRequested:
       title: DecommitRequested
       description: |
-        Client requested `Decommit` transaction.
+        Notify client that the request for decommit was received.
       payload:
         type: object
         required:
@@ -548,7 +548,7 @@ components:
     DecommitApproved:
       title: DecommitApproved
       description: |
-        Client approved `Decommit` transaction.
+        Decommit request is validated by other participants and decommit tx is ready to be posted on layer 1.
       payload:
         type: object
         required:
@@ -573,7 +573,7 @@ components:
     DecommitProcessed:
       title: DecommitProcessed
       description: |
-        Decommit roundtrips and is finalized.
+        Decommit request is fully processed and hydra-node is ready to accept another decommit request.
       payload:
         type: object
         required:
@@ -595,7 +595,7 @@ components:
     DecommitAlreadyInFlight:
       title: DecommitAlreadyInFlight
       description: |
-        Requested decommit was rejected since the previous one isn't decommitted yet.
+        Requested decommit was rejected since the previous decommit request has not finished processing.
       payload:
         type: object
         required:

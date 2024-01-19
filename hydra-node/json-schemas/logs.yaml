@@ -1081,7 +1081,7 @@ definitions:
             $ref: "logs.yaml#/definitions/ValidationError"
       - title: "DecommitTxInvalid"
         description: >-
-          Received a Decommit which contains transaction that do not apply
+          Received a Decommit which contains transaction that does not apply
           cleanly on the currently confirmed UTxO set
         additionalProperties: false
         required:
@@ -1111,7 +1111,7 @@ definitions:
       - title: "DecommitDoesNotApply"
         description: >-
           Decommit which was requested contains transaction that does not apply
-          cleanly on the currently confirmed UTxO set when trying to handle new Snapshot.
+          on the current UTxO set when trying to acknowledge new Snapshot.
         additionalProperties: false
         required:
           - tag
@@ -1304,7 +1304,8 @@ definitions:
           tag:
             type: string
             enum: ["DecommitRecorded"]
-          tx:
+          decommitTx:
+            type: object
             $ref: "api.yaml#/components/schemas/Transaction"
       - title: "DecommitProcessed"
         additionalProperties: false
@@ -1735,12 +1736,13 @@ definitions:
           - tag
           - transaction
         description: >-
-          Request to decommit some funds from the Head.
+          Notify the peers about the request to decommit some funds from the Head.
         properties:
           tag:
             type: string
             enum: ["ReqDec"]
           transaction:
+            type: object
             $ref: "api.yaml#/components/schemas/Transaction"
   OnChainEvent:
     oneOf:
