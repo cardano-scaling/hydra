@@ -27,17 +27,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain.CardanoClient (queryTip)
-import Hydra.Chain.Direct.Tx (
-  AbortObservation (..),
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  ContestObservation (..),
-  FanoutObservation (..),
-  HeadObservation (..),
-  InitObservation (..),
-  observeHeadTx,
- )
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), InitObservation (..), observeHeadTx)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Contract (ScriptInfo)
 import Hydra.Contract qualified as Contract
@@ -51,7 +41,6 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStIntersect (..),
   ClientStNext (..),
  )
-import Hydra.Chain.Direct.Tx (DecrementObservation(..))
 
 main :: IO ()
 main = do

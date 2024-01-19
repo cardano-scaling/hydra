@@ -169,7 +169,6 @@ instance
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
     DecommitProcessed headId -> DecommitProcessed <$> shrink headId
 
-
 -- | Possible transaction formats in the api server output
 data OutputFormat
   = OutputCBOR
