@@ -5,9 +5,20 @@ module Hydra.Explorer.API.HTTPServerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
+import Control.Lens (at, (^.), (^?!))
 import Data.Aeson qualified as Aeson
-import Data.HashMap.Strict.InsOrd qualified as InsOrdHashMap
-import Data.OpenApi (sketchSchema, validateJSON)
+import Data.OpenApi (
+  OpenApi (..),
+  components,
+  content,
+  get,
+  paths,
+  responses,
+  schema,
+  schemas,
+  validateJSON,
+  _Inline,
+ )
 import Data.Yaml qualified as Yaml
 import Hydra.Explorer (httpApp)
 import Hydra.Explorer.ExplorerState (HeadState)
@@ -15,33 +26,51 @@ import Hydra.Logging (nullTracer)
 import Network.HTTP.Types (statusCode)
 import Network.Wai.Test (SResponse (..))
 import System.FilePath ((</>))
-import Test.Hspec.Wai (get, with)
+import Test.Hspec.Wai qualified as Wai
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = apiServerSpec
 
 apiServerSpec :: Spec
 apiServerSpec = do
-  with (return webServer) $
+  Wai.with (return webServer) $
     describe "API should respond correctly" $
       describe "GET /heads" $
         it "matches schema" $ do
           let openApiSchema = "json-schemas" </> "hydra-explorer-api.yaml"
-          jsonSchema <- liftIO $ Yaml.decodeFileThrow @_ @Aeson.Value openApiSchema
-          let schemaSpec = sketchSchema jsonSchema
-          SResponse{simpleStatus, simpleHeaders, simpleBody} <- get "/heads"
-          liftIO $ statusCode simpleStatus `shouldBe` 200
-          liftIO $
-            simpleHeaders
-              `shouldMatchList` [ ("Access-Control-Allow-Origin", "*")
-                                , ("Access-Control-Allow-Methods", "*")
-                                , ("Access-Control-Allow-Headers", "*")
-                                , ("Content-Type", "application/json")
-                                ]
-          let (Just value) = Aeson.decode simpleBody :: Maybe Aeson.Value
-          let validations = validateJSON InsOrdHashMap.empty schemaSpec value
-          liftIO $ validations `shouldBe` []
+          openApi <- liftIO $ Yaml.decodeFileThrow @_ @OpenApi openApiSchema
+          let componentSchemas = openApi ^?! components . schemas
+          let maybeHeadsSchema = do
+                path <- openApi ^. paths . at "/heads"
+                endpoint <- path ^. get
+                res <- endpoint ^. responses . at 200
+                -- XXX: _Inline here assumes that no $ref is used within the
+                -- openapi Operation
+                jsonContent <- res ^. _Inline . content . at "application/json"
+                s <- jsonContent ^. schema
+                pure $ s ^. _Inline
+          case maybeHeadsSchema of
+            Nothing -> liftIO . failure $ "Failed to find schema for GET /heads endpoint"
+            Just headsSchema -> do
+              liftIO $ headsSchema `shouldNotBe` mempty
+              SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/heads"
+              liftIO $ statusCode simpleStatus `shouldBe` 200
+              liftIO $
+                simpleHeaders
+                  `shouldMatchList` [ ("Access-Control-Allow-Origin", "*")
+                                    , ("Access-Control-Allow-Methods", "*")
+                                    , ("Access-Control-Allow-Headers", "*")
+                                    , ("Content-Type", "application/json")
+                                    ]
+              let maybeValue = Aeson.decode simpleBody :: Maybe Aeson.Value
+              case maybeValue of
+                Nothing -> liftIO . failure $ "Failed to decode body into json value"
+                Just value ->
+                  case validateJSON componentSchemas headsSchema value of
+                    [] -> pure ()
+                    errs -> liftIO . failure . toString $ unlines (map toText errs)
  where
   webServer = httpApp nullTracer dummyGetHeads
   dummyGetHeads :: IO [HeadState]
-  dummyGetHeads = pure []
+  dummyGetHeads = generate arbitrary

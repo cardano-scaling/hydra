@@ -28,6 +28,9 @@ data PartyCommit = PartyCommit
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
+instance Arbitrary PartyCommit where
+  arbitrary = genericArbitrary
+
 data HeadMember = HeadMember
   { party :: Party
   , onChainId :: OnChainId
@@ -35,6 +38,9 @@ data HeadMember = HeadMember
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+instance Arbitrary HeadMember where
+  arbitrary = genericArbitrary
 
 data HeadStatus
   = Initializing
@@ -45,6 +51,9 @@ data HeadStatus
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
+instance Arbitrary HeadStatus where
+  arbitrary = genericArbitrary
+
 data HeadState = HeadState
   { headId :: HeadId
   , seedTxIn :: TxIn
@@ -54,6 +63,9 @@ data HeadState = HeadState
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
+
+instance Arbitrary HeadState where
+  arbitrary = genericArbitrary
 
 type ExplorerState = [HeadState]
 

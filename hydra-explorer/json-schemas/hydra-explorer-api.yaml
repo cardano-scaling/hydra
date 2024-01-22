@@ -38,27 +38,127 @@ components:
       type: string
       description: |
         A on-chain identifier for a Head participant, hex-encoded as 28 bytes string.
-      # "$ref": "cardano.json#/definitions/Digest<Blake2b, 224>"
-      # "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Digest<Blake2b, 224>"
-    Commit:
+    TxIn:
+      type: string
+      description: |
+        A reference to a Cardano transaction output, commonly used as transaction
+        input and thus named TxIn. Constructed from the transaction's id and
+        the ouput index, separated by a '#'.
+      pattern: "^[0-9a-f]{64}#[0-9]+$"
+      example: "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314#4"
+    Address:
+      type: string
+      description: |
+        A bech-32 encoded Cardano address, see
+        https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32s and
+        https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
+      example: "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
+    Value:
+      type: object
+      description: |
+        A Cardano value. This is an object containing a number of lovelaces, and
+        optional assets, mapping some monetary policy identifier to a
+        mapping of coin (arbitrary strings) to some integer value.
+        Assets represent native tokens available on the Cardano blockchain, including Non-Fungible Tokens.
+      additionalProperties: true
+      properties:
+        lovelace:
+          type: integer
+          minimum: 0
+          description: |
+            A (positive) amount of lovelace
+    Script:
+      type: object
+      additionalProperties: false
+      required:
+        - scriptLanguage
+        - script
+      properties:
+        scriptLanguage:
+          type: string
+        script:
+          type: object
+          additionalProperties: false
+          required:
+            - cborHex
+            - description
+            - type
+          properties:
+            cborHex:
+              type: string
+            description:
+              type: string
+            type:
+              type: string
+              enum:
+                - SimpleScript
+                - PlutusScriptV1
+                - PlutusScriptV2
+      example:
+        {
+          "script": {
+              "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+              "description": "",
+              "type": "SimpleScript"
+          },
+          "scriptLanguage": "SimpleScriptLanguage"
+        }
+    TxOut:
+      type: object
+      description: |
+        A single transaction output
+      required:
+      - address
+      - value
+      additionalProperties: false
+      properties:
+        address:
+          $ref: "#/components/schemas/Address"
+        value:
+          $ref: "#/components/schemas/Value"
+        referenceScript:
+          $ref: "#/components/schemas/Script"
+        datumhash:
+          type: string
+        inlineDatum:
+          type: object
+          additionalProperties: true
+        inlineDatumhash:
+          type: string
+        datum:
+          type: string
+    PartyCommit:
       type: object
       properties:
         txIn:
-          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutputReference"
+          $ref: "#/components/schemas/TxIn"
         txOut:
-          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutput"
+          $ref: "#/components/schemas/TxOut"
+    Party:
+      type: object
+      description: |
+        The verification key for some Party in the Head protocol, uniquely identifying it.
+      additionalProperties: false
+      required:
+        - vkey
+      properties:
+        vkey:
+          type: string
+      example:
+        {
+            "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043"
+        }
     HeadMember:
       type: object
       properties:
         party:
-          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/VerificationKey"
+          $ref: "#/components/schemas/Party"
         onChainId:
           $ref: '#/components/schemas/OnChainId'
-          # "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Digest<Blake2b, 224>"
         commits:
           type: array
           items:
-            $ref: '#/components/schemas/Commit'
+            $ref: '#/components/schemas/PartyCommit'
     HeadStatus:
       type: string
       enum:
@@ -76,7 +176,6 @@ components:
       type: string
       description: |
         A unique identifier for a Head, represented by a hex-encoded 16 bytes string.
-      # contentEncoding: base16
       example:
         "820082582089ff4f3ff4a6052ec9d073"
     HeadState:
@@ -85,7 +184,7 @@ components:
         headId:
           $ref: '#/components/schemas/HeadId'
         seedTxIn:
-          $ref: "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/TransactionOutputReference"
+          $ref: '#/components/schemas/TxIn'
         status:
           $ref: '#/components/schemas/HeadStatus'
         contestationPeriod:
