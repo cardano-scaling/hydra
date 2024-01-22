@@ -74,7 +74,7 @@ aggregateInitObservation InitObservation{headId, seedTxIn, contestationPeriod, p
   case findHeadState headId explorerState of
     -- REVIEW: this should never happen; how should we deal with this scenario?
     Just _headState -> replaceHeadState newHeadState explorerState
-    Nothing -> newHeadState : explorerState
+    Nothing -> explorerState <> [newHeadState]
  where
   newHeadState =
     HeadState

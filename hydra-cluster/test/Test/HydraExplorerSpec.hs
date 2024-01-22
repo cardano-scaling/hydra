@@ -107,10 +107,10 @@ spec = do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
-            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              withHydraExplorer cardanoNode $ \explorer -> do
+            withHydraExplorer cardanoNode $ \explorer -> do
+              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
@@ -121,21 +121,46 @@ spec = do
 
                 headExplorerSees explorer "HeadInitTx" aliceHeadId
 
-                manager <- HTTPClient.newTlsManager
-                let url = "http://127.0.0.1:9090/heads"
-                request <-
-                  HTTPClient.parseRequest url <&> \request ->
-                    request
-                      { HTTPClient.method = "GET"
-                      , HTTPClient.requestHeaders = [("Accept", "application/json")]
-                      }
-                response <- HTTPClient.httpLbs request manager
-                HTTPClient.responseStatus response `shouldBe` status200
-                allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
-                length allHeads `shouldBe` 1
-                let [HeadState{headId = idBS, status}] = allHeads
-                encode aliceHeadId `shouldBe` encode idBS
-                status `shouldBe` Initializing
+                pure aliceHeadId
+
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] $ \hydraNode -> do
+                seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+                send hydraNode $ input "Init" []
+
+                bobHeadId <- waitMatch 5 hydraNode $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
+                  v ^? key "headId" . _String
+
+                headExplorerSees explorer "HeadInitTx" bobHeadId
+
+                send hydraNode $ input "Abort" []
+
+                headExplorerSees explorer "HeadAbortTx" bobHeadId
+
+                pure bobHeadId
+
+              manager <- HTTPClient.newTlsManager
+              let url = "http://127.0.0.1:9090/heads"
+              request <-
+                HTTPClient.parseRequest url <&> \request ->
+                  request
+                    { HTTPClient.method = "GET"
+                    , HTTPClient.requestHeaders = [("Accept", "application/json")]
+                    }
+              response <- HTTPClient.httpLbs request manager
+              HTTPClient.responseStatus response `shouldBe` status200
+              allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
+              length allHeads `shouldBe` 2
+              let [ HeadState{headId = aliceIdBS, status = aliceStatus}
+                    , HeadState{headId = bobIdBS, status = bobStatus}
+                    ] = allHeads
+              encode aliceHeadId `shouldBe` encode aliceIdBS
+              aliceStatus `shouldBe` Initializing
+              encode bobHeadId `shouldBe` encode bobIdBS
+              bobStatus `shouldBe` Aborted
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
 headExplorerSees explorer txType headId =
