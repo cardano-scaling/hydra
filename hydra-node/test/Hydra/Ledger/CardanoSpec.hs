@@ -31,7 +31,6 @@ import Hydra.Ledger.Cardano (
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
-import Test.QuickCheck.Property (expectFailure)
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
@@ -55,11 +54,8 @@ spec =
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
 
-    -- FIXME: this is expected to fail because of a bug in cardano-ledger
-    -- (https://github.com/IntersectMBO/cardano-ledger/issues/3943) . Once a fix
-    -- is upstream SB will remove the failure expectation.
-    describe "PParams" $
-      prop "Same PParams before/after JSON encoding" (expectFailure roundtripPParams)
+    describe "ProtocolParameters" $
+      prop "Roundtrip JSON encoding" roundtripProtocolParameters
 
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @Tx)
@@ -114,15 +110,19 @@ shouldParseJSONAs bs =
     Left err -> failure err
     Right (_ :: a) -> pure ()
 
-roundtripPParams :: PParams LedgerEra -> Property
-roundtripPParams pparams =
-  case Aeson.decode (Aeson.encode pparams) of
+-- | Test that the 'ProtocolParameters' To/FromJSON instances to roundtrip. Note
+-- that we use the ledger 'PParams' type to generate values, but the cardano-api
+-- type 'ProtocolParameters' is used for the serialization.
+roundtripProtocolParameters :: PParams LedgerEra -> Property
+roundtripProtocolParameters pparams = do
+  case Aeson.decode (Aeson.encode expected) of
     Nothing ->
       property False
-    Just decodedPparams ->
-      (pparams === decodedPparams)
-        & counterexample ("after:  " <> show decodedPparams)
-        & counterexample ("before: " <> show pparams)
+    Just actual ->
+      (expected === actual)
+        & counterexample ("ledger: " <> show pparams)
+ where
+  expected = fromLedgerPParams shelleyBasedEra pparams
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =
