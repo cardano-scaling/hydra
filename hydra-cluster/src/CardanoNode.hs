@@ -171,11 +171,10 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , "alonzo-genesis.json"
       , "conway-genesis.json"
       ]
-      $ \fn ->
-        unlessM (doesFileExist $ workDir </> fn) $ do
-          createDirectoryIfMissing True $ workDir </> takeDirectory fn
-          fetchConfigFile (knownNetworkPath </> fn)
-            >>= writeFileBS (workDir </> fn)
+      $ \fn -> do
+        createDirectoryIfMissing True $ workDir </> takeDirectory fn
+        fetchConfigFile (knownNetworkPath </> fn)
+          >>= writeFileBS (workDir </> fn)
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
