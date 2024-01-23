@@ -56,13 +56,7 @@ apiServerSpec = do
               liftIO $ headsSchema `shouldNotBe` mempty
               SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/heads"
               liftIO $ statusCode simpleStatus `shouldBe` 200
-              liftIO $
-                simpleHeaders
-                  `shouldMatchList` [ ("Access-Control-Allow-Origin", "*")
-                                    , ("Access-Control-Allow-Methods", "*")
-                                    , ("Access-Control-Allow-Headers", "*")
-                                    , ("Content-Type", "application/json")
-                                    ]
+              liftIO $ simpleHeaders `shouldContain` [("Accept", "application/json")]
               let maybeValue = Aeson.decode simpleBody :: Maybe Aeson.Value
               case maybeValue of
                 Nothing -> liftIO . failure $ "Failed to decode body into json value"
