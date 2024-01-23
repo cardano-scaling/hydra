@@ -45,15 +45,12 @@ library
   build-depends:
     , aeson
     , base
-    , bytestring
-    , containers
     , http-types
     , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
     , io-classes
-    , optparse-applicative
     , wai
     , warp
 
@@ -77,7 +74,6 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , aeson
-    , base
     , filepath
     , hspec
     , hspec-wai
