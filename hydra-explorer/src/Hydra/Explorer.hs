@@ -73,10 +73,7 @@ httpApp tracer getHeads req send = do
       }
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> send $ responseLBS status200 corsHeaders ""
-    ("GET", []) -> send $ handleFile "index.html"
     ("GET", ["heads"]) -> handleGetHeads getHeads req send
-    -- FIXME: do proper file serving, this is dangerous
-    ("GET", path) -> send $ handleFile $ toString $ mconcat $ List.intersperse "/" ("." : path)
     (_, _) -> send handleNotFound
 
 handleGetHeads ::
