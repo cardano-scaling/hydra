@@ -57,10 +57,9 @@ apiServerSpec = do
               SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/heads"
               liftIO $ statusCode simpleStatus `shouldBe` 200
               liftIO $ simpleHeaders `shouldContain` [("Accept", "application/json")]
-              let maybeValue = Aeson.decode simpleBody :: Maybe Aeson.Value
-              case maybeValue of
-                Nothing -> liftIO . failure $ "Failed to decode body into json value"
-                Just value ->
+              case Aeson.eitherDecode simpleBody of
+                Left err -> liftIO . failure $ "Failed to decode body: " <> err
+                Right value ->
                   case validateJSON componentSchemas headsSchema value of
                     [] -> pure ()
                     errs -> liftIO . failure . toString $ unlines (map toText errs)
