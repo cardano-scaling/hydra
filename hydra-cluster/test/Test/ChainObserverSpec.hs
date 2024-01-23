@@ -12,7 +12,6 @@ import Test.Hydra.Prelude
 import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Control.Exception (IOException)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
