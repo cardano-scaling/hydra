@@ -10,3 +10,7 @@ hydra-explorer \
   --node-socket testnets/preprod/node.socket \
   --testnet-magic 1
 ```
+
+Note: this assumes you are running a cardano-node in preprod.
+
+By definition, hydra-explorer will bind port 9090.
