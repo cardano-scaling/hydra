@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Integration tests for the 'hydra-explorer' executable. These will run
 -- also 'hydra-node' on a devnet and assert correct observation.
@@ -10,12 +9,9 @@ import Test.Hydra.Prelude
 
 import CardanoClient (RunningNode (..))
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Lens ((^.), (^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, nth, _Array, _String)
-import Data.ByteString (hGetLine)
-import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
@@ -23,8 +19,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, send, waitMatch, withHydraNode)
 import Network.HTTP.Client (responseBody)
-import Network.HTTP.Simple (httpJSON, parseRequestThrow, setRequestHeader)
-import System.IO.Error (isEOFError, isIllegalOperation)
+import Network.HTTP.Simple (httpJSON, parseRequestThrow)
 import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
 
 spec :: Spec
@@ -54,8 +49,12 @@ spec = do
             bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
             withHydraExplorer cardanoNode $ \explorer -> do
-              headExplorerSees explorer "HeadInitTx" aliceHeadId
-              headExplorerSees explorer "HeadInitTx" bobHeadId
+              allHeads <- getHeads explorer
+              length (allHeads ^. _Array) `shouldBe` 2
+              allHeads ^. nth 0 . key "headId" . _String `shouldBe` aliceHeadId
+              allHeads ^. nth 0 . key "status" . _String `shouldBe` "Initializing"
+              allHeads ^. nth 1 . key "headId" . _String `shouldBe` bobHeadId
+              allHeads ^. nth 1 . key "status" . _String `shouldBe` "Initializing"
 
   it "can query for all hydra heads observed" $
     failAfter 60 $
@@ -71,13 +70,9 @@ spec = do
               aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
                 send hydraNode $ input "Init" []
 
-                aliceHeadId <- waitMatch 5 hydraNode $ \v -> do
+                waitMatch 5 hydraNode $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsInitializing"
                   v ^? key "headId" . _String
-
-                headExplorerSees explorer "HeadInitTx" aliceHeadId
-
-                pure aliceHeadId
 
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
@@ -89,59 +84,22 @@ spec = do
                   guard $ v ^? key "tag" == Just "HeadIsInitializing"
                   v ^? key "headId" . _String
 
-                headExplorerSees explorer "HeadInitTx" bobHeadId
-
                 send hydraNode $ input "Abort" []
 
-                headExplorerSees explorer "HeadAbortTx" bobHeadId
+                waitMatch 5 hydraNode $ \v -> do
+                  guard $ v ^? key "tag" == Just "HeadIsAborted"
+                  guard $ v ^? key "headId" . _String == Just bobHeadId
 
                 pure bobHeadId
 
-              response <-
-                parseRequestThrow "http://127.0.0.1:9090/heads"
-                  <&> setRequestHeader "Accept" ["application/json"]
-                    >>= httpJSON
-
-              let allHeads :: Aeson.Value = responseBody response
+              allHeads <- getHeads explorer
               length (allHeads ^. _Array) `shouldBe` 2
               allHeads ^. nth 0 . key "headId" . _String `shouldBe` aliceHeadId
               allHeads ^. nth 0 . key "status" . _String `shouldBe` "Initializing"
               allHeads ^. nth 1 . key "headId" . _String `shouldBe` bobHeadId
               allHeads ^. nth 1 . key "status" . _String `shouldBe` "Aborted"
 
-              pure ()
-
-headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
-headExplorerSees explorer txType headId =
-  awaitMatch explorer 5 $ \v -> do
-    guard $ v ^? key "message" . key "tag" == Just txType
-    let actualId = v ^? key "message" . key "headId" . _String
-    guard $ actualId == Just headId
-
-awaitMatch :: HasCallStack => HydraExplorerHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
-awaitMatch hydraExplorerHandle delay f = do
-  seenMsgs <- newTVarIO []
-  timeout delay (go seenMsgs) >>= \case
-    Just x -> pure x
-    Nothing -> do
-      msgs <- readTVarIO seenMsgs
-      failure $
-        toString $
-          unlines
-            [ "awaitMatch did not match a message within " <> show delay
-            , padRight ' ' 20 "  seen messages:"
-                <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
-            ]
- where
-  go seenMsgs = do
-    msg <- awaitNext hydraExplorerHandle
-    atomically (modifyTVar' seenMsgs (msg :))
-    maybe (go seenMsgs) pure (f msg)
-
-  align _ [] = []
-  align n (h : q) = h : fmap (T.replicate n " " <>) q
-
-newtype HydraExplorerHandle = HydraExplorerHandle {awaitNext :: IO Value}
+newtype HydraExplorerHandle = HydraExplorerHandle {getHeads :: IO Value}
 
 data HydraExplorerLog
   = FromCardanoNode NodeLog
@@ -154,27 +112,16 @@ data HydraExplorerLog
 withHydraExplorer :: RunningNode -> (HydraExplorerHandle -> IO ()) -> IO ()
 withHydraExplorer cardanoNode action =
   withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
-    \_in (Just out) err processHandle ->
+    \_in _stdOut err processHandle ->
       race
         (checkProcessHasNotDied "hydra-explorer" processHandle err)
-        (action HydraExplorerHandle{awaitNext = awaitNext out})
+        ( -- XXX: wait for the http server to be listening on port
+          threadDelay 1
+            *> action HydraExplorerHandle{getHeads}
+        )
         <&> either absurd id
  where
-  awaitNext :: Handle -> IO Aeson.Value
-  awaitNext out = do
-    x <- try (hGetLine out)
-    case x of
-      Left e | isEOFError e || isIllegalOperation e -> do
-        threadDelay 1
-        awaitNext out
-      Left e -> failure $ "awaitNext failed with exception " <> show e
-      Right d -> do
-        case Aeson.eitherDecode (fromStrict d) of
-          Left _err -> do
-            putBSLn $ "awaitNext failed to decode msg: " <> d
-            threadDelay 1
-            awaitNext out
-          Right value -> pure value
+  getHeads = responseBody <$> (parseRequestThrow "http://127.0.0.1:9090/heads" >>= httpJSON)
 
   process =
     proc
