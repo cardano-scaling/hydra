@@ -89,7 +89,7 @@ test-suite tests
     , yaml
 
   other-modules:
-    Hydra.Explorer.API.HTTPServerSpec
+    Hydra.ExplorerSpec
     Spec
 
   build-tool-depends: hspec-discover:hspec-discover

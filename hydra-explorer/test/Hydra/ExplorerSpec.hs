@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Hydra.Explorer.API.HTTPServerSpec where
+module Hydra.ExplorerSpec where
 
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
