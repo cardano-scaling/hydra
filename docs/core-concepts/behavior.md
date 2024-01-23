@@ -27,4 +27,4 @@ When a `hydra-node` restarts, by default it will load its history from persisten
 
 Clients can optionally decide to skip history outputs and receive only the `Greetings` and following ones. In order to do that they can use query param `history=no`.
 
-For example if the client wants to connect to a local `hydra-node` and doesn't want to view the server history but also wants to have the transactions encoded as CBOR (base16) and prevent utxo display in `SnapshotConfirmed` messages, they would connect using default port `4001` and the full path `ws://localhost:4001/?history=no`.
+For example if the client wants to connect to a local `hydra-node` and doesn't want to view the server history and prevent utxo display in `SnapshotConfirmed` messages, they would connect using default port `4001` and the full path `ws://localhost:4001/?history=no`.
