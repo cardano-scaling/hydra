@@ -215,7 +215,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
-        it "Emits ReqSn on valid RecDec" $ do
+        it "emits ReqSn on valid RecDec" $ do
           let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           let s0 = inOpenState threeParties ledger
 
@@ -224,22 +224,6 @@ spec =
             _ -> False
 
           let reqDecEvent = NetworkEvent defaultTTL alice ReqDec{transaction = decommitTx'}
-          -- REVIEW: do we need to keep track of decommit txs in transactionIds?
-          let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
-
-          let s1 = update aliceEnv ledger s0 reqDecEvent
-          s1 `hasEffect` NetworkEffect reqSn
-
-        it "After DecommitProcessed utxoToDecommit is cleared from the local state" $ do
-          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          let s0 = inOpenState threeParties ledger
-
-          s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
-            _ -> False
-
-          let reqDecEvent = NetworkEvent defaultTTL bob ReqDec{transaction = decommitTx'}
-
           let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
 
           let s1 = update aliceEnv ledger s0 reqDecEvent
