@@ -317,7 +317,6 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
 -- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
 -- in the L2 ledger state and makes it available on L1.
 decrementTx ::
-  NetworkId ->
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
@@ -334,7 +333,7 @@ decrementTx ::
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-decrementTx networkId scriptRegistry vk headId headParameters (headInput, headOutput) utxoToDecrement snapshot signatures =
+decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) utxoToDecrement snapshot signatures =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -347,12 +346,8 @@ decrementTx networkId scriptRegistry vk headId headParameters (headInput, headOu
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
-  headOutput' =
-    TxOut
-      (mkScriptAddress @PlutusScriptV2 networkId headScript)
-      (txOutValue headOutput)
-      headDatumAfter
-      ReferenceScriptNone
+  headOutput'  =
+    modifyTxOutDatum (const headDatumAfter) headOutput
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 

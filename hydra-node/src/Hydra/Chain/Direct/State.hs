@@ -132,7 +132,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, vector, suchThat)
+import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -513,11 +513,11 @@ decrement ctx headId headParameters spendableUTxO snapshot signatures = do
     Nothing -> Left SnapshotMissingDecrementUTxO
     Just decrementUTxO ->
       pure $
-        decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
+        decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
+  ChainContext{ownVerificationKey, scriptRegistry} = ctx
   Snapshot{utxoToDecommit} = snapshot
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
