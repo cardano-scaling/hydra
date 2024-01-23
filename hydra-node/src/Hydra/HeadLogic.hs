@@ -636,14 +636,16 @@ onOpenNetworkReqDec ::
 onOpenNetworkReqDec env openState decommitTx =
   requireNoDecommitInFlight openState $
     let decommitUTxO = utxoFromTx decommitTx
-     in if isLeader parameters party nextSn
-          then
-            StateChanged (DecommitRecorded decommitTx)
-              <> Effects
-                [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-                , NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))
-                ]
-          else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+     in StateChanged (DecommitRecorded decommitTx)
+          <> Effects
+            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+            ]
+          <>
+            if isLeader parameters party nextSn
+            then
+              Effects
+                [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
+            else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
  where
   Environment{party} = env
 
