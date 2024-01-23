@@ -101,7 +101,7 @@ data ServerOutput tx
       }
   | DecommitRequestReceived {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitTxInvalid {headId :: HeadId, decommitTx :: tx}
+  | DecommitTxInvalid {headId :: HeadId, decommitUTxO :: UTxOType tx, decommitTx :: tx, validationError :: ValidationError}
   | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitProcessed {headId :: HeadId}
@@ -162,7 +162,7 @@ instance
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
     DecommitRequestReceived headId u -> DecommitRequestReceived <$> shrink headId <*> shrink u
-    DecommitTxInvalid headId tx -> DecommitTxInvalid <$> shrink headId <*> shrink tx
+    DecommitTxInvalid headId u tx err -> DecommitTxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     DecommitAlreadyInFlight headId u -> DecommitAlreadyInFlight <$> shrink headId <*> shrink u
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
     DecommitProcessed headId -> DecommitProcessed <$> shrink headId

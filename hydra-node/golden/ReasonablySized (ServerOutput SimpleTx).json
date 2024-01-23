@@ -543,21 +543,25 @@
         },
         {
             "decommitTx": {
-                "id": -2,
-                "inputs": [
-                    -1,
-                    1
-                ],
+                "id": -3,
+                "inputs": [],
                 "outputs": [
                     -5,
-                    -4,
-                    -2,
                     0,
-                    3
+                    6
                 ]
             },
-            "headId": "08060403060503040408020005040703",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -5,
+                -2,
+                0,
+                5
+            ],
+            "headId": "05040000010607030504050104010501",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "w"
+            }
         },
         {
             "headId": "04060008010702000001020201000408",
@@ -1017,17 +1021,30 @@
         },
         {
             "decommitTx": {
-                "id": 1,
+                "id": 6,
                 "inputs": [
-                    -3,
-                    5
+                    -6,
+                    -5,
+                    -2
                 ],
                 "outputs": [
-                    -1
+                    -5,
+                    -1,
+                    3
                 ]
             },
-            "headId": "00010406050503030100060004010400",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -6,
+                -1,
+                1,
+                3,
+                4
+            ],
+            "headId": "02020802050008030107060004080501",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "8\u001egh􄃑󶭑"
+            }
         },
         {
             "headId": "05070304020004060603030808010605",
@@ -1043,18 +1060,24 @@
             "decommitTx": {
                 "id": 5,
                 "inputs": [
-                    -6,
-                    4,
+                    -1,
+                    3,
                     5
                 ],
                 "outputs": [
-                    -3,
-                    1,
-                    5
+                    3
                 ]
             },
-            "headId": "03030101050402020602000302030807",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -4,
+                0,
+                4
+            ],
+            "headId": "01050501000701080303020304040802",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "􅦲+􈵰\u000f"
+            }
         },
         {
             "contestationDeadline": "1864-05-07T22:51:38.390925325424Z",
@@ -1069,21 +1092,20 @@
         },
         {
             "decommitTx": {
-                "id": 6,
+                "id": -4,
                 "inputs": [
-                    -3,
-                    -2,
-                    0,
-                    2,
-                    3
+                    5
                 ],
-                "outputs": [
-                    -3,
-                    2
-                ]
+                "outputs": []
             },
-            "headId": "08010108020603040404020800060600",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                0
+            ],
+            "headId": "00040604030701030102080206020101",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": ""
+            }
         },
         {
             "headId": "06030303010707080205080502060606",
@@ -1170,16 +1192,27 @@
         },
         {
             "decommitTx": {
-                "id": 3,
-                "inputs": [],
+                "id": 4,
+                "inputs": [
+                    0,
+                    4
+                ],
                 "outputs": [
-                    -6,
-                    -4,
-                    3
+                    0
                 ]
             },
-            "headId": "01050104060204060302050306000203",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -5,
+                -4,
+                -2,
+                1,
+                5
+            ],
+            "headId": "07060304010300060107010506070306",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": ""
+            }
         },
         {
             "headId": "06070802020707030407020106020708",
@@ -1199,21 +1232,27 @@
         },
         {
             "decommitTx": {
-                "id": 5,
+                "id": 3,
                 "inputs": [
-                    -5,
-                    -4
+                    -2,
+                    5
                 ],
                 "outputs": [
-                    -6,
-                    0,
-                    3,
-                    5,
-                    6
+                    -4,
+                    -3,
+                    -2,
+                    5
                 ]
             },
-            "headId": "06070303010500010106010607000001",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -4,
+                -1
+            ],
+            "headId": "07020005000707050805080308020708",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": ">"
+            }
         },
         {
             "headId": "06020700040601050203010504020203",
@@ -1787,16 +1826,24 @@
         },
         {
             "decommitTx": {
-                "id": 5,
-                "inputs": [],
-                "outputs": [
-                    -6,
-                    -4,
+                "id": -5,
+                "inputs": [
+                    -5,
                     3
-                ]
+                ],
+                "outputs": []
             },
-            "headId": "03040608030804020503010803000308",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -1,
+                3,
+                5,
+                6
+            ],
+            "headId": "06010106020506020004040701070404",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "\u001ch𥗼&"
+            }
         },
         {
             "headId": "00020703050707010102080606020701",
@@ -1901,28 +1948,46 @@
         {
             "decommitTx": {
                 "id": -2,
-                "inputs": [
-                    -5,
+                "inputs": [],
+                "outputs": [
+                    -6,
+                    -4,
                     -3,
-                    5
-                ],
-                "outputs": []
+                    1,
+                    5,
+                    6
+                ]
             },
-            "headId": "03080207070201050804020006040802",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [],
+            "headId": "08080607070801060006080802070404",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "^h𞡒L\u001c𬽴"
+            }
         },
         {
             "decommitTx": {
-                "id": 1,
+                "id": 5,
                 "inputs": [
-                    -3,
-                    2,
-                    5
+                    -3
                 ],
-                "outputs": []
+                "outputs": [
+                    -2,
+                    2
+                ]
             },
-            "headId": "04050700080704010206030002060006",
-            "tag": "DecommitTxInvalid"
+            "decommitUTxO": [
+                -4,
+                -2,
+                0,
+                2,
+                4
+            ],
+            "headId": "08050105040206010600030605000406",
+            "tag": "DecommitTxInvalid",
+            "validationError": {
+                "reason": "󼹿`"
+            }
         },
         {
             "headId": "00010006060303040706050201060408",

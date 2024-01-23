@@ -851,11 +851,10 @@ update env ledger st ev = case (st, ev) of
     requireValidDecommitTx cont =
       case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
         Left (_, err) ->
-          Effects [ClientEffect ServerOutput.DecommitTxInvalid{headId, decommitTx}]
-            <> Error
-              ( RequireFailed $
-                  DecommitTxInvalid{decommitTx, error = err}
-              )
+          Effects
+            [ClientEffect ServerOutput.DecommitTxInvalid
+               {headId, decommitUTxO = utxoFromTx decommitTx, decommitTx, validationError = err}
+            ]
         Right _ -> cont $ utxoFromTx decommitTx
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo

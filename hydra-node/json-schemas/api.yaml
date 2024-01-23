@@ -531,7 +531,9 @@ components:
         required:
           - tag
           - headId
+          - decommitUTxO
           - decommitTx
+          - validationError
           - seq
           - timestamp
         properties:
@@ -540,8 +542,16 @@ components:
             enum: ["DecommitTxInvalid"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          decommitUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
           decommitTx:
             $ref: "api.yaml#/components/schemas/Transaction"
+
+          validationError:
+            type: object
+            properties:
+              reason:
+                type: string
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
