@@ -434,6 +434,8 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
       [] -> continue
       unseen -> Wait $ WaitOnTxs unseen
 
+  -- TODO: We should probably check here that 'utxoToDecommit' from the 'Snapshot'
+  -- is matches the one from the 'decrementTx'
   requireApplicableDecommitTx cont =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
@@ -574,26 +576,23 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           <> Effects [NetworkEffect (ReqSn nextSn (txId <$> localTxs) decommitTx)]
       else outcome
 
-  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome
-    | isJust decommitTx
-    , (utxoFromTx <$> decommitTx) == utxoToDecommit =
-        case utxoToDecommit of
-          Just utxoToDecommit' ->
-            outcome
-              <> Effects
-                [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
-                , OnChainEffect
-                    { postChainTx =
-                        DecrementTx
-                          { headId
-                          , headParameters = parameters
-                          , snapshot
-                          , signatures
-                          }
-                    }
-                ]
-          _ -> outcome
-    | otherwise = outcome
+  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
+    case utxoToDecommit of
+      Just utxoToDecommit' ->
+        outcome
+          <> Effects
+            [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+            , OnChainEffect
+                { postChainTx =
+                    DecrementTx
+                      { headId
+                      , headParameters = parameters
+                      , snapshot
+                      , signatures
+                      }
+                }
+            ]
+      Nothing -> outcome
   nextSn = sn + 1
 
   vkeys = vkey <$> parties
