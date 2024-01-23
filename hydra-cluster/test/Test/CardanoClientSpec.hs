@@ -18,7 +18,7 @@ spec =
   around (showLogsOnFailure "CardanoClientSpec") $
     it "queryGenesisParameters works as expected" $ \tracer ->
       failAfter 60 $
-        withClusterTempDir "queryGenesisParameters" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           -- This uses the hydra-cluster/config/devnet and updates the
           -- systemStart to some current time making it the perfect target to
           -- test against.

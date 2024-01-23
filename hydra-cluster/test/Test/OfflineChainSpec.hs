@@ -21,7 +21,7 @@ import System.FilePath ((</>))
 spec :: Spec
 spec = do
   it "does start on slot 0 with no genesis" $ do
-    withTempDir "offline-mode-tick" $ \tmpDir -> do
+    withTempDir "hydra-cluster" $ \tmpDir -> do
       Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
       let offlineConfig =
             OfflineChainConfig
@@ -39,7 +39,7 @@ spec = do
           _ -> False
 
   it "does not start on slot 0 with real genesis file" $ do
-    withTempDir "offline-mode-tick" $ \tmpDir -> do
+    withTempDir "hydra-cluster" $ \tmpDir -> do
       Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
       readConfigFile ("devnet" </> "genesis-shelley.json")
         >>= writeFileBS (tmpDir </> "genesis.json")

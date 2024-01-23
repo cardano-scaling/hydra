@@ -110,18 +110,17 @@ import Prelude qualified
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
--- | Like 'withTempDir', busing a common prefix to keep hydra-cluster logs more
--- easily on CI.
+-- | Like 'withTempDir', but using a common template to archive logs more easily
+-- on CI.
 --
 -- NOTE: The ci-nix.yaml workflow depends on this.
-withClusterTempDir :: MonadIO m => String -> (FilePath -> m a) -> m a
-withClusterTempDir name =
-  withTempDir ("hydra-cluster-e2e-" <> name)
+withClusterTempDir :: MonadIO m => (FilePath -> m a) -> m a
+withClusterTempDir = withTempDir "hydra-cluster"
 
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   it "End-to-end offline mode" $ \tracer -> do
-    withTempDir "offline-mode-e2e" $ \tmpDir -> do
+    withClusterTempDir $ \tmpDir -> do
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       (bobCardanoVk, _) <- keysFor Bob
       initialUTxO <- generate $ do
@@ -164,37 +163,37 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
-        withClusterTempDir "single-full-life-cycle" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyHeadFullLifeCycle tracer tmpDir node
       it "can close with long deadline" $ \tracer -> do
-        withClusterTempDir "close-long-deadline" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir node
       it "can submit a timed tx" $ \tracer -> do
-        withClusterTempDir "timed-tx" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
       it "commits from external with script utxo" $ \tracer -> do
-        withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternalScript tracer tmpDir node
       it "commit external wallet utxo with inline datum in the script" $ \tracer -> do
-        withClusterTempDir "single-commits-script-from-external" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsExternalScriptWithInlineDatum tracer tmpDir node
       it "can't commit externally with internal wallet utxo" $ \tracer -> do
-        withClusterTempDir "commit-internal-wallet-utxo" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
-        withClusterTempDir "submit-a-signed-user-transaction" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
@@ -202,21 +201,21 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "three-no-errors" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
                 >>= threeNodesNoErrorsOnOpen tracer tmpDir node
 
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "three-full-life-cycle" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               initAndClose tmpDir tracer 1 hydraScriptsTxId node
 
       it "inits a Head and closes it immediately" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "three-init-close-immediately" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             let clusterIx = 0
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
@@ -279,25 +278,25 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
     describe "restarting nodes" $ do
       it "can abort head after restart" $ \tracer -> do
-        withClusterTempDir "abort-after-restart" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanAbort tracer tmpDir node
 
       it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
-        withClusterTempDir "commit-after-restart" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
       it "prevent resuming a head after reconfiguring a peer" $ \tracer -> do
-        withClusterTempDir "prevent-resume-reconfiguring-peer" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= testPreventResumeReconfiguredPeer tracer tmpDir node
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
-        withClusterTempDir "replay-chain-events" $ \tmp ->
+        withClusterTempDir $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = UnsafeContestationPeriod 10
@@ -325,7 +324,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
-        withClusterTempDir "contest-after-restart" $ \tmp ->
+        withClusterTempDir $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
 
@@ -407,7 +406,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "two-heads-no-conflict" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               concurrently_
@@ -416,14 +415,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir "incorrect-cardano-keys" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               publishHydraScriptsAs node Faucet
                 >>= initWithWrongKeys tmpDir tracer node
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
-          withClusterTempDir "two-heads-cant-abort" $ \tmpDir -> do
+          withClusterTempDir $ \tmpDir -> do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
@@ -457,7 +456,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        withClusterTempDir "prometheus-metrics" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{nodeSocket} -> do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -480,7 +479,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
     describe "hydra-node executable" $ do
       it "logs its command line arguments" $ \tracer -> do
-        withClusterTempDir "logs-options" $ \dir -> do
+        withClusterTempDir $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -490,7 +489,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
       it "logs to a logfile" $ \tracer -> do
-        withClusterTempDir "logs-to-logfile" $ \dir -> do
+        withClusterTempDir $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -507,7 +506,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "forking eras" $ do
       it "does report on unsupported era" $ \tracer -> do
         pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir "unsupported-era" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
@@ -527,7 +526,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "does report on unsupported era on startup" $ \tracer -> do
         pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir "unsupported-era-startup" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
           forkIntoConwayInEpoch tmpDir args 1
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
@@ -544,7 +543,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
       it "support new era" $ \tracer -> do
-        withClusterTempDir "support-new-era" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10
@@ -580,7 +579,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ snapshotNumber == Aeson.Number 0
 
       it "support new era on restart" $ \tracer -> do
-        withClusterTempDir "support-new-era-restart" $ \tmpDir -> do
+        withClusterTempDir $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
 
           forkIntoConwayInEpoch tmpDir args 10

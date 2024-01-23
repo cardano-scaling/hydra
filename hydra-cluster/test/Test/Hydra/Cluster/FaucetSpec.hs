@@ -22,7 +22,7 @@ spec = do
     it "should work concurrently" $
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
-          withTempDir "end-to-end-cardano-node" $ \tmpDir ->
+          withTempDir "hydra-cluster" $ \tmpDir ->
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
               replicateConcurrently_ 10 $ do
                 vk <- generate genVerificationKey
@@ -31,7 +31,7 @@ spec = do
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet work together" $ do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
-        withTempDir "end-to-end-cardano-node" $ \tmpDir ->
+        withTempDir "hydra-cluster" $ \tmpDir ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
             let faucetTracer = contramap FromFaucet tracer
             actor <- generate $ elements [Alice, Bob, Carol]

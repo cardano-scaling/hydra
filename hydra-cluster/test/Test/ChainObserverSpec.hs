@@ -32,7 +32,7 @@ spec = do
   it "can observe hydra transactions created by hydra-nodes" $
     failAfter 60 $
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
-        withTempDir "hydra-chain-observer" $ \tmpDir -> do
+        withTempDir "hydra-cluster" $ \tmpDir -> do
           -- Start a cardano devnet
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
             -- Prepare a hydra-node
