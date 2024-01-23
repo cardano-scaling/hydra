@@ -640,8 +640,7 @@ onOpenNetworkReqDec env openState decommitTx =
           <> Effects
             [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
             ]
-          <>
-            if isLeader parameters party nextSn
+          <> if isLeader parameters party nextSn
             then
               Effects
                 [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]

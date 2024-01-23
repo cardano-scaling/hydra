@@ -346,7 +346,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
-  headOutput'  =
+  headOutput' =
     modifyTxOutDatum (const headDatumAfter) headOutput
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
