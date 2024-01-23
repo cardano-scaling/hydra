@@ -134,6 +134,9 @@ components:
         }
     HeadMember:
       type: object
+      required:
+        - party
+        - onChainId
       properties:
         party:
           $ref: "#/components/schemas/Party"
@@ -164,6 +167,9 @@ components:
         "820082582089ff4f3ff4a6052ec9d073"
     HeadState:
       type: object
+      required:
+        - headId
+        - status
       properties:
         headId:
           $ref: '#/components/schemas/HeadId'
