@@ -634,7 +634,7 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec openState decommitTx =
-  requireNoDecommitInFlight openState decommitTx $
+  requireNoDecommitInFlight openState $
     let decommitUTxO = utxoFromTx decommitTx
      in StateChanged (DecommitRecorded decommitTx)
           <> Effects
@@ -839,7 +839,7 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
     onOpenNetworkReqDec openState transaction
   (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    requireNoDecommitInFlight openState decommitTx $
+    requireNoDecommitInFlight openState $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
       requireValidDecommitTx $ \utxoToDecommit ->
         Effects
@@ -852,8 +852,16 @@ update env ledger st ev = case (st, ev) of
       case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
         Left (_, err) ->
           Effects
-            [ClientEffect ServerOutput.DecommitTxInvalid
-               {headId, decommitUTxO = utxoFromTx decommitTx, decommitTx, validationError = err}
+            [ ClientEffect
+                ServerOutput.DecommitInvalid
+                  { headId
+                  , decommitInvalidReason =
+                      ServerOutput.DecommitTxInvalid
+                        { confirmedUTxO
+                        , decommitTx
+                        , validationError = err
+                        }
+                  }
             ]
         Right _ -> cont $ utxoFromTx decommitTx
 
@@ -1168,20 +1176,18 @@ recoverState = foldl' aggregate
 -- 'DecommitAlreadyInFlight' output in this case.
 requireNoDecommitInFlight ::
   OpenState tx ->
-  tx ->
   Outcome tx ->
   Outcome tx
-requireNoDecommitInFlight st decommitTx cont =
+requireNoDecommitInFlight st cont =
   case mExistingDecommitTx of
     Just existingDecommitTx ->
       Effects
         [ ClientEffect
-            ServerOutput.DecommitAlreadyInFlight
+            ServerOutput.DecommitInvalid
               { headId
-              , decommitTx = existingDecommitTx
+              , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
               }
         ]
-        <> Error (RequireFailed $ DecommitTxInFlight{decommitTx})
     Nothing -> cont
  where
   OpenState{headId, coordinatedHeadState = CoordinatedHeadState{decommitTx = mExistingDecommitTx}} = st

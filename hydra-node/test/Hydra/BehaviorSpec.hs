@@ -66,6 +66,7 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
+import Hydra.API.ServerOutput (DecommitInvalidReason(..))
 
 spec :: Spec
 spec = parallel $ do
@@ -430,7 +431,7 @@ spec = parallel $ do
                 let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
                 send n1 (Decommit{decommitTx = decommitTx2})
                 waitUntil [n1] $
-                  DecommitAlreadyInFlight{headId = testHeadId, decommitTx = decommitTx1}
+                  DecommitInvalid {headId = testHeadId, decommitInvalidReason =  DecommitAlreadyInFlight{decommitTx = decommitTx1}}
 
                 waitUntil [n1, n2] $ DecommitProcessed{headId = testHeadId}
 

@@ -62,6 +62,7 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
+import Hydra.API.ServerOutput (DecommitInvalidReason(..))
 
 spec :: Spec
 spec =
@@ -170,9 +171,13 @@ spec =
               { left =
                 Effects
                   [ ClientEffect
-                      DecommitAlreadyInFlight
+                      DecommitInvalid
                         { headId
-                        , decommitTx = decommitTx''
+                        , decommitInvalidReason =
+                          DecommitAlreadyInFlight
+                            { decommitTx = decommitTx''
+                            }
+
                         }
                     ]
               , right =

@@ -5,16 +5,28 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "06010802050101070004030607030601",
-            "tag": "DecommitProcessed"
+            "headId": "04080501080608060703010002020702",
+            "signatures": {
+                "multiSignature": []
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    2
+                ],
+                "headId": "07010004070806000607000803080802",
+                "snapshotNumber": 6,
+                "utxo": []
+            },
+            "tag": "SnapshotConfirmed"
         },
         {
             "headId": "00020308040103050608010400020200",
             "tag": "ReadyToFanout"
         },
         {
-            "headId": "04030800030502040506060207010202",
-            "tag": "DecommitProcessed"
+            "input": "n𩃌\u0005",
+            "reason": "\n􄯗n]|",
+            "tag": "InvalidInput"
         },
         {
             "headStatus": "Initializing",
@@ -39,8 +51,9 @@
             "tag": "ReadyToFanout"
         },
         {
-            "headId": "06040802080702070206000406030607",
-            "tag": "DecommitProcessed"
+            "headId": "08010100030205050203060200070808",
+            "snapshotNumber": 4,
+            "tag": "HeadIsContested"
         },
         {
             "headId": "01060307030308020701000500050807",
@@ -63,9 +76,8 @@
             }
         },
         {
-            "headId": "05060201060205040608070803020300",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": []
+            "headId": "08070102010300050301030603080505",
+            "tag": "DecommitProcessed"
         },
         {
             "headId": "07020604050605030104030003000800",
@@ -83,18 +95,14 @@
             "tag": "HeadIsContested"
         },
         {
-            "decommitTx": {
-                "id": -6,
-                "inputs": [],
-                "outputs": [
-                    -5,
-                    -2,
-                    1,
-                    2
-                ]
-            },
             "headId": "02050808050702080401020802050807",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -4,
+                -3,
+                1,
+                2
+            ]
         },
         {
             "headId": "07060802030001030701070107010806",
@@ -204,13 +212,8 @@
             }
         },
         {
-            "headId": "01080400010604070306080003080400",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": [
-                -5,
-                -4,
-                -2
-            ]
+            "headId": "07040307060105020101020702030002",
+            "tag": "DecommitProcessed"
         },
         {
             "contestationPeriod": 31536000,
@@ -238,8 +241,18 @@
             "utxo": []
         },
         {
-            "headId": "05040701050208000108000603070703",
-            "tag": "DecommitProcessed"
+            "contestationPeriod": 86400,
+            "headId": "06000300020100080807060204020205",
+            "participants": [
+                "01050208000108000603070703020206020800040200000105020204",
+                "05070701060407020705050502010204050304070408030802050202"
+            ],
+            "parties": [
+                {
+                    "vkey": "2403d0bbc497e3c1128e6d74105e2796400332f016584f6485ca01c554a63d90"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "headId": "06030406040300010004030507080104",
@@ -362,7 +375,7 @@
         },
         {
             "headId": "01020007050708070100020201050205",
-            "tag": "DecommitProcessed"
+            "tag": "ReadyToFanout"
         },
         {
             "peer": "tzexxk",
@@ -385,22 +398,16 @@
             ]
         },
         {
-            "decommitTx": {
-                "id": -4,
-                "inputs": [
-                    -2,
-                    0,
-                    3
-                ],
-                "outputs": [
-                    -5,
-                    1,
-                    4,
-                    5
-                ]
-            },
             "headId": "02050507080302000503070006050604",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -5,
+                -2,
+                0,
+                1,
+                5,
+                6
+            ]
         },
         {
             "headId": "02010402000607010508080505000400",
@@ -451,8 +458,20 @@
             "tag": "InvalidInput"
         },
         {
-            "headId": "03020207030500030205040804020004",
-            "tag": "DecommitProcessed"
+            "clientInput": {
+                "tag": "NewTx",
+                "transaction": {
+                    "id": -4,
+                    "inputs": [
+                        -4
+                    ],
+                    "outputs": [
+                        5,
+                        6
+                    ]
+                }
+            },
+            "tag": "CommandFailed"
         },
         {
             "input": "똼E:",
@@ -542,26 +561,30 @@
             "tag": "CommandFailed"
         },
         {
-            "decommitTx": {
-                "id": -3,
-                "inputs": [],
-                "outputs": [
-                    -5,
-                    0,
-                    6
-                ]
+            "decommitInvalidReason": {
+                "confirmedUTxO": [
+                    -5
+                ],
+                "decommitTx": {
+                    "id": 1,
+                    "inputs": [
+                        -6,
+                        0,
+                        6
+                    ],
+                    "outputs": [
+                        -5,
+                        -1,
+                        1
+                    ]
+                },
+                "tag": "DecommitTxInvalid",
+                "validationError": {
+                    "reason": "/ᗕ\n㛑?,"
+                }
             },
-            "decommitUTxO": [
-                -5,
-                -2,
-                0,
-                5
-            ],
-            "headId": "05040000010607030504050104010501",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "w"
-            }
+            "headId": "08060403060503040408020005040703",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "04060008010702000001020201000408",
@@ -653,14 +676,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "headId": "06020700030402070105080103060604",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": [
-                -3,
-                -2,
-                3,
-                6
-            ]
+            "headId": "00060408070604080501020404070301",
+            "tag": "DecommitProcessed"
         },
         {
             "headId": "03010700040303040403060202030702",
@@ -676,35 +693,27 @@
             "tag": "HeadIsInitializing"
         },
         {
-            "decommitTx": {
-                "id": -1,
-                "inputs": [],
-                "outputs": []
-            },
             "headId": "02040100080101010501060702000404",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -6,
+                0,
+                6
+            ]
         },
         {
             "peer": "jsfozc",
             "tag": "PeerDisconnected"
         },
         {
-            "decommitTx": {
-                "id": 6,
-                "inputs": [
-                    -4,
-                    1,
-                    6
-                ],
-                "outputs": [
-                    -4,
-                    -2,
-                    0,
-                    4
-                ]
-            },
             "headId": "07020102020208040006010002000700",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -6,
+                -2,
+                2,
+                6
+            ]
         },
         {
             "headId": "03030707030707080008070200050604",
@@ -767,34 +776,22 @@
             ]
         },
         {
-            "decommitTx": {
-                "id": -3,
-                "inputs": [],
-                "outputs": [
-                    6
-                ]
-            },
             "headId": "06030005000200010504060101050008",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -6
+            ]
         },
         {
             "peer": "fxng",
             "tag": "PeerDisconnected"
         },
         {
-            "decommitTx": {
-                "id": 1,
-                "inputs": [
-                    -2,
-                    -1,
-                    1,
-                    4,
-                    5
-                ],
-                "outputs": []
-            },
             "headId": "00080800080304070200020405000104",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                1
+            ]
         },
         {
             "contestationPeriod": 74295,
@@ -1020,31 +1017,23 @@
             "utxoToDecommit": []
         },
         {
-            "decommitTx": {
-                "id": 6,
-                "inputs": [
-                    -6,
-                    -5,
-                    -2
-                ],
-                "outputs": [
-                    -5,
-                    -1,
-                    3
-                ]
+            "decommitInvalidReason": {
+                "decommitTx": {
+                    "id": -4,
+                    "inputs": [
+                        -5,
+                        -1,
+                        4,
+                        6
+                    ],
+                    "outputs": [
+                        6
+                    ]
+                },
+                "tag": "DecommitAlreadyInFlight"
             },
-            "decommitUTxO": [
-                -6,
-                -1,
-                1,
-                3,
-                4
-            ],
-            "headId": "02020802050008030107060004080501",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "8\u001egh􄃑󶭑"
-            }
+            "headId": "00010406050503030100060004010400",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "05070304020004060603030808010605",
@@ -1057,27 +1046,26 @@
             ]
         },
         {
-            "decommitTx": {
-                "id": 5,
-                "inputs": [
-                    -1,
-                    3,
-                    5
-                ],
-                "outputs": [
-                    3
-                ]
+            "decommitInvalidReason": {
+                "decommitTx": {
+                    "id": 5,
+                    "inputs": [
+                        -2,
+                        6
+                    ],
+                    "outputs": [
+                        -4,
+                        -3,
+                        0,
+                        1,
+                        2,
+                        6
+                    ]
+                },
+                "tag": "DecommitAlreadyInFlight"
             },
-            "decommitUTxO": [
-                -4,
-                0,
-                4
-            ],
-            "headId": "01050501000701080303020304040802",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "􅦲+􈵰\u000f"
-            }
+            "headId": "03030101050402020602000302030807",
+            "tag": "DecommitInvalid"
         },
         {
             "contestationDeadline": "1864-05-07T22:51:38.390925325424Z",
@@ -1091,21 +1079,32 @@
             "tag": "HeadIsContested"
         },
         {
-            "decommitTx": {
-                "id": -4,
-                "inputs": [
-                    5
-                ],
-                "outputs": []
+            "decommitInvalidReason": {
+                "confirmedUTxO": [],
+                "decommitTx": {
+                    "id": -6,
+                    "inputs": [
+                        -5,
+                        -4,
+                        2,
+                        5
+                    ],
+                    "outputs": [
+                        -6,
+                        -4,
+                        -2,
+                        0,
+                        1,
+                        4
+                    ]
+                },
+                "tag": "DecommitTxInvalid",
+                "validationError": {
+                    "reason": "𠬨\r%X􉿘"
+                }
             },
-            "decommitUTxO": [
-                0
-            ],
-            "headId": "00040604030701030102080206020101",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": ""
-            }
+            "headId": "08010108020603040404020800060600",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "06030303010707080205080502060606",
@@ -1191,28 +1190,25 @@
             "tag": "ReadyToFanout"
         },
         {
-            "decommitTx": {
-                "id": 4,
-                "inputs": [
-                    0,
-                    4
-                ],
-                "outputs": [
-                    0
-                ]
+            "decommitInvalidReason": {
+                "confirmedUTxO": [],
+                "decommitTx": {
+                    "id": 1,
+                    "inputs": [
+                        -4,
+                        -1
+                    ],
+                    "outputs": [
+                        1
+                    ]
+                },
+                "tag": "DecommitTxInvalid",
+                "validationError": {
+                    "reason": "𫖗柲"
+                }
             },
-            "decommitUTxO": [
-                -5,
-                -4,
-                -2,
-                1,
-                5
-            ],
-            "headId": "07060304010300060107010506070306",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": ""
-            }
+            "headId": "01050104060204060302050306000203",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "06070802020707030407020106020708",
@@ -1231,28 +1227,26 @@
             "tag": "HeadIsContested"
         },
         {
-            "decommitTx": {
-                "id": 3,
-                "inputs": [
-                    -2,
-                    5
-                ],
-                "outputs": [
-                    -4,
-                    -3,
-                    -2,
-                    5
-                ]
+            "decommitInvalidReason": {
+                "decommitTx": {
+                    "id": -4,
+                    "inputs": [
+                        -3,
+                        -2,
+                        0,
+                        2,
+                        3,
+                        6
+                    ],
+                    "outputs": [
+                        -2,
+                        -1
+                    ]
+                },
+                "tag": "DecommitAlreadyInFlight"
             },
-            "decommitUTxO": [
-                -4,
-                -1
-            ],
-            "headId": "07020005000707050805080308020708",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": ">"
-            }
+            "headId": "06070303010500010106010607000001",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "06020700040601050203010504020203",
@@ -1463,17 +1457,15 @@
             "tag": "IgnoredHeadInitializing"
         },
         {
-            "decommitTx": {
-                "id": 1,
-                "inputs": [],
-                "outputs": [
-                    -3,
-                    5,
-                    6
-                ]
-            },
             "headId": "03030407010107030200020502060702",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -4,
+                -2,
+                1,
+                4,
+                5
+            ]
         },
         {
             "headId": "02030508040501060404050001040305",
@@ -1559,7 +1551,7 @@
         },
         {
             "headId": "07060002070007080603000806020806",
-            "tag": "DecommitProcessed"
+            "tag": "ReadyToFanout"
         },
         {
             "headId": "02010701050000070000030102060802",
@@ -1664,8 +1656,10 @@
             "tag": "PeerConnected"
         },
         {
-            "headId": "01030108000104050706030402030701",
-            "tag": "DecommitProcessed"
+            "contestationDeadline": "1864-05-08T15:56:18.921586854696Z",
+            "headId": "08060207010107040705080206080303",
+            "snapshotNumber": 6,
+            "tag": "HeadIsClosed"
         },
         {
             "headId": "01010103010507000701080005010302",
@@ -1698,8 +1692,42 @@
             "tag": "CommandFailed"
         },
         {
-            "headId": "08080604070808040705020704010107",
-            "tag": "DecommitProcessed"
+            "postChainTx": {
+                "headParameters": {
+                    "contestationPeriod": 2592000,
+                    "parties": [
+                        {
+                            "vkey": "d51a5cde2b7c939e647c334009d57b063279a63784c9935d3acbd6129f99a60d"
+                        },
+                        {
+                            "vkey": "828c05c7d3758261b5cc088a677a7760e953091f5fffe4c91b378ab4be9b20d9"
+                        }
+                    ]
+                },
+                "participants": [
+                    "01030202020205070301050008010206060402030401060002070400",
+                    "03020705030304070708080507030208020803050307010205010603",
+                    "05060702040208050100020604010505050803060506040701040005",
+                    "00020100060508060604070103010704020008010801000204080801",
+                    "05000703020704030406010804080108010604010702060802000706"
+                ],
+                "tag": "InitTx"
+            },
+            "postTxError": {
+                "chainState": {
+                    "slot": 4
+                },
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "headSeed": "02050401040506050703030404070100",
+                    "tag": "AbortTx",
+                    "utxo": [
+                        2,
+                        6
+                    ]
+                }
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
             "headId": "07030003080806080001030108010205",
@@ -1825,25 +1853,26 @@
             ]
         },
         {
-            "decommitTx": {
-                "id": -5,
-                "inputs": [
-                    -5,
-                    3
-                ],
-                "outputs": []
+            "decommitInvalidReason": {
+                "decommitTx": {
+                    "id": -6,
+                    "inputs": [
+                        -5,
+                        -4,
+                        0,
+                        4
+                    ],
+                    "outputs": [
+                        -5,
+                        -4,
+                        -3,
+                        0
+                    ]
+                },
+                "tag": "DecommitAlreadyInFlight"
             },
-            "decommitUTxO": [
-                -1,
-                3,
-                5,
-                6
-            ],
-            "headId": "06010106020506020004040701070404",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "\u001ch𥗼&"
-            }
+            "headId": "03040608030804020503010803000308",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "00020703050707010102080606020701",
@@ -1879,13 +1908,8 @@
             ]
         },
         {
-            "headId": "03040105040401010005050107080106",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": [
-                -6,
-                0,
-                6
-            ]
+            "headId": "01030500060003000500030404030307",
+            "tag": "DecommitProcessed"
         },
         {
             "headId": "06060101000704080705020704010208",
@@ -1904,9 +1928,8 @@
             "tag": "HeadIsContested"
         },
         {
-            "headId": "00020605070502060706060307030601",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": []
+            "headId": "00000105030802040007060508010405",
+            "tag": "DecommitProcessed"
         },
         {
             "headId": "06030301070205040003020807070803",
@@ -1928,9 +1951,8 @@
             ]
         },
         {
-            "headId": "02000301070705060702040102050807",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": []
+            "headId": "08000707030803080307080807050002",
+            "tag": "DecommitProcessed"
         },
         {
             "headStatus": "Closed",
@@ -1946,48 +1968,49 @@
             "tag": "Greetings"
         },
         {
-            "decommitTx": {
-                "id": -2,
-                "inputs": [],
-                "outputs": [
-                    -6,
-                    -4,
-                    -3,
-                    1,
-                    5,
-                    6
-                ]
+            "decommitInvalidReason": {
+                "decommitTx": {
+                    "id": 5,
+                    "inputs": [
+                        -3,
+                        4,
+                        6
+                    ],
+                    "outputs": [
+                        -2,
+                        4,
+                        6
+                    ]
+                },
+                "tag": "DecommitAlreadyInFlight"
             },
-            "decommitUTxO": [],
-            "headId": "08080607070801060006080802070404",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "^h𞡒L\u001c𬽴"
-            }
+            "headId": "03080207070201050804020006040802",
+            "tag": "DecommitInvalid"
         },
         {
-            "decommitTx": {
-                "id": 5,
-                "inputs": [
-                    -3
+            "decommitInvalidReason": {
+                "confirmedUTxO": [
+                    -6,
+                    0
                 ],
-                "outputs": [
-                    -2,
-                    2
-                ]
+                "decommitTx": {
+                    "id": -3,
+                    "inputs": [
+                        0,
+                        2,
+                        3
+                    ],
+                    "outputs": [
+                        3
+                    ]
+                },
+                "tag": "DecommitTxInvalid",
+                "validationError": {
+                    "reason": "T"
+                }
             },
-            "decommitUTxO": [
-                -4,
-                -2,
-                0,
-                2,
-                4
-            ],
-            "headId": "08050105040206010600030605000406",
-            "tag": "DecommitTxInvalid",
-            "validationError": {
-                "reason": "󼹿`"
-            }
+            "headId": "04050700080704010206030002060006",
+            "tag": "DecommitInvalid"
         },
         {
             "headId": "00010006060303040706050201060408",
@@ -2087,21 +2110,11 @@
             "utxo": []
         },
         {
-            "decommitTx": {
-                "id": 3,
-                "inputs": [
-                    -6,
-                    2,
-                    4,
-                    5
-                ],
-                "outputs": [
-                    0,
-                    2
-                ]
-            },
             "headId": "06020700060800010103030806010701",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -2
+            ]
         },
         {
             "headId": "08010402080504050303030105070502",
@@ -2129,15 +2142,14 @@
             }
         },
         {
-            "decommitTx": {
-                "id": -6,
-                "inputs": [
-                    3
-                ],
-                "outputs": []
-            },
             "headId": "00060207040205050207070106060500",
-            "tag": "DecommitAlreadyInFlight"
+            "tag": "DecommitApproved",
+            "utxoToDecommit": [
+                -4,
+                -1,
+                1,
+                3
+            ]
         },
         {
             "headStatus": "Idle",
@@ -2155,8 +2167,49 @@
             "tag": "PeerConnected"
         },
         {
-            "headId": "03040505080805010008070303010201",
-            "tag": "DecommitProcessed"
+            "postChainTx": {
+                "confirmedSnapshot": {
+                    "signatures": {
+                        "multiSignature": [
+                            "072091a50ffbf94972bfddae45c2f74f2c78d13bc5fce9d2fbd5486b668882a75641055cad9ab44198679482f3ef81d151b6b6706bacdcf52fa3d352fe250104"
+                        ]
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "headId": "03030002050707050401000207080304",
+                        "snapshotNumber": 6,
+                        "utxo": []
+                    },
+                    "tag": "ConfirmedSnapshot"
+                },
+                "headId": "03010401040007050608020301050702",
+                "headParameters": {
+                    "contestationPeriod": 31536000,
+                    "parties": [
+                        {
+                            "vkey": "ff7e60a27e121513b06f2a5faa42f35015f593a488df3e2c9bd7ffb1076eb680"
+                        },
+                        {
+                            "vkey": "b04bf64144f09dfc5a0bfa731ec8e434696aa72bb488396046d35070a67e347f"
+                        },
+                        {
+                            "vkey": "a4e513acaa259d7baa8f106b4b35d9043f22c9349716d1934a1dac2f7960f45f"
+                        },
+                        {
+                            "vkey": "a2c21f90ca611e88a4f69dcc4a2652727af44dda0e147bbb17f5b5adbf8a9ecf"
+                        },
+                        {
+                            "vkey": "ac40aa53f2488a50dc19a66a8ff204cc3d90a6df69460bd6e3ff283d49088e03"
+                        }
+                    ]
+                },
+                "tag": "ContestTx"
+            },
+            "postTxError": {
+                "failureReason": "v",
+                "tag": "FailedToPostTx"
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
             "headId": "00040604070507050407070607040406",

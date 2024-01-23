@@ -49,6 +49,26 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
+data DecommitInvalidReason tx
+  = DecommitTxInvalid {confirmedUTxO :: UTxOType tx, decommitTx :: tx, validationError :: ValidationError}
+  | DecommitAlreadyInFlight {decommitTx :: tx}
+  deriving stock (Generic)
+
+deriving stock instance IsChainState tx => Eq (DecommitInvalidReason tx)
+deriving stock instance IsChainState tx => Show (DecommitInvalidReason tx)
+
+instance IsChainState tx => ToJSON (DecommitInvalidReason tx) where
+  toJSON = genericToJSON defaultOptions
+
+instance IsChainState tx => FromJSON (DecommitInvalidReason tx) where
+  parseJSON = genericParseJSON defaultOptions
+
+instance
+  IsTx tx =>
+  Arbitrary (DecommitInvalidReason tx)
+  where
+  arbitrary = genericArbitrary
+
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ServerOutput tx
@@ -101,8 +121,7 @@ data ServerOutput tx
       }
   | DecommitRequestReceived {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitTxInvalid {headId :: HeadId, decommitUTxO :: UTxOType tx, decommitTx :: tx, validationError :: ValidationError}
-  | DecommitAlreadyInFlight {headId :: HeadId, decommitTx :: tx}
+  | DecommitInvalid {headId :: HeadId, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitProcessed {headId :: HeadId}
   deriving stock (Generic)
@@ -162,8 +181,7 @@ instance
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
     DecommitRequestReceived headId u -> DecommitRequestReceived <$> shrink headId <*> shrink u
-    DecommitTxInvalid headId u tx err -> DecommitTxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
-    DecommitAlreadyInFlight headId u -> DecommitAlreadyInFlight <$> shrink headId <*> shrink u
+    DecommitInvalid headId reason -> DecommitInvalid <$> shrink headId <*> shrink reason
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
     DecommitProcessed headId -> DecommitProcessed <$> shrink headId
 
@@ -238,10 +256,9 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
     DecommitRequestReceived{} -> encodedResponse
-    DecommitAlreadyInFlight{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitProcessed{} -> encodedResponse
-    DecommitTxInvalid{} -> encodedResponse
+    DecommitInvalid{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
