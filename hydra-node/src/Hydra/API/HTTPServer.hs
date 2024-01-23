@@ -333,7 +333,7 @@ handleDecommit putClientInput body =
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right decommitTx -> do
       putClientInput Decommit{decommitTx}
-      pure $ responseLBS status200 [] ""
+      pure $ responseLBS status200 [] (Aeson.encode TransactionSubmitted)
 
 return400 :: IsChainState tx => PostTxError tx -> Response
 return400 = responseLBS status400 [] . Aeson.encode . toJSON

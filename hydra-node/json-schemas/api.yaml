@@ -150,10 +150,14 @@ channels:
     servers:
       - localhost-http
     publish:
-      description: Draft a decommit transaction, which needs to be signed by the requester and later on validated against the local ledger.
+      description: |
+        Provide decommit transaction that needs to be applicable to the Hydra's local ledger state. Specified transaction outputs will be
+        available on layer 1 after decommit is successfully processed.
       operationId: decommitRequest
       message:
-        $ref: "api.yaml#/components/messages/DecommitRequest"
+        payload:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
       bindings:
         http:
           type: request
@@ -163,10 +167,22 @@ channels:
       operationId: decommitResponse
       description: |
         Possible responses of this endpoint are:
-          * 200 OK with empty body
-          * 400 BadRequest on parsing errors with string as body
+          * TransactionSubmitted - 200 ok
+          * String - 400 bad request
       message:
-        $ref: "api.yaml#/components/messages/DecommitResponse"
+        oneOf:
+          - title: TransactionSubmitted
+            description: Decommit request successfully submitted.
+            payload:
+              type: object
+              additionalProperties: false
+              properties:
+                tag:
+                  type: string
+                  enum: ["TransactionSubmitted"]
+          - title: DecommitError
+            payload:
+              type: string
       bindings:
         http:
           type: response
@@ -1045,18 +1061,6 @@ components:
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/TextEnvelopeTransaction"
-
-    DecommitRequest:
-      title: DecommitRequest
-      description: |
-        Provide decommit transaction that needs to be applicable to the Hydra's local ledger state. Specified transaction outputs will be
-        available on layer 1 after decommit is successfully processed.
-      payload:
-        $ref: "api.yaml#/components/schemas/Transaction"
-    DecommitResponse:
-      title: DecommitResponse
-      payload:
-        type: string
 
     ProtocolParameters:
       title: ProtocolParameters
