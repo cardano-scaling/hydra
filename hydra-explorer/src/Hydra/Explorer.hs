@@ -58,11 +58,6 @@ main = do
       & Warp.setPort port
       & Warp.setHost "0.0.0.0"
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
-      & Warp.setBeforeMainLoop
-        ( do
-            putStrLn "Server started..."
-            putStrLn $ "Listening on: tcp/" <> show port
-        )
 
   readModelGetHeadIds :: TVar IO ExplorerState -> GetHeads
   readModelGetHeadIds = readTVarIO
