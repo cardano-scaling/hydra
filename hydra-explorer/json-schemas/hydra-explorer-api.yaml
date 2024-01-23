@@ -15,22 +15,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/HeadState'
-  /heads/{headId}:
-    get:
-      summary: Get head by ID
-      parameters:
-        - in: path
-          name: headId
-          required: true
-          schema:
-            $ref: '#/components/schemas/HeadId'
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HeadState'
 
 components:
   schemas:
