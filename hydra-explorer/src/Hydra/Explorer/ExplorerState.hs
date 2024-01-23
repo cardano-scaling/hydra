@@ -5,8 +5,8 @@ import Hydra.Prelude
 -- XXX: Depending on hydra-node will be problematic to support versions
 import Hydra.HeadId (HeadId (..))
 
-import Hydra.Cardano.Api (TxIn, TxOut)
-import Hydra.Cardano.Api.Prelude (CtxUTxO)
+import Cardano.Api.UTxO qualified as UTxO
+import Hydra.Cardano.Api (TxIn, UTxO)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   CloseObservation (..),
@@ -21,20 +21,10 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 
-data PartyCommit = PartyCommit
-  { txIn :: TxIn
-  , txOut :: TxOut CtxUTxO
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromJSON, ToJSON)
-
-instance Arbitrary PartyCommit where
-  arbitrary = genericArbitrary
-
 data HeadMember = HeadMember
   { party :: Party
   , onChainId :: OnChainId
-  , commits :: [PartyCommit]
+  , commits :: [UTxO]
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -118,7 +108,7 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
       Nothing -> headState
       Just headMember@HeadMember{commits = currentCommits} ->
         let (txIn, txOut) = commitOutput
-            newPartyCommit = PartyCommit{txIn, txOut}
+            newPartyCommit = UTxO.singleton (txIn, txOut)
             newMember = headMember{commits = newPartyCommit : currentCommits}
             newMembers = replaceMember members newMember
          in headState{members = newMembers}

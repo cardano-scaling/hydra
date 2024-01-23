@@ -111,13 +111,22 @@ components:
           type: string
         datum:
           type: string
-    PartyCommit:
+    UTxO:
       type: object
-      properties:
-        txIn:
-          $ref: "#/components/schemas/TxIn"
-        txOut:
-          $ref: "#/components/schemas/TxOut"
+      additionalProperties: true
+      propertyNames:
+        pattern: "^[0-9a-f]{64}#[0-9]+$"
+      items:
+        $ref: "#/components/schemas/TxOut"
+      example:
+        {
+            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+                "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+                "value": {
+                    "lovelace": 7620669
+                }
+            }
+        }
     Party:
       type: object
       description: |
@@ -145,7 +154,7 @@ components:
         commits:
           type: array
           items:
-            $ref: '#/components/schemas/PartyCommit'
+            $ref: '#/components/schemas/UTxO'
     HeadStatus:
       type: string
       enum:
