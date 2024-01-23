@@ -213,11 +213,14 @@ prop_verifyOffChainSignatures =
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)
+          utxoHash =
+            (toBuiltin $ hashUTxO @SimpleTx utxo)
+              <> maybe mempty ((toBuiltin . hashUTxO @SimpleTx)) utxoToDecommit
        in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
+            & counterexample ("utxoHash: " <> show utxoHash)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property

@@ -846,11 +846,9 @@ update env ledger st ev = case (st, ev) of
     onOpenNetworkReqDec env openState transaction
   (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight openState $
-      -- TODO: Spec: require U̅ ◦ decTx /= ⊥
-      requireValidDecommitTx $ \utxoToDecommit ->
+      requireValidDecommitTx $
         Effects
-          [ ClientEffect ServerOutput.DecommitRequestReceived{headId, utxoToDecommit}
-          , NetworkEffect ReqDec{transaction = decommitTx}
+          [ NetworkEffect ReqDec{transaction = decommitTx}
           ]
    where
     -- TODO: Spec: require U̅ ◦ decTx /= ⊥
@@ -869,7 +867,7 @@ update env ledger st ev = case (st, ev) of
                         }
                   }
             ]
-        Right _ -> cont $ utxoFromTx decommitTx
+        Right _ -> cont
 
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
 
