@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Cardano.Api.Prelude (serialiseToRawBytes)
@@ -44,12 +44,13 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
     object
-      [ "headId" .= headId
-      , "snapshotNumber" .= number
-      , "utxo" .= utxo
-      , "confirmedTransactions" .= confirmed
-      , "utxoToDecommit" .= utxoToDecommit
-      ]
+      ( [ "headId" .= headId
+        , "snapshotNumber" .= number
+        , "utxo" .= utxo
+        , "confirmedTransactions" .= confirmed
+        ]
+          <> maybe mempty (pure . ("utxoToDecommit" .=)) utxoToDecommit
+      )
 
 instance IsTx tx => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
@@ -58,7 +59,10 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "snapshotNumber")
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
-      <*> (obj .: "utxoToDecommit")
+      <*> ( obj .:? "utxoToDecommit" >>= \case
+              Nothing -> pure mempty
+              (Just utxo) -> pure utxo
+          )
 
 instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary

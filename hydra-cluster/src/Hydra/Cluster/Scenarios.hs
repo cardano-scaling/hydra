@@ -679,10 +679,11 @@ canDecommit tracer workDir node hydraScriptsTxId =
         output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
       waitFor hydraTracer 10 [n1] $
         output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitProcessed" ["headId" .= headId]
 
       failAfter 10 $ waitForUTxO node decommitUTxO
+
+      waitFor hydraTracer 10 [n1] $
+        output "DecommitProcessed" ["headId" .= headId]
  where
   hydraTracer = contramap FromHydraNode tracer
 

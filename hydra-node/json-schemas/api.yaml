@@ -1875,7 +1875,6 @@ components:
       - snapshotNumber
       - utxo
       - confirmedTransactions
-      - utxoToDecommit
       properties:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
@@ -1890,8 +1889,8 @@ components:
             $ref: "api.yaml#/components/schemas/TxId"
         utxoToDecommit:
           oneOf:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/UTxO"
+             - $ref: "api.yaml#/components/schemas/UTxO"
+             - type: {}
 
     SnapshotNumber:
       type: integer
