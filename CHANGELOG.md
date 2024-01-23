@@ -9,6 +9,10 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
+## [0.16.0] - UNRELEASED
+
+- **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
@@ -38,8 +42,6 @@ changes.
   - Renamed `HasMultiAsset` type class to `IsMaryEraOnwards`. Use `maryEraOnwards` to produce witnesses for features from mary onwards.
   - Renamed `HasScriptData` type class to `IsAlonzoEraOnwards`. Use `alonzoEraOnwards` to produce witnesses for features from alonzo onwards.
   - Renamed `HasInlineDatums` type class to `IsBabbageEraOnwards`. Use `babbageEraOnwards` to produce witnesses for features from babbage onwards.
-
-- **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
 
 ## [0.14.0] - 2023-12-04
 
