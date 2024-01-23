@@ -204,7 +204,6 @@ data HydraExplorerLog
 -- | Starts a 'hydra-explorer' on some Cardano network.
 withHydraExplorer :: RunningNode -> (HydraExplorerHandle -> IO ()) -> IO ()
 withHydraExplorer cardanoNode action =
-  handle (\(e :: IOException) -> print e >> throwIO e) $
     withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
       \_in (Just out) err processHandle ->
         race
