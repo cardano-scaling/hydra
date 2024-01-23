@@ -116,7 +116,7 @@ withHydraExplorer cardanoNode action =
       race
         (checkProcessHasNotDied "hydra-explorer" processHandle err)
         ( -- XXX: wait for the http server to be listening on port
-          threadDelay 1
+          threadDelay 3
             *> action HydraExplorerHandle{getHeads}
         )
         <&> either absurd id
