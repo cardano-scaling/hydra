@@ -8,5 +8,5 @@ To run, pass a `--node-socket`, corresponding network id. For example:
 ``` shell
 hydra-explorer \
   --node-socket testnets/preprod/node.socket \
-  --testnet-magic 1 \
+  --testnet-magic 1
 ```
