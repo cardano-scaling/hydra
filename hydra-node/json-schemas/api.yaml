@@ -1713,6 +1713,8 @@ components:
       type: object
       required:
         - cborHex
+        - description
+        - type
       properties:
         type:
           type: string

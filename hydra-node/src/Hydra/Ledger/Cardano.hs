@@ -135,6 +135,7 @@ instance ToJSON Tx where
           [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
           , "txId" .= (txId tx)
           , "type" .= envelopeType
+          , "description" .= Aeson.String mempty
           ]
 
 instance FromJSON Tx where
@@ -142,9 +143,8 @@ instance FromJSON Tx where
     withObject "Tx" $ \o -> do
       let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
       hexText <- o .: "cborHex"
-      (o .:? "type") >>= \case
-        Nothing -> pure ()
-        Just x -> guard (envelopeType == x)
+      ty <- o .: "type"
+      guard (envelopeType == ty)
       bytes <- decodeBase16 hexText
 
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
