@@ -1888,9 +1888,7 @@ components:
           items:
             $ref: "api.yaml#/components/schemas/TxId"
         utxoToDecommit:
-          oneOf:
-             - $ref: "api.yaml#/components/schemas/UTxO"
-             - type: {}
+           $ref: "api.yaml#/components/schemas/UTxO"
 
     SnapshotNumber:
       type: integer

@@ -37,8 +37,7 @@
                             -15,
                             1,
                             7
-                        ],
-                        "utxoToDecommit": null
+                        ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -815,8 +814,7 @@
                                 4,
                                 7,
                                 8
-                            ],
-                            "utxoToDecommit": null
+                            ]
                         },
                         "tag": "ConfirmedSnapshot"
                     },
@@ -1792,16 +1790,16 @@
                     ],
                     "seenSnapshot": {
                         "signatories": {
-                            "1a892f4b554bbbb330aa65b5359be9bd404bc183bb5aa29a82eb8399d62845d6": "a6b0499aa04c9e62f7450a3a62427f41e4bda3e343ae6f573cb1cda23c0b2045a1466db7b982b4b55498c524a0586181aba24bfc01adccc735e5243a61e6a70b",
+                            "1a892f4b554bbbb330aa65b5359be9bd404bc183bb5aa29a82eb8399d62845d6": "7ac4cd028afe1386c6b03c29fd0ba92683556254be0a730fd634588d0809a322b266b8a54c9ccbba5a09663c16a2c0f1e8e0181641057e69d841651f60384a0b",
                             "4f8638834c36a3d98b1d17787ed5d616d1abbf4087bfa844a241468c6a989a06": "cb1f23db8473425ec9338b4fb4f0cd7a46c6f5d63e3eb723d3652e1d330f101fa1b3f00bbb99e09ad590b956987a240653c95a4514223151f767812921293601",
-                            "5017dc7b703ffc37389a4049bb9efba38cc2120f20f06dd73193bd1d96b1d995": "d60ca243cfa9d1220120cc689033b1f19e67ec3c223bf0f3b68ce3d1c847729dce770f492779c8049ea6986969d30ca9fd7705ccd2967d7af86062ca18909106",
-                            "5fef800534bdd49d2d3b896f63921fa5ed8a0b25bd2eb3e0a53717f9ca64271a": "5bdcabaf706c48022840d099bf8b48e83e824d010197b718b230dd4766d7ff4c445fd5262f195feb252ee2058c1ad0087bf93f123c08be717f5531d5629f3709",
-                            "71a31f61eb31ee51399f1aa6f11e97bc66d87ab3201a173a8a9b197c08f386aa": "363ac2baa94ef06be8eaec365df2b3f07aa1acfcffc755d39dfefcc93764417a62a24a0f5cf1edf0ab44689f3cdcec7b381fde4fe9caab6f7130074d6b5eb804",
-                            "889c2ad4db80b56a13a5bdfe1ae49dda4f0508070bb5a9202e30d597599833a5": "3e39ac167b459d276d51c95d992a099765d3c2461d170c9cb1f1d065fb0a87e61438b806d5e77b67332ffbed4fa2f04c03ab8fc2c0cef0f5dbcd95f31e1fc60a",
+                            "5017dc7b703ffc37389a4049bb9efba38cc2120f20f06dd73193bd1d96b1d995": "1340086227a3c20949f5bfcb725a62e700109c3a8192259ae3ebffb0331524897ba5dcdacfabe3e98f91ea3e3fb593a98d9c55c6f545818bd85a141a66ae8904",
+                            "5fef800534bdd49d2d3b896f63921fa5ed8a0b25bd2eb3e0a53717f9ca64271a": "7d3a6adc03a1685bf6349863f2f93043854cf1af96bd2589d10d58cec73977ca5b1c25b34a867ed7ae7a3295091a02028ffd977b057c63f14bda5cd504ff9f0b",
+                            "71a31f61eb31ee51399f1aa6f11e97bc66d87ab3201a173a8a9b197c08f386aa": "4f75207307805b56df72710583da70729cd78c5f95deefafcc64e8fd03d93465d5a28ed5a935263ddd78ec328893dcbf9f71b9cffab95ea78024313e864d320a",
+                            "889c2ad4db80b56a13a5bdfe1ae49dda4f0508070bb5a9202e30d597599833a5": "7e3017709dc047cb0fc137408f3a3867b90024c91511a66998f37f39bb16ce3db18fe1fe8e9eb8e79ef19b5dcfb10d3b38c0bab5976d3e592850925efa3f0c07",
                             "9c69d0c428179510bd11c8f53d51b1dbeccb45c9601f5595f97ea96ef8d3a029": "b28c7b5c5df2620d8703db1a85687954c4f6173c42c7ed3373b895cb0e48039ba2a4af6e89670472066d9e00f39551cf6d786cf1862e8cef007530522f0e0907",
-                            "bb845f5bb01efd0bf1c8e28679e46aaa7891959b983add8444d4dea219cb40bf": "be96fd29d315182f077daa35b3c107a7dc37b473041af1750e8ed81a44f456cce03d3000d33526be8b586191b16586a3d8e22e24428e85e8f78b79e0ebad4902",
-                            "c6a9ac86659a1db0e5046ee9dd6cdeeb90187314f8eccf42982df918fee37efc": "e82e3c0895c9e9d75de48dd08393b60d065cead7860ae28aaf26b3adc9b931545274cfb33ccf003c0eb5bf644a84f44132860eda0bd19cf3b25734ceb684da05",
-                            "cd09f126c86182105cdc754f7a69d6e9dead6a4dbe4c839445aa2b6dca159f20": "a1166e174c371004a466e29688c58795d264a00e0cf8c5e536e4e0888463ac1f124546c7694ee526665053e08b1a1702a6f4c9c7a60c0c84425446cbdf73710e"
+                            "bb845f5bb01efd0bf1c8e28679e46aaa7891959b983add8444d4dea219cb40bf": "e7a88ac536ff7a35d67e0527f024f0650bc3134ddf20258b9b56d22d05b42ab3e250eafd312de99a0a61c0c33fa7de31fab9bcee42b8142586ce812e3858f90f",
+                            "c6a9ac86659a1db0e5046ee9dd6cdeeb90187314f8eccf42982df918fee37efc": "5e86d3db4c98debf58abae40f640dc6c8c4016693a515491ba31c59d876ca25ffa0f1b3e0f79fd65fdb7167b233d7ae36423a7a7821e562a5f5fbc9d2c897b01",
+                            "cd09f126c86182105cdc754f7a69d6e9dead6a4dbe4c839445aa2b6dca159f20": "194bdc71bb9605a695b942162884c37b1975c996a22dcfb963e02e3b8eaa104f6f3dcfecccee4d914509ef64323f7ebd06953e92982c6f5cf5661a42f8de1a0d"
                         },
                         "snapshot": {
                             "confirmedTransactions": [],
@@ -1816,8 +1814,7 @@
                                 10,
                                 12,
                                 29
-                            ],
-                            "utxoToDecommit": null
+                            ]
                         },
                         "tag": "SeenSnapshot"
                     }
@@ -1923,8 +1920,7 @@
                             15,
                             28,
                             30
-                        ],
-                        "utxoToDecommit": null
+                        ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -2612,8 +2608,7 @@
                                 24,
                                 26,
                                 30
-                            ],
-                            "utxoToDecommit": null
+                            ]
                         },
                         "tag": "ConfirmedSnapshot"
                     },
@@ -3726,10 +3721,10 @@
                     ],
                     "seenSnapshot": {
                         "signatories": {
-                            "4055f40c25aa4e6c44720d0eb36b0e29fce61a6c64889859b3493c44dd183b17": "0e201f9a3ec400ace226c051588b0ad833132bdbc54f718bf2c20a7b7c37eca084637ec81712ef55784846f74e36378e10091d24435f6186ed2c76d18c7abd0c",
+                            "4055f40c25aa4e6c44720d0eb36b0e29fce61a6c64889859b3493c44dd183b17": "55f50862888a5981ceb845e1de6446c768244ab70eb72725121f3ed41aeeca33372dc836d583ed756309ebc9ea5778876d8b4b85fac0ad4755eddac1acc1210d",
                             "54ed3ecbac6839f5c285a4f7ab6f8d0ab2c17f9cf12351a77d4cae6f3aad4159": "e5daad596af9bbe38582ab0d6cd1775f0dc71e3022539f5f0b8f0df7bef2b22c0bc1de851e61e805fac7e5ef3a9152ae62b70bb91090d1de49be78ff14869203",
-                            "5b65fca7c447ed5845c612ec62b78b40cd4456b2ea9e700cf7b99f00f47e8128": "8784934f5ba4da5eedaf86037e85d2a33948c6be5cf21b6487ff8f5908142e1a3ccce7fe896a5ae9a759bf6154a0250b0a0c4c4bd2f0aa5419db25b029302008",
-                            "d877275be7bdc9cd22ab4868629dd91cc1eaa4290a8e87f0dd390f3a6fd5a3f1": "eb714151522cfc36f08526b77a5c85e31c90126c532ab7c21080d7df3bd059201178152db8286db82910e041609871d60f91ffcba3f84564e5f86241dd3ed80d"
+                            "5b65fca7c447ed5845c612ec62b78b40cd4456b2ea9e700cf7b99f00f47e8128": "43be6355cf429b2bec7eca5601bf1022eaa1e306bb9919cb7cf98e52ff08471addc848c1e1d8198d8e8c42af2b18f8376de5322de1f7d218cdd93f0494e4b20c",
+                            "d877275be7bdc9cd22ab4868629dd91cc1eaa4290a8e87f0dd390f3a6fd5a3f1": "853e0f93c9815ed7b022a4ee35d8b1be8a133782a4c539f163c125e2a43b26659db21b20cee7f346fd1541d183d920e36d85aa0e68b47a905d2d10d41f6ffb04"
                         },
                         "snapshot": {
                             "confirmedTransactions": [
@@ -3746,8 +3741,7 @@
                                 24,
                                 29,
                                 30
-                            ],
-                            "utxoToDecommit": null
+                            ]
                         },
                         "tag": "SeenSnapshot"
                     }
@@ -4266,33 +4260,33 @@
                     ],
                     "seenSnapshot": {
                         "signatories": {
-                            "0d5bde8d294ceaa9a57af1e6fa1be53cbbf74df9cae70fdad574f211ad65ec5e": "777d9b7971148cb268a8cf04004a2ecc508306914934f7ee57c735a2a7c62ddd9ccd0e4f4ad634d73f85f587c49a6c502e64e0976e5fe70e0796a08c9a95a30a",
-                            "165010aba702c6261def58288dbb1beb072554130acbfcdc439bfa17cce60a08": "4e200772344d0497cea9f8c6823973d7cd1c3e6fcdc8c37f5b3792924979a58ec793243aa91b7bf8be72054050aa4b2a5fc93ccc113b168360fb7fce0e3db407",
-                            "1c6124c9e07b91ba723f6a7e36bd16a0602129afab953f48b0939683960b8c3b": "0a2f6f18cf0a329100a9f89b5ccf327e1c289af8a0dbb78c0bab32ab80928659fdadd639477862c39f95752c6907c4f9fd05d73ad4b88e4c2bf26959f4dad900",
-                            "213788ff60f179d167832a9f547673abf80ce388625235563e81dab66a51ac67": "cfbac0a6a06e7515c8046c63d9f3e02d417fb7873ee2e0ecd4e0c20b314c3d3fe15c07ad77dc8c9e2b153e868f1c68b182e69960f8fcd723dceaefcde95be80d",
+                            "0d5bde8d294ceaa9a57af1e6fa1be53cbbf74df9cae70fdad574f211ad65ec5e": "b7437e0c99eacc21c769241db280307dcc904cad811c0cf78f1c029c2c2cd3ba287bb14b1a4e36331b9a1c8f378f3ae5004e26c95f4539dfb326bc99d78c3d04",
+                            "165010aba702c6261def58288dbb1beb072554130acbfcdc439bfa17cce60a08": "a4bb90dcfac151cf132b5ddb18ef8b1a3a30cdcabe3c9ba505b338823dc3d725c51e9223f54268161cf1e8834566cf1a1224876920e351cdc8326ca91958b00c",
+                            "1c6124c9e07b91ba723f6a7e36bd16a0602129afab953f48b0939683960b8c3b": "3b81b718ab57ddc2f0b69e7ebf0f04e499bec30b6e0308f86c4f6a076b05eefd797ca6dbd8202a97d60c84cc67c70618b33c459b3d15feeb109282a223a05b0e",
+                            "213788ff60f179d167832a9f547673abf80ce388625235563e81dab66a51ac67": "87554724dae908520767b6b0e16dafd9ed1bd7cd2f64c1417128c84c5ad7a3f7696952d042f6c6b60859062d0e0c46d370ea72fba79d8cf8288008cd4991e202",
                             "2952891ba46aff421c20690401e2d863dedba382da8f388a0698c527fde9bdf5": "bc64fbe479cc563cc7309f864ae892aa6345db242ce5fcc498615f3d18dd21ca6993e019ef0f57d74eb2d32297eb4a945f5126a24312265113955ce824d25a04",
-                            "3ef78565dd98c4c8bc6ca2ab47c62f3f4cf5581d8ed095addfe1727392ab3e68": "7d314494908692d76c3d186fa77a70598ee077081bf7a2fedc144c877bada3850c9b2e6d9240fcbdd5eeafc853fb6e40f1eea256acae1c0ff2155851177e610d",
-                            "4716353d51d3910f6b7ec2abe4d28a0d98c56f9d711dbfaf48034b8e6ab3782d": "79858ec19c91ead80e62c2f0a0c0d8567789e7a3a4b9acab3bb85f3987f74c217e43835c7481d5797df547deed3576c05a67a42c35e400fb2d0b8ed29f0b790b",
-                            "4d99329de42e76dadd787c1796044525eb4dcb1d697e0f717d9632b14d2cb533": "dd4b62d76eb737947b744146aa953af0a00d74a1b18ee8bf6ceb8d6bc8fa6948d65b376b450a3540cfae599586bb29e09e8b7ea072e06b8b4ffe92eb77d09c0d",
-                            "50e1eca7bef7f03c75c6316a436fcc3cbf3dfc3cfeb8cc818dc72cb3e96ff6cb": "9399c3f959e9482fc93999fc2fe2dbcf870a65e03e0f7b77b99a9d05f563a4ec9b4d1ab59ec24c5a7f8e4e6e00411baf9628fb9b69a62f8bc5f7d97e536b5f07",
-                            "69feda4de8bc49a61821fc25a959a7629353a8875b3116b4b8ef7e619f25ae3e": "4f60f5abcc97ae142077adce2dbfcec90629ef4615fc9f08562bba56e3ecd2a901630df10d739725778a9eb596e5b881fd786269d13796fb0618999803a08f03",
-                            "6d347c0ca52fc17da1a4c79989e591d3d23c574a9080961c902a9f404eb69648": "7362431f26eedd91d096fcc586180ee204359b4617dd7d61721bfde8af3a772b706a766b9700b7c78e7f022802c62e9b9a779aa8e566edb12870cf702056fd0e",
+                            "3ef78565dd98c4c8bc6ca2ab47c62f3f4cf5581d8ed095addfe1727392ab3e68": "60b17d70fdc92acf43f4e39e7ef56d27f1ccd5888f24ba42bcc26345858353273cd40fab9369c0d84b000ebfaeeb23c870f3abcbe85ca9dfc8d921ea5d763a0b",
+                            "4716353d51d3910f6b7ec2abe4d28a0d98c56f9d711dbfaf48034b8e6ab3782d": "754230c1a9cf0871e4b6595fd40976a479c8acfdecaa3646a62bfeda92d36b9a471e8dcd0493a4533f68d74acf74ec4baaa6c1ae2a6b81d2f1024b44a05e0508",
+                            "4d99329de42e76dadd787c1796044525eb4dcb1d697e0f717d9632b14d2cb533": "a6bcc3d79efbd0a6ce1ff3f57a7b4548262ffb810b6ca0a631e2335a95060d5bab5f529632216a449d268cc2feb6d9c016811f035ebfef8fae3fad8d8cb62907",
+                            "50e1eca7bef7f03c75c6316a436fcc3cbf3dfc3cfeb8cc818dc72cb3e96ff6cb": "b8d47a15c3190b477e67f769e950602cc6ec4e5779f1995eb30e71b35e88dafc72ec05ccbe0ebc8e7c3494805a9ebb36c38f0815f834362bdec85480b1f9ab0d",
+                            "69feda4de8bc49a61821fc25a959a7629353a8875b3116b4b8ef7e619f25ae3e": "d5689f49ac2cbea0c5b2f3901e4cf0fd4ec1012cd8a445b70eaeda3a8f4312fa02fed36c12b67ee58b4df3e0056d40f58150e07ff8a8e06967a8d0ae5a776803",
+                            "6d347c0ca52fc17da1a4c79989e591d3d23c574a9080961c902a9f404eb69648": "3b647210fb264cc1cab8ea50b763975f58f986585998c3beda677499e18eae7889f69b1ac21727c54e9415e2783738fa9062735d644c396cef620f10e3525c01",
                             "756c854ab24a57af40d0c44d73382ce7cd35bdb51aeecac0ae48a0187aaac3c4": "e2d3bd7b63332a69a994821d4ef833f25b0285221ba72f0e6991c61a142e20ac0d8ffe1c4062924e79ed877370a97795c4b9cbabed0f798cc961d50f2284bf0c",
-                            "7c5dc6e3d63034ea71a36226d2415062e0cc800413c89f175b02125e0c4b5681": "b9dcc5c088d5c973e44b0944705629da813e7fb22c6fb21f1cb6e7de6266b4037cecf16db9b7b7b21d844109650b8fc1eb36485b45f8b1b4fae9476669c3030e",
+                            "7c5dc6e3d63034ea71a36226d2415062e0cc800413c89f175b02125e0c4b5681": "e5729f7e9bed33d98814865b68ae411847cd5854b4a2b7ae722077dbf21d9f8724542451450f89b66f22c61f249b1fa0b3fc2ce92d43f86f023d2f5b90845903",
                             "7d89dd680f2411981fd05e8e1db74d884d8aee61de0e069b343feb2cea318bdd": "56cacab214d8ab5603d613e369f83f8ee2ec0181270b7257c671aee4b729a1ae2783f8ce4331434d353a3676bba5b60e21f99d5366606f5e2cb04f0a40da5c06",
-                            "83f132e4f07242d1e060843fb3424b496379ae1c301ada8fee07682313824bd4": "f51b78c8b6cf8e10af99d1114cb294409fb4639ba6137e207053bcdd84abce526e588079a10567eb86093dd6b80ff950b3797f885bbc02f1693f407ee1a0a60d",
-                            "8ec1462db44972c7514635ff6fe01565db7b8a7ca1eb88ec1023536b3eda393e": "d3f1e0e0de2514c790a8a76a5ea0b0ab0b097eb7ba04958be4db16ebf72085a835c2cf4e711b4866cdd6cceb4abd991a040366734c12e4452e6e9fb25a343a06",
-                            "92df14913468bdabcf5bf7676a507e6b3a4d8227976f596b5e62eb615ef3df49": "f8f0ff290069701e1a05cc5c7e1e13bd3abc2ae15bd6474ba4ed0725bc0002dd29359b671ec4b7a8fbf30b909acfd588851f7686dca0c0263be51fec10625804",
+                            "83f132e4f07242d1e060843fb3424b496379ae1c301ada8fee07682313824bd4": "c9e9ab59c630ff458ad787ce0761c6548e640b11dfe63b03cb77aaf3b500e70ba2c422e4ade045993234628ba745634596ef8ab6a6bc899deffdda00b40ef609",
+                            "8ec1462db44972c7514635ff6fe01565db7b8a7ca1eb88ec1023536b3eda393e": "052beafc85fc404289c520ab0af78c3f1b9944caf4b232d666335d6154c7919a956fddb3def5b4840685563fb41c4f652b859f16c9cf72a9c8c4b4c6fb5a9e04",
+                            "92df14913468bdabcf5bf7676a507e6b3a4d8227976f596b5e62eb615ef3df49": "64fff28a458ec843ad4b10bc6ff1a7ca3deb8332a2a1646e30b3f11ae88f2a07d18b8b4f8e8ed7272c7192e840d0bf0af3f391022e5b5d80e4cd4e9042fcad02",
                             "a032f1aff7b0dfd2ce42e0a43062fcc8e53dba33df7be327d32222935dcc2734": "21c5d16380b929b326bb7ff60ba707352b5349ea97edabd56edbc714d18a4c9335ad13102bc6d3555c0e19993b237bc10334d3b28c53e8668509053a7394e401",
-                            "a2d55211cde447ebe0d1221c94b260099556ce1ab452337b67499df556b5e503": "4423b97f30b04bd4173839d118b29c2cdbbe860fca206fa8d218a65c4a1f9e63807b94fa8d554831d1e0023dabe818a80844ed5d0e9525180394eb22431a9b0c",
+                            "a2d55211cde447ebe0d1221c94b260099556ce1ab452337b67499df556b5e503": "7beefca9d1064f1bda5b28f27cbc68d38f7bdcdc1f88ea7691fb24eeaa9bcea80acc7c144a413492612e1be7022f2ac8a4a9e316787618fe9766b39119c5fb03",
                             "b5eb3256d2432174c207b440806a052e07382227d5f832f902c3c776da14081e": "0013a38f61fd2c19dce908fc71e30bb5e00ca9939481be73ccdaa03f316881cfd2ad74a2cd4bbaf6954486b8a901a8a24a35b938f987693cec18b7e1d1387e07",
-                            "cabac2b972ad789be3de15f75abef91a0f06783c25227b3d853f3fd65af1dd24": "bbc1ef280c3f2e364926c946f7a597d994c46db4909e56ea0940e32b0000db4ff5d3ad94e23bac953528e2621993e60c9cfac02cf4850fe98d362c38ee340409",
-                            "e0fb60438ed158875ba8afd1cd099269847621fb7d1bd37739ee9a934c75d7dd": "b879a4ad236c6f2ff4d82206e8c7fea39a124b024846cbdf044369ab6c2126af1f300d27c93f24b0ccc0ad926b89260b7746fca1f4a997af710b222cdcbfc40b",
-                            "e3b02ae8cb595c49df299820a97cb1f84697524151bed05f589e1235293fab20": "b895399ed0833db7efd5f6c5d389f3b94a4894d09eec2b75563563772468efe12c37bb07187f85d4104c4c25fa37ef43fa0808e6ba0c68c55679b2f8a6a5a90d",
-                            "e659cb0a9b42d6ba1afad6c286e640a04886595d3f700a43521f86f932e47611": "b58ac2adea4782b2cd64c894f97536f0ddfed5d2bfa4e31dd51e2f28ed23d6b4d143046dea258d499b4b1aa280ca66e4a630374785c27689521c0558c4bd5106",
-                            "ea54a2d733faab87fbc8b4a9943961f5e71fd40314104369f32021f5edb03310": "70444e13a45e22b917e1d12730f37a9faf6c4eba3f4bb5e587f0c5afbb7fdfc50f5a5c1cd12598717b28ac709b70763ffbd32291b52221b75f7aaf1c2df59b03",
-                            "ece8a12f2a62185ae99e8c682d8c1147f5f562046b4b2971d7e4d16e8dd558c2": "6d24d675ea342d627cdd9dce48ee4af9cc230be0dee3b60a4edbdf47c95429e13f91410db5563d006a08c82ff5d73849bc18eba3af7f4f9e4a1e69487122440f",
-                            "ff3258993f2ee449f4a882e09be238b7b5143656f16badda744eb2a5f6b4dccb": "9ca236fe163f8f5656ed910eba46da947e7aca2864c72b4caa6b0ae908be7de0daf20e797cc1599546aec9a83688f6668855c6ea813aa9d4702b19da755dd80f"
+                            "cabac2b972ad789be3de15f75abef91a0f06783c25227b3d853f3fd65af1dd24": "400a27877722b1496385b5af4171fc2f148bde08975d0d47cfcacb58ae1584ca80a8bc4aeaa1018bb4be9f1cbb7d2cf2b9fd29d2b271c70bc0e8d14d1bf60202",
+                            "e0fb60438ed158875ba8afd1cd099269847621fb7d1bd37739ee9a934c75d7dd": "2eff750708db4d4ee5968fbd4f643a979c17476aaabd45830bf81369f468599c122f7c62ca73f88b9b0e182f6b605181418ebc8caa00e429126a563a4965d80f",
+                            "e3b02ae8cb595c49df299820a97cb1f84697524151bed05f589e1235293fab20": "7d65f4f2fcf8109327f55fe6199d04e5996d095dfcc03a84ff8e14e4e01ca1be6b73b8c057af5851d5f145d8ddff7e7f6dc11f45284e7d912c31a0d6c7bf3e0d",
+                            "e659cb0a9b42d6ba1afad6c286e640a04886595d3f700a43521f86f932e47611": "a74bcf4ebb6c5f7261dc1b75cb1c334811a810247a3045773207e000a7e41091b35c73507b7015df21605cae6eb7c3dc71718e3097989528a578d1967b22cb07",
+                            "ea54a2d733faab87fbc8b4a9943961f5e71fd40314104369f32021f5edb03310": "814266b4168180b22dd633790420e3ea5e1b9e7505a4d91c470209de1c70bdc7262069a8c4443e6a86501a2028f909e061ed019707ffb54d59a6000114b89600",
+                            "ece8a12f2a62185ae99e8c682d8c1147f5f562046b4b2971d7e4d16e8dd558c2": "73b36d817bdc0dde8b5129cfd24c5f0db53ef1a9919d5f35e7393d5cb53312ef43d610a569816613e565140e95c3ca60de4ee293ec0e062e5b1ae17c3d683f01",
+                            "ff3258993f2ee449f4a882e09be238b7b5143656f16badda744eb2a5f6b4dccb": "fd2a152723717f7bd99e5cf7f27f4499a18e73fab066bfedccdf766d761f8c39a5e221f3e9c79591fe8765577c8836eac0d94a27885509b7ea1989f0d3df150c"
                         },
                         "snapshot": {
                             "confirmedTransactions": [
@@ -4344,8 +4338,7 @@
                                 19,
                                 20,
                                 30
-                            ],
-                            "utxoToDecommit": null
+                            ]
                         },
                         "tag": "SeenSnapshot"
                     }
