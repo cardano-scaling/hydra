@@ -423,8 +423,6 @@ spec = parallel $ do
                 openHead chain n1 n2
                 let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                 send n2 (Decommit{decommitTx = decommitTx1})
-                waitUntil [n2] $
-                  DecommitRequestReceived{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
 

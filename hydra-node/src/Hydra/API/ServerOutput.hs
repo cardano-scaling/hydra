@@ -119,7 +119,6 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
-  | DecommitRequestReceived {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
@@ -180,7 +179,6 @@ instance
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
-    DecommitRequestReceived headId u -> DecommitRequestReceived <$> shrink headId <*> shrink u
     DecommitInvalid headId reason -> DecommitInvalid <$> shrink headId <*> shrink reason
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
     DecommitProcessed headId -> DecommitProcessed <$> shrink headId
@@ -255,7 +253,6 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
-    DecommitRequestReceived{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitProcessed{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse

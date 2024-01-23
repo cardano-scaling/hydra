@@ -97,7 +97,6 @@ channels:
           - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
           - $ref: "api.yaml#/components/messages/DecommitInvalid"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
-          - $ref: "api.yaml#/components/messages/DecommitRequestReceived"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
           - $ref: "api.yaml#/components/messages/DecommitProcessed"
 
@@ -490,31 +489,6 @@ components:
           party:
             $ref: "api.yaml#/components/schemas/Party"
           utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
-
-    DecommitRequestReceived:
-      title: DecommitRequestReceived
-      description: |
-        Request to decommit some UTxO from the local ledger state is received.
-      payload:
-        type: object
-        required:
-          - tag
-          - headId
-          - utxoToDecommit
-          - seq
-          - timestamp
-        properties:
-          tag:
-            type: string
-            enum: ["DecommitRequestReceived"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxoToDecommit:
             $ref: "api.yaml#/components/schemas/UTxO"
           seq:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
