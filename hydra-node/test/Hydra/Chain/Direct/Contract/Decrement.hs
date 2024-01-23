@@ -42,7 +42,6 @@ healthyDecrementTx =
 
   tx =
     decrementTx
-      testNetworkId
       scriptRegistry
       somePartyCardanoVerificationKey
       (mkHeadId testPolicyId)

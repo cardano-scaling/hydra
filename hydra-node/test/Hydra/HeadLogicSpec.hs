@@ -79,6 +79,14 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , participants = deriveOnChainId <$> threeParties
             }
+        aliceEnv =
+          Environment
+            { party = alice
+            , signingKey = aliceSk
+            , otherParties = [bob, carol]
+            , contestationPeriod = defaultContestationPeriod
+            , participants = deriveOnChainId <$> threeParties
+            }
 
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
@@ -137,7 +145,7 @@ spec =
               reqDec = ReqDec decommitTx
               event = NetworkEvent defaultTTL alice reqDec
               st = inOpenState threeParties ledger
-              outcome = update bobEnv ledger st event
+              outcome = update aliceEnv ledger st event
            in outcome
                 `hasEffectSatisfying` \case
                   ClientEffect DecommitRequested{headId, utxoToDecommit} ->
@@ -150,7 +158,7 @@ spec =
           let event = NetworkEvent defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
-            update bobEnv ledger st event
+            update aliceEnv ledger st event
               `shouldNotBe` Effects [NetworkEffect reqDec]
 
         it "cannot request decommit when another one is in flight" $ do
@@ -159,7 +167,7 @@ spec =
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
               s0 = inOpenState threeParties ledger
 
-          s1 <- runEvents bobEnv ledger s0 $ do
+          s1 <- runEvents aliceEnv ledger s0 $ do
             step reqDecEvent
             getState
 
@@ -190,7 +198,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
             _ -> False
 
-          s1 <- runEvents bobEnv ledger s0 $ do
+          s1 <- runEvents aliceEnv ledger s0 $ do
             step reqDecEvent
             getState
 
@@ -199,7 +207,7 @@ spec =
             _ -> False
 
           -- running the 'ReqDec' again should not alter the recorded state
-          s2 <- runEvents bobEnv ledger s1 $ do
+          s2 <- runEvents aliceEnv ledger s1 $ do
             step reqDecEvent
             getState
 
@@ -215,11 +223,11 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
             _ -> False
 
-          let reqDecEvent = NetworkEvent defaultTTL bob ReqDec{transaction = decommitTx'}
+          let reqDecEvent = NetworkEvent defaultTTL alice ReqDec{transaction = decommitTx'}
           -- REVIEW: do we need to keep track of decommit txs in transactionIds?
           let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
 
-          let s1 = update bobEnv ledger s0 reqDecEvent
+          let s1 = update aliceEnv ledger s0 reqDecEvent
           s1 `hasEffect` NetworkEffect reqSn
 
         it "After DecommitProcessed utxoToDecommit is cleared from the local state" $ do
@@ -234,7 +242,7 @@ spec =
 
           let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
 
-          let s1 = update bobEnv ledger s0 reqDecEvent
+          let s1 = update aliceEnv ledger s0 reqDecEvent
           s1 `hasEffect` NetworkEffect reqSn
 
       describe "Tracks Transaction Ids" $ do

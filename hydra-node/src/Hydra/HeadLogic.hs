@@ -617,6 +617,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 --   - Issue a server output 'DecommitRequested' with the relevant utxo
 --   - Issue a 'ReqSn' since all parties need to agree in order for decommit to
 --   be taken out of a Head.
+-- - Check if we are the leader
 --
 -- We don't check here if decommit tx can be applied to the confirmed ledger
 -- state since this is already done if our party is the decommit _initiator_
@@ -628,18 +629,24 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 -- just didn't see the `AckSn` for it yet.
 onOpenNetworkReqDec ::
   IsTx tx =>
+  Environment ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec openState decommitTx =
+onOpenNetworkReqDec env openState decommitTx =
   requireNoDecommitInFlight openState $
     let decommitUTxO = utxoFromTx decommitTx
-     in StateChanged (DecommitRecorded decommitTx)
-          <> Effects
-            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            , NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))
-            ]
+     in if isLeader parameters party nextSn
+          then
+            StateChanged (DecommitRecorded decommitTx)
+              <> Effects
+                [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+                , NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))
+                ]
+          else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
  where
+  Environment{party} = env
+
   Snapshot{number} = getSnapshot confirmedSnapshot
 
   nextSn = number + 1
@@ -648,6 +655,7 @@ onOpenNetworkReqDec openState decommitTx =
 
   OpenState
     { headId
+    , parameters
     , coordinatedHeadState
     } = openState
 
@@ -835,7 +843,7 @@ update env ledger st ev = case (st, ev) of
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
-    onOpenNetworkReqDec openState transaction
+    onOpenNetworkReqDec env openState transaction
   (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight openState $
       -- TODO: Spec: require U̅ ◦ decTx /= ⊥
