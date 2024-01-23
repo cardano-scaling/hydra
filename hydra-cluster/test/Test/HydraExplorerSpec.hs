@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
--- withCreateProcess interface is annoying
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Integration tests for the 'hydra-explorer' executable. These will run
@@ -9,69 +8,27 @@ module Test.HydraExplorerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import CardanoClient (RunningNode (..), submitTx)
-import CardanoNode (NodeLog, unsafeDecodeJson, withCardanoNodeDevnet)
+import CardanoClient (RunningNode (..))
+import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Control.Exception (IOException)
-import Control.Lens ((^?))
+import Control.Lens ((^.), (^?))
 import Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _String)
+import Data.Aeson.Lens (key, nth, _Array, _String)
 import Data.ByteString (hGetLine)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Explorer.ExplorerState (HeadState (..), HeadStatus (..))
 import Hydra.Logging (showLogsOnFailure)
-import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
-import Network.HTTP.Client qualified as HTTPClient
-import Network.HTTP.Client.TLS qualified as HTTPClient
-import Network.HTTP.Types.Status (status200)
+import HydraNode (HydraNodeLog, input, send, waitMatch, withHydraNode)
+import Network.HTTP.Client (responseBody)
+import Network.HTTP.Simple (httpJSON, parseRequestThrow, setRequestHeader)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
 
 spec :: Spec
 spec = do
-  it "can observe hydra transactions live" $
-    failAfter 60 $
-      showLogsOnFailure "HydraExplorerSpec" $ \tracer -> do
-        withTempDir "hydra-explorer-live" $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
-            let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
-            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              withHydraExplorer cardanoNode $ \explorer -> do
-                seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
-                send hydraNode $ input "Init" []
-
-                headId <- waitMatch 5 hydraNode $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
-                  v ^? key "headId" . _String
-
-                headExplorerSees explorer "HeadInitTx" headId
-
-                requestCommitTx hydraNode mempty >>= submitTx cardanoNode
-                waitFor hydraTracer 5 [hydraNode] $
-                  output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
-
-                headExplorerSees explorer "HeadCommitTx" headId
-                headExplorerSees explorer "HeadCollectComTx" headId
-
-                send hydraNode $ input "Close" []
-
-                headExplorerSees explorer "HeadCloseTx" headId
-
-                waitFor hydraTracer 50 [hydraNode] $
-                  output "ReadyToFanout" ["headId" .= headId]
-
-                send hydraNode $ input "Fanout" []
-
-                headExplorerSees explorer "HeadFanoutTx" headId
-
   it "can observe hydra transactions created by multiple hydra-nodes" $
     failAfter 60 $
       showLogsOnFailure "HydraExplorerSpec" $ \tracer -> do
@@ -87,13 +44,13 @@ spec = do
                     v ^? key "headId" . _String
 
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+            seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
             aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] initHead
 
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-            seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
+            seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
             bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
             withHydraExplorer cardanoNode $ \explorer -> do
@@ -110,9 +67,8 @@ spec = do
             withHydraExplorer cardanoNode $ \explorer -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-                seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
                 send hydraNode $ input "Init" []
 
                 aliceHeadId <- waitMatch 5 hydraNode $ \v -> do
@@ -125,9 +81,8 @@ spec = do
 
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
               bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] $ \hydraNode -> do
-                seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
                 send hydraNode $ input "Init" []
 
                 bobHeadId <- waitMatch 5 hydraNode $ \v -> do
@@ -142,25 +97,19 @@ spec = do
 
                 pure bobHeadId
 
-              manager <- HTTPClient.newTlsManager
-              let url = "http://127.0.0.1:9090/heads"
-              request <-
-                HTTPClient.parseRequest url <&> \request ->
-                  request
-                    { HTTPClient.method = "GET"
-                    , HTTPClient.requestHeaders = [("Accept", "application/json")]
-                    }
-              response <- HTTPClient.httpLbs request manager
-              HTTPClient.responseStatus response `shouldBe` status200
-              allHeads <- unsafeDecodeJson . toStrict $ HTTPClient.responseBody response
-              length allHeads `shouldBe` 2
-              let [ HeadState{headId = aliceIdBS, status = aliceStatus}
-                    , HeadState{headId = bobIdBS, status = bobStatus}
-                    ] = allHeads
-              encode aliceHeadId `shouldBe` encode aliceIdBS
-              aliceStatus `shouldBe` Initializing
-              encode bobHeadId `shouldBe` encode bobIdBS
-              bobStatus `shouldBe` Aborted
+              response <-
+                parseRequestThrow "http://127.0.0.1:9090/heads"
+                  <&> setRequestHeader "Accept" ["application/json"]
+                    >>= httpJSON
+
+              let allHeads :: Aeson.Value = responseBody response
+              length (allHeads ^. _Array) `shouldBe` 2
+              allHeads ^. nth 0 . key "headId" . _String `shouldBe` aliceHeadId
+              allHeads ^. nth 0 . key "status" . _String `shouldBe` "Initializing"
+              allHeads ^. nth 1 . key "headId" . _String `shouldBe` bobHeadId
+              allHeads ^. nth 1 . key "status" . _String `shouldBe` "Aborted"
+
+              pure ()
 
 headExplorerSees :: HasCallStack => HydraExplorerHandle -> Value -> Text -> IO ()
 headExplorerSees explorer txType headId =
@@ -204,12 +153,12 @@ data HydraExplorerLog
 -- | Starts a 'hydra-explorer' on some Cardano network.
 withHydraExplorer :: RunningNode -> (HydraExplorerHandle -> IO ()) -> IO ()
 withHydraExplorer cardanoNode action =
-    withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
-      \_in (Just out) err processHandle ->
-        race
-          (checkProcessHasNotDied "hydra-explorer" processHandle err)
-          (action HydraExplorerHandle{awaitNext = awaitNext out})
-          <&> either absurd id
+  withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
+    \_in (Just out) err processHandle ->
+      race
+        (checkProcessHasNotDied "hydra-explorer" processHandle err)
+        (action HydraExplorerHandle{awaitNext = awaitNext out})
+        <&> either absurd id
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do

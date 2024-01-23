@@ -112,11 +112,11 @@ data ChainObserverLog
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
 withChainObserver :: RunningNode -> (ChainObserverHandle -> IO ()) -> IO ()
 withChainObserver cardanoNode action =
-    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
-      action
-        ChainObserverHandle
-          { awaitNext = awaitNext out
-          }
+  withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
+    action
+      ChainObserverHandle
+        { awaitNext = awaitNext out
+        }
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do

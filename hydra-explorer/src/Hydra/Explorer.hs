@@ -8,7 +8,6 @@ import Hydra.Network (PortNumber)
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson qualified as Aeson
-import Data.List qualified as List
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
@@ -103,4 +102,4 @@ corsHeaders =
   ]
 
 contentTypeHeader :: (HeaderName, ByteString)
-contentTypeHeader = ("Content-Type", "application/json")
+contentTypeHeader = ("Accept", "application/json")
