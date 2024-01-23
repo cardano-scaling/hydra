@@ -55,6 +55,23 @@ spec = do
           . nth 0
           . key "payload"
 
+    prop "Validate /decommit publish api schema" $
+      prop_validateJSONSchema @Tx "api.json" $
+        key "channels"
+          . key "/decommit"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /decommit subscribe api schema" $
+      prop_validateJSONSchema @TransactionSubmitted "api.json" $
+        key "channels"
+          . key "/decommit"
+          . key "subscribe"
+          . key "message"
+          . key "oneOf"
+          . nth 0
+          . key "payload"
+
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
       prop "accepts Base16 cbor encoded bytestring" $
