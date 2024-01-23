@@ -132,7 +132,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, vector)
+import Test.QuickCheck (choose, frequency, oneof, vector, suchThat)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -488,33 +488,37 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
+-- | Possible errors when trying to construct decrement tx
 data DecrementTxError
   = InvalidHeadIdInDecrement {headId :: HeadId}
   | CannotFindHeadOutputInDecrement
+  | SnapshotMissingDecrementUTxO
   deriving stock (Show)
 
 decrement ::
   ChainContext ->
   HeadId ->
   HeadParameters ->
-  -- | UTxO to be decommitted
-  UTxO ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Either DecrementTxError Tx
-decrement ctx headId headParameters decrementUTxO spendableUTxO snapshot signatures = do
+decrement ctx headId headParameters spendableUTxO snapshot signatures = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
-  pure $
-    decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
+  case utxoToDecommit of
+    Nothing -> Left SnapshotMissingDecrementUTxO
+    Just decrementUTxO ->
+      pure $
+        decrementTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
+  Snapshot{utxoToDecommit} = snapshot
 
 -- | Construct a close transaction based on the 'OpenState' and a confirmed
 -- snapshot.
@@ -1096,10 +1100,10 @@ genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   cctx <- pickChainContext ctx
-  snapshot <- arbitrary
+  snapshot <- arbitrary `suchThat` (\Snapshot{utxoToDecommit} -> isJust utxoToDecommit)
   signatures <- arbitrary
   let openUTxO = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) mempty openUTxO snapshot signatures)
+  pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1220,13 +1224,11 @@ unsafeDecrement ::
   HeadParameters ->
   -- | Spendable 'UTxO'
   UTxO ->
-  -- | 'UTxO' to decommit.
-  UTxO ->
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-unsafeDecrement ctx headId parameters spendableUTxO utxoToDecommit snapshot signatures =
-  either (error . show) id $ decrement ctx headId parameters spendableUTxO utxoToDecommit snapshot signatures
+unsafeDecrement ctx headId parameters spendableUTxO snapshot signatures =
+  either (error . show) id $ decrement ctx headId parameters spendableUTxO snapshot signatures
 
 unsafeClose ::
   HasCallStack =>

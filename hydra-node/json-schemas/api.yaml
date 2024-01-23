@@ -1486,7 +1486,6 @@ components:
             - tag
             - headId
             - headParameters
-            - decrementUTxO
             - snapshot
             - signatures
           description: |
@@ -1499,8 +1498,6 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
-            decrementUTxO:
-              $ref: "api.yaml#/components/schemas/UTxO"
             snapshot:
               $ref: "api.yaml#/components/schemas/Snapshot"
             signatures:

@@ -15,7 +15,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -62,7 +62,6 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
-import Hydra.API.ServerOutput (DecommitInvalidReason(..))
 
 spec :: Spec
 spec =
@@ -167,23 +166,17 @@ spec =
           let outcome = update bobEnv ledger s1 reqDecEvent
 
           outcome `shouldSatisfy` \case
-            Combined
-              { left =
-                Effects
-                  [ ClientEffect
-                      DecommitInvalid
-                        { headId
-                        , decommitInvalidReason =
-                          DecommitAlreadyInFlight
-                            { decommitTx = decommitTx''
-                            }
-
+            Effects
+              [ ClientEffect
+                  DecommitInvalid
+                    { headId
+                    , decommitInvalidReason =
+                      DecommitAlreadyInFlight
+                        { decommitTx = decommitTx''
                         }
-                    ]
-              , right =
-                Error (RequireFailed DecommitTxInFlight{decommitTx})
-              } ->
-                decommitTx == decommitTx''
+                    }
+                ] ->
+                decommitTx' == decommitTx''
                   && headId == testHeadId
             _ -> False
 

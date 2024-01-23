@@ -586,7 +586,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                     { postChainTx =
                         DecrementTx
                           { headId
-                          , decrementUTxO = utxoToDecommit'
                           , headParameters = parameters
                           , snapshot
                           , signatures
