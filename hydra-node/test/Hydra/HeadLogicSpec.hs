@@ -15,7 +15,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -178,18 +178,8 @@ spec =
           let outcome = update bobEnv ledger s1 reqDecEvent2
 
           outcome `shouldSatisfy` \case
-            Effects
-              [ ClientEffect
-                  DecommitInvalid
-                    { headId
-                    , decommitInvalidReason =
-                      DecommitAlreadyInFlight
-                        { decommitTx = decommitTx''
-                        }
-                    }
-                ] ->
-                decommitTx1 == decommitTx''
-                  && headId == testHeadId
+            Error (RequireFailed DecommitTxInFlight{decommitTx = decommitTx''}) ->
+              decommitTx1 == decommitTx''
             _ -> False
 
         it "updates decommitTx on valid ReqDec" $ do

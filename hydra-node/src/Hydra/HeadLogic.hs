@@ -633,21 +633,18 @@ onOpenNetworkReqDec ::
   Environment ->
   OpenState tx ->
   tx ->
-  -- | Party who requested a decommit
-  Party ->
   Outcome tx
-onOpenNetworkReqDec env openState decommitTx decommitParty =
-  requireNoDecommitInFlight openState (decommitParty == party) $
-    let decommitUTxO = utxoFromTx decommitTx
-     in StateChanged (DecommitRecorded decommitTx)
-          <> Effects
-            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            ]
-          <> if isLeader parameters party nextSn
-            then
-              Effects
-                [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
-            else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+onOpenNetworkReqDec env openState decommitTx =
+  let decommitUTxO = utxoFromTx decommitTx
+   in StateChanged (DecommitRecorded decommitTx)
+        <> Effects
+          [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+          ]
+        <> if isLeader parameters party nextSn
+          then
+            Effects
+              [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
+          else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
  where
   Environment{party} = env
 
@@ -837,16 +834,31 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    requireNoDecommitInFlight openState True $
-      requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
+    case mExistingDecommitTx of
+      Just existingDecommitTx ->
         Effects
-          [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
+          [ ClientEffect
+              ServerOutput.DecommitInvalid
+                { headId
+                , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+                }
           ]
+      Nothing ->
+        requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
+          Effects
+            [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
+            ]
    where
     Environment{party} = env
-  (Open openState, NetworkEvent _ _ (ReqDec{transaction, decommitRequester})) ->
-    onOpenNetworkReqDec env openState transaction decommitRequester
+    CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
+  (Open openState@OpenState{coordinatedHeadState}, NetworkEvent _ _ (ReqDec{transaction})) ->
+    case mExistingDecommitTx of
+      Just existingDecommitTx ->
+        Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+      Nothing -> onOpenNetworkReqDec env openState transaction
+   where
+    CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
   ( Open OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
     )
@@ -1160,32 +1172,6 @@ recoverState ::
 recoverState = foldl' aggregate
 
 -- Decommit helpers
-
--- | Check if local state already contains a decommit tx and ignore the new one
--- in this case.
--- If we are the party that requested a decommit issue 'DecommitAlreadyInFlight'.
-requireNoDecommitInFlight ::
-  OpenState tx ->
-  -- | We are the decommit request party
-  Bool ->
-  Outcome tx ->
-  Outcome tx
-requireNoDecommitInFlight st weRequestedDecommit cont =
-  case mExistingDecommitTx of
-    Just existingDecommitTx ->
-      if weRequestedDecommit
-        then
-          Effects
-            [ ClientEffect
-                ServerOutput.DecommitInvalid
-                  { headId
-                  , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
-                  }
-            ]
-        else cont
-    Nothing -> cont
- where
-  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{decommitTx = mExistingDecommitTx}} = st
 
 -- TODO: Spec: require U̅ ◦ decTx /= ⊥
 
