@@ -3,11 +3,9 @@ module Hydra.API.ClientInputSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Binary (serialize')
-import Data.Aeson (Result (..), Value (String), fromJSON)
-import Data.ByteString.Base16 qualified as Base16
+import Data.Aeson (Result (..), fromJSON)
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.Cardano.Api (serialiseToTextEnvelope, toLedgerTx)
+import Hydra.Cardano.Api (serialiseToTextEnvelope)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Test.Aeson.GenericSpecs (
@@ -33,13 +31,6 @@ spec = parallel $ do
          in case fromJSON @Tx envelope of
               Success{} -> property True
               Error e -> counterexample (toString $ toText e) $ property False
-
-    prop "accepts raw CBOR-base16-encoded transactions" $ do
-      forAll (arbitrary @Tx) $ \tx ->
-        let cborHex = decodeUtf8 $ Base16.encode $ serialize' $ toLedgerTx tx
-         in case fromJSON @Tx (String cborHex) of
-              Success{} -> True
-              Error e -> error (toText e)
 
 settings :: Settings
 settings =

@@ -48,7 +48,6 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   selectLovelace,
   signTx,
-  toLedgerTx,
   toScriptData,
   writeFileTextEnvelope,
   pattern ReferenceScriptNone,
@@ -525,12 +524,12 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
         Left e -> failure $ show e
         Right body -> do
           let unsignedTx = makeSignedTransaction [] body
-          let unsignedRequest = toJSON $ toLedgerTx unsignedTx
+          let unsignedRequest = toJSON unsignedTx
           sendRequest hydraNodeId unsignedRequest
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
 
           let signedTx = signTx cardanoBobSk unsignedTx
-          let signedRequest = toJSON $ toLedgerTx signedTx
+          let signedRequest = toJSON signedTx
           (sendRequest hydraNodeId signedRequest <&> responseBody)
             `shouldReturn` TransactionSubmitted
  where

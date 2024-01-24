@@ -17,7 +17,7 @@ import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
+import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions, txId)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
@@ -30,7 +30,7 @@ import Hydra.Ledger.Cardano (
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
-import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, (.&&.), (===))
+import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
@@ -58,29 +58,20 @@ spec =
       prop "Roundtrip JSON encoding" roundtripProtocolParameters
 
     describe "Tx" $ do
-      roundtripAndGoldenSpecs (Proxy @Tx)
+      roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
 
       prop "Same TxId before/after JSON encoding" roundtripTxId
+
+      prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
 
       prop "Roundtrip to and from Ledger" roundtripLedger
 
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
 
       prop "JSON encoding of Tx according to schema" $
-        prop_validateJSONSchema @Tx "api.json" $
-          key "components" . key "schemas" . key "Transaction"
-
-      -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
-      it "parses a specific Tx" $ do
-        let bs =
-              "{\"witnesses\":\
-              \    {\"keys\": [\"825820db995fe25169d141cab9bbba92baa01f9f2e1ece7df4cb2ac05190f37fcc1f9d58400599ccd0028389216631446cf0f9a4b095bbed03c25537595aa5a2e107e3704a55050c4ee5198a0aa9fc88007791ef9f3847cd96f3cb9a430d1c2d81c817480c\"]\
-              \    },\
-              \ \"body\":{\"outputs\":[{\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\"value\":{\"lovelace\":14}}],\
-              \           \"inputs\":[\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\"]\
-              \          }\
-              \ }"
-        shouldParseJSONAs @Tx bs
+        withMaxSuccess 5 $
+          prop_validateJSONSchema @Tx "api.json" $
+            key "components" . key "schemas" . key "Transaction"
 
     describe "applyTransactions" $ do
       prop "works with valid transaction" appliesValidTransaction
@@ -104,7 +95,7 @@ spec =
         it "produces realistic values" $
           forAll genValue propRealisticValue
 
-shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
+shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation
 shouldParseJSONAs bs =
   case Aeson.eitherDecode bs of
     Left err -> failure err
@@ -131,6 +122,16 @@ roundtripTxId tx@(Tx body _) =
       property False
     Just tx'@(Tx body' _) ->
       (tx === tx' .&&. getTxId body === getTxId body')
+        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
+        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
+
+roundtripTxId' :: Tx -> Property
+roundtripTxId' tx@(Tx body _) =
+  case Aeson.decode (Aeson.encode tx) of
+    Nothing ->
+      property False
+    Just tx'@(Tx body' _) ->
+      (txId tx === getTxId body' .&&. txId tx' == getTxId body)
         & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
         & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
 

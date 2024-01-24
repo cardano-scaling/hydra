@@ -5,7 +5,6 @@ module Hydra.API.ServerSpec where
 import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
-import Cardano.Binary (serialize')
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
@@ -18,8 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nonNull)
-import Data.ByteString.Base16 qualified as Base16
+import Data.Aeson.Lens (key)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
@@ -29,22 +27,18 @@ import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), w
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
-  PostChainTx (..),
-  PostTxError (NoSeedInput),
-  confirmedSnapshot,
   draftCommitTx,
   postTx,
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (Snapshot, headId, utxo), confirmed)
+import Hydra.Snapshot (Snapshot (Snapshot, utxo))
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice, testHeadId)
@@ -198,72 +192,6 @@ spec = describe "ServerSpec" $
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs' -> do
                       (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
-
-    it "outputs tx as cbor or json depending on the client" $
-      showLogsOnFailure "ServerSpec" $ \tracer ->
-        withFreePort $ \port ->
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-            tx :: SimpleTx <- generate arbitrary
-            generatedSnapshot :: Snapshot SimpleTx <- generate arbitrary
-            headParameters <- generate arbitrary
-
-            let Snapshot{headId} = generatedSnapshot
-            -- The three server output message types which contain transactions
-            let txValidMessage = TxValid{headId = headId, transaction = tx}
-            let sn = generatedSnapshot{confirmed = [txId tx]}
-            let snapShotConfirmedMessage =
-                  SnapshotConfirmed
-                    { headId = headId
-                    , snapshot = sn
-                    , signatures = mempty
-                    }
-
-            let postTxFailedMessage =
-                  PostTxOnChainFailed
-                    { postChainTx =
-                        CloseTx
-                          { headId
-                          , headParameters
-                          , confirmedSnapshot =
-                              ConfirmedSnapshot
-                                { Hydra.Snapshot.snapshot = sn
-                                , Hydra.Snapshot.signatures = mempty
-                                }
-                          }
-                    , postTxError = NoSeedInput
-                    }
-                guardForValue v expected =
-                  guard $ v ^? key "transaction" == Just expected
-
-            -- client is able to specify they want tx output to be encoded as CBOR
-            withClient port "/?history=no&tx-output=cbor" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v (Aeson.String . decodeUtf8 . Base16.encode $ serialize' tx)
-
-              sendOutput snapShotConfirmedMessage
-
-              let expectedTxIds = Aeson.Array $ fromList [toJSON (txId tx)]
-
-              waitMatch 5 conn $ \v ->
-                let result =
-                      Aeson.encode v ^? key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expectedTxIds
-
-              sendOutput postTxFailedMessage
-
-              waitMatch 5 conn $ \v ->
-                let result =
-                      Aeson.encode v ^? key "postChainTx" . key "confirmedSnapshot" . key "snapshot" . key "confirmedTransactions" . nonNull
-                 in guard $ result == Just expectedTxIds
-
-            -- spawn another client but this one wants to see txs in json format
-            withClient port "/?history=no" $ \conn -> do
-              sendOutput txValidMessage
-
-              waitMatch 5 conn $ \v ->
-                guardForValue v (toJSON tx)
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $

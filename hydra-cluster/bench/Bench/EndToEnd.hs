@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, serialiseToTextEnvelope, signTx)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (
@@ -329,7 +329,7 @@ newTx registry client tx = do
           , invalidAt = Nothing
           , confirmedAt = Nothing
           }
-  send client $ input "NewTx" ["transaction" .= serialiseToTextEnvelope Nothing tx]
+  send client $ input "NewTx" ["transaction" .= toJSON tx]
 
 data WaitResult
   = TxInvalid {transactionId :: TxId, reason :: Text}
@@ -396,14 +396,14 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transaction" . key "id" . to fromJSON >>= \case
+      ^? key "transaction" . key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success txid -> pure $ TxValid txid
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     v
-      ^? key "transaction" . key "id" . to fromJSON >>= \case
+      ^? key "transaction" . key "txId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success tx ->
           TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String

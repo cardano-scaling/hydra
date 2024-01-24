@@ -9,6 +9,10 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
+## [0.16.0] - UNRELEASED
+
+- **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.

@@ -28,7 +28,11 @@ import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
 import Control.Monad (foldM)
+import Data.Aeson (object, (.:), (.:?), (.=))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types (withObject)
 import Data.ByteString qualified as BS
+import Data.ByteString.Base16 qualified as Base16
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
@@ -125,10 +129,32 @@ instance FromCBOR Tx where
         (pure . fromLedgerTx)
 
 instance ToJSON Tx where
-  toJSON = toJSON . toLedgerTx
+  toJSON tx =
+    let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
+     in object
+          [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+          , "txId" .= (txId tx)
+          , "type" .= envelopeType
+          , "description" .= Aeson.String mempty
+          ]
 
 instance FromJSON Tx where
-  parseJSON = fmap fromLedgerTx . parseJSON
+  parseJSON =
+    withObject "Tx" $ \o -> do
+      let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
+      hexText <- o .: "cborHex"
+      ty <- o .: "type"
+      guard (envelopeType == ty)
+      bytes <- decodeBase16 hexText
+
+      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+        Left e -> fail $ show e
+        Right tx ->
+          (o .:? "txId") >>= \case
+            Nothing -> pure tx
+            Just txid' -> do
+              guard (txid' == (txId tx))
+              pure tx
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
