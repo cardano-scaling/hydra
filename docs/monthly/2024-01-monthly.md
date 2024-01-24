@@ -21,6 +21,19 @@ This month, several items were restructured on the project
 
 ## Hydra development
 
+### Hydra Chess
+
+- Hydra team wanted to build a game on Hydra since by dogfooding their product
+  they always find more things which are suboptimal or stumble accross a bug
+  that needs fixing. Hydra Chess proved to be no different and they learned in
+  the process of making this dApp.
+
+  They also tried to iron out all details and difficulties present when trying
+  to run hydra-node and have dApp that is easy to use by the end users which
+  might not be tech savvy but also provide an example for people trying to
+  build on Hydra. You can find the source code
+  [here](https://github.com/abailly-iohk/hydra-chess).
+
 [Issues and pull requests closed since the last
 report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupdated-desc+closed%3A2023-11-30..2024-01-31)
 
