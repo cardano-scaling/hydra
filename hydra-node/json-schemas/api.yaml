@@ -165,22 +165,11 @@ channels:
       operationId: decommitResponse
       description: |
         Possible responses of this endpoint are:
-          * TransactionSubmitted - 200 ok
+          * String - 200 OK
           * String - 400 bad request
       message:
-        oneOf:
-          - title: TransactionSubmitted
-            description: Decommit request successfully submitted.
-            payload:
-              type: object
-              additionalProperties: false
-              properties:
-                tag:
-                  type: string
-                  enum: ["TransactionSubmitted"]
-          - title: DecommitError
-            payload:
-              type: string
+        payload:
+            type: string
       bindings:
         http:
           type: response
