@@ -810,20 +810,17 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             ]
             <> fmap toJSON (Map.fromList (UTxO.pairs committedUTxOByBob))
 
-    let expectedSnapshot =
-          object
-            [ "headId" .= headId
-            , "snapshotNumber" .= int expectedSnapshotNumber
-            , "utxo" .= newUTxO
-            , "confirmedTransactions" .= [txId tx]
-            ]
-        expectedSnapshotNumber = 1
+    let expectedSnapshotNumber :: Int = 1
 
     waitMatch 10 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
-      snapshot <- v ^? key "snapshot"
-      guard $ snapshot == expectedSnapshot
+      snapshotNumber <- v ^? key "snapshot" . key "snapshotNumber"
+      guard $ snapshotNumber == toJSON expectedSnapshotNumber
+      utxo <- v ^? key "snapshot" . key "utxo"
+      guard $ utxo == toJSON newUTxO
+      confirmedTransactions <- v ^? key "snapshot" . key "confirmedTransactions"
+      guard $ confirmedTransactions == toJSON [txId tx]
 
     send n1 $ input "GetUTxO" []
     waitFor hydraTracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO, "headId" .= headId]
