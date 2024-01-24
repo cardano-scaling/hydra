@@ -37,7 +37,7 @@ import Hydra.Contract.Head (
  )
 import Hydra.Contract.Head qualified as OnChain
 import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
-import Hydra.Ledger (hashUTxO, withoutUTxO)
+import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger qualified as OffChain
 import Hydra.Ledger.Cardano (
   Tx,
@@ -215,8 +215,8 @@ prop_verifyOffChainSignatures =
           snapshotNumber = toInteger number
           utxoHash =
             (toBuiltin $ hashUTxO @SimpleTx utxo)
-              <> maybe mempty ((toBuiltin . hashUTxO @SimpleTx)) utxoToDecommit
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
+          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) ((toBuiltin . hashUTxO @SimpleTx)) utxoToDecommit
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
@@ -231,5 +231,7 @@ prop_verifySnapshotSignatures =
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx (utxo `withoutUTxO` maybe mempty id utxoToDecommit)
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash signatures
+          utxoHash =
+            toBuiltin (hashUTxO @SimpleTx utxo)
+          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) ((toBuiltin . hashUTxO @SimpleTx)) utxoToDecommit
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash signatures

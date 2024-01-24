@@ -294,7 +294,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash sig
+        -- TODO: instead of mempty here we need a hash of a possible decommitted
+        -- utxo
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash mempty sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
@@ -387,7 +389,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
       contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
-    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash sig
+    -- TODO: instead of mempty here we need a hash of a possible decommitted
+    -- utxo
+    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash mempty sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -589,16 +593,16 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
-verifySnapshotSignature :: [Party] -> CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> [Signature] -> Bool
-verifySnapshotSignature parties headId snapshotNumber utxoHash sigs =
+verifySnapshotSignature :: [Party] -> CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> [Signature] -> Bool
+verifySnapshotSignature parties headId snapshotNumber utxoHash utxoToDecommitHash sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties
       == length sigs
-      && all (uncurry $ verifyPartySignature headId snapshotNumber utxoHash) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature headId snapshotNumber utxoHash party signed =
+verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party signed =
   traceIfFalse $(errorCode PartySignatureVerificationFailed) $
     verifyEd25519Signature (vkey party) message signed
  where
@@ -607,6 +611,7 @@ verifyPartySignature headId snapshotNumber utxoHash party signed =
     Builtins.serialiseData (toBuiltinData headId)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
+      <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering
