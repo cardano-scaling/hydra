@@ -100,7 +100,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
       && all hasASinglePT initialTxOutValues
 
   allInitialOutsHaveCorrectDatum =
-    all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
+    all (hasHeadIdDatum . fst) (scriptOutputsAt initialValidator txInfo)
 
   checkDatum =
     traceIfFalse $(errorCode WrongDatum) $

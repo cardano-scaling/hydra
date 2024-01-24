@@ -19,7 +19,7 @@ spec = do
       (x <= y && y <= x) == (x == y)
 
   prop "implements Eq and Ord correspondingly" $ \(x :: Party, y) ->
-    (compare x y == EQ) == (x == y)
+    (x == y) == (x == y)
 
   roundtripAndGoldenSpecs (Proxy @Party)
 

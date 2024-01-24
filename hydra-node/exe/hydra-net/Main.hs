@@ -183,49 +183,46 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       traceWith tracer $ ConnectedTo sockAddr
       runClient iomgr (mkApplication sk party tracer) sock
  where
-  runClient iomgr app sock =
-    connectToNodeSocket
-      iomgr
-      unversionedHandshakeCodec
-      noTimeLimitsHandshake
-      unversionedProtocolDataCodec
-      networkConnectTracers
-      (HandshakeCallbacks acceptableVersion queryVersion)
-      (unversionedProtocol app)
-      sock
 
-  networkConnectTracers =
-    NetworkConnectTracers
-      { nctMuxTracer = contramap show stdoutTracer
-      , nctHandshakeTracer = contramap show stdoutTracer
-      }
+networkConnectTracers =
+  NetworkConnectTracers
+    { nctMuxTracer = contramap show stdoutTracer
+    , nctHandshakeTracer = contramap show stdoutTracer
+    }
 
-  resolveSockAddr Host{hostname, port} = do
-    is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
-    case is of
-      (inf : _) -> pure inf
-      _ -> die "getAdrrInfo failed"
+resolveSockAddr Host{hostname, port} = do
+  is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
+  case is of
+    (inf : _) -> pure inf
+    _ -> die "getAdrrInfo failed"
 
-  mkApplication sk party tracer =
-    OuroborosApplication $
-      [ MiniProtocol
-          { miniProtocolNum = MiniProtocolNum 42
-          , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
-          , miniProtocolRun =
-              InitiatorProtocolOnly
-                ( mkMiniProtocolCbFromPeer
-                    ( \_ ->
-                        ( (contramap TraceSendRecv tracer)
-                        , codecFireForget
-                        , (fireForgetClientPeer $ client tracer sk party)
-                        )
-                    )
-                )
-          }
-      ]
+mkApplication sk party tracer =
+  OuroborosApplication [ MiniProtocol
+        { miniProtocolNum = MiniProtocolNum 42
+        , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
+        , miniProtocolRun =
+            InitiatorProtocolOnly
+              ( mkMiniProtocolCbFromPeer
+                  ( \_ ->
+                      ( (contramap TraceSendRecv tracer)
+                      , codecFireForget
+                      , (fireForgetClientPeer $ client tracer sk party)
+                      )
+                  )
+              )
+        }
+    ]
 
-  client tracer sk party = Idle $ do
-    let msg = Data "2" (ReqSn @Tx snapshotNumber [])
-    let signed = Signed msg (sign sk msg) party
-    traceWith tracer $ Injecting signed
-    pure $ SendMsg signed (pure $ SendDone (pure ()))
+client tracer sk party = Idle $ do
+  let msg = Data "2" (ReqSn @Tx snapshotNumber [])
+  let signed = Signed msg (sign sk msg) party
+  traceWith tracer $ Injecting signed
+  pure $ SendMsg signed (pure $ SendDone (pure ()))
+  runClient iomgr app = connectToNodeSocket
+    iomgr
+    unversionedHandshakeCodec
+    noTimeLimitsHandshake
+    unversionedProtocolDataCodec
+    networkConnectTracers
+    (HandshakeCallbacks acceptableVersion queryVersion)
+    (unversionedProtocol app)

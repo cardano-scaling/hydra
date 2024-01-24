@@ -236,7 +236,7 @@ genInteger =
 
 genByteString :: Gen ByteString
 genByteString = do
-  (\n -> BS.pack <$> vector n) =<< elements [0, 8, 16, 28, 32]
+  (Prelude.fmap BS.pack Prelude.. Prelude.vector) =<< elements [0, 8, 16, 28, 32]
 
 shrinkByteString :: ByteString -> [ByteString]
 shrinkByteString =

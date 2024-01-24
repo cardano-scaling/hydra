@@ -26,5 +26,4 @@ hashScriptInAnyLang (ScriptInAnyLang _ script) =
 
 instance Arbitrary ScriptHash where
   arbitrary = do
-    plutusScript <- arbitrary
-    pure $ hashScript (PlutusScript PlutusScriptV2 plutusScript)
+    hashScript . PlutusScript PlutusScriptV2 <$> arbitrary

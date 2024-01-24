@@ -47,8 +47,7 @@ instance Arbitrary a => Arbitrary (UpperBound a) where
   arbitrary = upperBound <$> arbitrary
 
 instance ToJSON PubKeyHash where
-  toJSON = \kh ->
-    object
+  toJSON kh = object
       [ "tag" .= Aeson.String "PubKeyHash"
       , "keyHash" .= Aeson.String (decodeUtf8 $ Base16.encode $ fromBuiltin $ getPubKeyHash kh)
       ]

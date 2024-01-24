@@ -107,6 +107,11 @@ checkCommit commitValidator headId committedRefs context =
   checkCommittedValue =
     traceIfFalse $(errorCode LockedValueDoesNotMatch) $
       -- NOTE: Ada in initialValue is usually lower than in the locked ADA due
+      -- NOTE: Ada in initialValue is usually lower than in the locked ADA due
+      -- to higher deposit needed for commit output than for initial output
+      -- to higher deposit needed for commit output than for initial output
+      
+      -- NOTE: Ada in initialValue is usually lower than in the locked ADA due
       -- to higher deposit needed for commit output than for initial output
       lockedValue `geq` (initialValue + committedValue)
 
@@ -117,9 +122,9 @@ checkCommit commitValidator headId committedRefs context =
     go = \case
       ([], []) ->
         True
-      ([], (_ : _)) ->
+      ([], _ : _) ->
         traceError $(errorCode MissingCommittedTxOutInOutputDatum)
-      ((_ : _), []) ->
+      (_ : _, []) ->
         traceError $(errorCode CommittedTxOutMissingInOutputDatum)
       (TxInInfo{txInInfoOutRef, txInInfoResolved} : restCommitted, Commit{input, preSerializedOutput} : restCommits) ->
         Builtins.serialiseData (toBuiltinData txInInfoResolved) == preSerializedOutput

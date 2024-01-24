@@ -137,7 +137,7 @@ genInitMutation (tx, _utxo) =
         out
 
   removeInitialOutputDatum ix out =
-    ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumNone) out
+    ChangeOutput ix $ modifyTxOutDatum (const TxOutDatumNone) out
 
   changeInitialOutputToNotAHeadId ix out =
     ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumInline $ toScriptData (42 :: Integer)) out

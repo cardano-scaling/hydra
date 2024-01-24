@@ -132,8 +132,8 @@ instance ToJSON Tx where
   toJSON tx =
     let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
      in object
-          [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-          , "txId" .= (txId tx)
+          [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+          , "txId" .= txId tx
           , "type" .= envelopeType
           , "description" .= Aeson.String mempty
           ]
@@ -153,7 +153,7 @@ instance FromJSON Tx where
           (o .:? "txId") >>= \case
             Nothing -> pure tx
             Just txid' -> do
-              guard (txid' == (txId tx))
+              guard (txid' == txId tx)
               pure tx
 
 instance Arbitrary Tx where
