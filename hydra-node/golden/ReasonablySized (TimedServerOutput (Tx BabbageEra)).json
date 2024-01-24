@@ -95,7 +95,7 @@
         {
             "headId": "01050603080504010108010401020404",
             "seq": 1,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-15T15:31:36.003307203311Z"
         },
         {
@@ -5963,7 +5963,7 @@
         {
             "headId": "01040205050108050701010500070707",
             "seq": 1,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-12T06:16:02.408943651025Z"
         },
         {
@@ -8726,7 +8726,7 @@
         {
             "headId": "03040702040501070101040501030202",
             "seq": 6,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-08T08:11:09.451183087261Z"
         },
         {
@@ -12240,7 +12240,7 @@
         {
             "headId": "05060006010001050703000401030102",
             "seq": 5,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-08T15:25:36.04968072546Z"
         },
         {
@@ -14589,13 +14589,13 @@
         {
             "headId": "03010500010507080504030308070706",
             "seq": 5,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-08T01:28:57.83448046209Z"
         },
         {
             "headId": "02050602020602060206000508070602",
             "seq": 1,
-            "tag": "DecommitProcessed",
+            "tag": "DecommmitFinalized",
             "timestamp": "1864-05-06T01:16:36.242940429606Z"
         },
         {

@@ -122,7 +122,7 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitProcessed {headId :: HeadId}
+  | DecommmitFinalized {headId :: HeadId}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -181,7 +181,7 @@ instance
     DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
     DecommitInvalid headId reason -> DecommitInvalid <$> shrink headId <*> shrink reason
     DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
-    DecommitProcessed headId -> DecommitProcessed <$> shrink headId
+    DecommmitFinalized headId -> DecommmitFinalized <$> shrink headId
 
 -- | Possible transaction formats in the api server output
 data OutputFormat
@@ -254,7 +254,7 @@ prepareServerOutput ServerOutputConfig{txOutputFormat, utxoInSnapshot} response 
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
-    DecommitProcessed{} -> encodedResponse
+    DecommmitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
  where
   handleUtxoInclusion f bs =

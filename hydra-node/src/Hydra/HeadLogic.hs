@@ -865,8 +865,8 @@ update env ledger st ev = case (st, ev) of
       -- TODO: What happens if observed decrement tx get's rolled back?
       | ourHeadId == headId ->
           Effects
-            [ClientEffect $ ServerOutput.DecommitProcessed{headId}]
-            <> StateChanged DecommitProcessed
+            [ClientEffect $ ServerOutput.DecommmitFinalized{headId}]
+            <> StateChanged DecommmitFinalized
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1097,7 +1097,7 @@ aggregate st = \case
                   coordinatedHeadState{decommitTx = Just decommitTx}
               }
       _otherState -> st
-  DecommitProcessed ->
+  DecommmitFinalized ->
     case st of
       Open
         os@OpenState
@@ -1156,7 +1156,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
-    DecommitProcessed -> history
+    DecommmitFinalized -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout -> history
     HeadFannedOut{chainState} -> pushNewState chainState history

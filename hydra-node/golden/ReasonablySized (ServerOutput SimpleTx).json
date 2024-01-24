@@ -96,7 +96,7 @@
         },
         {
             "headId": "02050808060208010602030506030301",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "clientInput": {
@@ -419,7 +419,7 @@
         },
         {
             "headId": "02060804040703020402060805000008",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "headId": "02010402000607010508080505000400",
@@ -729,7 +729,7 @@
         },
         {
             "headId": "07010208010507020804040704020607",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "peer": "jsfozc",
@@ -737,7 +737,7 @@
         },
         {
             "headId": "05050705080400020704010301020004",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "headId": "03030707030707080008070200050604",
@@ -801,7 +801,7 @@
         },
         {
             "headId": "04010707060008050104050607060006",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "peer": "fxng",
@@ -809,7 +809,7 @@
         },
         {
             "headId": "00010108060803000207020208020506",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "contestationPeriod": 74295,
@@ -1414,7 +1414,7 @@
         },
         {
             "headId": "05070504060207000603070306020402",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "headId": "02030508040501060404050001040305",
@@ -2054,7 +2054,7 @@
         },
         {
             "headId": "01080402030407080004010705080103",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "headId": "08010402080504050303030105070502",
@@ -2083,7 +2083,7 @@
         },
         {
             "headId": "05000508000605080503050704020001",
-            "tag": "DecommitProcessed"
+            "tag": "DecommmitFinalized"
         },
         {
             "headStatus": "Idle",

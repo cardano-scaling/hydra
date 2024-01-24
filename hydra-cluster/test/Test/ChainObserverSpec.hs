@@ -84,7 +84,7 @@ spec = do
                 chainObserverSees observer "HeadDecrementTx" headId
 
                 waitFor hydraTracer 50 [hydraNode] $
-                  output "DecommitProcessed" ["headId" .= headId]
+                  output "DecommmitFinalized" ["headId" .= headId]
 
                 send hydraNode $ input "Close" []
 

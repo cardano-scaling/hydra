@@ -406,7 +406,7 @@ spec = parallel $ do
                     _ -> False
 
                 waitUntil [n1, n2] $ DecommitApproved testHeadId (utxoRefs [42])
-                waitUntil [n1, n2] $ DecommitProcessed testHeadId
+                waitUntil [n1, n2] $ DecommmitFinalized testHeadId
 
                 send n1 GetUTxO
                 waitUntilMatch [n1] $
@@ -430,11 +430,11 @@ spec = parallel $ do
                 waitUntil [n1] $
                   DecommitInvalid{headId = testHeadId, decommitInvalidReason = DecommitAlreadyInFlight{decommitTx = decommitTx1}}
 
-                waitUntil [n1, n2] $ DecommitProcessed{headId = testHeadId}
+                waitUntil [n1, n2] $ DecommmitFinalized{headId = testHeadId}
 
                 send n1 (Decommit{decommitTx = decommitTx2})
                 waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, utxoToDecommit = utxoRefs [22]}
-                waitUntil [n1, n2] $ DecommitProcessed{headId = testHeadId}
+                waitUntil [n1, n2] $ DecommmitFinalized{headId = testHeadId}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do

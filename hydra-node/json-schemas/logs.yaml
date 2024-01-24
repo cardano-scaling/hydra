@@ -1307,14 +1307,14 @@ definitions:
           decommitTx:
             type: object
             $ref: "api.yaml#/components/schemas/Transaction"
-      - title: "DecommitProcessed"
+      - title: "DecommmitFinalized"
         additionalProperties: false
         required:
           - tag
         properties:
           tag:
             type: string
-            enum: ["DecommitProcessed"]
+            enum: ["DecommmitFinalized"]
       - title: "PartySignedSnapshot"
         additionalProperties: false
         required:

@@ -683,7 +683,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
       failAfter 10 $ waitForUTxO node decommitUTxO
 
       waitFor hydraTracer 10 [n1] $
-        output "DecommitProcessed" ["headId" .= headId]
+        output "DecommmitFinalized" ["headId" .= headId]
  where
   hydraTracer = contramap FromHydraNode tracer
 

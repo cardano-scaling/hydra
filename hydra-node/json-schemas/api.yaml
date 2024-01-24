@@ -98,7 +98,7 @@ channels:
           - $ref: "api.yaml#/components/messages/DecommitInvalid"
           - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
-          - $ref: "api.yaml#/components/messages/DecommitProcessed"
+          - $ref: "api.yaml#/components/messages/DecommmitFinalized"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -571,8 +571,8 @@ components:
           timestamp:
             $ref: "api.yaml#/components/schemas/UTCTime"
 
-    DecommitProcessed:
-      title: DecommitProcessed
+    DecommmitFinalized:
+      title: DecommmitFinalized
       description: |
         Decommit request is fully processed and hydra-node is ready to accept another decommit request.
       payload:
@@ -585,7 +585,7 @@ components:
         properties:
           tag:
             type: string
-            enum: ["DecommitProcessed"]
+            enum: ["DecommmitFinalized"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           seq:
