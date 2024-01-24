@@ -516,12 +516,40 @@ components:
             $ref: "api.yaml#/components/schemas/HeadId"
           decommitInvalidReason:
             oneOf:
-              - $ref: "api.yaml#/components/messages/DecommitTxInvalid/payload"
-              - $ref: "api.yaml#/components/messages/DecommitAlreadyInFlight/payload"
-          seq:
-            $ref: "api.yaml#/components/schemas/SequenceNumber"
-          timestamp:
-            $ref: "api.yaml#/components/schemas/UTCTime"
+              - type: object
+                required:
+                  - tag
+                  - confirmedUTxO
+                  - decommitTx
+                  - validationError
+                properties:
+                  tag:
+                    type: string
+                    enum: ["DecommitTxInvalid"]
+                  confirmedUTxO:
+                    $ref: "api.yaml#/components/schemas/UTxO"
+                  decommitTx:
+                    $ref: "api.yaml#/components/schemas/Transaction"
+                  validationError:
+                    type: object
+                    properties:
+                      reason:
+                        type: string
+
+              - type: object
+                required:
+                  - tag
+                  - decommitTx
+                properties:
+                  tag:
+                    type: string
+                    enum: ["DecommitAlreadyInFlight"]
+                  decommitTx:
+                    $ref: "api.yaml#/components/schemas/Transaction"
+                  seq:
+                    $ref: "api.yaml#/components/schemas/SequenceNumber"
+                  timestamp:
+                    $ref: "api.yaml#/components/schemas/UTCTime"
 
     DecommitRequested:
       title: DecommitRequested
@@ -592,47 +620,6 @@ components:
             $ref: "api.yaml#/components/schemas/SequenceNumber"
           timestamp:
             $ref: "api.yaml#/components/schemas/UTCTime"
-
-    DecommitTxInvalid:
-      title: DecommitTxInvalid
-      description: |
-        Requested decommit was rejected since it could not be applied to local ledger state.
-      payload:
-        type: object
-        required:
-          - tag
-          - confirmedUTxO
-          - decommitTx
-          - validationError
-        properties:
-          tag:
-            type: string
-            enum: ["DecommitTxInvalid"]
-          confirmedUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          decommitTx:
-            $ref: "api.yaml#/components/schemas/Transaction"
-          validationError:
-            type: object
-            properties:
-              reason:
-                type: string
-
-    DecommitAlreadyInFlight:
-      title: DecommitAlreadyInFlight
-      description: |
-        Requested decommit was rejected since the previous decommit request is not yet finalized.
-      payload:
-        type: object
-        required:
-          - tag
-          - decommitTx
-        properties:
-          tag:
-            type: string
-            enum: ["DecommitAlreadyInFlight"]
-          decommitTx:
-            $ref: "api.yaml#/components/schemas/Transaction"
 
     HeadIsOpen:
       title: HeadIsOpen
