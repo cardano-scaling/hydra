@@ -89,6 +89,7 @@ test-suite tests
     , yaml
 
   other-modules:
+    Hydra.Explorer.ExplorerStateSpec
     Hydra.ExplorerSpec
     Spec
 
