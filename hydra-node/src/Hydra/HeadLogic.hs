@@ -82,6 +82,7 @@ import Hydra.HeadLogic.State (
   setChainState,
  )
 import Hydra.Ledger (
+  ChainSlot,
   IsTx,
   Ledger (..),
   TxIdType,
@@ -632,9 +633,11 @@ onOpenNetworkReqDec ::
   Environment ->
   OpenState tx ->
   tx ->
+  -- | Party who requested a decommit
+  Party ->
   Outcome tx
-onOpenNetworkReqDec env openState decommitTx =
-  requireNoDecommitInFlight openState $
+onOpenNetworkReqDec env openState decommitTx decommitParty =
+  requireNoDecommitInFlight openState (decommitParty == party) $
     let decommitUTxO = utxoFromTx decommitTx
      in StateChanged (DecommitRecorded decommitTx)
           <> Effects
@@ -835,35 +838,15 @@ update env ledger st ev = case (st, ev) of
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    requireNoDecommitInFlight openState $
-      requireValidDecommitTx $
+    requireNoDecommitInFlight openState True $
+      requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
         Effects
-          [ NetworkEffect ReqDec{transaction = decommitTx}
+          [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
           ]
    where
-    -- TODO: Spec: require U̅ ◦ decTx /= ⊥
-    requireValidDecommitTx cont =
-      case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
-        Left (_, err) ->
-          Effects
-            [ ClientEffect
-                ServerOutput.DecommitInvalid
-                  { headId
-                  , decommitInvalidReason =
-                      ServerOutput.DecommitTxInvalid
-                        { confirmedUTxO
-                        , decommitTx
-                        , validationError = err
-                        }
-                  }
-            ]
-        Right _ -> cont
-
-    confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
-
-    CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-  (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
-    onOpenNetworkReqDec env openState transaction
+    Environment{party} = env
+  (Open openState, NetworkEvent _ _ (ReqDec{transaction, decommitRequester})) ->
+    onOpenNetworkReqDec env openState transaction decommitRequester
   ( Open OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
     )
@@ -1178,22 +1161,63 @@ recoverState = foldl' aggregate
 
 -- Decommit helpers
 
--- | Check if local state already contains a decommit tx and issue an error +
--- 'DecommitAlreadyInFlight' output in this case.
+-- | Check if local state already contains a decommit tx and ignore the new one
+-- in this case.
+-- If we are the party that requested a decommit issue 'DecommitAlreadyInFlight'.
 requireNoDecommitInFlight ::
   OpenState tx ->
+  -- | We are the decommit request party
+  Bool ->
   Outcome tx ->
   Outcome tx
-requireNoDecommitInFlight st cont =
+requireNoDecommitInFlight st weRequestedDecommit cont =
   case mExistingDecommitTx of
     Just existingDecommitTx ->
+      if weRequestedDecommit
+        then
+          Effects
+            [ ClientEffect
+                ServerOutput.DecommitInvalid
+                  { headId
+                  , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+                  }
+            ]
+        else cont
+    Nothing -> cont
+ where
+  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{decommitTx = mExistingDecommitTx}} = st
+
+-- TODO: Spec: require U̅ ◦ decTx /= ⊥
+
+-- | Prevents further evaluation if Decommit tx is not applicable to the local
+-- ledger state. In this case emits 'DecommitInvalid' otherwise it alows
+-- continuation to proceed.
+requireValidDecommitTx ::
+  Monoid (UTxOType tx) =>
+  HeadId ->
+  Ledger tx ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Outcome tx ->
+  Outcome tx
+requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx cont =
+  case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+    Left (_, err) ->
       Effects
         [ ClientEffect
             ServerOutput.DecommitInvalid
               { headId
-              , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+              , decommitInvalidReason =
+                  ServerOutput.DecommitTxInvalid
+                    { confirmedUTxO
+                    , decommitTx
+                    , validationError = err
+                    }
               }
         ]
-    Nothing -> cont
+    Right _ -> cont
  where
-  OpenState{headId, coordinatedHeadState = CoordinatedHeadState{decommitTx = mExistingDecommitTx}} = st
+  confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
+
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState

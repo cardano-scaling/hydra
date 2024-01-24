@@ -142,7 +142,7 @@ spec =
       describe "Decommit" $ do
         it "observes DecommitRequested and ReqDec in an Open state" $
           let decommitTx = SimpleTx 1 mempty (utxoRef 1)
-              reqDec = ReqDec decommitTx
+              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
               event = NetworkEvent defaultTTL alice reqDec
               st = inOpenState threeParties ledger
               outcome = update aliceEnv ledger st event
@@ -150,11 +150,12 @@ spec =
                 `hasEffectSatisfying` \case
                   ClientEffect DecommitRequested{headId, utxoToDecommit} ->
                     headId == testHeadId && utxoToDecommit == utxoRef 1
-                  NetworkEffect ReqDec{transaction} -> transaction == decommitTx
+                  NetworkEffect ReqDec{transaction, decommitRequester} ->
+                    transaction == decommitTx && decommitRequester == alice
                   _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
-          let reqDec = ReqDec (SimpleTx 1 mempty (utxoRef 1))
+          let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1), decommitRequester = alice}
           let event = NetworkEvent defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
@@ -162,16 +163,19 @@ spec =
               `shouldNotBe` Effects [NetworkEffect reqDec]
 
         it "cannot request decommit when another one is in flight" $ do
-          let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
-              reqDec = ReqDec decommitTx'
-              reqDecEvent = NetworkEvent defaultTTL alice reqDec
+          let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
+              decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
+              reqDec1 = ReqDec{transaction = decommitTx1, decommitRequester = alice}
+              reqDec2 = ReqDec{transaction = decommitTx2, decommitRequester = bob}
+              reqDecEvent1 = NetworkEvent defaultTTL alice reqDec1
+              reqDecEvent2 = NetworkEvent defaultTTL bob reqDec2
               s0 = inOpenState threeParties ledger
 
           s1 <- runEvents aliceEnv ledger s0 $ do
-            step reqDecEvent
+            step reqDecEvent1
             getState
 
-          let outcome = update bobEnv ledger s1 reqDecEvent
+          let outcome = update bobEnv ledger s1 reqDecEvent2
 
           outcome `shouldSatisfy` \case
             Effects
@@ -184,13 +188,13 @@ spec =
                         }
                     }
                 ] ->
-                decommitTx' == decommitTx''
+                decommitTx1 == decommitTx''
                   && headId == testHeadId
             _ -> False
 
         it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
-          let reqDec = ReqDec decommitTx'
+          let reqDec = ReqDec{transaction = decommitTx', decommitRequester = alice}
               reqDecEvent = NetworkEvent defaultTTL alice reqDec
               s0 = inOpenState threeParties ledger
 
@@ -223,7 +227,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
             _ -> False
 
-          let reqDecEvent = NetworkEvent defaultTTL alice ReqDec{transaction = decommitTx'}
+          let reqDecEvent = NetworkEvent defaultTTL alice ReqDec{transaction = decommitTx', decommitRequester = alice}
           let reqSn = ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
 
           let s1 = update aliceEnv ledger s0 reqDecEvent
