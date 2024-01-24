@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Hydra.Chain.Direct.Tx (HeadObservation (..))
 import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations, headId)
 import Hydra.HeadId (HeadId)
+import Hydra.OnChainId ()
 import Test.QuickCheck (forAll, suchThat, (=/=))
 
 spec :: Spec
@@ -23,7 +24,7 @@ spec = do
           getHeadIds initialState `isPrefixOf` getHeadIds resultHeads
  where
   genObservations :: Gen [HeadObservation]
-  genObservations = arbitrary `suchThat` (not . null)
+  genObservations = arbitrary `suchThat` (not . null) `suchThat` notElem NoHeadTx
 
   getHeadIds :: ExplorerState -> [HeadId]
   getHeadIds = fmap headId

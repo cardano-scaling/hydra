@@ -6,24 +6,27 @@ import Hydra.Prelude
 import Hydra.HeadId (HeadId (..))
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Aeson (Value (..))
 import Hydra.Cardano.Api (TxIn, UTxO)
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   CloseObservation (..),
+  ClosedThreadOutput (..),
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   InitObservation (..),
+  OpenThreadOutput (..),
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party)
+import Hydra.Party (Party, partyFromChain)
 
 data HeadMember = HeadMember
   { party :: Party
-  , onChainId :: OnChainId
+  , onChainId :: Observed OnChainId
   , commits :: [UTxO]
   }
   deriving stock (Eq, Show, Generic)
@@ -44,11 +47,25 @@ data HeadStatus
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
+data Observed a = Unknown | Seen a
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON a => ToJSON (Observed a) where
+  toJSON Unknown = Null
+  toJSON (Seen a) = toJSON a
+
+instance FromJSON a => FromJSON (Observed a) where
+  parseJSON Null = pure Unknown
+  parseJSON value = Seen <$> parseJSON value
+
+instance Arbitrary a => Arbitrary (Observed a) where
+  arbitrary = genericArbitrary
+
 data HeadState = HeadState
   { headId :: HeadId
-  , seedTxIn :: TxIn
+  , seedTxIn :: Observed TxIn
   , status :: HeadStatus
-  , contestationPeriod :: ContestationPeriod
+  , contestationPeriod :: Observed ContestationPeriod
   , members :: [HeadMember]
   }
   deriving stock (Eq, Show, Generic)
@@ -62,16 +79,15 @@ type ExplorerState = [HeadState]
 aggregateInitObservation :: InitObservation -> ExplorerState -> ExplorerState
 aggregateInitObservation InitObservation{headId, seedTxIn, contestationPeriod, parties, participants} explorerState =
   case findHeadState headId explorerState of
-    -- REVIEW: this should never happen; how should we deal with this scenario?
     Just _headState -> replaceHeadState newHeadState explorerState
     Nothing -> explorerState <> [newHeadState]
  where
   newHeadState =
     HeadState
       { headId
-      , seedTxIn
+      , seedTxIn = Seen seedTxIn
       , status = Initializing
-      , contestationPeriod
+      , contestationPeriod = Seen contestationPeriod
       , members =
           fmap
             ( \(party, onChainId) ->
@@ -81,7 +97,7 @@ aggregateInitObservation InitObservation{headId, seedTxIn, contestationPeriod, p
                   , commits = []
                   }
             )
-            (parties `zip` participants)
+            (parties `zip` fmap Seen participants)
       }
 
 aggregateAbortObservation :: AbortObservation -> ExplorerState -> ExplorerState
@@ -90,8 +106,16 @@ aggregateAbortObservation AbortObservation{headId} explorerState =
     Just headState ->
       let newHeadState = headState{status = Aborted}
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Aborted
+      , contestationPeriod = Unknown
+      , members = []
+      }
 
 aggregateCommitObservation :: CommitObservation -> ExplorerState -> ExplorerState
 aggregateCommitObservation CommitObservation{headId, commitOutput, party} explorerState =
@@ -99,13 +123,11 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
     Just headState ->
       let newHeadState = updateMember headState
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
  where
   updateMember headState@HeadState{members} =
     case find (\HeadMember{party = partyMember} -> partyMember == party) members of
-      -- REVIEW: this should never happen; how should we deal with this scenario?
-      Nothing -> headState
+      Nothing -> headState{members = newUnknownMember : members}
       Just headMember@HeadMember{commits = currentCommits} ->
         let (txIn, txOut) = commitOutput
             newPartyCommit = UTxO.singleton (txIn, txOut)
@@ -115,30 +137,88 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
 
   replaceMember members newMember@HeadMember{party = newHeadMember} =
     case members of
-      -- REVIEW: this should never happen; how should we deal with this scenario?
       [] -> [newMember]
       (headMember@HeadMember{party = currentHeadMember} : tailMembers) ->
         if newHeadMember == currentHeadMember
           then newMember : tailMembers
           else headMember : replaceMember tailMembers newMember
 
+  newUnknownMember =
+    HeadMember
+      { party
+      , onChainId = Unknown
+      , commits =
+          [ let (txIn, txOut) = commitOutput
+             in UTxO.singleton (txIn, txOut)
+          ]
+      }
+
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Initializing
+      , contestationPeriod = Unknown
+      , members = [newUnknownMember]
+      }
+
 aggregateCollectComObservation :: CollectComObservation -> ExplorerState -> ExplorerState
-aggregateCollectComObservation CollectComObservation{headId} explorerState =
+aggregateCollectComObservation CollectComObservation{headId, threadOutput = OpenThreadOutput{openContestationPeriod, openParties}} explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = headState{status = Open}
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Open
+      , contestationPeriod = Seen (fromChain openContestationPeriod)
+      , members =
+          concatMap
+            ( fmap
+                ( \partyMember ->
+                    HeadMember
+                      { party = partyMember
+                      , onChainId = Unknown
+                      , commits = []
+                      }
+                )
+                . partyFromChain
+            )
+            openParties
+      }
 
 aggregateCloseObservation :: CloseObservation -> ExplorerState -> ExplorerState
-aggregateCloseObservation CloseObservation{headId} explorerState =
+aggregateCloseObservation CloseObservation{headId, threadOutput = ClosedThreadOutput{closedParties}} explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = headState{status = Closed}
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Closed
+      , contestationPeriod = Unknown
+      , members =
+          concatMap
+            ( fmap
+                ( \partyMember ->
+                    HeadMember
+                      { party = partyMember
+                      , onChainId = Unknown
+                      , commits = []
+                      }
+                )
+                . partyFromChain
+            )
+            closedParties
+      }
 
 aggregateContestObservation :: ContestObservation -> ExplorerState -> ExplorerState
 aggregateContestObservation ContestObservation{headId} explorerState =
@@ -147,8 +227,16 @@ aggregateContestObservation ContestObservation{headId} explorerState =
       -- REVIEW: should we do smth here?
       let newHeadState = headState
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Closed
+      , contestationPeriod = Unknown
+      , members = []
+      }
 
 aggregateFanoutObservation :: FanoutObservation -> ExplorerState -> ExplorerState
 aggregateFanoutObservation FanoutObservation{headId} explorerState =
@@ -156,8 +244,16 @@ aggregateFanoutObservation FanoutObservation{headId} explorerState =
     Just headState ->
       let newHeadState = headState{status = Finalized}
        in replaceHeadState newHeadState explorerState
-    -- REVIEW: this should never happen; how should we deal with this scenario?
-    Nothing -> explorerState
+    Nothing -> explorerState <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Finalized
+      , contestationPeriod = Unknown
+      , members = []
+      }
 
 replaceHeadState :: HeadState -> ExplorerState -> ExplorerState
 replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =

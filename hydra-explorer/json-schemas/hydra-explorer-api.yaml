@@ -145,7 +145,6 @@ components:
       type: object
       required:
         - party
-        - onChainId
       properties:
         party:
           $ref: "#/components/schemas/Party"
