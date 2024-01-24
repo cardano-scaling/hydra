@@ -823,15 +823,6 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
-  ( Open OpenState{headId = ourHeadId}
-    , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
-    )
-      | ourHeadId == headId ->
-          Effects
-            [ClientEffect $ ServerOutput.DecommitProcessed{headId}]
-            <> StateChanged DecommitProcessed
-      | otherwise ->
-          Error NotOurHead{ourHeadId, otherHeadId = headId}
   ( Open openState@OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
@@ -843,8 +834,6 @@ update env ledger st ev = case (st, ev) of
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
-  (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
-    onOpenNetworkReqDec env openState transaction
   (Open openState@OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
     requireNoDecommitInFlight openState $
       requireValidDecommitTx $
@@ -873,6 +862,18 @@ update env ledger st ev = case (st, ev) of
     confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
 
     CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+  (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
+    onOpenNetworkReqDec env openState transaction
+  ( Open OpenState{headId = ourHeadId}
+    , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
+    )
+      -- TODO: What happens if observed decrement tx get's rolled back?
+      | ourHeadId == headId ->
+          Effects
+            [ClientEffect $ ServerOutput.DecommitProcessed{headId}]
+            <> StateChanged DecommitProcessed
+      | otherwise ->
+          Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
     Effects []
   -- Closed
