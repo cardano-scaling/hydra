@@ -54,13 +54,13 @@ data DecommitInvalidReason tx
   | DecommitAlreadyInFlight {decommitTx :: tx}
   deriving stock (Generic)
 
-deriving stock instance IsChainState tx => Eq (DecommitInvalidReason tx)
-deriving stock instance IsChainState tx => Show (DecommitInvalidReason tx)
+deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)
+deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DecommitInvalidReason tx)
 
-instance IsChainState tx => ToJSON (DecommitInvalidReason tx) where
+instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DecommitInvalidReason tx) where
   toJSON = genericToJSON defaultOptions
 
-instance IsChainState tx => FromJSON (DecommitInvalidReason tx) where
+instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
 
 instance
