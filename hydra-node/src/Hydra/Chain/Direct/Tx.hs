@@ -327,18 +327,17 @@ decrementTx ::
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
-  -- | Decrement UTxO.
-  UTxO ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) utxoToDecrement snapshot signatures =
+decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs (headOutput' : map toTxContext (toList utxoToDecrement))
+      -- NOTE: at this point 'utxoToDecommit' is populated
+      & addOutputs (headOutput' : (map toTxContext $ maybe [] (fmap snd . UTxO.pairs) utxoToDecommit))
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
@@ -366,7 +365,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) utxo
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
-  Snapshot{utxo} = snapshot
+  Snapshot{utxo, utxoToDecommit} = snapshot
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also

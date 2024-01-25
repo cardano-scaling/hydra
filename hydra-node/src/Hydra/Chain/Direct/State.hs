@@ -511,9 +511,9 @@ decrement ctx headId headParameters spendableUTxO snapshot signatures = do
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   case utxoToDecommit of
     Nothing -> Left SnapshotMissingDecrementUTxO
-    Just decrementUTxO ->
+    Just _decrementUTxO ->
       pure $
-        decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO decrementUTxO snapshot signatures
+        decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO snapshot signatures
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 

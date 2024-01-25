@@ -608,6 +608,36 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx} = coordinatedHeadState
 
+-- | Decide to output 'ReqDec' effect by checking first if there is no decommit
+-- _in flight_ and if the tx applies cleanly to the local ledger state.
+onOpenClientDecommit ::
+  Monoid (UTxOType tx) =>
+  Environment ->
+  HeadId ->
+  Ledger tx ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Outcome tx
+onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx =
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
+      Effects
+        [ ClientEffect
+            ServerOutput.DecommitInvalid
+              { headId
+              , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+              }
+        ]
+    Nothing ->
+      requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
+        Effects
+          [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
+          ]
+ where
+  Environment{party} = env
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
+
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
@@ -635,16 +665,20 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env openState decommitTx =
-  let decommitUTxO = utxoFromTx decommitTx
-   in StateChanged (DecommitRecorded decommitTx)
-        <> Effects
-          [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-          ]
-        <> if isLeader parameters party nextSn
-          then
-            Effects
-              [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
-          else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
+      Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+    Nothing ->
+      let decommitUTxO = utxoFromTx decommitTx
+       in StateChanged (DecommitRecorded decommitTx)
+            <> Effects
+              [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+              ]
+            <> if isLeader parameters party nextSn
+              then
+                Effects
+                  [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
+              else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
  where
   Environment{party} = env
 
@@ -652,7 +686,7 @@ onOpenNetworkReqDec env openState decommitTx =
 
   nextSn = number + 1
 
-  CoordinatedHeadState{confirmedSnapshot, localTxs} = coordinatedHeadState
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs} = coordinatedHeadState
 
   OpenState
     { headId
@@ -835,30 +869,9 @@ update env ledger st ev = case (st, ev) of
     -- transactions are validated against the seen ledger?
     Effects [ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientEvent Decommit{decommitTx}) -> do
-    case mExistingDecommitTx of
-      Just existingDecommitTx ->
-        Effects
-          [ ClientEffect
-              ServerOutput.DecommitInvalid
-                { headId
-                , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
-                }
-          ]
-      Nothing ->
-        requireValidDecommitTx headId ledger currentSlot coordinatedHeadState decommitTx $
-          Effects
-            [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
-            ]
-   where
-    Environment{party} = env
-    CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
-  (Open openState@OpenState{coordinatedHeadState}, NetworkEvent _ _ (ReqDec{transaction})) ->
-    case mExistingDecommitTx of
-      Just existingDecommitTx ->
-        Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
-      Nothing -> onOpenNetworkReqDec env openState transaction
-   where
-    CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
+    onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
+  (Open openState, NetworkEvent _ _ (ReqDec{transaction})) ->
+    onOpenNetworkReqDec env openState transaction
   ( Open OpenState{headId = ourHeadId}
     , OnChainEvent Observation{observedTx = OnDecrementTx{headId}}
     )

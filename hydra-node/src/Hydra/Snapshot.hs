@@ -83,7 +83,7 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
       serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
         <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
-        <> serialise (maybe (toData $ toBuiltin $ hashUTxO @tx mempty) (toData . toBuiltin . hashUTxO @tx) utxoToDecommit) -- CBOR(B(bytestring)
+        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit) -- CBOR(B(bytestring)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =

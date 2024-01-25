@@ -46,7 +46,6 @@ healthyDecrementTx =
       (mkHeadId testPolicyId)
       parameters
       (headInput, headOutput)
-      decommitUTxO
       healthySnapshot
       multisig
 
@@ -107,13 +106,6 @@ healthyParticipants =
 
 healthyUTxO :: UTxO
 healthyUTxO =
-  adaOnly
-    <$> generateWith
-      (UTxO.fromPairs . (: []) <$> ((,) <$> genTxIn <*> genTxOut))
-      42
-
-decommitUTxO :: UTxO
-decommitUTxO =
   adaOnly
     <$> generateWith
       (UTxO.fromPairs . (: []) <$> ((,) <$> genTxIn <*> genTxOut))
