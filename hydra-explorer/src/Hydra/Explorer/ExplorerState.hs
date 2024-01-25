@@ -2,7 +2,6 @@ module Hydra.Explorer.ExplorerState where
 
 import Hydra.Prelude
 
--- XXX: Depending on hydra-node will be problematic to support versions
 import Hydra.HeadId (HeadId (..), HeadSeed)
 
 import Data.Aeson (Value (..))
