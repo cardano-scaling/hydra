@@ -40,12 +40,12 @@ spec = do
 
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+            seedFromFaucet_ cardanoNode aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
             aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] initHead
 
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
             bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+            seedFromFaucet_ cardanoNode bobCardanoVk 5_000_000 (contramap FromFaucet tracer)
             bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
             withHydraExplorer cardanoNode $ \explorer -> do
@@ -66,7 +66,7 @@ spec = do
             withHydraExplorer cardanoNode $ \explorer -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-              seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ cardanoNode aliceCardanoVk 5_000_000 (contramap FromFaucet tracer)
               aliceHeadId <- withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
                 send hydraNode $ input "Init" []
 
@@ -76,7 +76,7 @@ spec = do
 
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [] cperiod
-              seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ cardanoNode bobCardanoVk 5_000_000 (contramap FromFaucet tracer)
               bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] $ \hydraNode -> do
                 send hydraNode $ input "Init" []
 
