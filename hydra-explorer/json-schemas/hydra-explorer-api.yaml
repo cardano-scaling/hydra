@@ -165,6 +165,14 @@ components:
       description: |
         A contestation duration in seconds.
       example: 60
+    SnapshotNumber:
+      type: integer
+      minimum: 0
+    UTCTime:
+      type: string
+      format: "date-time"
+      description: |
+        A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
     HeadId:
       type: string
       description: |
@@ -195,5 +203,6 @@ components:
           description: |
             Number of party members who contested.
         snapshotNumber:
-          type: integer
-          minimum: 0
+          $ref: '#/components/schemas/SnapshotNumber'
+        contestationDeadline:
+          $ref: '#/components/schemas/UTCTime'

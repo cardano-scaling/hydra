@@ -13,7 +13,7 @@ import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
   headSeedToTxIn,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (SnapshotNumber (..))
@@ -63,6 +63,7 @@ data HeadState = HeadState
   , members :: Observed [HeadMember]
   , contestations :: Observed Natural
   , snapshotNumber :: Observed Natural
+  , contestationDeadline :: Observed UTCTime
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -97,6 +98,7 @@ aggregateInitObservation headId headSeed HeadParameters{parties, contestationPer
               (parties `zip` participants)
       , contestations = Seen 0
       , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
       }
 
 aggregateAbortObservation :: HeadId -> ExplorerState -> ExplorerState
@@ -116,6 +118,7 @@ aggregateAbortObservation headId explorerState =
       , members = Unknown
       , contestations = Seen 0
       , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
       }
 
 aggregateCommitObservation :: HeadId -> Party -> UTxO -> ExplorerState -> ExplorerState
@@ -164,6 +167,7 @@ aggregateCommitObservation headId party committed explorerState =
       , members = Seen [newUnknownMember]
       , contestations = Seen 0
       , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
       }
 
 aggregateCollectComObservation :: HeadId -> ExplorerState -> ExplorerState
@@ -183,6 +187,7 @@ aggregateCollectComObservation headId explorerState =
       , members = Unknown
       , contestations = Seen 0
       , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
       }
 
 aggregateCloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> ExplorerState -> ExplorerState
@@ -202,13 +207,22 @@ aggregateCloseObservation headId (UnsafeSnapshotNumber sn) contestationDeadline 
       , members = Unknown
       , contestations = Seen 0
       , snapshotNumber = Seen sn
+      , contestationDeadline = Seen contestationDeadline
       }
 
 aggregateContestObservation :: HeadId -> SnapshotNumber -> ExplorerState -> ExplorerState
 aggregateContestObservation headId (UnsafeSnapshotNumber sn) explorerState =
   case findHeadState headId explorerState of
-    Just headState@HeadState{contestations} ->
-      let newHeadState = headState{contestations = (+ 1) <$> contestations, snapshotNumber = Seen sn}
+    Just headState@HeadState{contestations, contestationPeriod, contestationDeadline} ->
+      let newHeadState =
+            headState
+              { contestations = (+ 1) <$> contestations
+              , snapshotNumber = Seen sn
+              , contestationDeadline =
+                  case (contestationPeriod, contestationDeadline) of
+                    (Seen cp, Seen cd) -> Seen $ addUTCTime (toNominalDiffTime cp) cd
+                    _ -> Unknown
+              }
        in replaceHeadState newHeadState explorerState
     Nothing -> explorerState <> [newUnknownHeadState]
  where
@@ -221,6 +235,7 @@ aggregateContestObservation headId (UnsafeSnapshotNumber sn) explorerState =
       , members = Unknown
       , contestations = Seen 1
       , snapshotNumber = Seen sn
+      , contestationDeadline = Unknown
       }
 
 aggregateFanoutObservation :: HeadId -> ExplorerState -> ExplorerState
@@ -240,6 +255,7 @@ aggregateFanoutObservation headId explorerState =
       , members = Unknown
       , contestations = Unknown
       , snapshotNumber = Unknown
+      , contestationDeadline = Unknown
       }
 
 replaceHeadState :: HeadState -> ExplorerState -> ExplorerState
