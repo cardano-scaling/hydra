@@ -151,9 +151,7 @@ components:
         onChainId:
           $ref: '#/components/schemas/OnChainId'
         commits:
-          type: array
-          items:
-            $ref: '#/components/schemas/UTxO'
+          $ref: '#/components/schemas/UTxO'
     HeadStatus:
       type: string
       enum:
@@ -191,3 +189,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HeadMember'
+        contestations:
+          type: integer
+          minimum: 0
+          description: |
+            Number of party members who contested.
+        snapshotNumber:
+          type: integer
+          minimum: 0

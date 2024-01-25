@@ -3,31 +3,25 @@ module Hydra.Explorer.ExplorerState where
 import Hydra.Prelude
 
 -- XXX: Depending on hydra-node will be problematic to support versions
-import Hydra.HeadId (HeadId (..))
+import Hydra.HeadId (HeadId (..), HeadSeed)
 
-import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (Value (..))
-import Hydra.Cardano.Api (TxIn, UTxO)
+import Hydra.Cardano.Api (Tx, TxIn, UTxO)
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
+import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.Tx (
-  AbortObservation (..),
-  CloseObservation (..),
-  ClosedThreadOutput (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  ContestObservation (..),
-  FanoutObservation (..),
   HeadObservation (..),
-  InitObservation (..),
-  OpenThreadOutput (..),
+  headSeedToTxIn,
  )
-import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party, partyFromChain)
+import Hydra.Party (Party)
+import Hydra.Snapshot (SnapshotNumber (..))
 
 data HeadMember = HeadMember
   { party :: Party
   , onChainId :: Observed OnChainId
-  , commits :: [UTxO]
+  , commits :: Observed UTxO
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -48,7 +42,7 @@ instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
 data Observed a = Unknown | Seen a
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic, Functor)
 
 instance ToJSON a => ToJSON (Observed a) where
   toJSON Unknown = Null
@@ -66,7 +60,9 @@ data HeadState = HeadState
   , seedTxIn :: Observed TxIn
   , status :: HeadStatus
   , contestationPeriod :: Observed ContestationPeriod
-  , members :: [HeadMember]
+  , members :: Observed [HeadMember]
+  , contestations :: Observed Natural
+  , snapshotNumber :: Observed Natural
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -76,8 +72,8 @@ instance Arbitrary HeadState where
 
 type ExplorerState = [HeadState]
 
-aggregateInitObservation :: InitObservation -> ExplorerState -> ExplorerState
-aggregateInitObservation InitObservation{headId, seedTxIn, contestationPeriod, parties, participants} explorerState =
+aggregateInitObservation :: HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> ExplorerState -> ExplorerState
+aggregateInitObservation headId headSeed HeadParameters{parties, contestationPeriod} participants explorerState =
   case findHeadState headId explorerState of
     Just _headState -> replaceHeadState newHeadState explorerState
     Nothing -> explorerState <> [newHeadState]
@@ -85,23 +81,26 @@ aggregateInitObservation InitObservation{headId, seedTxIn, contestationPeriod, p
   newHeadState =
     HeadState
       { headId
-      , seedTxIn = Seen seedTxIn
+      , seedTxIn = maybe Unknown Seen (headSeedToTxIn headSeed)
       , status = Initializing
       , contestationPeriod = Seen contestationPeriod
       , members =
-          fmap
-            ( \(party, onChainId) ->
-                HeadMember
-                  { party
-                  , onChainId
-                  , commits = []
-                  }
-            )
-            (parties `zip` fmap Seen participants)
+          Seen $
+            fmap
+              ( \(party, onChainId) ->
+                  HeadMember
+                    { party
+                    , onChainId = Seen onChainId
+                    , commits = Unknown
+                    }
+              )
+              (parties `zip` participants)
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
       }
 
-aggregateAbortObservation :: AbortObservation -> ExplorerState -> ExplorerState
-aggregateAbortObservation AbortObservation{headId} explorerState =
+aggregateAbortObservation :: HeadId -> ExplorerState -> ExplorerState
+aggregateAbortObservation headId explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = headState{status = Aborted}
@@ -114,11 +113,13 @@ aggregateAbortObservation AbortObservation{headId} explorerState =
       , seedTxIn = Unknown
       , status = Aborted
       , contestationPeriod = Unknown
-      , members = []
+      , members = Unknown
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
       }
 
-aggregateCommitObservation :: CommitObservation -> ExplorerState -> ExplorerState
-aggregateCommitObservation CommitObservation{headId, commitOutput, party} explorerState =
+aggregateCommitObservation :: HeadId -> Party -> UTxO -> ExplorerState -> ExplorerState
+aggregateCommitObservation headId party committed explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = updateMember headState
@@ -126,14 +127,18 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
     Nothing -> explorerState <> [newUnknownHeadState]
  where
   updateMember headState@HeadState{members} =
-    case find (\HeadMember{party = partyMember} -> partyMember == party) members of
-      Nothing -> headState{members = newUnknownMember : members}
-      Just headMember@HeadMember{commits = currentCommits} ->
-        let (txIn, txOut) = commitOutput
-            newPartyCommit = UTxO.singleton (txIn, txOut)
-            newMember = headMember{commits = newPartyCommit : currentCommits}
-            newMembers = replaceMember members newMember
-         in headState{members = newMembers}
+    let members' = case members of
+          Unknown -> []
+          Seen ms -> ms
+     in case find (\HeadMember{party = partyMember} -> partyMember == party) members' of
+          Nothing -> headState{members = Seen $ newUnknownMember : members'}
+          Just headMember@HeadMember{commits = currentCommits} ->
+            let currentCommits' = case currentCommits of
+                  Unknown -> mempty
+                  Seen utxo -> utxo
+                newMember = headMember{commits = Seen $ committed <> currentCommits'}
+                newMembers = replaceMember members' newMember
+             in headState{members = Seen newMembers}
 
   replaceMember members newMember@HeadMember{party = newHeadMember} =
     case members of
@@ -147,10 +152,7 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
     HeadMember
       { party
       , onChainId = Unknown
-      , commits =
-          [ let (txIn, txOut) = commitOutput
-             in UTxO.singleton (txIn, txOut)
-          ]
+      , commits = Seen committed
       }
 
   newUnknownHeadState =
@@ -159,11 +161,13 @@ aggregateCommitObservation CommitObservation{headId, commitOutput, party} explor
       , seedTxIn = Unknown
       , status = Initializing
       , contestationPeriod = Unknown
-      , members = [newUnknownMember]
+      , members = Seen [newUnknownMember]
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
       }
 
-aggregateCollectComObservation :: CollectComObservation -> ExplorerState -> ExplorerState
-aggregateCollectComObservation CollectComObservation{headId, threadOutput = OpenThreadOutput{openContestationPeriod, openParties}} explorerState =
+aggregateCollectComObservation :: HeadId -> ExplorerState -> ExplorerState
+aggregateCollectComObservation headId explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = headState{status = Open}
@@ -175,27 +179,17 @@ aggregateCollectComObservation CollectComObservation{headId, threadOutput = Open
       { headId
       , seedTxIn = Unknown
       , status = Open
-      , contestationPeriod = Seen (fromChain openContestationPeriod)
-      , members =
-          concatMap
-            ( fmap
-                ( \partyMember ->
-                    HeadMember
-                      { party = partyMember
-                      , onChainId = Unknown
-                      , commits = []
-                      }
-                )
-                . partyFromChain
-            )
-            openParties
+      , contestationPeriod = Unknown
+      , members = Unknown
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
       }
 
-aggregateCloseObservation :: CloseObservation -> ExplorerState -> ExplorerState
-aggregateCloseObservation CloseObservation{headId, threadOutput = ClosedThreadOutput{closedParties}} explorerState =
+aggregateCloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> ExplorerState -> ExplorerState
+aggregateCloseObservation headId (UnsafeSnapshotNumber sn) contestationDeadline explorerState =
   case findHeadState headId explorerState of
     Just headState ->
-      let newHeadState = headState{status = Closed}
+      let newHeadState = headState{status = Closed, contestations = Seen 0, snapshotNumber = Seen sn}
        in replaceHeadState newHeadState explorerState
     Nothing -> explorerState <> [newUnknownHeadState]
  where
@@ -205,27 +199,16 @@ aggregateCloseObservation CloseObservation{headId, threadOutput = ClosedThreadOu
       , seedTxIn = Unknown
       , status = Closed
       , contestationPeriod = Unknown
-      , members =
-          concatMap
-            ( fmap
-                ( \partyMember ->
-                    HeadMember
-                      { party = partyMember
-                      , onChainId = Unknown
-                      , commits = []
-                      }
-                )
-                . partyFromChain
-            )
-            closedParties
+      , members = Unknown
+      , contestations = Seen 0
+      , snapshotNumber = Seen sn
       }
 
-aggregateContestObservation :: ContestObservation -> ExplorerState -> ExplorerState
-aggregateContestObservation ContestObservation{headId} explorerState =
+aggregateContestObservation :: HeadId -> SnapshotNumber -> ExplorerState -> ExplorerState
+aggregateContestObservation headId (UnsafeSnapshotNumber sn) explorerState =
   case findHeadState headId explorerState of
-    Just headState ->
-      -- REVIEW: should we do smth here?
-      let newHeadState = headState
+    Just headState@HeadState{contestations} ->
+      let newHeadState = headState{contestations = (+ 1) <$> contestations, snapshotNumber = Seen sn}
        in replaceHeadState newHeadState explorerState
     Nothing -> explorerState <> [newUnknownHeadState]
  where
@@ -235,11 +218,13 @@ aggregateContestObservation ContestObservation{headId} explorerState =
       , seedTxIn = Unknown
       , status = Closed
       , contestationPeriod = Unknown
-      , members = []
+      , members = Unknown
+      , contestations = Seen 1
+      , snapshotNumber = Seen sn
       }
 
-aggregateFanoutObservation :: FanoutObservation -> ExplorerState -> ExplorerState
-aggregateFanoutObservation FanoutObservation{headId} explorerState =
+aggregateFanoutObservation :: HeadId -> ExplorerState -> ExplorerState
+aggregateFanoutObservation headId explorerState =
   case findHeadState headId explorerState of
     Just headState ->
       let newHeadState = headState{status = Finalized}
@@ -252,7 +237,9 @@ aggregateFanoutObservation FanoutObservation{headId} explorerState =
       , seedTxIn = Unknown
       , status = Finalized
       , contestationPeriod = Unknown
-      , members = []
+      , members = Unknown
+      , contestations = Unknown
+      , snapshotNumber = Unknown
       }
 
 replaceHeadState :: HeadState -> ExplorerState -> ExplorerState
@@ -266,18 +253,18 @@ replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =
 
 aggregateHeadObservations :: [HeadObservation] -> ExplorerState -> ExplorerState
 aggregateHeadObservations observations currentState =
-  foldl' aggregateObservation currentState observations
+  foldl' aggregateOnChainTx currentState (mapMaybe convertObservation observations)
  where
-  aggregateObservation explorerState =
+  aggregateOnChainTx :: ExplorerState -> OnChainTx Tx -> ExplorerState
+  aggregateOnChainTx explorerState =
     \case
-      NoHeadTx -> explorerState
-      Init obs -> aggregateInitObservation obs explorerState
-      Abort obs -> aggregateAbortObservation obs explorerState
-      Commit obs -> aggregateCommitObservation obs explorerState
-      CollectCom obs -> aggregateCollectComObservation obs explorerState
-      Close obs -> aggregateCloseObservation obs explorerState
-      Contest obs -> aggregateContestObservation obs explorerState
-      Fanout obs -> aggregateFanoutObservation obs explorerState
+      OnInitTx{headId, headSeed, headParameters, participants} -> aggregateInitObservation headId headSeed headParameters participants explorerState
+      OnAbortTx{headId} -> aggregateAbortObservation headId explorerState
+      OnCommitTx{headId, party, committed} -> aggregateCommitObservation headId party committed explorerState
+      OnCollectComTx{headId} -> aggregateCollectComObservation headId explorerState
+      OnCloseTx{headId, snapshotNumber, contestationDeadline} -> aggregateCloseObservation headId snapshotNumber contestationDeadline explorerState
+      OnContestTx{headId, snapshotNumber} -> aggregateContestObservation headId snapshotNumber explorerState
+      OnFanoutTx{headId} -> aggregateFanoutObservation headId explorerState
 
 findHeadState :: HeadId -> ExplorerState -> Maybe HeadState
 findHeadState idToFind = find (\HeadState{headId} -> headId == idToFind)
