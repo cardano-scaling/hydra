@@ -55,6 +55,13 @@ instance FromJSON a => FromJSON (Observed a) where
 instance Arbitrary a => Arbitrary (Observed a) where
   arbitrary = genericArbitrary
 
+-- | Represents the external appearance of a head state.
+--
+-- The decision to observe certain attributes or not is designed to address situations
+-- where the explorer observes a head transaction on the chain without its
+-- previously expected observation, preventing the loss of information during the transition.
+-- Additionally, this simplifies the API for clients, eliminating the need to match against
+-- different states.
 data HeadState = HeadState
   { headId :: HeadId
   , seedTxIn :: Observed TxIn
