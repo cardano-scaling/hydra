@@ -114,8 +114,6 @@ components:
     UTxO:
       type: object
       additionalProperties: true
-      propertyNames:
-        pattern: "^[0-9a-f]{64}#[0-9]+$"
       items:
         $ref: "#/components/schemas/TxOut"
       example:
