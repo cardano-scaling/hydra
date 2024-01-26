@@ -41,6 +41,11 @@ This month, the team worked on the following:
 
 ### TODO
 
+### Hydra Explorer
+To measure the progress and success of Hydra, we require tools that provide insights into its usage. For this purpose, we have initiated work on [#696](https://github.com/input-output-hk/hydra/issues/696) to enable the tracking of the lifecycles of Heads and observe the growth of the Hydra ecosystem.
+
+In this initial phase, we have developed a fundamental backend service [#1235](https://github.com/input-output-hk/hydra/pull/1235) that can track all Babbage heads on-chain within a devnet network. This service establishes a baseline and utilizes the hydra-chain-observer package, exposing a REST API for querying and retrieving information about all observed heads and their current states.
+
 ## Community update
 
 Beside the great work done by the MeshJS team towards supporting Hydra in the browser, here are some news and updates on community-led work streams related to Hydra:
