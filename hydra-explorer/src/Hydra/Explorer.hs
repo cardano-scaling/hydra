@@ -9,12 +9,12 @@ import Hydra.Chain.Direct.Tx (HeadObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Network (PortNumber)
-import Network.Wai (Middleware, Request (..), Response)
+import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
 import Servant (Server, throwError)
 import Servant.API (Get, Header, JSON, addHeader, (:>))
 import Servant.API.ResponseHeaders (Headers)
-import Servant.Server (Application, Handler, err404, err500, serve)
+import Servant.Server (Application, Handler, err500, serve)
 import System.Environment (withArgs)
 
 type API =
@@ -35,9 +35,7 @@ type GetHeads = IO [HeadState]
 api :: Proxy API
 api = Proxy
 
-server ::
-  GetHeads ->
-  Server API
+server :: GetHeads -> Server API
 server = handleGetHeads
 
 handleGetHeads ::
@@ -57,9 +55,6 @@ handleGetHeads getHeads = do
     Right heads -> do
       return $ addHeader "application/json" $ addCorsHeaders heads
     Left (_ :: SomeException) -> throwError err500
-
-handleUnknownResource :: Request -> Handler Response
-handleUnknownResource _req = throwError err404
 
 logMiddleware :: Tracer IO APIServerLog -> Middleware
 logMiddleware tracer app' req sendResponse = do
