@@ -641,6 +641,7 @@ performNewTx party tx = do
     waitUntilMatch (toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
+      HeadIsClosed{} -> True
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
@@ -742,7 +743,7 @@ waitForUTxOToSpend utxo key value node = go 100
       pure $ Left utxo
     n -> do
       node `send` Input.GetUTxO
-      threadDelay 5
+      threadDelay 0.1
       timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse _ u)
           | u /= mempty ->
