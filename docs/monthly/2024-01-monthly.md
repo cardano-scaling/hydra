@@ -52,6 +52,10 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
+### API changes: dropping JSON tx
+
+TODO: DF
+
 ### Hydra Chess
 We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to be no different and we learned in the process of making this dApp.
 
