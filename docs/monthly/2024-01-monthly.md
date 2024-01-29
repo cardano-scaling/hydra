@@ -74,16 +74,30 @@ are affected and see a problem updating your Hydra client to use CBOR, please
 :::
 
 ### Hydra Chess
-We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to be no different and we learned in the process of making this dApp.
+We started building a game on Hydra as dogfooding allows us to find things which
+are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to
+be no different and we learned in the process of making this dApp.
 
 ![](https://ipfs.io/ipfs/bafybeicxcm4yuedetm45kn6xrzqsc4mn2aocmhqtt6wrwxz5lzfry722ra/hydra-chess.png)
 
-As we iron out things we hope to improve the workflow of running `hydra-node` as part of a full peer-to-peer dApp. The goal is that it is easy enough to be run by non-tech savvy users, but also provide an example for people trying to build on Hydra. You can find the source code [here](https://github.com/abailly-iohk/hydra-chess).
+As we iron out things we hope to improve the workflow of running `hydra-node` as
+part of a full peer-to-peer dApp. The goal is that it is easy enough to be run
+by non-tech savvy users, but also provide an example for people trying to build
+on Hydra. You can find the source code
+[here](https://github.com/abailly-iohk/hydra-chess).
 
 ### Hydra Explorer
-To measure the progress and success of Hydra, we require tools that provide insights into its usage. For this purpose, we have initiated work on [#696](https://github.com/input-output-hk/hydra/issues/696) to enable anyone tracking Hydra heads across the whole life-cycle and observe the growth of the Hydra ecosystem.
+To measure the progress and success of Hydra, we require tools that provide
+insights into its usage. For this purpose, we have initiated work on
+[#696](https://github.com/input-output-hk/hydra/issues/696) to enable anyone
+tracking Hydra heads across the whole life-cycle and observe the growth of the
+Hydra ecosystem.
 
-In this initial phase, we have implemented a basic backend service [#1235](https://github.com/input-output-hk/hydra/pull/1235) that can track all heads on-chain within a devnet network. This service establishes a baseline and utilizes the `hydra-chain-observer` package, exposing a REST API for querying and retrieving information about all observed heads and their current states.
+In this initial phase, we have implemented a basic backend service
+[#1235](https://github.com/input-output-hk/hydra/pull/1235) that can track all
+heads on-chain within a devnet network. This service establishes a baseline and
+utilizes the `hydra-chain-observer` package, exposing a REST API for querying
+and retrieving information about all observed heads and their current states.
 
 ## Community update
 
