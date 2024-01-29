@@ -1,7 +1,7 @@
 ---
 title: January 2024
 slug: 2024-01
-authors: [v0d1ch, ffakenz, ch1bo]
+authors: [v0d1ch, ffakenz, locallycompact, ch1bo]
 tags: [monthly]
 ---
 
