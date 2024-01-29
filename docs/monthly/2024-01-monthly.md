@@ -70,7 +70,29 @@ In this initial phase, we have implemented a basic backend service [#1235](https
 
 ## Community update
 
-* TODO
+TapTools [published a
+summary](https://medium.com/tap-in-with-taptools/input-output-releases-hydra-update-97b6139d1c59)
+of progress on the project over the last 2 months, which serves as a great
+addition to our updates above - go read it!
+
+Besides the contributed offline mode mentioned above, Sundealabs is also
+implementing a streaming API as designed in
+[ADR29](https://hydra.family/head-protocol/adr/29/) in course of [this Catalyst
+project](https://milestones.projectcatalyst.io/projects/1000180).
+
+Also [funded through
+Catalyst](https://milestones.projectcatalyst.io/projects/1000092) is a
+continuation of the [Hydra
+auction](https://github.com/mlabs-haskell/hydra-auction) project by Ikigai and
+MLabs. We have not yet re-engaged in a regular exchange, but we expect to
+support them with features as needed as they kick of this work.
+
+As we also pointed out in the review session, some of us have been involved in
+organizing the first [Cardano Buidler Fest](https://buidl.2024.cardano.org/) -
+happening April 23-24 in Toulouse, France. This event will be a prime chance to
+connect with the people building (on) Cardano and inspire new ways of
+collaboration. At the time of publishing, tickets are already sold out, but we
+hope to see many Cardano builders there!
 
 ## Conclusion
 
@@ -78,6 +100,11 @@ The monthly review meeting for January 2024 was held on 2024-01-19 via Google
 Meet with these [slides][slides] and the [recording][recording].
 
 TODO
+
+* Zk demonstration
+* Charles' feedback
+* Feedback from Tudor and his project on catalyst
+* ...
 
 [slides]: https://docs.google.com/presentation/d/113okna4iyhgC7ERDLVHxqQkvhqTUSWJUWjXfkpwIpEY
 [recording]: https://drive.google.com/file/d/1XnM4RMKSiJNKLs2GBEg32ZHymg-fGBFt
