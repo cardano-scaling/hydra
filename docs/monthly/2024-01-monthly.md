@@ -24,11 +24,11 @@ This month, several items were restructured on the project
 * [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254) is
   a new feature contributed by @SundaeLabs and is related to [this Catalyst
   project](https://milestones.projectcatalyst.io/projects/1000179)
-  
+
 * Delivered [Conway support
   #1177](https://github.com/input-output-hk/hydra/issues/1177) which will
   prepare `hydra-node` for the upcoming hard-fork into the Conway era.
-  
+
 * New feature to indicate preparation of [running latest version cardano-nodes in P2P
 #1256](https://github.com/input-output-hk/hydra/issues/1256).
   This is necessary as the non-P2P relay nodes of IOG are to be shut down in January 2024.
@@ -40,7 +40,7 @@ This month, several items were restructured on the project
 
 * Groomed and started work on [building and deploying a Hydra heads explorer
   #696](https://github.com/input-output-hk/hydra/issues/696), details below.
-  
+
 * Renamed "Drop Babbage support #1178" to [Switch L2 ledger to Conway
   #1178](https://github.com/input-output-hk/hydra/issues/1178) to better capture
   it's content.
@@ -52,9 +52,18 @@ report](https://github.com/input-output-hk/hydra/issues?q=is%3Aclosed+sort%3Aupd
 
 This month, the team worked on the following:
 
-### API changes: dropping JSON tx
+### API changes: dropping JSON Tx
 
-TODO: DF
+The Hydra API now uses a TextEnvelope containing the upstream CBOR encoding
+from cardano-api for the `Tx` type and has removed the JSON representation from
+the API [#1240](https://github.com/input-output-hk/hydra/pull/1240). This is so
+transaction types have a fixed canonical encoding which will not change between
+versions. Consequently, consumers of the Hydra API will need to deserialise
+CBOR in order to inspect transactions.
+
+This representation is equivalent to the TextEnvelope produced by cardano-cli,
+except with an additional `txId` field, that is guaranteed to match the transaction
+id within the cbor object.
 
 ### Hydra Chess
 We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to be no different and we learned in the process of making this dApp.
