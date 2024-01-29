@@ -25,7 +25,7 @@ This document provides details about the _Hydra Networking Layer_, eg. the netwo
   - The details of txs should be opaque for outside observers, only the end result of the Head's fanout is observable
 - How do we know/discover peers/parties?
   - The paper assumes there exists a _Setup_ phase where
-    > In order to create a head-protocol instance, an initiator invites a set of participants ${p1,...,pn}$ (himself being one of them) to join by announcing to them the protocol parameters: the list of participants, the parameters of the (multi-)signature scheme to be used, etc.
+    > In order to create a head-protocol instance, an initiator invites a set of participants \{p1,...,pn\} (himself being one of them) to join by announcing to them the protocol parameters: the list of participants, the parameters of the (multi-)signature scheme to be used, etc.
     > Each party then establishes pairwise authenticated channels to all other parties.
   - What exactly is a _list of participants_? It seems at the very least each participant should be _identified_, in order to be distinguished from each other, but how? Some naming scheme? IP:Port address? Public key? Certificate?
   - What are "pairwise authenticated channels" exactly? Are these actual TCP/TLS connections? Or is it more a layer 4 (Transport) or layer 5 (Session) solution?
