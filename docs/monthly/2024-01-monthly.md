@@ -99,12 +99,32 @@ hope to see many Cardano builders there!
 The monthly review meeting for January 2024 was held on 2024-01-19 via Google
 Meet with these [slides][slides] and the [recording][recording].
 
-TODO
+This month we could demonstrate some features on Hydra and Mithril, but also saw
+a great demo about using zero-knowledge cryptography in a Hydra head on the case
+of a mastermind game; created by Jose and his team from Modulo-Pi.
 
-* Zk demonstration
-* Charles' feedback
-* Feedback from Tudor and his project on catalyst
-* ...
+Besides giving the usual status and roadmap updates on both Hydra and Mithril,
+we had several interested community members join us and discuss their use case
+ideas. One of them was Tudor and his idea of supply chain tracking of Moldavian
+wine - curently running as a Catalyst proposal in Fund 11 - aiming ot utilize
+Hydra to do CIP-68 NFT updates in a head. This would of course require
+wallet/app support, but we also discussed a potential CIP to standardize asset
+access if they are held on layer 2 ledgers.
+
+The discussion in the monthly meeting also included feedback by Charles on
+thinking about Cardano block extensions - a potential core protocol change
+hosting various proof systems and enabling new consensus algorithms and support
+partner chains. We should be working together with the community to build in and
+"explore the user space" with the goal to figure out which parts could evolve
+into marketplaces and what should rather be built into the core protocols. In
+such an open collaboration mode, processes like CIPs serve a key role in
+standardizing and allow for technology transfer from the "user space" into the
+"kernel space".
+
+All this input will also drive our roadmapping sessions for the year. Which is
+not only about building the essential features for the Hydra Head protocol, but
+also experimenting on new ways of making things faster, cheaper or simply easier
+on Cardano.
 
 [slides]: https://docs.google.com/presentation/d/113okna4iyhgC7ERDLVHxqQkvhqTUSWJUWjXfkpwIpEY
 [recording]: https://drive.google.com/file/d/1XnM4RMKSiJNKLs2GBEg32ZHymg-fGBFt
