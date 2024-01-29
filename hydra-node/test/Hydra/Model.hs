@@ -169,6 +169,7 @@ instance StateModel WorldState where
     Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
+    Close :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -192,9 +193,12 @@ instance StateModel WorldState where
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{} -> do
-        genNewTx
-      _ -> fmap Some genSeed
+      Open{} ->
+        frequency
+          [ (5, genNewTx)
+          , (1, genClose)
+          ]
+      Final{} -> fmap Some genSeed
    where
     genCommit :: Uncommitted -> Gen (Any (Action WorldState))
     genCommit pending = do
@@ -208,6 +212,11 @@ instance StateModel WorldState where
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
+    genClose = do
+      (key, _) <- elements hydraParties
+      let party = deriveParty key
+      pure . Some $ Close party
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -215,6 +224,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = hydraState@Initial{}} (Commit party _) =
     isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Abort{} =
+    True
+  precondition WorldState{hydraState = Open{}} (Close _) =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
@@ -290,6 +301,13 @@ instance StateModel WorldState where
             committedUTxO = mconcat $ Map.elems commits
           _ -> Final mempty
       --
+      Close{} ->
+        WorldState{hydraParties, hydraState = updateWithClose hydraState}
+       where
+        updateWithClose = \case
+          Open{offChainState} -> Final $ confirmedUTxO offChainState
+          _ -> error "unexpected state"
+      --
       (NewTx _ tx) ->
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
@@ -335,7 +353,7 @@ genToCommit (hk, ck) = do
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
-  n <- choose (1, 200)
+  n <- choose (1, 10)
   pure $ UnsafeContestationPeriod $ wordToNatural n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
@@ -477,6 +495,8 @@ instance
         performInit party
       Abort party -> do
         performAbort party
+      Close party ->
+        performClose party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -495,10 +515,6 @@ instance
             Nothing -> error "The head is not open for node"
       StopTheWorld ->
         stopTheWorld
-   where
-    headIsOpen = \case
-      HeadIsOpen{} -> True
-      _otherwise -> False
 
 -- ** Performing actions
 
@@ -607,7 +623,6 @@ performNewTx party tx = do
   let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
   nodes <- gets nodes
   let thisNode = nodes ! party
-
   waitForOpen thisNode
 
   (i, o) <-
@@ -623,9 +638,10 @@ performNewTx party tx = do
 
   party `sendsInput` Input.NewTx realTx
   lift $ do
-    waitUntilMatch [thisNode] $ \case
+    waitUntilMatch (toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
+      HeadIsClosed{} -> True
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
@@ -635,14 +651,9 @@ performNewTx party tx = do
 waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
-  unless
-    (any headIsOpen outs)
+  unless (any headIsOpen outs) $
     waitAndRetry
  where
-  headIsOpen = \case
-    HeadIsOpen{} -> True
-    _ -> False
-
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
@@ -655,7 +666,6 @@ sendsInput party command = do
 performInit :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
 performInit party = do
   party `sendsInput` Input.Init
-
   nodes <- gets nodes
   lift $
     waitUntilMatch (toList nodes) $ \case
@@ -671,6 +681,19 @@ performAbort party = do
   lift $
     waitUntilMatch (toList nodes) $ \case
       HeadIsAborted{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
+
+performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
+performClose party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+  party `sendsInput` Input.Close
+
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsClosed{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
 
@@ -692,6 +715,7 @@ showFromAction k = \case
   Init{} -> k
   Commit{} -> k
   Abort{} -> k
+  Close{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
@@ -719,7 +743,7 @@ waitForUTxOToSpend utxo key value node = go 100
       pure $ Left utxo
     n -> do
       node `send` Input.GetUTxO
-      threadDelay 5
+      threadDelay 0.1
       timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse _ u)
           | u /= mempty ->
@@ -738,3 +762,8 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     (PaymentCredentialByKey ha) -> verificationKeyHash (getVerificationKey sk) == ha
     _ -> False
 isOwned _ _ = False
+
+headIsOpen :: ServerOutput tx -> Bool
+headIsOpen = \case
+  HeadIsOpen{} -> True
+  _otherwise -> False
