@@ -19,7 +19,7 @@ This month, several items were restructured on the project
 
 #### Notable updates
 
-* Released version `0.15.0` which delivers offline mod and conway support.
+* Released version `0.15.0` which delivers offline mode and Conway support.
 
 * [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254) is
   a new feature contributed by @SundaeLabs and is related to [this Catalyst
@@ -84,7 +84,7 @@ summary](https://medium.com/tap-in-with-taptools/input-output-releases-hydra-upd
 of progress on the project over the last 2 months, which serves as a great
 addition to our updates above - go read it!
 
-Besides the contributed offline mode mentioned above, Sundealabs is also
+Besides the contributed offline mode mentioned above, Sundae Labs is also
 implementing a streaming API as designed in
 [ADR29](https://hydra.family/head-protocol/adr/29/) in course of [this Catalyst
 project](https://milestones.projectcatalyst.io/projects/1000180).
@@ -115,7 +115,7 @@ of a mastermind game; created by Jose and his team from Modulo-Pi.
 Besides giving the usual status and roadmap updates on both Hydra and Mithril,
 we had several interested community members join us and discuss their use case
 ideas. One of them was Tudor and his idea of supply chain tracking of Moldavian
-wine - curently running as a Catalyst proposal in Fund 11 - aiming ot utilize
+wine - curently running as a Catalyst proposal in Fund 11 - aiming to utilize
 Hydra to do CIP-68 NFT updates in a head. This would of course require
 wallet/app support, but we also discussed a potential CIP to standardize asset
 access if they are held on layer 2 ledgers.
