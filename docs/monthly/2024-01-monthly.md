@@ -65,6 +65,14 @@ This representation is equivalent to the TextEnvelope produced by cardano-cli,
 except with an additional `txId` field, that is guaranteed to match the transaction
 id within the cbor object.
 
+:::warning Breaking Change
+
+We do not plan to go through a deprecation cycle on this breaking change to the API. If you
+are affected and see a problem updating your Hydra client to use CBOR, please
+[open an issue](https://github.com/input-output-hk/hydra/issues/new) on Github.
+
+:::
+
 ### Hydra Chess
 We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to be no different and we learned in the process of making this dApp.
 
