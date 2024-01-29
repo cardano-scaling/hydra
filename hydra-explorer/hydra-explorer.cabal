@@ -1,0 +1,97 @@
+cabal-version: 3.0
+name:          hydra-explorer
+version:       0.15.0
+synopsis:      Hydra Explorer
+author:        IOG
+copyright:     2023 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra/hydra-explorer/
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DerivingStrategies
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  ghc-options:     -haddock
+  build-depends:
+    , aeson
+    , base
+    , hydra-cardano-api
+    , hydra-chain-observer
+    , hydra-node
+    , hydra-prelude
+    , io-classes
+    , servant
+    , servant-server
+    , wai
+    , warp
+
+  exposed-modules:
+    Hydra.Explorer
+    Hydra.Explorer.ExplorerState
+
+executable hydra-explorer
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        Main.hs
+  build-depends:
+    , hydra-explorer
+    , hydra-prelude
+
+test-suite tests
+  import:             project-config
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , aeson
+    , filepath
+    , hspec
+    , hspec-wai
+    , http-types
+    , hydra-explorer
+    , hydra-node
+    , hydra-prelude
+    , hydra-test-utils
+    , lens
+    , openapi3
+    , QuickCheck
+    , wai-extra
+    , yaml
+
+  other-modules:
+    Hydra.Explorer.ExplorerStateSpec
+    Hydra.ExplorerSpec
+    Spec
+
+  build-tool-depends: hspec-discover:hspec-discover

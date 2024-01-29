@@ -12,7 +12,6 @@ import Test.Hydra.Prelude
 import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Control.Exception (IOException)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
@@ -112,16 +111,11 @@ data ChainObserverLog
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
 withChainObserver :: RunningNode -> (ChainObserverHandle -> IO ()) -> IO ()
 withChainObserver cardanoNode action =
-  -- XXX: If this throws an IOException, 'withFile' invocations around mislead
-  -- to the file path opened (e.g. the cardano-node log file) in the test
-  -- failure output. Print the exception here to have some debuggability at
-  -- least.
-  handle (\(e :: IOException) -> print e >> throwIO e) $
-    withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
-      action
-        ChainObserverHandle
-          { awaitNext = awaitNext out
-          }
+  withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
+    action
+      ChainObserverHandle
+        { awaitNext = awaitNext out
+        }
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do
