@@ -9,14 +9,14 @@ import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
-  MonadSTM (newTVarIO, writeTVar),
-  flushTQueue,
+  MonadSTM (newTVarIO, readTQueue, writeTVar),
   labelTQueueIO,
   labelTVarIO,
   modifyTVar,
   newTQueueIO,
   newTVarIO,
   readTVarIO,
+  tryReadTQueue,
   writeTQueue,
   writeTVar,
  )
@@ -195,7 +195,7 @@ mockChainAndNetwork tr seedKeys commits = do
   rollForward nodes chain queue = do
     threadDelay blockTime
     atomically $ do
-      transactions <- flushTQueue queue
+      transactions <- flushQueue queue
       addNewBlockToChain chain transactions
     doRollForward nodes chain
 
@@ -328,3 +328,12 @@ mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
  where
   -- NOTE: Ugly, works because both binary representations are 32-byte long.
   tid = unsafeDeserialize' (serialize' vk)
+
+flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
+flushQueue queue = go []
+ where
+  go as = do
+    hasA <- tryReadTQueue queue
+    case hasA of
+      Just a -> go (a : as)
+      Nothing -> pure as
