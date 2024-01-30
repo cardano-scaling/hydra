@@ -9,7 +9,7 @@ import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
-  MonadSTM (newTVarIO, readTQueue, writeTVar),
+  MonadSTM (newTVarIO, writeTVar),
   labelTQueueIO,
   labelTVarIO,
   modifyTVar,
@@ -329,6 +329,8 @@ mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
   -- NOTE: Ugly, works because both binary representations are 32-byte long.
   tid = unsafeDeserialize' (serialize' vk)
 
+-- NOTE: This is a workaround until the upstream PR is merged:
+-- https://github.com/input-output-hk/io-sim/issues/133
 flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
 flushQueue queue = go []
  where
