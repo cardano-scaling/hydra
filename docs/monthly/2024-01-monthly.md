@@ -12,38 +12,30 @@ developments to gather their feedback on proposed plans.
 
 ## Roadmap
 
-This month, several items were restructured on the project
-[roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7):
+The Hydra team restructured several items on the project [roadmap](https://github.com/orgs/input-output-hk/projects/21/views/7) this month.
 
 ![The roadmap with features and ideas](./img/2024-01-roadmap.jpg) <small><center>The latest roadmap with features and ideas</center></small>
 
-#### Notable updates
+### Notable updates
 
-* Released version `0.15.0` which delivers offline mode and Conway support.
+* The team release of version `0.15.0` delivered offline mode and Conway support.
 
-* [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254) is
-  a new feature contributed by @SundaeLabs and is related to [this Catalyst
-  project](https://milestones.projectcatalyst.io/projects/1000179)
+* @SundaeLabs contributed a new feature, [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254), which is related to [this Catalyst project](https://milestones.projectcatalyst.io/projects/1000179).
 
-* Delivered [Conway support
-  #1177](https://github.com/input-output-hk/hydra/issues/1177) which will
-  prepare `hydra-node` for the upcoming hard-fork into the Conway era.
+* The team delivered [Conway support #1177](https://github.com/input-output-hk/hydra/issues/1177) preparing `hydra node` for the upcoming hard-fork into the Conway era.
 
-* New feature to indicate preparation of [running latest version cardano-nodes in P2P
-#1256](https://github.com/input-output-hk/hydra/issues/1256).
-  This is necessary as the non-P2P relay nodes of IOG are to be shut down in January 2024.
+* The team implemented a new feature, indicating preparation for [running the latest version of Cardano nodes in P2P #1256](https://github.com/input-output-hk/hydra/issues/1256). This is necessary as the non-P2P relay nodes of IOG are to be shut down in January 2024.
 
-* Similarly, new feature to [run smoke tests in Sanchonet
-  #1257](https://github.com/input-output-hk/hydra/issues/1257) which will serve
-  as another proof point of being able to open/close heads in the new Conway
-  era.
 
-* Groomed and started work on [building and deploying a Hydra heads explorer
-  #696](https://github.com/input-output-hk/hydra/issues/696), details below.
+Similarly, the new feature, [running smoke tests in Sanchonet #1257](https://github.com/input-output-hk/hydra/issues/1257), will serve as another proof point of being able to open/close heads in the new Conway era.
 
-* Renamed "Drop Babbage support #1178" to [Switch L2 ledger to Conway
-  #1178](https://github.com/input-output-hk/hydra/issues/1178) to better capture
-  it's content.
+
+* The team groomed and started work on [building and deploying a Hydra heads explorer #696](https://github.com/input-output-hk/hydra/issues/696), details below.
+
+
+* The team renamed 'Drop Babbage support #1178' to [Switch Layer 2 ledger to Conway #1178](https://github.com/input-output-hk/hydra/issues/1178) to better capture its content.
+
+
 
 ## Hydra development
 
@@ -54,37 +46,25 @@ This month, the team worked on the following:
 
 ### API changes: dropping JSON Tx
 
-The Hydra API now uses a TextEnvelope containing the upstream CBOR encoding
-from cardano-api for the `Tx` type and has removed the JSON representation from
-the API [#1240](https://github.com/input-output-hk/hydra/pull/1240). This is so
-transaction types have a fixed canonical encoding which will not change between
-versions. Consequently, consumers of the Hydra API will need to deserialise
-CBOR in order to inspect transactions.
+The Hydra API now utilizes a TextEnvelope containing the upstream CBOR encoding from `cardano-api` for the `Tx` type and has removed the JSON representation from the API [#1240](https://github.com/input-output-hk/hydra/pull/1240). This ensures that transaction types have a fixed canonical encoding that will not change between versions. As a result, consumers of the Hydra API will need to deserialize CBOR to inspect transactions.
 
-This representation is equivalent to the TextEnvelope produced by cardano-cli,
-except with an additional `txId` field, that is guaranteed to match the transaction
-id within the cbor object.
+This representation mirrors the TextEnvelope produced by Cardano CLI, with the addition of an `txId` field, which is guaranteed to match the transaction id within the CBOR object.
 
-:::warning Breaking Change
 
-We do not plan to go through a deprecation cycle on this breaking change to the API. If you
-are affected and see a problem updating your Hydra client to use CBOR, please
-[open an issue](https://github.com/input-output-hk/hydra/issues/new) on Github.
+:::warning Breaking change
+
+We do not plan to go through a deprecation cycle on this breaking change to the API. If you are affected and see a problem updating your Hydra client to use CBOR, please [open an issue](https://github.com/input-output-hk/hydra/issues/new) on GitHub.
 
 :::
 
 ### Hydra Chess
-We started building a game on Hydra as dogfooding allows us to find things which
-are suboptimal or stumble accross a bug that needs fixing. Hydra Chess proved to
-be no different and we learned in the process of making this dApp.
+We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble across a bug that needs fixing. Hydra Chess proved to be no different, and we learned in the process of making this DApp.
+
 
 ![](https://ipfs.io/ipfs/bafybeicxcm4yuedetm45kn6xrzqsc4mn2aocmhqtt6wrwxz5lzfry722ra/hydra-chess.png)
 
-As we iron out things we hope to improve the workflow of running `hydra-node` as
-part of a full peer-to-peer dApp. The goal is that it is easy enough to be run
-by non-tech savvy users, but also provide an example for people trying to build
-on Hydra. You can find the source code
-[here](https://github.com/abailly-iohk/hydra-chess).
+As we iron out things, we hope to improve the workflow of running `hydra-node` as part of a full peer-to-peer DApp. The goal is that it is easy enough to be run by non-tech-savvy users but also provides an example for people trying to build on Hydra. You can find the source code [here](https://github.com/abailly-iohk/hydra-chess).
+
 
 ### Hydra Explorer
 To measure the progress and success of Hydra, we require tools that provide
