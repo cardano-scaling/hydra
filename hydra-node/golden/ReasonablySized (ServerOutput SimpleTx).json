@@ -106,7 +106,117 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Fanout"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 5
+                    },
+                    "coordinatedHeadState": {
+                        "allTxs": {
+                            "-3": {
+                                "id": 4,
+                                "inputs": [],
+                                "outputs": [
+                                    -4,
+                                    -3,
+                                    -1,
+                                    3
+                                ]
+                            }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "a99f087f2cd9c72d0d65d408ef56b32e996113399567c1dc0b647439348dabbda43697f7ce6c7098ee233718936ed5ca8d89f8e91c8346ba137b82129a3e7b01",
+                                    "f87fda2582518746258f0ec82e55f814627501ec231bb9a5c408ffcf02aa796ba331484437692176578deceae6e02d1d7c56aba86ec8e7652af7887073747009",
+                                    "fe70abe2367da87dcfd26adf10764f0caa519efd13fd789b51fbfd684d8848067c21e7d9b04742d2e6e5c8c57663606335b8c06d19e9d02220a848bf50cce80c",
+                                    "dfa0f720871daa57b6078b3e22f00c8372bbd70adbb1b2be08ce99780779666db4c98f4f45d47668cbc87c6e5c90aa119c3cc0919dc458482914e87ba24f3c05",
+                                    "b50bca0e2f1f30ce3f978e8b2c3ee7a5cb73052c89fc17af7f2ffa56989b7b34fcb6ea63a1953062b5097d7500a3e64175b645c7f4e79be73446a5611612ab00"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "03060702010408060508030802040603",
+                                "snapshotNumber": 1,
+                                "utxo": [
+                                    -6,
+                                    0,
+                                    5,
+                                    6
+                                ]
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "localTxs": [
+                            {
+                                "id": -3,
+                                "inputs": [
+                                    -5,
+                                    -1
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -3,
+                                    -2,
+                                    -1
+                                ]
+                            },
+                            {
+                                "id": 6,
+                                "inputs": [
+                                    -1,
+                                    6
+                                ],
+                                "outputs": [
+                                    -1,
+                                    5
+                                ]
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    3,
+                                    5
+                                ],
+                                "outputs": []
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [],
+                                "outputs": [
+                                    0,
+                                    3
+                                ]
+                            }
+                        ],
+                        "localUTxO": [
+                            -1,
+                            2
+                        ],
+                        "seenSnapshot": {
+                            "lastSeen": 6,
+                            "requested": 3,
+                            "tag": "RequestedSnapshot"
+                        }
+                    },
+                    "currentSlot": 1,
+                    "headId": "00040506040402060500020606080704",
+                    "headSeed": "05080107020604020402080501020406",
+                    "parameters": {
+                        "contestationPeriod": 35621,
+                        "parties": [
+                            {
+                                "vkey": "81df0242e468f323b89aee3f21b3a0108c6764f2d07d43e41e756bec67d3b370"
+                            },
+                            {
+                                "vkey": "67c43b11cb171f128e0e0694fb5c48c5f727096238c5b71fe08c2fdf7125bd9f"
+                            }
+                        ]
+                    }
+                },
+                "tag": "Open"
             },
             "tag": "CommandFailed"
         },
@@ -405,7 +515,62 @@
         },
         {
             "clientInput": {
-                "tag": "Abort"
+                "tag": "Fanout"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 6
+                    },
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "e2428f1a9b70392759e1ce3e8753c7eda3fefff195fe5d687435697f286226a65026409c9a841951e58b97cc98442de048dbefaf118d4a0533a09bb651a72d05",
+                                "5d7df9a67e3c13983d8ba3935d277cffc4024753ba1156bd65dddc411b307c28c56a4f467f90d51206380fe10c2cbec39d08082f33df3db12782bfe762fb7001",
+                                "0445802057383142bb17447f0f658b85685c174d0d09c3f33100beee17adcc9ed5b4370ff1c2bc0f12c49e2d650e6283c38595a60f80a5bf0c9d6ae18192950f"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "06020400000706050506050805040506",
+                            "snapshotNumber": 5,
+                            "utxo": [
+                                -6,
+                                -3,
+                                -2
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "contestationDeadline": "1864-05-13T10:58:09.287137802064Z",
+                    "headId": "07000405020004020702060506070106",
+                    "headSeed": "04000507080208070302000801060507",
+                    "parameters": {
+                        "contestationPeriod": 86400,
+                        "parties": [
+                            {
+                                "vkey": "fb85dd268b26a6344a7c6a43b47d21d6bb4773b2e4ed4aed6271af39c00dbb59"
+                            },
+                            {
+                                "vkey": "f125b812193e7f199a8737a8f57fc6ed6b63ce28538c991dcf5738409f58046d"
+                            },
+                            {
+                                "vkey": "06dfe3e6acebddd263bd0329bc7c9b33f9e9661c26a4a75eadf68bba944419dc"
+                            },
+                            {
+                                "vkey": "2616a6757df8edf16da7b9deec2a94958b01c9a544f7746360fb14d636692539"
+                            },
+                            {
+                                "vkey": "a7a44ab3e195ae87c181e1a447d0fac6576715c6423283277f8283c01bf43fe5"
+                            },
+                            {
+                                "vkey": "9102c5c5bd6f616e497020ec5ad343593b3b8ff84a3fba7b6a0a74ff1c73d779"
+                            }
+                        ]
+                    },
+                    "readyToFanoutSent": true
+                },
+                "tag": "Closed"
             },
             "tag": "CommandFailed"
         },
@@ -436,7 +601,55 @@
         },
         {
             "clientInput": {
-                "tag": "Abort"
+                "tag": "Fanout"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 5
+                    },
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "32de63afe2121f01c05afb8688a637059e29e3bf2f069b7ea25698b70ef2b1c2524c87d7df2185d05da4c0174f45cb4496ffe6a008ebe5f3bcfad9872bf8510f",
+                                "b27def4d802ece1b8a866d857bc7aa074053c0ab46b7fb23e518e72827e856ef262a56b6df2c57cfa45c2f1f73a20c1f5f9a04391cf44940efaf831be576850e",
+                                "1a34fce740010c95489b86fb60bdb7d5a8d413d0d306db6f164b5a67e75ac3db5e28f1b1881a3494a5b7b9a6f5bc984199dd543c9ed75b106baca4940e70b203",
+                                "eceeb2405c53ac36edc2a000c9335aea63002a532daf34874b9f8f9425c4e810109a77af550ceec08a71235679ba3892a12adbd97e1f449a4127b58b39b92702"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "00010000030202030203060305010704",
+                            "snapshotNumber": 5,
+                            "utxo": [
+                                -4,
+                                0,
+                                1,
+                                6
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "contestationDeadline": "1864-05-06T06:56:35.66974028624Z",
+                    "headId": "08060401070800080304010708080106",
+                    "headSeed": "04020505020507070601020701040007",
+                    "parameters": {
+                        "contestationPeriod": 43200,
+                        "parties": [
+                            {
+                                "vkey": "2da12e39c6c39dc8f42dc789300d55adc3de051cbdb6d6599d46c3d55da886dd"
+                            },
+                            {
+                                "vkey": "67beae453ef900c664ff30bd5f702c47f9105d7c3755b2de20b0253e31abbc7f"
+                            },
+                            {
+                                "vkey": "26a735f4477eec6f76ec61cec0fcc46dffc5de8c8036d4c1d0507fc0921c006a"
+                            }
+                        ]
+                    },
+                    "readyToFanoutSent": true
+                },
+                "tag": "Closed"
             },
             "tag": "CommandFailed"
         },
@@ -518,17 +731,67 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": -4,
-                    "inputs": [
-                        -4
-                    ],
-                    "outputs": [
-                        5,
-                        6
-                    ]
-                }
+                "tag": "Close"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "a1c1d7d1da1f02c8628677812f4c70aa170aca8d534b37ceef79ec9ba1cacb3985f249cf32ea31ce17248fa8109a4b0d51da767b40015e1b19fb941623235008",
+                                "f0eeb5ce9f9e6261f812a76841e9ac122d58f8640d5f6280dfb99c1e437d1c42e4a4121c531b646ff4f33f90f00a2021a53842b560f6f62a6bde98a2cd5f8a04",
+                                "96f58092801e4e609f0bb9e7f724fba89fb1bdae679802eb5d139235c4e41c251c4c419c116d237316a7626c8249fed368b549e81af19db0cde4838e21053a03",
+                                "192968396addb0e7d873799830078c7bf8fa3ee1ed4454529e50e6fe2751ca1d16b1c6a5e94f0e85138ceea0f6fa4309ba88577692ff771bfdce47009ed8ce06",
+                                "7784e675d04268f66730f7ce0bc087ea0d6a6b806eecf1fd0046efea01c867f015460cf79071e7eae74af8fcb746bae43c742a16558adad20197e3178f1a9c02",
+                                "e62f736f667ed8c15092ee1865e46db47bb3e6e6a0e0fedf224a713ed062a6612c688453d3e97eaa6fc6a8fbc0bc82aa32c50212d9eeb90f460752b7cdb7e108"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "08070004000307070603010605010803",
+                            "snapshotNumber": 3,
+                            "utxo": [
+                                -6,
+                                -4,
+                                -3,
+                                -1,
+                                4
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "contestationDeadline": "1864-05-09T13:53:14.451838041968Z",
+                    "headId": "07030500030205040804020004060507",
+                    "headSeed": "03080703040105070608020706050608",
+                    "parameters": {
+                        "contestationPeriod": 43200,
+                        "parties": [
+                            {
+                                "vkey": "c857d060650e6d50ea18a7c5286c2093e8dd7954ceb307a0b5648469c3298a2b"
+                            },
+                            {
+                                "vkey": "003798489f4d384993668763802991d060d2ef89e0e19abd1a10e6694e1db71b"
+                            },
+                            {
+                                "vkey": "ad671a4f66a7df7470f77a21e7d9d5f7d5a4c6710026bc0ce334f86c01ae0e65"
+                            },
+                            {
+                                "vkey": "f7359c016be71a6039e6e3142c807467528ab0e632c1ff8c419d76c9ce56ce93"
+                            },
+                            {
+                                "vkey": "bdb3bf7a64048116f5e2e98c9c492566fdfb8a058f4d6ab8578ad535f23e6d41"
+                            },
+                            {
+                                "vkey": "593e92b284b2f32263cf5ed6a92e64f7dcf12731a2a0669de66ff0da3ef15aa0"
+                            }
+                        ]
+                    },
+                    "readyToFanoutSent": true
+                },
+                "tag": "Closed"
             },
             "tag": "CommandFailed"
         },
@@ -645,7 +908,26 @@
         },
         {
             "clientInput": {
-                "tag": "Fanout"
+                "tag": "NewTx",
+                "transaction": {
+                    "id": 6,
+                    "inputs": [
+                        -3,
+                        0,
+                        1,
+                        4,
+                        5
+                    ],
+                    "outputs": []
+                }
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 0
+                    }
+                },
+                "tag": "Idle"
             },
             "tag": "CommandFailed"
         },
@@ -1176,7 +1458,15 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "GetUTxO"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    }
+                },
+                "tag": "Idle"
             },
             "tag": "CommandFailed"
         },
@@ -1201,20 +1491,38 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [
-                        -3,
-                        -1,
-                        3,
-                        4,
-                        5
-                    ],
-                    "outputs": [
-                        6
-                    ]
-                }
+                "tag": "Abort"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    },
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": []
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "04070500040306020304060506060106",
+                            "snapshotNumber": 7,
+                            "utxo": [
+                                -3,
+                                4
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "contestationDeadline": "1864-05-07T22:48:04.090718190258Z",
+                    "headId": "07000506050202020200070205000304",
+                    "headSeed": "00060707080004060402060101020805",
+                    "parameters": {
+                        "contestationPeriod": 604800,
+                        "parties": []
+                    },
+                    "readyToFanoutSent": true
+                },
+                "tag": "Closed"
             },
             "tag": "CommandFailed"
         },
@@ -1231,14 +1539,90 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 5,
-                    "inputs": [],
-                    "outputs": [
-                        -2
-                    ]
-                }
+                "tag": "Abort"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    },
+                    "coordinatedHeadState": {
+                        "allTxs": {
+                            "0": {
+                                "id": -5,
+                                "inputs": [
+                                    5
+                                ],
+                                "outputs": []
+                            }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "778372b157ecc294ba7ba74b02e5cf1e3de68ebfb20e7fc603f312174e35b93514749d6f006e0a38a3d545d442004a0b11eb231ca61b2e3a54bee3e94032320a"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "02010105080005000506000403070702",
+                                "snapshotNumber": 6,
+                                "utxo": [
+                                    -5,
+                                    -1,
+                                    2,
+                                    3,
+                                    5,
+                                    6
+                                ]
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "localTxs": [],
+                        "localUTxO": [
+                            -3,
+                            6
+                        ],
+                        "seenSnapshot": {
+                            "signatories": {
+                                "06d3ea536cbcaa6a451bcff4b24774897d09f38c831363ee7126ee7aacac2458": "cc3a3b142b59a928b6777588aeb0bfaaad64a56525d3908c36679d03e88d47e4b777634b4899df0030b42f426894878677e269873dfc956977c0bb59eceeeb06",
+                                "d5fffdaa90a7d90ff29329626e722351d78cb0d9036f342c473cfa3912b663be": "4a50af1f1c57f61fba61c2b14156e199b1ccbac27f02b0853a98e9134a0da5a16aa9edbaa8102275360a2b7bea1b0f22fd642551429faa1ada3416368953120b"
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [
+                                    -5,
+                                    0,
+                                    -3,
+                                    -6
+                                ],
+                                "headId": "02040305080504020802000404000208",
+                                "snapshotNumber": 5,
+                                "utxo": [
+                                    -4,
+                                    3
+                                ]
+                            },
+                            "tag": "SeenSnapshot"
+                        }
+                    },
+                    "currentSlot": 0,
+                    "headId": "00070406040408040008040200080505",
+                    "headSeed": "03050604070301020202030105080405",
+                    "parameters": {
+                        "contestationPeriod": 63085,
+                        "parties": [
+                            {
+                                "vkey": "80d495bbe0f83ee81342b1b5f11bc91e67622fae249f8dc03320e5696acf308e"
+                            },
+                            {
+                                "vkey": "8ea72102dad80ce3ef232340e7afb0613fb3b0b1b2c8af9e13bb69893c800831"
+                            },
+                            {
+                                "vkey": "087044e903369e23699d9be10e059b6837f268db4a935c677a36a52e59b1e66e"
+                            }
+                        ]
+                    }
+                },
+                "tag": "Open"
             },
             "tag": "CommandFailed"
         },
@@ -1274,7 +1658,15 @@
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "Fanout"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    }
+                },
+                "tag": "Idle"
             },
             "tag": "CommandFailed"
         },
@@ -1371,7 +1763,75 @@
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "GetUTxO"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
+                    "committed": {
+                        "0f97e39e292960817d326a451e6415e4b9b22899279ac26bfc78ba62fb8e756f": [
+                            -6,
+                            -1,
+                            4,
+                            5,
+                            6
+                        ],
+                        "2d8736fedcc77e69225877a4a14cb07fd56f5b51fc55d86b82cdc7b48775047b": [
+                            -6
+                        ],
+                        "68413a1abb04a442055f1f3ee8394d0c0304fde4bba15ef6b69b48fa9e72cbd2": [
+                            -6,
+                            -5,
+                            -3,
+                            -2,
+                            0
+                        ],
+                        "72ddac042683410e4d64da7e5516b05832748e99693600ec83715d787a5a0d77": [
+                            -4,
+                            0
+                        ],
+                        "c9071c084ccd2a064f7cc4e7e912ccb521ccc8f79782fa95a2861dcb66c6cdd0": []
+                    },
+                    "headId": "05030303080003070003030201040402",
+                    "headSeed": "07040101060602050005070008000204",
+                    "parameters": {
+                        "contestationPeriod": 604800,
+                        "parties": [
+                            {
+                                "vkey": "75918b4d7c6b59e8671d380a8a20d0ef0c804d3525009270174de0b4105a576b"
+                            },
+                            {
+                                "vkey": "f9ce8b4bc2292feb48b454ee02bc9a24ed19f2741e1b68db40d244161d41d272"
+                            },
+                            {
+                                "vkey": "5b929c7d119be6266518b59e64ce51ecf05a060ebbae13aecd7c0a7d461ed474"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
+                        {
+                            "vkey": "d1543db2545e2efa1cee3989cce37ce3cbe91b2ac135f0ad7d25766e057671bb"
+                        },
+                        {
+                            "vkey": "b5d433c3d4d52beeb06b38bb65493f447378551bc9d7d5dbee1f45fd547ac890"
+                        },
+                        {
+                            "vkey": "cce46f1572ceb611e5d1fc5f893c8e2b145f6c51a50bd5ea2e62909fb4314380"
+                        },
+                        {
+                            "vkey": "edea4ee2cc26fc52d278e18d8a7016821d8b1dd780ddea05b1c3154b3bf4cdf4"
+                        },
+                        {
+                            "vkey": "32891441fda82de9e1bc929dcfcf8c5076baed0db6406d572e6c387a4265fa72"
+                        },
+                        {
+                            "vkey": "5193c3f60a846121c3e7613602a1bb68be12393ca5c055debc37795ebd1d0fca"
+                        }
+                    ]
+                },
+                "tag": "Initial"
             },
             "tag": "CommandFailed"
         },
@@ -1489,18 +1949,142 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 2,
-                    "inputs": [],
-                    "outputs": [
-                        0,
-                        1,
-                        3,
-                        5,
-                        6
-                    ]
-                }
+                "tag": "Close"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 2
+                    },
+                    "coordinatedHeadState": {
+                        "allTxs": {
+                            "-6": {
+                                "id": 2,
+                                "inputs": [
+                                    -2,
+                                    2
+                                ],
+                                "outputs": [
+                                    -5,
+                                    -1,
+                                    1,
+                                    4,
+                                    5
+                                ]
+                            },
+                            "1": {
+                                "id": -5,
+                                "inputs": [
+                                    -2
+                                ],
+                                "outputs": [
+                                    -1,
+                                    0,
+                                    1,
+                                    2,
+                                    6
+                                ]
+                            }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "74906a413fee2d33c4f68a2350ba3aab11a1da9c8836b9b049cd8fe65f16140cb006659dac43595f86aa018429264192d75b398d7acdf8354f358eaa8bb4e00c"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "08080401050605040808060708030305",
+                                "snapshotNumber": 6,
+                                "utxo": []
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "localTxs": [
+                            {
+                                "id": 5,
+                                "inputs": [
+                                    -4,
+                                    2,
+                                    5
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -4
+                                ]
+                            },
+                            {
+                                "id": 0,
+                                "inputs": [
+                                    1,
+                                    3,
+                                    6
+                                ],
+                                "outputs": [
+                                    -6,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": 6,
+                                "inputs": [],
+                                "outputs": [
+                                    -2,
+                                    4
+                                ]
+                            },
+                            {
+                                "id": 5,
+                                "inputs": [
+                                    -4,
+                                    -3,
+                                    -2,
+                                    6
+                                ],
+                                "outputs": [
+                                    -2,
+                                    0,
+                                    2
+                                ]
+                            }
+                        ],
+                        "localUTxO": [
+                            -2,
+                            5
+                        ],
+                        "seenSnapshot": {
+                            "lastSeen": 5,
+                            "tag": "LastSeenSnapshot"
+                        }
+                    },
+                    "currentSlot": 0,
+                    "headId": "05040800020002000106060008050404",
+                    "headSeed": "06040008060203070705050500080000",
+                    "parameters": {
+                        "contestationPeriod": 79692,
+                        "parties": [
+                            {
+                                "vkey": "284bd41e1b1813335865399cd5792e5c2bd686d0ca77f11c4ba138f499d783a2"
+                            },
+                            {
+                                "vkey": "8be6fd3060c9c57d716bf29d3284a36ba0041efbf567ee09fd71c6fbf1dac2dc"
+                            },
+                            {
+                                "vkey": "839720ba5a07dadf12f38debc28da516b6486f413a8608831ced223958e2500d"
+                            },
+                            {
+                                "vkey": "1cc00b4f019d27cd5825582184591b6e373780e088ff1b3fd318989d2a1085b4"
+                            },
+                            {
+                                "vkey": "b613931a97c921cb81629b7cafb075f570e3500ac630d0d5c1bd041d8d9d4e2e"
+                            },
+                            {
+                                "vkey": "4fa19aa634689dc8d0bc9a54bd1e13abcbd6cd56e33774aea2d9ee8fd1b365b4"
+                            }
+                        ]
+                    }
+                },
+                "tag": "Open"
             },
             "tag": "CommandFailed"
         },
@@ -1619,7 +2203,15 @@
         },
         {
             "clientInput": {
-                "tag": "Abort"
+                "tag": "GetUTxO"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 6
+                    }
+                },
+                "tag": "Idle"
             },
             "tag": "CommandFailed"
         },
@@ -1783,19 +2375,58 @@
         },
         {
             "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": -5,
-                    "inputs": [
-                        -1,
-                        3,
-                        5
-                    ],
-                    "outputs": [
-                        -4,
-                        -2
+                "tag": "Abort"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 1
+                    },
+                    "committed": {
+                        "0e983c2e603b65741fb2c2d681a1f216b12b0489adf14afd0c918e83bb65c784": [
+                            0,
+                            6
+                        ],
+                        "17d6263695ef5d4b91ac497daa504b8d5680fa244ec120a0daf73214b23e04a3": [
+                            -3,
+                            0
+                        ],
+                        "1abe5520647c50918d635fc9ecbd63d313cd2891a6cb93673374574575d8756c": [
+                            -6,
+                            -4,
+                            -3,
+                            5
+                        ]
+                    },
+                    "headId": "05030003050308030501040400010602",
+                    "headSeed": "03080608070804050208010704080804",
+                    "parameters": {
+                        "contestationPeriod": 604800,
+                        "parties": [
+                            {
+                                "vkey": "fdb221220d095f797195976cc105376909e2e42905b4f23255ca924b1bf09b73"
+                            },
+                            {
+                                "vkey": "1b2240d4751b151aaa82f626b778b6484b4d9de78f2439a6c1dc2d787d4e95de"
+                            },
+                            {
+                                "vkey": "373eb0e81dfd2d34c09eaadbbf66f4eb0e44e21b14ca4cca694f559ffed969d8"
+                            },
+                            {
+                                "vkey": "6f8448c2e7164de904df202456dacad09e27c21cfa652555698a83a0459b7aaa"
+                            },
+                            {
+                                "vkey": "b987daf4b28d753bcf31751b8488c8fedcf082be3f7aa928ce0eacdd838f7280"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
+                        {
+                            "vkey": "a4ae1355c89c1c45bdf441565c79760280c4ed64f92a67861555837f7ca9bcc2"
+                        }
                     ]
-                }
+                },
+                "tag": "Initial"
             },
             "tag": "CommandFailed"
         },
@@ -1844,7 +2475,55 @@
         },
         {
             "clientInput": {
-                "tag": "Close"
+                "tag": "Fanout"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 1
+                    },
+                    "committed": {
+                        "0b9acbc4b10749986d08f27571a50f46f5e86201eae1cac8c75a0957c78c8de3": [
+                            -4,
+                            3,
+                            5,
+                            6
+                        ],
+                        "27485aa51f518f0588f515ade30b1bd8e38b0a873911547348386b02e05c5857": [
+                            -5,
+                            -1,
+                            3
+                        ]
+                    },
+                    "headId": "02000805020300070200050006000006",
+                    "headSeed": "06030402050106060005000608020205",
+                    "parameters": {
+                        "contestationPeriod": 604800,
+                        "parties": [
+                            {
+                                "vkey": "8183f45c1ee35534759efeb1c9c29d5d375307423cc8e0883236573479a110d6"
+                            },
+                            {
+                                "vkey": "eaab68bdb8d6ef13b4c7b6b80c9a40df0dc3bd26583d4e854a415dbb63103c43"
+                            },
+                            {
+                                "vkey": "d7d671e7a4cdb74b57c5fd87b69b92093893aa8e18666faa05688aaeb017aac7"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
+                        {
+                            "vkey": "0a95ebda08620b9e21057c44984e9d81fa34e8635e2dcd8e15f6d3fdfaac35db"
+                        },
+                        {
+                            "vkey": "700f3512e07762dbe648253d355270bf199ff38d95d8e247768b44c85164cf29"
+                        },
+                        {
+                            "vkey": "55f18d54367eb4deff4f12d7101b3311c30f61c2f37e9bb1e4a8b133dfdb3ebe"
+                        }
+                    ]
+                },
+                "tag": "Initial"
             },
             "tag": "CommandFailed"
         },

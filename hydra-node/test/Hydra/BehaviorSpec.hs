@@ -56,6 +56,7 @@ import Hydra.Node (
   HydraNodeLog (..),
   NodeState,
   createNodeState,
+  queryHeadState,
   runHydraNode,
   waitDelay,
  )
@@ -178,7 +179,10 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
-              waitUntil [n1] (CommandFailed Abort)
+
+              headState <- queryState n1
+
+              waitUntil [n1] (CommandFailed Abort headState)
 
     it "ignores head initialization of other head" $
       shouldRunInSim $
@@ -533,6 +537,7 @@ data TestHydraClient tx m = TestHydraClient
   , waitForNext :: m (ServerOutput tx)
   , injectChainEvent :: ChainEvent tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
+  , queryState :: m (HeadState tx)
   }
 
 -- | A simulated chain that just echoes 'PostChainTx' as 'Observation's of
@@ -739,20 +744,22 @@ withHydraNode signingKey otherParties chain action = do
   nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
-    action (createTestHydraClient outputs outputHistory node)
+    action (createTestHydraClient outputs outputHistory node nodeState)
 
 createTestHydraClient ::
   MonadSTM m =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
+  NodeState tx m ->
   TestHydraClient tx m
-createTestHydraClient outputs outputHistory HydraNode{eq} =
+createTestHydraClient outputs outputHistory HydraNode{eq} nodeState =
   TestHydraClient
     { send = putEvent eq . ClientEvent
     , waitForNext = atomically (readTQueue outputs)
     , injectChainEvent = putEvent eq . OnChainEvent
     , serverOutputs = reverse <$> readTVarIO outputHistory
+    , queryState = atomically (queryHeadState nodeState)
     }
 
 createHydraNode ::

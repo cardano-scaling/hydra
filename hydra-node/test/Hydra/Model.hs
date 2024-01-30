@@ -549,7 +549,7 @@ seedWorld seedKeys seedCP futureCommits = do
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
       nodeState <- createNodeState $ HeadState.Idle IdleState{chainState = initialChainState}
       node <- createHydraNode ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
-      let testClient = createTestHydraClient outputs outputHistory node
+      let testClient = createTestHydraClient outputs outputHistory node nodeState
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode (contramap Node tr) node
       link nodeThread
       pure (testClient, nodeThread)

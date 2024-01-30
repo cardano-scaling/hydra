@@ -759,7 +759,7 @@ update env ledger st ev = case (st, ev) of
   (_, PostTxError{postChainTx, postTxError}) ->
     Effects [ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}]
   (_, ClientEvent{clientInput}) ->
-    Effects [ClientEffect $ ServerOutput.CommandFailed clientInput]
+    Effects [ClientEffect $ ServerOutput.CommandFailed clientInput st]
   _ ->
     Error $ InvalidEvent ev st
 
