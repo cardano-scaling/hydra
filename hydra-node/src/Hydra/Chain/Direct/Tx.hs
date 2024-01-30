@@ -645,7 +645,10 @@ data HeadObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+
+instance Arbitrary HeadObservation where
+  arbitrary = genericArbitrary
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
@@ -673,7 +676,10 @@ data InitObservation = InitObservation
   , -- XXX: Improve naming
     participants :: [OnChainId]
   }
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary InitObservation where
+  arbitrary = genericArbitrary
 
 data NotAnInitReason
   = NoHeadOutput
@@ -762,7 +768,10 @@ data CommitObservation = CommitObservation
   , committed :: UTxO
   , headId :: HeadId
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+
+instance Arbitrary CommitObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify a commit tx by:
 --
@@ -833,7 +842,10 @@ data CollectComObservation = CollectComObservation
   , headId :: HeadId
   , utxoHash :: UTxOHash
   }
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary CollectComObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
@@ -878,7 +890,10 @@ data CloseObservation = CloseObservation
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   }
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary CloseObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -923,7 +938,10 @@ data ContestObservation = ContestObservation
   , snapshotNumber :: SnapshotNumber
   , contesters :: [Plutus.PubKeyHash]
   }
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary ContestObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -960,7 +978,10 @@ observeContestTx utxo tx = do
       Just Head.Closed{snapshotNumber} -> snapshotNumber
       _ -> error "wrong state in output datum"
 
-newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving (Eq, Show)
+newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
+
+instance Arbitrary FanoutObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -980,7 +1001,10 @@ observeFanoutTx utxo tx = do
  where
   headScript = fromPlutusScript Head.validatorScript
 
-newtype AbortObservation = AbortObservation {headId :: HeadId} deriving (Eq, Show)
+newtype AbortObservation = AbortObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
+
+instance Arbitrary AbortObservation where
+  arbitrary = genericArbitrary
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.

@@ -90,6 +90,12 @@ rec {
   hydra-chain-observer-static =
     musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
 
+  hydra-explorer =
+    nativePkgs.hydra-explorer.components.exes.hydra-explorer;
+
+  hydra-explorer-static =
+    musl64Pkgs.hydra-explorer.components.exes.hydra-explorer;
+
   hydra-tui =
     embedRevision
       nativePkgs.hydra-tui.components.exes.hydra-tui
@@ -137,6 +143,7 @@ rec {
           inputs.cardano-node.packages.${system}.cardano-cli
           inputs.mithril.packages.${system}.mithril-client-cli
           pkgs.check-jsonschema
+          hydra-explorer
         ];
     };
     hydra-tui = pkgs.mkShellNoCC {
