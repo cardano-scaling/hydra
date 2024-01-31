@@ -742,7 +742,7 @@ waitForUTxOToSpend utxo key value node = go 100
       pure $ Left utxo
     n -> do
       node `send` Input.GetUTxO
-      threadDelay 0.1
+      threadDelay 5
       timeout 10 (waitForNext node) >>= \case
         Just (GetUTxOResponse _ u)
           | u /= mempty ->
