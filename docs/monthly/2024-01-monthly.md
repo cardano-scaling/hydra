@@ -96,7 +96,7 @@ Also [funded through
 Catalyst](https://milestones.projectcatalyst.io/projects/1000092) is a
 continuation of the [Hydra
 auction](https://github.com/mlabs-haskell/hydra-auction) project by Ikigai and
-MLabs. We have not yet re-engaged in a regular exchange, but we expect to
+MLabs. The team have not yet re-engaged in a regular exchange, but the team expect to
 support them with features as needed as they kick of this work.
 
 As we also pointed out in the review session, some of us have been involved in
@@ -108,35 +108,15 @@ hope to see many Cardano builders there!
 
 ## Conclusion
 
-The monthly review meeting for January 2024 was held on 2024-01-19 via Google
-Meet with these [slides][slides] and the [recording][recording].
+The team held the monthly review meeting for January 2024 on 2024-01-19 via Google Meet, presenting these [slides][slides] and recording the session [here][recording].
 
-This month we could demonstrate some features on Hydra and Mithril, but also saw
-a great demo about using zero-knowledge cryptography in a Hydra head on the case
-of a mastermind game; created by Jose and his team from Modulo-Pi.
+Throughout the month, the team demonstrated various features on Hydra and Mithril. Additionally, Jose and his team from Modulo-Pi showcased a compelling demo on utilizing zero-knowledge cryptography in a Hydra head for a mastermind game.
 
-Besides giving the usual status and roadmap updates on both Hydra and Mithril,
-we had several interested community members join us and discuss their use case
-ideas. One of them was Tudor and his idea of supply chain tracking of Moldavian
-wine - curently running as a Catalyst proposal in Fund 11 - aiming to utilize
-Hydra to do CIP-68 NFT updates in a head. This would of course require
-wallet/app support, but we also discussed a potential CIP to standardize asset
-access if they are held on layer 2 ledgers.
+In the meeting, team members provided status and roadmap updates for both Hydra and Mithril. Several interested community members, including Tudor, joined the discussion to share their use case ideas. Tudor presented his proposal for supply chain tracking of Moldavian wine, which is currently running as a Catalyst proposal in Fund 11. The proposal aims to leverage Hydra for CIP-68 NFT updates in a head, requiring wallet/app support. The team also discussed a potential CIP to standardize asset access if held on layer 2 ledgers.
 
-The discussion in the monthly meeting also included feedback by Charles on
-thinking about Cardano block extensions - a potential core protocol change
-hosting various proof systems and enabling new consensus algorithms and support
-partner chains. We should be working together with the community to build in and
-"explore the user space" with the goal to figure out which parts could evolve
-into marketplaces and what should rather be built into the core protocols. In
-such an open collaboration mode, processes like CIPs serve a key role in
-standardizing and allow for technology transfer from the "user space" into the
-"kernel space".
+Charles provided feedback on considering Cardano block extensions as a potential core protocol change, enabling various proof systems and new consensus algorithms to support partner chains. The team emphasized collaborative efforts with the community to explore and develop the user space, determining which aspects could evolve into marketplaces and what should be integrated into core protocols. Processes like CIPs play a vital role in standardizing and facilitating technology transfer from the user space to the kernel space.
 
-All this input will also drive our roadmapping sessions for the year. Which is
-not only about building the essential features for the Hydra Head protocol, but
-also experimenting on new ways of making things faster, cheaper or simply easier
-on Cardano.
+These discussions will inform the team's roadmapping sessions for the year, focusing not only on building essential features for the Hydra Head protocol but also experimenting with new approaches to enhance Cardano's efficiency and accessibility.
 
 [slides]: https://docs.google.com/presentation/d/113okna4iyhgC7ERDLVHxqQkvhqTUSWJUWjXfkpwIpEY
 [recording]: https://drive.google.com/file/d/1XnM4RMKSiJNKLs2GBEg32ZHymg-fGBFt
