@@ -22,14 +22,10 @@ The Hydra team restructured several items on the project [roadmap](https://githu
 * The team release of version `0.15.0` delivered offline mode and Conway support.
 
 * @SundaeLabs contributed a new feature, [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254), which is related to [this Catalyst project](https://milestones.projectcatalyst.io/projects/1000179).
-* @SundaeLabs contributed a new feature, [Offline mode #1254](https://github.com/input-output-hk/hydra/issues/1254), which is related to [this Catalyst project](https://milestones.projectcatalyst.io/projects/1000179).
 
 * The team delivered [Conway support #1177](https://github.com/input-output-hk/hydra/issues/1177) preparing `hydra node` for the upcoming hard-fork into the Conway era.
 
 * The team implemented a new feature, indicating preparation for [running the latest version of Cardano nodes in P2P #1256](https://github.com/input-output-hk/hydra/issues/1256). This is necessary as the non-P2P relay nodes of IOG are to be shut down in January 2024.
-
-
-Similarly, the new feature, [running smoke tests in Sanchonet #1257](https://github.com/input-output-hk/hydra/issues/1257), will serve as another proof point of being able to open/close heads in the new Conway era.
 
 
 Similarly, the new feature, [running smoke tests in Sanchonet #1257](https://github.com/input-output-hk/hydra/issues/1257), will serve as another proof point of being able to open/close heads in the new Conway era.
@@ -59,21 +55,16 @@ This representation mirrors the TextEnvelope produced by Cardano CLI, with the a
 :::warning Breaking change
 
 We do not plan to go through a deprecation cycle on this breaking change to the API. If you are affected and see a problem updating your Hydra client to use CBOR, please [open an issue](https://github.com/input-output-hk/hydra/issues/new) on GitHub.
-We do not plan to go through a deprecation cycle on this breaking change to the API. If you are affected and see a problem updating your Hydra client to use CBOR, please [open an issue](https://github.com/input-output-hk/hydra/issues/new) on GitHub.
 
 :::
 
 ### Hydra Chess
 We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble across a bug that needs fixing. Hydra Chess proved to be no different, and we learned in the process of making this DApp.
 
-We started building a game on Hydra as dogfooding allows us to find things which are suboptimal or stumble across a bug that needs fixing. Hydra Chess proved to be no different, and we learned in the process of making this DApp.
-
-
 ![](https://ipfs.io/ipfs/bafybeicxcm4yuedetm45kn6xrzqsc4mn2aocmhqtt6wrwxz5lzfry722ra/hydra-chess.png)
 
 As we iron out things, we hope to improve the workflow of running `hydra-node` as part of a full peer-to-peer DApp. The goal is that it is easy enough to be run by non-tech-savvy users but also provides an example for people trying to build on Hydra. You can find the source code [here](https://github.com/abailly-iohk/hydra-chess).
 
-As we iron out things, we hope to improve the workflow of running `hydra-node` as part of a full peer-to-peer DApp. The goal is that it is easy enough to be run by non-tech-savvy users but also provides an example for people trying to build on Hydra. You can find the source code [here](https://github.com/abailly-iohk/hydra-chess).
 
 
 ### Hydra Explorer
