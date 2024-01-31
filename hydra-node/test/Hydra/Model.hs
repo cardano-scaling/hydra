@@ -641,7 +641,6 @@ performNewTx party tx = do
     waitUntilMatch (toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
-      HeadIsClosed{} -> True
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
