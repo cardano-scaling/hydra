@@ -17,7 +17,6 @@ The Hydra team restructured several items on the project [roadmap](https://githu
 ![The roadmap with features and ideas](./img/2024-01-roadmap.jpg) <small><center>The latest roadmap with features and ideas</center></small>
 
 ### Notable updates
-### Notable updates
 
 * The team release of version `0.15.0` delivered offline mode and Conway support.
 
