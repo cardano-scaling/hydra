@@ -56,7 +56,7 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (ChainEvent (..), HeadParameters (..), OnChainTx (..), maximumNumberOfParties)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Hydra.Chain.Direct.State (ChainStateAt (..), initialChainState)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic (
@@ -172,7 +172,7 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
-    ObserveCloseTx :: Party -> Action WorldState ()
+    InjectCloseObservation :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -224,7 +224,7 @@ instance StateModel WorldState where
     genCloseObservation = do
       (key, _) <- elements hydraParties
       let party = deriveParty key
-      pure . Some $ ObserveCloseTx party
+      pure . Some $ InjectCloseObservation party
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -236,7 +236,7 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{}} (Close _) =
     True
-  precondition WorldState{hydraState = Open{}} (ObserveCloseTx _) =
+  precondition WorldState{hydraState = Open{}} (InjectCloseObservation _) =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
@@ -319,10 +319,10 @@ instance StateModel WorldState where
           Open{offChainState} -> Final $ confirmedUTxO offChainState
           _ -> error "unexpected state"
       --
-      ObserveCloseTx{} ->
-        WorldState{hydraParties, hydraState = updateWithObserveClose hydraState}
+      InjectCloseObservation{} ->
+        WorldState{hydraParties, hydraState = updateWithCloseObservation hydraState}
        where
-        updateWithObserveClose = \case
+        updateWithCloseObservation = \case
           Open{offChainState} -> Final $ confirmedUTxO offChainState
           _ -> error "unexpected state"
       --
@@ -331,14 +331,13 @@ instance StateModel WorldState where
        where
         updateWithNewTx = \case
           Open{headParameters, offChainState = OffChainState{confirmedUTxO}} ->
-            let confirmedUTxO' = confirmedUTxO `applyTx` tx
-             in Open
-                  { headParameters
-                  , offChainState =
-                      OffChainState
-                        { confirmedUTxO = confirmedUTxO'
-                        }
-                  }
+            Open
+              { headParameters
+              , offChainState =
+                  OffChainState
+                    { confirmedUTxO = confirmedUTxO `applyTx` tx
+                    }
+              }
           _ -> error "unexpected state"
       Wait _ -> s
       ObserveConfirmedTx _ -> s
@@ -520,8 +519,8 @@ instance
         performAbort party
       Close party ->
         performClose party
-      ObserveCloseTx party ->
-        observeClose st party
+      InjectCloseObservation party ->
+        injectCloseObservation st party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -722,31 +721,37 @@ performClose party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
-observeClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadTime (RunMonad m)) => WorldState -> Party -> RunMonad m ()
-observeClose WorldState{hydraState} party =
+injectCloseObservation ::
+  ( MonadThrow m
+  , MonadAsync m
+  , MonadTimer m
+  , MonadDelay m
+  , MonadTime (RunMonad m)
+  ) =>
+  WorldState ->
+  Party ->
+  RunMonad m ()
+injectCloseObservation WorldState{hydraState} party =
   case hydraState of
-    Open{headParameters = HeadParameters{contestationPeriod}, offChainState = OffChainState{confirmedUTxO}} -> do
-      when (null confirmedUTxO) $
-        pure ()
+    Open{offChainState = OffChainState{confirmedUTxO}} -> do
       nodes <- gets nodes
-      let lastSnapshotNumber = UnsafeSnapshotNumber fromIntegral (length confirmedUTxO - 2)
+      let initialSnapshotNumber = UnsafeSnapshotNumber 0
       let thisNode = nodes ! party
-      -- \$ fromIntegral (length confirmedUTxO - 2)
       waitForOpen thisNode
       eHeadId <- lift $ getHeadId thisNode
       case eHeadId of
-        Left _ -> error "Could not find the HeadId"
+        Left _ -> error "Could not find the HeadId in injectCloseObservation"
         Right currentHeadId -> do
           now <- getCurrentTime
-          let effectiveDelay = min (toNominalDiffTime contestationPeriod) 200
-          let upperBoundTime = addUTCTime effectiveDelay now
           let observation =
                 Observation
                   { observedTx =
                       OnCloseTx
                         { headId = currentHeadId
-                        , contestationDeadline = upperBoundTime
-                        , snapshotNumber = lastSnapshotNumber
+                        , -- NOTE: we don't need to model deadlines here since we
+                          -- use fixed infinite era horizon
+                          contestationDeadline = now
+                        , snapshotNumber = initialSnapshotNumber
                         }
                   , newChainState =
                       ChainStateAt
@@ -755,14 +760,11 @@ observeClose WorldState{hydraState} party =
                         }
                   }
           lift (injectChainEvent thisNode observation)
+
           lift $
-            -- traceShow "confirmed txs" $
-            --   traceShow (length confirmedUTxO) $
-            --     traceShow "lastSnapshotNumber" $
-            --       traceShow lastSnapshotNumber $
-            waitUntilMatch (toList $ Map.filterWithKey (\k _ -> k /= party) nodes) $ \case
-              HeadIsContested{headId, snapshotNumber} -> True
-              -- snapshotNumber == lastSnapshotNumber && headId == currentHeadId
+            waitUntilMatch [thisNode] $ \case
+              HeadIsClosed{headId, snapshotNumber} ->
+                snapshotNumber == initialSnapshotNumber && headId == currentHeadId
               err@CommandFailed{} -> error $ show err
               _ -> False
     _ -> error "Cannot perform a close observation - not in the Open state"
@@ -786,7 +788,7 @@ showFromAction k = \case
   Commit{} -> k
   Abort{} -> k
   Close{} -> k
-  ObserveCloseTx{} -> k
+  InjectCloseObservation{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k

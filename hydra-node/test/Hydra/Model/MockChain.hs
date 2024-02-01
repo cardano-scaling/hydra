@@ -42,7 +42,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, fixedTimeHandleWithinHorizon)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
@@ -126,7 +126,7 @@ mockChainAndNetwork tr seedKeys commits = do
             , ownParty
             , scriptRegistry
             }
-    let getTimeHandle = pure $ arbitrary `generateWith` 42
+    let getTimeHandle = pure $ fixedTimeHandleWithinHorizon `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
     let
       -- NOTE: this very simple function put the transaction in a queue for
