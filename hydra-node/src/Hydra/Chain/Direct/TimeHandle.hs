@@ -56,7 +56,7 @@ genTimeParams = do
   -- it is ok to construct a slot from seconds here since on the devnet slot = 1s
   let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
       -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
-      safeZone = 3 * 2160 / 0.05
+      safeZone = 3 * 216000 / 0.05
       horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
   pure $
     TimeHandleParams
