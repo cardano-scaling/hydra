@@ -40,7 +40,7 @@ The following transaction diagram represents the lifecycle of 2 pairwise Heads b
 _Remarks_:
 
 * This assumes the transactions happening in one head are reflected in the other head, thus resulting in a (strongly) consistent final UTxO `c`
-  * This means both heads must start with the _same_ $U_0$ set which I don't know how can be done (highlighted in red in the diagram)
+  * This means both heads must start with the _same_ initial UTxO set which I don't know how can be done (highlighted in red in the diagram)
   * If the final UTxO set is consistent, then it can be fanned-out by any party, which means one `ν_head` can stay dangling and become unspendable as it would recreating an already existing UTxO (grayed out transaction in the diagram)
 * The lifecycle of the heads are tied: When one is closed, the other is closed. The server will ensure that it is the case.
 
