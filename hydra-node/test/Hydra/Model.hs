@@ -119,6 +119,9 @@ data GlobalState
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
       }
+  | Closing
+      { offChainState :: OffChainState
+      }
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
@@ -202,6 +205,7 @@ instance StateModel WorldState where
           , (1, genClose)
           , (1, genCloseObservation)
           ]
+      Closing{} -> genNewTx
       Final{} -> fmap Some genSeed
    where
     genCommit :: Uncommitted -> Gen (Any (Action WorldState))
@@ -246,6 +250,10 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
+  precondition WorldState{hydraState = Closing{}} (Close _) =
+    True
+  precondition WorldState{hydraState = Closing{offChainState}} (NewTx _ tx) =
+    (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -316,7 +324,7 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState} -> Final $ confirmedUTxO offChainState
+          Open{offChainState} -> Closing . OffChainState $ confirmedUTxO offChainState
           _ -> error "unexpected state"
       --
       InjectCloseObservation{} ->
@@ -334,6 +342,13 @@ instance StateModel WorldState where
             Open
               { headParameters
               , offChainState =
+                  OffChainState
+                    { confirmedUTxO = confirmedUTxO `applyTx` tx
+                    }
+              }
+          Closing{offChainState = OffChainState{confirmedUTxO}} ->
+            Closing
+              { offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
                     }
@@ -394,6 +409,14 @@ genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
+      (from, value) <-
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
+      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
+      pure (party, Payment{from, to, value})
+    Closing{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
         elements (filter (not . null . valueToList . snd) confirmedUTxO)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
