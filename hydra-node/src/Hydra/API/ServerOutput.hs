@@ -13,6 +13,7 @@ import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
+import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
 import Hydra.Network (NodeId)
 import Hydra.OnChainId (OnChainId)
@@ -69,7 +70,7 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx}
+  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transaction :: tx}
@@ -136,7 +137,7 @@ instance
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed i -> CommandFailed <$> shrink i
+    CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
     TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms

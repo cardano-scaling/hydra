@@ -13,6 +13,8 @@ changes.
 
 - **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
 
+- Provide more details about why a command failed. Added the state of the head logic at the point of failure.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
