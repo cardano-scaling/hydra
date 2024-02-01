@@ -175,6 +175,9 @@ instance StateModel WorldState where
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
     NewTx :: Party -> Payment -> Action WorldState Payment
+    -- NOTE: This action only exists because GetUTxO doesn't
+    -- work if our node is not in the 'Open' or 'Initializing' state
+    NewTxWhileInClosed :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
     -- Check that all parties have observed the head as open
@@ -202,7 +205,7 @@ instance StateModel WorldState where
           [ (5, genNewTx)
           , (1, genClose)
           ]
-      Closing{} -> genNewTx
+      Closing{} -> genNewTxInClosingState
       Final{} -> fmap Some genSeed
    where
     genCommit :: Uncommitted -> Gen (Any (Action WorldState))
@@ -216,6 +219,7 @@ instance StateModel WorldState where
       pure . Some $ Abort party
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
+    genNewTxInClosingState = genPaymentInClosing st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
     genClose = do
       (key, _) <- elements hydraParties
@@ -240,9 +244,7 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
-  precondition WorldState{hydraState = Closing{}} (Close _) =
-    True
-  precondition WorldState{hydraState = Closing{offChainState}} (NewTx _ tx) =
+  precondition WorldState{hydraState = Closing{offChainState}} (NewTxWhileInClosed _ tx) =
     (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ StopTheWorld =
     True
@@ -329,6 +331,12 @@ instance StateModel WorldState where
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
                     }
               }
+          _ -> error "unexpected state"
+      --
+      (NewTxWhileInClosed _ tx) ->
+        WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
+       where
+        updateWithNewTx = \case
           Closing{offChainState = OffChainState{confirmedUTxO}} ->
             Closing
               { offChainState =
@@ -399,6 +407,13 @@ genPayment WorldState{hydraParties, hydraState} =
       -- assumes hydraParties is not empty else `elements` will crash
       (_, to) <- elements hydraParties
       pure (party, Payment{from, to, value})
+    _ -> error $ "genPayment impossible in state: " <> show hydraState
+
+-- TODO: This is copy/pasta of genPayment, do we want to do anything different
+-- here?
+genPaymentInClosing :: WorldState -> Gen (Party, Payment)
+genPaymentInClosing WorldState{hydraParties, hydraState} =
+  case hydraState of
     Closing{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
         elements (filter (not . null . valueToList . snd) confirmedUTxO)
@@ -519,6 +534,8 @@ instance
         performCommit (snd <$> hydraParties st) party utxo
       NewTx party transaction ->
         performNewTx party transaction
+      NewTxWhileInClosed party transaction ->
+        performNewTxWhileInClosed st party transaction
       Init party ->
         performInit party
       Abort party -> do
@@ -654,6 +671,8 @@ performNewTx party tx = do
   waitForOpen thisNode
 
   (i, o) <-
+    -- TODO: what to do here if we are in the 'Closed' state? GetUTxO doesn't
+    -- work if our node is not in the 'Open' or 'Initializing' state
     lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
       Left u -> error $ "Cannot execute NewTx for " <> show tx <> ", no spendable UTxO in " <> show u
       Right ok -> pure ok
@@ -673,6 +692,37 @@ performNewTx party tx = do
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
+
+performNewTxWhileInClosed ::
+  (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
+  WorldState ->
+  Party ->
+  Payment ->
+  RunMonad m Payment
+performNewTxWhileInClosed WorldState{hydraState} party tx =
+  case hydraState of
+    Closing{offChainState = OffChainState{confirmedUTxO}} -> do
+      let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
+      nodes <- gets nodes
+      let thisNode = nodes ! party
+      waitForOpen thisNode
+      let (i, o) = List.head $ UTxO.pairs $ toRealUTxO confirmedUTxO
+      let realTx =
+            either
+              (error . show)
+              id
+              (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
+
+      party `sendsInput` Input.NewTx realTx
+      lift $ do
+        waitUntilMatch (toList nodes) $ \case
+          SnapshotConfirmed{snapshot = snapshot} ->
+            txId realTx `elem` Snapshot.confirmed snapshot
+          -- HeadIsClosed{} -> True
+          err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+          _ -> False
+      pure tx
+    _ -> error "Not in the Closing state"
 
 -- | Wait for the head to be open by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
@@ -745,6 +795,7 @@ showFromAction k = \case
   Abort{} -> k
   Close{} -> k
   NewTx{} -> k
+  NewTxWhileInClosed{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
   StopTheWorld -> k
