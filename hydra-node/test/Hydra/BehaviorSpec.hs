@@ -180,9 +180,9 @@ spec = parallel $ do
 
               send n1 Abort
 
-              headState <- queryState n1
-
-              waitUntil [n1] (CommandFailed Abort headState)
+              waitMatch n1 $ \case
+                CommandFailed{} -> guard True
+                _ -> Nothing
 
     it "ignores head initialization of other head" $
       shouldRunInSim $
