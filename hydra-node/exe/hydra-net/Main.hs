@@ -183,7 +183,7 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       traceWith tracer $ ConnectedTo sockAddr
       runClient iomgr (mkApplication sk party tracer) sock
  where
-  runClient iomgr app sock =
+  runClient iomgr app =
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
@@ -192,7 +192,6 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       networkConnectTracers
       (HandshakeCallbacks acceptableVersion queryVersion)
       (unversionedProtocol app)
-      sock
 
   networkConnectTracers =
     NetworkConnectTracers
@@ -207,18 +206,17 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       _ -> die "getAdrrInfo failed"
 
   mkApplication sk party tracer =
-    OuroborosApplication $
+    OuroborosApplication
       [ MiniProtocol
           { miniProtocolNum = MiniProtocolNum 42
           , miniProtocolLimits = MiniProtocolLimits{maximumIngressQueue = maxBound}
           , miniProtocolRun =
               InitiatorProtocolOnly
                 ( mkMiniProtocolCbFromPeer
-                    ( \_ ->
-                        ( (contramap TraceSendRecv tracer)
-                        , codecFireForget
-                        , (fireForgetClientPeer $ client tracer sk party)
-                        )
+                    ( const
+                        (contramap TraceSendRecv tracer)
+                    , codecFireForget
+                    , fireForgetClientPeer $ client tracer sk party
                     )
                 )
           }

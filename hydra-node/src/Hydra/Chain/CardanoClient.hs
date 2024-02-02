@@ -171,7 +171,7 @@ submitTransaction networkId socket tx =
 -- safely constructed through 'buildTransaction'.
 data SubmitTransactionException
   = SubmitEraMismatch EraMismatch
-  | SubmitTxValidationError (TxValidationErrorInCardanoMode)
+  | SubmitTxValidationError TxValidationErrorInCardanoMode
   deriving stock (Show)
 
 instance Exception SubmitTransactionException
@@ -240,7 +240,7 @@ querySystemStart networkId socket queryPoint =
 -- Throws at least 'QueryException' if query fails.
 queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO EraHistory
 queryEraHistory networkId socket queryPoint =
-  runQuery networkId socket queryPoint $ QueryEraHistory
+  runQuery networkId socket queryPoint QueryEraHistory
 
 -- | Query the current epoch number.
 --

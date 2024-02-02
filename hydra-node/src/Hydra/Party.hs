@@ -29,7 +29,7 @@ instance ToJSONKey Party where
   toJSONKey = toJSONKeyText (serialiseToRawBytesHexText . vkey)
 
 instance FromJSONKey Party where
-  fromJSONKey = FromJSONKeyTextParser $ partyFromHexText
+  fromJSONKey = FromJSONKeyTextParser partyFromHexText
    where
     partyFromHexText :: MonadFail m => Text -> m Party
     partyFromHexText t =

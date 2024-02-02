@@ -74,7 +74,7 @@ spec =
             genericCoverTable [transition] $
               counterexample (show transition) $
                 let utxo = getKnownUTxO st
-                 in case (observeHeadTx testNetworkId utxo tx) of
+                 in case observeHeadTx testNetworkId utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
                       Abort{} -> transition === Transition.Abort
