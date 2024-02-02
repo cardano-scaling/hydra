@@ -167,7 +167,7 @@ fromPlutusTxOut ::
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
 fromPlutusTxOut network out = do
-  value <- shelleyBasedEraConstraints (shelleyBasedEra @era) $ TxOutValueShelleyBased (shelleyBasedEra @era) <$> (toLedgerValue (maryEraOnwards @era) <$> fromPlutusValue plutusValue)
+  value <- shelleyBasedEraConstraints (shelleyBasedEra @era) (TxOutValueShelleyBased (shelleyBasedEra @era) . toLedgerValue (maryEraOnwards @era) <$> fromPlutusValue plutusValue)
   pure $ TxOut addressInEra value datum ReferenceScriptNone
  where
   addressInEra = fromPlutusAddress network plutusAddress

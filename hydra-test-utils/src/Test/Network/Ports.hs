@@ -35,4 +35,4 @@ withFreePort action = getRandomPort >>= action
 randomUnusedTCPPorts :: Int -> IO [Int]
 randomUnusedTCPPorts count =
   fmap fromIntegral
-    <$> replicateM count (withFreePort (\port -> return port))
+    <$> replicateM count (withFreePort return)

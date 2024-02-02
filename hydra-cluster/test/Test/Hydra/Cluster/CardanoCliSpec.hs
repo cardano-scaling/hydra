@@ -42,15 +42,15 @@ spec =
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->
         withTempDir "hydra-cluster" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
-            protocolParameters <- cliQueryProtocolParameters nodeSocket (networkId)
-            case (parseEither pparamsFromJson protocolParameters) of
+            protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+            case parseEither pparamsFromJson protocolParameters of
               Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> show protocolParameters
               Right _ -> pure ()
 
       it "query protocol-parameters matches our schema" $ \tracer ->
         withJsonSpecifications $ \tmpDir ->
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
-            pparamsValue <- cliQueryProtocolParameters nodeSocket (networkId)
+            pparamsValue <- cliQueryProtocolParameters nodeSocket networkId
             validateJSON
               (tmpDir </> "api.json")
               (key "components" . key "schemas" . key "ProtocolParameters")

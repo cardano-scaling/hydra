@@ -275,7 +275,7 @@ genChainPoint =
 -- | Generate a chain point at given slot with a likely invalid block header hash.
 genChainPointAt :: SlotNo -> Gen ChainPoint
 genChainPointAt s =
-  ChainPoint s <$> (HeaderHash <$> arbitrary)
+  ChainPoint s . HeaderHash <$> arbitrary
 
 -- | Generate an arbitrary list of transactions from a UTXO set such that,
 -- transactions may *sometimes* consume given UTXO and produce new ones. The

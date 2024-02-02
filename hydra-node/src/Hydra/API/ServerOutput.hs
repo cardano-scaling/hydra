@@ -156,7 +156,7 @@ instance
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
 
-data ServerOutputConfig = ServerOutputConfig
+newtype ServerOutputConfig = ServerOutputConfig
   { utxoInSnapshot :: WithUTxO
   }
   deriving stock (Eq, Show)

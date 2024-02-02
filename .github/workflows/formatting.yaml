@@ -27,3 +27,7 @@ jobs:
     - name: 📐 Check code formatting
       run: |
         nix develop .#fmt --command treefmt --fail-on-change
+
+    - name: 📐 Check hlint
+      run: |
+        nix develop .#fmt --command hlint .
