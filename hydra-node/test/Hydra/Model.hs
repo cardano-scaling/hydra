@@ -251,6 +251,8 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
     True
+  precondition WorldState{hydraState = Final{}} (CheckFanoutUTxO _ _) =
+    True
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -777,7 +779,7 @@ performFanout party = do
   party `sendsInput` Input.Fanout
 
   lift $
-    waitUntilMatch (toList nodes) $ \case
+    waitUntilMatch [thisNode] $ \case
       HeadIsFinalized{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
