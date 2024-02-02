@@ -362,10 +362,11 @@ genTxOut =
     `suchThat` notByronAddress
  where
   gen =
-    oneof
-      [ fromLedgerTxOut <$> arbitrary
-      , notMultiAsset . fromLedgerTxOut <$> arbitrary
-      ]
+    fmap (modifyTxOutValue (<> (lovelaceToValue $ Lovelace 10_000_000))) $
+      oneof
+        [ fromLedgerTxOut <$> arbitrary
+        , notMultiAsset . fromLedgerTxOut <$> arbitrary
+        ]
 
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
