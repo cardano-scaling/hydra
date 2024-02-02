@@ -7,9 +7,7 @@ import Hydra.HeadId (HeadId (..), HeadSeed)
 import Data.Aeson (Value (..))
 import Hydra.Cardano.Api (Tx, TxIn, UTxO)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
   headSeedToTxIn,
  )
 import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
@@ -273,20 +271,16 @@ replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =
         then newHeadState : tailStates
         else currentHeadState : replaceHeadState newHeadState tailStates
 
-aggregateHeadObservations :: [HeadObservation] -> ExplorerState -> ExplorerState
-aggregateHeadObservations observations currentState =
-  foldl' aggregateOnChainTx currentState (mapMaybe convertObservation observations)
- where
-  aggregateOnChainTx :: ExplorerState -> OnChainTx Tx -> ExplorerState
-  aggregateOnChainTx explorerState =
-    \case
-      OnInitTx{headId, headSeed, headParameters, participants} -> aggregateInitObservation headId headSeed headParameters participants explorerState
-      OnAbortTx{headId} -> aggregateAbortObservation headId explorerState
-      OnCommitTx{headId, party, committed} -> aggregateCommitObservation headId party committed explorerState
-      OnCollectComTx{headId} -> aggregateCollectComObservation headId explorerState
-      OnCloseTx{headId, snapshotNumber, contestationDeadline} -> aggregateCloseObservation headId snapshotNumber contestationDeadline explorerState
-      OnContestTx{headId, snapshotNumber} -> aggregateContestObservation headId snapshotNumber explorerState
-      OnFanoutTx{headId} -> aggregateFanoutObservation headId explorerState
+aggregateOnChainTx :: ExplorerState -> OnChainTx Tx -> ExplorerState
+aggregateOnChainTx explorerState =
+  \case
+    OnInitTx{headId, headSeed, headParameters, participants} -> aggregateInitObservation headId headSeed headParameters participants explorerState
+    OnAbortTx{headId} -> aggregateAbortObservation headId explorerState
+    OnCommitTx{headId, party, committed} -> aggregateCommitObservation headId party committed explorerState
+    OnCollectComTx{headId} -> aggregateCollectComObservation headId explorerState
+    OnCloseTx{headId, snapshotNumber, contestationDeadline} -> aggregateCloseObservation headId snapshotNumber contestationDeadline explorerState
+    OnContestTx{headId, snapshotNumber} -> aggregateContestObservation headId snapshotNumber explorerState
+    OnFanoutTx{headId} -> aggregateFanoutObservation headId explorerState
 
 findHeadState :: HeadId -> ExplorerState -> Maybe HeadState
 findHeadState idToFind = find (\HeadState{headId} -> headId == idToFind)

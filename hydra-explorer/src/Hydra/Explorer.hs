@@ -5,12 +5,23 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.Chain.Direct.Tx (HeadObservation)
-import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), Tx, unFile)
+import Hydra.Chain (OnChainTx)
+import Hydra.Chain.Direct.Handlers (convertObservation)
+import Hydra.Chain.Direct.Tx (
+  HeadObservation (..),
+ )
+import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateOnChainTx)
+import Hydra.Explorer.Options (Options (..), hydraExplorerOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
-import Hydra.Network (PortNumber)
+import Hydra.Logging.Messages (HydraLog (..))
+import Hydra.Network (Host (..))
+import Hydra.Node (HydraNodeLog (..))
+import Hydra.Options qualified as Options
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental, loadAll)
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
+import Options.Applicative (execParser)
 import Servant (Server, throwError)
 import Servant.API (Get, Header, JSON, addHeader, (:>))
 import Servant.API.ResponseHeaders (Headers)
@@ -32,8 +43,8 @@ type API =
 
 type GetHeads = IO [HeadState]
 
-api :: Proxy API
-api = Proxy
+explorerAPI :: Proxy API
+explorerAPI = Proxy
 
 server :: GetHeads -> Server API
 server = handleGetHeads
@@ -68,41 +79,68 @@ logMiddleware tracer app' req sendResponse = do
 
 httpApp :: Tracer IO APIServerLog -> GetHeads -> Application
 httpApp tracer getHeads =
-  logMiddleware tracer $ serve api $ server getHeads
+  logMiddleware tracer $ serve explorerAPI $ server getHeads
 
-observerHandler :: TVar IO ExplorerState -> [HeadObservation] -> IO ()
-observerHandler explorerState observations = do
+observerHandler ::
+  TVar IO ExplorerState ->
+  PersistenceIncremental (OnChainTx Tx) IO ->
+  [HeadObservation] ->
+  IO ()
+observerHandler explorerState PersistenceIncremental{append} observations = do
+  let onChainTxs = mapMaybe convertObservation observations
+  forM_ onChainTxs append
   atomically $
-    modifyTVar' explorerState $
-      aggregateHeadObservations observations
+    modifyTVar' explorerState $ \currentState ->
+      foldl' aggregateOnChainTx currentState onChainTxs
 
 readModelGetHeadIds :: TVar IO ExplorerState -> GetHeads
 readModelGetHeadIds = readTVarIO
 
 main :: IO ()
 main = do
-  withTracer (Verbose "hydra-explorer") $ \tracer -> do
-    explorerState <- newTVarIO (mempty :: ExplorerState)
+  withTracer (Verbose "hydra-explorer") $ \(tracer :: Tracer IO (HydraLog Tx ())) -> do
+    opts <- execParser hydraExplorerOptions
+    let Options
+          { networkId
+          , host = Host{hostname, port}
+          , nodeSocket
+          , startChainFrom
+          , persistenceDir
+          } = opts
+    persistence <- createPersistenceIncremental $ persistenceDir <> "/explorer-state"
+    explorerState <- do
+      let nodeTracer = contramap Node tracer
+      events <- loadAll persistence
+      traceWith nodeTracer LoadedState{numberOfEvents = fromIntegral $ length events}
+      let initialState = mempty
+          recoveredSt = foldl' aggregateOnChainTx initialState events
+      newTVarIO recoveredSt
+
     let getHeads = readModelGetHeadIds explorerState
-    args <- getArgs
+
+        apiTracer = contramap APIServer tracer
+
+        chainObserverArgs =
+          ["--node-socket", unFile nodeSocket]
+            <> case networkId of
+              Mainnet -> ["--mainnet"]
+              Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
+            <> Options.toArgStartChainFrom startChainFrom
     race
-      -- FIXME: this is going to be problematic on mainnet.
-      ( withArgs (args <> ["--start-chain-from", "0"]) $
-          Hydra.ChainObserver.main (observerHandler explorerState)
+      ( withArgs chainObserverArgs $
+          Hydra.ChainObserver.main (observerHandler explorerState persistence)
       )
-      ( traceWith tracer (APIServerStarted (fromIntegral port :: PortNumber))
-          *> Warp.runSettings (settings tracer) (httpApp tracer getHeads)
+      ( traceWith apiTracer (APIServerStarted port)
+          *> Warp.runSettings (settings apiTracer port hostname) (httpApp apiTracer getHeads)
       )
       >>= \case
         Left{} -> error "Something went wrong"
         Right a -> pure a
  where
-  port = 9090
-
-  settings tracer =
+  settings tracer port hostname =
     Warp.defaultSettings
-      & Warp.setPort port
-      & Warp.setHost "0.0.0.0"
+      & Warp.setPort (fromIntegral port)
+      & Warp.setHost (fromString . toString $ hostname)
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
 addCorsHeaders ::

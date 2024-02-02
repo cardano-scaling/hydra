@@ -50,6 +50,7 @@ library
     , hydra-node
     , hydra-prelude
     , io-classes
+    , optparse-applicative
     , servant
     , servant-server
     , wai
@@ -58,6 +59,7 @@ library
   exposed-modules:
     Hydra.Explorer
     Hydra.Explorer.ExplorerState
+    Hydra.Explorer.Options
 
 executable hydra-explorer
   import:         project-config

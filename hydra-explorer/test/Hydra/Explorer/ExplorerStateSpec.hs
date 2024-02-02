@@ -3,8 +3,9 @@ module Hydra.Explorer.ExplorerStateSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.Tx (HeadObservation (..))
-import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations, headId)
+import Hydra.Explorer.ExplorerState (ExplorerState, aggregateOnChainTx, headId)
 import Hydra.HeadId (HeadId)
 import Hydra.OnChainId ()
 import Test.QuickCheck (forAll, suchThat, (=/=))
@@ -28,3 +29,7 @@ spec = do
 
   getHeadIds :: ExplorerState -> [HeadId]
   getHeadIds = fmap headId
+
+  aggregateHeadObservations :: [HeadObservation] -> ExplorerState -> ExplorerState
+  aggregateHeadObservations observations currentState =
+    foldl' aggregateOnChainTx currentState (mapMaybe convertObservation observations)

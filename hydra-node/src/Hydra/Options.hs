@@ -820,15 +820,6 @@ toArgs
     toArgPeer p =
       ["--peer", show p]
 
-    toArgStartChainFrom = \case
-      Just ChainPointAtGenesis ->
-        error "ChainPointAtGenesis"
-      Just (ChainPoint (SlotNo slotNo) headerHash) ->
-        let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
-         in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
-      Nothing ->
-        []
-
     argsChainConfig = \case
       Offline
         OfflineChainConfig
@@ -863,6 +854,16 @@ toArgs
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
+
+toArgStartChainFrom :: Maybe ChainPoint -> [String]
+toArgStartChainFrom = \case
+  Just ChainPointAtGenesis ->
+    error "ChainPointAtGenesis"
+  Just (ChainPoint (SlotNo slotNo) headerHash) ->
+    let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
+     in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
+  Nothing ->
+    []
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
