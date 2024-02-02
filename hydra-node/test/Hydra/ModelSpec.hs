@@ -165,7 +165,7 @@ import Test.QuickCheck.StateModel (
   stateAfter,
   pattern Actions,
  )
-import Test.Util (printTrace, traceInIOSim)
+import Test.Util (printTrace, traceInIOSim, traceDebug)
 
 spec :: Spec
 spec = do
@@ -176,6 +176,36 @@ spec = do
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
+  prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
+
+prop_fanoutContainsWholeConfirmedUTxO :: Property
+prop_fanoutContainsWholeConfirmedUTxO =
+  forAllDL fanoutContainsWholeConfirmedUTxO prop_HydraModel
+
+-- | Given any random walk of the model, if the Head is open a NewTx getting
+-- confirmed must be part of the UTxO after finalization.
+fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
+fanoutContainsWholeConfirmedUTxO = do
+  anyActions_
+  getModelStateDL >>= \case
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+      tx <- action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx tx)
+      confirmedUTxO <- action $ Model.GetConfirmedUTxO party
+      _ <- action $ Model.Close party
+      finalUTxO <- action $ Model.Fanout party
+      action_ $ Model.CheckFanoutUTxO confirmedUTxO finalUTxO
+    _ -> pure ()
+  action_ Model.StopTheWorld
+ where
+  nonConflictingTx st =
+    withGenQ (genPayment st) (const [])
+      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
+
+  eventually a = action_ (Wait 10) >> action_ a
+
+  action_ = void . action
 
 prop_checkHeadOpensIfAllPartiesCommit :: Property
 prop_checkHeadOpensIfAllPartiesCommit =
@@ -347,7 +377,7 @@ runIOSimProp p = do
   nodes =
     Nodes
       { nodes = mempty
-      , logger = traceInIOSim
+      , logger = traceInIOSim <> traceDebug
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }

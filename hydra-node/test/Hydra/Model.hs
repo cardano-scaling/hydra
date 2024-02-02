@@ -117,6 +117,9 @@ data GlobalState
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
       }
+  | Closed
+      { closedUTxO :: UTxOType Payment
+      }
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
@@ -170,6 +173,9 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
+    Fanout :: Party -> Action WorldState UTxO
+    CheckFanoutUTxO :: Var UTxO -> Var UTxO -> Action WorldState ()
+    GetConfirmedUTxO :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -198,6 +204,7 @@ instance StateModel WorldState where
           [ (5, genNewTx)
           , (1, genClose)
           ]
+      Closed{} -> genFanout
       Final{} -> fmap Some genSeed
    where
     genCommit :: Uncommitted -> Gen (Any (Action WorldState))
@@ -217,6 +224,11 @@ instance StateModel WorldState where
       let party = deriveParty key
       pure . Some $ Close party
 
+    genFanout = do
+      (key, _) <- elements hydraParties
+      let party = deriveParty key
+      pure . Some $ Fanout party
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -224,6 +236,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = hydraState@Initial{}} (Commit party _) =
     isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Abort{} =
+    True
+  precondition WorldState{hydraState = Open{}} (GetConfirmedUTxO _) =
     True
   precondition WorldState{hydraState = Open{}} (Close _) =
     True
@@ -234,6 +248,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
+    True
+  precondition WorldState{hydraState = Closed{}} (Fanout _) =
     True
   precondition _ StopTheWorld =
     True
@@ -305,7 +321,13 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState} -> Final $ confirmedUTxO offChainState
+          Open{offChainState} -> Closed $ confirmedUTxO offChainState
+          _ -> error "unexpected state"
+      Fanout{} ->
+        WorldState{hydraParties, hydraState = updateWithFanout hydraState}
+       where
+        updateWithFanout = \case
+          Closed{closedUTxO} -> Final closedUTxO
           _ -> error "unexpected state"
       --
       (NewTx _ tx) ->
@@ -324,6 +346,8 @@ instance StateModel WorldState where
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
+      GetConfirmedUTxO _ -> s
+      CheckFanoutUTxO _ _ -> s
       StopTheWorld -> s
 
 instance HasVariables WorldState where
@@ -464,7 +488,13 @@ instance
   ) =>
   RunModel WorldState (RunMonad m)
   where
-  postcondition (_, st) action _l result = pure $ checkOutcome st action result
+  postcondition (_, _) action _l result =
+    case action of
+      (Commit _party expectedCommitted) ->
+        pure $ expectedCommitted == result
+      (CheckFanoutUTxO closedUTxO fanoutUTxO) -> pure $ closedUTxO == fanoutUTxO
+      -- TODO: revisit
+      _ -> pure True
 
   monitoring (s, s') action _l result =
     decoratePostconditionFailure
@@ -497,6 +527,10 @@ instance
         performAbort party
       Close party ->
         performClose party
+      Fanout party ->
+        performFanout party
+      GetConfirmedUTxO party ->
+        performGetConfirmedUTxO party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -513,6 +547,7 @@ instance
           case find headIsOpen outputs of
             Just _ -> pure ()
             Nothing -> error "The head is not open for node"
+      CheckFanoutUTxO _ _ -> pure ()
       StopTheWorld ->
         stopTheWorld
 
@@ -655,6 +690,16 @@ waitForOpen node = do
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
 
+-- | Wait for the head to be closed by searching from the beginning. Note that
+-- there rollbacks or multiple life-cycles of heads are not handled here.
+waitForClosed :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
+waitForClosed node = do
+  outs <- lift $ serverOutputs node
+  unless (any headIsClosed outs) $
+    waitAndRetry
+ where
+  waitAndRetry = lift (threadDelay 0.1) >> waitForClosed node
+
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
   nodes <- gets nodes
@@ -683,6 +728,34 @@ performAbort party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
+performGetConfirmedUTxO :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m UTxO
+performGetConfirmedUTxO party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+  eConfirmedUTxO <- lift $ getHeadUTxO thisNode
+  case eConfirmedUTxO of
+    Left _ -> error "Failed on GetUTxO"
+    Right utxo -> pure utxo
+ where
+  getHeadUTxO ::
+    forall m.
+    (MonadTimer m, MonadDelay m) =>
+    TestHydraClient Tx m ->
+    m (Either () UTxO)
+  getHeadUTxO node = go 100
+   where
+    go :: Int -> m (Either () (UTxOType Tx))
+    go = \case
+      0 ->
+        pure $ Left ()
+      n -> do
+        node `send` Input.GetUTxO
+        threadDelay 0.1
+        timeout 10 (waitForNext node) >>= \case
+          Just (GetUTxOResponse _ utxo) -> pure $ Right utxo
+          _ -> go (n - 1)
+
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
@@ -695,6 +768,28 @@ performClose party = do
       HeadIsClosed{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
+
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m, MonadTimer m) => Party -> RunMonad m UTxO
+performFanout party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForClosed thisNode
+  party `sendsInput` Input.Fanout
+
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsFinalized{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
+
+  outputs <- lift $ serverOutputs thisNode
+  case find headIsFinalized outputs of
+    Just HeadIsFinalized{utxo} -> pure utxo
+    _ -> error "The head is not finalized for node"
+ where
+  headIsFinalized = \case
+    HeadIsFinalized{} -> True
+    _otherwise -> False
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
@@ -715,6 +810,9 @@ showFromAction k = \case
   Commit{} -> k
   Abort{} -> k
   Close{} -> k
+  Fanout{} -> k
+  GetConfirmedUTxO{} -> k
+  CheckFanoutUTxO{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
@@ -765,4 +863,9 @@ isOwned _ _ = False
 headIsOpen :: ServerOutput tx -> Bool
 headIsOpen = \case
   HeadIsOpen{} -> True
+  _otherwise -> False
+
+headIsClosed :: ServerOutput tx -> Bool
+headIsClosed = \case
+  HeadIsClosed{} -> True
   _otherwise -> False
