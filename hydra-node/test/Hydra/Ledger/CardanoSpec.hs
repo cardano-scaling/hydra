@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
+import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Core (PParams ())
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
@@ -15,12 +16,13 @@ import Data.Aeson.Lens (key)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
+import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions, txId)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genOneUTxOFor,
+  genOutput,
   genSequenceOfSimplePaymentTransactions,
   genTxOut,
   genUTxOAdaOnlyOfSize,
@@ -90,6 +92,10 @@ spec =
       describe "genTxOut" $
         it "does generate good values" $
           forAll genTxOut propGeneratesGoodTxOut
+
+      describe "genOutput" $
+        it "has enough lovelace to cover assets" $
+          forAll (arbitrary >>= genOutput) propHasEnoughLovelace
 
       describe "genValue" $
         it "produces realistic values" $
@@ -185,6 +191,12 @@ propRealisticValue value =
  where
   numberOfAssets = length (valueToList value)
 
+-- | Check that an output has enough lovelace to cover asset deposits.
+propHasEnoughLovelace :: TxOut CtxUTxO -> Property
+propHasEnoughLovelace txOut =
+  ensureMinCoinTxOut defaultPParams (toLedgerTxOut txOut) === toLedgerTxOut txOut
+    & counterexample "ensureMinCoinTxOut deemed not enough lovelace in txOut"
+
 -- | Check that the given 'TxOut' fulfills several requirements and does not use
 -- unsupported features. See 'genTxOut' for rationale.
 propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
@@ -194,6 +206,7 @@ propGeneratesGoodTxOut txOut =
       [ propNoReferenceScript
       , propNoByronAddress
       , propRealisticValue (txOutValue txOut)
+      , propHasEnoughLovelace txOut
       ]
       & cover 5 hasDatum "has datum"
       & cover 5 isVKOutput "is VK output"
