@@ -4,8 +4,8 @@ module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.Language qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import Cardano.Ledger.Plutus.Language qualified as Ledger
 import Data.ByteString.Short qualified as SBS
 import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (listOf)

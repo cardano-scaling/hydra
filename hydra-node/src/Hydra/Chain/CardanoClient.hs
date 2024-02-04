@@ -156,11 +156,11 @@ submitTransaction networkId socket tx =
       pure ()
     SubmitFail (TxValidationEraMismatch e) ->
       throwIO (SubmitEraMismatch e)
-    SubmitFail e@TxValidationErrorInMode{} ->
+    SubmitFail e@TxValidationErrorInCardanoMode{} ->
       throwIO (SubmitTxValidationError e)
  where
   txInMode =
-    TxInMode tx BabbageEraInCardanoMode
+    TxInMode shelleyBasedEra tx
 
 -- | Exceptions that 'can' occur during a transaction submission.
 --
@@ -171,7 +171,7 @@ submitTransaction networkId socket tx =
 -- safely constructed through 'buildTransaction'.
 data SubmitTransactionException
   = SubmitEraMismatch EraMismatch
-  | SubmitTxValidationError (TxValidationErrorInMode CardanoMode)
+  | SubmitTxValidationError (TxValidationErrorInCardanoMode)
   deriving stock (Show)
 
 instance Exception SubmitTransactionException
@@ -238,9 +238,9 @@ querySystemStart networkId socket queryPoint =
 -- | Query the era history at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO (EraHistory CardanoMode)
+queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO EraHistory
 queryEraHistory networkId socket queryPoint =
-  runQuery networkId socket queryPoint $ QueryEraHistory CardanoModeIsMultiEra
+  runQuery networkId socket queryPoint $ QueryEraHistory
 
 -- | Query the current epoch number.
 --
@@ -253,7 +253,6 @@ queryEpochNo ::
 queryEpochNo networkId socket queryPoint = do
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
               ShelleyBasedEraBabbage
               QueryEpoch
@@ -273,7 +272,8 @@ queryProtocolParameters ::
 queryProtocolParameters networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
     (AnyCardanoEra era) <- queryCurrentEraExpr
-    eraPParams <- queryInEraExpr era QueryProtocolParameters
+    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
+    eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
     liftIO $ coercePParamsToLedgerEra era eraPParams
  where
   encodeToEra eraToEncode pparams =
@@ -305,7 +305,8 @@ queryGenesisParameters ::
 queryGenesisParameters networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
     (AnyCardanoEra era) <- queryCurrentEraExpr
-    queryInEraExpr era QueryGenesisParameters
+    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
+    queryInShelleyBasedEraExpr sbe QueryGenesisParameters
 
 -- | Query UTxO for all given addresses at given point.
 --
@@ -314,8 +315,13 @@ queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> I
 queryUTxO networkId socket queryPoint addresses =
   runQueryExpr networkId socket queryPoint $ do
     (AnyCardanoEra era) <- queryCurrentEraExpr
-    eraUTxO <- queryInEraExpr era $ QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
-    pure $ UTxO.fromApi eraUTxO
+    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
+    queryUTxOExpr sbe addresses
+
+queryUTxOExpr :: ShelleyBasedEra era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
+queryUTxOExpr sbe addresses = do
+  eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
+  pure $ UTxO.fromApi eraUTxO
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -331,8 +337,16 @@ queryUTxOByTxIn ::
 queryUTxOByTxIn networkId socket queryPoint inputs =
   runQueryExpr networkId socket queryPoint $ do
     (AnyCardanoEra era) <- queryCurrentEraExpr
-    eraUTxO <- queryInEraExpr era $ QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))
+    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
+    eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs))
     pure $ UTxO.fromApi eraUTxO
+
+assumeShelleyBasedEraOrThrow :: MonadThrow m => CardanoEra era -> m (ShelleyBasedEra era)
+assumeShelleyBasedEraOrThrow era = do
+  x <- requireShelleyBasedEra era
+  case x of
+    Just sbe -> pure sbe
+    Nothing -> throwIO $ QueryNotShelleyBasedEraException (anyCardanoEra era)
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.
@@ -350,7 +364,6 @@ queryUTxOWhole networkId socket queryPoint = do
  where
   query =
     QueryInEra
-      BabbageEraInCardanoMode
       ( QueryInShelleyBasedEra
           ShelleyBasedEraBabbage
           (QueryUTxO QueryUTxOWhole)
@@ -380,7 +393,6 @@ queryStakePools ::
 queryStakePools networkId socket queryPoint =
   let query =
         QueryInEra
-          BabbageEraInCardanoMode
           ( QueryInShelleyBasedEra
               ShelleyBasedEraBabbage
               QueryStakePools
@@ -390,47 +402,23 @@ queryStakePools networkId socket queryPoint =
 -- * Helpers
 
 -- | Monadic query expression to get current era.
-queryCurrentEraExpr :: LocalStateQueryExpr b p (QueryInMode CardanoMode) r IO AnyCardanoEra
+queryCurrentEraExpr :: LocalStateQueryExpr b p QueryInMode r IO AnyCardanoEra
 queryCurrentEraExpr =
-  queryExpr (QueryCurrentEra CardanoModeIsMultiEra) >>= liftIO . throwOnUnsupportedNtcVersion
+  queryExpr QueryCurrentEra >>= liftIO . throwOnUnsupportedNtcVersion
 
 -- | Monadic query expression for a 'QueryInShelleyBasedEra'.
-queryInEraExpr ::
+queryInShelleyBasedEraExpr ::
   -- | The current running era we can use to query the node
-  CardanoEra era ->
+  ShelleyBasedEra era ->
   QueryInShelleyBasedEra era a ->
-  LocalStateQueryExpr b p (QueryInMode CardanoMode) r IO a
-queryInEraExpr era query =
-  liftIO (mkQueryInEra era query)
-    >>= queryExpr
+  LocalStateQueryExpr b p QueryInMode r IO a
+queryInShelleyBasedEraExpr sbe query =
+  queryExpr (QueryInEra $ QueryInShelleyBasedEra sbe query)
     >>= (liftIO . throwOnUnsupportedNtcVersion)
     >>= (liftIO . throwOnEraMismatch)
 
--- | Construct a 'QueryInMode' from a 'CardanoEra' which is only known at
--- run-time.
---
--- Throws a 'QueryException' if passed era is not in 'CardanoMode' or a
--- 'ShelleyBasedEra'.
-mkQueryInEra ::
-  MonadThrow m =>
-  -- | The current running era we can use to query the node
-  CardanoEra era ->
-  QueryInShelleyBasedEra era a ->
-  m (QueryInMode CardanoMode (Either EraMismatch a))
-mkQueryInEra era query =
-  case toEraInMode era CardanoMode of
-    Nothing -> throwIO $ QueryEraNotInCardanoModeFailure (anyCardanoEra era)
-    Just eraInMode -> do
-      mShelleyBaseEra <- requireShelleyBasedEra era
-      case mShelleyBaseEra of
-        Nothing -> throwIO $ QueryNotShelleyBasedEraException (anyCardanoEra era)
-        Just sbe ->
-          pure $
-            QueryInEra eraInMode $
-              QueryInShelleyBasedEra sbe query
-
 -- | Throws at least 'QueryException' if query fails.
-runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode CardanoMode a -> IO a
+runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode a -> IO a
 runQuery networkId socket point query =
   queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
     Left err -> throwIO $ QueryAcquireException err
@@ -446,7 +434,7 @@ runQueryExpr ::
   NetworkId ->
   SocketPath ->
   QueryPoint ->
-  LocalStateQueryExpr (BlockInMode CardanoMode) ChainPoint (QueryInMode CardanoMode) () IO a ->
+  LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a ->
   IO a
 runQueryExpr networkId socket point query =
   executeLocalStateQueryExpr (localNodeConnectInfo networkId socket) maybePoint query >>= \case
@@ -470,10 +458,10 @@ throwOnUnsupportedNtcVersion res =
     Left unsupportedNtcVersion -> error $ show unsupportedNtcVersion -- TODO
     Right result -> pure result
 
-localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo CardanoMode
+localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
 localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
 
-cardanoModeParams :: ConsensusModeParams CardanoMode
+cardanoModeParams :: ConsensusModeParams
 cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
  where
   -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which

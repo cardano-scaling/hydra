@@ -4,9 +4,9 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
+import Cardano.Ledger.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 import Data.ByteString qualified as BS
 import Data.Set qualified as Set

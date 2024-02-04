@@ -87,7 +87,7 @@ library
     , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             >=8.29.1   && <8.30
+    , cardano-api             >=8.37.0   && <8.38
     , cardano-binary          >=1.7.0    && <1.8
     , cardano-crypto-class    >=2.1.1    && <2.2
     , cardano-ledger-allegra  >=1.2.1    && <1.3
@@ -96,9 +96,9 @@ library
     , cardano-ledger-babbage  >=1.5      && <1.6
     , cardano-ledger-binary   >=1.2      && <1.3
     , cardano-ledger-byron    >=1.0.0    && <1.1
-    , cardano-ledger-core     >=1.8      && <1.9
-    , cardano-ledger-mary     >=1.3.1    && <1.4
-    , cardano-ledger-shelley  >=1.7      && <1.8
+    , cardano-ledger-core     >=1.9      && <1.10
+    , cardano-ledger-mary     >=1.4      && <1.5
+    , cardano-ledger-shelley  >=1.8      && <1.9
     , containers
     , lens
     , plutus-ledger-api       >=1.15.0.1 && <1.16

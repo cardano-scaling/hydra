@@ -13,16 +13,16 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Language (BinaryPlutus (..), Language (PlutusV2), Plutus (..))
+import Cardano.Ledger.Alonzo.Plutus.TxInfo (PlutusWithContext (PlutusWithContext))
 import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
-import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
-import Cardano.Ledger.Alonzo.TxInfo (PlutusWithContext (PlutusWithContext))
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
+import Cardano.Ledger.Plutus.Data qualified as Ledger
+import Cardano.Ledger.Plutus.Language (BinaryPlutus (..), Language (PlutusV2), Plutus (..))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
@@ -39,10 +39,9 @@ import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Flat (flat)
 import Hydra.Cardano.Api (
-  CardanoMode,
-  ConsensusMode (CardanoMode),
   EraHistory (EraHistory),
   ExecutionUnits (..),
+  IsCardanoEra (cardanoEra),
   LedgerEpochInfo (..),
   LedgerEra,
   LedgerProtocolParameters (..),
@@ -115,6 +114,7 @@ evaluateTx' maxUnits tx utxo = do
  where
   result pparams' =
     evaluateTransactionExecutionUnits
+      cardanoEra
       systemStart
       (LedgerEpochInfo epochInfo)
       pparams'
@@ -296,9 +296,9 @@ epochInfo = fixedEpochInfo epochSize slotLength
 --
 -- NOTE: This era is using not so realistic epoch sizes of 1 and sets a slot
 -- length of 1
-eraHistoryWithHorizonAt :: SlotNo -> EraHistory CardanoMode
+eraHistoryWithHorizonAt :: SlotNo -> EraHistory
 eraHistoryWithHorizonAt slotNo@(SlotNo n) =
-  EraHistory CardanoMode (mkInterpreter summary)
+  EraHistory (mkInterpreter summary)
  where
   summary :: Summary (CardanoEras StandardCrypto)
   summary =

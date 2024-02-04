@@ -14,9 +14,9 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core qualified as Ledger
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV2))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel)
 import Cardano.Ledger.BaseTypes (ProtVer (..), natVersion)
+import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
@@ -38,6 +38,7 @@ import Hydra.Cardano.Api (
   TxBody,
   UTxO,
   addTxIn,
+  cardanoEra,
   createAndValidateTransactionBody,
   defaultTxBodyContent,
   evaluateTransactionExecutionUnits,
@@ -77,6 +78,7 @@ evaluateScriptExecutionUnits validatorScript redeemer =
  where
   result =
     evaluateTransactionExecutionUnits
+      cardanoEra
       systemStart
       (LedgerEpochInfo epochInfo)
       (LedgerProtocolParameters pparams)

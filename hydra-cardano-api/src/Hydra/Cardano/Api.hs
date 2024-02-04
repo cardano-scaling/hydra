@@ -67,6 +67,7 @@ import Cardano.Api as X hiding (
   Witness (..),
   createAndValidateTransactionBody,
   defaultTxBodyContent,
+  fromLedgerValue,
   makeShelleyKeyWitness,
   policyId,
   queryEraHistory,
@@ -76,6 +77,7 @@ import Cardano.Api as X hiding (
   scriptLanguageSupportedInEra,
   signShelleyTransaction,
   toLedgerUTxO,
+  toLedgerValue,
  )
 import Cardano.Api.Byron as X (
   Address (..),
@@ -94,10 +96,8 @@ import Cardano.Api.Shelley as X (
   VerificationKey (..),
   fromAlonzoCostModels,
   fromAlonzoPrices,
-  fromConsensusPointInMode,
   fromPlutusData,
   toAlonzoPrices,
-  toConsensusPointInMode,
   toPlutusData,
   toShelleyNetwork,
  )
@@ -372,10 +372,10 @@ pattern TxBody{txBodyContent} <-
 {-# COMPLETE TxBody #-}
 
 createAndValidateTransactionBody :: TxBodyContent BuildTx -> Either TxBodyError TxBody
-createAndValidateTransactionBody = Cardano.Api.createAndValidateTransactionBody cardanoEra
+createAndValidateTransactionBody = Cardano.Api.createAndValidateTransactionBody shelleyBasedEra
 
 defaultTxBodyContent :: TxBodyContent BuildTx
-defaultTxBodyContent = Cardano.Api.defaultTxBodyContent cardanoEra
+defaultTxBodyContent = Cardano.Api.defaultTxBodyContent shelleyBasedEra
 
 -- ** TxBodyContent
 
@@ -595,14 +595,14 @@ pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> ReferenceScript -> T
 pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
   Cardano.Api.TxOut
     txOutAddress
-    (TxOutValue MaryEraOnwardsBabbage txOutValue)
+    (TxOutValueShelleyBased ShelleyBasedEraBabbage (Extras.fromLedgerValue -> txOutValue))
     txOutDatum
     txOutReferenceScript
   where
     TxOut addr value datum ref =
       Cardano.Api.TxOut
         addr
-        (TxOutValue MaryEraOnwardsBabbage value)
+        (TxOutValueShelleyBased ShelleyBasedEraBabbage (Extras.toLedgerValue value))
         datum
         ref
 

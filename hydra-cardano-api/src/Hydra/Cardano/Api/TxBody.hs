@@ -2,11 +2,11 @@ module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.Scripts.Data qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Data.List (find)
 import Data.Map qualified as Map
 import Hydra.Cardano.Api.PlutusScript (fromLedgerScript)

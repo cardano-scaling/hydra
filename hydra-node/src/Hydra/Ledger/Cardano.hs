@@ -362,10 +362,11 @@ genTxOut =
     `suchThat` notByronAddress
  where
   gen =
-    oneof
-      [ fromLedgerTxOut <$> arbitrary
-      , notMultiAsset . fromLedgerTxOut <$> arbitrary
-      ]
+    fmap (modifyTxOutValue (<> (lovelaceToValue $ Lovelace 10_000_000))) $
+      oneof
+        [ fromLedgerTxOut <$> arbitrary
+        , notMultiAsset . fromLedgerTxOut <$> arbitrary
+        ]
 
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
@@ -428,7 +429,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = scale (`div` 10) $ fromLedgerValue <$> arbitrary
+genValue = liftA2 (<>) (pure $ lovelaceToValue $ Lovelace 10_000_000) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

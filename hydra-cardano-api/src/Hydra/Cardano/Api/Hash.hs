@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.TxInfo qualified as Ledger
+import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley.Scripts qualified as Ledger
