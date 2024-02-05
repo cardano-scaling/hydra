@@ -11,6 +11,7 @@ on:
         - preview
         - preprod
         - mainnet
+        - sanchonet
 
       hydra-scripts-tx-id:
         description: "TxId of already published scripts (leave empty to publish)"
