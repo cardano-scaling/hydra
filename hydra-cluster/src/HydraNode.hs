@@ -9,7 +9,7 @@ import Cardano.BM.Tracing (ToObject)
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Control.Exception (IOException)
+import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
@@ -31,7 +31,7 @@ import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
+import Network.WebSockets (Connection, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Info (os)
@@ -369,18 +369,24 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
     , i /= hydraNodeId
     ]
 
-withConnectionToNode :: Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
   tryConnect connectedOnce n
     | n == 0 = failure $ "Timed out waiting for connection to hydra-node " <> show hydraNodeId
-    | otherwise =
-        doConnect connectedOnce `catch` \(e :: IOException) -> do
-          readIORef connectedOnce >>= \case
-            False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
-            True -> throwIO e
+    | otherwise = do
+        let
+          retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
+          retryOrThrow _ e =
+            readIORef connectedOnce >>= \case
+              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+              True -> throwIO e
+        doConnect connectedOnce
+          `catches` [ Handler $ retryOrThrow (Proxy @IOException)
+                    , Handler $ retryOrThrow (Proxy @HandshakeException)
+                    ]
 
   doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
     atomicWriteIORef connectedOnce True
