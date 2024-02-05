@@ -779,7 +779,7 @@ performFanout party = do
   party `sendsInput` Input.Fanout
 
   lift $
-    waitUntilMatch [thisNode] $ \case
+    waitUntilMatch (toList nodes) $ \case
       HeadIsFinalized{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
