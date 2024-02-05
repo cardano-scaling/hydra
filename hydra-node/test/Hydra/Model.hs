@@ -379,7 +379,7 @@ genToCommit (hk, ck) = do
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
-  n <- choose (1, 10)
+  n <- choose (1, 200)
   pure $ UnsafeContestationPeriod $ wordToNatural n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
