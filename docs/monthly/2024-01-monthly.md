@@ -70,7 +70,7 @@ TapTools recently published a summary of the project's progress over the last tw
 
 Besides the contributed offline mode mentioned above, Sundae Labs is also implementing a streaming API as designed in [ADR29](https://hydra.family/head-protocol/adr/29/) in the course of [this Catalyst project](https://milestones.projectcatalyst.io/projects/1000180).
 
-Also [funded through Catalyst](https://milestones.projectcatalyst.io/projects/1000092) is a continuation of the [Hydra auction](https://github.com/mlabs-haskell/hydra-auction) project by Ikigai and MLabs. The Hydra team has not yet re-engaged in a regular exchange, but they expect to support the project with features as needed as they kick off this work. 
+Also [funded through Catalyst](https://milestones.projectcatalyst.io/projects/1000092) is a continuation of the [Hydra auction](https://github.com/mlabs-haskell/hydra-auction) project by Ikigai and MLabs. The Hydra team has not yet re-engaged in a regular exchange, but they expect to support the project with features as needed as they kick off this work.
 
 As also pointed out in the review session, some of the team members have been involved in organizing the first [Cardano Buidler Fest](https://buidl.2024.cardano.org/) - happening on April 23-24 in Toulouse, France. This event will be a prime chance to connect with the people building (on) Cardano and inspire new ways of collaboration. At the time of publishing, tickets are already sold out, but we hope to see many Cardano builders there!
 
@@ -78,7 +78,7 @@ As also pointed out in the review session, some of the team members have been in
 
 We held the monthly review meeting for January 2024 on 2024-01-19 via Google Meet, presenting these [slides][slides] and this [recording][recording].
 
-This month, the teams demonstrated various Hydra and Mithril features. Additionally, Jose and his team from Modulo-Pi showcased a compelling demo on utilizing zero-knowledge cryptography in a Hydra head for a mastermind game.
+This month, the teams demonstrated various Hydra and Mithril features. Additionally, Juan Magán and his team from Modulo-P showcased a compelling demo on utilizing zero-knowledge cryptography in a Hydra head for a mastermind game. This work is a Catalyst Fund 10 [accepted proposal](https://cardano.ideascale.com/c/idea/113249).
 
 Besides providing the usual status and roadmap updates on both Hydra and Mithril, several interested community members, including Tudor, joined the discussion to share their use case ideas. Tudor presented his proposal for supply chain tracking of Moldavian wine, which is currently running as a Catalyst proposal in Fund11. The proposal aims to leverage Hydra for CIP-68 NFT updates in a head, requiring wallet/app support. We also discussed a potential CIP to standardize asset access if held on layer 2 ledgers.
 
