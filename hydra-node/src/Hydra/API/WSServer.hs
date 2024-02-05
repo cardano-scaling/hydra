@@ -59,10 +59,6 @@ wsApp ::
   PendingConnection ->
   IO ()
 wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pending = do
-  -- XXX: Moving this here improved on flakyness of tests (which would see a
-  -- 'HandshakeException'). This indicates that there might be a race
-  -- condition between notifyingServerRunning and clients starting and
-  -- handshaking on connections still?
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
