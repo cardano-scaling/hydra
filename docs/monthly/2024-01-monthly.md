@@ -54,7 +54,7 @@ We do not plan to go through a deprecation cycle on this breaking change to the 
 
 We team began developing a game on Hydra, leveraging dogfooding to uncover suboptimal elements or stumble upon bugs requiring resolution. Hydra Chess exemplified this process, offering valuable lessons during DApp development.
 
-![](https://ipfs.io/ipfs/bafybeicxcm4yuedetm45kn6xrzqsc4mn2aocmhqtt6wrwxz5lzfry722ra/hydra-chess.png)
+![](https://red-permanent-barnacle-730.mypinata.cloud/ipfs/bafybeicxcm4yuedetm45kn6xrzqsc4mn2aocmhqtt6wrwxz5lzfry722ra/hydra-chess.png)
 
 While refining the details, the team aims to improve the workflow of running `hydra-node` within a full peer-to-peer DApp framework. The objective is to ensure user-friendly accessibility while also providing an example for Hydra developers. You can access the source code [here](https://github.com/abailly-iohk/hydra-chess).
 
