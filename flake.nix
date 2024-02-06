@@ -8,6 +8,12 @@
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    # Use a patched 2.6.0.0 as we are also affected by
+    # https://github.com/haskell/haskell-language-server/issues/4046
+    hls = {
+      url = "github:cardano-scaling/haskell-language-server?ref=2.6-patched";
+      flake = false;
+    };
     cardano-node.url = "github:intersectmbo/cardano-node/8.7.3";
     mithril.url = "github:input-output-hk/mithril/2347.0";
   };
