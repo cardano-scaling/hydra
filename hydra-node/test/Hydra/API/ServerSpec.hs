@@ -21,6 +21,7 @@ import Data.Aeson.Lens (key)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
@@ -39,7 +40,7 @@ import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (Snapshot, utxo))
-import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
+import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice, testHeadId)
 import Test.Network.Ports (withFreePort)
@@ -47,7 +48,7 @@ import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
-spec = describe "ServerSpec" $
+spec =
   parallel $ do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
@@ -372,9 +373,20 @@ withTestAPIServer ::
 withTestAPIServer port actor persistence tracer =
   withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop
 
+-- | Connect to a websocket server running at given path. Fails if not connected
+-- within 2 seconds.
 withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
-withClient port path action = do
-  runClient "127.0.0.1" (fromIntegral port) path action
+withClient port path action =
+  connect (20 :: Int)
+ where
+  connect !n
+    | n < 0 = failure "withClient could not connect"
+    | otherwise =
+        runClient "127.0.0.1" (fromIntegral port) path action
+          `catch` \(e :: ConnectionException) -> do
+            hPutStrLn stderr $ "withClient failed to connect: " <> show e
+            threadDelay 0.1
+            connect (n - 1)
 
 -- | Mocked persistence handle which just does nothing.
 mockPersistence :: Applicative m => PersistenceIncremental a m
