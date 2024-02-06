@@ -15,6 +15,8 @@ changes.
 
 - Provide more details about why a command failed. Added the state of the head logic at the point of failure.
 
+- Add `--sanchonet` option to `hydra-cluster` binary.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.

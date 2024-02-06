@@ -23,19 +23,22 @@ data MithrilLog
 -- directory.
 downloadLatestSnapshotTo :: Tracer IO MithrilLog -> KnownNetwork -> FilePath -> IO ()
 downloadLatestSnapshotTo tracer network directory = do
-  traceWith tracer StartSnapshotDownload{network, directory}
-  genesisKey <- parseRequest (genesisKeyURLForNetwork network) >>= httpBS <&> getResponseBody
-  let cmd =
-        setStdout createPipe $
-          proc "mithril-client" $
-            concat
-              [ ["--aggregator-endpoint", aggregatorEndpointForNetwork network]
-              , ["snapshot", "download", "latest"]
-              , ["--genesis-verification-key", decodeUtf8 genesisKey]
-              , ["--download-dir", directory]
-              , ["--json"]
-              ]
-  withProcessWait_ cmd traceStdout
+  case (genesisKeyURLForNetwork network, aggregatorEndpointForNetwork network) of
+    (Just genesisKeyURL, Just aggregatorEndpoint) -> do
+      traceWith tracer StartSnapshotDownload{network, directory}
+      genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
+      let cmd =
+            setStdout createPipe $
+              proc "mithril-client" $
+                concat
+                  [ ["--aggregator-endpoint", aggregatorEndpoint]
+                  , ["snapshot", "download", "latest"]
+                  , ["--genesis-verification-key", decodeUtf8 genesisKey]
+                  , ["--download-dir", directory]
+                  , ["--json"]
+                  ]
+      withProcessWait_ cmd traceStdout
+    _ -> error $ "Network " <> show network <> " not supported by mithril."
  where
   traceStdout p =
     ignoreEOFErrors . forever $ do
@@ -47,12 +50,16 @@ downloadLatestSnapshotTo tracer network directory = do
   ignoreEOFErrors =
     handleJust (guard . isEOFError) (const $ pure ())
 
+  genesisKeyURLForNetwork :: KnownNetwork -> Maybe String
   genesisKeyURLForNetwork = \case
-    Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-    Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-    Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Mainnet -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
+    Preproduction -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    Preview -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Sanchonet -> Nothing
 
+  aggregatorEndpointForNetwork :: KnownNetwork -> Maybe String
   aggregatorEndpointForNetwork = \case
-    Mainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"
-    Preproduction -> "https://aggregator.release-preprod.api.mithril.network/aggregator"
-    Preview -> "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+    Mainnet -> Just $ "https://aggregator.release-mainnet.api.mithril.network/aggregator"
+    Preproduction -> Just $ "https://aggregator.release-preprod.api.mithril.network/aggregator"
+    Preview -> Just $ "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+    Sanchonet -> Nothing
