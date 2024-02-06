@@ -63,5 +63,6 @@ data KnownNetwork
   = Preview
   | Preproduction
   | Mainnet
+  | Sanchonet
   deriving stock (Generic, Show, Eq, Enum, Bounded)
   deriving anyclass (ToJSON, FromJSON)

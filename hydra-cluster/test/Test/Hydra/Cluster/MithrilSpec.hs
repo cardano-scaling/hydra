@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO)
 import Control.Lens ((^?!))
 import Data.Aeson.Lens (key, _Number)
-import Hydra.Cluster.Fixture (KnownNetwork)
+import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
@@ -15,14 +15,16 @@ import System.FilePath ((</>))
 spec :: Spec
 spec = parallel $ do
   describe "downloadLatestSnapshotTo" $
-    forEechKnownNetwork "invokes mithril-client correctly" $ \network -> do
-      (tracer, getTraces) <- captureTracer "MithrilSpec"
-      withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
-        let dbPath = tmpDir </> "db"
-        doesDirectoryExist dbPath `shouldReturn` False
-        race_
-          (downloadLatestSnapshotTo tracer network tmpDir)
-          (waitForStep 3 getTraces)
+    forEachKnownNetwork "invokes mithril-client correctly" $ \case
+      Sanchonet -> pendingWith "not yet supported"
+      network -> do
+        (tracer, getTraces) <- captureTracer "MithrilSpec"
+        withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
+          let dbPath = tmpDir </> "db"
+          doesDirectoryExist dbPath `shouldReturn` False
+          race_
+            (downloadLatestSnapshotTo tracer network tmpDir)
+            (waitForStep 3 getTraces)
 
 -- | Wait for the 'StdOut' message that matches the given step number.
 waitForStep :: HasCallStack => Natural -> IO [Envelope MithrilLog] -> IO ()
@@ -46,7 +48,7 @@ captureTracer namespace = do
   pure (tracer, readTVarIO traces)
 
 -- | Creates test cases for each 'KnownNetwork'.
-forEechKnownNetwork :: String -> (KnownNetwork -> IO ()) -> Spec
-forEechKnownNetwork msg action =
+forEachKnownNetwork :: String -> (KnownNetwork -> IO ()) -> Spec
+forEachKnownNetwork msg action =
   forM_ (enumFromTo minBound maxBound) $ \network ->
     it (msg <> " (" <> show network <> ")") $ action network

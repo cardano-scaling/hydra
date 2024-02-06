@@ -187,6 +187,7 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
     Preview -> "preview"
     Preproduction -> "preprod"
     Mainnet -> "mainnet"
+    Sanchonet -> "sanchonet"
 
   fetchConfigFile path =
     parseRequestThrow path >>= httpBS <&> getResponseBody
