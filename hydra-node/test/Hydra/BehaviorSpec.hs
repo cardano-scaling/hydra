@@ -50,7 +50,7 @@ import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
+import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
@@ -65,7 +65,7 @@ import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -423,6 +423,39 @@ spec = parallel $ do
               -- Expect n1 to contest with latest snapshot, number 1
               waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1, headId = testHeadId}
 
+    it "can't get stuck easily" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+
+              -- waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
+              waitMatch n1 $ \case
+                HeadIsInitializing{} -> guard True
+                _ -> Nothing
+              waitMatch n2 $ \case
+                HeadIsInitializing{} -> guard True
+                _ -> Nothing
+              simulateCommit chain (alice, utxoRef 1)
+              waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
+
+              simulateCommit chain (bob, utxoRef 2)
+              waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
+              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+              let tx = aValidTx 42
+              -- send n2 (NewTx tx)
+              -- (injectNetworkEvent n1) bob (ReqTx tx)
+              (injectNetworkEvent n2) bob (ReqTx tx)
+              waitUntilMatch [n1, n2] $ \case
+                TxValid{} -> True
+                _ -> False
+
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{} -> True
+                _ -> False
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -536,6 +569,7 @@ data TestHydraClient tx m = TestHydraClient
   { send :: ClientInput tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   , injectChainEvent :: ChainEvent tx -> m ()
+  , injectNetworkEvent :: Party -> Message tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
   , queryState :: m (HeadState tx)
   }
@@ -758,6 +792,7 @@ createTestHydraClient outputs outputHistory HydraNode{eq} nodeState =
     { send = putEvent eq . ClientEvent
     , waitForNext = atomically (readTQueue outputs)
     , injectChainEvent = putEvent eq . OnChainEvent
+    , injectNetworkEvent = \party msg -> putEvent eq (NetworkEvent defaultTTL party msg)
     , serverOutputs = reverse <$> readTVarIO outputHistory
     , queryState = atomically (queryHeadState nodeState)
     }
