@@ -14,10 +14,10 @@ let
 
   cabal = pkgs.haskell-nix.cabal-install.${compiler};
 
+  # Build HLS form our fork (see flake.nix)
   haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-    src = pkgs.haskell-nix.sources."hls-2.6";
+    src = inputs.hls;
     cabalProject = builtins.readFile (src + "/cabal.project");
-    sha256map."https://github.com/pepeiborra/ekg-json"."7a0af7a8fd38045fd15fb13445bdcc7085325460" = "sha256-fVwKxGgM0S4Kv/4egVAAiAjV7QB5PBqMVMCfsv7otIQ=";
   };
 
   libs = [
@@ -57,7 +57,7 @@ let
   ];
 
   devInputs = if withoutDevTools then [ ] else [
-    # Essenetial for a good IDE
+    # Essential for a good IDE
     haskell-language-server
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
