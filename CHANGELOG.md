@@ -19,6 +19,8 @@ changes.
 
 - Add `--sanchonet` option to `hydra-cluster` binary.
 
+- **BREAKING** Regenerated hydra scripts.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.

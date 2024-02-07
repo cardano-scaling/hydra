@@ -58,7 +58,7 @@ library
     , aeson
     , async
     , base
-    , brick                 ==1.10
+    , brick                 >=1.10
     , containers
     , hydra-cardano-api
     , hydra-node
@@ -72,6 +72,7 @@ library
     , text
     , time
     , vty
+    , vty-unix
     , websockets
 
 executable hydra-tui
@@ -111,6 +112,7 @@ test-suite tests
     , regex-tdfa
     , unix
     , vty
+    , vty-unix
 
   build-tool-depends:
     , hspec-discover:hspec-discover

@@ -40,7 +40,6 @@ import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano.Json ()
 import PlutusLedgerApi.V2 (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (
@@ -431,8 +430,7 @@ genValue = fmap ((lovelaceToValue $ Lovelace 10_000_000) <>) (scale (`div` 10) $
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
 genAdaOnlyUTxO :: Gen UTxO
-genAdaOnlyUTxO = do
-  fmap adaOnly <$> arbitrary
+genAdaOnlyUTxO = fmap adaOnly <$> arbitrary
 
 adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case
@@ -479,8 +477,7 @@ instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
 instance Arbitrary (Hash PaymentKey) where
-  arbitrary = do
-    unsafePaymentKeyHashFromBytes . BS.pack <$> vectorOf 28 arbitrary
+  arbitrary = unsafePaymentKeyHashFromBytes . BS.pack <$> vectorOf 28 arbitrary
 
 instance ToCBOR UTxO where
   toCBOR = toCBOR . toLedgerUTxO

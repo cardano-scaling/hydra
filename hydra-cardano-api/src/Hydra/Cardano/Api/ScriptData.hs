@@ -63,9 +63,10 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _
     (TxOutDatumInline _ dat) ->
       Just dat
  where
-  datums = case scriptsData of
-    TxBodyNoScriptData -> mempty
-    TxBodyScriptData _ (Ledger.TxDats m) _ -> m
+  datums :: Map (Ledger.DataHash StandardCrypto) (Ledger.Data (ShelleyLedgerEra era)) =
+    case (scriptsData :: TxBodyScriptData era) of
+      TxBodyNoScriptData -> mempty
+      TxBodyScriptData _ (Ledger.TxDats m) _ -> m
 
 -- * Type Conversions
 

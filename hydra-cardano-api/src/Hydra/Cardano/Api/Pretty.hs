@@ -142,11 +142,8 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
-  prettyScript (Api.fromLedgerScript -> script) =
-    "Script (" <> scriptHash <> ")"
-   where
-    scriptHash =
-      show (Ledger.hashScript @(ShelleyLedgerEra Era) (Api.toLedgerScript @PlutusScriptV2 script))
+  prettyScript script =
+    "Script (" <> show (Ledger.hashScript script) <> ")"
 
   datumLines = case scriptsData of
     Api.TxBodyNoScriptData -> []
@@ -171,9 +168,9 @@ renderTxWithUTxO utxo (Tx body _wits) =
        in "== REDEEMERS (" <> show (length rdmrs) <> ")"
             : (("- " <>) . prettyRedeemer <$> rdmrs)
 
-  prettyRedeemer (Ledger.RdmrPtr tag ix, (redeemerData, redeemerBudget)) =
+  prettyRedeemer (purpose, (redeemerData, redeemerBudget)) =
     unwords
-      [ show tag <> "#" <> show ix
+      [ show purpose
       , mconcat
           [ "( cpu = " <> show (Ledger.exUnitsSteps redeemerBudget)
           , ", mem = " <> show (Ledger.exUnitsMem redeemerBudget) <> " )"
