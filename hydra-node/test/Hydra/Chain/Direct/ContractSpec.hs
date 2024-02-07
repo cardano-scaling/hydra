@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
-import Cardano.Ledger.Alonzo.TxInfo (TxOutSource (TxOutFromOutput))
-import Cardano.Ledger.Babbage.TxInfo (txInfoOutV2)
+import Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
+import Cardano.Ledger.Babbage.TxInfo (transTxOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
@@ -158,7 +158,7 @@ prop_consistentOnAndOffChainHashOfTxOuts =
     let plutusTxOuts =
           rights $
             zipWith
-              (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+              (\ix o -> transTxOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
               [0 ..]
               txOuts
         txOuts = map snd . sortOn fst $ UTxO.pairs utxo
@@ -188,7 +188,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
       let plutusTxOuts =
             rights $
               zipWith
-                (\ix o -> txInfoOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
+                (\ix o -> transTxOutV2 (TxOutFromOutput $ Ledger.TxIx ix) $ toLedgerTxOut o)
                 [0 ..]
                 txOuts
           txOuts = snd <$> UTxO.pairs utxo

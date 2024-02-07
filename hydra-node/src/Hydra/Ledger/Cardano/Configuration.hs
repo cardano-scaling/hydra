@@ -16,7 +16,6 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Data.Aeson qualified as Json
 import Data.Aeson.Types qualified as Json
-import Hydra.Ledger.Cardano.Json ()
 
 -- * Helpers
 

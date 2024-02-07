@@ -27,6 +27,8 @@ changes.
   fees in internal wallet
   [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
+- **BREAKING** Regenerated hydra scripts.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.

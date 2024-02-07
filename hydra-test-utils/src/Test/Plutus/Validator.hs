@@ -14,7 +14,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core qualified as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModel, costModelsValid, emptyCostModels, mkCostModel)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, mkCostModel, mkCostModels)
 import Cardano.Ledger.BaseTypes (ProtVer (..), natVersion)
 import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -95,7 +95,7 @@ evaluateScriptExecutionUnits validatorScript redeemer =
 pparams :: Ledger.PParams LedgerEra
 pparams =
   def
-    & Ledger.ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
+    & Ledger.ppCostModelsL .~ mkCostModels (Map.fromList [(PlutusV2, plutusV2CostModel)])
     & Ledger.ppMaxTxExUnitsL .~ toLedgerExUnits defaultMaxExecutionUnits
     & Ledger.ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @8, pvMinor = 0}
 

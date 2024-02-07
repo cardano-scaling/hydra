@@ -20,14 +20,13 @@ import Graphics.Vty (
   defaultConfig,
   displayContext,
   initialAssumedState,
-  inputForConfig,
-  outputFd,
-  outputForConfig,
   outputPicture,
   shutdownInput,
-  termName,
  )
 import Graphics.Vty.Image (DisplayRegion)
+import Graphics.Vty.Platform.Unix.Input (buildInput)
+import Graphics.Vty.Platform.Unix.Output (buildOutput)
+import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 import Hydra.Cardano.Api (Key (getVerificationKey), Lovelace)
 import Hydra.Cluster.Faucet (
   FaucetLog,
@@ -239,7 +238,7 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input <- inputForConfig defaultConfig
+    input <- buildInput defaultConfig =<< defaultSettings
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
@@ -247,7 +246,7 @@ withTUITest region action = do
     -- NOTE(SN): The null device should allow using this in CI, while we do
     -- capture the output via `outputByteBuffer` anyway.
     nullFd <- openFd "/dev/null" WriteOnly defaultFileFlags
-    realOut <- outputForConfig $ defaultConfig{outputFd = Just nullFd, termName = Just "xterm"}
+    realOut <- buildOutput =<< defaultSettings
     closeFd nullFd
     let output = testOut realOut as frameBuffer
     pure $

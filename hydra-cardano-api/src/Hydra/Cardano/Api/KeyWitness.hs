@@ -5,7 +5,6 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Era qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
-import Cardano.Ledger.Shelley.API qualified as Ledger
 import Data.Set qualified as Set
 
 -- * Extras

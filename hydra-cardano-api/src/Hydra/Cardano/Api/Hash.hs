@@ -2,8 +2,8 @@ module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
+import Cardano.Ledger.Plutus.TxInfo (transKeyHash)
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley.Scripts qualified as Ledger
 import Data.ByteString qualified as BS
@@ -13,8 +13,7 @@ import PlutusLedgerApi.V2 qualified as Plutus
 
 -- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
-toPlutusKeyHash (PaymentKeyHash vkh) =
-  Ledger.transKeyHash vkh
+toPlutusKeyHash (PaymentKeyHash vkh) = transKeyHash vkh
 
 -- | Convert a cardano-api 'Hash' into a cardano-ledger 'KeyHash'
 toLedgerKeyHash :: Hash PaymentKey -> Ledger.KeyHash 'Ledger.Witness StandardCrypto

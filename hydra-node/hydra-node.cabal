@@ -79,7 +79,6 @@ library
     Hydra.Ledger.Cardano.Builder
     Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
-    Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Cardano.Time
     Hydra.Ledger.Simple
     Hydra.Logging
@@ -151,8 +150,8 @@ library
     , ouroboros-network-api                                     >=0.1.0.0
     , ouroboros-network-framework                               >=0.3.0.0
     , ouroboros-network-protocols                               >=0.3.0.0
-    , plutus-core                                               >=1.15.0.1 && <1.16
-    , plutus-ledger-api                                         >=1.15.0.1 && <1.16
+    , plutus-core                                               >=1.21    && <1.22
+    , plutus-ledger-api                                         >=1.21    && <1.22
     , prometheus
     , QuickCheck
     , quickcheck-instances

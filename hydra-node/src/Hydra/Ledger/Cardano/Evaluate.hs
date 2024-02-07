@@ -13,16 +13,15 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Plutus.TxInfo (PlutusWithContext (PlutusWithContext))
-import Cardano.Ledger.Alonzo.PlutusScriptApi qualified as Ledger
-import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), costModelsValid, emptyCostModels, mkCostModel, txscriptfee)
+import Cardano.Ledger.Alonzo.Plutus.Evaluate (collectPlutusScriptsWithContext)
+import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
-import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Cardano.Ledger.Plutus.Language (BinaryPlutus (..), Language (PlutusV2), Plutus (..))
+import Cardano.Ledger.Plutus (PlutusDatums (unPlutusDatums), PlutusLanguage (decodePlutusRunnable), PlutusRunnable (..), PlutusWithContext (..))
+import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
@@ -39,6 +38,7 @@ import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Flat (flat)
 import Hydra.Cardano.Api (
+  Era,
   EraHistory (EraHistory),
   ExecutionUnits (..),
   IsCardanoEra (cardanoEra),
@@ -143,7 +143,7 @@ checkBudget maxUnits report
 -- 'TransactionValidityError' with additional cases.
 data EvaluationError
   = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
-  | TransactionInvalid TransactionValidityError
+  | TransactionInvalid (TransactionValidityError Era)
   | PParamsConversion ProtocolParametersConversionError
   deriving stock (Show)
 
@@ -215,15 +215,18 @@ prepareTxScripts ::
 prepareTxScripts tx utxo = do
   -- Tuples with scripts and their arguments collected from the tx
   results <-
-    case Ledger.collectPlutusScriptsWithContext epochInfo systemStart pparams ltx lutxo of
+    case collectPlutusScriptsWithContext epochInfo systemStart pparams ltx lutxo of
       Left e -> Left $ show e
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(PlutusWithContext (Plutus _ (BinaryPlutus script)) arguments _exUnits _costModel) -> do
-    let pArgs = Ledger.getPlutusData <$> arguments
-    x <- left show $ Plutus.deserialiseScript Plutus.PlutusV2 protocolVersion script
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 protocolVersion x pArgs
+  programs <- forM results $ \(PlutusWithContext protocolVersion script arguments _exUnits _costModel) -> do
+    (PlutusRunnable x) <-
+      case script of
+        Right runnable -> pure runnable
+        Left serialised -> left show $ decodePlutusRunnable protocolVersion serialised
+    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion x (unPlutusDatums arguments)
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat . UnrestrictedProgram <$> programs
@@ -231,10 +234,6 @@ prepareTxScripts tx utxo = do
   ltx = toLedgerTx tx
 
   lutxo = toLedgerUTxO utxo
-
-  protocolVersion =
-    let ProtVer{pvMajor} = pparams ^. ppProtocolVersionL
-     in Plutus.MajorProtocolVersion $ getVersion pvMajor
 
 -- * Fixtures
 
@@ -246,7 +245,7 @@ prepareTxScripts tx utxo = do
 pparams :: PParams LedgerEra
 pparams =
   def
-    & ppMaxTxSizeL .~ maxTxSize
+    & ppMaxTxSizeL .~ fromIntegral maxTxSize
     & ppMaxValSizeL .~ 1000000000
     & ppMinFeeAL .~ Coin 44
     & ppMinFeeBL .~ Coin 155381
@@ -264,7 +263,7 @@ pparams =
         , prMem = fromJust $ boundRational $ 577 % 10000
         }
     & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @8, pvMinor = 0}
-    & ppCostModelsL .~ emptyCostModels{costModelsValid = Map.fromList [(PlutusV2, plutusV2CostModel)]}
+    & ppCostModelsL .~ mkCostModels (Map.fromList [(PlutusV2, plutusV2CostModel)])
 
 maxTxSize :: Natural
 maxTxSize = 16384

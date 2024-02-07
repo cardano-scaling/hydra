@@ -183,13 +183,13 @@ fromPlutusTxOut network out = do
 
 -- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'
 -- if a byron address is used in the given 'TxOut'.
-toPlutusTxOut :: TxOut CtxUTxO Era -> Maybe Plutus.TxOut
+toPlutusTxOut :: HasCallStack => TxOut CtxUTxO Era -> Maybe Plutus.TxOut
 toPlutusTxOut =
-  -- NOTE: The txInfoOutV2 conversion does take this 'TxOutSource' to report
+  -- NOTE: The transTxOutV2 conversion does take this 'TxOutSource' to report
   -- origins of 'TranslationError'. However, this value is NOT used for
   -- constructing the Plutus.TxOut and hence we error out should it be used via
   -- a 'Left', which we expect to throw away anyway on 'eitherToMaybe'.
-  eitherToMaybe . Ledger.txInfoOutV2 (error "TxOutSource used unexpectedly") . toLedgerTxOut
+  eitherToMaybe . Ledger.transTxOutV2 (error "TxOutSource used unexpectedly") . toLedgerTxOut
  where
   eitherToMaybe = \case
     Left _ -> Nothing

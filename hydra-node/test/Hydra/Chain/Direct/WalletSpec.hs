@@ -360,7 +360,7 @@ genUTxO = do
  where
   scaleAda :: TxOut -> TxOut
   scaleAda (BabbageTxOut addr value datum refScript) =
-    let value' = value <> inject (Coin 20_000_000)
+    let value' = value <> Ledger.inject (Coin 20_000_000)
      in BabbageTxOut addr value' datum refScript
 
 genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)

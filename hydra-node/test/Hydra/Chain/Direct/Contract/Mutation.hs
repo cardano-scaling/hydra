@@ -133,7 +133,7 @@ import Hydra.Cardano.Api
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (outputsTxBodyL)
+import Cardano.Ledger.Api (AlonzoPlutusPurpose (..), AsIndex (..), outputsTxBodyL)
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Core qualified as Ledger
@@ -326,12 +326,18 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
     redeemers' = alterRedeemers newHeadRedeemer scriptData
 
-    newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
+    newHeadRedeemer ix (dat, units)
       | isHeadOutput (resolveInput ix) = (Ledger.Data (toData newRedeemer), units)
       | otherwise = (dat, units)
 
+    resolveInput :: Ledger.AlonzoPlutusPurpose AsIndex w -> TxOut CtxUTxO
     resolveInput ix =
-      let txIn = Set.elemAt (fromIntegral ix) ledgerInputs -- NOTE: calls 'error' if out of bounds
+      let k = case ix of
+            AlonzoSpending i -> unAsIndex i
+            AlonzoCertifying i -> unAsIndex i
+            AlonzoRewarding i -> unAsIndex i
+            AlonzoMinting i -> unAsIndex i
+          txIn = Set.elemAt (fromIntegral k) ledgerInputs -- NOTE: calls 'error' if out of bounds
        in case UTxO.resolve (fromLedgerTxIn txIn) utxo of
             Nothing -> error $ "txIn not resolvable: " <> show txIn
             Just o -> o
@@ -432,7 +438,13 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else case scriptData of
           TxBodyNoScriptData -> TxBodyNoScriptData
           TxBodyScriptData dats (Ledger.Redeemers redeemers) ->
-            let newRedeemers = Map.filterWithKey (\(Ledger.RdmrPtr tag _) _ -> tag /= Ledger.Mint) redeemers
+            let newRedeemers =
+                  Map.filterWithKey
+                    ( \x _ -> case x of
+                        Ledger.AlonzoMinting _ -> False
+                        _ -> True
+                    )
+                    redeemers
              in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
   ChangeRequiredSigners newSigners ->
     (Tx body' wits, utxo)
@@ -584,7 +596,7 @@ ensureDatums outs scriptData =
 
 -- | Alter a transaction's redeemers map given some mapping function.
 alterRedeemers ::
-  ( Ledger.RdmrPtr ->
+  ( Ledger.PlutusPurpose Ledger.AsIndex LedgerEra ->
     (Ledger.Data LedgerEra, Ledger.ExUnits) ->
     (Ledger.Data LedgerEra, Ledger.ExUnits)
   ) ->
@@ -617,15 +629,21 @@ alterTxIns fn tx =
   redeemers' = Ledger.Redeemers $ rebuiltSpendingRedeemers <> nonSpendingRedeemers
 
   nonSpendingRedeemers =
-    Map.filterWithKey (\(Ledger.RdmrPtr tag _) _ -> tag /= Ledger.Spend) redeemersMap
+    Map.filterWithKey
+      ( \x _ -> case x of
+          Ledger.AlonzoSpending _ -> False
+          _ -> True
+      )
+      redeemersMap
 
   rebuiltSpendingRedeemers = Map.fromList $
     flip mapMaybe (zip [0 ..] newSortedInputs) $ \(i, (_, mRedeemer)) ->
       mRedeemer <&> \d ->
-        (Ledger.RdmrPtr Ledger.Spend i, (toLedgerData d, Ledger.ExUnits 0 0))
+        (Ledger.AlonzoSpending (AsIndex i), (toLedgerData d, Ledger.ExUnits 0 0))
 
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
+  newSortedInputs :: [(TxIn, Maybe HashableScriptData)]
   newSortedInputs =
     sortOn fst
       $ fn
@@ -637,7 +655,7 @@ alterTxIns fn tx =
   resolveRedeemers :: [TxIn] -> [(TxIn, Maybe HashableScriptData)]
   resolveRedeemers txInputs =
     zip txInputs [0 ..] <&> \(txIn, i) ->
-      case Map.lookup (Ledger.RdmrPtr Ledger.Spend i) redeemersMap of
+      case Map.lookup (Ledger.AlonzoSpending (AsIndex i)) redeemersMap of
         Nothing -> (txIn, Nothing)
         Just (redeemerData, _exUnits) -> (txIn, Just $ fromLedgerData redeemerData)
 
