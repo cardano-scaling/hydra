@@ -27,6 +27,15 @@ in
     };
   };
 
+  hydra-explorer = pkgs.dockerTools.buildImage {
+    name = "hydra-explorer";
+    tag = "latest";
+    created = "now";
+    config = {
+      Entrypoint = [ "${hydraPackages.hydra-explorer-static}/bin/hydra-explorer" ];
+    };
+  };
+
   hydraw = pkgs.dockerTools.buildImage {
     name = "hydraw";
     tag = "latest";
