@@ -146,7 +146,7 @@ isPendingCommitFrom _ _ = False
 
 type Uncommitted = Map.Map Party (UTxOType Payment)
 
-data OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
+newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
@@ -687,8 +687,7 @@ performNewTx party tx = do
 waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
-  unless (any headIsOpen outs) $
-    waitAndRetry
+  unless (any headIsOpen outs) waitAndRetry
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
 
@@ -697,8 +696,7 @@ waitForOpen node = do
 waitForClosed :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForClosed node = do
   outs <- lift $ serverOutputs node
-  unless (any headIsClosed outs) $
-    waitAndRetry
+  unless (any headIsClosed outs) waitAndRetry
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForClosed node
 
