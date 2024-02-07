@@ -776,17 +776,16 @@ performFanout party = do
   waitForClosed thisNode
   party `sendsInput` Input.Fanout
 
-  lift $
-    waitUntilMatch (toList nodes) $ \case
-      HeadIsFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
-      _ -> False
-
   outputs <- lift $ serverOutputs thisNode
   case find headIsFinalized outputs of
     Just HeadIsFinalized{utxo} -> pure utxo
-    _ -> error "The head is not finalized for node"
+    _ -> go (20 :: Word)
  where
+  go n =
+    if n == 0
+      then error "Failed to Fanout a Head"
+      else lift (threadDelay 1) >> performFanout party
+
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
